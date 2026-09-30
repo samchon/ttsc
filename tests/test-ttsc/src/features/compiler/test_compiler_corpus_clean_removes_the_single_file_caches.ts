@@ -21,10 +21,20 @@ import {
  *    the command sees.
  * 2. Run `ttsc clean`.
  * 3. Assert each is reported removed and is gone, and the root itself stays.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs ttsc clean over seeded descriptors, capabilities, ttsx-orphan and a legacy temp ttsc-orphan tree; asserts zero exit, all three active removal reports, disappearance of active/legacy contents and preservation of the parent cache root.
+ * @evidence contracts/testing.md#independent-expectations File caches are cleanup-owned leaves while their parent may be shared. Independent fixture roots and literal leaf-absent/parent-present results detect both under-cleaning and excessive deletion.
+ * @evidence contracts/testing.md#distinguishing-cases Owns three active file-cache namespaces and the earlier temp orphan location, with a surviving parent counterexample. Plugin cache cleanup has separate entries.
+ * @evidence contracts/testing.md#execution-ownership E2E export test_compiler_corpus_clean_removes_the_single_file_caches is discovered under src/features/compiler by TestExecutor; it owns every local project.run/cases/helper assertion and invokes the built ttsc launcher rather than treating authored configuration as an output.
+ * @evidence contracts/e2e.md#necessary-boundary The CLI must route all current and legacy namespaces to actual filesystem removal without deleting their parent; target enumeration units alone cannot prove these effects.
+ * @evidence contracts/e2e.md#shared-execution One command batches four cache populations under one isolated project/home/temp environment. Seeded payloads need no native producer, and existing launcher installation is reused.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity HOME/USERPROFILE/XDG_CACHE_HOME/LOCALAPPDATA and TEMP/TMP/TMPDIR are scoped to the command and point inside the fixture. An explicit pnpm workspace marker selects this fixture as the cache owner despite ambient ancestor installations; all inspected data is test-owned, commands finish synchronously, and TestProject reclaims it at worker exit.
+ * @evidence contracts/e2e.md#preserved-coverage Every active removal report, each leaf absence, legacy-root absence and parent survival assertion remains in this entry; no meaningful namespace distinction is transferred or removed.
  */
 export const test_compiler_corpus_clean_removes_the_single_file_caches =
   (): void => {
     const root = commonJsProject({
+      "pnpm-workspace.yaml": "packages: []\n",
       "src/main.ts": `export const value = "clean-single-file-caches";\n`,
     });
     const cacheRoot = path.join(root, "node_modules", ".cache", "ttsc");

@@ -54,6 +54,15 @@ const project = {
  * 1. Materialize a CommonJS fixture with rootDir=src and outDir=dist.
  * 2. Run `ttsc src/main.ts` with no `--outDir` override.
  * 3. Assert the emit lands at `dist/main.js` and that `src/main.js` is absent.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs positional src/main.ts with no outDir override, asserts successful emit at dist/main.js and no src/main.js sibling, then runs the emitted file and checks status zero and stdout 7.
+ * @evidence contracts/testing.md#independent-expectations Configured rootDir src/outDir dist governs positional compatibility output, and the authored numeric program must print 7. Native Node execution provides an independent runtime oracle beyond output existence.
+ * @evidence contracts/testing.md#distinguishing-cases Owns tsconfig-selected output destination versus source-sibling absence and preserved runtime behavior. Explicit outDir and noEmit positional branches have their own entries.
+ * @evidence contracts/testing.md#execution-ownership E2E export test_compiler_corpus_single_file_compatibility_mode_honors_tsconfig_outdir is discovered under src/features/compiler by TestExecutor; it owns every local project.run/cases/helper assertion and invokes the built ttsc launcher rather than treating authored configuration as an output.
+ * @evidence contracts/e2e.md#necessary-boundary Positional launcher dispatch must retain resolved tsconfig layout and native-produced JavaScript must execute; direct path/option units cannot verify this compiler-to-runtime connection.
+ * @evidence contracts/e2e.md#shared-execution One compile and one Node runtime process share the same output. Existing compiler/launcher installation is reused, and the runtime consumer needs no additional native build.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fresh root prevents stale dist or source-sibling files; synchronous compile precedes runtime and both children finish before cleanup. TestProject owns source/output roots until exit.
+ * @evidence contracts/e2e.md#preserved-coverage Emit destination, forbidden sibling, successful runtime status and literal stdout remain in project.run. Every original observation remains attached to this named entry.
  */
 export const test_compiler_corpus_single_file_compatibility_mode_honors_tsconfig_outdir =
   (): void => {

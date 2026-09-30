@@ -17,6 +17,15 @@ import {
  * 1. Run `--emit=false` against a normally emitting project.
  * 2. Run `--noEmit=false` against a `noEmit` project.
  * 3. Assert the first writes nothing and the second explicitly restores output.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs ttsc with emit=false on an emitting project and noEmit=false on a noEmit project; checks both commands succeed, the former has no JavaScript and the latter produces it.
+ * @evidence contracts/testing.md#independent-expectations Explicit false must retain its boolean meaning across launcher parsing and override project defaults. Opposite fixture defaults and literal absent/present output expectations detect truthiness-based parsing.
+ * @evidence contracts/testing.md#distinguishing-cases Owns both false spellings against conflicting project defaults. Single-file boolean/noemit forms are owned by their separate entries.
+ * @evidence contracts/testing.md#execution-ownership E2E export test_compiler_corpus_explicit_emit_booleans_control_project_mode is discovered under src/features/compiler by TestExecutor; it owns every local project.run/cases/helper assertion and invokes the built ttsc launcher rather than treating authored configuration as an output.
+ * @evidence contracts/e2e.md#necessary-boundary Argument parsing must propagate explicit booleans to real project compiler dispatch and output writing; parser-only tests do not prove this connection.
+ * @evidence contracts/e2e.md#shared-execution Two commands need separate configured projects to contrast opposite defaults without stale output. Built launcher/native compiler preparation is shared and no plugin build occurs.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each command writes into a unique fresh root, so enabled output cannot satisfy the disabled observation. Commands are synchronous and TestProject owns both roots until exit.
+ * @evidence contracts/e2e.md#preserved-coverage Both success statuses and opposing JavaScript absence/presence checks remain in this twin scenario; neither case was consolidated away.
  */
 export const test_compiler_corpus_explicit_emit_booleans_control_project_mode =
   (): void => {

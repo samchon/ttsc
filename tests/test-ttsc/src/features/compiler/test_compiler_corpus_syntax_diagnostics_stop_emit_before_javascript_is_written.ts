@@ -37,6 +37,15 @@ const project = {
  * 2. Run `ttsc --emit`.
  * 3. Assert non-zero exit, a syntax-error message on stderr, and no
  *    `dist/main.js`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs ttsc emit on export const broken equals with no expression; asserts nonzero exit, an expression/declaration syntax diagnostic and no dist/main.js.
+ * @evidence contracts/testing.md#independent-expectations The authored absent expression is syntactically invalid under TypeScript and must gate ttsc emission. Literal diagnostic alternatives and output absence detect partial emit despite parse failure.
+ * @evidence contracts/testing.md#distinguishing-cases Owns source parse-error gating, contrasted with valid config and no semantic prerequisite. Semantic and malformed-config failures execute in sibling entries.
+ * @evidence contracts/testing.md#execution-ownership E2E export test_compiler_corpus_syntax_diagnostics_stop_emit_before_javascript_is_written is discovered under src/features/compiler by TestExecutor; it owns every local project.run/cases/helper assertion and invokes the built ttsc launcher rather than treating authored configuration as an output.
+ * @evidence contracts/e2e.md#necessary-boundary Native parser failure must propagate through the actual launcher and prevent filesystem output; parser-rule units alone cannot prove this emit gate.
+ * @evidence contracts/e2e.md#shared-execution One compiler command captures status, parser diagnostic and suppressed output. Existing native compiler/launcher preparation is shared with the corpus and no Go plugin is built.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A unique fresh CommonJS project prevents prior successful artifacts affecting the absence result. Synchronous child exit precedes inspection and TestProject owns the root until process exit.
+ * @evidence contracts/e2e.md#preserved-coverage All three existing status/diagnostic/output assertions remain in project.run. The accepted syntax diagnostic wording has two compiler-valid alternatives without claiming an exact diagnostic code.
  */
 export const test_compiler_corpus_syntax_diagnostics_stop_emit_before_javascript_is_written =
   (): void => {
