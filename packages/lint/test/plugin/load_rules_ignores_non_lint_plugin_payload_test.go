@@ -14,6 +14,11 @@ import "testing"
 // 1. Build a plugins-json payload without an @ttsc/lint entry.
 // 2. Load rules through the command helper.
 // 3. Assert the resulting resolver has no enabled rules.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual loadRules on banner transform and disabled-looking unrelated check descriptors returns a resolver with no enabled rules and no error.
+// @evidence contracts/testing.md#independent-expectations Neither authored descriptor has the supported lint identity, so the literal empty enabled configuration follows descriptor-selection semantics rather than checking repository fixture placement.
+// @evidence contracts/testing.md#distinguishing-cases Different unrelated stages and an enabled:false-looking config must remain inert by name; populated lint parsing is a separate positive descriptor control, not a claim that disabled filtering ran.
+// @evidence contracts/testing.md#execution-ownership Actual owning Go loadRules executes in-process with an isolated temporary cwd; no ttsx script evaluator, installed consumer, native producer or separate host is required for the absent lint entry.
 func TestLoadRulesIgnoresNonLintPluginPayload(t *testing.T) {
   rules, err := loadRules(`[
     {"name":"@ttsc/banner","stage":"transform","config":{}},

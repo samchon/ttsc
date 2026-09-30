@@ -22,6 +22,11 @@ import (
 //  2. Call FindKeyword over the entire file looking for "import".
 //  3. Assert the returned offset is the keyword's position, not the
 //     identifier prefix.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual FindKeyword skips importMap and returns the real import token at literal byte 22; identifier-only and truncated-token ranges, nil source and empty keyword produce no match.
+// @evidence contracts/testing.md#independent-expectations The authored source has a manually counted 22-byte prefix; literal 22 and -1 outcomes establish complete-token selection independently of scanner output.
+// @evidence contracts/testing.md#distinguishing-cases A same-prefix identifier contrasts with the real keyword; excluding its byte range or the final keyword byte tests complete bounds, with absent inputs checked separately.
+// @evidence contracts/testing.md#execution-ownership Public astutil search reads a real parsed virtual TypeScript source directly in-process; no native build, CLI, repository text search or installed host participates.
 func TestAstutilFindKeywordIsIdentifierAware(t *testing.T) {
   source := "const importMap = {};\nimport \"x\";\n"
   file := shimparser.ParseSourceFile(
@@ -45,4 +50,6 @@ func TestAstutilFindKeywordIsIdentifierAware(t *testing.T) {
     t.Fatalf("FindKeyword should skip the identifier prefix; got offset %d, source slice %q",
       pos, source[pos:pos+6])
   }
+  if astutil.FindKeyword(file, 0, 22, "import") != -1 || astutil.FindKeyword(file, 22, 27, "import") != -1 { t.Fatal("identifier prefix or incomplete keyword range was accepted") }
+  if astutil.FindKeyword(nil, 0, len(source), "import") != -1 || astutil.FindKeyword(file, 0, len(source), "") != -1 { t.Fatal("absent file/keyword should return no match") }
 }

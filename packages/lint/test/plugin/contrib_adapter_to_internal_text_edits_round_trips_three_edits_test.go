@@ -19,6 +19,11 @@ import (
 // 1. Build a rule.TextEdit slice with three distinct, non-overlapping edits.
 // 2. Call `toInternalTextEdits` directly.
 // 3. Assert each field round-trips and order is preserved.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual adapter conversion preserves all Pos, End and Text fields and original order for three authored public edits, including a zero-width insertion.
+// @evidence contracts/testing.md#independent-expectations Literal 0..1 a, 5..7 bc and 12..12 insert inputs define each expected converted edit independently of the converter; every field and cardinality is compared.
+// @evidence contracts/testing.md#distinguishing-cases Distinct coordinates and replacements distinguish reorder, truncation and field loss; zero-width insertion contrasts with replacements, and sibling nil/empty units own absence behavior.
+// @evidence contracts/testing.md#execution-ownership The actual public-to-internal conversion executes directly in-process; no native contributor producer, CLI invocation, installation or repository inspection supplies the result.
 func TestContribAdapterToInternalTextEditsRoundTripsThreeEdits(t *testing.T) {
   input := []rule.TextEdit{
     {Pos: 0, End: 1, Text: "a"},
