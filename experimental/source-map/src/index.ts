@@ -23,6 +23,7 @@ import path from "node:path";
 // typia version: read from website/compiler-dependencies/package.json, the
 // manifest of the in-browser playground compiler, so this exercises the same
 // typia build the playground compiles with and follows it when it changes.
+// `--typia-master` instead uses the installed source workspace tested by CI.
 
 const experimentRoot = path.resolve(import.meta.dirname, "..");
 const root = path.resolve(experimentRoot, "../..");
@@ -33,8 +34,11 @@ const packCurrent = process.argv.includes("--pack-current");
 const platformKey = `${process.platform}-${process.arch}`;
 const platformPackage = `@ttsc/${platformKey}`;
 const platformTarball = `ttsc-${platformKey}`;
-const TYPIA_VERSION = readPlaygroundTypiaVersion();
-const registryDependencies = ["typescript@^7.0.2", `typia@${TYPIA_VERSION}`];
+const typiaMaster = process.argv.includes("--typia-master");
+const registryDependencies = [
+  "typescript@^7.0.2",
+  ...(typiaMaster ? [] : [`typia@${readPlaygroundTypiaVersion()}`]),
+];
 
 main();
 
@@ -163,6 +167,17 @@ function installDependencies() {
     repositoryRelative(workspace, tarball(platformTarball)),
   ].join(" ");
   run(command, workspace);
+
+  if (typiaMaster) {
+    // Reuse the upstream workspace's installed source and dependencies. Its
+    // package manifest exports source, so no second package build is needed.
+    const packageRoot = path.join(root, "experimental", "typia", "packages", "typia");
+    fs.symlinkSync(packageRoot, path.join(workspace, "node_modules", "typia"), "junction");
+    const manifestFile = path.join(workspace, "package.json");
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+    manifest.dependencies.typia = `file:${repositoryRelative(workspace, packageRoot)}`;
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2), "utf8");
+  }
 
   const platformBin = path.join(
     workspace,

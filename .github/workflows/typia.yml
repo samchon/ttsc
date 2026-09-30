@@ -87,6 +87,6 @@ jobs:
 
       - name: Verify typia source maps with the same tarballs
         if: ${{ !cancelled() && steps.tarballs.outcome == 'success' }}
-        run: pnpm --dir experimental/source-map start -- --skip-pack
+        run: pnpm --dir experimental/source-map start -- --skip-pack --typia-master
         env:
           TTSC_CACHE_DIR: ${{ github.workspace }}/.cache/ci/plugins

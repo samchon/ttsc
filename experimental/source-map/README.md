@@ -12,6 +12,8 @@ It builds local `.tgz` packages, installs them plus `typia` into a temporary npm
 
 The `typia` version is read from `website/compiler-dependencies/package.json`, the manifest of the in-browser playground compiler, so the check follows that compiler's `typia` when it changes.
 
+The typia workflow passes `--typia-master` to use the installed source workspace from its latest master checkout instead. This runs the same source-map assertions against the source and dependencies that workflow just tested, without rebuilding the packages or installing another typia version.
+
 Run:
 
 ```bash
