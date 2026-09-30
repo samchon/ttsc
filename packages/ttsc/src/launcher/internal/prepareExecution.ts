@@ -35,11 +35,13 @@ import { runtimeEmitProfile } from "./runtimeEmitProfile";
  * successful execution must release it through the runtime directory protocol.
  *
  * Source ownership comes from the completed compiler's output-to-source record;
- * a producer without that record is unsupported for checked execution.
+ * a producer without that record is unsupported for checked execution. An
+ * observed empty output inventory selects the checked single-entry build and
+ * supplies no authority to execute output from the empty project.
  *
- * @evidence contracts/common.md#principled-implementation Project discovery retains the requested lexical anchor; validated compiler provenance, not a stem or source-map inference, supplies EmitOwnershipIndex with actual output ownership, and an excluded entry uses the supported checked single-root build with its own ledger.
+ * @evidence contracts/common.md#principled-implementation Project discovery retains the requested lexical anchor; validated compiler provenance, not a stem or source-map inference, supplies EmitOwnershipIndex with actual output ownership. An observed empty JavaScript inventory or proven excluded entry selects the checked single-root build, which must supply its own ledger before execution.
  * @evidence contracts/common.md#clear-and-simple-design Context creation, project compilation, entry fallback and output selection have distinct helpers; one top-level failure boundary cleans the prepared generation before propagating the error.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or malformed producer provenance fails instead of being reconstructed from filenames; the excluded-entry build inherits actual project settings rather than stripping source through a test-only lane.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or malformed provenance cannot authorize emitted bytes. An empty inventoried build serves nothing and selects the excluded-entry build, which inherits actual project settings and proves its own output rather than stripping source or fabricating an empty ledger.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain discovery, cleanup and mandatory producer provenance; result members distinguish relative output-list paths from absolute output-to-source records without property acknowledgments.
  * @evidence contracts/portability.md#os-neutral-implementation Native path/identity helpers separate lexical discovery from physical Node loading; directory locks pin runtime ownership and the virtual layout encodes distinct volume roots without OS-specific shell operations.
  * @evidence contracts/performance.md#efficient-algorithms Each completed build validates its provenance once in O(outputs + contributing sources) entries and retains it for entry lookup and runtime transfer; only a proven-unowned entry receives an additional single-entry build, and mirrored ancestor traversal has an explicit depth/safety boundary.
@@ -175,6 +177,9 @@ function emittedEntryOf(
   context: ReturnType<typeof createProjectContext>,
   entry: string,
 ): string | null {
+  // A completed, inventoried build with no JavaScript cannot own this entry.
+  // This selects another checked build; it grants no authority to serve bytes.
+  if (context.outputs.length === 0) return null;
   return new EmitOwnershipIndex({
     emitDir: context.emitDir,
     emittedSources: executionProvenance(context),
@@ -495,7 +500,10 @@ function buildProject(
 ): void {
   if (context.built) return;
 
-  fs.mkdirSync(path.dirname(context.emitDir), { recursive: true });
+  // A successful empty solution may write no directory. Own an empty output
+  // container before compilation so its inventory can still prove exclusion
+  // and select the checked single-entry lane without hiding enumeration errors.
+  fs.mkdirSync(context.emitDir, { recursive: true });
   const result = runBuild({
     binary: options.binary,
     checkers: options.checkers,
@@ -541,10 +549,11 @@ function buildProject(
     // mirror of the project root, and a `tool.js` linked there from the user's
     // tree would otherwise be recorded as the output of `tool.ts`.
     context.outputs = EmitOwnershipIndex.listOutputs(context.emitDir);
-    context.emittedSources = requireEmitProvenance(
-      result.emittedSources,
-      context.tsconfig,
-    );
+    // An empty solution may not run an emitting producer. Its observed empty
+    // inventory selects the entry-only build, which must prove its own writes.
+    context.emittedSources = context.outputs.length === 0
+      ? undefined
+      : requireEmitProvenance(result.emittedSources, context.tsconfig);
     context.emittedSourceProofFailures = result.emittedSourceProofFailures;
     linkVirtualProjectLayout(context);
     context.built = true;

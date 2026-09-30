@@ -2213,14 +2213,6 @@ function buildDependency(
       skipDiagnosticsCheck: true,
       tsconfig,
     });
-    const emittedSources = result.emittedSources;
-    const emittedSourceProofFailures = result.emittedSourceProofFailures;
-    if (!RuntimeEmitProvenance.isRecord(emittedSources)) {
-      throw new Error(
-        `ttsx: dependency build of ${tsconfig} did not report authoritative emit provenance`,
-        { cause: result },
-      );
-    }
     // Success is "the project wrote JavaScript", not the exit status: the build is
     // emit-only, so diagnostics do not fail it, and a native transform host
     // (typia, @ttsc/banner, …) writes its output on its own. A genuinely empty
@@ -2234,6 +2226,16 @@ function buildDependency(
         ]
           .filter((line) => line.trim().length !== 0)
           .join("\n"),
+      );
+    }
+    // Absence above serves and publishes nothing. Every actual emitted byte
+    // still requires the selected producer's authoritative ownership record.
+    const emittedSources = result.emittedSources;
+    const emittedSourceProofFailures = result.emittedSourceProofFailures;
+    if (!RuntimeEmitProvenance.isRecord(emittedSources)) {
+      throw new Error(
+        `ttsx: dependency build of ${tsconfig} did not report authoritative emit provenance`,
+        { cause: result },
       );
     }
     const rootDir = resolveDependencySourceRoot(project);
