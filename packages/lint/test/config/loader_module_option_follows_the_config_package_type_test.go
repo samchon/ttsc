@@ -31,6 +31,11 @@ import (
 // than a proof: deleting it costs the loader Program every ambient type package
 // TypeScript 7 would otherwise withhold, and the behaviour that depends on it is
 // proved end to end by the lint suite's `__dirname` case.
+//
+// @evidence contracts/testing.md#behavioral-verification typeScriptConfigLoaderTsconfig emits parseable JSON whose module option follows the nearest package type while explicit mts/cts inputs retain extension-driven behavior.
+// @evidence contracts/testing.md#independent-expectations Authored nearest manifests and literal CommonJS/ESNext options implement the package-scope contract; independent encoding/json decoding observes the generated result.
+// @evidence contracts/testing.md#distinguishing-cases Nearest scopes override opposite ancestors, absent manifests inherit, malformed manifests bound scope, and explicit mts/cts contrast with ambiguous ts/js extensions.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Authored temporary package scopes reach typeScriptConfigLoaderTsconfig, followed by independent JSON decoding in-process; generated module and types options are inspected without compiling or evaluating the generated loader.
 func TestLoaderModuleOptionFollowsTheConfigPackageType(t *testing.T) {
   root := t.TempDir()
   for name, manifest := range map[string]string{

@@ -8,8 +8,8 @@ import (
 // TestFormatBlockPropagatesPrettierOptionsToRule verifies the
 // translation table from Prettier-flat keys to rule-option JSON.
 //
-// This is the single source of truth for "what does each format
-// flag become at the engine layer." If the translation regressed
+// This case pins the authored nondefault settings at the engine-options
+// boundary. If their translation regressed
 // silently (mapped `singleQuote: true` to `prefer: "double"`, etc.),
 // every downstream rule would see the wrong option blob — far worse
 // than a load-time error, because diagnostics would still fire,
@@ -21,6 +21,11 @@ import (
 //     tagSynonyms.
 //  2. Parse it and inspect the option blob attached to each rule.
 //  3. Assert every cell decodes to the expected JSON.
+//
+// @evidence contracts/testing.md#behavioral-verification parseExternalConfigStore emits never semis, single quotes, es5 commas, width100/tab4/tabs/crlf, exact import order, and foo-to-bar JSDoc synonym options.
+// @evidence contracts/testing.md#independent-expectations Public format keys have documented meanings that determine literal rule-option values; independent JSON decoding checks each authored nondefault value rather than using the expansion to create expectations.
+// @evidence contracts/testing.md#distinguishing-cases Owns all originally authored nondefault mapping cells, including complete import-order sequence; field type errors and explicit opt-outs are separate tests.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. The authored nondefault format object reaches parseExternalConfigStore and independent decoding of each RuleOptions payload in-process; configuration translation is observed without installing Prettier or formatting a consumer.
 func TestFormatBlockPropagatesPrettierOptionsToRule(t *testing.T) {
   resolver, err := parseExternalConfigStore(map[string]any{
     "format": map[string]any{
@@ -95,7 +100,7 @@ func TestFormatBlockPropagatesPrettierOptionsToRule(t *testing.T) {
   if err := json.Unmarshal(resolver.RuleOptions("format/sort-imports"), &si); err != nil {
     t.Fatalf("decode sort-imports: %v", err)
   }
-  if len(si.Order) != 2 || si.Order[0] != "<THIRD_PARTY_MODULES>" {
+  if len(si.Order) != 2 || si.Order[0] != "<THIRD_PARTY_MODULES>" || si.Order[1] != "^[./]" {
     t.Errorf("sort-imports order mismatch: %+v", si.Order)
   }
 

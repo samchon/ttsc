@@ -15,6 +15,11 @@ import (
 //  1. Call expandFormatBlock with `printWidth: "wide"` (a string, not an int).
 //  2. Assert an error is returned.
 //  3. Assert the error message names the offending field `format.printWidth`.
+//
+// @evidence contracts/testing.md#behavioral-verification expandFormatBlock rejects printWidth string wide and names the field.
+// @evidence contracts/testing.md#independent-expectations Print width is an integer-valued option, excluding nonnumeric words; the authored wide input establishes invalidity independently of coercion.
+// @evidence contracts/testing.md#distinguishing-cases Owns unsupported string width; integer100 propagation and fractional tab-width rejection are complementary cases.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. An authored printWidth word calls expandFormatBlock directly in-process; its field error observes integer validation without layout formatting or a native producer.
 func TestFormatBlockRejectsNonIntPrintWidth(t *testing.T) {
   _, err := expandFormatBlock(map[string]any{"printWidth": "wide"})
   if err == nil {

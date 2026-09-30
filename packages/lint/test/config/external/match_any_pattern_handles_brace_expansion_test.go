@@ -18,6 +18,11 @@ import "testing"
 //     the prefix against the same pattern.
 //  3. Assert each listed alternative matches, and the unlisted sibling plus
 //     the outside path do not.
+//
+// @evidence contracts/testing.md#behavioral-verification matchAnyPattern accepts both filenames in the MongoDB brace alternative but rejects an unlisted sibling and outside-prefix source.
+// @evidence contracts/testing.md#independent-expectations A brace group denotes the union of its explicitly authored alternatives; the independent four-row literal predicate table establishes both acceptance and non-overmatch.
+// @evidence contracts/testing.md#distinguishing-cases Owns two brace alternatives, same-directory near miss and outside prefix; dot-directory and separator behavior execute separately.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Four literal path predicates call matchAnyPattern directly in the shared Go process to distinguish the two brace alternatives and two misses; no consumer project or child evaluator is started.
 func TestMatchAnyPatternHandlesBraceExpansion(t *testing.T) {
   patterns := []string{"src/driver/mongodb/{typings.ts,bson.typings.ts}"}
   cases := []struct {

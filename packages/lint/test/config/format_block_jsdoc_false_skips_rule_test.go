@@ -14,6 +14,11 @@ import "testing"
 //  1. Call expandFormatBlock with `jsDoc: false`.
 //  2. Assert no error is returned.
 //  3. Assert the output map does NOT contain a `format/jsdoc` entry.
+//
+// @evidence contracts/testing.md#behavioral-verification expandFormatBlock omits the format/jsdoc entry when jsDoc is explicitly false.
+// @evidence contracts/testing.md#independent-expectations The public false opt-out disables JSDoc formatting; literal absence of the known output rule is independent of the implementation branch.
+// @evidence contracts/testing.md#distinguishing-cases Owns explicit false versus default-enabled formatter expansion; object customization is exercised by sortTags propagation.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. An authored jsDoc false object calls expandFormatBlock directly in-process; output rule absence observes opt-out without JSDoc source formatting or a native host.
 func TestFormatBlockJsdocFalseSkipsRule(t *testing.T) {
   out, err := expandFormatBlock(map[string]any{"jsDoc": false})
   if err != nil {

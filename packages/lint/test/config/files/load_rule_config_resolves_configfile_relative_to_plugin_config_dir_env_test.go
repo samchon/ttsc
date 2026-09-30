@@ -19,6 +19,11 @@ import (
 //  2. Set TTSC_PLUGIN_CONFIG_DIR to the project and call LoadRuleConfig with
 //     configFile "custom.lint.json" and the wrapper tsconfig.
 //  3. Assert the project-relative file is loaded.
+//
+// @evidence contracts/testing.md#behavioral-verification LoadRuleConfig loads no-var/error from the project custom.lint.json when a relative configFile is paired with TTSC_PLUGIN_CONFIG_DIR and an outside wrapper.
+// @evidence contracts/testing.md#independent-expectations The explicit config-directory channel anchors relative plugin config paths; the authored project-only custom file and severity map independently establish the expected resolution.
+// @evidence contracts/testing.md#distinguishing-cases Owns relative explicit config with separate wrapper and channel-set origin; ordinary tsconfig-relative resolution and channel-set discovery are separate entries.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. A project-only custom JSON file and outside wrapper reach LoadRuleConfig under a scoped config-directory environment in-process; resolved severity observes anchoring and testing restores the environment.
 func TestLoadRuleConfigResolvesConfigFileRelativeToPluginConfigDirEnv(t *testing.T) {
   dir := t.TempDir()
   wrapperDir := t.TempDir()

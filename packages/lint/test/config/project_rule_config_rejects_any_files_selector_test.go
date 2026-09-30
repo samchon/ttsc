@@ -16,6 +16,11 @@ import (
 //  1. Parse non-empty and empty `files` selectors containing a project rule.
 //  2. Resolve the registered project-rule name.
 //  3. Assert both declarations are rejected as scoped mentions.
+//
+// @evidence contracts/testing.md#behavioral-verification ResolveProjectRules rejects a project rule in both a nonempty files selector with off severity and an explicitly empty files selector with an error/options tuple.
+// @evidence contracts/testing.md#independent-expectations Project-wide state has no per-file identity; presence of a files selector is invalid even when empty or disabled, independently establishing both expected error cases.
+// @evidence contracts/testing.md#distinguishing-cases Owns selector presence versus count, disabled severity, and populated tuple; unscoped project-fold precedence is covered by the companion test.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Two authored scoped project-rule objects reach parseExternalConfigStore and ResolveProjectRules directly in-process; selector-presence errors are observed without executing a project callback or native contributor.
 func TestProjectRuleConfigRejectsAnyFilesSelector(t *testing.T) {
   const name = "project-test/scoped"
   cases := []map[string]any{

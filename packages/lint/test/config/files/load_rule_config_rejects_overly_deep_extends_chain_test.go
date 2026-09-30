@@ -20,6 +20,11 @@ import (
 //     the next and the chain length exceeds extendsDepthLimit.
 //  2. Call LoadRuleConfig with `configFile: "./cfg0.config.json"`.
 //  3. Assert a non-nil error that mentions the depth limit.
+//
+// @evidence contracts/testing.md#behavioral-verification LoadRuleConfig rejects a non-cyclic authored config lineage longer than its supported depth budget with a depth-limit diagnostic.
+// @evidence contracts/testing.md#independent-expectations The bounded extends contract caps recursive loading independently of cycle presence; an explicitly constructed strictly forward chain supplies the over-limit premise.
+// @evidence contracts/testing.md#distinguishing-cases Owns a depth-limit-plus-eight acyclic lineage; short linear inheritance and self/two-file cycles are distinct tests. The fixture uses the named limit to remain an over-limit case rather than certify a particular numeric policy.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. The temporary forward JSON lineage reaches LoadRuleConfig directly in the shared Go process; recursive loading and its depth error require no script evaluator or native host build.
 func TestLoadRuleConfigRejectsOverlyDeepExtendsChain(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

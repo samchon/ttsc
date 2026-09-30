@@ -21,6 +21,11 @@ import (
 //  2. Assert an error naming `format.endOfLine`.
 //  3. Call expandFormatBlock with `endOfLine: "windows"` (invalid string).
 //  4. Assert an error mentioning `endOfLine`.
+//
+// @evidence contracts/testing.md#behavioral-verification expandFormatBlock rejects endOfLine false and the unsupported string windows, with field context for both failures.
+// @evidence contracts/testing.md#independent-expectations Line ending accepts only lf or crlf string values; independently authored Boolean false and string windows exercise distinct type and vocabulary violations.
+// @evidence contracts/testing.md#distinguishing-cases Owns wrong type and correct-type invalid spelling; crlf propagation to layout and import sorting provides the accepted counterpart.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. An authored Boolean and an invalid string endOfLine call expandFormatBlock directly in-process; two field errors observe type and vocabulary boundaries without rendering source line endings.
 func TestFormatBlockRejectsNonStringEndOfLine(t *testing.T) {
   _, err := expandFormatBlock(map[string]any{"endOfLine": false})
   if err == nil {

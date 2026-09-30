@@ -19,6 +19,11 @@ import (
 //  2. Parse its generated option payloads and compare them with registered
 //     format rules.
 //  3. Assert every generated target reports AcceptsTtscLintOptions.
+//
+// @evidence contracts/testing.md#behavioral-verification expandFormatBlock and ParseRulesWithOptions generate a payload for every live built-in formatter, and each resolved rule structurally accepts options.
+// @evidence contracts/testing.md#independent-expectations The independently registered live formatter set and public option-acceptance capability constrain the generated payload set; this verifies runtime configuration compatibility rather than committed-file parity.
+// @evidence contracts/testing.md#distinguishing-cases Owns default formatter expansion plus opt-in import sorting, missing registrations, optionless targets and either-direction set mismatch; it does not substitute for individual formatter behavior tests.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Direct expandFormatBlock and ParseRulesWithOptions calls compare runtime payload targets with AllRuleNames/LookupRule capabilities in-process; no committed source-file scan or native compilation participates in the compatibility oracle.
 func TestFormatBlockTargetsOptionAcceptingRules(t *testing.T) {
   expanded, err := expandFormatBlock(map[string]any{"sortImports": true})
   if err != nil {

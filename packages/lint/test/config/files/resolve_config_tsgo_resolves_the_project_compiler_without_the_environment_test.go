@@ -18,6 +18,11 @@ import (
 //  1. Seed a project holding `typescript` and its platform package.
 //  2. Shed TTSC_TSGO_BINARY and TTSC_TTSX_BINARY.
 //  3. Assert the resolution names the project's own `lib/tsc`.
+//
+// @evidence contracts/testing.md#behavioral-verification resolveConfigTsgo finds the authored platform compiler after both inherited launcher and compiler variables are cleared.
+// @evidence contracts/testing.md#independent-expectations Project-local TypeScript and its platform package define a resolvable compiler without a parent launcher environment; seedProjectTypeScript returns the known fixture path, not the resolver result.
+// @evidence contracts/testing.md#distinguishing-cases Owns complete local install with no environment assistance; missing TypeScript and missing platform package are independently checked negatives.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Authored TypeScript/platform manifest and executable fixtures reach resolveConfigTsgo with inherited pins cleared in-process; only the resolved path is inspected, without building or running the compiler.
 func TestResolveConfigTsgoResolvesTheProjectCompilerWithoutTheEnvironment(t *testing.T) {
   shedConfigToolEnvironment(t)
   root := realpathIfPossible(t.TempDir())

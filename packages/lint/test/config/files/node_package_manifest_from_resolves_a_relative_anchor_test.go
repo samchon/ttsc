@@ -21,6 +21,11 @@ import (
 //     from one whose own relative walk would have reached the install.
 //  3. Assert both answer the install above, at an absolute path a child
 //     process with its own cwd can still use.
+//
+// @evidence contracts/testing.md#behavioral-verification nodePackageManifestFrom resolves two relative config-anchor spellings to the same absolute sibling package manifest and leaves an absent package unresolved.
+// @evidence contracts/testing.md#independent-expectations Node resolves module search ancestry from the absolute anchor; the known authored manifest location and fictional absent package supply independent hit and miss oracles.
+// @evidence contracts/testing.md#distinguishing-cases Owns local and two-parent relative anchors plus an absent scoped package; nested-node_modules decoy precedence is checked by the companion test.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Authored temporary manifest ancestry and scoped working directory reach nodePackageManifestFrom directly in-process; two absolute hits and an absent-package miss observe search without package-manager installation or Node execution.
 func TestNodePackageManifestFromResolvesARelativeAnchor(t *testing.T) {
   root := realpathIfPossible(t.TempDir())
   want := filepath.Join(root, "node_modules", "sibling", "package.json")

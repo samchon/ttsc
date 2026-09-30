@@ -17,6 +17,11 @@ import "testing"
 //  2. Match generated files under `.next/`, the root `next-env.d.ts`, a
 //     `.next-cache/` near-miss, and an ordinary source file.
 //  3. Assert only the genuinely ignored files match.
+//
+// @evidence contracts/testing.md#behavioral-verification matchAnyPattern accepts authored .next TS/TSX nested output and next-env.d.ts while rejecting .next-cache and ordinary source.
+// @evidence contracts/testing.md#independent-expectations Literal dot-directory segments must not become prefix matching, and basename patterns match their named file; six independently authored Boolean rows establish exact expected scope.
+// @evidence contracts/testing.md#distinguishing-cases Owns multiple descendant depths and source extensions, root basename, near-prefix directory and ordinary-file negative.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Six authored generated/basename/near-miss paths call matchAnyPattern directly in the shared Go process; predicate results exercise glob semantics without an installed Next.js consumer or native build.
 func TestMatchAnyPatternMatchesDotDirectoryGlobs(t *testing.T) {
   patterns := []string{".next/**/*.ts", ".next/**/*.tsx", "next-env.d.ts"}
   cases := []struct {

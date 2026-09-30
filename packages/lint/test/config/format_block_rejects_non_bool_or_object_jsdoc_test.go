@@ -16,6 +16,11 @@ import (
 //  1. Call expandFormatBlock with `jsDoc: "enabled"` (string, not bool/object).
 //  2. Assert an error is returned.
 //  3. Assert the error message mentions `format.jsDoc`.
+//
+// @evidence contracts/testing.md#behavioral-verification expandFormatBlock rejects string enabled as jsDoc and names format.jsDoc.
+// @evidence contracts/testing.md#independent-expectations JSDoc settings admit Boolean shorthand or an option object; an authored string must not be truthily coerced.
+// @evidence contracts/testing.md#distinguishing-cases Owns invalid top-level JSDoc type; Boolean false and option-object customization execute separately.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. An authored string jsDoc setting calls expandFormatBlock directly in-process; its field-scoped type error requires no JSDoc source input or native host.
 func TestFormatBlockRejectsNonBoolOrObjectJsdoc(t *testing.T) {
   _, err := expandFormatBlock(map[string]any{"jsDoc": "enabled"})
   if err == nil {

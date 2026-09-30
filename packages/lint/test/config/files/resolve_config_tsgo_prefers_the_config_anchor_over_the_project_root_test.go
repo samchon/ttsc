@@ -17,6 +17,11 @@ import (
 //  1. Seed two resolvable installs, one beside the config and one at the root.
 //  2. Shed both tool variables.
 //  3. Assert the config's install is the one chosen.
+//
+// @evidence contracts/testing.md#behavioral-verification resolveConfigTsgo selects the config workspace compiler rather than the separately seeded root compiler.
+// @evidence contracts/testing.md#independent-expectations Config imports own their local toolchain before project fallback; two independent installed fixture paths establish which location must win.
+// @evidence contracts/testing.md#distinguishing-cases Owns both anchors populated with different compilers; sibling-tree fallback and explicit environment pinning remain separate cases.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Two authored temporary compiler fixtures reach configToolAnchors and resolveConfigTsgo in-process; exact workspace-versus-root selection requires no native execution or package installation.
 func TestResolveConfigTsgoPrefersTheConfigAnchorOverTheProjectRoot(t *testing.T) {
   shedConfigToolEnvironment(t)
   root := realpathIfPossible(t.TempDir())

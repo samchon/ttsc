@@ -3,32 +3,45 @@ package linthost
 import (
   "strings"
   "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimcore "github.com/microsoft/typescript-go/shim/core"
+  shimparser "github.com/microsoft/typescript-go/shim/parser"
 )
 
-// TestConfigLoaderSourcesEscapeEveryLiteralPercent verifies both generated
-// config-loader scripts survive their Go format strings as valid source.
+// TestConfigLoaderSourcesEscapeEveryLiteralPercent verifies generated loader syntax
+// and the URL-separator guard survive Go format-string expansion.
 //
-// The JS and TypeScript loaders are emitted from fmt.Sprintf format strings and
-// they carry Node's own percent-encoded separator guard, so every literal
-// percent sign inside them has to be doubled. An undoubled one is consumed as a
-// format verb and the emitted script still parses: the guard simply becomes a
-// regex that can never match, which no execution test can observe. A raw
-// newline written into a string literal fails the other way, leaving source
-// that does not parse at all, and the generator is likewise the only place that
-// is visible. Both are checked here.
+// A malformed format verb can still produce parseable JavaScript while changing
+// the guard's meaning. The exact generated guard and parser diagnostics therefore
+// cover different defects; a quote counter cannot establish JavaScript syntax.
 //
-//  1. Generate the CommonJS and TypeScript loader sources.
-//  2. Assert neither carries a Go formatting-error artifact.
-//  3. Assert both still carry the encoded-separator guard verbatim.
-//  4. Assert no line leaves a string literal open.
+// 1. Generate the CommonJS and TypeScript loader sources.
+// 2. Reject Go formatting artifacts and a changed encoded-separator guard.
+// 3. Parse each complete script using its JavaScript or TypeScript grammar and require no syntax diagnostics.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls both loader-source generators and checks their emitted scripts, preserving the URL guard while detecting formatting artifacts and actual syntax errors rather than repository source layout.
+// @evidence contracts/testing.md#independent-expectations The literal guard rejects percent-encoded slash and backslash spellings required by Node URL resolution; the TypeScript-Go parser independently validates emitted syntax without reproducing either generator's formatting.
+// @evidence contracts/testing.md#distinguishing-cases CommonJS and TypeScript loader variants both retain their complete emitted source checks; a deliberately unterminated JavaScript string also proves the parser oracle rejects the malformed boundary that a valid script must avoid.
+// @evidence contracts/testing.md#execution-ownership TestConfigLoaderSourcesEscapeEveryLiteralPercent is a Go unit entry calling generators and the parser in the selected lint test process; it creates no consumer installation, native binary or script host. Actual executable config evaluation belongs to the config E2E batch.
 func TestConfigLoaderSourcesEscapeEveryLiteralPercent(t *testing.T) {
+  malformed := shimparser.ParseSourceFile(
+    shimast.SourceFileParseOptions{FileName: "/virtual/malformed.js"},
+    "const value = \"unterminated\n",
+    shimcore.ScriptKindJS,
+  )
+  if malformed == nil || len(malformed.Diagnostics()) == 0 {
+    t.Fatal("parser oracle accepted an unterminated JavaScript string")
+  }
   for _, generated := range []struct {
     name   string
     source string
+    kind shimcore.ScriptKind
   }{
-    {name: "script", source: scriptConfigLoaderSource()},
+    {name: "script", source: scriptConfigLoaderSource(), kind: shimcore.ScriptKindJS},
     {
       name: "typescript",
+      kind: shimcore.ScriptKindTS,
       source: typeScriptConfigLoaderSource(
         `"file:///lint.config.ts"`,
         `"/tmp/ttsc-lint/result.json"`,
@@ -53,45 +66,16 @@ func TestConfigLoaderSourcesEscapeEveryLiteralPercent(t *testing.T) {
         generated.name,
       )
     }
-    if line, ok := unbalancedQuoteLine(generated.source); ok {
-      t.Fatalf(
-        "%s loader source leaves a string literal open: %q",
-        generated.name,
-        line,
-      )
+    parsed := shimparser.ParseSourceFile(
+      shimast.SourceFileParseOptions{FileName: "/virtual/" + generated.name + map[shimcore.ScriptKind]string{shimcore.ScriptKindJS: ".js", shimcore.ScriptKindTS: ".ts"}[generated.kind]},
+      generated.source,
+      generated.kind,
+    )
+    if parsed == nil {
+      t.Fatalf("%s loader parser returned no source file", generated.name)
+    }
+    if diagnostics := parsed.Diagnostics(); len(diagnostics) != 0 {
+      t.Fatalf("%s loader source has syntax diagnostics: %+v", generated.name, diagnostics)
     }
   }
-}
-
-// unbalancedQuoteLine returns the first line whose double quotes do not pair,
-// which is what a raw newline inside a string literal produces.
-//
-// Counting per line is enough because neither loader contains a multi-line
-// string: every literal opens and closes on one line, and the only escapes in
-// front of a quote are backslashes, which are skipped with their successor. A
-// line comment ends the scan, so prose carrying a lone quote cannot fail the
-// build with a message about a string literal it does not contain.
-func unbalancedQuoteLine(source string) (string, bool) {
-  for _, line := range strings.Split(source, "\n") {
-    quotes := 0
-    for index := 0; index < len(line); index++ {
-      if line[index] == '\\' {
-        index++
-        continue
-      }
-      if quotes%2 == 0 &&
-        line[index] == '/' &&
-        index+1 < len(line) &&
-        line[index+1] == '/' {
-        break
-      }
-      if line[index] == '"' {
-        quotes++
-      }
-    }
-    if quotes%2 != 0 {
-      return line, true
-    }
-  }
-  return "", false
 }

@@ -16,6 +16,11 @@ import (
 //  1. Call expandFormatBlock with `semi: "yes"` (a string, not a bool).
 //  2. Assert an error is returned.
 //  3. Assert the error message names the offending field `format.semi`.
+//
+// @evidence contracts/testing.md#behavioral-verification expandFormatBlock rejects semi string yes with format.semi context.
+// @evidence contracts/testing.md#independent-expectations The semi option is Boolean and must not coerce truthy strings; independently authored yes is outside that type contract.
+// @evidence contracts/testing.md#distinguishing-cases Owns wrong Boolean type for semicolons; semi false translation is the accepted counterpart.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. An authored semi string calls expandFormatBlock directly in-process; its field error observes Boolean validation without formatting source or invoking a host.
 func TestFormatBlockRejectsNonBoolSemi(t *testing.T) {
   _, err := expandFormatBlock(map[string]any{"semi": "yes"})
   if err == nil {

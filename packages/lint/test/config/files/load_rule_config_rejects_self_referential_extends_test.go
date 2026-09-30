@@ -18,6 +18,11 @@ import (
 //  2. Call LoadRuleConfig with `configFile: "./a.config.json"`.
 //  3. Assert a non-nil error that says `extends cycle detected` and names the
 //     file.
+//
+// @evidence contracts/testing.md#behavioral-verification LoadRuleConfig rejects a root config extending itself and names both the cycle and self-referential a.config.json.
+// @evidence contracts/testing.md#independent-expectations A config lineage cannot revisit its root; independently authored self-reference and the literal cycle and filename fragments distinguish the required diagnostic.
+// @evidence contracts/testing.md#distinguishing-cases Owns the first-hop self-cycle boundary; two-file cycles, valid linear chains, and non-cyclic excessive depth remain independent cases.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. A temporary JSON root extending itself reaches LoadRuleConfig directly in-process; cycle and filename errors observe owning recursion without a child host or native contributor.
 func TestLoadRuleConfigRejectsSelfReferentialExtends(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

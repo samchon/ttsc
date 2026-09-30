@@ -19,6 +19,11 @@ import (
 //  2. Load it again unchanged; assert the evaluator did not run a second time.
 //  3. Rewrite the file with new content and load again; assert the evaluator
 //     ran and the freshly evaluated value is returned.
+//
+// @evidence contracts/testing.md#behavioral-verification loadCachedConfigFile reuses the first evaluated generation for unchanged bytes and returns generation two only after an authored content edit.
+// @evidence contracts/testing.md#independent-expectations The call-counting evaluator creates distinct generation markers; literal counts one and two reflect the promised reuse/invalidation contract, not hash implementation.
+// @evidence contracts/testing.md#distinguishing-cases First miss, unchanged hit and changed-content miss distinguish all three transitions; failed-result retry belongs to ConfigCacheDoesNotMemoizeFailedEvaluation.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Direct loadCachedConfigFile calls use one temporary config, a counting evaluator and an authored content edit in the shared Go process; generation markers observe reuse and invalidation without evaluating a real config script.
 func TestConfigCacheReusesEvaluationUntilContentChanges(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
   cfg := filepath.Join(t.TempDir(), "lint.config.ts")

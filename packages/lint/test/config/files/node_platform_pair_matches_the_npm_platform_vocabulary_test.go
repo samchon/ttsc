@@ -18,7 +18,12 @@ import (
 //
 //  1. Map every target the workspace publishes a platform package for.
 //  2. Assert the divergent members are translated and the rest pass through.
-//  3. Assert the host's own pair is a legal npm pair, so fixtures stay honest.
+//  3. Assert the host pair does not retain the renamed Go spellings.
+//
+// @evidence contracts/testing.md#behavioral-verification nodePlatformPairFor maps Go platform and architecture spellings to npm package vocabulary and nodePlatformPair never leaks the renamed host spellings.
+// @evidence contracts/testing.md#independent-expectations The authored table follows process.platform/process.arch spellings including win32, sunos, x64, ia32 and ppc64, independent of the mapping implementation.
+// @evidence contracts/testing.md#distinguishing-cases Renamed OS and architectures contrast with unchanged arm/arm64 and unknown freebsd/s390x passthrough; cross-product cases cover Windows, Darwin and Linux.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Eleven literal Go/npm target pairs reach nodePlatformPairFor and the native host pair reaches nodePlatformPair in-process; mapping is observed without cross-compilation or an OS matrix.
 func TestNodePlatformPairMatchesTheNpmPlatformVocabulary(t *testing.T) {
   cases := []struct{ goos, goarch, platform, arch string }{
     {"windows", "amd64", "win32", "x64"},

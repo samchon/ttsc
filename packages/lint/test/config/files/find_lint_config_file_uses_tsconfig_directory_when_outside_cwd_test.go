@@ -16,6 +16,11 @@ import (
 // 1. Place lint.config.json files in both the cwd directory and the wrapper tsconfig directory.
 // 2. Call findLintConfigFile with cwd=dir and tsconfig=wrapperDir/tsconfig.json.
 // 3. Assert the config co-located with the wrapper tsconfig is returned.
+//
+// @evidence contracts/testing.md#behavioral-verification findLintConfigFile chooses the wrapper tsconfig directory config even when a distinct cwd also contains a recognized config.
+// @evidence contracts/testing.md#independent-expectations Discovery begins at the tsconfig origin and uses cwd only as fallback; distinct fixture roots and the literal wrapper path establish the independently expected selection.
+// @evidence contracts/testing.md#distinguishing-cases Owns competing out-of-tree and cwd candidates; the fallback test covers the adjacent missing-wrapper case.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Separate temporary cwd and wrapper roots each contain a config before findLintConfigFile runs in-process; exact wrapper winner observes origin precedence without loading script contents.
 func TestFindLintConfigFileUsesTsconfigDirectoryWhenOutsideCwd(t *testing.T) {
   dir := t.TempDir()
   wrapperDir := t.TempDir()

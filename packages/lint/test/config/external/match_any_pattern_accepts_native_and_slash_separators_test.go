@@ -21,6 +21,11 @@ import (
 //  2. Match both spellings, plus a non-ignored sibling in both spellings.
 //  3. Assert the ignored file matches in either spelling and the sibling
 //     matches in neither.
+//
+// @evidence contracts/testing.md#behavioral-verification matchAnyPattern accepts the generated .next path and rejects a src sibling in both native and slash-normalized spellings.
+// @evidence contracts/testing.md#independent-expectations The authored .next glob must match directory segments consistently regardless of a producer using native separators; literal generated versus src paths independently establish the predicates.
+// @evidence contracts/testing.md#distinguishing-cases Owns two producer spellings and adjacent unignored source; on Linux those spellings coincide, so Windows-specific normalization is not certified by that run alone.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Direct matchAnyPattern calls observe four authored host-native/slash path spellings in the shared Go process; no file contents, installed consumer or child host are needed, and distinct Windows separators remain a host-specific limitation.
 func TestMatchAnyPatternAcceptsNativeAndSlashSeparators(t *testing.T) {
   base := filepath.Join(string(filepath.Separator), "project")
   patterns := []string{".next/**/*.ts"}

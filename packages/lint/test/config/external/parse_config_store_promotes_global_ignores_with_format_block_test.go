@@ -18,6 +18,11 @@ import "testing"
 //  2. Resolve an ignored path and an ordinary path.
 //  3. Assert the ignored path is globally ignored while the ordinary path
 //     keeps the expanded format rules.
+//
+// @evidence contracts/testing.md#behavioral-verification parseExternalConfigStore globally ignores generated/schema.ts with an empty rule set while preserving format/semi at warning for src/main.ts.
+// @evidence contracts/testing.md#independent-expectations Top-level ignores without files apply equally when formatting is the sole rule surface; the authored generated pattern and explicit warning formatter block independently establish the contrasting resolved states.
+// @evidence contracts/testing.md#distinguishing-cases Owns format-only global promotion and ordinary-source preservation, complementing the separate ordinary-rules promotion case.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. An authored warning formatter block reaches parseExternalConfigStore and two ResolveRules calls in-process; generated-versus-source rule sets observe promotion without running a formatter or child host.
 func TestParseConfigStorePromotesGlobalIgnoresWithFormatBlock(t *testing.T) {
   store, err := parseExternalConfigStore(map[string]any{
     "ignores": []any{"generated/**"},
@@ -41,5 +46,8 @@ func TestParseConfigStorePromotesGlobalIgnoresWithFormatBlock(t *testing.T) {
   }
   if len(main.Rules) == 0 {
     t.Fatal("src/main.ts: expected the expanded format rules to apply")
+  }
+  if got := main.Rules["format/semi"]; got != SeverityWarn {
+    t.Fatalf("src/main.ts: expected format/semi warning, got %v", got)
   }
 }

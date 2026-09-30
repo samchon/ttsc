@@ -16,6 +16,11 @@ import (
 // 1. Write tsconfig.json and lint.config.ts in the same directory.
 // 2. Call findLintConfigFile.
 // 3. Assert lint.config.ts is the discovered path.
+//
+// @evidence contracts/testing.md#behavioral-verification findLintConfigFile recognizes a co-located lint.config.ts rather than requiring an ESLint or ttsc-prefixed filename.
+// @evidence contracts/testing.md#independent-expectations The supported lint.config.* naming contract and exact fixture path establish the selected result without evaluating the config script.
+// @evidence contracts/testing.md#distinguishing-cases Owns the native unprefixed candidate next to tsconfig; conflict and nearest-parent distinctions have separate entries.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. The temporary co-located tsconfig and lint.config.ts reach findLintConfigFile directly in-process; only the discovered path is observed and the script is not evaluated or compiled.
 func TestFindLintConfigFileDiscoversPlainLintConfig(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

@@ -19,6 +19,11 @@ import (
 //     an `ignores`-only entry.
 //  2. Resolve rules for three absolute source paths.
 //  3. Assert each path resolves to the expected rules and ignored state.
+//
+// @evidence contracts/testing.md#behavioral-verification ConfigStore.ResolveRules retains base no-var/error and no-console/warn for normal source, applies test-specific no-console/off without losing no-var, and ignores generated source.
+// @evidence contracts/testing.md#independent-expectations File selectors alter only matching entries while ignore-only entries exclude matching sources globally; independently authored map values and three literal paths establish expected states.
+// @evidence contracts/testing.md#distinguishing-cases Owns ordinary, test-pattern and globally generated paths with severity inclusion and override distinctions.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. An authored ConfigStore resolves three source paths directly in the shared Go process; returned severity and ignored state exercise matching without file contents, native compilation or a script evaluator.
 func TestParseConfigStoreResolvesFilesAndIgnores(t *testing.T) {
   store := &ConfigStore{
     entries: []ConfigEntry{

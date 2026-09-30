@@ -9,6 +9,16 @@ import (
 // TestConfigStoreValidatesEveryScopedOptionVariant proves engine construction
 // cannot hide an invalid option behind a later valid tuple for a disjoint file
 // selector. The old project-wide map validated only the last parsed payload.
+//
+//
+// 1. Place an invalid test selector before a valid source selector.
+// 2. Construct the engine without visiting a source file.
+// 3. Require the invalid-selector diagnostic and exclusion from enabled dispatch.
+//
+// @evidence contracts/testing.md#behavioral-verification NewEngineWithResolver reports invalid-selector options from the earlier tests scope even when the later src scope has a valid selector, and excludes the rule from dispatch.
+// @evidence contracts/testing.md#independent-expectations Every declared variant must validate before execution; independently authored unterminated VariableDeclaration[ and valid VariableDeclaration distinguish whole-population validation from last-value masking.
+// @evidence contracts/testing.md#distinguishing-cases Owns invalid-first/valid-last disjoint scopes and fail-closed dispatch, rather than relying on a source visiting the invalid scope.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. NewEngineWithResolver binds two authored scoped selector payloads in the shared Go process; ConfigError and EnabledRules observe validation before any source walk, without compiling a native contributor.
 func TestConfigStoreValidatesEveryScopedOptionVariant(t *testing.T) {
   store := &ConfigStore{entries: []ConfigEntry{
     {

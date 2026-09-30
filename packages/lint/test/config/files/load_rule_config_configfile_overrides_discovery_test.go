@@ -19,6 +19,11 @@ import (
 //     custom.config.json (noVar) in the same temp dir.
 //  2. Call LoadRuleConfig with `configFile: "./custom.config.json"`.
 //  3. Assert the custom file's rule wins and the discoverable file is ignored.
+//
+// @evidence contracts/testing.md#behavioral-verification LoadRuleConfig resolves no-var from custom.config.json and leaves no-console off despite a discoverable competing lint.config.json.
+// @evidence contracts/testing.md#independent-expectations An explicit configFile overrides discovery; different authored rule maps establish the independent selected and excluded severities.
+// @evidence contracts/testing.md#distinguishing-cases Owns explicit-versus-discoverable competition, asserting both inclusion and exclusion; no-configFile discovery is checked separately.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Two conflicting temporary JSON rule maps reach LoadRuleConfig with an explicit custom path in-process; selected and excluded severities observe precedence without a script evaluator or consumer installation.
 func TestLoadRuleConfigConfigFileOverridesDiscovery(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

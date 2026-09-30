@@ -16,6 +16,11 @@ import (
 //  1. Parse a files-scoped jsdoc/check-tag-names declaration.
 //  2. Resolve both project and matching-file views of that config.
 //  3. Assert the file rule is enabled and the companion is undeclared.
+//
+// @evidence contracts/testing.md#behavioral-verification parseExternalConfigStore preserves a file-scoped companion rule, ResolveProjectRules does not falsely declare it globally, and ResolveRules keeps its warning severity for a matching source.
+// @evidence contracts/testing.md#independent-expectations The authored src/** selector and warning literal independently require a file match but no global declaration.
+// @evidence contracts/testing.md#distinguishing-cases The same declaration is positive at the matching file and negative at project scope, distinguishing preservation from accidental global promotion.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. An authored scoped JSDoc object reaches parseExternalConfigStore, ResolveProjectRules and ResolveRules directly in-process; global absence and matching-file severity are observed without project callbacks or a native host.
 func TestProjectCompanionPreservesFileScopedRuleConfig(t *testing.T) {
   const name = "jsdoc/check-tag-names"
   root := t.TempDir()

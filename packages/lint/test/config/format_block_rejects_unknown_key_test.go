@@ -18,6 +18,11 @@ import (
 //  2. Parse it through `parseExternalConfigStore`.
 //  3. Assert the error names the unknown key and points at the
 //     allowed surface.
+//
+// @evidence contracts/testing.md#behavioral-verification parseExternalConfigStore rejects misspelled printwidth and names both the offending key and ITtscLintFormat surface.
+// @evidence contracts/testing.md#independent-expectations The typed public key is printWidth; the authored lowercase typo is independently unknown and must not silently retain defaults.
+// @evidence contracts/testing.md#distinguishing-cases Owns a plausible top-level typo with a valid numeric value; valid printWidth translation and nested unknown-key validation are complementary cases.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. An authored printwidth typo reaches parseExternalConfigStore directly in-process; the key and public surface error are inspected without formatting source or evaluating a config script.
 func TestFormatBlockRejectsUnknownKey(t *testing.T) {
   _, err := parseExternalConfigStore(map[string]any{
     "format": map[string]any{"printwidth": 80},

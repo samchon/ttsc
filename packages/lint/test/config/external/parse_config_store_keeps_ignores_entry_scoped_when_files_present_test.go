@@ -14,11 +14,16 @@ import (
 // rules to `files` except `ignores`" — the excluded files are still linted by
 // every other entry.
 //
-//  1. Parse a config whose object has `files`, `ignores`, and `rules`, and
-//     whose `extends` target contributes a base rule.
+//  1. Parse a config with `files`, `ignores`, and `rules`, then prepend an
+//     authored base entry supplying no-var.
 //  2. Resolve rules for a file matched by `files` but excluded by `ignores`.
 //  3. Assert the file is NOT globally ignored and still receives the base
 //     rule, while the entry's own rule does not apply.
+//
+// @evidence contracts/testing.md#behavioral-verification parseExternalConfigStore keeps a generated file globally lintable by its base no-var rule while suppressing only the scoped no-console entry, and applies no-console to normal source.
+// @evidence contracts/testing.md#independent-expectations A files-plus-ignores entry refines its own match rather than excluding the whole chain; independently authored generated and ordinary paths establish which rule scopes may act.
+// @evidence contracts/testing.md#distinguishing-cases Owns scoped ignore with a retained base entry and its adjacent selected source; global-ignore promotion is covered separately.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. The authored scoped object reaches parseExternalConfigStore, then a base entry and two ResolveRules calls distinguish selected and excluded paths in-process; no extends script or native host is executed.
 func TestParseConfigStoreKeepsIgnoresEntryScopedWhenFilesPresent(t *testing.T) {
   store, err := parseExternalConfigStore(map[string]any{
     "files":   []any{"src/**/*.ts"},

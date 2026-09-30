@@ -17,6 +17,11 @@ import (
 //     `eslint/` prefix, and `typescript/*` canonical names.
 //  2. Parse it through parseExternalConfigRules.
 //  3. Assert each rule resolves to the expected severity.
+//
+// @evidence contracts/testing.md#behavioral-verification parseExternalConfigRules resolves error and warning severities from option tuple, one-slot tuple, numeric2, bare warn, eslint alias and canonical TypeScript rule names.
+// @evidence contracts/testing.md#independent-expectations The supported rule vocabulary maps error/numeric2 to error and warn to warning while normalizing the optional eslint prefix; authored input literals supply independent severity expectations.
+// @evidence contracts/testing.md#distinguishing-cases Owns four differently shaped rule entries and alias preservation; invalid severities and options-tail transport have separate cases.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. An authored four-rule object reaches parseExternalConfigRules directly in the shared Go process; returned severities expose tuple and alias normalization without engine dispatch or a config script host.
 func TestParseConfigStoreAcceptsSeverityTuples(t *testing.T) {
   cfg, err := parseExternalConfigRules(map[string]any{
     "rules": map[string]any{

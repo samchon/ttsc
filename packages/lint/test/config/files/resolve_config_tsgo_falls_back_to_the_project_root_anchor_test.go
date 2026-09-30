@@ -17,6 +17,11 @@ import (
 //  1. Seed a project whose install sits at the root only.
 //  2. Put the config in a sibling tree the project does not contain.
 //  3. Assert the root's compiler is still resolved.
+//
+// @evidence contracts/testing.md#behavioral-verification resolveConfigTsgo returns the project compiler when the config sits in a sibling tree with no install ancestry.
+// @evidence contracts/testing.md#independent-expectations Config-origin lookup precedes project-root fallback; the seeded project executable is an independently known fixture location.
+// @evidence contracts/testing.md#distinguishing-cases Owns outside-project config with only the second anchor resolvable; config-anchor precedence is the complementary both-present case.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. An authored temporary compiler fixture and sibling config reach configToolAnchors and resolveConfigTsgo in-process; the selected compiler path is observed without running or installing that fixture.
 func TestResolveConfigTsgoFallsBackToTheProjectRootAnchor(t *testing.T) {
   shedConfigToolEnvironment(t)
   base := realpathIfPossible(t.TempDir())

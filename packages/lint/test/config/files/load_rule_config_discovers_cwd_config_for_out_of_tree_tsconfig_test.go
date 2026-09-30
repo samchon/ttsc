@@ -20,6 +20,11 @@ import (
 //     only a tsconfig.json.
 //  2. Call LoadRuleConfig with cwd=project and tsconfigPath=wrapper.
 //  3. Assert the project's rules are loaded.
+//
+// @evidence contracts/testing.md#behavioral-verification LoadRuleConfig loads no-var at error severity from cwd when a separate wrapper-tsconfig ancestry has no lint config.
+// @evidence contracts/testing.md#independent-expectations The supported out-of-tree embedding path falls back to cwd; the sole authored no-var/error config establishes the independently expected resulting severity.
+// @evidence contracts/testing.md#distinguishing-cases Owns wrapper absence with project availability; wrapper-priority and explicit config-directory decoy cases provide the opposite branches.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Authored project JSON and a separate wrapper tsconfig reach LoadRuleConfig directly in-process; resulting no-var severity observes fallback without a child compiler.
 func TestLoadRuleConfigDiscoversCwdConfigForOutOfTreeTsconfig(t *testing.T) {
   dir := t.TempDir()
   wrapperDir := t.TempDir()

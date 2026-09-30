@@ -18,6 +18,11 @@ import (
 // 1. Create separate cwd and wrapper-tsconfig temp dirs with no lint config.
 // 2. Call LoadRuleConfig with an empty Config map to trigger discovery.
 // 3. Assert the error names both search origins.
+//
+// @evidence contracts/testing.md#behavioral-verification LoadRuleConfig fails absent automatic discovery and includes both separate wrapper and cwd search-origin paths in its diagnostic.
+// @evidence contracts/testing.md#independent-expectations Diagnostic context must identify actual primary and fallback search origins; the two known fixture roots supply independent path oracles rather than reproducing the walk.
+// @evidence contracts/testing.md#distinguishing-cases Owns two absent origins and checks both are named; missing-config remediation and positive fallback cases are complementary tests.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Separate temporary cwd and wrapper roots with no config reach LoadRuleConfig directly in-process; both authored root names are checked in the error without evaluating a script or compiling a consumer.
 func TestLoadRuleConfigMissingConfigErrorNamesSearchOrigins(t *testing.T) {
   dir := t.TempDir()
   wrapperDir := t.TempDir()

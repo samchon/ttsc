@@ -16,6 +16,11 @@ import (
 //  1. Call expandFormatBlock with `trailingComma: true` (a bool, not a string).
 //  2. Assert an error is returned.
 //  3. Assert the error message names the offending field `format.trailingComma`.
+//
+// @evidence contracts/testing.md#behavioral-verification expandFormatBlock rejects Boolean trailingComma true and names its field.
+// @evidence contracts/testing.md#independent-expectations Trailing comma mode is a string vocabulary rather than a Boolean switch; independently authored true must not be coerced into a mode.
+// @evidence contracts/testing.md#distinguishing-cases Owns wrong-type comma mode; invalid string always and valid es5 forwarding separate the next decision steps.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. An authored Boolean trailingComma calls expandFormatBlock directly in-process; its field error observes type validation without rendering commas or compiling a host.
 func TestFormatBlockRejectsNonStringTrailingComma(t *testing.T) {
   _, err := expandFormatBlock(map[string]any{"trailingComma": true})
   if err == nil {

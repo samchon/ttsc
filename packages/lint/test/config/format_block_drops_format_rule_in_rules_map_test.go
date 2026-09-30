@@ -17,7 +17,12 @@ import (
 //  1. `format: { semi: true }` expands format/semi to prefer:"always", and
 //     `rules: { "format/semi": ["off", { prefer: "never" }] }` is also set.
 //  2. The rules entry is dropped: format/semi resolves to the format block's
-//     prefer:"always", never "never", and stays enabled (not off).
+//     prefer:"always", never "never"; default check severity remains off.
+//
+// @evidence contracts/testing.md#behavioral-verification parseExternalConfigStore preserves format.semi true as prefer always despite a conflicting rules-map format/semi off/never tuple.
+// @evidence contracts/testing.md#independent-expectations Formatter settings belong exclusively to the format block; authored always and conflicting never options establish which configuration may determine the emitted payload.
+// @evidence contracts/testing.md#distinguishing-cases Owns simultaneous valid format block and stray format-rule tuple, asserting the option winner without claiming check severity is enabled.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Conflicting authored format and rules-map settings reach parseExternalConfigStore, followed by independent JSON option decoding in-process; the retained semi preference is observed without formatting source or a native producer.
 func TestFormatBlockDropsFormatRuleInRulesMap(t *testing.T) {
   resolver, err := parseExternalConfigStore(map[string]any{
     "format": map[string]any{"semi": true},

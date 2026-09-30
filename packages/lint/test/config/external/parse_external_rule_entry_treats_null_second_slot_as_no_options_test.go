@@ -17,6 +17,11 @@ import "testing"
 // 1. Parse a `[severity, null]` tuple through the external parser.
 // 2. Assert severity is captured.
 // 3. Assert the options blob is empty (no `"null"` literal stored).
+//
+// @evidence contracts/testing.md#behavioral-verification parseExternalRuleEntry resolves warning severity but returns an empty option blob for an explicit null second slot.
+// @evidence contracts/testing.md#independent-expectations A null options sentinel means no payload, rather than JSON text null; the independent expected byte count zero distinguishes absence from a serialized four-byte value.
+// @evidence contracts/testing.md#distinguishing-cases Owns an explicit two-slot null tuple; populated ordered tails and one-slot severity forms are separate cases.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. A literal warning/null tuple reaches parseExternalRuleEntry directly in the shared Go process; severity and zero payload bytes observe sentinel handling without a config file or child host.
 func TestParseExternalRuleEntryTreatsNullSecondSlotAsNoOptions(t *testing.T) {
   sev, raw, err := parseExternalRuleEntry([]any{"warning", nil})
   if err != nil {

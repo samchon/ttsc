@@ -15,6 +15,11 @@ import "testing"
 //  2. Parse it through `parseExternalConfigStore`.
 //  3. Assert always-on format rules are enabled as warnings.
 //  4. Assert the opt-in format/sort-imports remains off.
+//
+// @evidence contracts/testing.md#behavioral-verification parseExternalConfigStore enables five authored always-on formatter names as warnings while leaving opt-in sort-imports absent.
+// @evidence contracts/testing.md#independent-expectations Explicit warning severity opts check/build into format diagnostics; the public rule identities and SeverityWarn literals supply independent policy expectations.
+// @evidence contracts/testing.md#distinguishing-cases Owns warning-enabled standard and JSDoc rules versus still-unrequested import sorting; default-off and explicit sort true are separate branches.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. An authored warning format object reaches parseExternalConfigStore directly in-process; five literal rule severities and absent import sorter are inspected without a source walk or child compiler.
 func TestFormatBlockSeverityWarningEnablesCheckDiagnostics(t *testing.T) {
   resolver, err := parseExternalConfigStore(map[string]any{
     "format": map[string]any{"severity": "warning"},

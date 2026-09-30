@@ -16,6 +16,11 @@ import (
 //  1. Seed a project holding a resolvable `ttsc` install.
 //  2. Point TTSC_TTSX_BINARY at a different path.
 //  3. Assert the pinned path is returned verbatim.
+//
+// @evidence contracts/testing.md#behavioral-verification resolveTtsxLauncher returns TTSC_TTSX_BINARY verbatim over a different resolvable project launcher.
+// @evidence contracts/testing.md#independent-expectations An explicit launcher pin outranks local package lookup; the two authored distinct paths establish precedence independently of the resolver.
+// @evidence contracts/testing.md#distinguishing-cases Owns pin-versus-present-project competition, including explicit rejection of selecting the project path; unpinned lookup is checked separately.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. An authored temporary local launcher and scoped TTSC_TTSX_BINARY pin reach resolveTtsxLauncher in-process; exact pin precedence is observed without executing either launcher.
 func TestResolveTtsxLauncherKeepsAnExplicitlyPinnedBinary(t *testing.T) {
   shedConfigToolEnvironment(t)
   root := realpathIfPossible(t.TempDir())

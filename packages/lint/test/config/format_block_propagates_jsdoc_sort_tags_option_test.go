@@ -18,6 +18,11 @@ import (
 //  2. Call expandFormatBlock.
 //  3. Assert no error.
 //  4. Assert formatJsdoc options contain sortTags: true.
+//
+// @evidence contracts/testing.md#behavioral-verification expandFormatBlock emits a format/jsdoc options tuple with sortTags true from an authored jsDoc object.
+// @evidence contracts/testing.md#independent-expectations A valid public sortTags Boolean must reach the rule payload unchanged; independently decoding the emitted tuple compares it with the literal true request.
+// @evidence contracts/testing.md#distinguishing-cases Owns enabled object customization; invalid sortTags type and Boolean false opt-out execute separately.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. An authored sortTags true object reaches expandFormatBlock and independent JSON tuple decoding in-process; emitted Boolean is observed without running JSDoc formatting or a child evaluator.
 func TestFormatBlockPropagatesJsdocSortTagsOption(t *testing.T) {
   out, err := expandFormatBlock(map[string]any{
     "jsDoc": map[string]any{

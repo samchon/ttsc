@@ -9,6 +9,16 @@ import (
 // TestConfigStoreSeverityOnlyOverrideInheritsMatchingOptions verifies normal
 // rule-setting merge semantics: a later severity-only declaration preserves a
 // tuple from an earlier matching entry, but never one from a nonmatching entry.
+//
+//
+// 1. Declare global options, a test severity-only override and script options.
+// 2. Resolve one test and one script source.
+// 3. Require inherited matching options for the test and explicit options for the script.
+//
+// @evidence contracts/testing.md#behavioral-verification ConfigStore.ResolveRules applies test warning severity without losing the matching global VariableDeclaration options and chooses explicit script DebuggerStatement options only for scripts.
+// @evidence contracts/testing.md#independent-expectations Severity-only overrides retain preceding matching options while an explicit tuple replaces them; independently authored selectors and literal payloads establish both outcomes.
+// @evidence contracts/testing.md#distinguishing-cases Owns bare severity versus explicit options across tests and scripts, rejecting inheritance from a nonmatching later tuple.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Direct ConfigStore.ResolveRules calls select test and script settings from authored entries in-process; returned severity and exact option JSON expose inheritance without a source walk or child host.
 func TestConfigStoreSeverityOnlyOverrideInheritsMatchingOptions(t *testing.T) {
   root := t.TempDir()
   store := &ConfigStore{entries: []ConfigEntry{

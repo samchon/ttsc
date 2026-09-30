@@ -16,6 +16,11 @@ import (
 // 1. Build an inline rules map mixing a bare severity and a tuple form.
 // 2. Parse it through `ParseRulesWithOptions`.
 // 3. Assert severity and options are routed to the correct collection.
+//
+// @evidence contracts/testing.md#behavioral-verification ParseRulesWithOptions parses one severity-only rule and one severity/options tuple, retaining option object fields and omitting an unnecessary options blob.
+// @evidence contracts/testing.md#independent-expectations ESLint-compatible tuple shape independently requires warning severity and the authored importOrder/importOrderSeparation values.
+// @evidence contracts/testing.md#distinguishing-cases The severity-only and object-option cases distinguish absence from preservation; ParseRulesPreservesPositionalOptions owns scalar and multiple slots.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. An authored bare severity and option tuple reach ParseRulesWithOptions and independent JSON decoding in-process; stored severity and option fields are observed without rule execution or consumer installation.
 func TestParseRulesAcceptsESLintTuplesInStandardInlineConfig(t *testing.T) {
   cfg, opts, err := ParseRulesWithOptions(map[string]any{
     "no-var": "error",
@@ -50,7 +55,7 @@ func TestParseRulesAcceptsESLintTuplesInStandardInlineConfig(t *testing.T) {
   if err := json.Unmarshal(raw, &decoded); err != nil {
     t.Fatalf("options blob is not valid JSON: %v", err)
   }
-  if len(decoded.ImportOrder) != 2 || decoded.ImportOrder[0] != "<THIRD_PARTY_MODULES>" {
+  if len(decoded.ImportOrder) != 2 || decoded.ImportOrder[0] != "<THIRD_PARTY_MODULES>" || decoded.ImportOrder[1] != "^[./]" {
     t.Fatalf("importOrder did not round-trip: %+v", decoded)
   }
   if !decoded.ImportOrderSeparation {

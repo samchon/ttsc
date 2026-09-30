@@ -10,6 +10,16 @@ import (
 // applied only among entries that match the requested file. Reversing global
 // and scoped tuples reverses the selected-file winner without changing the
 // unselected file's payload.
+//
+//
+// 1. Declare global and file-scoped tuples in both orders.
+// 2. Resolve a selected test file and an unselected main file.
+// 3. Require each order-dependent winner and the unchanged global main settings.
+//
+// @evidence contracts/testing.md#behavioral-verification ConfigStore.ResolveRules reverses the selected tests-file severity and options winner when global/scoped declaration order is reversed, while src/main.ts keeps global settings.
+// @evidence contracts/testing.md#independent-expectations Only matching entries participate and the last declaration wins; literal VariableDeclaration/error and DebuggerStatement/warn tuples independently establish each order-dependent result.
+// @evidence contracts/testing.md#distinguishing-cases Owns both entry orders with a selected and unselected file in each, preventing unconditional later-option leakage.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. The two named order cases call ConfigStore.ResolveRules on authored global/scoped entries and selected/unselected paths in-process; returned severity and JSON option bytes establish folding without parsing a consumer project or building a host.
 func TestConfigStoreOptionFoldHonorsBothEntryOrders(t *testing.T) {
   root := t.TempDir()
   global := ConfigEntry{

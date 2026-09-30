@@ -15,6 +15,11 @@ import (
 //  1. For each boolean sub-option, build sortImports with a non-bool value.
 //  2. Call expandFormatBlock.
 //  3. Assert an error naming the offending field.
+//
+// @evidence contracts/testing.md#behavioral-verification expandFormatBlock rejects caseSensitive yes, combineTypeAndValue 1, and unsafeSortRuntimeImports yes with their individual nested field names.
+// @evidence contracts/testing.md#independent-expectations Each of these public sort controls is Boolean; three independently authored wrong values and field paths establish rejection independently of option expansion.
+// @evidence contracts/testing.md#distinguishing-cases Owns all three Boolean sub-option error routes with string and integer counterexamples; valid true propagation is the companion case.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Three authored malformed sort control fields call expandFormatBlock directly in the shared Go process; each named nested error is observed without sorting imports or native compilation.
 func TestFormatBlockRejectsNonBoolSortImportsOptions(t *testing.T) {
   cases := []struct {
     key       string

@@ -20,6 +20,11 @@ import (
 //  2. Set TTSC_PLUGIN_CONFIG_DIR to the project and call LoadRuleConfig with
 //     the wrapper tsconfig.
 //  3. Assert the project's rules are loaded, not the decoy's.
+//
+// @evidence contracts/testing.md#behavioral-verification LoadRuleConfig uses TTSC_PLUGIN_CONFIG_DIR to load no-var/error and reject the competing wrapper no-console/error configuration.
+// @evidence contracts/testing.md#independent-expectations The explicit plugin config-directory channel is the sole search origin; distinct authored project and wrapper rules establish both winning and forbidden outcomes.
+// @evidence contracts/testing.md#distinguishing-cases Owns channel-set discovery with a plausible wrapper decoy; channel-absent wrapper and cwd-fallback selection are checked separately.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Two competing temporary JSON configs reach LoadRuleConfig with a scoped TTSC_PLUGIN_CONFIG_DIR override in-process; project and decoy severities observe origin selection, and testing restores the environment.
 func TestLoadRuleConfigHonorsPluginConfigDirEnv(t *testing.T) {
   dir := t.TempDir()
   wrapperDir := t.TempDir()

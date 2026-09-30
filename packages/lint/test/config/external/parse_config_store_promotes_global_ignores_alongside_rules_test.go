@@ -16,6 +16,11 @@ import "testing"
 //  2. Resolve an ignored path and an ordinary path.
 //  3. Assert the ignored path resolves Ignored=true with no rules, and the
 //     ordinary path still receives the object's rules.
+//
+// @evidence contracts/testing.md#behavioral-verification parseExternalConfigStore marks both nested .next output and exact next-env.d.ts ignored with no-var off, while ordinary source remains included with no-var/error.
+// @evidence contracts/testing.md#independent-expectations Top-level ignores without files exclude the entire chain even alongside rules; literal dot-directory and exact basename patterns independently determine inclusion.
+// @evidence contracts/testing.md#distinguishing-cases Owns global ignores without extends, two pattern shapes and an ordinary positive source, preventing a rules-branch early return from hiding promotion.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Direct parseExternalConfigStore and ResolveRules calls observe two ignored paths and ordinary source from one authored object in the shared Go process; no Next.js install or native producer is needed.
 func TestParseConfigStorePromotesGlobalIgnoresAlongsideRules(t *testing.T) {
   store, err := parseExternalConfigStore(map[string]any{
     "ignores": []any{".next/**/*.ts", "next-env.d.ts"},

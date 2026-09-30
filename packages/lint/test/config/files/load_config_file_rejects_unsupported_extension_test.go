@@ -18,6 +18,11 @@ import (
 // 1. Write a config-like file with an unsupported extension.
 // 2. Load it through the generic config loader.
 // 3. Assert the unsupported-extension diagnostic is returned.
+//
+// @evidence contracts/testing.md#behavioral-verification loadConfigFile rejects a real config-like YAML file before dispatching a JSON or script evaluator, avoiding a misleading read or execution error.
+// @evidence contracts/testing.md#independent-expectations The supported config suffix contract excludes .yaml; the exact existing fixture and literal unsupported-extension diagnostic establish rejection independently of dispatch code.
+// @evidence contracts/testing.md#distinguishing-cases Owns an existing but unsupported file, separating extension validation from missing-file errors; JSON and executable supported loaders have other entries.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. A real temporary YAML file reaches loadConfigFile directly in the shared Go process; unsupported-extension error precedes JSON/script dispatch, so no evaluator child or native artifact is needed.
 func TestLoadConfigFileRejectsUnsupportedExtension(t *testing.T) {
   dir := t.TempDir()
   location := filepath.Join(dir, "lint.config.yaml")

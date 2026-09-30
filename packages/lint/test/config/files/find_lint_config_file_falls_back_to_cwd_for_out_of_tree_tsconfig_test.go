@@ -20,6 +20,11 @@ import (
 //     separate wrapper directory.
 //  2. Call findLintConfigFile with cwd=dir and tsconfig=wrapperDir/tsconfig.json.
 //  3. Assert the config next to cwd is discovered via the fallback origin.
+//
+// @evidence contracts/testing.md#behavioral-verification findLintConfigFile selects the cwd lint.config.json after the separate wrapper-tsconfig ancestry contains no candidate.
+// @evidence contracts/testing.md#independent-expectations The original discovery contract permits a cwd fallback only after the tsconfig-origin walk fails; the two independently created directories establish the literal expected winner.
+// @evidence contracts/testing.md#distinguishing-cases Owns absent-wrapper/present-cwd fallback; the outside-cwd priority test supplies the opposite case with both origins populated.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Two temporary roots supply an absent wrapper config and present cwd config to findLintConfigFile in-process; selected path observes fallback without executing either project.
 func TestFindLintConfigFileFallsBackToCwdForOutOfTreeTsconfig(t *testing.T) {
   dir := t.TempDir()
   wrapperDir := t.TempDir()

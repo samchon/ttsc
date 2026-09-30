@@ -13,6 +13,11 @@ import "testing"
 //  1. Call expandFormatBlock(nil).
 //  2. Assert no error is returned.
 //  3. Assert the returned map is non-nil and empty.
+//
+// @evidence contracts/testing.md#behavioral-verification expandFormatBlock(nil) returns a non-nil empty map without error.
+// @evidence contracts/testing.md#independent-expectations An absent format block must provide an empty usable result instead of nil, panic or implicit defaults; map presence and zero count are independent observable expectations.
+// @evidence contracts/testing.md#distinguishing-cases Owns nil input; an explicit empty object is exercised by the default-severity case and produces configured formatter options.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Nil input calls expandFormatBlock directly in the shared Go process; the nonnil empty returned map is observed without config files, formatter dispatch or a child evaluator.
 func TestFormatBlockExpandsNilRawToEmptyMap(t *testing.T) {
   out, err := expandFormatBlock(nil)
   if err != nil {

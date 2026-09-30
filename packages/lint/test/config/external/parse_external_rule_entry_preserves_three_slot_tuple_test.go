@@ -14,6 +14,11 @@ import (
 // 1. Parse a severity, declaration mode, and block-function option tuple.
 // 2. Decode the returned generic options payload.
 // 3. Assert severity, order, and both option values remain exact.
+//
+// @evidence contracts/testing.md#behavioral-verification parseExternalRuleEntry preserves error severity and an ordered two-slot options tail containing both mode and blockScopedFunctions/disallow.
+// @evidence contracts/testing.md#independent-expectations Positional rule options retain their original order and values after the severity slot; independent JSON decoding compares the emitted tail with literal authored both and disallow values.
+// @evidence contracts/testing.md#distinguishing-cases Owns a three-slot tuple with a scalar followed by an object; null/no-options and single-tail forms are separate tests.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. The literal three-slot tuple reaches parseExternalRuleEntry directly, followed by independent encoding/json decoding in the shared Go process; transport is observed without rule dispatch or consumer installation.
 func TestParseExternalRuleEntryPreservesThreeSlotTuple(t *testing.T) {
   severity, raw, err := parseExternalRuleEntry([]any{
     "error",
