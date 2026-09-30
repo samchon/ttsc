@@ -32,6 +32,14 @@ import (
 //     transient output cannot receive a reusable fingerprint for restored A.
 //  8. Accept the evaluator's empty conflict sentinel as an unstable soft miss,
 //     while rejecting every malformed dependency-envelope class.
+// @evidence contracts/testing.md#behavioral-verification loadCachedConfigEvaluation and the real script evaluator preserve unchanged disk reuse, reject helper edits, bound unstable retries at three, agree on raw-byte directory fingerprints, reject retargeted identity and A-B-A cache proofs, and reject malformed envelopes.
+// @evidence contracts/testing.md#independent-expectations Literal generations, three attempts, independently SHA256-encoded directory records and restored optional-file digests define the cache protocol.
+// @evidence contracts/testing.md#distinguishing-cases Owns unchanged/changed/unstable dependencies, empty/single/UTF-8/link directories, optional absent-present-absent, retargeting, transient A-B-A and invalid envelope classes.
+// @evidence contracts/testing.md#execution-ownership TestConfigCacheInvalidatesTransitiveDependencyDigests is physically owned by test/e2e/config and called once with its unchanged name under TestSelectedLintBoundaries; all existing assertions and helpers remain in the flat Go overlay.
+// @evidence contracts/e2e.md#necessary-boundary Real Node hook evaluation and its Go fingerprint reader must agree; an injected evaluator alone cannot prove that wire agreement.
+// @evidence contracts/e2e.md#shared-execution Intentional mutations require fresh evaluator sessions while unchanged real-loader input must reuse one evaluation; no cache is deleted wholesale.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns each mutable fixture and t.Setenv restores changed environment; the production evaluator waits for each child and defers scratch removal and context cancellation on return; an external process kill cannot guarantee deferred cleanup. Distinct absolute config identities prevent cross-case cached answers, while intentional mutation and recovery states remain observable.
+// @evidence contracts/e2e.md#preserved-coverage Every original fixture, test-function body, assertion and helper is retained byte-for-byte; portable config units keep their separate selection and this move only makes the existing real boundary ownership physical.
 func TestConfigCacheInvalidatesTransitiveDependencyDigests(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
   root := t.TempDir()

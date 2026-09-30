@@ -19,6 +19,14 @@ import (
 //  3. Assert shared rules and format options survive beside the local ignores.
 //  4. Assert the executable config and imported helper are both published as
 //     config paths, then change only the helper and observe fresh rules.
+// @evidence contracts/testing.md#behavioral-verification LoadConfigResolver preserves async dynamic-import rules, local ignores, semi never options and both published config paths, then refreshes error to warning after a helper-only edit.
+// @evidence contracts/testing.md#independent-expectations Literal shared config values, local ignore glob and explicitly named two source paths independently define all expected results.
+// @evidence contracts/testing.md#distinguishing-cases Owns logging async factory output, default wrapper composition, main versus ignored path, format transport and unchanged entry with changed helper.
+// @evidence contracts/testing.md#execution-ownership TestLoadRuleConfigTypeScriptFactoryMergesReturnedDefaultWrapper is physically owned by test/e2e/config and called once with its unchanged name under TestSelectedLintBoundaries; all existing assertions and helpers remain in the flat Go overlay.
+// @evidence contracts/e2e.md#necessary-boundary Real async typed module evaluation, private output channel and dependency-aware Go cache must work together.
+// @evidence contracts/e2e.md#shared-execution The first request and helper-invalidated request intentionally differ; both reuse the existing ttsx/compiler artifact without sharing mutable project answers.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns each mutable fixture and t.Setenv restores changed environment; the production evaluator waits for each child and defers scratch removal and context cancellation on return; an external process kill cannot guarantee deferred cleanup. Distinct absolute config identities prevent cross-case cached answers, while intentional mutation and recovery states remain observable.
+// @evidence contracts/e2e.md#preserved-coverage Every original fixture, test-function body, assertion and helper is retained byte-for-byte; portable config units keep their separate selection and this move only makes the existing real boundary ownership physical.
 func TestLoadRuleConfigTypeScriptFactoryMergesReturnedDefaultWrapper(t *testing.T) {
   // This case has reported a config's own import missing from the published
   // paths on Windows, where the temporary directory carries a short component.

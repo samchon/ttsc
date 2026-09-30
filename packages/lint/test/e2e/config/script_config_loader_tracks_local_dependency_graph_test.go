@@ -56,6 +56,14 @@ import (
 //  19. Resolve one package through an inactive condition, an encoded target, a
 //     wildcard pattern whose first array entry is invalid, and a null-blocked
 //     subpath, and prove only the active targets enter the graph.
+// @evidence contracts/testing.md#behavioral-verification loadConfigFileEvaluation and loadConfigResolver preserve the nineteen documented CJS/ESM, resolution, dependency-scope, cache-refresh and recovery scenarios with all graph and severity assertions.
+// @evidence contracts/testing.md#independent-expectations Literal error/warning/off modules, explicitly authored resolution candidates and expected watch/cache kinds independently specify each transition.
+// @evidence contracts/testing.md#distinguishing-cases Owns helper/package edits, failed evaluation recovery, extension priority, hoisted and shadowed packages, legacy main, active exports conditions, lexical link retargets, query targets and blocked or fallback export branches.
+// @evidence contracts/testing.md#execution-ownership TestScriptConfigLoaderTracksLocalDependencyGraph is physically owned by test/e2e/config and called once with its unchanged name under TestSelectedLintBoundaries; all existing assertions and helpers remain in the flat Go overlay.
+// @evidence contracts/e2e.md#necessary-boundary Actual Node and ttsx module resolution plus Go dependency-envelope decoding and invalidation cannot be established by direct resolver maps.
+// @evidence contracts/e2e.md#shared-execution Independent origins and changed dependency states require evaluator requests; unchanged paths use the real cache and every scenario shares the same compiled Go harness.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns each mutable fixture and t.Setenv restores changed environment; the production evaluator waits for each child and defers scratch removal and context cancellation on return; an external process kill cannot guarantee deferred cleanup. Distinct absolute config identities prevent cross-case cached answers, while intentional mutation and recovery states remain observable.
+// @evidence contracts/e2e.md#preserved-coverage Every original fixture, test-function body, assertion and helper is retained byte-for-byte; portable config units keep their separate selection and this move only makes the existing real boundary ownership physical.
 func TestScriptConfigLoaderTracksLocalDependencyGraph(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
   // The typed loader's graph has come back holding only its startup records on
