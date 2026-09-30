@@ -24,67 +24,75 @@ import { WatchSession } from "../../internal/watch";
  * 2. Record the healthy resident cycle's TS7006.
  * 3. Kill the resident host and edit the source so the next cycle falls back.
  * 4. Assert the fallback cycle reports TS7006 again.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real watch reports TS7006 in a healthy resident cycle and exactly one additional TS7006 after killing that resident and editing the source.
+ * @evidence contracts/testing.md#independent-expectations The explicit untyped parameter and forwarded noImplicitAny require TS7006 independently of strict:false config; the measured healthy count establishes the prior stream boundary rather than an expected diagnostic body.
+ * @evidence contracts/testing.md#distinguishing-cases Owns healthy resident versus dead-host one-shot fallback under the same forwarded flag, complementing normal source/root/config resident transitions.
+ * @evidence contracts/testing.md#execution-ownership The matching named corpus-misc export drives one real WatchSession, native lint process and OS process termination in the Linux native batch.
+ * @evidence contracts/e2e.md#necessary-boundary The watcher must carry compiler flags from resident startup into fallback spawn after a real child death; direct argument composition cannot prove failure recovery uses the same payload.
+ * @evidence contracts/e2e.md#shared-execution The unchanged lint producer shares the batch plugin cache and Go objects; healthy and fallback cycles use one watcher, with an extra one-shot process required by the deliberately dead resident.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The isolated project owns strict:false config and source, the test stops only the PID obtained from actual telemetry, and finally closes the watcher even if the recovery assertion fails.
+ * @evidence contracts/e2e.md#preserved-coverage Original healthy diagnostic presence, integer PID, recovery-cycle deadline and healthy-count-plus-one assertions remain; no real fallback is replaced with a simulated client failure.
  */
-export const test_plugin_corpus_check_watch_fallback_keeps_forwarded_compiler_flags =
-  async (): Promise<void> => {
-    const root = setupLintProject("lint-violations");
-    const tsconfig = path.join(root, "tsconfig.json");
-    const config = JSON.parse(fs.readFileSync(tsconfig, "utf8")) as {
-      compilerOptions: Record<string, unknown>;
-    };
-    config.compilerOptions.strict = false;
-    fs.writeFileSync(tsconfig, JSON.stringify(config), "utf8");
-    fs.writeFileSync(
-      path.join(root, "lint.config.json"),
-      JSON.stringify({ rules: {} }),
-    );
-    const source = path.join(root, "src", "main.ts");
-    fs.writeFileSync(
-      source,
-      "export function echo(value) {\n  return value;\n}\n",
-    );
-
-    const session = new WatchSession(root, {
-      args: ["--noEmit", "--diagnostics", "--noImplicitAny"],
-      env: {
-        PATH: goPath(),
-        TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
-      },
-    });
-    try {
-      await session.waitForBuilds(1, 300_000);
-      // A rerun queued during a cold first build would replace the resident
-      // this test is about to stop, so every cycle so far has run first.
-      await session.waitForSettled();
-      const healthy = session.transcript();
-      const healthyCount = countTs7006(healthy);
-      assert.ok(healthyCount >= 1, healthy);
-      const pid = Number(
-        [...healthy.matchAll(/@ttsc\/lint resident check: pid=(\d+)/g)].at(
-          -1,
-        )?.[1],
-      );
-      assert.ok(Number.isInteger(pid), healthy);
-
-      process.kill(pid);
-      fs.appendFileSync(source, "// edited after the resident host died\n");
-      const deadline = Date.now() + 120_000;
-      while (
-        !session.transcript().slice(healthy.length).includes("watch build")
-      ) {
-        assert.ok(Date.now() < deadline, session.transcript());
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-      const recovered = session.transcript();
-      assert.equal(
-        countTs7006(recovered),
-        healthyCount + 1,
-        `the fallback cycle must keep --noImplicitAny:\n${recovered}`,
-      );
-    } finally {
-      await session.close();
-    }
+export async function test_plugin_corpus_check_watch_fallback_keeps_forwarded_compiler_flags(): Promise<void> {
+  const root = setupLintProject("lint-violations");
+  const tsconfig = path.join(root, "tsconfig.json");
+  const config = JSON.parse(fs.readFileSync(tsconfig, "utf8")) as {
+    compilerOptions: Record<string, unknown>;
   };
+  config.compilerOptions.strict = false;
+  fs.writeFileSync(tsconfig, JSON.stringify(config), "utf8");
+  fs.writeFileSync(
+    path.join(root, "lint.config.json"),
+    JSON.stringify({ rules: {} }),
+  );
+  const source = path.join(root, "src", "main.ts");
+  fs.writeFileSync(
+    source,
+    "export function echo(value) {\n  return value;\n}\n",
+  );
+
+  const session = new WatchSession(root, {
+    args: ["--noEmit", "--diagnostics", "--noImplicitAny"],
+    env: {
+      PATH: goPath(),
+      TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR,
+    },
+  });
+  try {
+    await session.waitForBuilds(1, 300_000);
+    // A rerun queued during a cold first build would replace the resident
+    // this test is about to stop, so every cycle so far has run first.
+    await session.waitForSettled();
+    const healthy = session.transcript();
+    const healthyCount = countTs7006(healthy);
+    assert.ok(healthyCount >= 1, healthy);
+    const pid = Number(
+      [...healthy.matchAll(/@ttsc\/lint resident check: pid=(\d+)/g)].at(
+        -1,
+      )?.[1],
+    );
+    assert.ok(Number.isInteger(pid), healthy);
+
+    process.kill(pid);
+    fs.appendFileSync(source, "// edited after the resident host died\n");
+    const deadline = Date.now() + 120_000;
+    while (
+      !session.transcript().slice(healthy.length).includes("watch build")
+    ) {
+      assert.ok(Date.now() < deadline, session.transcript());
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    const recovered = session.transcript();
+    assert.equal(
+      countTs7006(recovered),
+      healthyCount + 1,
+      `the fallback cycle must keep --noImplicitAny:\n${recovered}`,
+    );
+  } finally {
+    await session.close();
+  }
+}
 
 function countTs7006(transcript: string): number {
   return transcript.match(/TS7006/g)?.length ?? 0;
