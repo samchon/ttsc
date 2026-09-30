@@ -12,18 +12,18 @@ import (
 //
 // The nil-guard `if ctx == nil || ctx.File == nil || node == nil` at the top of
 // Check covers the nil-ctx, nil-File, and nil-node cases in a single condition.
-// The nil-node arm is exercised here so all three short-circuit branches
-// contribute coverage. Without this guard a nil-pointer dereference would crash
-// the dispatch loop.
+// This host exercises nil node and nil File; a sibling exercises nil Context.
+// Without those guards direct invocation could dereference absent state.
 //
 //  1. Parse a minimal source to obtain a real SourceFile.
 //  2. Construct a Context with the parsed file.
 //  3. Call Check with a nil *shimast.Node.
-//  4. Assert no panic occurs.
+//  4. Assert no panic or finding occurs.
+//  5. Call Check with a parsed node but absent File and assert the same result.
 //
-// @evidence contracts/testing.md#behavioral-verification formatPrintWidth.Check must return without panicking or collecting a finding for a nil node in a real source context.
+// @evidence contracts/testing.md#behavioral-verification formatPrintWidth.Check must return without panicking or collecting a finding for a nil node in a real source context and for a parsed node when Context.File is absent.
 // @evidence contracts/testing.md#independent-expectations The absent-node safety contract requires an empty finding population; a collector observes any unexpected emission.
-// @evidence contracts/testing.md#distinguishing-cases This nil-node arm complements nil Context, nil File and out-of-range source guards.
+// @evidence contracts/testing.md#distinguishing-cases This host executes nil node and absent File arms; nil Context and out-of-range source guards have separate hosts.
 // @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthCheckAbstainsWhenNodeIsNil is a public Go unit selected by TestSelectedLintUnits. It calls Check directly with isolated fixture source and a collector, without installing a consumer or starting a host.
 func TestFormatPrintWidthCheckAbstainsWhenNodeIsNil(t *testing.T) {
   root := t.TempDir()
@@ -39,5 +39,10 @@ func TestFormatPrintWidthCheckAbstainsWhenNodeIsNil(t *testing.T) {
   rule.Check(ctx, node)
   if len(findings) != 0 {
     t.Fatalf("nil node must emit no findings, got %d", len(findings))
+  }
+  missingFile := &Context{Severity: SeverityError, collect: func(f *Finding) { findings = append(findings, f) }}
+  rule.Check(missingFile, file.AsNode())
+  if len(findings) != 0 {
+    t.Fatalf("absent File must emit no findings, got %d", len(findings))
   }
 }
