@@ -13,6 +13,11 @@ import { createSandboxRequire } from "../../../../packages/playground/src/sandbo
  *    backslashes, and repeated slashes that Node resolves inside the package.
  * 2. Assert each resolves to the normalized pack key without weakening the
  *    existing encoded-separator escape rejection.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls the actual sandbox loader for seven exported subpaths: percent-decoded, double-encoded, query/hash, backslash and repeated-slash targets return literal module exports, while an encoded separator is rejected.
+ * @evidence contracts/testing.md#independent-expectations URL pathname rules decode percent escapes once and exclude query/fragment from file identity. Distinct authored pack keys and values independently distinguish foo, literal percent-encoded parent text, suffix and normalized directory selection.
+ * @evidence contracts/testing.md#distinguishing-cases Single versus double encoding, query versus fragment, backslash versus repeated slash and encoded slash rejection preserve separate assertions; successful normalization cannot weaken package-boundary validation.
+ * @evidence contracts/testing.md#execution-ownership This named source unit directly executes createSandboxRequire with an immutable in-memory pack and evaluates its literal CommonJS modules. URL objects are local parsing operations, not network requests; no native artifact, installation or product process is used.
  */
 export const test_create_sandbox_require_normalizes_url_export_targets = () => {
   const require = createSandboxRequire(

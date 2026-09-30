@@ -17,6 +17,11 @@ import { createSandboxRequire } from "../../../../packages/playground/src/sandbo
  * 2. Active `require` / `default` conditions are selected in manifest order.
  * 3. Negative twin: an ESM-only root condition map with no CJS-compatible target
  *    and no main/index fallback still fails, naming the requested package.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Runs createSandboxRequire with root string, dot table and conditional exports and asserts their actual CommonJS values. Reordered active conditions must select default, and an import-only root must reject its package identity.
+ * @evidence contracts/testing.md#independent-expectations Literal entry/default/require/node module values distinguish target choices under the supported require/default condition set and manifest-order contract. Expected values do not come from the resolver's target-selection computation.
+ * @evidence contracts/testing.md#distinguishing-cases Both dot-table forms and root strings succeed, a missing later default target cannot override first active require, reordered default wins, and a real ESM-only packed entry cannot become a CommonJS fallback.
+ * @evidence contracts/testing.md#execution-ownership This exported source unit invokes the authored CommonJS resolver and actual in-memory module bodies, without installing packages or launching a compiler/native host. Each load helper creates its own pack/resolver, and the manifest-order fixture owns a distinct local resolver.
  */
 export const test_create_sandbox_require_supports_commonjs_root_exports =
   () => {

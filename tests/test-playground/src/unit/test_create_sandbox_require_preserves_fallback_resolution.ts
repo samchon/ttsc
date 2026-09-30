@@ -13,6 +13,11 @@ import { createSandboxRequire } from "../../../../packages/playground/src/sandbo
  *    package shapes.
  * 2. Require every available entry and the blocked negative twin.
  * 3. Assert each shared resolver branch retains its prior observable result.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Exercises actual sandbox requires for main/index, exact and ranked wildcard exports, array fallback, browser conditions, scoped packages, relative siblings and JSON, with exact returned values and missing/private-export rejection.
+ * @evidence contracts/testing.md#independent-expectations Independent fixture module literals distinguish every selected path, including deep-wild versus wild and default versus node/import. The relative sibling exports41 so its authored caller returns42; null explicitly denies an existing private file.
+ * @evidence contracts/testing.md#distinguishing-cases Legacy packages contrast with declared exports; overlapping wildcard prefixes choose the nearer match, invalid array selection permits the valid target, node/import stay inactive, and absent and null-blocked specifiers both fail with their requested identities.
+ * @evidence contracts/testing.md#execution-ownership The named source unit calls createSandboxRequire and its returned loader in process over one local immutable pack. No network, disk package installation, native build or real product host is involved; all fixture values and failures execute once in this case.
  */
 export const test_create_sandbox_require_preserves_fallback_resolution = () => {
   const require = createSandboxRequire(
