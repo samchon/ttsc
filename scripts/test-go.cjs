@@ -45,7 +45,9 @@ function selectedRunners(layer = process.env.TTSC_TEST_LAYER) {
       (layer === "unit"
         ? GO_UNIT_RUNNERS.includes(runner)
         : !GO_UNIT_ONLY_RUNNERS.includes(runner)),
-  );
+  ).map((runner) => layer === "e2e" && runner === "test-go-driver.cjs"
+    ? "test-go-race.cjs"
+    : runner);
 }
 
 // Fast Node checks run before the long Go suites so both CI Go lanes cover the

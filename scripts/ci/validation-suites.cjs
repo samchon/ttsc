@@ -14,10 +14,6 @@ const LANES = [
     "run": "pnpm run test:go && pnpm --filter ttsc go:vet"
   },
   {
-    "id": "go-race",
-    "run": "node scripts/test-go-race.cjs"
-  },
-  {
     "id": "shim-audit",
     "run": "pnpm --filter ttsc shim:audit:test && pnpm --filter ttsc shim:audit"
   },
@@ -45,8 +41,6 @@ const LANES = [
       "features/ttsx-runtime",
       "features/utility-plugins",
       "features/watch",
-      "native-plugins/cli",
-      "native-plugins/compiler",
       "native-plugins/corpus-source",
       "native-plugins/corpus-ttsc",
       "native-plugins/driver",

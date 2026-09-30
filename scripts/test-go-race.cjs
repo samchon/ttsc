@@ -18,6 +18,7 @@
 
 const cp = require("node:child_process");
 const path = require("node:path");
+const { DRIVER_TEST_PACKAGES } = require("./test-go-driver.cjs");
 
 const root = path.resolve(__dirname, "..");
 const cwd = path.join(root, "packages", "ttsc");
@@ -25,7 +26,7 @@ const cwd = path.join(root, "packages", "ttsc");
 const steps = [
   {
     name: "proxy and driver tests under -race",
-    args: ["test", "-race", "-count=1", "./internal/lspserver/", "./test/driver/"],
+    args: ["test", "-race", "-count=1", "./internal/lspserver", ...DRIVER_TEST_PACKAGES],
     env: {},
   },
   {
@@ -42,21 +43,25 @@ const steps = [
   },
 ];
 
-let failed = 0;
-for (const step of steps) {
-  const started = process.hrtime.bigint();
-  const result = cp.spawnSync("go", step.args, {
-    cwd,
-    env: { ...process.env, CGO_ENABLED: "1", ...step.env },
-    stdio: "inherit",
-    windowsHide: true,
-  });
-  if (result.error) throw result.error;
-  const seconds = Number(process.hrtime.bigint() - started) / 1e9;
-  const status = result.status ?? 1;
-  console.log(
-    `go-race: ${step.name}: ${status === 0 ? "passed" : "FAILED"} in ${seconds.toFixed(1)} s`,
-  );
-  if (status !== 0) failed += 1;
+if (require.main === module) {
+  let failed = 0;
+  for (const step of steps) {
+    const started = process.hrtime.bigint();
+    const result = cp.spawnSync("go", step.args, {
+      cwd,
+      env: { ...process.env, CGO_ENABLED: "1", ...step.env },
+      stdio: "inherit",
+      windowsHide: true,
+    });
+    if (result.error) throw result.error;
+    const seconds = Number(process.hrtime.bigint() - started) / 1e9;
+    const status = result.status ?? 1;
+    console.log(
+      `go-race: ${step.name}: ${status === 0 ? "passed" : "FAILED"} in ${seconds.toFixed(1)} s`,
+    );
+    if (status !== 0) failed += 1;
+  }
+  process.exit(failed === 0 ? 0 : 1);
 }
-process.exit(failed === 0 ? 0 : 1);
+
+module.exports = { steps };

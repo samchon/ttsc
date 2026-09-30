@@ -34,19 +34,29 @@ const packages = [
   "./cmd/ttscserver",
 ];
 
-const result = cp.spawnSync("go", ["test", "-count=1", ...packages], {
-  cwd: path.join(root, "packages", "ttsc"),
-  env: {
-    ...process.env,
-    PATH: fs.existsSync(goRoot)
-      ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
-      : process.env.PATH,
-  },
-  stdio: "inherit",
-  windowsHide: true,
-});
-
-if (result.error) {
-  throw result.error;
+// The single e2e race batch already owns every proxy assertion. Default local
+// test:go keeps its normal, C-toolchain-independent package selection.
+function selectedPackages(layer = process.env.TTSC_TEST_LAYER) {
+  return packages.filter((entry) => layer !== "e2e" || entry !== "./internal/lspserver");
 }
-process.exit(result.status ?? 1);
+
+if (require.main === module) {
+  const result = cp.spawnSync("go", ["test", "-count=1", ...selectedPackages()], {
+    cwd: path.join(root, "packages", "ttsc"),
+    env: {
+      ...process.env,
+      PATH: fs.existsSync(goRoot)
+        ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
+        : process.env.PATH,
+    },
+    stdio: "inherit",
+    windowsHide: true,
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+  process.exit(result.status ?? 1);
+}
+
+module.exports = { selectedPackages };

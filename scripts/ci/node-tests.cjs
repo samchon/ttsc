@@ -16,11 +16,15 @@ const path = require("node:path");
  * - `scripts/ci/*.test.cjs` and `packages/<name>/scripts/*.test.cjs`: the CI
  *   tooling's own tests and package build scripts' tests, run by the
  *   `typecheck` lane.
+ * - `tests/unit/scripts/ci/*.test.cjs`: in-process tooling cases enrolled in
+ *   the test contracts, also run by the `typecheck` lane.
  *
  * A `.test.cjs` anywhere else below `scripts/` belongs to no lane, and
  * discovery throws naming it, so it cannot be silently skipped.
  */
 const NODE_TEST_OWNERS = [
+  { lane: "go", pattern: /^tests\/unit\/scripts\/go\/[^/]+\.test\.cjs$/ },
+  { lane: "typecheck", pattern: /^tests\/unit\/scripts\/ci\/[^/]+\.test\.cjs$/ },
   { lane: "go", pattern: /^scripts\/[^/]+\.test\.cjs$/ },
   { lane: "package-defenses", pattern: /^scripts\/ci\/package\/[^/]+\.test\.cjs$/ },
   { lane: "typecheck", pattern: /^scripts\/ci\/[^/]+\.test\.cjs$/ },
@@ -96,6 +100,7 @@ function discoverNodeTests(root, lane) {
     }
   };
   walk("scripts");
+  walk("tests/unit/scripts");
   for (const entry of fs.readdirSync(path.join(root, "packages"), {
     withFileTypes: true,
   })) {
@@ -108,7 +113,8 @@ function discoverNodeTests(root, lane) {
   if (unowned.length !== 0) {
     throw new Error(
       `no CI lane runs ${unowned.join(", ")}: move it under scripts/ (Go ` +
-        `lanes), scripts/ci/package/ (package defenses), or scripts/ci/ ` +
+      `lanes), scripts/ci/package/ (package defenses), tests/unit/scripts/ci/ ` +
+        `(units), or scripts/ci/ ` +
         `(typecheck), as scripts/ci/node-tests.cjs describes`,
     );
   }

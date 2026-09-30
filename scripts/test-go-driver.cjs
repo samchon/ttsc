@@ -11,23 +11,28 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
-const result = cp.spawnSync(
-  "go",
-  ["test", "-count=1", "./driver", "./test/driver"],
-  {
-    cwd: path.join(root, "packages", "ttsc"),
-    env: {
-      ...process.env,
-      PATH: fs.existsSync(goRoot)
-        ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
-        : process.env.PATH,
+const DRIVER_TEST_PACKAGES = ["./driver", "./test/driver"];
+if (require.main === module) {
+  const result = cp.spawnSync(
+    "go",
+    ["test", "-count=1", ...DRIVER_TEST_PACKAGES],
+    {
+      cwd: path.join(root, "packages", "ttsc"),
+      env: {
+        ...process.env,
+        PATH: fs.existsSync(goRoot)
+          ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
+          : process.env.PATH,
+      },
+      stdio: "inherit",
+      windowsHide: true,
     },
-    stdio: "inherit",
-    windowsHide: true,
-  },
-);
+  );
 
-if (result.error) {
-  throw result.error;
+  if (result.error) {
+    throw result.error;
+  }
+  process.exit(result.status ?? 1);
 }
-process.exit(result.status ?? 1);
+
+module.exports = { DRIVER_TEST_PACKAGES };
