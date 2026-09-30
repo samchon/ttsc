@@ -18,7 +18,7 @@ import { runtimeCompilerArgs } from "../../../../../packages/ttsc/src/launcher/i
  *
  * @evidence contracts/testing.md#behavioral-verification runtimeCompilerArgs uses the real effective-option reader for visible arguments and returns exact runtime-only overrides while retaining the original tokens.
  * @evidence contracts/testing.md#independent-expectations Node cannot execute preserved JSX or proposal decorators; supported ES2025 and React emit modes, unchanged explicit libraries/modules and false emit suppression establish the independent suffix expectations.
- * @evidence contracts/testing.md#distinguishing-cases Config and alias/case/repeated target overrides, explicit module/lib/noLib, both preserved JSX modes, all classic declarations, automatic import-source precedence, executable JSX modes and null effective readers distinguish each policy branch.
+ * @evidence contracts/testing.md#distinguishing-cases Default, ES2025, ES2019, CLI ES2019/null and alias/case/repeated target overrides, explicit module/lib/noLib, both preserved JSX modes, all classic declarations, automatic import-source precedence, executable JSX modes and null effective readers distinguish each policy branch.
  * @evidence contracts/testing.md#execution-ownership This named source unit resolves fixture configuration and calls authored functions in one process; no compiler binary, installation or product host executes.
  */
 export function test_runtime_compiler_args_preserves_options_and_lowers_only_unexecutable_syntax() {
@@ -35,6 +35,16 @@ export function test_runtime_compiler_args_preserves_options_and_lowers_only_une
   for (const scenario of targetCases) {
     project.compilerOptions = { plugins: [], ...scenario.options };
     assert.deepEqual(runtimeCompilerArgs(project, scenario.args), [...scenario.args, ...implied, ...tail]);
+  }
+  for (const scenario of [
+    { target: undefined, args: [] },
+    { target: "ES2025", args: [] },
+    { target: "ES2019", args: [] },
+    { target: "ESNext", args: ["-t", "es2019"] },
+    { target: "ESNext", args: ["--target", "null"] },
+  ]) {
+    project.compilerOptions = { plugins: [], target: scenario.target };
+    assert.deepEqual(runtimeCompilerArgs(project, scenario.args), [...scenario.args, ...tail]);
   }
   for (const scenario of [
     { options: { target: "ESNext", module: "commonjs", lib: [] }, suffix: ["--target", "es2025"] },
