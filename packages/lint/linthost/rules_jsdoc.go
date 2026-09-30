@@ -378,7 +378,6 @@ func jsdocTagHasLeadingType(tag parsedJSDocTag) (string, bool) {
 }
 
 func jsdocTypeContainsIdentifier(typ, name string) bool {
-  name = strings.ToLower(name)
   for i := 0; i < len(typ); {
     if !isIdentifierPart(typ[i]) {
       i++
@@ -388,7 +387,7 @@ func jsdocTypeContainsIdentifier(typ, name string) bool {
     for i < len(typ) && isIdentifierPart(typ[i]) {
       i++
     }
-    if strings.ToLower(typ[start:i]) == name {
+    if typ[start:i] == name {
       return true
     }
   }
@@ -509,7 +508,7 @@ func checkJSDocRejectFunctionType(ctx *Context, _ string, block parsedJSDocBlock
     if !ok {
       continue
     }
-    if jsdocTypeContainsIdentifier(typ, "function") {
+    if jsdocTypeContainsIdentifier(typ, "Function") {
       ctx.ReportRange(tag.tagStart, tag.tagEnd, "Do not use the unsafe Function type in JSDoc.")
     }
   }

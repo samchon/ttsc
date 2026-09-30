@@ -587,6 +587,9 @@ func (s *testingLibraryState) reportPreferImplicitAssert(ctx *Context) {
     }
     expectArg := firstExpectArgument(node)
     if expectArg != nil {
+      if expectArg.Kind != shimast.KindCallExpression {
+        continue
+      }
       inner := expectArg.AsCallExpression()
       if inner != nil && s.isQueryCall(inner, queryGet|queryAsync) {
         ctx.Report(node, "Prefer the implicit assertion from getBy* or findBy* queries.")
@@ -606,6 +609,9 @@ func (s *testingLibraryState) reportPreferPresenceQueries(ctx *Context) {
     if expectArg == nil {
       continue
     }
+    if expectArg.Kind != shimast.KindCallExpression {
+      continue
+    }
     inner := expectArg.AsCallExpression()
     if inner == nil {
       continue
@@ -623,6 +629,9 @@ func (s *testingLibraryState) reportPreferPresenceQueries(ctx *Context) {
 func (s *testingLibraryState) reportPreferQueryByDisappearance(ctx *Context) {
   s.forEachWaitFor(func(_, body *shimast.Node) {
     if containsNode(body, func(child *shimast.Node) bool {
+      if child == nil || child.Kind != shimast.KindCallExpression {
+        return false
+      }
       call := child.AsCallExpression()
       if call == nil {
         return false
@@ -633,6 +642,9 @@ func (s *testingLibraryState) reportPreferQueryByDisappearance(ctx *Context) {
       }
       arg := firstExpectArgument(child)
       if arg == nil {
+        return false
+      }
+      if arg.Kind != shimast.KindCallExpression {
         return false
       }
       inner := arg.AsCallExpression()
@@ -652,6 +664,9 @@ func (s *testingLibraryState) reportPreferQueryMatchers(ctx *Context) {
     }
     arg := firstExpectArgument(node)
     if arg == nil {
+      continue
+    }
+    if arg.Kind != shimast.KindCallExpression {
       continue
     }
     inner := arg.AsCallExpression()
@@ -1100,6 +1115,9 @@ func expectCallFromMatcherNode(node *shimast.Node) *shimast.CallExpression {
     return call
   }
   for cur := node; cur != nil; cur = cur.Parent {
+    if cur.Kind != shimast.KindCallExpression {
+      continue
+    }
     call := cur.AsCallExpression()
     if call == nil || callInfoFromCall(call).name != "expect" || call.Arguments == nil || len(call.Arguments.Nodes) == 0 {
       continue
