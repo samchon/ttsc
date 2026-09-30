@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-
 /**
  * Verifies tsgo remains authoritative for syntax of forwarded compiler flags.
  *
@@ -13,7 +12,7 @@ import path from "node:path";
  *
  * @evidence contracts/testing.md#behavioral-verification Executes inline outFile/jsx rejection, false/null declaration clearing, uppercase FALSE rejection and composite enable/disable.
  * @evidence contracts/testing.md#independent-expectations The tsgo argv grammar accepts separate values rather than equals spellings for these flags, lower false/null clear booleans and uppercase FALSE becomes a positional token; authored config requires declarations by default.
- * @evidence contracts/testing.md#distinguishing-cases Inline/separate JSX forms, two disabling literals, uppercase nonliteral and enabled/disabled composite distinguish arity and spelling decisions, retaining positive and negative command outcomes.
+ * @evidence contracts/testing.md#distinguishing-cases Inline JSX rejection, two disabling literals, uppercase nonliteral and enabled/disabled composite distinguish arity and spelling decisions, retaining positive and negative command outcomes.
  * @evidence contracts/testing.md#execution-ownership The named compiler feature runs seven actual launcher commands through TestExecutor.
  * @evidence contracts/e2e.md#necessary-boundary Real CLI forwarding must preserve native rejection and declaration publication decisions.
  * @evidence contracts/e2e.md#shared-execution All commands reuse one two-source project and built executables; false/null emit into separate output directories so neither can supply the other result.

@@ -73,7 +73,7 @@ export async function test_transformttsc_compile_leaves_the_event_loop_and_envir
       phase: index === 0 ? "cold" : "same-process shared producer",
       initial, intertick, final, longest: Math.max(initial, intertick, final),
       result, found, after: temporary(),
-      runs: fs.readFileSync(project.runLog, "utf8").trim().split("\n").length,
+      runs: fs.readFileSync(project.runLog, "utf8").split(/\r?\n/).filter((line) => line.trim().length !== 0).length,
     });
   }
   // Collect both phases before asserting, so a cold failure cannot hide reuse.
