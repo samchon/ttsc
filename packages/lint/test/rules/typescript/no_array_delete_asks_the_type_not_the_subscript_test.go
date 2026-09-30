@@ -19,6 +19,10 @@ import (
 //     array by identifier, and an array by call result.
 //  2. Run the rule.
 //  3. Assert only the three array deletes report.
+// @evidence contracts/testing.md#behavioral-verification Array deletion must report by receiver type rather than key spelling.
+// @evidence contracts/testing.md#independent-expectations Authored array/tuple deletion lines 9,10,11 fix three rule/error diagnostics; record and index-signature lines 7,8 must stay clean.
+// @evidence contracts/testing.md#distinguishing-cases Literal and call-result array keys contrast with object identifier keys, exposing both old missed and false-positive boundaries.
+// @evidence contracts/testing.md#execution-ownership TestNoArrayDeleteAsksTheTypeNotTheSubscript invokes the real Program/Checker through in-process check in one shared Go unit process; all original inputs/assertions remain and no child compiler, native build or installed consumer runs.
 func TestNoArrayDeleteAsksTheTypeNotTheSubscript(t *testing.T) {
   source := `declare const rec: Record<string, number>;
 declare const map: { [k: string]: number };
@@ -55,4 +59,5 @@ delete pair[1];
       t.Fatalf("keyed object reported at %s\n%s", line, stderr)
     }
   }
+  assertTypedRuleRenderedErrors(t, "typescript/no-array-delete", stderr, 9, 10, 11)
 }

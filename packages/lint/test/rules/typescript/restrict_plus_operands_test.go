@@ -24,6 +24,10 @@ import (
 // 1. Seed a project that adds a number literal to a string literal.
 // 2. Run `check` with typescript/restrict-plus-operands enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
+// @evidence contracts/testing.md#behavioral-verification Mixed number/string addition must report.
+// @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/restrict-plus-operands rendered error at line 1, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
+// @evidence contracts/testing.md#distinguishing-cases Number-plus-number is the valid counterpart.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusRestrictPlusOperands invokes the in-process check command and shared typed semantic oracles over real Program/Checker instances; fixture configuration feeds that operation without a native build, child compiler or installed consumer.
 func TestRuleCorpusRestrictPlusOperands(t *testing.T) {
   root := seedLintProject(t, `const mixed = 1 + "a";
 JSON.stringify(mixed);
@@ -40,4 +44,6 @@ JSON.stringify(mixed);
   if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/restrict-plus-operands]") {
     t.Fatalf("restrict-plus-operands diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
+  assertTypedRuleRenderedErrors(t, "typescript/restrict-plus-operands", stderr, 1)
+  assertTypedRuleCleanSource(t, "typescript/restrict-plus-operands", "const sum = 1 + 2;\n")
 }

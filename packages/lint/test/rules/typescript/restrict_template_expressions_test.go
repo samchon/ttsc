@@ -20,6 +20,10 @@ import (
 // 1. Seed a project that interpolates an object value into a template.
 // 2. Run `check` with typescript/restrict-template-expressions enabled.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
+// @evidence contracts/testing.md#behavioral-verification Object interpolation must report unsupported conversion.
+// @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/restrict-template-expressions rendered error at line 2, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
+// @evidence contracts/testing.md#distinguishing-cases String interpolation retains the template shape with a supported operand.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusRestrictTemplateExpressions invokes the in-process check command and shared typed semantic oracles over real Program/Checker instances; fixture configuration feeds that operation without a native build, child compiler or installed consumer.
 func TestRuleCorpusRestrictTemplateExpressions(t *testing.T) {
   root := seedLintProject(t, `declare const obj: { id: number };
 const s = `+"`"+`value=${obj}`+"`"+`;
@@ -37,4 +41,6 @@ JSON.stringify({ s });
   if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/restrict-template-expressions]") {
     t.Fatalf("restrict-template-expressions diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
+  assertTypedRuleRenderedErrors(t, "typescript/restrict-template-expressions", stderr, 2)
+  assertTypedRuleCleanSource(t, "typescript/restrict-template-expressions", "declare const value: string;\nconst s = `value=${value}`;\n")
 }

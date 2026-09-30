@@ -25,6 +25,10 @@ import (
 // 1. Seed a project that places a `number` in an `if` condition.
 // 2. Run `check` with typescript/strict-boolean-expressions enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
+// @evidence contracts/testing.md#behavioral-verification A number condition must report under boolean-only policy.
+// @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/strict-boolean-expressions rendered error at line 2, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
+// @evidence contracts/testing.md#distinguishing-cases A boolean condition is the valid counterpart.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusStrictBooleanExpressions invokes the in-process check command and shared typed semantic oracles over real Program/Checker instances; fixture configuration feeds that operation without a native build, child compiler or installed consumer.
 func TestRuleCorpusStrictBooleanExpressions(t *testing.T) {
   root := seedLintProject(t, `declare const count: number;
 if (count) {
@@ -43,4 +47,6 @@ if (count) {
   if code != 2 || stdout != "" || !strings.Contains(stderr, "[typescript/strict-boolean-expressions]") {
     t.Fatalf("strict-boolean-expressions diagnostic mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
+  assertTypedRuleRenderedErrors(t, "typescript/strict-boolean-expressions", stderr, 2)
+  assertTypedRuleCleanSource(t, "typescript/strict-boolean-expressions", "declare const flag: boolean;\nif (flag) { JSON.stringify(flag); }\n")
 }
