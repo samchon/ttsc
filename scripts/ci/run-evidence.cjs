@@ -8,14 +8,24 @@ const { runIndependent } = require("./run-independent.cjs");
  * A failing production or test claim must leave the other populations observable.
  * This is the root command used by the existing build job, not another CI job.
  *
- * @evidence contracts/common.md#principled-implementation Each scope invokes the actual Evidence checker with its owning configuration; the root result fails if any scope fails and independent scopes still finish after diagnostics or a spawn error.
- * @evidence contracts/common.md#clear-and-simple-design One ordered three-scope command retains the recursive production check and adds the unit and E2E configurations without changing their selectors or duplicating their policy.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Checker exit statuses and inherited diagnostics remain authoritative; no severity override, exclusion, retry or successful fallback masks an incomplete analysis.
- * @evidence contracts/common.md#meaningful-documentation The native comment identifies independent failure collection and existing-job ownership; each scope name appears in start and completion messages so a blocked or failed scope remains distinguishable.
- * @evidence contracts/performance.md#efficient-algorithms The fixed three scopes execute once in order; the checker owns source analysis, and this adapter retains only the bounded scope and failure lists.
- * @evidence contracts/performance.md#reuse-equivalent-work Each configured population has one checker invocation; the existing build job owns this single root command rather than separate workflow or test-runner checks. No checker result is cached across source changes.
- * @evidence contracts/performance.md#bound-retention-and-release-resources At most one checker child runs and each is joined before the next scope; inherited output is streamed, process spawn failures settle as failures, and no child or result is retained after completion.
- * @evidence contracts/portability.md#os-neutral-implementation The executable is pnpm with literal repository-owned arguments; Windows uses the shell to launch its command shim while POSIX launches directly, and every scope shares the resolved repository cwd.
+ * Each scope invokes the actual checker with its owning configuration. The
+ * ordered production, unit and E2E checks preserve their selectors and finish
+ * independently after diagnostics or spawn errors. Any failure fails the root
+ * result; inherited diagnostics and exit statuses remain authoritative, with no
+ * severity override, exclusion, retry or successful fallback. Named start and
+ * completion messages distinguish every scope's outcome.
+ *
+ * Each configured population runs once, with no result cached across source
+ * changes. The checker owns source analysis; this adapter retains only three
+ * scope entries and their failures. At most one child runs, and it is joined
+ * before the next scope. Output is streamed and spawn failures settle as failures.
+ *
+ * Windows launches pnpm through the shell for its command shim; POSIX launches
+ * it directly. Arguments are literal repository-owned tokens and every scope
+ * uses the resolved repository cwd.
+ *
+ * This private, automatically invoked script helper is reviewed through the
+ * root command; it is not an eligible public JavaScript Evidence host.
  */
 async function runEvidence() {
   const root = path.resolve(__dirname, "../..");
