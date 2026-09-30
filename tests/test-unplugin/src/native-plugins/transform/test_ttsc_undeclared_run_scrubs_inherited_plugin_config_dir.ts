@@ -18,6 +18,15 @@ import path from "node:path";
  * 2. Run `transform()` and `compile()` with a plugin that fails when the variable
  *    reaches it.
  * 3. Assert both succeed, then restore the environment.
+ *
+ * @evidence contracts/testing.md#behavioral-verification TtscCompiler transform and compile both succeed while fixture plugin rejects any inherited TTSC_PLUGIN_CONFIG_DIR; transform output contains PLUGIN.
+ * @evidence contracts/testing.md#independent-expectations Explicit poisoned environment and plugin assertion independently establish launch environment scrub in two compiler lanes.
+ * @evidence contracts/testing.md#distinguishing-cases Source-to-source transform and emitted build with undeclared inherited config anchor.
+ * @evidence contracts/testing.md#execution-ownership Named E2E test_ttsc_undeclared_run_scrubs_inherited_plugin_config_dir is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts. Its body owns the assertions above; the path-identity case also retains direct portable helper assertions here.
+ * @evidence contracts/e2e.md#necessary-boundary TtscCompiler transform and compile launch real plugin processes; direct environment-builder calls cannot prove the inherited variable is scrubbed at each actual spawn.
+ * @evidence contracts/e2e.md#shared-execution One compiler instance/project and native contributor artifact serve both public lanes. Separate native invocations are necessary to verify their independent spawn environment builders.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project and cache identities separate mutable inputs; tracked roots are removed on process exit. Inherited TTSC_PLUGIN_CONFIG_DIR is saved and restored in finally. Compiler processes complete before success assertions; abrupt cancellation is not tested.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: TtscCompiler transform and compile both succeed while fixture plugin rejects any inherited TTSC_PLUGIN_CONFIG_DIR; transform output contains PLUGIN. No assertion is transferred or removed by these tags; mixed portable helpers and cleanup limits remain explicitly disclosed.
  */
 export async function test_ttsc_undeclared_run_scrubs_inherited_plugin_config_dir(): Promise<void> {
   const requireFromTest = createRequire(import.meta.url);

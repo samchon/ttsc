@@ -28,6 +28,15 @@ import { runPooledWorker } from "../../internal/pooled-session/runPooledWorker";
  *    state here.
  * 3. Assert the delivery serves the moved project's current content from a third
  *    attempt's compile.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Publication costs two compiles, stale external adoption is refused, project moves at compile three, and current PLUGIN:SECOND is delivered at count four.
+ * @evidence contracts/testing.md#independent-expectations External first/second literals and fixture one-byte run log distinguish fresh state and attempts actually compiled.
+ * @evidence contracts/testing.md#distinguishing-cases Unprovable external publication does not spend project-movement bound; a subsequent real project edit does.
+ * @evidence contracts/testing.md#execution-ownership Named native-plugin E2E test_transformttsc_pooled_adoption_leaves_the_retry_bound_to_the_project is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts; this body and its invoked helpers own the distinctions above.
+ * @evidence contracts/e2e.md#necessary-boundary Real native producer and separate Node workers exchange session publications for unprovable external publication does not spend project-movement bound; a subsequent real project edit does. In-process cache calls cannot establish cross-process locks, publication transport or adoption.
+ * @evidence contracts/e2e.md#shared-execution One fixture project and private session publication store are reused across this case's workers/attempts. Native artifact builds use shared cache identity; separate workers are needed for publication/adoption, and changed state or producer inputs legitimately require the compile counts above.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project, run log and session/store roots prevent other workers' publications from satisfying this case. Worker processes complete before assertions inspect state, except the explicitly killed producer in the recovery case. Tracked roots are removed at process exit; cache instances used directly here have no explicit finally disposal, and abrupt cancellation is not exercised.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Publication costs two compiles, stale external adoption is refused, project moves at compile three, and current PLUGIN:SECOND is delivered at count four. These tags transfer no portable cases and remove no behavioral checks. Native setup and cleanup limitations above remain explicit.
  */
 export async function test_transformttsc_pooled_adoption_leaves_the_retry_bound_to_the_project(): Promise<void> {
   const {

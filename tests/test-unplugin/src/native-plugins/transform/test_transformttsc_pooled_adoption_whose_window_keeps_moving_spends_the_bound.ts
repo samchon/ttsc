@@ -27,6 +27,15 @@ import { runPooledWorker } from "../../internal/pooled-session/runPooledWorker";
  *    content changes.
  * 3. Assert the delivery ends in the unstable verdict, and nothing compiled in
  *    this process.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Repeated alpha timestamp changes during omega reads reject with reusable-generation error while count remains one published compile.
+ * @evidence contracts/testing.md#independent-expectations Injected touches change capture window without source bytes changing; unchanged run log exposes adoption-only attempts.
+ * @evidence contracts/testing.md#distinguishing-cases Every adoption window moves, unlike the one-move retry companion; bounded refusal must not trigger local compile.
+ * @evidence contracts/testing.md#execution-ownership Named native-plugin E2E test_transformttsc_pooled_adoption_whose_window_keeps_moving_spends_the_bound is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts; this body and its invoked helpers own the distinctions above.
+ * @evidence contracts/e2e.md#necessary-boundary Real native producer and separate Node workers exchange session publications for every adoption window moves, unlike the one-move retry companion; bounded refusal must not trigger local compile. In-process cache calls cannot establish cross-process locks, publication transport or adoption.
+ * @evidence contracts/e2e.md#shared-execution One fixture project and private session publication store are reused across this case's workers/attempts. Native artifact builds use shared cache identity; separate workers are needed for publication/adoption, and changed state or producer inputs legitimately require the compile counts above.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project, run log and session/store roots prevent other workers' publications from satisfying this case. Worker processes complete before assertions inspect state, except the explicitly killed producer in the recovery case. Tracked roots are removed at process exit; cache instances used directly here have no explicit finally disposal, and abrupt cancellation is not exercised.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Repeated alpha timestamp changes during omega reads reject with reusable-generation error while count remains one published compile. These tags transfer no portable cases and remove no behavioral checks. Native setup and cleanup limitations above remain explicit.
  */
 export async function test_transformttsc_pooled_adoption_whose_window_keeps_moving_spends_the_bound(): Promise<void> {
   const {

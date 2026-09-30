@@ -25,6 +25,15 @@ import { pathIdentityKey } from "../../../../../packages/unplugin/lib/core/trans
  * 2. Run the case-sensitive twin only when two on-disk case variants differ.
  * 3. Assert transformed output, cache reuse, and external-hash keys match that
  *    host contract.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Simulated Windows insensitive aliases merge while sensitive existing/missing spellings differ; real host twins verify PLUGIN or distinct upper output and external-hash deduplication.
+ * @evidence contracts/testing.md#independent-expectations Authored path policy and on-disk case variants define expected identities; real branch selection uses production helper so wrong host classification may hide a branch.
+ * @evidence contracts/testing.md#distinguishing-cases Insensitive/sensitive Windows scopes, candidate casing, event normalization, actual host case policy, trailing slash and conditional UNC.
+ * @evidence contracts/testing.md#execution-ownership Named E2E test_transformttsc_uses_filesystem_path_identity is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts. Its body owns the assertions above; the path-identity case also retains direct portable helper assertions here.
+ * @evidence contracts/e2e.md#necessary-boundary Native envelope source lookup and cache delivery run against actual host case policy; direct Windows identity simulations remain portable assertions mixed into this case and do not require native execution themselves.
+ * @evidence contracts/e2e.md#shared-execution One fixture/API supports the host's actual sensitive or insensitive branch. Synthetic Windows cases reuse one injected context without a host. Native fixture artifacts remain shared while source identities stay private.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project and cache identities separate mutable inputs; tracked roots are removed on process exit. Cache-local providers and identity contexts avoid global filesystem patches. There is no finally cache-reset guarantee here; process exit bounds remaining observers.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Simulated Windows insensitive aliases merge while sensitive existing/missing spellings differ; real host twins verify PLUGIN or distinct upper output and external-hash deduplication. No assertion is transferred or removed by these tags; mixed portable helpers and cleanup limits remain explicitly disclosed.
  */
 export async function test_transformttsc_uses_filesystem_path_identity(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();

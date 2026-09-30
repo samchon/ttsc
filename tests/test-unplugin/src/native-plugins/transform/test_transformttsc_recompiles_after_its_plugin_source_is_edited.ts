@@ -26,6 +26,15 @@ import path from "node:path";
  *    and assert nothing compiled.
  * 3. Edit the plugin's Go source so its output changes, deliver from both again,
  *    and assert each compiled once more and serves the new output.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Persistent and build-pass caches produce PLUGIN/count two, ignore .git/node_modules writes, then both produce PLUGIN-EDITED/count four after Go source edit.
+ * @evidence contracts/testing.md#independent-expectations Authored private producer edit and byte counter independently distinguish binary change from pruned noise.
+ * @evidence contracts/testing.md#distinguishing-cases Persistent versus pass validation, pruned source-tree writes, actual producer source edit.
+ * @evidence contracts/testing.md#execution-ownership Named native-plugin E2E test_transformttsc_recompiles_after_its_plugin_source_is_edited is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts; this body and its invoked helpers own the distinctions above.
+ * @evidence contracts/e2e.md#necessary-boundary Built transformTtsc coordinates the actual Go fixture envelope with cache delivery for persistent versus pass validation, pruned source-tree writes, actual producer source edit. A fabricated producer result would not establish that native proofs, output and consumer validation agree; portable helper assertions in this body still do not independently require a host.
+ * @evidence contracts/e2e.md#shared-execution One project and loaded API share native fixture artifacts through TTSC_CACHE_DIR. Its modules and request waves reuse the local generation until the stated input/proof/lifecycle changes require replacement; the compile counts above are deliberate state boundaries.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project/run-log/cache identities isolate this case's writes; immutable fixture Go sources may share artifact cache, while edited producer sources are copied locally. This body has no finally cache-reset guarantee; runner process exit bounds remaining observers and removes tracked roots. Cache-local seams avoid modifying another case's filesystem provider.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Persistent and build-pass caches produce PLUGIN/count two, ignore .git/node_modules writes, then both produce PLUGIN-EDITED/count four after Go source edit. These tags transfer no portable cases and remove no behavioral checks. Native setup and cleanup limitations above remain explicit.
  */
 export async function test_transformttsc_recompiles_after_its_plugin_source_is_edited(): Promise<void> {
   const {

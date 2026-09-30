@@ -19,6 +19,15 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  *    watch registration always fails.
  * 2. Deliver one module to capture the generation, then reset the counters.
  * 3. Deliver the rest and assert the candidate paths were checked.
+ *
+ * @evidence contracts/testing.md#behavioral-verification After cold compile with ENOSPC watches, remaining modules perform candidate probes while count remains one.
+ * @evidence contracts/testing.md#independent-expectations Instrumentation counts only authored three preferred candidate paths; native byte log confirms fallback probing does not imply recompilation.
+ * @evidence contracts/testing.md#distinguishing-cases Missing candidates under entirely refused watch registrations, stable remaining deliveries.
+ * @evidence contracts/testing.md#execution-ownership Named E2E test_transformttsc_unwatched_absent_candidate_is_still_probed is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts. Its body owns the assertions above; the path-identity case also retains direct portable helper assertions here.
+ * @evidence contracts/e2e.md#necessary-boundary Real native candidate envelope is validated through a cache whose watcher provider refuses registration; direct predicate tests cannot establish producer proof integration with the persistent fallback.
+ * @evidence contracts/e2e.md#shared-execution One four-module native project/cache captures once; remaining module requests share the result while explicit probe counters isolate their fallback work. No watcher or per-module producer rebuild is introduced.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project and cache identities separate mutable inputs; tracked roots are removed on process exit. Cache-local providers and identity contexts avoid global filesystem patches. There is no finally cache-reset guarantee here; process exit bounds remaining observers.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: After cold compile with ENOSPC watches, remaining modules perform candidate probes while count remains one. No assertion is transferred or removed by these tags; mixed portable helpers and cleanup limits remain explicitly disclosed.
  */
 export async function test_transformttsc_unwatched_absent_candidate_is_still_probed(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

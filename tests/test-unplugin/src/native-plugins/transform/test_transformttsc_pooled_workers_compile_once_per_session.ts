@@ -24,6 +24,15 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  *    since the config is part of the state the workers share.
  * 3. Repeat with different compiler options, and assert those workers compile for
  *    themselves once, never sharing across options.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Three workers return PROBED at count one, source edit produces edited/count two, config edit yields three, different compiler options yield four.
+ * @evidence contracts/testing.md#independent-expectations Fixture run log and authored edited marker distinguish one producer per state/options key.
+ * @evidence contracts/testing.md#distinguishing-cases Concurrent cold wave, source/config changes and noUnusedLocals option isolation.
+ * @evidence contracts/testing.md#execution-ownership Named native-plugin E2E test_transformttsc_pooled_workers_compile_once_per_session is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts; this body and its invoked helpers own the distinctions above.
+ * @evidence contracts/e2e.md#necessary-boundary Real native producer and separate Node workers exchange session publications for concurrent cold wave, source/config changes and noUnusedLocals option isolation. In-process cache calls cannot establish cross-process locks, publication transport or adoption.
+ * @evidence contracts/e2e.md#shared-execution One fixture project and private session publication store are reused across this case's workers/attempts. Native artifact builds use shared cache identity; separate workers are needed for publication/adoption, and changed state or producer inputs legitimately require the compile counts above.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project, run log and session/store roots prevent other workers' publications from satisfying this case. Worker processes complete before assertions inspect state, except the explicitly killed producer in the recovery case. Tracked roots are removed at process exit; cache instances used directly here have no explicit finally disposal, and abrupt cancellation is not exercised.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Three workers return PROBED at count one, source edit produces edited/count two, config edit yields three, different compiler options yield four. These tags transfer no portable cases and remove no behavioral checks. Native setup and cleanup limitations above remain explicit.
  */
 export async function test_transformttsc_pooled_workers_compile_once_per_session(): Promise<void> {
   const project = createCacheProject({ fileCount: 3 });

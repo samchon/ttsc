@@ -31,6 +31,15 @@ import { createUtilityPluginProject } from "../../internal/transform-utility-plu
  * 3. Assert the generation succeeds, every host input carries its proof, and no
  *    candidate of the package lies outside the project, whose own
  *    `node_modules` selected it.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Banner/strip through cjs/ts configs succeed with expected text/removed trace, selected package input and every proof retained, and no candidate beyond selected root.
+ * @evidence contracts/testing.md#independent-expectations Node bare resolution stops at nearest installed package; authored sibling churn past it cannot affect lookup.
+ * @evidence contracts/testing.md#distinguishing-cases Two plugins by two config formats, selected package versus higher irrelevant search roots.
+ * @evidence contracts/testing.md#execution-ownership Named E2E test_transformttsc_utility_config_proof_ignores_search_roots_past_the_selected_package is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts. Its body owns the assertions above; the path-identity case also retains direct portable helper assertions here.
+ * @evidence contracts/e2e.md#necessary-boundary Real banner/strip config-loader evaluation records resolver inputs and hands native envelope proofs to transformTtsc. A synthetic package lookup result cannot prove which search roots actual cjs/ts evaluation observes.
+ * @evidence contracts/e2e.md#shared-execution Four banner/strip and cjs/ts fixture identities each need actual evaluation because loader and plugin differ. Immutable native artifacts are shared where identities match; per-variant config, project and proof state remain private.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project and cache identities separate mutable inputs; tracked roots are removed on process exit. Cache-local providers and identity contexts avoid global filesystem patches. There is no finally cache-reset guarantee here; process exit bounds remaining observers.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Banner/strip through cjs/ts configs succeed with expected text/removed trace, selected package input and every proof retained, and no candidate beyond selected root. No assertion is transferred or removed by these tags; mixed portable helpers and cleanup limits remain explicitly disclosed.
  */
 export async function test_transformttsc_utility_config_proof_ignores_search_roots_past_the_selected_package(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

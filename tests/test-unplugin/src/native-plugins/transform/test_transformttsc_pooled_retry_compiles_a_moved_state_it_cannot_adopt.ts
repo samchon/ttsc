@@ -29,6 +29,15 @@ import { runPooledWorker } from "../../internal/pooled-session/runPooledWorker";
  *    this worker cannot prove either.
  * 3. Assert the delivery serves the file's current content from a compile of its
  *    own.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Two states publish at count four; stale external first data becomes second and moved-state retry delivers PLUGIN:SECOND at count five.
+ * @evidence contracts/testing.md#independent-expectations Literal external content and native byte counter distinguish current local compile from stale adoption.
+ * @evidence contracts/testing.md#distinguishing-cases Two project publications both invalid externally; movement to second cannot prevent eventual local capture.
+ * @evidence contracts/testing.md#execution-ownership Named native-plugin E2E test_transformttsc_pooled_retry_compiles_a_moved_state_it_cannot_adopt is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts; this body and its invoked helpers own the distinctions above.
+ * @evidence contracts/e2e.md#necessary-boundary Real native producer and separate Node workers exchange session publications for two project publications both invalid externally; movement to second cannot prevent eventual local capture. In-process cache calls cannot establish cross-process locks, publication transport or adoption.
+ * @evidence contracts/e2e.md#shared-execution One fixture project and private session publication store are reused across this case's workers/attempts. Native artifact builds use shared cache identity; separate workers are needed for publication/adoption, and changed state or producer inputs legitimately require the compile counts above.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project, run log and session/store roots prevent other workers' publications from satisfying this case. Worker processes complete before assertions inspect state, except the explicitly killed producer in the recovery case. Tracked roots are removed at process exit; cache instances used directly here have no explicit finally disposal, and abrupt cancellation is not exercised.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Two states publish at count four; stale external first data becomes second and moved-state retry delivers PLUGIN:SECOND at count five. These tags transfer no portable cases and remove no behavioral checks. Native setup and cleanup limitations above remain explicit.
  */
 export async function test_transformttsc_pooled_retry_compiles_a_moved_state_it_cannot_adopt(): Promise<void> {
   const {

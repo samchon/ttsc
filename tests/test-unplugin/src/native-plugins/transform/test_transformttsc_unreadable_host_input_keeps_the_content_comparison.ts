@@ -22,6 +22,15 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * 2. Assert deliveries hit the cache while it stays unreadable.
  * 3. Make its content appear through the cache's read without moving metadata, and
  *    assert the contradiction ends after one bounded retry wave.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Dangling universal input initially permits one compile; cache-local read exposes bytes without metadata movement and rejects host/content-changed at count three.
+ * @evidence contracts/testing.md#independent-expectations Deliberate dangling link and injected bytes isolate host manifest proof, with exact failure path and native count.
+ * @evidence contracts/testing.md#distinguishing-cases Unreadable universal host input then contradictory readable content.
+ * @evidence contracts/testing.md#execution-ownership Named native-plugin E2E test_transformttsc_unreadable_host_input_keeps_the_content_comparison is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts; this body and its invoked helpers own the distinctions above.
+ * @evidence contracts/e2e.md#necessary-boundary Built transformTtsc coordinates the actual Go fixture envelope with cache delivery for unreadable universal host input then contradictory readable content. A fabricated producer result would not establish that native proofs, output and consumer validation agree; portable helper assertions in this body still do not independently require a host.
+ * @evidence contracts/e2e.md#shared-execution One project and loaded API share native fixture artifacts through TTSC_CACHE_DIR. Its modules and request waves reuse the local generation until the stated input/proof/lifecycle changes require replacement; the compile counts above are deliberate state boundaries.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project/run-log/cache identities isolate this case's writes; immutable fixture Go sources may share artifact cache, while edited producer sources are copied locally. This body has no finally cache-reset guarantee; runner process exit bounds remaining observers and removes tracked roots. Cache-local seams avoid modifying another case's filesystem provider.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Dangling universal input initially permits one compile; cache-local read exposes bytes without metadata movement and rejects host/content-changed at count three. These tags transfer no portable cases and remove no behavioral checks. Native setup and cleanup limitations above remain explicit.
  */
 export async function test_transformttsc_unreadable_host_input_keeps_the_content_comparison(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

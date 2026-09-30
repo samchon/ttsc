@@ -28,6 +28,15 @@ import path from "node:path";
  * 3. Edit a file outside the project that a plugin reads, while nothing runs; do
  *    it again, and assert it refuses the publication and compiles the current
  *    content.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Three fresh sessions yield PLUGIN:FIRST/count two, same/count two, then PLUGIN:SECOND/count three after external edit.
+ * @evidence contracts/testing.md#independent-expectations External content literals and byte counter detect restart reuse and stale persisted publication.
+ * @evidence contracts/testing.md#distinguishing-cases Cold session, process restart over unchanged state, edit while no session runs.
+ * @evidence contracts/testing.md#execution-ownership Named native-plugin E2E test_transformttsc_pooled_workers_adopt_a_compile_from_before_a_restart is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts; this body and its invoked helpers own the distinctions above.
+ * @evidence contracts/e2e.md#necessary-boundary Real native producer and separate Node workers exchange session publications for cold session, process restart over unchanged state, edit while no session runs. In-process cache calls cannot establish cross-process locks, publication transport or adoption.
+ * @evidence contracts/e2e.md#shared-execution One fixture project and private session publication store are reused across this case's workers/attempts. Native artifact builds use shared cache identity; separate workers are needed for publication/adoption, and changed state or producer inputs legitimately require the compile counts above.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project, run log and session/store roots prevent other workers' publications from satisfying this case. Worker processes complete before assertions inspect state, except the explicitly killed producer in the recovery case. Tracked roots are removed at process exit; cache instances used directly here have no explicit finally disposal, and abrupt cancellation is not exercised.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Three fresh sessions yield PLUGIN:FIRST/count two, same/count two, then PLUGIN:SECOND/count three after external edit. These tags transfer no portable cases and remove no behavioral checks. Native setup and cleanup limitations above remain explicit.
  */
 export async function test_transformttsc_pooled_workers_adopt_a_compile_from_before_a_restart(): Promise<void> {
   const external = path.join(

@@ -26,6 +26,15 @@ import { runPooledWorker } from "../../internal/pooled-session/runPooledWorker";
  *    suite runs in.
  * 2. Deliver in this process, under another `GOFLAGS`, through the same session,
  *    and assert it refuses the publication and compiles once of its own.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Published PLUGIN at count one is refused under changed GOFLAGS and local PLUGIN delivery raises count to two.
+ * @evidence contracts/testing.md#independent-expectations Independent compile counter exposes otherwise-identical output adoption across build environments.
+ * @evidence contracts/testing.md#distinguishing-cases Same project/session/source, changed Go build tags only.
+ * @evidence contracts/testing.md#execution-ownership Named native-plugin E2E test_transformttsc_pooled_workers_refuse_a_publication_of_another_build_environment is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts; this body and its invoked helpers own the distinctions above.
+ * @evidence contracts/e2e.md#necessary-boundary Real native producer and separate Node workers exchange session publications for same project/session/source, changed Go build tags only. In-process cache calls cannot establish cross-process locks, publication transport or adoption.
+ * @evidence contracts/e2e.md#shared-execution One fixture project and private session publication store are reused across this case's workers/attempts. Native artifact builds use shared cache identity; separate workers are needed for publication/adoption, and changed state or producer inputs legitimately require the compile counts above.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project, run log and session/store roots prevent other workers' publications from satisfying this case. Worker processes complete before assertions inspect state, except the explicitly killed producer in the recovery case. GOFLAGS is restored in finally. Tracked roots are removed at process exit; cache instances used directly here have no explicit finally disposal, and abrupt cancellation is not exercised.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Published PLUGIN at count one is refused under changed GOFLAGS and local PLUGIN delivery raises count to two. These tags transfer no portable cases and remove no behavioral checks. Native setup and cleanup limitations above remain explicit.
  */
 export async function test_transformttsc_pooled_workers_refuse_a_publication_of_another_build_environment(): Promise<void> {
   const {

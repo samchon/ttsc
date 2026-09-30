@@ -26,6 +26,15 @@ import { createUtilityPluginProject } from "../../internal/transform-utility-plu
  * 2. Fail the watchers.
  * 3. Retarget the link to a directory whose `selection.cjs` is byte-identical, and
  *    assert the next delivery replaces the generation.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Complete generation outputs OLD LINK TARGET; failed watchers plus byte-identical selection-link retarget replace generation and output only NEW LINK TARGET.
+ * @evidence contracts/testing.md#independent-expectations Selection text identical while physical target and nested value differ, fixing independent identity/output oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Universal host input outside graph under unusable notifications, same-byte link retarget.
+ * @evidence contracts/testing.md#execution-ownership Named native-plugin E2E test_transformttsc_unnotified_utility_config_link_retarget_invalidates_generation is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts; this body and its invoked helpers own the distinctions above.
+ * @evidence contracts/e2e.md#necessary-boundary Actual banner/strip config loader evaluation and native envelope production exercise resolver search-root proofs for the stated filesystem transitions. A synthetic envelope cannot establish which files the loader observed.
+ * @evidence contracts/e2e.md#shared-execution Banner and strip by cjs and ts form four fixture/config identities in this one entry; each needs its actual loader evaluation. Immutable native contributor artifacts are reused where identities match, while config values and recorded proofs remain private.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project/run-log/cache identities isolate this case's writes; immutable fixture Go sources may share artifact cache, while edited producer sources are copied locally. This body has no finally cache-reset guarantee; runner process exit bounds remaining observers and removes tracked roots. Cache-local seams avoid modifying another case's filesystem provider.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Complete generation outputs OLD LINK TARGET; failed watchers plus byte-identical selection-link retarget replace generation and output only NEW LINK TARGET. These tags transfer no portable cases and remove no behavioral checks. Native setup and cleanup limitations above remain explicit.
  */
 export async function test_transformttsc_unnotified_utility_config_link_retarget_invalidates_generation(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

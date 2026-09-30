@@ -17,6 +17,15 @@ import path from "node:path";
  *    root.
  * 2. Transform through a fixture that reads the generated tsconfig.
  * 3. Assert the first `@` target is the root's `src`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Assert-paths fixture returns PLUGIN only when root-relative /src alias overlays @/* with actual project src.
+ * @evidence contracts/testing.md#independent-expectations Configured expected root/src is independent of generated overlay; fixture reads overlay delivered to native compiler.
+ * @evidence contracts/testing.md#distinguishing-cases Existing tsconfig mapping and Vite root-relative replacement for same alias.
+ * @evidence contracts/testing.md#execution-ownership Named native-plugin E2E test_transformttsc_root_relative_vite_alias_reaches_the_compile is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts; this body and its invoked helpers own the distinctions above.
+ * @evidence contracts/e2e.md#necessary-boundary Built public transformation invokes actual config discovery/overlay and native compiler or fixture plugin. The assertions establish that the selected config/alias reaches that producer, beyond portable option calculations.
+ * @evidence contracts/e2e.md#shared-execution One project and loaded API serve this entry's transformations; related repeats reuse configuration/artifact setup. Changed source/options need separate producer calls only for the distinctions above. Portable option policy is not claimed as a separate native boundary.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project/run-log/cache identities isolate this case's writes; immutable fixture Go sources may share artifact cache, while edited producer sources are copied locally. This body has no finally cache-reset guarantee; runner process exit bounds remaining observers and removes tracked roots. Cache-local seams avoid modifying another case's filesystem provider.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Assert-paths fixture returns PLUGIN only when root-relative /src alias overlays @/* with actual project src. These tags transfer no portable cases and remove no behavioral checks. Native setup and cleanup limitations above remain explicit.
  */
 export async function test_transformttsc_root_relative_vite_alias_reaches_the_compile(): Promise<void> {
   const { resolveOptions, transformTtsc } =

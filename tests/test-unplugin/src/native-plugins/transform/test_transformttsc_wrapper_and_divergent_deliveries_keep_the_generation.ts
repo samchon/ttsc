@@ -24,6 +24,15 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * 3. Deliver a sibling rewritten by an earlier plugin, twice, then another
  *    sibling, and assert one report and no recompile.
  * 4. Edit that sibling on disk and assert its next delivery recompiles.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Cold raw wrapper compiles zero; plain/t query and divergent sibling deliveries stay at one with one mismatch report; real disk edit yields two.
+ * @evidence contracts/testing.md#independent-expectations Authored wrapper/altered source and native counter distinguish host text from compiler disk inputs; report count pins deduplication.
+ * @evidence contracts/testing.md#distinguishing-cases Cold/warm raw wrapper, timestamp query, repeated earlier-plugin rewrite, unaffected sibling and actual edit.
+ * @evidence contracts/testing.md#execution-ownership Named E2E test_transformttsc_wrapper_and_divergent_deliveries_keep_the_generation is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts. Its body owns the assertions above; the path-identity case also retains direct portable helper assertions here.
+ * @evidence contracts/e2e.md#necessary-boundary Built transformTtsc connects real native disk-based output to wrapper/divergent host delivery texts. Portable query parsing alone cannot establish that rewritten texts leave producer state and sibling output intact.
+ * @evidence contracts/e2e.md#shared-execution One three-module project/cache serves wrapper, query and divergent deliveries; exactly one later disk edit requires another producer invocation. Native artifact builds reuse shared TTSC_CACHE_DIR.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project and cache identities separate mutable inputs; tracked roots are removed on process exit. Temporary stderr interception is restored in finally. Cache observers have no finally reset guarantee here, so process exit bounds retained handles.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Cold raw wrapper compiles zero; plain/t query and divergent sibling deliveries stay at one with one mismatch report; real disk edit yields two. No assertion is transferred or removed by these tags; mixed portable helpers and cleanup limits remain explicitly disclosed.
  */
 export async function test_transformttsc_wrapper_and_divergent_deliveries_keep_the_generation(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

@@ -24,6 +24,15 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  *    in turn.
  * 3. Assert each restores content validation, and a hidden rewrite during it
  *    replaces the generation.
+ *
+ * @evidence contracts/testing.md#behavioral-verification After separation only reference-tick global is reread without compile; rollback/unavailable probe/device mismatch each reveals rewrite, then reset closes watchers/references even one close throws and repeated reset does not retry.
+ * @evidence contracts/testing.md#independent-expectations Injected reference clock/device and read log define permissible metadata reuse; byte count and identity expose hidden-content invalidation.
+ * @evidence contracts/testing.md#distinguishing-cases Unseparated/separated ticks, equal-tick input, rollback, failed probe, device mismatch and idempotent fallible disposal.
+ * @evidence contracts/testing.md#execution-ownership Named native-plugin E2E test_transformttsc_separated_stamp_re_earns_its_signature is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts; this body and its invoked helpers own the distinctions above.
+ * @evidence contracts/e2e.md#necessary-boundary Built transformTtsc coordinates the actual Go fixture envelope with cache delivery for unseparated/separated ticks, equal-tick input, rollback, failed probe, device mismatch and idempotent fallible disposal. A fabricated producer result would not establish that native proofs, output and consumer validation agree; portable helper assertions in this body still do not independently require a host.
+ * @evidence contracts/e2e.md#shared-execution One project and loaded API share native fixture artifacts through TTSC_CACHE_DIR. Its modules and request waves reuse the local generation until the stated input/proof/lifecycle changes require replacement; the compile counts above are deliberate state boundaries.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project/run-log/cache identities isolate this case's writes; immutable fixture Go sources may share artifact cache, while edited producer sources are copied locally. Explicit reset verifies reference/watch cleanup including throwing close and repeated reset; earlier assertion failures lack a finally reset guarantee. Tracked roots end at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: After separation only reference-tick global is reread without compile; rollback/unavailable probe/device mismatch each reveals rewrite, then reset closes watchers/references even one close throws and repeated reset does not retry. These tags transfer no portable cases and remove no behavioral checks. Native setup and cleanup limitations above remain explicit.
  */
 export async function test_transformttsc_separated_stamp_re_earns_its_signature(): Promise<void> {
   const {

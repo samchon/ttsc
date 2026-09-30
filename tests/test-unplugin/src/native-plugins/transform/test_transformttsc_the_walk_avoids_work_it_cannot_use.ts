@@ -20,6 +20,15 @@ import { startMembershipSession } from "../../internal/transform-program-members
  *    never compares.
  * 3. Add, edit, and remove a source under the inherited `outDir`, and assert each
  *    is detected.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Overlay generated outDir and forty irrelevant JS assets preserve count one/read bound; admitted src source add/edit/remove yields counts two/three/four.
+ * @evidence contracts/testing.md#independent-expectations Effective overlay replaces inherited src exclusion; independent native/read counters distinguish ignored traffic and admitted input.
+ * @evidence contracts/testing.md#distinguishing-cases Inherited/overlay outDirs, emitted files, non-admitted assets and source creation/edit/deletion.
+ * @evidence contracts/testing.md#execution-ownership Named native-plugin E2E test_transformttsc_the_walk_avoids_work_it_cannot_use is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts; this body and its invoked helpers own the distinctions above.
+ * @evidence contracts/e2e.md#necessary-boundary Built transformTtsc coordinates the actual Go fixture envelope with cache delivery for inherited/overlay outDirs, emitted files, non-admitted assets and source creation/edit/deletion. A fabricated producer result would not establish that native proofs, output and consumer validation agree; portable helper assertions in this body still do not independently require a host.
+ * @evidence contracts/e2e.md#shared-execution One project and loaded API share native fixture artifacts through TTSC_CACHE_DIR. Its modules and request waves reuse the local generation until the stated input/proof/lifecycle changes require replacement; the compile counts above are deliberate state boundaries.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project/run-log/cache identities isolate this case's writes; immutable fixture Go sources may share artifact cache, while edited producer sources are copied locally. Session.close runs in finally and resets its cache observers; tracked roots end at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: Overlay generated outDir and forty irrelevant JS assets preserve count one/read bound; admitted src source add/edit/remove yields counts two/three/four. These tags transfer no portable cases and remove no behavioral checks. Native setup and cleanup limitations above remain explicit.
  */
 export async function test_transformttsc_the_walk_avoids_work_it_cannot_use(): Promise<void> {
   const session = await startMembershipSession(

@@ -29,6 +29,15 @@ import { createUtilityPluginProject } from "../../internal/transform-utility-plu
  * 3. Assert the generation is refused, the nearer candidate is an input without
  *    proof, the selected package keeps its proof, and no candidate of the
  *    package lies outside the project.
+ *
+ * @evidence contracts/testing.md#behavioral-verification All four plugin/format variants reject unstable generation; nearer candidate inputs lose proof, selected package retains proof, none outside selected root.
+ * @evidence contracts/testing.md#independent-expectations Node resolution would prefer nearer package; fixture creates/removes it during evaluation so ancestor transition independently refutes absence proof.
+ * @evidence contracts/testing.md#distinguishing-cases Banner/strip cjs/ts, ephemeral nearer candidate versus unaffected selected package.
+ * @evidence contracts/testing.md#execution-ownership Named E2E test_transformttsc_utility_config_proof_refuses_a_nearer_candidate_that_came_and_went is selected under native-plugins/transform by @ttsc/test-unplugin src/index.ts. Its body owns the assertions above; the path-identity case also retains direct portable helper assertions here.
+ * @evidence contracts/e2e.md#necessary-boundary Real banner/strip config-loader evaluation records resolver inputs and hands native envelope proofs to transformTtsc. A synthetic package lookup result cannot prove which search roots actual cjs/ts evaluation observes.
+ * @evidence contracts/e2e.md#shared-execution Four banner/strip and cjs/ts fixture identities each need actual evaluation because loader and plugin differ. Immutable native artifacts are shared where identities match; per-variant config, project and proof state remain private.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private project and cache identities separate mutable inputs; tracked roots are removed on process exit. Cache-local providers and identity contexts avoid global filesystem patches. There is no finally cache-reset guarantee here; process exit bounds remaining observers.
+ * @evidence contracts/e2e.md#preserved-coverage Retained assertions: All four plugin/format variants reject unstable generation; nearer candidate inputs lose proof, selected package retains proof, none outside selected root. No assertion is transferred or removed by these tags; mixed portable helpers and cleanup limits remain explicitly disclosed.
  */
 export async function test_transformttsc_utility_config_proof_refuses_a_nearer_candidate_that_came_and_went(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =
