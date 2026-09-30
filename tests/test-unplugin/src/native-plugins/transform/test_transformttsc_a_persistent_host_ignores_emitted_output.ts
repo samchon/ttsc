@@ -19,6 +19,15 @@ import { startMembershipSession } from "../../internal/transform-program-members
  * 1. Deliver persistently until the generation settles.
  * 2. Emit four more content-hashed bundles and assert no further compile.
  * 3. Add a source to the program and assert the next delivery recompiles.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Persistent deliveries retain one generation initially, allow the first lib directory appearance to settle, then require four content-hashed output rebuilds to leave the invocation count unchanged. A new late.ts must add exactly one invocation.
+ * @evidence contracts/testing.md#independent-expectations JavaScript output is not admitted by this fixture policy, whereas late.ts is. The sidecar log records actual native captures; comparison to the settled count permits the legitimate first-directory cost without deriving expected results from cache validation.
+ * @evidence contracts/testing.md#distinguishing-cases No-pass persistent ownership, initial output-directory appearance, four later hash-renamed bundles and real source creation distinguish watcher membership from pass-gate behavior. The appearing-output-directory entry owns the build-pass counterpart.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_a_persistent_host_ignores_emitted_output in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary The built public transform API launches the counting native sidecar and consumes its graph through a real filesystem cache across delivery-pass boundaries. This pins process-envelope delivery and generation reuse rather than native type semantics; the real-native-envelope entries own compiler calibration.
+ * @evidence contracts/e2e.md#shared-execution One startMembershipSession project and cache serve every persistent delivery with the shared Go sidecar artifact. emitHashedBundle changes only the case input, without another fixture installation; captures after actual admitted source creation remain necessary.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique root/log isolate the output files and late source. The settled count is captured after actual directory creation rather than warming past the transition silently. finally closes the session and releases trackers; TestProject cleans directories at runner exit.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_transformttsc_a_persistent_host_ignores_emitted_output; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_transformttsc_a_persistent_host_ignores_emitted_output(): Promise<void> {
   const session = await startMembershipSession();

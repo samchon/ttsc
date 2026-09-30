@@ -31,6 +31,15 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  *    watches the directory and hears the source as a membership change.
  * 4. Make a project directory unwatchable and assert the tracker fails cleanly
  *    instead of throwing.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Project trackers over five and five hundred packages must expose the same root/src watch set; a tracked package input adds only its directory chain, new src directories become watched and report source membership, and an unwatchable directory must fail cleanly.
+ * @evidence contracts/testing.md#independent-expectations The literal root/src set and tracked package chain follow admitted project membership, independently of recursive watcher implementation. Equality across a hundredfold package count measures native resource cardinality. The permissions failure row is unavailable to root, whose filesystem privileges defeat the stimulus.
+ * @evidence contracts/testing.md#distinguishing-cases Five versus five hundred untracked packages, one explicitly tracked package, a newly created source directory and source, and unprivileged unreadable-directory startup are the owned differences. The Linux guard limits this native watch-set oracle to inotify.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_linux_trackers_watch_no_package_tree in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary Real Linux tracker construction opens native helper watches and hears new-directory filesystem events. Direct admission calls cannot demonstrate bounded native watch allocation, subscription extension or clean native startup failure.
+ * @evidence contracts/e2e.md#shared-execution The five-package tracker closes before the five-hundred-package tracker opens on the same growing fixture, preserving comparable owner counts. The latter shares watches with its one host-input tracker. All phases reuse the helper and fixture; growth changes case input rather than installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Watch-map inspection is restricted to the unique physical root. Nested finally blocks close input and project trackers, and chmod is restored in finally after the failure row. Root runs explicitly omit that ineffective permissions row; TestProject owns directories through runner exit.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_linux_trackers_watch_no_package_tree; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_linux_trackers_watch_no_package_tree(): Promise<void> {
   if (process.platform !== "linux") return;

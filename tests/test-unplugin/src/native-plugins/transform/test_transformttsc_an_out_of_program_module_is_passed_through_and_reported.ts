@@ -43,6 +43,15 @@ async function captureStderr(body: () => Promise<void>): Promise<string> {
  * 2. Assert the report names the module and the program, and appears once per file
  *    per pass.
  * 3. Open a new pass and assert the report appears again.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A real Program module transforms, while scripts/tool.ts outside include passes through twice without throwing. One universal watch batch must include the config; stderr must name source and program exactly once in the pass and report the source again in a new pass.
+ * @evidence contracts/testing.md#independent-expectations The authored include:[src] excludes the separate scripts source independently of cache membership logic. Literal undefined pass-through, config inclusion and counted diagnostic occurrence require nonfatal reporting and recovery ownership; the test does not edit config to include the stray later.
+ * @evidence contracts/testing.md#distinguishing-cases In-program transform is the positive control for out-of-program pass-through. First versus repeated stray delivery tests per-file/per-pass report deduplication, and a new pass restores reporting.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_an_out_of_program_module_is_passed_through_and_reported in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary The actual native Program membership envelope feeds the JS public transform, custom watch batching and stderr reporting. A synthetic member set cannot prove the real compiler excluded a bundler-reachable source or kept configuration recovery inputs.
+ * @evidence contracts/e2e.md#shared-execution One real-native-envelope fixture, contributor artifact, options and cache serve every member and stray delivery. Shared Program capture supports repeated requests; new pass changes report lifetime without recreating the consumer or native installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique root and scripts source isolate membership. captureStderr restores the original stream writer in finally for both reporting phases, and the outer finally resets the cache. TestProject owns temporary roots through runner exit.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_transformttsc_an_out_of_program_module_is_passed_through_and_reported; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_transformttsc_an_out_of_program_module_is_passed_through_and_reported(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture();

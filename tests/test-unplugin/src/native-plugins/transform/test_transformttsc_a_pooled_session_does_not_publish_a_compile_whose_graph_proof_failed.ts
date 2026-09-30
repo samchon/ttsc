@@ -22,6 +22,15 @@ import { loadApi } from "../../internal/real-native-envelope/loadApi";
  *    than the compiler read, as a write landing during the compile does.
  * 2. Assert the entry is served, and that the project compiled twice: the compile
  *    whose proof failed, and the retry the session did not answer from it.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The first cache read of an external package declaration is altered after native compilation. transformTtsc must still serve FIRST from a second native capture; assertions require the mismatch hook to run and contract-runs size two, catching adoption of the rejected first publication.
+ * @evidence contracts/testing.md#independent-expectations The seam returns bytes other than those the native compiler read only once. Independent contributor log bytes and literal FIRST output require a fresh capture after failed proof. This does not inspect the session file directly; the retry count detects reuse of the invalid publication.
+ * @evidence contracts/testing.md#distinguishing-cases A graph input outside the project walk fails its first content proof while the walk remains stable, then unchanged real bytes permit recovery. The adjacent plugin-writing-below-root pooled entry provides the harmless root-mutation adoption control.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_a_pooled_session_does_not_publish_a_compile_whose_graph_proof_failed in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary Real native graph hashing, JS post-compile proof and filesystem session publication participate in one retry wave. A pure walk-key calculation cannot show failed graph proof prevents the retry from adopting its own rejected native capture.
+ * @evidence contracts/e2e.md#shared-execution One fixed linked contributor artifact, native build cache, project, session store and JS cache serve both attempts. Only the first proof read is adversarial, requiring one fresh capture rather than another installation or native producer build.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique project/session paths prevent a warm publication bypassing the first-proof seam. proven flips once so the retry reads actual bytes, and its assertion ensures the intended invalidation occurred. This entry has no explicit cache reset; its build-pass resources and TestProject paths end with the runner.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_transformttsc_a_pooled_session_does_not_publish_a_compile_whose_graph_proof_failed; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_transformttsc_a_pooled_session_does_not_publish_a_compile_whose_graph_proof_failed(): Promise<void> {
   TestUnpluginProject.ensureSharedCacheDir();

@@ -19,6 +19,15 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  * 2. Edit a module and run a second pass over every module.
  * 3. Assert two witnesses were opened and all closed, the edit recompiled, and
  *    teardown leaves no watcher open.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Two build passes over four modules, with a real source append in the second, must open exactly two temporary witness watchers, close all before delivery completes and count two native captures. Teardown must retain no open watcher.
+ * @evidence contracts/testing.md#independent-expectations A build pass revalidates at its own boundary, so persistent watchers are unnecessary; each actual capture still needs its race witness. Independent open/close counters and native run-log bytes jointly require bounded lifetime without skipping source invalidation. The watcher seam does not test actual OS descriptor release.
+ * @evidence contracts/testing.md#distinguishing-cases Initial capture and changed-source replacement each own one witness, while sibling cache hits must allocate none. Equality before and after reset distinguishes timely closure from cleanup only at teardown.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_build_passes_retain_no_filesystem_watchers in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary The built public transform API launches the counting native sidecar and consumes its graph through a real filesystem cache across delivery-pass boundaries. This pins process-envelope delivery and generation reuse rather than native type semantics; the real-native-envelope entries own compiler calibration.
+ * @evidence contracts/e2e.md#shared-execution One createCacheProject and shared sidecar artifact serve both passes through one cache. The watch seam counts only bounded capture lifetimes and every sibling reuses its pass generation; an edited source is the sole required second capture.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique fixture/log isolate the two passes, and local counters preserve all opens/closes across them. finally resets the cache even on failure and the final assertion verifies reset does not leave a handle; TestProject owns temporary roots.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_transformttsc_build_passes_retain_no_filesystem_watchers; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_transformttsc_build_passes_retain_no_filesystem_watchers(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();

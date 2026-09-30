@@ -21,6 +21,15 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  *    `realpath` probes.
  * 2. Deliver every module and record its watch inputs.
  * 3. Assert the probes per cache-hit delivery stay within the fan-out bound.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Six real module deliveries register each graph reach union plus universal inputs, and instrumented realpath calls after initial capture must average at most 24 per cache-hit sibling. This checks watch-set correctness while bounding per-module identity work.
+ * @evidence contracts/testing.md#independent-expectations The fixture declares all other modules, 24 external declarations and known universal config/source locations; the independent expected list enumerates that deliberate graph rather than calling derivation. The numeric bound measures filesystem operations, not timing, and permits work up to the fan-out budget.
+ * @evidence contracts/testing.md#distinguishing-cases Initial native capture is excluded from the cost measurement, then five sibling first deliveries in one pass are counted. Every module still has its full expected watch set, preventing an empty registration shortcut from satisfying the probe bound.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_bounds_watch_derivation_probes_per_module in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary The built public transform API launches the counting native sidecar and consumes its graph through a real filesystem cache across delivery-pass boundaries. This pins process-envelope delivery and generation reuse rather than native type semantics; the real-native-envelope entries own compiler calibration.
+ * @evidence contracts/e2e.md#shared-execution One six-file/24-edge createCacheProject shares its sidecar artifact and one build-scoped capture. The realpath counter resets after initial preparation, and all sibling deliveries share generation identity memoization rather than reconstructing graph preparations.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique project and per-file watch arrays isolate expected reach sets; the counter seam delegates to actual platform realpath. No explicit cache reset is present, so build-pass resources and temporary directories end with the runner.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_transformttsc_bounds_watch_derivation_probes_per_module; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_transformttsc_bounds_watch_derivation_probes_per_module(): Promise<void> {
   const {

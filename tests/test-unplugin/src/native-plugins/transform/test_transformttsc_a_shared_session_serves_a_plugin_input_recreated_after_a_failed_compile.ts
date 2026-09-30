@@ -25,6 +25,15 @@ import { loadApi } from "../../internal/real-native-envelope/loadApi";
  *    both fail naming it.
  * 3. Recreate it with a new value, deliver through each in a new pass, and assert
  *    both serve the new value.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Two caches sharing a filesystem session first return FIRST, then both reject naming contract-input after deletion, then both return SECOND after recreation in new passes. This detects stale diagnostic publications surviving a changed linked-plugin input state.
+ * @evidence contracts/testing.md#independent-expectations The contributor reads the literal ContractInput independently of program imports. FIRST/SECOND and the deleted-input diagnostic are fixture-defined outcomes, not derived from session keys. Both worker paths must observe each state, though this entry does not count capture sharing.
+ * @evidence contracts/testing.md#distinguishing-cases Healthy source, deleted input diagnostic, and recreated different-valued input are checked in both the publishing and adopting cache. The input is read by the linked plugin rather than a runtime import, so module-only invalidation cannot pass.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_a_shared_session_serves_a_plugin_input_recreated_after_a_failed_compile in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary A real linked contributor returns diagnostics to filesystem session publication consumed by two public JS caches. Synthetic source-plugin exceptions do not cover native diagnostic publication or its adoption after input recreation.
+ * @evidence contracts/e2e.md#shared-execution One fixed host-matrix contributor, shared native build cache, project and session store serve both cache owners and all three states. Separate caches are necessary to exercise publisher/adopter behavior; new passes change delivery identity without reinstalling the contributor.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique root/session paths prevent prior publications. Both caches keep the same options and session identity across explicit new passes; each deliver gathers results afresh and captures both errors before asserting. No explicit cache reset is present, so resources and temporary paths end with the runner.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_transformttsc_a_shared_session_serves_a_plugin_input_recreated_after_a_failed_compile; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_transformttsc_a_shared_session_serves_a_plugin_input_recreated_after_a_failed_compile(): Promise<void> {
   TestUnpluginProject.ensureSharedCacheDir();

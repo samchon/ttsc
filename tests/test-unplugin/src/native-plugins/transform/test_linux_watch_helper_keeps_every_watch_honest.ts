@@ -32,6 +32,15 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/li
  * 4. Stop the helper, and assert both trackers fail and a drain proves nothing;
  *    then point the adapter at a binary that does not exist, and assert a new
  *    tracker fails instead of trusting a watch.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Actual project and host-input trackers must become live through drainLinuxWatchHelper, record filesystem writes after one settle, treat a routed overflow as unattributed membership mutation, fail when the running helper exits, and refuse a missing helper binary.
+ * @evidence contracts/testing.md#independent-expectations Literal live/failed states and source/declaration paths follow the notification-authority contract. The overflow protocol message is deliberate input with an independently required conservative mutation; it does not simulate actual kernel queue exhaustion, which remains outside this oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Healthy synchronized edits contrast with protocol overflow, actual helper termination and missing-binary startup. Both tracker kinds must withdraw authority together, and a drain after termination must return false. This connection is Linux-specific.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_linux_watch_helper_keeps_every_watch_honest in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary The JS trackers share a real native helper process and its sync/exit protocol. Unit routing can test an overflow message, but cannot show actual drain barriers observe filesystem writes or that native process termination invalidates every owner.
+ * @evidence contracts/e2e.md#shared-execution One running helper serves both trackers and both writes. Overflow is injected into that session; its real termination is necessary to test lost-process authority. The separate missing-binary attempt changes startup input and must not adopt the prior helper.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique physical fixture paths isolate event names. The killed helper is temporarily referenced while awaiting exit; finally closes both trackers. The TTSC_BINARY override is restored and the refused missing path removed in finally, preventing later cases inheriting deliberate startup failure; TestProject owns temporary roots.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_linux_watch_helper_keeps_every_watch_honest; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_linux_watch_helper_keeps_every_watch_honest(): Promise<void> {
   if (process.platform !== "linux") return;

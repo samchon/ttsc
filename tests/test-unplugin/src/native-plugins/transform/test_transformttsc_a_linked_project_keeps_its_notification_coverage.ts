@@ -22,6 +22,15 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  *    module through the link.
  * 2. Deliver the remaining modules through the link, and assert nothing below the
  *    project was read, listed, or probed.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A linked four-module cache project with external graph inputs and absent candidates must compile once and deliver remaining modules without reading/listing/probing anything below either lexical or physical root. Instrumented filesystem operations expose repeated fallback work while root identity checks remain allowed.
+ * @evidence contracts/testing.md#independent-expectations A stable linked root and unchanged proved inputs permit watcher reuse. Independent filesystem-operation recording and native log bytes assert zero below-root work after initial delivery without deriving expected operations from tracker internals; result presence verifies each module was delivered.
+ * @evidence contracts/testing.md#distinguishing-cases Initial capture through a symlink/junction contrasts with unchanged linked sibling deliveries. Physical and lexical root spellings are both counted so alias-based probes cannot evade the oracle; root-only identity checks are explicitly permitted.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_a_linked_project_keeps_its_notification_coverage in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary The real link/junction, native envelope and filesystem notification coverage meet the public cache. Synthetic path normalization alone cannot establish linked-root watchers remain authoritative across actual sibling deliveries.
+ * @evidence contracts/e2e.md#shared-execution One createCacheProject and shared counting-sidecar artifact serve all four modules through a single cache. The link is an alias of the existing fixture rather than another installation; initial capture and settled watcher setup are shared before counting sibling validation work.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A unique fixture root and unique link parent isolate aliases. Counters clear only after first capture and a two-turn watcher settle, preserving the initial cold path while measuring reuse. No explicit cache reset occurs here; watcher and temporary directory lifetime is bounded by the test runner.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_transformttsc_a_linked_project_keeps_its_notification_coverage; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_transformttsc_a_linked_project_keeps_its_notification_coverage(): Promise<void> {
   const { createTtscTransformCache, resolveOptions, transformTtsc } =

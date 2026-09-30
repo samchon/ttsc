@@ -24,6 +24,15 @@ import path from "node:path";
  *    directory is another, and assert the project compiled once.
  * 2. Assert each host was handed one record, below its own tool directory.
  * 3. Assert both records hold the generation's state under one name.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Two project-register host contexts deliver the same main through one cache; the native run log must show one capture. Each context must receive one record physically below its own tool directory, readProjectRecordFile must decode both, and both record basenames must identify the same project.
+ * @evidence contracts/testing.md#independent-expectations A record belongs to the receiving host tool root even when generation identity is shared. Relative-path containment and independently counted native invocations require two publications from one capture; decoding generated records exercises publication behavior, not committed-file arrangement. Record content equality is not asserted beyond readability and name.
+ * @evidence contracts/testing.md#distinguishing-cases First versus second distinct host root reuse the same source/options/generation. The second must not inherit the first record location. Unwritable record fallback and volatility are owned by separate entries.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_a_generation_writes_a_record_below_each_host_root in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary Real native capture, transform-cache reuse and on-disk project-record publication meet two host registration contexts. Direct record-path calculation cannot prove cached delivery writes and hands each host its own usable record.
+ * @evidence contracts/e2e.md#shared-execution One createProject, shared counting-plugin artifact, main source and cache serve both hosts. Unique tool directories are required by the host-root routing distinction, while the real capture is shared and asserted once.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Project, run log and both tool directories are separately allocated by TestProject. Host callbacks retain their own handed arrays, preventing earlier registrations becoming later results. This entry does not explicitly reset its local cache; build-independent trackers and temporary resources end with the runner, a narrower lifetime than immediate per-case release.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_transformttsc_a_generation_writes_a_record_below_each_host_root; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_transformttsc_a_generation_writes_a_record_below_each_host_root(): Promise<void> {
   const {

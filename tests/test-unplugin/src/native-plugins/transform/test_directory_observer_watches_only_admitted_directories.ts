@@ -31,6 +31,15 @@ import { waitFor } from "../../internal/adapter-vite-serve/waitFor";
  *    membership does (samchon/ttsc#1419), and assert only a `subtree` track
  *    watches what it now admits there.
  * 4. Close both observers and assert every shared watch is released.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Two real Linux observers must share exactly the admitted root/src directory watches, report a newly created nested source, reject new package directories, add only explicitly tracked package chains, and widen a previously watched subtree only on subtree=true. Closing both must release every watch.
+ * @evidence contracts/testing.md#independent-expectations Literal relative-path watch sets follow the declared admission predicate and explicitly tracked locations independently of observer traversal. An actual emitted filesystem filename confirms notification behavior rather than directory arrangement. Watch-map inspection measures live resource ownership, not committed files.
+ * @evidence contracts/testing.md#distinguishing-cases Two consumers sharing one path, admitted versus rejected new directories, file versus directory tracks, ordinary versus widened subtree track, and final shared-owner close are distinct decisions. This entry is Linux-only because it observes the native inotify helper population.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_directory_observer_watches_only_admitted_directories in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary The directory observer connects real filesystem events through the native Linux watch helper to JS admission and notification consumers. Synthetic callbacks cannot show newly created directories acquire actual watches or that last-owner close releases shared native resources.
+ * @evidence contracts/e2e.md#shared-execution Both observers intentionally share one root and native helper session. Initial directories and later tracked chains are built once; no per-file helper launch is needed. Twenty unadmitted package trees test bounded admission without another installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A unique physical root scopes watch-map inspection. first/second callbacks are separate, and widened is changed only before the subtree comparison. finally closes both observers even after assertion failure; TestProject owns the fixture directory through runner exit.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_directory_observer_watches_only_admitted_directories; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_directory_observer_watches_only_admitted_directories(): Promise<void> {
   if (process.platform !== "linux") return;

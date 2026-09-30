@@ -28,6 +28,15 @@ import { settleFilesystemNotifications } from "../../internal/filesystem-notific
  * 3. Assert only the type package and the declaration were recorded.
  * 4. On POSIX, replace the declaration's directory and assert the location check
  *    withdraws the tracker's authority.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createHostInputMutationTracker must ignore writes beneath presence-only node_modules, record a new child of a listed type root and an edited declaration, then on POSIX withdraw authority when the watched declaration directory is replaced.
+ * @evidence contracts/testing.md#independent-expectations Explicit presence/children/content scopes independently determine which mutations matter. Collected relative event paths and failed flags distinguish native-backend misclassification; the expectation is not computed by the shared classifier. POSIX replacement is excluded on Windows where renaming a watched directory is refused.
+ * @evidence contracts/testing.md#distinguishing-cases Nested runner-cache writes are the no-op control, a new direct type-root child and read declaration edit are positive mutations, and unchanged versus replaced watched-directory identity tests authority. Backend events are settled before each assertion rather than assumed immediate.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_host_input_tracker_real_backends_agree in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary Actual inotify/FSEvents/broker notifications reach host-input scope classification and location verification. A watch seam alone cannot establish the filename and directory-event shapes delivered by each operating-system backend.
+ * @evidence contracts/e2e.md#shared-execution One fixture and tracker lifetime batch all scope decisions over three inputs. Native backend startup is shared across mutations; the POSIX location check reuses that tracker so replacement cannot be hidden by reopening it.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A unique physical root and settled fixture creation prevent prior setup events becoming case mutations. until repeatedly settles the same tracker until the expected event is present; finally tracker.close releases its subscriptions. TestProject owns paths at runner exit.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_host_input_tracker_real_backends_agree; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_host_input_tracker_real_backends_agree(): Promise<void> {
   const root = fs.realpathSync.native(

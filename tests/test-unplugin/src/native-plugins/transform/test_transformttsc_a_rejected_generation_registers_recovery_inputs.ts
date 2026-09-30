@@ -25,6 +25,15 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  *    and assert it registers them as well.
  * 3. Recover the walk in a new pass and assert a successful delivery registers its
  *    inputs without the failed flag.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A post-compile walk rejection must register the module and tsconfig with failed=true; a sibling replay in the same pass adds another failed registration, and repaired walk in a new pass returns output with a non-failed registration.
+ * @evidence contracts/testing.md#independent-expectations A host retaining per-run dependencies needs source/config recovery inputs even when no envelope is deliverable. Literal failed flags, path inclusion, registration-count increment and returned result require observable recovery routing; they do not derive the expected set from the rejected cache.
+ * @evidence contracts/testing.md#distinguishing-cases Initial unstable rejection, same-pass terminal replay and recovered next-pass success each exercise registration ownership. This differs from a native compiler diagnostic, whose recovery envelope is covered separately.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_a_rejected_generation_registers_recovery_inputs in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary The built public transform API launches the counting native sidecar and consumes its graph through a real filesystem cache across delivery-pass boundaries. This pins process-envelope delivery and generation reuse rather than native type semantics; the real-native-envelope entries own compiler calibration.
+ * @evidence contracts/e2e.md#shared-execution One createCacheProject, shared sidecar artifact and cache serve all three deliveries. The blocked walk is a local seam; native build preparation is shared and only bounded rejected attempts plus the recovered capture are necessary.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique fixture/log roots isolate the transient directory. Registrations intentionally accumulate with last-registration inspection, blocked changes before the recovery pass and beginTtscTransformBuild establishes that transition. No explicit cache reset is present, so retained resources and temporary roots end with the runner.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_transformttsc_a_rejected_generation_registers_recovery_inputs; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_transformttsc_a_rejected_generation_registers_recovery_inputs(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();

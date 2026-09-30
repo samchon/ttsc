@@ -23,6 +23,15 @@ import { createRealNativeEnvelopeFixture } from "../../internal/real-native-enve
  *    caller with one batch that includes the file the diagnostic names and
  *    claims no evidence.
  * 3. Assert the message carries no terminal escapes and still names that file.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Healthy, broken and repaired declaration deliveries inspect addWatchFiles batches and surfaced errors. Healthy inputs must carry missing/state evidence; failure must register the named external declaration with no unsupported evidence, no terminal escapes and one batch; repaired source must succeed.
+ * @evidence contracts/testing.md#independent-expectations NotARealExternalType is a deliberate unresolved type in a reached declaration. The real native diagnostic and literal one-batch/evidence-shape assertions require recovery inputs and plain reporting independently of adapter formatting. Physical-path comparison handles aliases; returned code semantics are not asserted.
+ * @evidence contracts/testing.md#distinguishing-cases Successful evidence-bearing registration, failed evidence-free registration and subsequent genuine repair distinguish three states. The external type-only declaration is absent from the project walk and bundler runtime graph, so recovery cannot rely on ordinary delivered modules.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_a_failed_compile_watches_and_reports_plainly in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary Actual native type-check failure crosses the public transform and custom host watch-registration boundary. A synthetic failure does not establish which real diagnostic file the native recovery graph contains or whether escape removal preserves that filename.
+ * @evidence contracts/e2e.md#shared-execution One real-envelope fixture and shared contributor artifact serve all three deliveries. Each deliver helper owns a fresh cache/pass because healthy, first-failure and repaired cold registration are the connection states under test; native build cache remains shared and no installation is repeated.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique fixture paths isolate the declaration rewrite. Each delivery collects fresh batches, evidence and error state and resets its cache in finally; the declaration is restored before the recovery delivery. TestProject owns temporary roots through runner cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_transformttsc_a_failed_compile_watches_and_reports_plainly; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_transformttsc_a_failed_compile_watches_and_reports_plainly(): Promise<void> {
   const fixture = createRealNativeEnvelopeFixture();

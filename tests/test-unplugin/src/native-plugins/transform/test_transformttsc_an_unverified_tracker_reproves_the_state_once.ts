@@ -25,6 +25,15 @@ import { projectModules } from "../../internal/transform-project-cache/projectMo
  *    generation cannot see it.
  * 3. Mark the trackers unverified again, deliver, and assert the project
  *    recompiled.
+ *
+ * @evidence contracts/testing.md#behavioral-verification With deaf watch seams, marking retained trackers unverified must re-prove unchanged state without a new capture and clear their flags. A new source remains unseen while authority is trusted, then a second unverified mark must find it and add one native capture.
+ * @evidence contracts/testing.md#independent-expectations Explicitly controlled notification silence and unverified flags establish known proof states independently of real OS timing. Literal capture counts 1,1,1,2 and false flags specify authority withdrawal/recovery; this fixture does not reproduce an actual FSEvents stream gap.
+ * @evidence contracts/testing.md#distinguishing-cases Unverified unchanged state, trusted silence despite hidden mutation, and unverified changed state distinguish one full proof from permanent fallback or unconditional trust. Actual backend gaps are outside this seam-based entry.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_an_unverified_tracker_reproves_the_state_once in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary The built public transform API launches the counting native sidecar and consumes its graph through a real filesystem cache across delivery-pass boundaries. This pins process-envelope delivery and generation reuse rather than native type semantics; the real-native-envelope entries own compiler calibration.
+ * @evidence contracts/e2e.md#shared-execution One createCacheProject and shared sidecar artifact supply the real capture and graph. One cache and fixed deaf watches serve every state; only discovered changed membership requires another native invocation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique root/log isolate the hidden appeared.ts. Trackers are taken from the actual generation and marked only at explicit phase boundaries; finally resets the cache. The watch seam owns no native handles, and TestProject owns paths through runner exit.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_transformttsc_an_unverified_tracker_reproves_the_state_once; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_transformttsc_an_unverified_tracker_reproves_the_state_once(): Promise<void> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();

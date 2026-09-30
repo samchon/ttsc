@@ -19,6 +19,15 @@ import { startMembershipSession } from "../../internal/transform-program-members
  * 2. Add a source under `src/feature/` and assert the next pass recompiles.
  * 3. Add a source under `src/build/` and assert the next pass recompiles, then
  *    settles again.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Membership-session passes require counts 1,1,2,3,3 when sources appear first under src/feature then src/build. This exposes depth-insensitive ignore rules while retaining unchanged-generation controls.
+ * @evidence contracts/testing.md#independent-expectations Both fixture files are admitted TypeScript inputs beneath src, regardless of the nested directory name. Independent sidecar bytes and literal counts require equivalent invalidation and later reuse rather than calculating the walk result as the oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Ordinary nested source creation is the control for the formerly ignored build name; initial and final unchanged passes test settled reuse. Top-level output creation is covered separately.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_a_new_source_is_detected_in_any_directory in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary The built public transform API launches the counting native sidecar and consumes its graph through a real filesystem cache across delivery-pass boundaries. This pins process-envelope delivery and generation reuse rather than native type semantics; the real-native-envelope entries own compiler calibration.
+ * @evidence contracts/e2e.md#shared-execution startMembershipSession uses one fresh createCacheProject and its shared counting-sidecar source/build cache. Its passes deliver the same three modules through one transform cache; only the two admitted membership changes require new invocations.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The session isolates project and log roots, holds compiler options fixed, and mutates only its src subtree. finally session.close resets the cache and trackers; temporary directories belong to TestProject through runner cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_transformttsc_a_new_source_is_detected_in_any_directory; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_transformttsc_a_new_source_is_detected_in_any_directory(): Promise<void> {
   const session = await startMembershipSession();

@@ -23,6 +23,15 @@ import path from "node:path";
  *    stands where its record directory would be.
  * 2. Deliver a module twice and assert no record is handed over, the module is
  *    marked uncacheable at each delivery, and one warning names the record.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A file blocking the project-record directory causes two transform deliveries to hand over no record, mark both modules volatile and emit exactly one TTSC_PROJECT_RECORD_UNWRITABLE warning naming the blocked path. This catches silent cacheable delivery after failed publication.
+ * @evidence contracts/testing.md#independent-expectations Hosts need a usable project record to validate compiler inputs; an unwritable destination cannot be advertised. Literal empty registrations, two volatility callbacks and one warning independently encode that contract. The filesystem blocker is deliberate input, and emitted warning text is observed after its asynchronous turn.
+ * @evidence contracts/testing.md#distinguishing-cases Both initial and repeated delivery share the same unwritable record target; volatility repeats per delivery while warning deduplicates per record. Healthy two-root publication and writable fallback are separate complementary entries.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_transformttsc_a_module_without_its_record_is_kept_out_of_caches in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary Actual filesystem publication failure reaches custom host volatility and Node process warnings after native compilation. A path calculation or mock warning cannot establish that delivery refuses to advertise a missing record.
+ * @evidence contracts/e2e.md#shared-execution One project, plugin artifact and transform cache serve both deliveries; only the host-tool blocker differs from healthy publication. The native producer and installed package preparations are shared rather than repeated to test warning deduplication.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique project/tool/log directories isolate the blocker and warning identity. The code-filtered process warning listener is removed in finally after one event-loop turn; the local cache is not explicitly reset, so its resources and temporary directories are bounded by runner exit.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_transformttsc_a_module_without_its_record_is_kept_out_of_caches; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
  */
 export async function test_transformttsc_a_module_without_its_record_is_kept_out_of_caches(): Promise<void> {
   const {
