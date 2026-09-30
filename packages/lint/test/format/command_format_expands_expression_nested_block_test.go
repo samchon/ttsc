@@ -17,6 +17,10 @@ import (
 //     expression positions.
 //  2. Run `ttsc format` and compare with the Prettier 3.8.3 answer key.
 //  3. Run a second pass and require idempotence.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises expands expression nested block and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Run a second pass and require idempotence.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Put non-empty blocks in object, call, array, conditional, and nested-arrow expression positions. The asserted decision is: Run a second pass and require idempotence. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatExpandsExpressionNestedBlock owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatExpandsExpressionNestedBlock(t *testing.T) {
   for _, tc := range []struct {
     name   string

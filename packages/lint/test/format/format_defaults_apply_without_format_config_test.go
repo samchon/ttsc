@@ -17,6 +17,10 @@ import (
 // 1. Build a format resolver over an empty config from a temp dir.
 // 2. Run the engine on a source missing its statement terminator.
 // 3. Assert the default format/semi rule fires.
+// @evidence contracts/testing.md#behavioral-verification An empty format resolver still runs the rule engine on const x = 1 without a terminator and must report a format/semi finding.
+// @evidence contracts/testing.md#independent-expectations The authored unterminated declaration and the documented always-on semi rule independently require the named finding; this host asserts admission, while fix snapshots own the edited text.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Build a format resolver over an empty config from a temp dir. The asserted decision is: Assert the default format/semi rule fires. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestFormatDefaultsApplyWithoutFormatConfig owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestFormatDefaultsApplyWithoutFormatConfig(t *testing.T) {
   resolver, err := newFormatCommandResolver(RuleConfig{}, t.TempDir(), "")
   if err != nil {

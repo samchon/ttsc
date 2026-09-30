@@ -17,6 +17,10 @@ import (
 //  1. Seed a valid TypeScript project with the JSDoc validator enabled.
 //  2. Run lsp-hints through the command dispatcher and decode its JSON.
 //  3. Assert a representative typed tag retains its trigger and detail.
+// @evidence contracts/testing.md#behavioral-verification lsp-hints dispatches the configured JSDoc publisher and must include the literal representative typed tag trigger and detail in decoded JSON.
+// @evidence contracts/testing.md#independent-expectations The literal tag and detail describe the supported completion payload, independently of corpus enumeration.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a valid TypeScript project with the JSDoc validator enabled. The asserted decision is: Assert a representative typed tag retains its trigger and detail. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestLSPHintsPublishesJSDocCheckTagNamesCorpus owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPHintsPublishesJSDocCheckTagNamesCorpus(t *testing.T) {
   root := seedLintProject(t, "/** Public value. */\nexport const value = 1;\n")
   seedLintRules(t, root, map[string]string{"jsdoc/check-tag-names": "warn"})

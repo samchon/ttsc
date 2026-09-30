@@ -11,6 +11,13 @@ import "testing"
 //
 // Every source is the Prettier-canonical output at printWidth 80, so format
 // must keep it byte-identical (the exploded forms carry the trailing comma).
+//
+//  1. Exercise the authored command format multiple callbacks fixtures through the Go format dispatcher.
+//  2. Require the exact authored output or rejection result for each fixture.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises multiple callbacks and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: two_arrows_explode_even_when_flat_fits, two_function_expressions_explode, three_arrows_explode, single_leading_arrow_stays_inline, single_trailing_arrow_stays_inline, sole_arrow_stays_inline, no_function_args_stays_inline, arg_is_call_with_callback_explodes, composed_map_call_with_trailing_arg_explodes, composition_overrides_last_arg_hug, single_composed_call_stays_inline, call_arg_without_callback_stays_inline, new_arg_with_callback_stays_inline, decorator_hug_exempt_from_function_break, fitting_decorator_two_arrows_stays_flat, decorator_without_huggable_last_explodes. Each keeps its own assertions under this one discoverable entry.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatMultipleCallbacks owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatMultipleCallbacks(t *testing.T) {
   // Two short arrows that fit flat: explode (the core async.then idiom).
   t.Run("two_arrows_explode_even_when_flat_fits", func(t *testing.T) {

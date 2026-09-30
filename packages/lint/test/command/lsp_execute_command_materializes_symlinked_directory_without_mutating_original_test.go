@@ -18,6 +18,10 @@ import (
 // 2. Execute `ttsc.lint.fixAll` against the visible symlink path.
 // 3. Assert the returned WorkspaceEdit fixes the document.
 // 4. Assert both the symlink path and backing file still contain source text.
+// @evidence contracts/testing.md#behavioral-verification Fix-all stages a symlinked source directory and returns the literal source rewrite while both linked and backing reads retain the original.
+// @evidence contracts/testing.md#independent-expectations The original/fixed fixture texts independently define edit correctness and non-mutation across the supplied directory alias.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project whose `src` directory is a symlink to another directory. The asserted decision is: Assert both the symlink path and backing file still contain source text. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestLSPExecuteCommandMaterializesSymlinkedDirectoryWithoutMutatingOriginal owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPExecuteCommandMaterializesSymlinkedDirectoryWithoutMutatingOriginal(t *testing.T) {
   root := t.TempDir()
   source := "var legacy = 1;\nJSON.stringify(legacy);\n"

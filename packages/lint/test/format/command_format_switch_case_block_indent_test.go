@@ -9,6 +9,13 @@ import "testing"
 // deeper, its `}` one level up from its body). Both forms, and the default
 // clause, are covered for idempotency, plus a de-indented separate-line block
 // is re-indented.
+//
+//  1. Exercise the authored command format switch case block indent fixtures through the Go format dispatcher.
+//  2. Require the exact authored output or rejection result for each fixture.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises switch case block indent and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: mixed_case_block_styles_idempotent, default_separate_line_block_idempotent, separate_line_case_block_reindented. Each keeps its own assertions under this one discoverable entry.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatSwitchCaseBlockIndent owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatSwitchCaseBlockIndent(t *testing.T) {
   t.Run("mixed_case_block_styles_idempotent", func(t *testing.T) {
     assertFormatUnchanged(t, `function f(x: string): void {

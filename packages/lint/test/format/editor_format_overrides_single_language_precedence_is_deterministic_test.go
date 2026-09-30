@@ -17,6 +17,10 @@ import (
 // 1. Write both declaration-order permutations of the conflicting sections.
 // 2. Resolve each settings file repeatedly for TypeScript.
 // 3. Assert the exact section wins every time.
+// @evidence contracts/testing.md#behavioral-verification editorFormatOverrides reads the disposable settings fixture and resolves single language precedence is deterministic; assertions check the specified effective values rather than repository settings text.
+// @evidence contracts/testing.md#independent-expectations The authored editor setting values and precedence described above determine the literal expected option map independently of resolver traversal or its map iteration order.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Write both declaration-order permutations of the conflicting sections. The asserted decision is: Assert the exact section wins every time. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestEditorFormatOverridesSingleLanguagePrecedenceIsDeterministic is a Go unit entry exercising the settings resolver in process; native fixture files provide resolver input, without invoking VS Code or an installed product host.
 func TestEditorFormatOverridesSingleLanguagePrecedenceIsDeterministic(t *testing.T) {
   settingsFiles := []string{
     `{

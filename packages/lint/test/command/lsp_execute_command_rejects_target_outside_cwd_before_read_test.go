@@ -20,6 +20,10 @@ import (
 // 2. Create an unreadable file outside the project.
 // 3. Execute `ttsc.lint.fixAll` for that outside URI.
 // 4. Assert the error names the project-boundary rejection, not a read failure.
+// @evidence contracts/testing.md#behavioral-verification Fix-all rejects an unreadable target outside cwd with the workspace-boundary error rather than attempting a read and surfacing its failure.
+// @evidence contracts/testing.md#independent-expectations The authored outside URI and required boundary error distinguish authorization ordering independently of the platform read error.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a normal lint project. The asserted decision is: Assert the error names the project-boundary rejection, not a read failure. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestLSPExecuteCommandRejectsTargetOutsideCwdBeforeRead owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPExecuteCommandRejectsTargetOutsideCwdBeforeRead(t *testing.T) {
   if runtime.GOOS == "windows" {
     t.Skip("chmod read checks differ on Windows")

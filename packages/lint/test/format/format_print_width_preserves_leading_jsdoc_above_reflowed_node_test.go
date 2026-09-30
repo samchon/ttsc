@@ -17,6 +17,10 @@ import "testing"
 //     the object literal would reflow regardless of the comment.
 //  3. Assert the JSDoc survives in the output, sitting above the
 //     reflowed declaration.
+// @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule parses the preserves leading jsdoc above reflowed node fixture and applies its edit; complete authored output equality rejects lost source content or punctuation alongside incorrect line layout. The owned result is: Assert the JSDoc survives in the output, sitting above the reflowed declaration.
+// @evidence contracts/testing.md#independent-expectations The source operands and literal expected layout are authored independently of the rule printer. The fixture fixes printWidth and indentation, so expected line placement does not come from rendering the implementation under test.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Configure printWidth=20. The asserted decision is: Assert the JSDoc survives in the output, sitting above the reflowed declaration. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthPreservesLeadingJSDocAboveReflowedNode is one Go unit entry through the registered rule engine, parser and fix applier; it uses no installed consumer or child product host.
 func TestFormatPrintWidthPreservesLeadingJSDocAboveReflowedNode(t *testing.T) {
   src := "/** doc */\nconst x = { aaaa: 1, bbbb: 2, cccc: 3 };\n"
   want := "/** doc */\nconst x = {\n  aaaa: 1,\n  bbbb: 2,\n  cccc: 3,\n};\n"

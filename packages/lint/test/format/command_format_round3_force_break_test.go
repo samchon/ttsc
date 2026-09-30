@@ -8,6 +8,13 @@ import "testing"
 // and the BigInt array must NOT fill. Each `assertFormatResult` feeds a FLAT
 // (fits-80) source and asserts the prettier-canonical broken output, exercising
 // the flat -> broken reflow direction the existing suite never covered.
+//
+//  1. Exercise the authored command format round3 force break fixtures through the Go format dispatcher.
+//  2. Require the exact authored output or rejection result for each fixture.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises round3 force break and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: array_of_arrays_in_new_map_breaks_from_flat, array_of_arrays_in_call_breaks_from_flat, function_composition_new_breaks_from_flat, bigint_array_one_per_line. Each keeps its own assertions under this one discoverable entry.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatRound3ForceBreak owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatRound3ForceBreak(t *testing.T) {
   // A same-kind array-of-arrays nested in `new Map([...])` force-breaks even
   // though the flat form fits (the fast path used to skip the outer `new`).

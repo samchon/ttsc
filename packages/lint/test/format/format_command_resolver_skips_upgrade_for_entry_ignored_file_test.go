@@ -24,6 +24,10 @@ import (
 //  2. Resolve rules for an ignored path and for an unrelated path.
 //  3. Assert the ignored path receives no format-rule upgrade and the
 //     unrelated path receives the standard warn-severity upgrade.
+// @evidence contracts/testing.md#behavioral-verification ResolveRules marks the entry-ignored path OutOfScope with format/semi off while upgrading a matched unrelated path to warn.
+// @evidence contracts/testing.md#independent-expectations The authored ignore path and literal off/warn severities express entry applicability independently of ConfigStore flag computation.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Build a `*ConfigStore` whose single entry has both `rules` and an `ignores` list plus a `format/*` option tuple. The asserted decision is: Assert the ignored path receives no format-rule upgrade and the unrelated path receives the standard warn-severity upgrade. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestFormatCommandResolverSkipsUpgradeForEntryIgnoredFile owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestFormatCommandResolverSkipsUpgradeForEntryIgnoredFile(t *testing.T) {
   store := &ConfigStore{
     entries: []ConfigEntry{

@@ -22,6 +22,10 @@ import (
 //  2. Run the format subcommand.
 //  3. Assert clean exit, the file changed, both reflows fired with CRLF, and
 //     every "\n" belongs to a "\r\n" (zero lone LFs).
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises preserves crlf across reflow rules and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert clean exit, the file changed, both reflows fired with CRLF, and every "\n" belongs to a "\r\n" (zero lone LFs).
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: This drives the whole config -> expansion -> engine -> fixer -> disk path and asserts the written file stays uniformly CRLF. . The asserted decision is: Assert clean exit, the file changed, both reflows fired with CRLF, and every "\n" belongs to a "\r\n" (zero lone LFs). Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatPreservesCRLFAcrossReflowRules owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatPreservesCRLFAcrossReflowRules(t *testing.T) {
   input := "class Repository implements First, Second, Third, Fourth, Fifth, Sixth {\r\n" +
     "  constructor(private readonly a: Foo, private readonly b: Bar) {}\r\n" +

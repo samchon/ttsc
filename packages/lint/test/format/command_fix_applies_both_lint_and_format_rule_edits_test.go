@@ -19,6 +19,10 @@ import (
 //     format-class violation (formatSemi).
 //  2. Run the fix subcommand with both rules enabled.
 //  3. Assert both kinds of edits land and the final exit code is zero.
+// @evidence contracts/testing.md#behavioral-verification The in-process fix dispatcher turns var into let and inserts both semicolons in the complete literal expected source, with exit 0 and silent output.
+// @evidence contracts/testing.md#independent-expectations The literal let legacy and JSON.stringify result independently expresses the configured no-var and format/semi edits; output is never manufactured by applying the returned fixes.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project with one lint-class violation (noVar) and one format-class violation (formatSemi). The asserted decision is: Assert both kinds of edits land and the final exit code is zero. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestCommandFixAppliesBothLintAndFormatRuleEdits owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestCommandFixAppliesBothLintAndFormatRuleEdits(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\n")
   // format/semi via the format block (the only formatting surface); no-var

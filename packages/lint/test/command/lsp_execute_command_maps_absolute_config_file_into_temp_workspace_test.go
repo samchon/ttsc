@@ -17,6 +17,10 @@ import (
 // 2. Scope that config to `src/**/*.ts` and enable `no-var`.
 // 3. Execute `ttsc.lint.fixAll` through the LSP command path.
 // 4. Assert the rule still applies and the source file remains unchanged.
+// @evidence contracts/testing.md#behavioral-verification Fix-all remaps the absolute custom JSON config into its temp workspace so the src glob still enables no-var and the original source remains unchanged.
+// @evidence contracts/testing.md#independent-expectations The authored let replacement and original var disk text independently require configuration applicability and nonmutation.
+// @evidence contracts/testing.md#distinguishing-cases A non-discovered absolute config with a files glob distinguishes correct remapping from default config discovery and matching against the original directory.
+// @evidence contracts/testing.md#execution-ownership The native Go loader, checker and private temp copy execute in process with JSON config; no executable config evaluator or installed compiler runs.
 func TestLSPExecuteCommandMapsAbsoluteConfigFileIntoTempWorkspace(t *testing.T) {
   source := "var legacy = 1;\nJSON.stringify(legacy);\n"
   root := seedLintProject(t, source)

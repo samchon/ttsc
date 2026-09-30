@@ -19,6 +19,10 @@ import (
 //     target below `||`, and one long standalone call.
 //  2. Run `ttsc format` twice and require both commands to exit cleanly.
 //  3. Assert the binary fragments stay intact and the standalone call reflows.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises print width abstains inside binary expression and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert the binary fragments stay intact and the standalone call reflows.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed broken calls below `||`, `??`, and `&&`, a destructuring assignment target below `||`, and one long standalone call. The asserted decision is: Assert the binary fragments stay intact and the standalone call reflows. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatPrintWidthAbstainsInsideBinaryExpression owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatPrintWidthAbstainsInsideBinaryExpression(t *testing.T) {
   binaryFragments := "export function isStrategy(value: unknown): boolean {\n" +
     "  return isSync(\n" +

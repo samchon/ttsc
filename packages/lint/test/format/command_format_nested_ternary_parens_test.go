@@ -7,6 +7,13 @@ import "testing"
 // of another ternary is wrapped in parentheses when the chain renders flat, and
 // the parens drop for the broken staircase. A ternary nested in the ALTERNATE
 // (`:`) position chains without parens.
+//
+//  1. Exercise the authored command format nested ternary parens fixtures through the Go format dispatcher.
+//  2. Require the exact authored output or rejection result for each fixture.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises nested ternary parens and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: consequent_nested_flat_parens, consequent_nested_member_test_parens, alternate_nested_no_parens, consequent_nested_broken_no_parens, consequent_source_parens_join_staircase, alternate_source_parens_chain. Each keeps its own assertions under this one discoverable entry.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatNestedTernaryParens owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatNestedTernaryParens(t *testing.T) {
   // Consequent-nested, flat: parens.
   t.Run("consequent_nested_flat_parens", func(t *testing.T) {

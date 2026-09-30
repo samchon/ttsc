@@ -22,6 +22,10 @@ import (
 //  1. Flatten a function-nested decorated class canonical to column 0.
 //  2. Run `ttsc format`.
 //  3. Assert it converges and restores the canonical exactly.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises restores decorated nested class indent from flat and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert it converges and restores the canonical exactly.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: The statement pass now mirrors the header pass for decorated declarations. . The asserted decision is: Assert it converges and restores the canonical exactly. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatRestoresDecoratedNestedClassIndentFromFlat owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatRestoresDecoratedNestedClassIndentFromFlat(t *testing.T) {
   canonical := "function f() {\n" +
     "  @Dec\n" +

@@ -20,6 +20,10 @@ import (
 //  1. Seed a project whose source is already the canonical decorated layout.
 //  2. Run `ttsc format` twice.
 //  3. Assert each run exits cleanly and the file is unchanged both times.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises decorated declaration indent is idempotent and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert each run exits cleanly and the file is unchanged both times.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project whose source is already the canonical decorated layout. The asserted decision is: Assert each run exits cleanly and the file is unchanged both times. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatDecoratedDeclarationIndentIsIdempotent owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatDecoratedDeclarationIndentIsIdempotent(t *testing.T) {
   canonical := "function f() {\n" +
     "  @Dec\n" +

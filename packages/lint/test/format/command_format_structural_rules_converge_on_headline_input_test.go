@@ -23,6 +23,10 @@ import (
 //  2. Run `ttsc format`.
 //  3. Assert the file converges to the canonical Prettier output and the
 //     subcommand exits cleanly.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises structural rules converge on headline input and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert the file converges to the canonical Prettier output and the subcommand exits cleanly.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project plus a `format` block config (always-on rules). The asserted decision is: Assert the file converges to the canonical Prettier output and the subcommand exits cleanly. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatStructuralRulesConvergeOnHeadlineInput owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatStructuralRulesConvergeOnHeadlineInput(t *testing.T) {
   source := "  const a: string = \"Hello, World!\"; let b: number = 42; var c: boolean = true; console.log(a, b, c);\n\n\n  \n"
   want := "const a: string = \"Hello, World!\";\n" +

@@ -18,6 +18,10 @@ import (
 // 1. Configure four-space combined indentation and two-space TypeScript indentation.
 // 2. Format a four-space-indented TypeScript statement to convergence.
 // 3. Assert exact two-space output and a zero-edit second run.
+// @evidence contracts/testing.md#behavioral-verification editorFormatOverrides reads the disposable settings fixture and resolves drive idempotent output; assertions check the specified effective values rather than repository settings text.
+// @evidence contracts/testing.md#independent-expectations The authored editor setting values and precedence described above determine the literal expected option map independently of resolver traversal or its map iteration order.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Configure four-space combined indentation and two-space TypeScript indentation. The asserted decision is: Assert exact two-space output and a zero-edit second run. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestEditorFormatOverridesDriveIdempotentOutput is a Go unit entry exercising the settings resolver in process; native fixture files provide resolver input, without invoking VS Code or an installed product host.
 func TestEditorFormatOverridesDriveIdempotentOutput(t *testing.T) {
   root := t.TempDir()
   settings := `{

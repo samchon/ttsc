@@ -13,6 +13,10 @@ import (
 //  3. Request quick fixes with missing, malformed, incomplete, reversed, and
 //     non-overlapping ranges, including omitted position fields.
 //  4. Require every request to return no actions rather than file-wide edits.
+// @evidence contracts/testing.md#behavioral-verification Range parsing and quickfix discovery distinguish closed-open start/inside/end overlap and missing, malformed, reversed, incomplete or non-overlapping selections; invalid requests yield no action.
+// @evidence contracts/testing.md#independent-expectations Literal cursor overlap booleans come from closed-open LSP ranges. Empty action arrays follow the explicit admission contract, independently of diagnostic position calculation.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Pin closed-open overlap behavior at a diagnostic's start and end. The asserted decision is: Require every request to return no actions rather than file-wide edits. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestLSPCodeActionsFailClosedForInvalidQuickfixRange owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPCodeActionsFailClosedForInvalidQuickfixRange(t *testing.T) {
   diagnosticRange := lspRange{
     Start: lspPosition{Line: 2, Character: 3},

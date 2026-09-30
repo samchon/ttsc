@@ -20,6 +20,10 @@ import (
 //     line with two preceding statements.
 //  2. Run `ttsc format`.
 //  3. Assert the call ends up flat on its own line at column 0.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises split call collapses flat once isolated and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert the call ends up flat on its own line at column 0.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project whose call overflows 80 only because it shares the line with two preceding statements. The asserted decision is: Assert the call ends up flat on its own line at column 0. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatSplitCallCollapsesFlatOnceIsolated owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatSplitCallCollapsesFlatOnceIsolated(t *testing.T) {
   // Crammed line is 88 columns (>80); the call alone is 60 columns (<80).
   source := "  const a = 1; const b = 2; console.log(\"aaaa\", \"bbbb\", \"cccc\", \"dddd\", \"eeee\", \"ffff\");\n"

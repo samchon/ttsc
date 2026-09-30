@@ -13,7 +13,6 @@ import {
  * became 1000 checker workers, `0x10` became 16, and `2.0` became 2, although
  * tsgo rejects all three. Signed and zero-padded decimals stay accepted.
  *
- * 1. Create a project with a valid TypeScript source file.
  * Invalid numeric decisions are owned by the authored flag-parser unit; this
  * boundary retains the actual compiler invocation for both accepted spellings.
  *

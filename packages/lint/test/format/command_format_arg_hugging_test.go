@@ -7,6 +7,13 @@ import "testing"
 // format must keep it byte-identical. The cases probe the boundary: a clean
 // last-arg hug, a first-arg hug, and two shapes Prettier does NOT hug (it
 // explodes) because more than one argument is complex.
+//
+//  1. Exercise the authored command format arg hugging fixtures through the Go format dispatcher.
+//  2. Require the exact authored output or rejection result for each fixture.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises arg hugging and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: last_arg_arrow_block_hugs, first_arg_arrow_block_hugs, first_arg_short_trailing_call_hugs, first_arg_two_arg_trailing_call_explodes, first_arg_long_zero_arg_new_hugs, first_arg_long_one_arg_call_hugs, first_arg_nested_call_trailing_explodes, last_arg_keyword_return_object_arrow_hugs, first_arg_short_binary_trailing_hugs, first_arg_arithmetic_trailing_hugs, first_arg_empty_object_trailing_hugs, first_arg_prefix_unary_trailing_hugs, first_arg_nonempty_object_trailing_explodes, first_arg_long_binary_trailing_explodes, first_arg_chained_binary_trailing_explodes, first_arg_single_binary_trailing_hugs, first_arg_simple_cast_trailing_hugs, first_arg_nonempty_array_cast_trailing_explodes, first_arg_call_cast_trailing_explodes, leading_arrow_object_last_hugs, first_arg_satisfies_cast_trailing_hugs, first_arg_object_type_cast_trailing_explodes, first_arg_multi_type_arg_cast_explodes, first_arg_nested_generic_cast_explodes, first_arg_union_cast_explodes, first_arg_single_type_arg_cast_hugs, two_arrows_then_object_explodes, simple_object_object_explodes, simple_simple_object_hugs, object_then_object_explodes, decorator_hugs_object_past_two_arrows. Each keeps its own assertions under this one discoverable entry.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatArgHugging owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatArgHugging(t *testing.T) {
   // last-arg block arrow, sole complex arg: hug.
   t.Run("last_arg_arrow_block_hugs", func(t *testing.T) {

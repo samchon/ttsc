@@ -19,6 +19,10 @@ import (
 //  1. Seed a project whose source is already the canonical cascade output.
 //  2. Run `ttsc format`.
 //  3. Assert the file is unchanged and the subcommand exits cleanly.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises structural rules are idempotent on their own output and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert the file is unchanged and the subcommand exits cleanly.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project whose source is already the canonical cascade output. The asserted decision is: Assert the file is unchanged and the subcommand exits cleanly. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatStructuralRulesAreIdempotentOnTheirOwnOutput owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatStructuralRulesAreIdempotentOnTheirOwnOutput(t *testing.T) {
   canonical := "const a: string = \"Hello, World!\";\n" +
     "let b: number = 42;\n" +

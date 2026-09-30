@@ -16,6 +16,10 @@ import (
 //  1. Warm one checker-bearing Program and apply a declared external change.
 //  2. Reacquire and assert the exact Program remains resident.
 //  3. Apply an undeclared unknown change and assert the cache is discarded.
+// @evidence contracts/testing.md#behavioral-verification A declared external change preserves exact resident Program identity while an unknown undeclared change invalidates it.
+// @evidence contracts/testing.md#independent-expectations The independently authored declared/unknown paths define reuse validity; identity equality and cache removal directly distinguish the two lifetime decisions.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Warm one checker-bearing Program and apply a declared external change. The asserted decision is: Apply an undeclared unknown change and assert the cache is discarded. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestResidentCacheRetainsProgramForDeclaredExternalChange owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestResidentCacheRetainsProgramForDeclaredExternalChange(t *testing.T) {
   root := seedLintProject(t, "export const value = 1;\n")
   opts := &lspCommandOptions{

@@ -16,6 +16,10 @@ import (
 // 1. Configure top-level, exact, matching, and non-matching combined scopes.
 // 2. Give the scopes overlapping and disjoint formatter keys.
 // 3. Assert source-order merging and final exact-language precedence.
+// @evidence contracts/testing.md#behavioral-verification editorFormatOverrides reads the disposable settings fixture and resolves combined sections follow source order; assertions check the specified effective values rather than repository settings text.
+// @evidence contracts/testing.md#independent-expectations The authored editor setting values and precedence described above determine the literal expected option map independently of resolver traversal or its map iteration order.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Configure top-level, exact, matching, and non-matching combined scopes. The asserted decision is: Assert source-order merging and final exact-language precedence. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestEditorFormatOverridesCombinedSectionsFollowSourceOrder is a Go unit entry exercising the settings resolver in process; native fixture files provide resolver input, without invoking VS Code or an installed product host.
 func TestEditorFormatOverridesCombinedSectionsFollowSourceOrder(t *testing.T) {
   root := t.TempDir()
   settings := `{

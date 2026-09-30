@@ -19,6 +19,10 @@ import (
 //  1. Seed a project whose lint config declares no hint-publishing rule.
 //  2. Run lsp-hints against a tsconfig path that does not exist.
 //  3. Assert an empty corpus, exit 0, and a silent stderr.
+// @evidence contracts/testing.md#behavioral-verification lsp-hints returns the empty corpus with status 0 and silent stderr despite a nonexistent tsconfig when no rule publishes hints.
+// @evidence contracts/testing.md#independent-expectations The authored nonexistent config and absent publisher establish that Program loading must not occur; literal empty output is an independent short-circuit expectation.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project whose lint config declares no hint-publishing rule. The asserted decision is: Assert an empty corpus, exit 0, and a silent stderr. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestLSPHintsSkipsTheProgramWhenNothingPublishes owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPHintsSkipsTheProgramWhenNothingPublishes(t *testing.T) {
   root := seedLintProject(t, "export const value = 1;\n")
   seedLintRules(t, root, map[string]string{"no-var": "error"})

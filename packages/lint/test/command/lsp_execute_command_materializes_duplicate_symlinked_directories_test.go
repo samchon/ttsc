@@ -17,6 +17,10 @@ import (
 // 2. Include the second alias in tsconfig.
 // 3. Execute `ttsc.lint.fixAll` for the second alias.
 // 4. Assert the edit is returned and the backing source is unchanged.
+// @evidence contracts/testing.md#behavioral-verification Fix-all targets the second of two directory aliases for one backing source and returns its edit while retaining the original backing bytes.
+// @evidence contracts/testing.md#independent-expectations The fixture-selected second alias, literal fixed text and authored backing source establish independent alias and non-mutation expectations.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed two symlinked source directories that target the same real directory. The asserted decision is: Assert the edit is returned and the backing source is unchanged. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestLSPExecuteCommandMaterializesDuplicateSymlinkedDirectories owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPExecuteCommandMaterializesDuplicateSymlinkedDirectories(t *testing.T) {
   root := t.TempDir()
   source := "var legacy = 1;\nJSON.stringify(legacy);\n"

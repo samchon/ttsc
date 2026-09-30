@@ -21,6 +21,10 @@ import (
 //  2. Run the format subcommand.
 //  3. Assert the file is the reflowed multi-line form and the
 //     subcommand exits cleanly.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises applies format block reflow and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert the file is the reflowed multi-line form and the subcommand exits cleanly.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project plus a lint.config.json carrying only `format: { printWidth: 20 }`. The asserted decision is: Assert the file is the reflowed multi-line form and the subcommand exits cleanly. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatAppliesFormatBlockReflow owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatAppliesFormatBlockReflow(t *testing.T) {
   root := seedLintProject(t, "const x = { aa: 1, bb: 2, cc: 3 };\n")
   seedLintConfig(t, root, map[string]any{

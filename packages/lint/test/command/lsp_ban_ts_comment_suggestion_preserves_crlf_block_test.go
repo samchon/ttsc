@@ -7,6 +7,10 @@ import (
 
 // TestLSPBanTsCommentSuggestionPreservesCRLFBlock verifies quickfix.ttsc
 // rewrites only the directive inside a block comment above a real type error.
+// @evidence contracts/testing.md#behavioral-verification Signed quickfix changes only ts-ignore to ts-expect-error in a CRLF block above a real type error.
+// @evidence contracts/testing.md#independent-expectations Authored complete CRLF text retains the header, description, erroneous assignment and stringify call; literal title and command independently constrain discovery.
+// @evidence contracts/testing.md#distinguishing-cases A block directive with a description and CRLF detects whole-comment or line-ending replacement; the suggestion-only fix-all host owns automatic-application rejection.
+// @evidence contracts/testing.md#execution-ownership The native checker and LSP dispatch execute in the Go unit process against disposable JSON configuration, without running an external TypeScript compiler.
 func TestLSPBanTsCommentSuggestionPreservesCRLFBlock(t *testing.T) {
   source := "/* header\r\n * @ts-ignore: Preserve this description */\r\nconst value: number = \"wrong\";\r\nJSON.stringify(value);\r\n"
   root := seedLintProject(t, source)
@@ -36,6 +40,9 @@ func TestLSPBanTsCommentSuggestionPreservesCRLFBlock(t *testing.T) {
     action.Command.Arguments,
     lintManifest(t),
   )
+  if edit == nil || len(edit.Changes) != 1 || len(edit.Changes[uri]) == 0 {
+    t.Fatalf("selected suggestion returned no unique edit for %q: %#v", uri, edit)
+  }
   rewritten := applyLSPWorkspaceEditForTest(t, source, edit.Changes[uri])
   expected := "/* header\r\n * @ts-expect-error: Preserve this description */\r\nconst value: number = \"wrong\";\r\nJSON.stringify(value);\r\n"
   if rewritten != expected {

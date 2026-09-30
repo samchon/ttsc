@@ -19,6 +19,10 @@ import (
 //  2. Run lsp-hints against a tsconfig path that does not exist.
 //  3. Assert the loader failure surfaces, and as a failure rather than an empty
 //     corpus with a clean exit.
+// @evidence contracts/testing.md#behavioral-verification lsp-hints with a declared JSDoc publisher and nonexistent tsconfig surfaces a nonzero loader failure, distinguishing it from the empty-corpus fast path.
+// @evidence contracts/testing.md#independent-expectations The deliberately absent fixture config independently determines failure; no hints output is treated as a substitute for the required loader error.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project whose lint config declares the JSDoc validator. The asserted decision is: Assert the loader failure surfaces, and as a failure rather than an empty corpus with a clean exit. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestLSPHintsStillLoadsTheProgramForADeclaredPublisher owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPHintsStillLoadsTheProgramForADeclaredPublisher(t *testing.T) {
   root := seedLintProject(t, "/** Public value. */\nexport const value = 1;\n")
   seedLintRules(t, root, map[string]string{"jsdoc/check-tag-names": "warn"})

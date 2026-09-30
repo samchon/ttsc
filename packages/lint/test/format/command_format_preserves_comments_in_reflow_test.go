@@ -8,6 +8,13 @@ import "testing"
 // one, so when a reflow target carries an interior comment the rule must
 // abstain, leaving the flat source (comment intact) byte-identical. Each source
 // below overflows printWidth 60 and carries a comment in a different position.
+//
+//  1. Exercise the authored command format preserves comments in reflow fixtures through the Go format dispatcher.
+//  2. Require the exact authored output or rejection result for each fixture.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises preserves comments in reflow and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: call_arg_inline_block_comment, array_standalone_line_comment, object_trailing_block_comment, array_element_trailing_line_comment, object_single_prop_trailing_comment. Each keeps its own assertions under this one discoverable entry.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatPreservesCommentsInReflow owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatPreservesCommentsInReflow(t *testing.T) {
   pw := map[string]any{"printWidth": 60}
   t.Run("call_arg_inline_block_comment", func(t *testing.T) {

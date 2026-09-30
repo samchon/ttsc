@@ -1,7 +1,6 @@
 package linthost
 
 import (
-  "encoding/json"
   "path/filepath"
   "testing"
 )
@@ -17,6 +16,10 @@ import (
 // 2. Run `lsp-code-actions` with `source.fixAll.ttsc`.
 // 3. Run `lsp-code-actions` with `source.format`.
 // 4. Assert each response advertises only its matching command.
+// @evidence contracts/testing.md#behavioral-verification A project with lint and format fixes produces only the lint command for source.fixAll.ttsc and only the format command for source.format.
+// @evidence contracts/testing.md#independent-expectations The requested action kinds and literal single-command lists express the supported filter contract, independently of returned action enumeration.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project with one lint fix and one format fix. The asserted decision is: Assert each response advertises only its matching command. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestLSPCodeActionsSplitLintAndFormatCommands owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPCodeActionsSplitLintAndFormatCommands(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\n")
   // no-var is a lint rule; the format block enables format/semi (formatting
@@ -34,53 +37,4 @@ func TestLSPCodeActionsSplitLintAndFormatCommands(t *testing.T) {
   if got := actionCommandsForTest(formatActions); len(got) != 1 || got[0] != commandFormatDocument {
     t.Fatalf("format actions = %#v", got)
   }
-}
-
-func runLSPCodeActionsForTest(t *testing.T, root string, uri string, contextJSON string) []lspCodeAction {
-  t.Helper()
-  return runLSPCodeActionsForRangeForTest(
-    t,
-    root,
-    uri,
-    `{"start":{"line":0,"character":0},"end":{"line":0,"character":1}}`,
-    contextJSON,
-  )
-}
-
-func runLSPCodeActionsForRangeForTest(
-  t *testing.T,
-  root string,
-  uri string,
-  rangeJSON string,
-  contextJSON string,
-) []lspCodeAction {
-  t.Helper()
-  code, stdout, stderr := captureCommandOutput(t, func() int {
-    return run([]string{
-      "lsp-code-actions",
-      "--cwd", root,
-      "--plugins-json", lintManifest(t),
-      "--uri", uri,
-      "--range-json", rangeJSON,
-      "--context-json", contextJSON,
-    })
-  })
-  if code != 0 || stderr != "" {
-    t.Fatalf("lsp-code-actions mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
-  }
-  var actions []lspCodeAction
-  if err := json.Unmarshal([]byte(stdout), &actions); err != nil {
-    t.Fatalf("lsp-code-actions JSON: %v\n%s", err, stdout)
-  }
-  return actions
-}
-
-func actionCommandsForTest(actions []lspCodeAction) []string {
-  commands := make([]string, 0, len(actions))
-  for _, action := range actions {
-    if action.Command != nil {
-      commands = append(commands, action.Command.Command)
-    }
-  }
-  return commands
 }

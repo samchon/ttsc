@@ -24,6 +24,10 @@ import (
 //  2. Run `ttsc fix` on one copy and `ttsc format` on the other.
 //  3. Assert fix applied the lint fix but added no semicolons, while format added
 //     the default semicolons but left the `var` lint violation untouched.
+// @evidence contracts/testing.md#behavioral-verification The fix dispatcher changes only the configured lint violation, whereas format adds default terminators and retains var; separate disposable projects distinguish the two command populations.
+// @evidence contracts/testing.md#independent-expectations The literal lint-only file and expected semicolon-bearing lines express each command contract independently; the explicit no-let assertion rejects a formatting path that also performs lint edits.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed two copies of one source — a `no-var` lint violation plus two missing semicolons — with only a lint rule configured and no `format` block. The asserted decision is: Assert fix applied the lint fix but added no semicolons, while format added the default semicolons but left the `var` lint violation untouched. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestCommandFixSkipsDefaultFormattingThatFormatApplies owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestCommandFixSkipsDefaultFormattingThatFormatApplies(t *testing.T) {
   const source = "var legacy = 1\nJSON.stringify(legacy)\n"
 

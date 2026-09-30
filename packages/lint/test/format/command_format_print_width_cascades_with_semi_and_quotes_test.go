@@ -33,6 +33,10 @@ import (
 //     2. Run `ttsc format`.
 //     3. Assert the file is the canonical Prettier output and the
 //     subcommand exits cleanly.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises print width cascades with semi and quotes and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert the file is the canonical Prettier output and the subcommand exits cleanly.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed the project plus a lint.config.json enabling all four rules at error, with print-width's tight printWidth as a rule tuple. The asserted decision is: Assert the file is the canonical Prettier output and the subcommand exits cleanly. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatPrintWidthCascadesWithSemiAndQuotes owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatPrintWidthCascadesWithSemiAndQuotes(t *testing.T) {
   source := "import { alpha, bravo, charlie } from 'long-module'\n" +
     "const x = { aa: 1, bb: 2, cc: 3 };\n"

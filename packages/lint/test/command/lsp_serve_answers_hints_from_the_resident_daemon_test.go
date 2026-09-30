@@ -20,6 +20,10 @@ import (
 //  1. Seed a project with the JSDoc validator enabled.
 //  2. Drive lsp-serve with one lsp-hints request line.
 //  3. Assert the reply carries code 0 and the built-in tag corpus.
+// @evidence contracts/testing.md#behavioral-verification The in-process lsp-serve stream handles one hints request and returns code 0 with the configured built-in tag corpus.
+// @evidence contracts/testing.md#independent-expectations The authored request and literal response status/tag expectations express the resident protocol contract, independently of one-shot hints output.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project with the JSDoc validator enabled. The asserted decision is: Assert the reply carries code 0 and the built-in tag corpus. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestLSPServeAnswersHintsFromTheResidentDaemon owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPServeAnswersHintsFromTheResidentDaemon(t *testing.T) {
   root := seedLintProject(t, "/** Public value. */\nexport const value = 1;\n")
   seedLintRules(t, root, map[string]string{"jsdoc/check-tag-names": "warn"})

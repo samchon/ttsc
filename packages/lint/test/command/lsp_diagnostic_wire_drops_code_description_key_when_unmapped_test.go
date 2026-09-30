@@ -21,6 +21,10 @@ import (
 //  2. Assert the JSON carries no codeDescription key and round-trips to nil.
 //  3. Assert the same shape for a mapped rule does carry the key, so the
 //     absence above is the mapping decision and not a marshalling accident.
+// @evidence contracts/testing.md#behavioral-verification JSON marshaling omits codeDescription entirely for an unmapped rule and round-trips nil, while a mapped rule serializes its href.
+// @evidence contracts/testing.md#independent-expectations Literal key absence and the authored mapped href express the optional JSON field contract; round-trip assertions supplement these direct wire expectations.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Marshal a diagnostic for a format rule, the one built-in family with no per-rule documentation page. The asserted decision is: Assert the same shape for a mapped rule does carry the key, so the absence above is the mapping decision and not a marshalling accident. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestLSPDiagnosticWireDropsCodeDescriptionKeyWhenUnmapped owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPDiagnosticWireDropsCodeDescriptionKeyWhenUnmapped(t *testing.T) {
   unmapped := lspDiagnostic{
     Code:            "format/quotes",

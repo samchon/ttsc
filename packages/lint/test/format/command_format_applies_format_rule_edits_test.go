@@ -18,6 +18,10 @@ import (
 // 1. Seed a project with a noVar violation and a missing-semi violation.
 // 2. Run the format subcommand with both rules enabled.
 // 3. Assert the file gains semicolons but keeps its `var` declaration.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises applies format rule edits and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert the file gains semicolons but keeps its `var` declaration.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project with a noVar violation and a missing-semi violation. The asserted decision is: Assert the file gains semicolons but keeps its `var` declaration. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatAppliesFormatRuleEdits owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatAppliesFormatRuleEdits(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\n")
   // format/semi is enabled through the format block (the only formatting

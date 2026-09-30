@@ -23,6 +23,10 @@ import (
 //  4. Apply a declared external JSON change and assert the Program stays warm.
 //  5. Change the import graph and require honest full-rebuild telemetry.
 //  6. Add an unknown TypeScript root and assert the next cycle fully reloads.
+// @evidence contracts/testing.md#behavioral-verification check-serve cycles distinguish no-var diagnostics, zero-error edits, reintroduced errors, external JSON changes, topology edits and added roots while checking Program load/update telemetry.
+// @evidence contracts/testing.md#independent-expectations Authored no-var failing/clean source pairs establish status 2 versus 0 and literal load/update counts. Cold output is a differential oracle for diagnostics, not an independent proof of all rule semantics.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Run an initial failing no-var cycle and observe one Program load. The asserted decision is: Add an unknown TypeScript root and assert the next cycle fully reloads. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestCheckServeReusesProgramAndMatchesColdCycles owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestCheckServeReusesProgramAndMatchesColdCycles(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1;\nJSON.stringify(legacy);\n")
   dependency := filepath.Join(root, "src", "dependency.ts")

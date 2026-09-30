@@ -24,6 +24,10 @@ import (
 //  2. Write a lint.config.json with one entry that has a `format` block,
 //     a `rules` block, and an `ignores` glob naming that source file.
 //  3. Run the format subcommand and assert the source file is untouched.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises honors entry ignores alongside rules and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Run the format subcommand and assert the source file is untouched.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project whose only source file is missing trailing semicolons. The asserted decision is: Run the format subcommand and assert the source file is untouched. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatHonorsEntryIgnoresAlongsideRules owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatHonorsEntryIgnoresAlongsideRules(t *testing.T) {
   original := "var legacy = 1\nJSON.stringify(legacy)\n"
   root := seedLintProject(t, original)

@@ -18,6 +18,10 @@ import (
 //  4. Add a required default after the last real clause of an open switch.
 //  5. Execute each command-backed suggestion and re-check the resulting source
 //     through the real lint command to prove it is valid and exhaustive.
+// @evidence contracts/testing.md#behavioral-verification Command-backed switch suggestions preserve unique-symbol/default and enum/comment anchors, use safe quoted-member syntax, fill empty switches and re-check rewritten sources.
+// @evidence contracts/testing.md#independent-expectations Literal expected switch text and authored allowed enum/symbol forms define edit positions and semantics independently of suggestion rendering; no generated baseline is accepted.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Offer a unique-symbol case before a real default, but never through source.fixAll.ttsc. The asserted decision is: Execute each command-backed suggestion and re-check the resulting source through the real lint command to prove it is valid and exhaustive. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestLSPSwitchExhaustivenessSuggestionsPreserveDefaultAnchors owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPSwitchExhaustivenessSuggestionsPreserveDefaultAnchors(t *testing.T) {
   uniqueSource := `declare const first: unique symbol;
 declare const second: unique symbol;

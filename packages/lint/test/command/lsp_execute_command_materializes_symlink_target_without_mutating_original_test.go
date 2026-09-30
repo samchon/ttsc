@@ -17,6 +17,10 @@ import (
 // 2. Execute `ttsc.lint.fixAll` for the symlink URI.
 // 3. Assert the returned WorkspaceEdit fixes the visible document.
 // 4. Assert neither the symlink target nor the symlink path content changed.
+// @evidence contracts/testing.md#behavioral-verification Fix-all returns the authored edit for an included file symlink URI without changing either target or visible-link source content.
+// @evidence contracts/testing.md#independent-expectations The literal source rewrite and original fixture bytes establish expectations independently of link-copy decisions or WorkspaceEdit generation.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project whose included source file is a symlink to another file. The asserted decision is: Assert neither the symlink target nor the symlink path content changed. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestLSPExecuteCommandMaterializesSymlinkTargetWithoutMutatingOriginal owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPExecuteCommandMaterializesSymlinkTargetWithoutMutatingOriginal(t *testing.T) {
   root := t.TempDir()
   source := "var legacy = 1;\nJSON.stringify(legacy);\n"

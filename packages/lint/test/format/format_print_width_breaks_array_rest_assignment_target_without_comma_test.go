@@ -15,6 +15,10 @@ import "testing"
 // 1. Configure printWidth=20 and feed a single-line array rest target that overflows.
 // 2. Run formatPrintWidth so the array breaks one element per line.
 // 3. Assert the broken output has no trailing comma after the rest element.
+// @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule parses the breaks array rest assignment target without comma fixture and applies its edit; complete authored output equality rejects lost source content or punctuation alongside incorrect line layout. The owned result is: Assert the broken output has no trailing comma after the rest element.
+// @evidence contracts/testing.md#independent-expectations The source operands and literal expected layout are authored independently of the rule printer. The fixture fixes printWidth and indentation, so expected line placement does not come from rendering the implementation under test.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Configure printWidth=20 and feed a single-line array rest target that overflows. The asserted decision is: Assert the broken output has no trailing comma after the rest element. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthBreaksArrayRestAssignmentTargetWithoutComma is one Go unit entry through the registered rule engine, parser and fix applier; it uses no installed consumer or child product host.
 func TestFormatPrintWidthBreaksArrayRestAssignmentTargetWithoutComma(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

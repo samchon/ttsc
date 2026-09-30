@@ -18,6 +18,15 @@ import {
  * 1. Seed the default ttsc cache, a `TTSC_GO_CACHE_DIR`, and a user `GOCACHE`.
  * 2. Run `ttsc clean` with both Go cache environment variables set.
  * 3. Assert ttsc-owned caches are gone and `GOCACHE` still exists.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A real clean command removes seeded plugin cache, default Go build cache and explicit TTSC_GO_CACHE_DIR while leaving a separately seeded user GOCACHE present, exposing overbroad cache reclamation.
+ * @evidence contracts/testing.md#independent-expectations The ownership contract assigns ttsc roots to cleanup and caller GOCACHE to preservation. The test independently creates all four locations before execution and checks resulting existence, so these are behavioral deletion results rather than committed arrangement checks. It does not inspect preserved seed bytes.
+ * @evidence contracts/testing.md#distinguishing-cases Default ttsc source/object caches and explicit ttsc Go cache are positive deletions, while distinct user Go cache is the negative control. All machine cache location variables are redirected below the fixture to isolate legacy cleanup.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_ttsc_clean_removes_ttsc_go_cache_but_keeps_user_gocache in features/compiler through the test-ttsc boundary runner. This named E2E entry owns its actual launcher invocations and local scenario loops; portable source units are dispatched separately by TestSourceUnits.
+ * @evidence contracts/e2e.md#necessary-boundary The real launcher resolves cache ownership from child environment and performs filesystem deletion. A unit cache-root table cannot prove the public clean command deletes exactly those consumer resources.
+ * @evidence contracts/e2e.md#shared-execution One commonJsProject consumer, one built launcher and one set of seeded cache directories serve one clean invocation. There is no compiler or native contributor build; seeding distinguishes deletion and preservation within the same command.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique consumer paths isolate all four caches. HOME/USERPROFILE/XDG_CACHE_HOME/LOCALAPPDATA point to fixture cache-home only in the child, so legacy global cleanup cannot affect the developer cache. The child exits synchronously and TestProject cleans roots at runner exit.
+ * @evidence contracts/e2e.md#preserved-coverage All original CLI status, output and generated-artifact assertions remain in test_ttsc_clean_removes_ttsc_go_cache_but_keeps_user_gocache. No assertion or case is removed or transferred; this entry retains its real launcher connection rather than claiming a parser unit executes it.
  */
 export const test_ttsc_clean_removes_ttsc_go_cache_but_keeps_user_gocache =
   (): void => {

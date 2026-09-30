@@ -16,6 +16,10 @@ import (
 // 1. Seed condition/body calls in each unbraced control-flow form.
 // 2. Format twice and require unchanged fragments and byte-identical output.
 // 3. Require long calls in braced bodies and standalone calls to reflow.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises print width converges on unbraced control flow and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Require long calls in braced bodies and standalone calls to reflow.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed condition/body calls in each unbraced control-flow form. The asserted decision is: Require long calls in braced bodies and standalone calls to reflow. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatPrintWidthConvergesOnUnbracedControlFlow owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatPrintWidthConvergesOnUnbracedControlFlow(t *testing.T) {
   condition := "!fs.existsSync(entry)"
   branch := "throw new Error(`Typia preparation entrypoint not found: ${entry}`);"

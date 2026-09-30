@@ -18,6 +18,10 @@ import (
 //  1. Load BOM-prefixed JSONC and boundary cases through the real ancestor walk.
 //  2. Compare valid BOM and no-BOM settings while preserving an embedded BOM.
 //  3. Run the format command and assert the editor indentation reaches the file.
+// @evidence contracts/testing.md#behavioral-verification editorFormatOverrides reads the disposable settings fixture and resolves accepts utf8 bom; assertions check the specified effective values rather than repository settings text.
+// @evidence contracts/testing.md#independent-expectations The authored editor setting values and precedence described above determine the literal expected option map independently of resolver traversal or its map iteration order.
+// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: JSONC from nearest ancestor, minimal and no-BOM parity, embedded BOM remains data, malformed input still falls back, format command uses BOM settings. Each keeps its own assertions under this one discoverable entry.
+// @evidence contracts/testing.md#execution-ownership TestEditorFormatOverridesAcceptsUTF8BOM is a Go unit entry exercising the settings resolver in process; native fixture files provide resolver input, without invoking VS Code or an installed product host.
 func TestEditorFormatOverridesAcceptsUTF8BOM(t *testing.T) {
   bom := []byte{0xEF, 0xBB, 0xBF}
   writeSettings := func(t *testing.T, root string, body []byte) {

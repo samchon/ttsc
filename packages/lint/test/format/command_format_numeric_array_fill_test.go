@@ -7,6 +7,13 @@ import "testing"
 // per line as fit; a string or identifier array stays one-per-line; a short
 // numeric array stays flat; a single-element array never fills. All sources are
 // Prettier-3-canonical at printWidth 60, so format must keep them byte-identical.
+//
+//  1. Exercise the authored command format numeric array fill fixtures through the Go format dispatcher.
+//  2. Require the exact authored output or rejection result for each fixture.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises numeric array fill and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: numeric_array_fills, signed_numeric_array_fills, string_array_one_per_line, identifier_array_one_per_line, small_numeric_array_flat, single_numeric_array_flat, numeric_array_flat_reflows_to_fill, hugged_numeric_fill_breaks_brackets, long_numeric_fill_wraps_multiple_lines. Each keeps its own assertions under this one discoverable entry.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatNumericArrayFill owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatNumericArrayFill(t *testing.T) {
   pw := map[string]any{"printWidth": 60}
   t.Run("numeric_array_fills", func(t *testing.T) {

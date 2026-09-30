@@ -32,6 +32,10 @@ import (
 //  6. Require a configuration that moved during the evaluation to be recorded
 //     as nothing at all, and one that shares the load's start instant to be
 //     recorded normally.
+// @evidence contracts/testing.md#behavioral-verification Resident rule resolution reuses an unchanged resolver, replaces it after config changes, survives client invalidation, separates projects and detects configuration movement during evaluation.
+// @evidence contracts/testing.md#independent-expectations Authored configuration rewrites and project identities establish the expected same/different resolver identities; explicitly supplied movement digests pin unstable-evaluation state independently of memo lookup.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Install a resident memo and load a project's rules through it. The asserted decision is: Require a configuration that moved during the evaluation to be recorded as nothing at all, and one that shares the load's start instant to be recorded normally. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestResidentRulesAreReusedOnlyWhileTheirConfigIsUnchanged owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestResidentRulesAreReusedOnlyWhileTheirConfigIsUnchanged(t *testing.T) {
   root := seedLintProject(t, "/** Public value. */\nexport const value = 1;\n")
   seedLintRules(t, root, map[string]string{"jsdoc/check-tag-names": "warn"})

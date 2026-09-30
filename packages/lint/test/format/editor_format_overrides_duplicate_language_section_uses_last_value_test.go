@@ -16,6 +16,10 @@ import (
 // 1. Place a combined language property before another matching property.
 // 2. Repeat the first property later with a disjoint replacement object.
 // 3. Assert its stale value disappears and its original merge position remains.
+// @evidence contracts/testing.md#behavioral-verification editorFormatOverrides reads the disposable settings fixture and resolves duplicate language section uses last value; assertions check the specified effective values rather than repository settings text.
+// @evidence contracts/testing.md#independent-expectations The authored editor setting values and precedence described above determine the literal expected option map independently of resolver traversal or its map iteration order.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Place a combined language property before another matching property. The asserted decision is: Assert its stale value disappears and its original merge position remains. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestEditorFormatOverridesDuplicateLanguageSectionUsesLastValue is a Go unit entry exercising the settings resolver in process; native fixture files provide resolver input, without invoking VS Code or an installed product host.
 func TestEditorFormatOverridesDuplicateLanguageSectionUsesLastValue(t *testing.T) {
   root := t.TempDir()
   settings := `{

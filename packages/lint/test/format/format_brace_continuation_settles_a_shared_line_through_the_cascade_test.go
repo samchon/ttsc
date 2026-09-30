@@ -16,7 +16,7 @@ import (
 //  2. Run `ttsc format`.
 //  3. Assert `else` lands at the enclosing body's column, not at zero.
 //
-// @evidence contracts/testing.md#behavioral-verification The in-process format command must split the preceding foo statement, then place the formerly deferred if/else at the enclosing two-space column.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command must split the preceding foo statement, then place the formerly deferred if/else at the enclosing two-space column. The owned result is: Assert `else` lands at the enclosing body's column, not at zero. .
 // @evidence contracts/testing.md#independent-expectations The complete disk-output literal preserves function f and calls foo/x/y and condition a; exact successful status and empty streams require the actual command path to finish as well as write that output.
 // @evidence contracts/testing.md#distinguishing-cases This cascading positive complements the single-rule shared-line negative, proving deferral is later resolved. The labeled-prefix command positive distinguishes a prefix that must remain attached.
 // @evidence contracts/testing.md#execution-ownership TestFormatBraceContinuationSettlesASharedLineThroughTheCascade is a public Go unit selected by TestSelectedLintUnits. This host owns the seeded project/config fixtures and all exit, stream and full disk-output assertions. It calls the real formatter command and cascade in the same Go process; no consumer install, native product build or product host is started.

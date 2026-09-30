@@ -10,6 +10,13 @@ import "testing"
 // annotation, and an expression-bodied arrow WITHOUT a return type still hugs.
 //
 // Each source is the Prettier-canonical output at printWidth 80.
+//
+//  1. Exercise the authored command format return typed arrow hug fixtures through the Go format dispatcher.
+//  2. Require the exact authored output or rejection result for each fixture.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises return typed arrow hug and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Require the exact authored output or rejection result for each fixture.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: return_typed_object_arrow_explodes, return_typed_object_arrow_trailing_explodes, untyped_object_arrow_hugs, return_typed_block_arrow_hugs, return_typed_block_arrow_first_arg_hugs. Each keeps its own assertions under this one discoverable entry.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatReturnTypedArrowHug owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatReturnTypedArrowHug(t *testing.T) {
   // Return-typed arrow over a parenthesized object: explode (the core case).
   t.Run("return_typed_object_arrow_explodes", func(t *testing.T) {

@@ -23,6 +23,15 @@ import {
  * 2. Assert that every supported spelling returns the same JSON path record.
  * 3. Assert `--json` values, non-cache schema flags, and unknown options still
  *    fail at the cache command boundary.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Canonical cache-path flags and case variants must return identical JSON records; -P must identify the consumer root. Attached/spaced JSON values, unsupported --binary and an unknown cache option must each exit nonzero with their specific cache-command messages.
+ * @evidence contracts/testing.md#independent-expectations Case variants follow schema identity while literal projectRoot anchors the -P path independently. Canonical-versus-variant equality alone could share a wrong record; the separate cache-roots entry pins its fields. Literal failure texts specify strict cache command boundaries.
+ * @evidence contracts/testing.md#distinguishing-cases Canonical/case-normalized spellings and uppercase short project alias are accepted; attached boolean value, separated extra command token, known-but-out-of-scope schema flag and unknown flag are distinct rejection cases.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_ttsc_cache_paths_resolves_schema_flag_spellings in features/compiler through the test-ttsc boundary runner. This named E2E entry owns its actual launcher invocations and local scenario loops; portable source units are dispatched separately by TestSourceUnits.
+ * @evidence contracts/e2e.md#necessary-boundary Actual launcher cache-command dispatch and strict public diagnostics must agree with the shared schema. Pure parser tests cannot establish the subcommand's JSON execution and rejection scope.
+ * @evidence contracts/e2e.md#shared-execution One immutable consumer and built launcher serve seven sequential exited children. Distinct argument vectors need separate CLI dispatch to test their public error surface, while parsing semantics remain portable unit responsibilities. No native compiler/build preparation occurs.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity createProject allocates a unique TestProject directory, so authored config and emitted outputs cannot inherit another entry's result. spawn injects explicit workspace native and tsgo binary identities in the child environment without modifying the parent. The synchronous child has exited before assertions, and TestProject cleans temporary directories on runner exit.
+ * @evidence contracts/e2e.md#preserved-coverage All original CLI status, output and generated-artifact assertions remain in test_ttsc_cache_paths_resolves_schema_flag_spellings. No assertion or case is removed or transferred; this entry retains its real launcher connection rather than claiming a parser unit executes it.
  */
 export const test_ttsc_cache_paths_resolves_schema_flag_spellings = () => {
   const root = TestProject.physicalPath(

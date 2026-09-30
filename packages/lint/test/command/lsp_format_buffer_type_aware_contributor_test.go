@@ -27,6 +27,13 @@ func init() {
 // so returning a disk-derived edit would either overwrite `bufferOnly` or use
 // a range measured against the wrong document. A syntactically invalid dirty
 // buffer must also fail closed instead of formatting the valid disk twin.
+//
+//  1. Exercise the authored lsp format buffer type aware contributor fixtures through the owning Go operation.
+//  2. Require the exact authored output or rejection result for each fixture.
+// @evidence contracts/testing.md#behavioral-verification The registered checker-backed contributor advances dirty-buffer FIRST to FINAL through two passes while preserving bufferOnly and disk bytes; malformed dirty syntax produces no changes.
+// @evidence contracts/testing.md#independent-expectations The authored FINAL text, original diskOnly source and empty error edit establish independent answers. The fixture contributor independently requires the imported value to infer number before reporting either edit.
+// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: checker-backed multi-pass edits use the buffer, syntax errors do not fall back to disk. Each keeps its own assertions under this one discoverable entry.
+// @evidence contracts/testing.md#execution-ownership TestLSPFormatBufferTypeAwareContributorUsesDirtyContent owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPFormatBufferTypeAwareContributorUsesDirtyContent(t *testing.T) {
   disk := `import { imported } from "./dep";
 const value = imported;

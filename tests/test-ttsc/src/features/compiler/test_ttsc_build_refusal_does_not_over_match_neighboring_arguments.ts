@@ -23,6 +23,15 @@ import {
  * 3. Assert the subcommand and the forwarded pair still build, `--buildish` still
  *    reaches tsgo's unknown-option diagnostic, and none of the three prints
  *    ttsc's solution-mode refusal.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The launcher must build via bare build, accept incremental/tsBuildInfoFile passthrough, and reject unknown --buildish naming that option, with none printing solution-mode refusal. First invocation must actually emit main.js.
+ * @evidence contracts/testing.md#independent-expectations Literal neighboring spellings are distinct from unsupported --build/-b solution mode. Exit statuses, freshly emitted JS and absence of the refusal message independently distinguish public dispatch; the unknown assertion names buildish but does not pin an exact diagnostic code.
+ * @evidence contracts/testing.md#distinguishing-cases Bare subcommand, supported build-info operand pair and prefix-sharing unknown option test different normalization boundaries. Exact forbidden solution-mode identities are owned by their separate refusal entry.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_ttsc_build_refusal_does_not_over_match_neighboring_arguments in features/compiler through the test-ttsc boundary runner. This named E2E entry owns its actual launcher invocations and local scenario loops; portable source units are dispatched separately by TestSourceUnits.
+ * @evidence contracts/e2e.md#necessary-boundary The real launcher schema routes subcommand and forwarded flags to actual tsgo; parser identity calls cannot prove this command assembly reaches successful emit or the compiler's unknown-option result.
+ * @evidence contracts/e2e.md#shared-execution One uniquely allocated consumer and the repository-built launcher/native compiler artifacts serve this entry. No plugin installation or contributor build occurs; the child process is required to exercise public command dispatch and returns synchronously with captured status/streams. Three exited child processes share the same valid consumer; changed command vectors require distinct public dispatches but no new fixture build.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity createProject allocates a unique TestProject directory, so authored config and emitted outputs cannot inherit another entry's result. spawn injects explicit workspace native and tsgo binary identities in the child environment without modifying the parent. The synchronous child has exited before assertions, and TestProject cleans temporary directories on runner exit.
+ * @evidence contracts/e2e.md#preserved-coverage All original CLI status, output and generated-artifact assertions remain in test_ttsc_build_refusal_does_not_over_match_neighboring_arguments. No assertion or case is removed or transferred; this entry retains its real launcher connection rather than claiming a parser unit executes it.
  */
 export const test_ttsc_build_refusal_does_not_over_match_neighboring_arguments =
   () => {

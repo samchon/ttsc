@@ -7,6 +7,10 @@ import (
 
 // TestLSPPreferAsConstSuggestionExecutesSelectedRange verifies the editor path
 // exposes a range-scoped manual quick fix and executes only its stored target.
+// @evidence contracts/testing.md#behavioral-verification Quickfix range selects the second literal annotation and the signed action rewrites only that declaration to as const.
+// @evidence contracts/testing.md#independent-expectations The authored complete two-declaration text retains the first annotation and both stringify references while specifying the second rewrite.
+// @evidence contracts/testing.md#distinguishing-cases Two eligible declarations and a range covering only line one reject a whole-file rewrite or execution of the wrong stored target.
+// @evidence contracts/testing.md#execution-ownership Discovery and suggestion execution run in the native Go host and checker within the unit process; no editor or installed consumer is launched.
 func TestLSPPreferAsConstSuggestionExecutesSelectedRange(t *testing.T) {
   source := "let first: (\"one\") = \"one\";\nlet second: (\"two\") = \"two\";\nJSON.stringify(first, second);\n"
   root := seedLintProject(t, source)
@@ -35,6 +39,9 @@ func TestLSPPreferAsConstSuggestionExecutesSelectedRange(t *testing.T) {
     action.Command.Arguments,
     lintManifest(t),
   )
+  if edit == nil || len(edit.Changes) != 1 || len(edit.Changes[uri]) == 0 {
+    t.Fatalf("selected suggestion returned no unique edit for %q: %#v", uri, edit)
+  }
   rewritten := applyLSPWorkspaceEditForTest(t, source, edit.Changes[uri])
   expected := "let first: (\"one\") = \"one\";\nlet second = \"two\" as const;\nJSON.stringify(first, second);\n"
   if rewritten != expected {

@@ -23,6 +23,10 @@ import "testing"
 //  2. Configure printWidth=28 so the literal must break (the literal
 //     starts at column 12 and is 21 chars wide flat, total 33).
 //  3. Assert the children align under column 4.
+// @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule parses the indents relative to line leading indent fixture and applies its edit; complete authored output equality rejects lost source content or punctuation alongside incorrect line layout. The owned result is: Assert the children align under column 4.
+// @evidence contracts/testing.md#independent-expectations The source operands and literal expected layout are authored independently of the rule printer. The fixture fixes printWidth and indentation, so expected line placement does not come from rendering the implementation under test.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Feed a fixture where `const x = { … }` sits inside a function body and the literal would overflow the printWidth. The asserted decision is: Assert the children align under column 4. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthIndentsRelativeToLineLeadingIndent is one Go unit entry through the registered rule engine, parser and fix applier; it uses no installed consumer or child product host.
 func TestFormatPrintWidthIndentsRelativeToLineLeadingIndent(t *testing.T) {
   src := "function f() {\n  const x = { aa: 1, bb: 2, cc: 3 };\n}\n"
   want := "function f() {\n  const x = {\n    aa: 1,\n    bb: 2,\n    cc: 3,\n  };\n}\n"

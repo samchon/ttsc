@@ -16,6 +16,13 @@ type formatApplicabilityFile struct {
 // through the real command loader. loadRules wraps ConfigStore before format
 // mode sees it, so these cases also prevent an outer resolver from duplicating
 // glob logic through a concrete-type assertion.
+//
+//  1. Exercise the authored command format respects resolved entry applicability fixtures through the Go format dispatcher.
+//  2. Require the exact authored output or rejection result for each fixture.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises respects resolved entry applicability and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite.
+// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
+// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: ignore_only_keeps_defaults_for_unignored_files, scoped_base_ignore_keeps_global_child_format, overlapping_extends_entries_keep_each_others_match. Each keeps its own assertions under this one discoverable entry.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatRespectsResolvedEntryApplicability owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
 func TestCommandFormatRespectsResolvedEntryApplicability(t *testing.T) {
   t.Run("ignore_only_keeps_defaults_for_unignored_files", func(t *testing.T) {
     files := []formatApplicabilityFile{

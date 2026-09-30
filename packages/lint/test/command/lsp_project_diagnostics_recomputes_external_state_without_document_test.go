@@ -52,6 +52,10 @@ func (externalStateProjectRule) Check(ctx *publicrule.ProjectContext) {
 //  2. Rewrite only the external file and classify it as external.
 //  3. Recompute without a document URI and assert an empty replacement.
 //  4. Create, change, and delete Swagger data with cold/resident equivalence.
+// @evidence contracts/testing.md#behavioral-verification Resident project diagnostics replace prior failing findings with empty results after external-only changes without a document URI and retain cold parity across Swagger create/change/delete.
+// @evidence contracts/testing.md#independent-expectations Authored valid/invalid external fixtures establish the nonempty/empty transition independently. Cold publication is a differential oracle for full payloads and cannot independently certify all rule semantics.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Compare a failing cold publication with the first resident publication. The asserted decision is: Create, change, and delete Swagger data with cold/resident equivalence. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestLSPProjectDiagnosticsRecomputesExternalStateWithoutDocument owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPProjectDiagnosticsRecomputesExternalStateWithoutDocument(t *testing.T) {
   root := seedLintProject(t, "export const value = 1;\n")
   external := filepath.Join(root, "docs", "spec.md")

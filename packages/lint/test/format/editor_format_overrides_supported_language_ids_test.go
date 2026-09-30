@@ -16,6 +16,10 @@ import (
 // 1. Map every supported extension to its expected VS Code language ID.
 // 2. Configure a combined fallback and an exact section for that ID.
 // 3. Assert the exact section wins for every extension.
+// @evidence contracts/testing.md#behavioral-verification editorFormatOverrides reads the disposable settings fixture and resolves supported language ids; assertions check the specified effective values rather than repository settings text.
+// @evidence contracts/testing.md#independent-expectations The authored editor setting values and precedence described above determine the literal expected option map independently of resolver traversal or its map iteration order.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Map every supported extension to its expected VS Code language ID. The asserted decision is: Assert the exact section wins for every extension. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestEditorFormatOverridesSupportedLanguageIDs is a Go unit entry exercising the settings resolver in process; native fixture files provide resolver input, without invoking VS Code or an installed product host.
 func TestEditorFormatOverridesSupportedLanguageIDs(t *testing.T) {
   cases := []struct {
     fileName string

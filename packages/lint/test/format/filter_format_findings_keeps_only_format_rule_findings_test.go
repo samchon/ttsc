@@ -19,6 +19,10 @@ import "testing"
 //  3. Assert only format-tagged findings that also carry at least one
 //     fix survive; nils and lint findings are dropped, and a format
 //     finding with no fix is also dropped (format mode is write-only).
+// @evidence contracts/testing.md#behavioral-verification filterFormatFindings admits format/semi and format/quotes only when fixes are attached, rejecting lint entries, nil and format-without-fix. Original-pointer membership also rejects a duplicated survivor while permitting either output order.
+// @evidence contracts/testing.md#independent-expectations The hand-authored mixed slice determines exactly two admissible original findings under the write-only format contract, independently of the filtering implementation.
+// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Build a mixed finding slice covering format-with-fix, format-without-fix, lint-with-fix, lint-without-fix, plus a nil sentinel. The asserted decision is: Assert only format-tagged findings that also carry at least one fix survive; nils and lint findings are dropped, and a format finding with no fix is also dropped (format mode is write-only). Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#execution-ownership TestFilterFormatFindingsKeepsOnlyFormatRuleFindings owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestFilterFormatFindingsKeepsOnlyFormatRuleFindings(t *testing.T) {
   withFix := []TextEdit{{Pos: 0, End: 1, Text: ""}}
   findings := []*Finding{
@@ -32,6 +36,10 @@ func TestFilterFormatFindingsKeepsOnlyFormatRuleFindings(t *testing.T) {
   bucket := filterFormatFindings(findings)
   if len(bucket) != 2 {
     t.Fatalf("format bucket: want 2 findings, got %d", len(bucket))
+  }
+  if !((bucket[0] == findings[1] && bucket[1] == findings[3]) ||
+    (bucket[0] == findings[3] && bucket[1] == findings[1])) {
+    t.Fatalf("filter changed or duplicated admitted findings: %+v", bucket)
   }
   for _, f := range bucket {
     if f == nil {

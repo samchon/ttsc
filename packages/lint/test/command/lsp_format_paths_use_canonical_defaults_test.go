@@ -13,72 +13,15 @@ import (
 // the CLI must all activate the same always-on formatter defaults. In
 // particular, the LSP front doors must not fail just because lint.config.json
 // is absent.
+// @evidence contracts/testing.md#behavioral-verification Code-action discovery, disk execution, dirty-buffer execution and format dispatch all activate semicolon defaults without a lint configuration.
+// @evidence contracts/testing.md#independent-expectations The authored const value = 1 semicolon text and exactly one format-document action independently constrain all four front doors.
+// @evidence contracts/testing.md#distinguishing-cases Absent lint configuration contrasts with the rules-only configuration companion and prevents merely testing an explicit format block.
+// @evidence contracts/testing.md#execution-ownership All four front doors call the native Go host in this unit process with a disposable project; command dispatch does not spawn a CLI binary.
 func TestLSPFormatPathsUseDefaultsWithoutLintConfig(t *testing.T) {
   source := "const value = 1\n"
   root := seedLintProject(t, source)
 
   assertCanonicalLSPFormatPaths(t, root, source, "const value = 1;\n")
-}
-
-// TestLSPFormatPathsUseDefaultsWithoutFormatBlock guards the distinction
-// between a lint configuration and an explicit formatter configuration.
-//
-// A rules-only lint.config.json must not suppress documented formatter
-// defaults on any LSP path.
-func TestLSPFormatPathsUseDefaultsWithoutFormatBlock(t *testing.T) {
-  source := "const value = 1\n"
-  root := seedLintProject(t, source)
-  seedLintConfig(t, root, map[string]any{
-    "rules": map[string]any{"no-var": "off"},
-  })
-
-  assertCanonicalLSPFormatPaths(t, root, source, "const value = 1;\n")
-}
-
-// TestLSPFormatPathsUseEditorLanguageOverrides guards the resolver context
-// used by editor-originated format requests.
-//
-// The project-wide, combined, and exact TypeScript values all disagree. LSP
-// requests must resolve the real document language and select the exact scope;
-// the project-wide CLI must use only the top-level value. Every value is
-// deliberately non-default so neither path can pass by skipping settings.
-func TestLSPFormatPathsUseEditorLanguageOverrides(t *testing.T) {
-  source := "function outer() {\n     const value = 1\n}\n"
-  root := seedLintProject(t, source)
-  writeFile(t, filepath.Join(root, ".vscode", "settings.json"), `{
-  "editor.tabSize": 3,
-  "[javascript][typescript]": { "editor.tabSize": 6 },
-  "[typescript]": { "editor.tabSize": 4 }
-}`)
-
-  assertLSPFormatPaths(t, root, source, "function outer() {\n    const value = 1;\n}\n")
-  assertCLIFormatText(t, root, "function outer() {\n   const value = 1;\n}\n")
-}
-
-// TestLSPFormatPathsHonorEntryIgnores guards scoping parity across every
-// formatting front door. A rules-bearing entry is important here: it proves
-// ignores are preserved even when the config is not an ignore-only entry.
-func TestLSPFormatPathsHonorEntryIgnores(t *testing.T) {
-  source := "const value = 1\n"
-  root := seedLintProject(t, source)
-  seedLintConfig(t, root, map[string]any{
-    "ignores": []string{"src/main.ts"},
-    "rules":   map[string]any{"no-var": "off"},
-  })
-  uri := lintTestFileURI(t, filepath.Join(root, "src", "main.ts"))
-
-  actions := runLSPCodeActionsForTest(t, root, uri, `{"only":["source.format"]}`)
-  if got := actionCommandsForTest(actions); len(got) != 0 {
-    t.Fatalf("ignored format actions = %#v, want none", got)
-  }
-  if edit := executeLSPCommandEditForTest(t, root, uri, commandFormatDocument); edit != nil {
-    t.Fatalf("ignored disk format edit = %#v, want nil", edit)
-  }
-  if edit := executeLSPFormatBufferEditForTest(t, root, uri, source); len(edit.Changes) != 0 {
-    t.Fatalf("ignored buffer format edit = %#v, want no changes", edit)
-  }
-
-  assertCLIFormatText(t, root, source)
 }
 
 func assertCanonicalLSPFormatPaths(t *testing.T, root string, source string, want string) {
