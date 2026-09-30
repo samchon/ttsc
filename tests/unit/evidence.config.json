@@ -202,11 +202,14 @@
       }
     },
     {
-      "name": "Go runtime emit profile units",
+      "name": "Go compiler and runtime semantic units",
       "type": "go",
       "root": "../..",
       "files": [
-        "packages/ttsc/test/driver-unit/runtime_decorator_target_profiles_test.go"
+        "packages/ttsc/test/driver-unit/runtime_decorator_target_profiles_test.go",
+        "packages/ttsc/test/driver-unit/source_sdk_program_checker_test.go",
+        "packages/ttsc/test/driver-unit/source_sdk_interface_properties_test.go",
+        "packages/ttsc/test/driver-unit/source_sdk_factory_printer_test.go"
       ],
       "symbol": "function",
       "reference": {
