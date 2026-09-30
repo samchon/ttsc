@@ -60,7 +60,7 @@ const traceOf = (result: ToolResult): TraceResult => {
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_trace_dispatches_to_the_implementation starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native checker member relations must connect the abstract call seam to its concrete implementations before MCP traversal can show runtime continuation.
  * @evidence contracts/e2e.md#shared-execution All requested trace facts share one project/session and suite compiler. Compatible dispatch fixtures are candidates for a shared producer/project; cross-case lifetimes remain unminimized.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Qualified fixture handles isolate the stable implementation population; stdin ends and exit is awaited in finally without asserting its code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Qualified fixture handles isolate the stable implementation population; stdin ends and exit is awaited in finally without asserting its code. The client observes close from construction, rejects pending requests on child failure, and terminates a child that exceeds its exit timeout.
  * @evidence contracts/e2e.md#preserved-coverage Both implementation dispatches and transform/persist reachability assertions remain here; direct traversal units do not alone replace actual checker relation publication.
  */
 export const test_ttscgraph_trace_dispatches_to_the_implementation =

@@ -133,7 +133,7 @@ const REAL_FLOW = [
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_tour_keeps_flows_after_a_self_recursive_seed starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native recursive call edges and ranking facts must reach tour composition so a self-edge cannot consume its flow search budget at the real boundary.
  * @evidence contracts/e2e.md#shared-execution Two projects/clients share the suite compiler but preserve conflicting recursive versus nonrecursive source populations. They could be a controlled refresh batch; that session consolidation has not been implemented.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Separate projects isolate recursive and nonrecursive populations; each helper ends stdin and awaits exit in finally without asserting its code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Separate projects isolate recursive and nonrecursive populations; each helper ends stdin and awaits exit in finally without asserting its code. The client observes close from construction, rejects pending requests on child failure, and terminates a child that exceeds its exit timeout.
  * @evidence contracts/e2e.md#preserved-coverage Work reachability, nonempty reached sets and exact normalized flow-shape comparison remain; no recursion fixture or comparative assertion is removed.
  */
 export const test_ttscgraph_tour_keeps_flows_after_a_self_recursive_seed =

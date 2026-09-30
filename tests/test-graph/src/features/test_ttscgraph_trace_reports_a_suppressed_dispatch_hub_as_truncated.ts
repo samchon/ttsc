@@ -127,7 +127,7 @@ const trace = async (root: string): Promise<TraceResult> => {
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_trace_reports_a_suppressed_dispatch_hub_as_truncated starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Real compiler heritage facts must arrive in the graph before native-to-MCP traversal can report that withheld implementations were present.
  * @evidence contracts/e2e.md#shared-execution Two isolated population fixtures share the suite producer artifact but use separate project/session lifetimes. A resettable threshold batch is possible and not yet implemented.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Separate projects isolate eleven and twelve implementations; each helper ends stdin and awaits exit in finally without asserting its code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Separate projects isolate eleven and twelve implementations; each helper ends stdin and awaits exit in finally without asserting its code. The client observes close from construction, rejects pending requests on child failure, and terminates a child that exceeds its exit timeout.
  * @evidence contracts/e2e.md#preserved-coverage Exact eleven/zero dispatch counts and false/true truncation assertions remain; no threshold, fixture size or omission flag has been weakened.
  */
 export const test_ttscgraph_trace_reports_a_suppressed_dispatch_hub_as_truncated =

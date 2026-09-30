@@ -1,8 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-import fs from "node:fs";
-import path from "node:path";
-
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   structuredContent?: unknown;
@@ -31,12 +28,6 @@ const detailsOf = (result: ToolResult): DetailsResult => {
   return value.result;
 };
 
-const utf16be = (text: string): Buffer =>
-  Buffer.concat([
-    Buffer.from([0xfe, 0xff]),
-    Buffer.from(text, "utf16le").swap16(),
-  ]);
-
 /**
  * Verifies graph details preserves display facts across source encodings and
  * ECMAScript line terminators.
@@ -57,69 +48,23 @@ const utf16be = (text: string): Buffer =>
  * @evidence contracts/testing.md#distinguishing-cases BOM and UTF-16 endianness contrast LF, CRLF, CR, line separator and paragraph separator inputs; body text must not leak into the expected head.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_details_reads_bom_and_utf16_source_snapshot starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Real compiler decoding, snapshot provenance and MCP detail display must agree on these bytes and coordinates; a predecoded synthetic source cannot test that integration.
- * @evidence contracts/e2e.md#shared-execution All eight files share one project/session and the suite-built producer. Their encodings do not require eight builds; this batch exists within the case, while cross-case batching is unfinished.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Encoded files and symbol names are case-owned and immutable during requests, preventing another generation from supplying display text; finally ends stdin and successful exit is checked.
+ * @evidence contracts/e2e.md#shared-execution Six enum, union, wide-identity, declaration-head, object-outline and encoded-display entries borrow one composite project, initialized MCP session and resident native compiler. One object-source edit requires a delta generation; all other fixture inputs remain unchanged and every entry retains its named assertions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files and symbol names isolate each identity. The object entry edits only object-outline.ts; serial requests synchronize that delta while other identities stay unchanged. The suite closes its shared client in finally and asserts successful exit, including after a case failure.
  * @evidence contracts/e2e.md#preserved-coverage Every original per-file exact signature and documentation assertion remains. The case establishes supported encoding/display behavior, not a timing or filesystem-platform benchmark.
  */
 export const test_ttscgraph_details_reads_bom_and_utf16_source_snapshot =
   async () => {
-    const source = (name: string, terminator = "\n") =>
-      [
-        `/** ${name} docs. */`,
-        `export function ${name}(): string {`,
-        `  return "${name}";`,
-        "}",
-        "",
-      ].join(terminator);
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify({
-        compilerOptions: { target: "ES2022", module: "commonjs", strict: true },
-        include: ["src"],
-      }),
-      "src/Utf8Bom.ts": "",
-      "src/Utf16Le.ts": "",
-      "src/Utf16Be.ts": "",
-    });
-    fs.writeFileSync(
-      path.join(root, "src", "Utf8Bom.ts"),
-      Buffer.concat([
-        Buffer.from([0xef, 0xbb, 0xbf]),
-        Buffer.from(source("Utf8Bom")),
-      ]),
-    );
-    fs.writeFileSync(
-      path.join(root, "src", "Utf16Le.ts"),
-      Buffer.concat([
-        Buffer.from([0xff, 0xfe]),
-        Buffer.from(source("Utf16Le"), "utf16le"),
-      ]),
-    );
-    fs.writeFileSync(
-      path.join(root, "src", "Utf16Be.ts"),
-      utf16be(source("Utf16Be")),
-    );
-
-    const names = ["Utf8Bom", "Utf16Le", "Utf16Be"];
-    for (const [name, terminator] of [["Lf", "\n"], ["CrLf", "\r\n"], ["Cr", "\r"], ["Ls", "\u2028"], ["Ps", "\u2029"]] as const) {
-      fs.writeFileSync(path.join(root, "src", `${name}.ts`), source(name, terminator));
-      names.push(name);
-    }
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
+    const names = ["Utf8Bom", "Utf16Le", "Utf16Be", "Lf", "CrLf", "Cr", "Ls", "Ps"];
+    await withIdentityBoundary(async (client) => {
       const details = detailsOf(
         (await client.request("tools/call", {
           name: "inspect_typescript_graph",
           arguments: graphArguments(names),
         })) as ToolResult,
       );
+      const failures: unknown[] = [];
       for (const name of names) {
+        try {
         const node = details.nodes.find((candidate) => candidate.name === name);
         assert.ok(node, `details resolves ${name}: ${JSON.stringify(details)}`);
         // The head, and only the head. This assertion used to require the
@@ -138,10 +83,11 @@ export const test_ttscgraph_details_reads_bom_and_utf16_source_snapshot =
           `${name} docs.`,
           `details keeps ${name}'s doc: ${JSON.stringify(node)}`,
         );
+        } catch (error) {
+          failures.push(error);
+        }
       }
-    } finally {
-      client.endStdin();
-      const code = await client.waitForExit();
-      assert.equal(code, 0, client.stderrText());
-    }
+      if (failures.length !== 0)
+        throw new AggregateError(failures, "Encoded source detail failures");
+    });
   };

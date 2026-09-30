@@ -1,6 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
@@ -56,49 +55,13 @@ const detailsOf = (result: ToolResult): DetailsResult => {
  * @evidence contracts/testing.md#distinguishing-cases A simple body contrasts braces inside a type annotation, so cutting at the first textual brace cannot satisfy both declarations.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_signature_cuts_where_the_body_opens starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native declaration-head extraction and snapshot display must reach MCP without body leakage; feeding pretrimmed synthetic signatures cannot test the producer cut.
- * @evidence contracts/e2e.md#shared-execution Both signatures share one project/session and suite binary. They can join other display fixtures without another build; current cross-case project/session batching is unfinished.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Distinct immutable function handles bind the signatures to this generation; stdin ends and exit is awaited in finally without checking its code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#shared-execution Six enum, union, wide-identity, declaration-head, object-outline and encoded-display entries borrow one composite project, initialized MCP session and resident native compiler. One object-source edit requires a delta generation; all other fixture inputs remain unchanged and every entry retains its named assertions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files and symbol names isolate each identity. The object entry edits only object-outline.ts; serial requests synchronize that delta while other identities stay unchanged. The suite closes its shared client in finally and asserts successful exit, including after a case failure.
  * @evidence contracts/e2e.md#preserved-coverage All original head-fragment presence and body-fragment absence assertions remain. The oracle checks required fragments, not equality of the entire signature.
  */
 export const test_ttscgraph_signature_cuts_where_the_body_opens = async () => {
-  const root = TestProject.createProject({
-    "tsconfig.json": JSON.stringify(
-      {
-        compilerOptions: {
-          target: "ES2022",
-          module: "commonjs",
-          strict: true,
-          rootDir: "src",
-          outDir: "dist",
-        },
-        include: ["src"],
-      },
-      null,
-      2,
-    ),
-    "src/app.ts": [
-      "export function oneLiner(n: number): number { return n * 2; }",
-      "",
-      "export function withTypeLiteral(options: {",
-      "  host: string;",
-      "  port: number;",
-      "}): Promise<void> {",
-      "  return Promise.resolve();",
-      "}",
-      "",
-    ].join("\n"),
-  });
-
-  const client = TtsgraphClient.start(root);
-  try {
-    await client.request("initialize", {
-      protocolVersion: "2025-06-18",
-      capabilities: {},
-      clientInfo: { name: "test-graph", version: "0.0.0" },
-    });
-    client.notify("notifications/initialized", {});
-
-    const result = (await client.request("tools/call", {
+  await withIdentityBoundary(async (client) => {
+      const result = (await client.request("tools/call", {
       name: "inspect_typescript_graph",
       arguments: graphArguments({
         thinking: "What are these two functions?",
@@ -137,8 +100,5 @@ export const test_ttscgraph_signature_cuts_where_the_body_opens = async () => {
       !typeLiteral.includes("Promise.resolve()"),
       `the body leaked into the signature: ${typeLiteral}`,
     );
-  } finally {
-    client.endStdin();
-    await client.waitForExit();
-  }
+    });
 };

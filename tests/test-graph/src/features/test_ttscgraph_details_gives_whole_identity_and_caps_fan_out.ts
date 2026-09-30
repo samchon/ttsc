@@ -1,6 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
@@ -64,60 +63,13 @@ const detailsOf = (result: ToolResult): DetailsResult => {
  * @evidence contracts/testing.md#distinguishing-cases Uncapped members and literals contrast bounded inbound fan-out in the same response. Explicit capped completeness dispatch has a separate direct application source unit.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_details_gives_whole_identity_and_caps_fan_out starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary The actual compiler snapshot must carry the full identity before the MCP projection caps popularity-based context; fabricated identity inputs would bypass that producer connection.
- * @evidence contracts/e2e.md#shared-execution One project and MCP session serve both identity requests using the shared suite compiler. This case can join compatible identity fixtures; the current separate project/session population is not yet minimized.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The twenty-member class, union and their callers belong to one case project; stdin ends and exit is awaited in finally without asserting the exit code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#shared-execution Six enum, union, wide-identity, declaration-head, object-outline and encoded-display entries borrow one composite project, initialized MCP session and resident native compiler. One object-source edit requires a delta generation; all other fixture inputs remain unchanged and every entry retains its named assertions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files and symbol names isolate each identity. The object entry edits only object-outline.ts; serial requests synchronize that delta while other identities stay unchanged. The suite closes its shared client in finally and asserts successful exit, including after a case failure.
  * @evidence contracts/e2e.md#preserved-coverage The member-count, literal-count and positive bounded-inbound assertions all remain here. These checks cannot detect an incorrect member name when the count stays twenty.
  */
 export const test_ttscgraph_details_gives_whole_identity_and_caps_fan_out =
   async () => {
-    const members = Array.from(
-      { length: 20 },
-      (_, i) => `  m${String(i)}(): void {}`,
-    );
-    const literals = Array.from(
-      { length: 20 },
-      (_, i) => `'v${String(i)}'`,
-    ).join(" | ");
-    const users = Array.from(
-      { length: 20 },
-      (_, i) => `export function u${String(i)}(w: Wide): void { void w; }`,
-    );
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            strict: true,
-            rootDir: "src",
-            outDir: "dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2,
-      ),
-      "src/app.ts": [
-        "export class Wide {",
-        ...members,
-        "}",
-        "",
-        `export type Values = ${literals};`,
-        "",
-        ...users,
-        "",
-      ].join("\n"),
-    });
-
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
+    await withIdentityBoundary(async (client) => {
       const result = (await client.request("tools/call", {
         name: "inspect_typescript_graph",
         arguments: graphArguments({
@@ -157,8 +109,5 @@ export const test_ttscgraph_details_gives_whole_identity_and_caps_fan_out =
         inbound > 0 && inbound < 20,
         `fan-out is an orientation slice, not the whole ${20}: got ${String(inbound)}`,
       );
-    } finally {
-      client.endStdin();
-      await client.waitForExit();
-    }
+    });
   };

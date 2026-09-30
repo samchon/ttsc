@@ -1,6 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
@@ -61,61 +60,13 @@ const detailsOf = (result: ToolResult): DetailsResult => {
  * @evidence contracts/testing.md#distinguishing-cases String, implicit-number and duplicate-value enums contrast a class outline; this case does not exercise an explicit member cap, which the direct application audit unit owns.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_details_answers_an_enum_with_its_member_names starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native enum facts must survive snapshot transport, model construction and details projection; a synthetic member list cannot establish that the compiler actually publishes them.
- * @evidence contracts/e2e.md#shared-execution All enum and class requests reuse one fixture and MCP session plus the suite-built compiler. Compatible identity cases are candidates for a shared project/session; that consolidation is still incomplete.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Distinct enum/class handles belong to the case project; the client ends stdin and awaits exit in finally without asserting the exit code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#shared-execution Six enum, union, wide-identity, declaration-head, object-outline and encoded-display entries borrow one composite project, initialized MCP session and resident native compiler. One object-source edit requires a delta generation; all other fixture inputs remain unchanged and every entry retains its named assertions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files and symbol names isolate each identity. The object entry edits only object-outline.ts; serial requests synchronize that delta while other identities stay unchanged. The suite closes its shared client in finally and asserts successful exit, including after a case failure.
  * @evidence contracts/e2e.md#preserved-coverage Original exact names, Red signature, literals, numeric values, duplicate-value and class-method assertions remain in this boundary entry; no portable semantic assertion has been removed.
  */
 export const test_ttscgraph_details_answers_an_enum_with_its_member_names =
   async () => {
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            strict: true,
-            rootDir: "src",
-            outDir: "dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2,
-      ),
-      "src/app.ts": [
-        "export enum Colors {",
-        "  Red = 'red',",
-        "  Green = 'green',",
-        "  Blue = 'blue',",
-        "}",
-        "",
-        "export enum Implicit {",
-        "  First,",
-        "  Second,",
-        "}",
-        "",
-        "// Two members, one value: a type folds these, a declaration does not.",
-        "export enum Dup {",
-        "  A = 'x',",
-        "  B = 'x',",
-        "}",
-        "",
-        "export class Cls {",
-        "  public run(): void {}",
-        "}",
-        "",
-      ].join("\n"),
-    });
-
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
+    await withIdentityBoundary(async (client) => {
       const result = (await client.request("tools/call", {
         name: "inspect_typescript_graph",
         arguments: graphArguments({
@@ -183,8 +134,5 @@ export const test_ttscgraph_details_answers_an_enum_with_its_member_names =
         ["Cls.run"],
         `a class outline is unaffected: ${JSON.stringify(nodeOf("Cls")?.members)}`,
       );
-    } finally {
-      client.endStdin();
-      await client.waitForExit();
-    }
+    });
   };

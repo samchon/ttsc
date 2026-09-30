@@ -58,7 +58,7 @@ const traceOf = (result: ToolResult): TraceResult => {
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_member_relations_cross_inherited_intermediates starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native checker heritage resolution must publish transitive member relations across the empty intermediate before resident traversal can dispatch.
  * @evidence contracts/e2e.md#shared-execution One immutable hierarchy and its trace share one project/session with the suite compiler. Compatible member-relation cases can share preparation; the current session population is not minimized.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Owner-qualified Root/Concrete handles isolate the hierarchy; stdin ends and exit is awaited in finally without asserting its code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Owner-qualified Root/Concrete handles isolate the hierarchy; stdin ends and exit is awaited in finally without asserting its code. The client observes close from construction, rejects pending requests on child failure, and terminates a child that exceeds its exit timeout.
  * @evidence contracts/e2e.md#preserved-coverage Original Concrete dispatch and persist reachability assertions remain. This case alone does not establish negative dispatch filtering or every intermediate node.
  */
 export const test_ttscgraph_member_relations_cross_inherited_intermediates =

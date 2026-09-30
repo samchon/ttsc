@@ -1,8 +1,8 @@
-import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   structuredContent?: unknown;
@@ -61,62 +61,13 @@ const membersOf = (result: ToolResult, name: string): Member[] => {
  * @evidence contracts/testing.md#distinguishing-cases Methods, accessors, shorthand, literal and callable values contrast spread/dynamic/nested keys; editing the same source replaces the outline rather than retaining stale members.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_details_object_members_follow_compiler_snapshot starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Compiler object-member metadata, source coordinates and a changed resident generation must reach details over MCP; a hand-built outline cannot detect missing native snapshot fields.
- * @evidence contracts/e2e.md#shared-execution Initial and replacement requests reuse one project and compiler session with the shared suite binary. The mutation requires an invalidated generation, not a rebuild; larger identity batching remains incomplete.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture changes only its own object source after the baseline, and the second response must contain only replacement members. Client stdin is ended in finally; normal exit is asserted.
+ * @evidence contracts/e2e.md#shared-execution Six enum, union, wide-identity, declaration-head, object-outline and encoded-display entries borrow one composite project, initialized MCP session and resident native compiler. One object-source edit requires a delta generation; all other fixture inputs remain unchanged and every entry retains its named assertions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files and symbol names isolate each identity. The object entry edits only object-outline.ts; serial requests synchronize that delta while other identities stay unchanged. The suite closes its shared client in finally and asserts successful exit, including after a case failure.
  * @evidence contracts/e2e.md#preserved-coverage All original ordered names/kinds, signatures, line bounds, private-marker exclusions and replacement assertions survive. No source-text layout check substitutes for returned behavior.
  */
 export const test_ttscgraph_details_object_members_follow_compiler_snapshot =
   async () => {
-    const before = [
-      "const shorthand = 1;",
-      'const dynamic = Math.random() > 0.5 ? "a" : "b";',
-      "const spread = { fromSpread: true };",
-      "",
-      "export const shape = (({",
-      "  /* { */",
-      "  real: 1,",
-      '  close: "}",',
-      '  text: "{",',
-      "  shorthand,",
-      '  ["static-key"]: 2,',
-      '  [""]: 4,',
-      "  [1]: true,",
-      "  [dynamic]: 3,",
-      '  method() { return "METHOD_BODY_MUST_NOT_APPEAR"; },',
-      '  get value() { return "ACCESSOR_BODY_MUST_NOT_APPEAR"; },',
-      '  set value(input: number) { void "SETTER_BODY_MUST_NOT_APPEAR"; },',
-      '  run: () => "ARROW_BODY_MUST_NOT_APPEAR",',
-      '  classic: function () { return "FUNCTION_BODY_MUST_NOT_APPEAR"; },',
-      '  klass: class { method() { return "CLASS_BODY_MUST_NOT_APPEAR"; } },',
-      '  list: ["ARRAY_CONTENT_MUST_NOT_APPEAR"],',
-      '  nested: { inner: "NESTED_BODY_MUST_NOT_APPEAR" },',
-      "  ...spread,",
-      "  /* } */",
-      "  afterSpread: true,",
-      "}) as const) satisfies Record<PropertyKey, unknown>;",
-      "",
-    ].join("\n");
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify({
-        compilerOptions: {
-          target: "ES2022",
-          module: "commonjs",
-          strict: true,
-        },
-        include: ["src"],
-      }),
-      "src/index.ts": before,
-    });
-
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
+    await withIdentityBoundary(async (client, root) => {
       const original = membersOf(
         (await client.request("tools/call", {
           name: "inspect_typescript_graph",
@@ -184,7 +135,7 @@ export const test_ttscgraph_details_object_members_follow_compiler_snapshot =
         );
 
       fs.writeFileSync(
-        path.join(root, "src", "index.ts"),
+        path.join(root, "src", "object-outline.ts"),
         "export const shape = { replacement: 2 };\n",
       );
       const refreshed = membersOf(
@@ -199,10 +150,5 @@ export const test_ttscgraph_details_object_members_follow_compiler_snapshot =
         ["replacement"],
       );
       assert.equal(refreshed[0]?.signature, "replacement: 2");
-    } finally {
-      client.endStdin();
-    }
-
-    const code = await client.waitForExit();
-    assert.equal(code, 0, client.stderrText());
+    });
   };

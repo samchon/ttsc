@@ -1,6 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
@@ -66,68 +65,20 @@ const detailsOf = (result: ToolResult): DetailsResult => {
  * @evidence contracts/testing.md#distinguishing-cases Wrapped versus flat and indirect versus held unions exercise resolution, and widened string is the negative control against inventing a finite enumeration.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_details_literals_enumerate_the_resolved_type starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary The native checker must resolve these types and publish their values through the resident snapshot before details returns them; literal-only synthetic nodes cannot test that connection.
- * @evidence contracts/e2e.md#shared-execution Every union, enum and widened request shares one case project/session and the suite compiler. Compatible type-identity cases can share a larger project; full session batching is unfinished.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Case-owned aliases and holders avoid foreign symbol candidates; stdin ends and exit is awaited in finally without asserting its code. The client's exit timeout can reject without killing its child.
+ * @evidence contracts/e2e.md#shared-execution Six enum, union, wide-identity, declaration-head, object-outline and encoded-display entries borrow one composite project, initialized MCP session and resident native compiler. One object-source edit requires a delta generation; all other fixture inputs remain unchanged and every entry retains its named assertions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files and symbol names isolate each identity. The object entry edits only object-outline.ts; serial requests synchronize that delta while other identities stay unchanged. The suite closes its shared client in finally and asserts successful exit, including after a case failure.
  * @evidence contracts/e2e.md#preserved-coverage Exact union and enum lists and the widened-undefined assertion are retained. This boundary case remains until actual direct semantic owners and a surviving producer batch cover those distinctions.
  */
 export const test_ttscgraph_details_literals_enumerate_the_resolved_type =
   async () => {
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            strict: true,
-            rootDir: "src",
-            outDir: "dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2,
-      ),
-      "src/app.ts": [
-        "export type Wrapped =",
-        "  | 'a'",
-        "  | 'b'",
-        "  | 'c'",
-        "  | 'd'",
-        "  | 'e'",
-        "  | 'f'",
-        "  | 'g';",
-        "",
-        "export type Flat = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g';",
-        "",
-        "export enum Colors {",
-        "  Red = 'red',",
-        "  Green = 'green',",
-        "  Blue = 'blue',",
-        "}",
-        "",
-        "export type Indirect = Wrapped | 'h';",
-        "",
-        "export type Widened = Wrapped | string;",
-        "",
-      ].join("\n"),
-    });
-
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
+    await withIdentityBoundary(async (client) => {
       const result = (await client.request("tools/call", {
         name: "inspect_typescript_graph",
         arguments: graphArguments({
           thinking: "Which values do these types admit?",
           request: {
             type: "details",
-            handles: ["Wrapped", "Flat", "Colors", "Indirect", "Widened"],
+            handles: ["Wrapped", "Flat", "LiteralColors", "Indirect", "Widened"],
           },
         }),
       })) as ToolResult;
@@ -156,9 +107,9 @@ export const test_ttscgraph_details_literals_enumerate_the_resolved_type =
       // A multi-line enum used to report nothing: its signature stops at `{`, and
       // its members are not nodes, so `literals` is their only carrier.
       assert.deepStrictEqual(
-        literalsOf("Colors"),
+        literalsOf("LiteralColors"),
         ['"red"', '"green"', '"blue"'],
-        `the enum reports its member values: ${JSON.stringify(literalsOf("Colors"))}`,
+        `the enum reports its member values: ${JSON.stringify(literalsOf("LiteralColors"))}`,
       );
       // Indirection: the seven members reaching Indirect through Wrapped are its
       // own, though no token of its declaration names them.
@@ -174,8 +125,5 @@ export const test_ttscgraph_details_literals_enumerate_the_resolved_type =
         undefined,
         `a union widened by string reports no value set: ${JSON.stringify(literalsOf("Widened"))}`,
       );
-    } finally {
-      client.endStdin();
-      await client.waitForExit();
-    }
+    });
   };

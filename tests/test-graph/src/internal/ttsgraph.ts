@@ -45,6 +45,8 @@ interface Pending {
  */
 export class TtsgraphClient {
   private readonly child: ChildProcessWithoutNullStreams;
+  private readonly closed: Promise<number>;
+  private failure: Error | undefined;
   private buffer = "";
   private stderr = "";
   private nextId = 0;
@@ -66,6 +68,13 @@ export class TtsgraphClient {
         windowsHide: true,
       },
     );
+    this.closed = new Promise<number>((resolve) => {
+      this.child.once("error", (error) => this.fail(error));
+      this.child.once("close", (code) => {
+        this.fail(new Error(`ttsc-graph closed (${String(code)})\nstderr: ${this.stderr}`));
+        resolve(code ?? 1);
+      });
+    });
     this.child.stdout.setEncoding("utf8");
     this.child.stdout.on("data", (chunk: string) => this.onData(chunk));
     this.child.stderr.setEncoding("utf8");
@@ -79,6 +88,7 @@ export class TtsgraphClient {
     params: unknown,
     timeoutMs = 120_000,
   ): Promise<unknown> {
+    if (this.failure !== undefined) return Promise.reject(this.failure);
     const id = ++this.nextId;
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -131,18 +141,29 @@ export class TtsgraphClient {
     this.child.stdin.end();
   }
 
-  waitForExit(timeoutMs = 30_000): Promise<number> {
-    return new Promise<number>((resolve, reject) => {
-      const timer = setTimeout(
-        () =>
-          reject(new Error(`ttsc-graph did not exit within ${timeoutMs}ms`)),
-        timeoutMs,
-      );
-      this.child.on("exit", (code) => {
-        clearTimeout(timer);
-        resolve(code ?? 0);
-      });
-    });
+  async waitForExit(timeoutMs = 30_000): Promise<number> {
+    let timeout: Error | undefined;
+    const timer = setTimeout(() => {
+      timeout = new Error(`ttsc-graph did not exit within ${timeoutMs}ms`);
+      this.fail(timeout);
+      this.child.kill();
+    }, timeoutMs);
+    try {
+      const code = await this.closed;
+      if (timeout !== undefined) throw timeout;
+      return code;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private fail(error: Error): void {
+    this.failure ??= error;
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
+    this.pending.clear();
   }
 
   stderrText(): string {
