@@ -212,9 +212,13 @@ func (paths *typeScriptSourcePaths) resolve(name string) string {
 }
 
 // canonicalTypeScriptDirectory follows every linked ancestor as the base
-// resolver does. EvalSymlinks then expands a Windows 8.3 spelling if one is
-// present. A missing directory keeps the resolved existing prefix and its
-// missing suffix, which lets an unsaved Program source still match its base.
+// resolver does. EvalSymlinks then expands native aliases such as Windows 8.3
+// spelling. A host may open a long link chain while refusing EvalSymlinks of a
+// descendant; in that case an ancestor's successful native expansion supplies
+// the prefix and the unchanged suffix keeps the unresolved lexical path. This
+// does not claim that the bounded resolver followed the entire link chain.
+// A missing directory likewise keeps its existing prefix and missing suffix,
+// which lets an unsaved Program source still match its base.
 func canonicalTypeScriptDirectory(directory string) string {
   current := filepath.Clean(filepath.FromSlash(directory))
   missing := []string{}
@@ -235,7 +239,23 @@ func canonicalTypeScriptDirectory(directory string) string {
       if evaluated, err := filepath.EvalSymlinks(filepath.FromSlash(resolved)); err == nil {
         resolved = evaluated
       } else if !settled {
-        return filepath.ToSlash(directory)
+        // Native expansion may succeed for the base but fail below the same
+        // chain. Normalize the prefix through that successful observation so
+        // one Program's base and sources do not disagree only about aliases.
+        prefix := filepath.Dir(current)
+        suffix := []string{filepath.Base(current)}
+        for {
+          if evaluated, err := filepath.EvalSymlinks(prefix); err == nil {
+            resolved = filepath.Join(append([]string{evaluated}, suffix...)...)
+            break
+          }
+          parent := filepath.Dir(prefix)
+          if parent == prefix {
+            return filepath.ToSlash(directory)
+          }
+          suffix = append([]string{filepath.Base(prefix)}, suffix...)
+          prefix = parent
+        }
       }
       parts := append([]string{filepath.FromSlash(resolved)}, missing...)
       return filepath.ToSlash(filepath.Join(parts...))
