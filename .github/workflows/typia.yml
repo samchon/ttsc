@@ -79,14 +79,28 @@ jobs:
       - name: Use local ttsc tarballs
         run: node scripts/ci/consumer-tarballs.cjs experimental/typia
 
-      - name: Test typia master
+      - name: Install typia master dependencies
+        id: typia-install
         working-directory: experimental/typia
-        run: |
-          pnpm install --no-frozen-lockfile
-          pnpm run test
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Test all typia packages
+        if: ${{ !cancelled() && steps.typia-install.outcome == 'success' }}
+        working-directory: experimental/typia
+        run: pnpm --filter=./tests/test-* --fail-if-no-match --no-bail -r start
+
+      - name: Test typia public Go modules
+        if: ${{ !cancelled() && steps.typia-install.outcome == 'success' }}
+        working-directory: experimental/typia
+        run: pnpm run test:go:public
+
+      - name: Test typia native Go modules
+        if: ${{ !cancelled() && steps.typia-install.outcome == 'success' }}
+        working-directory: experimental/typia
+        run: pnpm run test:go:native
 
       - name: Verify typia source maps with the same tarballs
-        if: ${{ !cancelled() && steps.tarballs.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.tarballs.outcome == 'success' && steps.typia-install.outcome == 'success' }}
         run: pnpm --dir experimental/source-map start -- --skip-pack --typia-master
         env:
           TTSC_CACHE_DIR: ${{ github.workspace }}/.cache/ci/plugins
