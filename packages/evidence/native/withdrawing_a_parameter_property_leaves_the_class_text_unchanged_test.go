@@ -16,6 +16,7 @@ import "testing"
  *  1. Materialize the baseline and the withdrawn source.
  *  2. Compare the class unit's own digest.
  *  3. Assert they are equal and that only the member's mark changed.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory retrieves Sale and Sale.prototype.price before/after withdrawal; class/member digests must stay equal, with only Hidden changing from empty to @internal.
  * @evidence contracts/testing.md#independent-expectations Documentation is excluded from declaration content digests while the withdrawal marker remains a separate semantic contribution.
  * @evidence contracts/testing.md#distinguishing-cases Both units must exist and both text digests remain stable; this certifies the premise of the withdrawal-expiry case, not the aggregate scope's hash calculation.

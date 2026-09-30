@@ -19,6 +19,7 @@ import (
  *  1. One host cites one target and excludes another, each answered by its own
  *     review tag.
  *  2. Assert nothing is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runReviewRule sees a Pricing citation with evidenceReview and tax exclusion with evidenceExcludeReview; assertSilent requires valid pairing.
  * @evidence contracts/testing.md#independent-expectations Citation verification and exclusion verification use distinct markers, each answering its corresponding acknowledgement kind.
  * @evidence contracts/testing.md#distinguishing-cases Both kinds coexist on one host and different targets; swapped-kind refusal is owned by ReviewReportsAMismatchedReviewTag.

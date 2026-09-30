@@ -18,6 +18,7 @@ import (
  *  2. A single review names only the first target.
  *  3. Assert the second citation is reported as unreviewed, and that the
  *     reported repair names the target the author has to review.
+ *
  * @evidence contracts/testing.md#behavioral-verification runReviewRule sees reviewed Pricing beside unreviewed Refunds; assertReported requires one Refunds finding and its specific Add-review repair.
  * @evidence contracts/testing.md#independent-expectations Each citation owes its own nonempty review on the semantic host; a sibling's review is insufficient.
  * @evidence contracts/testing.md#distinguishing-cases Reviewed and unreviewed targets coexist, detecting overbroad host-level acceptance and reporting of every citation.

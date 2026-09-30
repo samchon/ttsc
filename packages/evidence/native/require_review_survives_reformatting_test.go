@@ -16,6 +16,7 @@ import (
  *  1. Take the fingerprint for one document.
  *  2. Re-emit the same document with CRLF line endings and trailing spaces.
  *  3. Assert the graph stays clean, so the fingerprint was unchanged.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule accepts the review seeded from LF content against equivalent CRLF content with trailing spaces.
  * @evidence contracts/testing.md#independent-expectations Line-ending and trailing-space normalization must preserve cited Markdown meaning, independent of the implementation-produced initial token.
  * @evidence contracts/testing.md#distinguishing-cases LF-to-CRLF plus trailing blanks challenges raw-byte fingerprints; semantic prose mutation belongs to RequireReviewExpiresOnCitedContent.

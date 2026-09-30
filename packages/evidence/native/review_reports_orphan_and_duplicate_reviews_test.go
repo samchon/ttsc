@@ -19,6 +19,7 @@ import (
  *  2. A third review names a target nothing cites.
  *  3. Assert exactly one duplicate finding and one orphan finding, and that the
  *     cited target itself is not also reported as unreviewed.
+ *
  * @evidence contracts/testing.md#behavioral-verification runReviewRule sees two Pricing reviews and an uncited Refunds review; duplicate and orphan findings, zero unreviewed findings and total count two are required.
  * @evidence contracts/testing.md#independent-expectations One citation needs one review, and a review must answer a citation; the literal targets establish the independent ledger expectations.
  * @evidence contracts/testing.md#distinguishing-cases Duplicate and orphan errors coexist without falsely unreviewing the paired target, detecting both directions of pairing.

@@ -15,6 +15,7 @@ import (
  *  1. Select only H3 units below two H2 sections.
  *  2. Cite each unselected H2 ancestor.
  *  3. Assert both H3 obligations are acknowledged.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule selects only H3s and cites both unselected H2 ancestors; the graph must be clean.
  * @evidence contracts/testing.md#independent-expectations Selectors define obligations without deleting structural ancestors, so Create and Cancel can cover Validate and Refund.
  * @evidence contracts/testing.md#distinguishing-cases Two parent scopes test intermediate ancestry across siblings; selected-unit materialization is not independently counted here.

@@ -15,6 +15,7 @@ import (
  *  1. Resolve the same target with and without a claim name.
  *  2. Assert both complete graphs are green.
  *  3. Remove the citation and assert the missing finding names the claim label and target.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule accepts the same citation with and without Friendly label, then reports the named claim after citation removal.
  * @evidence contracts/testing.md#independent-expectations Claim names are diagnostic labels, not graph identities; both accepted variants are independently required to be clean.
  * @evidence contracts/testing.md#distinguishing-cases The failing arm checks the label and target, but does not compare an unnamed failure's complete message.

@@ -19,6 +19,7 @@ import "testing"
  *  1. Cite one of two Markdown sections from an exported class.
  *  2. Evaluate a `symbol: "type"` claim over that file.
  *  3. Assert the uncited section is the only thing reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule selects Sale as a type host and assertReported requires exactly the uncited H2 finding.
  * @evidence contracts/testing.md#independent-expectations The type-host contract lets a class discharge its cited Sale section; Uncited independently remains owed.
  * @evidence contracts/testing.md#distinguishing-cases Two sections prevent a vanished class population from passing through claim deactivation.

@@ -14,6 +14,7 @@ import (
  * 1. Cite one class through type-only and value export populations.
  * 2. Assert both references demand the same fingerprint.
  * 3. Rebind the barrel to identical text in another file and assert expiry.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule compares review fingerprints for Target reached directly and through Public; one accepted review must become stale after the barrel rebinds to an identical-text Other declaration.
  * @evidence contracts/testing.md#independent-expectations Projection aliases must share a declaration identity while a different declaration changes the scope fingerprint. The diagnostic-derived seed is protocol setup, not an independent exact hash oracle.
  * @evidence contracts/testing.md#distinguishing-cases Both references and direct/barrel spellings challenge projection dependence; rebind with unchanged text distinguishes identity from content alone.

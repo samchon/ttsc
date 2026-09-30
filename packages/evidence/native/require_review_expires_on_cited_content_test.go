@@ -19,6 +19,7 @@ import (
  *  2. Assert the graph is clean.
  *  3. Rewrite the body of that H2 and assert the same source now reports a stale
  *     review quoting the old value.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule accepts a token for Pricing at 30 percent, changes the same document body to 45 percent, then requires stale Pricing and quotation of the old token.
  * @evidence contracts/testing.md#independent-expectations A review of rewritten cited content expires; the expected transition is independent even though the initial token is obtained from the rule's diagnostic.
  * @evidence contracts/testing.md#distinguishing-cases Accepted-to-stale with unchanged source and heading isolates prose change. This entry uses an interface carrier only and does not assert an exact new hash.

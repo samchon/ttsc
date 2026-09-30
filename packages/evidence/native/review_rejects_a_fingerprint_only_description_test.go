@@ -17,6 +17,7 @@ import (
  *  2. Assert it is reported as malformed.
  *  3. Assert a `#`-opening token followed by real prose still keeps that prose,
  *     because a requirement anchor is spelled the same way.
+ *
  * @evidence contracts/testing.md#behavioral-verification runReviewRule must report an uppercase fingerprint-only review malformed, then accept a requirement-anchor token followed by real prose.
  * @evidence contracts/testing.md#independent-expectations Token-looking text alone provides no verification explanation; an anchor with prose is a legitimate description.
  * @evidence contracts/testing.md#distinguishing-cases Uppercase bare token versus a longer anchor plus prose detects case loopholes without rejecting every hash-opening review.

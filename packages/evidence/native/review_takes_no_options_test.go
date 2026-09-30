@@ -16,6 +16,7 @@ import (
  *
  *  1. Read the rule's `AcceptsTtscLintOptions` declaration.
  *  2. Assert it refuses.
+ *
  * @evidence contracts/testing.md#behavioral-verification reviewRule.AcceptsTtscLintOptions must return false.
  * @evidence contracts/testing.md#independent-expectations The rule's option marker contract explicitly refuses payloads; the false expectation is independent of host construction.
  * @evidence contracts/testing.md#distinguishing-cases This pins the contributor marker only; it does not execute the host's configured-payload rejection path.

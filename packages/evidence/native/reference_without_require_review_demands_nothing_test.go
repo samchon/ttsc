@@ -14,6 +14,7 @@ import (
  *
  *  1. Use the same fixture with `requireReview` absent.
  *  2. Assert the graph is clean with no review tag anywhere.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule evaluates an unrevised citation with requireReview omitted and requires a clean graph.
  * @evidence contracts/testing.md#independent-expectations Review enforcement is opt-in, so existing references demand no review by default.
  * @evidence contracts/testing.md#distinguishing-cases The otherwise satisfied Pricing graph challenges unconditional review enforcement; explicit false is covered by RequireReviewDecodesLikeItsSiblings.

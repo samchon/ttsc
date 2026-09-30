@@ -15,6 +15,7 @@ import (
  *  1. Declare `requireReview: null` and assert it is rejected.
  *  2. Declare `requireReview: false` on an otherwise satisfied graph and assert
  *     nothing is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule evaluates the same satisfied TypeScript-to-Markdown graph with null and false review flags; null must diagnose requireReview, false must stay clean.
  * @evidence contracts/testing.md#independent-expectations The configuration contract admits boolean literals only; explicit false preserves opt-in behavior.
  * @evidence contracts/testing.md#distinguishing-cases Null versus false separates malformed input from a deliberate disabled policy; other invalid JSON types are not exercised here.

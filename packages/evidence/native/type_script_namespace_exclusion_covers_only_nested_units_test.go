@@ -16,6 +16,7 @@ import (
  *  1. Put function and property units under one namespace plus one root value.
  *  2. Exclude the namespace by link while selecting only child kinds.
  *  3. Assert only the root sibling remains missing.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule excludes Orders across nested function/property units and requires exactly one missing version finding.
  * @evidence contracts/testing.md#independent-expectations Namespace scope includes descendants, while the top-level version value remains unrelated.
  * @evidence contracts/testing.md#distinguishing-cases Nested Retry.limit and Request.id challenge deeper containment; the root sibling detects an exclusion widened to the whole file.

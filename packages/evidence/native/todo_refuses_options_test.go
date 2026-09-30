@@ -17,6 +17,7 @@ import (
  *
  *  1. Read the rule's `AcceptsTtscLintOptions` declaration.
  *  2. Assert it refuses.
+ *
  * @evidence contracts/testing.md#behavioral-verification todoRule.AcceptsTtscLintOptions must return false.
  * @evidence contracts/testing.md#independent-expectations The todo rule has no configuration payload and its contributor marker must explicitly refuse one.
  * @evidence contracts/testing.md#distinguishing-cases This unit entry checks the marker; the runtime host's diagnostic and skipped Check are consequences not executed by this body.

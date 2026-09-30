@@ -21,6 +21,7 @@ import (
  *  2. Answer it with `@evidenceExcludeReview` and assert the graph is clean.
  *  3. Answer it with `@evidenceReview` instead and assert it is still unreviewed,
  *     so the citation's tag cannot discharge an exclusion.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule reports an unreviewed exclusion and exclusion-specific repair, accepts its extracted token under evidenceExcludeReview, and rejects an ordinary evidenceReview answer.
  * @evidence contracts/testing.md#independent-expectations Exclusions owe their own review kind under requireReview; a citation review cannot discharge that opposite question. The extracted token is setup, not an exact digest oracle.
  * @evidence contracts/testing.md#distinguishing-cases Unreviewed, correctly reviewed and wrong-kind reviewed source variants keep the same target and host.

@@ -15,6 +15,7 @@ import (
  *  1. Follow a multi-line '@todo' with a '@param' tag.
  *  2. Run the rule.
  *  3. Assert one finding whose text joins the continuation and excludes the param.
+ *
  * @evidence contracts/testing.md#behavioral-verification runTodoRule reads a continued todo followed by param; one joined-debt finding is required and every message must exclude param.
  * @evidence contracts/testing.md#independent-expectations Continuation lines belong to the todo until the next JSDoc marker, whose text must remain separate.
  * @evidence contracts/testing.md#distinguishing-cases Multi-line continuation plus a real following tag challenge premature truncation and overrun across the boundary.

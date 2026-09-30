@@ -15,6 +15,7 @@ import (
  *  1. Cite the target from one exported interface.
  *  2. Write the review on a different exported interface in the same file.
  *  3. Assert the citation is still reported as unreviewed.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule places the citation on ISale and a same-target review on IOther; ISale must remain unreviewed.
  * @evidence contracts/testing.md#independent-expectations A module-wide target match is insufficient: unrelated exported identities cannot answer each other's review.
  * @evidence contracts/testing.md#distinguishing-cases Two interfaces in the same file isolate semantic identity from target and file equality; this entry asserts presence of unreviewed, not the complete finding set.

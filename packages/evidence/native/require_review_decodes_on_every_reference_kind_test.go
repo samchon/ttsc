@@ -23,6 +23,7 @@ import (
  *     `requireReview`.
  *  2. Decode the configuration.
  *  3. Assert no problem is reported and both policies carry the flag.
+ *
  * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig accepts Swagger and Prisma references with requireReview and each returned claim's first policy must carry true.
  * @evidence contracts/testing.md#independent-expectations Both supported reference kinds permit the literal review flag; parsed booleans and absence of problems are independent expectations.
  * @evidence contracts/testing.md#distinguishing-cases The two historically refused kinds share one decode call. The loop does not independently assert a two-claim result count, and no external parser is run.

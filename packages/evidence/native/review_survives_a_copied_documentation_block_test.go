@@ -17,6 +17,7 @@ import (
  *  1. Declare two overload signatures, each carrying the same citation and the
  *     same review.
  *  2. Assert nothing is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runReviewRule reads identical citation/review blocks on two overload signatures and requires silence.
  * @evidence contracts/testing.md#independent-expectations Repeated documentation on separate declarations of one semantic identity is valid; duplicates are judged inside a block rather than across copied overload blocks.
  * @evidence contracts/testing.md#distinguishing-cases Two signatures plus an implementation challenge physical-block versus merged-identity counting; targets are not resolved here.

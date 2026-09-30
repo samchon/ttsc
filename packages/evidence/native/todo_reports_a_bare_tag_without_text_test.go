@@ -15,6 +15,7 @@ import (
  *  1. Write a '@todo' with no remainder.
  *  2. Run the rule.
  *  3. Assert the finding fires and carries no empty quote.
+ *
  * @evidence contracts/testing.md#behavioral-verification runTodoRule checks a bare todo; exactly one generic finding must fire and no message may contain empty quotes.
  * @evidence contracts/testing.md#independent-expectations An unnamed todo remains debt, but diagnostic prose must not render a nonexistent text value as an empty quotation.
  * @evidence contracts/testing.md#distinguishing-cases The empty remainder is distinguished from absence of a todo marker and from a named debt.

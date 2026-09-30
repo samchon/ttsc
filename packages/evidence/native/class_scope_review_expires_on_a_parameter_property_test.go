@@ -18,6 +18,7 @@ import "testing"
  *     asks for.
  *  2. Assert the graph is clean.
  *  3. Change the parameter property's type and assert the review is now stale.
+ *
  * @evidence contracts/testing.md#behavioral-verification assertClassScopeReviewExpires runs accepted baseline and changed bigint parameter-property schemas; the graph must report stale Sale.
  * @evidence contracts/testing.md#independent-expectations A review over Sale must expire when its public price type changes. The initial token is production-derived, and the class's own text also changes, so this case alone does not establish parameter-property membership.
  * @evidence contracts/testing.md#distinguishing-cases The explicit constructor baseline isolates number-to-bigint type mutation; documentation-only withdrawal is covered by ClassScopeReviewExpiresWhenAParameterPropertyIsWithdrawn.

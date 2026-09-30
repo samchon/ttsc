@@ -21,6 +21,7 @@ import (
  *  2. Put the citation on the interface and its review, with the expected
  *     fingerprint, on the namespace.
  *  3. Assert the graph is clean.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule obtains a token for an interface citation and accepts its review on namespace ISale in the same merged symbol.
  * @evidence contracts/testing.md#independent-expectations Review matching follows semantic host identity across interface/namespace declarations. The rule-produced token is setup and does not certify fingerprint correctness.
  * @evidence contracts/testing.md#distinguishing-cases Citation and review reside on different physical declaration blocks of one identity; another identity's refusal belongs to RequireReviewRefusesAReviewOnAnotherIdentity.

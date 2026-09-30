@@ -18,6 +18,7 @@ import "testing"
  *     unreviewed.
  *  3. Move the fingerprinted review beside the exclusion and assert the graph
  *     is clean.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRuleAtRoot uses the installed Prisma parser for a file-level exclusion; a token on Sale must leave it unreviewed, while the same token beside the file carrier must pass.
  * @evidence contracts/testing.md#independent-expectations A file-level carrier is matched by its source position, not by an unrelated model's review. The diagnostic-derived token cannot independently establish hashing.
  * @evidence contracts/testing.md#distinguishing-cases Bare, wrong-model-host and correctly co-located review states share one workspace root and fixed Markdown content.

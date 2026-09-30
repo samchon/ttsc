@@ -71,12 +71,6 @@ export class Sale {
 }
 `
 
-
-
-
-
-
-
 // assertClassScopeReviewExpires reviews the shared class, then asserts the
 // review goes stale against a changed version of it.
 func assertClassScopeReviewExpires(t *testing.T, changed string) {

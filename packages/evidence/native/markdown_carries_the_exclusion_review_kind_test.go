@@ -17,6 +17,7 @@ import (
  *  2. Assert the exclusion's reason stops at its own sentence.
  *  3. Assert the review was collected, addressed to the exclusion rather than to a
  *     citation.
+ *
  * @evidence contracts/testing.md#behavioral-verification scanProjectMarkdown parses an HTML-comment exclusion/review pair; one declaration with the literal bounded reason and one tagExclude review are required.
  * @evidence contracts/testing.md#independent-expectations The review marker terminates the exclusion reason and preserves its distinct review kind.
  * @evidence contracts/testing.md#distinguishing-cases Adjacent tags in one comment detect swallowed reasons and lost review kinds; the graph's requireReview matching is not invoked.

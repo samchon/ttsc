@@ -13,6 +13,7 @@ import (
  *
  *  1. One block cites a target once and reviews it twice.
  *  2. Assert the duplicate is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runReviewRule reads one citation and two reviews inside one interface block; assertReported requires exactly one duplicate finding.
  * @evidence contracts/testing.md#independent-expectations Relaxing copied-block handling must retain rejection of genuinely repeated reviews in the same block.
  * @evidence contracts/testing.md#distinguishing-cases One physical block isolates duplicate review count from the overload-copy case.

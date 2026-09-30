@@ -21,6 +21,7 @@ import (
  *  2. The second review's description opens with `#req-search-policies`, which is
  *     `#`-prefixed and neither seven characters nor hex.
  *  3. Assert only the first target is reported, so the anchor stayed prose.
+ *
  * @evidence contracts/testing.md#behavioral-verification runReviewRule evaluates evidenceReviewed for Pricing and a real Search review carrying a prose anchor; assertReported requires exactly the Pricing unreviewed finding.
  * @evidence contracts/testing.md#independent-expectations A longer marker name is not evidenceReview, while a prose requirement anchor followed by an explanation is a valid description.
  * @evidence contracts/testing.md#distinguishing-cases Invalid marker and valid hash-opening prose coexist on one host, preventing prefix matching or wholesale rejection of hash-opening text.

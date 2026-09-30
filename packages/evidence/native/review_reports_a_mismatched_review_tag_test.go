@@ -19,6 +19,7 @@ import (
  *     acknowledge.
  *  2. Assert both are reported as mismatched and named by the tag that answers.
  *  3. Assert neither is reported as an orphan.
+ *
  * @evidence contracts/testing.md#behavioral-verification runReviewRule swaps review kinds for a citation and an exclusion; both mismatched findings and matching-kind repair text must appear without orphan findings.
  * @evidence contracts/testing.md#independent-expectations A target acknowledged under the opposite kind is mismatched rather than absent; repairs must name the correct marker.
  * @evidence contracts/testing.md#distinguishing-cases Both swap directions challenge asymmetric recognition while zero orphan count protects error classification; the total findings are not counted.

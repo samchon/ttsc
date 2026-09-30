@@ -15,6 +15,7 @@ import (
  *  1. Put one '@todo' block above a statement declaring two bindings.
  *  2. Run the rule.
  *  3. Assert exactly one finding.
+ *
  * @evidence contracts/testing.md#behavioral-verification runTodoRule checks one todo block on a two-binding exported variable statement; assertReported requires one debt finding.
  * @evidence contracts/testing.md#independent-expectations The debt belongs to the physical shared block, so parser attachments to multiple nodes must not duplicate it.
  * @evidence contracts/testing.md#distinguishing-cases Two declarators expose attachment duplication while retaining one authored tag.

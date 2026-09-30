@@ -16,6 +16,7 @@ import (
  *  1. Acknowledge a complete Markdown file.
  *  2. Exclude one H2 subtree in a second declaration.
  *  3. Assert the overlap produces one conflict diagnostic.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule cites the complete Markdown file and excludes its Create section on the same interface, requiring one conflict.
  * @evidence contracts/testing.md#independent-expectations Aggregate positive scope and negative child scope contradict one another even though both discharge selected units.
  * @evidence contracts/testing.md#distinguishing-cases File versus H2 hierarchy detects missed ancestor intersection; this entry checks conflict count, not the full diagnostic set or missing-coverage count.

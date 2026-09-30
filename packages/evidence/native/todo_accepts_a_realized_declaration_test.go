@@ -14,6 +14,7 @@ import (
  *  1. Export a function documented with prose and a '@param' tag, no '@todo'.
  *  2. Run the rule.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runTodoRule checks prose and param documentation with no todo tag; assertSilent requires no finding.
  * @evidence contracts/testing.md#independent-expectations Only todo markers denote unrealized contracts; ordinary documentation is permitted.
  * @evidence contracts/testing.md#distinguishing-cases Another JSDoc tag prevents silence from merely reflecting absence of all tags.

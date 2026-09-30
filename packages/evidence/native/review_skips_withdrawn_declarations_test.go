@@ -17,6 +17,7 @@ import (
  *  1. Export an interface whose block carries `@internal` and an unreviewed
  *     citation.
  *  2. Assert the rule reports nothing.
+ *
  * @evidence contracts/testing.md#behavioral-verification runReviewRule evaluates an @internal interface carrying an unreviewed citation; assertSilent requires no finding.
  * @evidence contracts/testing.md#independent-expectations A withdrawn identity is outside the public review population, so its citation owes no public review.
  * @evidence contracts/testing.md#distinguishing-cases The internal marker challenges collector filtering; hidden and ignore markers or nested withdrawal are not individually executed here.

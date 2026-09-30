@@ -15,6 +15,7 @@ import (
  *  1. Digest a section whose body opens with a `//` line.
  *  2. Change that line's text.
  *  3. Assert the digest moved.
+ *
  * @evidence contracts/testing.md#behavioral-verification scanProjectMarkdown retrieves Pricing's digest and requires a change when slash-opening prose changes 30 to 45.
  * @evidence contracts/testing.md#independent-expectations Markdown slash text is content, not TypeScript comment trivia, so its semantic rewrite must affect the digest.
  * @evidence contracts/testing.md#distinguishing-cases The same heading and slash prefix isolate prose content; this entry does not compare ordinary prose normalization or assert an exact hash.

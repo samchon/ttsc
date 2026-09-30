@@ -15,6 +15,7 @@ import (
  *  1. Select only two properties of one exported interface.
  *  2. Cite the unselected type ancestor once.
  *  3. Assert both properties are acknowledged.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule imports Shape into a ledger, selects only its width/height properties, and requires a clean graph after citing Shape.
  * @evidence contracts/testing.md#independent-expectations An unselected type remains an aggregate address for its selected public properties.
  * @evidence contracts/testing.md#distinguishing-cases The property-only selector challenges ancestor removal; silence does not independently assert how many property units were materialized.

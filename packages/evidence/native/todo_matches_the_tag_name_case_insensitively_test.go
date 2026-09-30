@@ -13,6 +13,7 @@ import (
  *  1. Write the tag as '@TODO'.
  *  2. Run the rule.
  *  3. Assert the finding carries the text.
+ *
  * @evidence contracts/testing.md#behavioral-verification runTodoRule checks uppercase TODO and requires exactly one finding with the normalized todo label and original debt text.
  * @evidence contracts/testing.md#independent-expectations Tag-name matching is case-insensitive; uppercase does not change the recorded promise.
  * @evidence contracts/testing.md#distinguishing-cases This uppercase firing case complements ordinary lowercase and longer-name refusal without asserting all mixed-case variants.

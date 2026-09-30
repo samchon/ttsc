@@ -14,6 +14,7 @@ import (
  *
  *  1. Answer an exclusion with `@evidenceExcludeReviewed`.
  *  2. Assert the exclusion is still unreviewed.
+ *
  * @evidence contracts/testing.md#behavioral-verification runReviewRule answers a tax exclusion with evidenceExcludeReviewed; assertReported requires its unreviewed finding.
  * @evidence contracts/testing.md#independent-expectations A longer marker name must not be treated as the exact exclusion-review tag.
  * @evidence contracts/testing.md#distinguishing-cases This is the longer exclusion-marker negative arm; ordinary review-marker boundary is covered by ReviewJudgesTheBoundaryOfItsMarker.

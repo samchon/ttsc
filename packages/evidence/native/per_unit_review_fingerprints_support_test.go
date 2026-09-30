@@ -27,10 +27,6 @@ func prismaFieldDigests(t *testing.T, schema string) map[string]string {
   return digests
 }
 
-
-
-
-
 // prismaScopeOf composes a model's scope fingerprint from exactly the units one
 // parse produced.
 //

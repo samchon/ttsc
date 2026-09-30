@@ -20,6 +20,7 @@ import (
  *  1. Materialize a model whose parse carried digests.
  *  2. Materialize one whose parse carried none.
  *  3. Assert each unit reports exactly what its declaration carried.
+ *
  * @evidence contracts/testing.md#behavioral-verification prismaModelUnits maps literal Sale, price and seller digests into three evidence units; an undigested Bare fixture must leave every output digest empty.
  * @evidence contracts/testing.md#independent-expectations The Go unit constructor must preserve bridge-supplied digests and must not invent absent ones; literal model/column/relation strings are independent field-transfer expectations.
  * @evidence contracts/testing.md#distinguishing-cases Populated model/data/relation units contrast with absent digest input. This entry exercises no Prisma parser or bridge.

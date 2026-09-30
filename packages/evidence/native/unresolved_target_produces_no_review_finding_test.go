@@ -16,6 +16,7 @@ import (
  *  1. Cite a heading no document declares, under a reference requiring review.
  *  2. Assert the unresolved-target diagnostic is reported and no review
  *     diagnostic accompanies it.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule reports unresolved Refunds beside a Pricing citation carrying an unfingerprinted review; messages naming Refunds must not also name an evidence-review derivative.
  * @evidence contracts/testing.md#independent-expectations Resolution failure cannot establish a review obligation for a nonexistent target.
  * @evidence contracts/testing.md#distinguishing-cases The invalid Refunds citation shares a host with Pricing and its review tag. Only Refunds derivative suppression is asserted; this case does not independently establish that Pricing review processing still acts.

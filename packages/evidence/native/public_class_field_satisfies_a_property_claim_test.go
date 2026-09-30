@@ -21,6 +21,7 @@ import "testing"
  *     one.
  *  2. Evaluate a `symbol: "property"` claim under singleEvidencePerSymbol.
  *  3. Assert the uncited section is the only thing reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule selects public price under singleEvidencePerSymbol; assertReported requires only the uncited section.
  * @evidence contracts/testing.md#independent-expectations Public data is a property host; private ledger is outside that selector, so it must not add a zero-unit cardinality failure.
  * @evidence contracts/testing.md#distinguishing-cases The uncited H2 keeps the claim demonstrably active while the private field challenges erroneous host admission.

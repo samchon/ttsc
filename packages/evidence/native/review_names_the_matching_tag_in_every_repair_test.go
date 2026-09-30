@@ -15,6 +15,7 @@ import (
  *  1. One host carries an unreviewed exclusion and an unreviewed citation.
  *  2. Assert each repair names its own tag, and each finding states its own
  *     question.
+ *
  * @evidence contracts/testing.md#behavioral-verification runReviewRule leaves one citation and one exclusion unreviewed; both Add-marker repairs and their distinct question text must be present.
  * @evidence contracts/testing.md#independent-expectations The repair for an exclusion must ask for evidenceExcludeReview and its non-applicability check; a citation asks for evidenceReview and implementation verification.
  * @evidence contracts/testing.md#distinguishing-cases Two unreviewed kinds on one host expose marker substitution or generic question text without asserting an exact diagnostic count.

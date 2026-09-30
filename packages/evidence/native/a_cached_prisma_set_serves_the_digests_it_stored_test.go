@@ -18,6 +18,7 @@ import (
  *  1. Store a parsed set carrying model and field digests.
  *  2. Read it back.
  *  3. Assert both digests survived.
+ *
  * @evidence contracts/testing.md#behavioral-verification newPrismaCache stores a literal Sale model and price field, then lookup must hit with exactly one model/field and both original digest strings.
  * @evidence contracts/testing.md#independent-expectations The cache is a transport for supplied normalized digests; the authored strings establish exact preservation independently.
  * @evidence contracts/testing.md#distinguishing-cases This successful round trip owns presence and field fidelity, not invalidation or parser normalization; it starts with a new private cache.

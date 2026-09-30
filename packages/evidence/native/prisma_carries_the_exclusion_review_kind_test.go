@@ -15,6 +15,7 @@ import (
  *
  *  1. Parse a `///` run holding an exclusion and its review.
  *  2. Assert the review is collected and addressed to the exclusion.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseReviews and parseCommentDeclarations consume the same documentation text; one tagExclude review with tax target and one bounded exclusion reason are required.
  * @evidence contracts/testing.md#independent-expectations Prisma documentation grammar preserves the exclusion review kind and treats its marker as a reason boundary.
  * @evidence contracts/testing.md#distinguishing-cases This is a direct grammar unit test over string input; it does not invoke the Prisma AST parser despite its fixture's artifact vocabulary.

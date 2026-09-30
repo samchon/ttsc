@@ -16,6 +16,7 @@ import "testing"
  *  1. Review the same class with the value the graph asks for.
  *  2. Withdraw the parameter property with `@internal`.
  *  3. Assert the review is stale.
+ *
  * @evidence contracts/testing.md#behavioral-verification assertClassScopeReviewExpires accepts the Sale baseline, adds only @internal to price's documentation, then requires stale Sale.
  * @evidence contracts/testing.md#independent-expectations Public-scope membership changes require expiry even if declaration text digest stays unchanged; the companion text-invariance case checks that premise.
  * @evidence contracts/testing.md#distinguishing-cases The documentation-only mark challenges subtree withdrawal rather than ordinary type-content expiry; the token seed does not establish exact hashing.

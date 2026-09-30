@@ -15,6 +15,7 @@ import (
  *  1. Select only H2 and H3 units from one document.
  *  2. Cite the unselected file ancestor once.
  *  3. Assert every selected heading is acknowledged.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule selects H2/H3 descendants but cites only docs/spec.md; assertNoProblems requires full coverage.
  * @evidence contracts/testing.md#independent-expectations A file scope addresses its selected descendants even when file itself is not selected.
  * @evidence contracts/testing.md#distinguishing-cases Four descendants in two subtrees challenge ancestor addressability; this clean-only case does not separately assert denominator cardinality.

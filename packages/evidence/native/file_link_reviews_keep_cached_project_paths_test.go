@@ -18,6 +18,7 @@ import (
  * 1. Require a review of one snapshot through physical and linked project roots.
  * 2. Keep requiring that review after the saved source is removed.
  * 3. Accept its fingerprint and expire it when the editor snapshot changes.
+ *
  * @evidence contracts/testing.md#behavioral-verification newFileLinkFixture drives graphRule.Check through physical and logical roots, a linked reference, source deletion and an edited SourceFile; an accepted token must turn stale only on the replacement snapshot.
  * @evidence contracts/testing.md#independent-expectations The rule must use the supplied parsed source and current project address context. An unrelated decoy export challenges lookup by stale or logical disk path; diagnostic tokens do not establish exact hash correctness.
  * @evidence contracts/testing.md#distinguishing-cases Deletion preserves the old editor snapshot and its unreviewed state; replacement with value 2 must expire the same review. The fixture retains its supplied SourceFile pointers across freshly created graphRule checks; cache ownership is internal to the rule, not a retained fixture field.

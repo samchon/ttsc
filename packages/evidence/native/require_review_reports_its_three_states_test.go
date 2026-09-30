@@ -24,6 +24,7 @@ import (
  *  2. Review it with no fingerprint and assert the unfingerprinted state, and
  *     that the unreviewed state is gone.
  *  3. Assert neither run reports more than one review finding.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule checks absent and unfingerprinted reviews; each has exactly one review finding, and the unfingerprinted arm must not also be unreviewed.
  * @evidence contracts/testing.md#independent-expectations The review states require one repair at a time: absent review precedes missing fingerprint. The diagnostic must offer a token in the absent-review arm.
  * @evidence contracts/testing.md#distinguishing-cases Only two states execute here despite the historical Test name; stale reviews are covered by RequireReviewExpiresOnCitedContent.

@@ -12,6 +12,7 @@ import "testing"
  *  1. Remove the citation and leave the class otherwise unchanged.
  *  2. Evaluate the same claim.
  *  3. Assert the section is reported unacknowledged.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule selects an undocumented Sale class and requires the missing Sale-section diagnostic.
  * @evidence contracts/testing.md#independent-expectations A selected class with no citation owes the authored Sale H2; the expected target is literal.
  * @evidence contracts/testing.md#distinguishing-cases Removing the class citation exercises the firing twin of ClassCitationSatisfiesATypeClaim; extra diagnostics are not counted here.

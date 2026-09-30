@@ -16,6 +16,7 @@ import (
  *  1. Materialize two H2 sections with one H3 child each.
  *  2. Exclude the first H2 scope.
  *  3. Assert only the second H2 and its child remain missing.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule excludes Create and requires exactly two missing findings naming Cancel and Refund, with no missing Validate target.
  * @evidence contracts/testing.md#independent-expectations An H2's scope ends at the next equal-rank heading, so its exclusion covers only Create/Validate.
  * @evidence contracts/testing.md#distinguishing-cases The adjacent Cancel subtree detects a cascade widened to all following headings; exact missing-count and explicit targets distinguish under- and over-coverage.

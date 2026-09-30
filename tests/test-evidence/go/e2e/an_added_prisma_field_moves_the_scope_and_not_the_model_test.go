@@ -18,6 +18,7 @@ import (
  *  1. Parse a model, then parse it with one field added.
  *  2. Assert the model's own digest and the untouched field's are unchanged.
  *  3. Assert the model's composed scope digest is not.
+ *
  * @evidence contracts/testing.md#behavioral-verification prismaFieldDigests parses before/after schemas; every resulting digest must be nonempty, Sale and Sale.price must remain equal, and prismaScopeOf must change after currency is added.
  * @evidence contracts/testing.md#independent-expectations A model's own declaration digest excludes its field set, while its aggregate scope includes every field. These equality/inequality relations are contract-derived.
  * @evidence contracts/testing.md#distinguishing-cases Adding one new field distinguishes unit-content stability from subtree-membership change; the composite helper uses production newScopeIndex and cannot independently certify its hash algorithm.

@@ -14,6 +14,7 @@ import (
  *  1. Write a '@todos' tag.
  *  2. Run the rule.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runTodoRule checks a todos tag and requires silence.
  * @evidence contracts/testing.md#independent-expectations The exact marker boundary prevents another tool's longer name from creating a todo debt.
  * @evidence contracts/testing.md#distinguishing-cases An adjacent plural spelling detects prefix matching despite sharing the entire todo prefix.

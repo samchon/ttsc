@@ -25,6 +25,7 @@ import (
  *  2. Assert the graph is clean.
  *  3. Rewrite only the H3's body, which the reference does not select at all,
  *     and assert the review is now stale.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule selects H2 only, reviews Pricing, then rewrites its unselected H3 Coupons and requires stale Pricing.
  * @evidence contracts/testing.md#independent-expectations A selected ancestor's structural fingerprint includes descendants independently of the obligation selector. The seed is production-derived and cannot verify exact hash computation.
  * @evidence contracts/testing.md#distinguishing-cases An H3 excluded from selection still changes the aggregate; accepted baseline prevents testing only that any token is rejected.

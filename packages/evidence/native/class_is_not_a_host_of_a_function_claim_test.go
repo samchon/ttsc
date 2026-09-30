@@ -14,6 +14,7 @@ import "testing"
  *  1. Cite a Markdown section from the class under a `symbol: "function"` claim.
  *  2. Keep a method as the live host, so the claim is active either way.
  *  3. Assert the class citation is refused and the section stays unacknowledged.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule evaluates a citation on Sale while charge keeps the function claim active; host refusal and missing Charge are required.
  * @evidence contracts/testing.md#independent-expectations A class is a type host, so a function selector cannot accept its citation even when methods are selected.
  * @evidence contracts/testing.md#distinguishing-cases The live method distinguishes selector refusal from claim deactivation; assertions require both consequences without an exact total count.

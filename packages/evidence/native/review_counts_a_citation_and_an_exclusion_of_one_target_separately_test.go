@@ -16,6 +16,7 @@ import (
  *  2. Review only the citation.
  *  3. Assert the exclusion is still reported as unreviewed, and the citation is
  *     not.
+ *
  * @evidence contracts/testing.md#behavioral-verification runReviewRule both cites and excludes Pricing, reviewing only the citation; assertReported requires exactly the unreviewed exclusion.
  * @evidence contracts/testing.md#independent-expectations Review ledger identity includes acknowledgement kind as well as target, so one review cannot discharge two opposite decisions.
  * @evidence contracts/testing.md#distinguishing-cases Identical target and host eliminate target spelling as the difference; only the kind changes the review obligation.

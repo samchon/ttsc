@@ -22,6 +22,7 @@ import (
  *  1. Normalize a document whose two operations reference one schema each.
  *  2. Change one referenced schema's property type.
  *  3. Assert that operation's digest moved and the other's did not.
+ *
  * @evidence contracts/testing.md#behavioral-verification normalizeSwaggerSources parses two documents through the installed Swagger bridge; changing IMember.name must change POST:/members while POST:/sales stays equal, with a nonempty check on each returned operation.
  * @evidence contracts/testing.md#independent-expectations An operation digest follows only schemas it reaches, so an unrelated ISale operation is the stable control. Relative changes do not establish an exact digest oracle.
  * @evidence contracts/testing.md#distinguishing-cases String-to-number schema mutation challenges reached-schema tracking and compares an unrelated operation. The map comparisons do not separately require both operation keys to exist, so missing unchanged sales entries would remain indistinguishable.

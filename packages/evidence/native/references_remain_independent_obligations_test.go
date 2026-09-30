@@ -17,6 +17,7 @@ import (
  *  1. Give one claim two single-unit Markdown references.
  *  2. Acknowledge only the first reference's unit.
  *  3. Assert the second reference reports its own missing unit.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule gives one function two single-section references, acknowledges Alpha, and requires exactly one missing Beta finding naming reference 2.
  * @evidence contracts/testing.md#independent-expectations Reference-array entries are separate obligations; an Alpha citation cannot discharge docs/b.md#beta.
  * @evidence contracts/testing.md#distinguishing-cases Two different documents detect claim-wide pooling while keeping the source host and first reference healthy.

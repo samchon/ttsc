@@ -20,6 +20,7 @@ import "testing"
  *  1. Select two classes' callables and fields as the reference population.
  *  2. Cite one class itself, once, from another module.
  *  3. Assert both uncited class members are named and exactly two missing findings remain.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule cites Sale as an aggregate over selected functions and properties; two named Uncited members and a missing-count of two are required.
  * @evidence contracts/testing.md#independent-expectations Scope coverage follows descendants: Sale members are covered, Uncited.rate and Uncited.recalculate remain independent obligations.
  * @evidence contracts/testing.md#distinguishing-cases The sibling field and method detect loss of either selected kind; assertions count missing findings rather than every diagnostic.

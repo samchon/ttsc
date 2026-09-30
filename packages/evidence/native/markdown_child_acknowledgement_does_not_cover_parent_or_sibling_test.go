@@ -15,6 +15,7 @@ import (
  *  1. Cite one H3 child in a document containing two H2 subtrees.
  *  2. Leave its H2 parent and the sibling subtree uncited.
  *  3. Assert all three broader or unrelated units remain missing.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule cites Validate and requires three missing findings for Create, Cancel, and Refund.
  * @evidence contracts/testing.md#independent-expectations Scope inheritance runs downward: a child cannot cover its parent or a sibling subtree.
  * @evidence contracts/testing.md#distinguishing-cases The child-only citation with named parent/sibling obligations detects reverse and global cascades.

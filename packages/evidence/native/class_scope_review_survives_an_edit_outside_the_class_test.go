@@ -15,6 +15,7 @@ import "testing"
  *  1. Review the same class with the value the graph asks for.
  *  2. Add an unrelated declaration below it in the same file.
  *  3. Assert the graph is still clean.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule reviews unchanged Sale then appends IUnrelated to its file; the accepted token must still produce no diagnostics.
  * @evidence contracts/testing.md#independent-expectations A declaration scope excludes unrelated siblings in the same file; its seed comes from the graph and is not a literal hash oracle.
  * @evidence contracts/testing.md#distinguishing-cases A real added declaration detects file-wide digest contamination that whitespace normalization alone would miss.

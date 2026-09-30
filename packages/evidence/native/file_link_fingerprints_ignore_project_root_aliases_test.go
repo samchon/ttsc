@@ -17,6 +17,7 @@ import (
  * 1. Obtain a review fingerprint through the physical project directory.
  * 2. Apply it through linked/nested roots and a relocated project directory.
  * 3. Verify both accept it and an implementation edit still expires the review.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRuleAtRoot obtains a physical-root review token; linked-root, relocated-root and forwarded-reference runs must stay clean, then a value edit must become stale.
  * @evidence contracts/testing.md#independent-expectations A declaration review is independent of the project-root spelling and changes with cited content. Its initial token is read from production diagnostics, so exact digest correctness is not independently checked.
  * @evidence contracts/testing.md#distinguishing-cases Physical, linked, relocated and forwarded contexts challenge path contamination; value 1 to 2 exercises expiry. Platform link setup may limit execution.

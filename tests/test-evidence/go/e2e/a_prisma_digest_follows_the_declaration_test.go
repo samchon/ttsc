@@ -22,6 +22,7 @@ import (
  *  2. Parse it again with each variant applied.
  *  3. Assert the documentation edit moves nothing and every other edit moves
  *     the digest of the declaration it touched.
+ *
  * @evidence contracts/testing.md#behavioral-verification prismaFieldDigests uses the installed Prisma parser; Sale.price must retain its digest for prose edits and change for type, unique and default edits.
  * @evidence contracts/testing.md#independent-expectations Executable column content determines the column digest, while documentation does not. Comparisons use relative invariance and change, not an independently known digest value.
  * @evidence contracts/testing.md#distinguishing-cases The documentation, unique and default variants isolate those edits. The type variant also adapts its default to a string to keep the schema valid, so it does not isolate type change from default representation. No unrelated-column stability or exact hash is asserted.

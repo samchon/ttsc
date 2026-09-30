@@ -16,6 +16,7 @@ import (
  *  1. Materialize two Markdown evidence units behind two claims.
  *  2. Let each claim acknowledge only one unit.
  *  3. Assert each claim reports its own missing twin.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule materializes two independently selected functions citing opposite H2s and requires two missing findings plus both claim and target labels.
  * @evidence contracts/testing.md#independent-expectations Each claim owns the entire two-section denominator; complementary acknowledgements cannot be unioned across claims.
  * @evidence contracts/testing.md#distinguishing-cases Create and Cancel split coverage in both directions. Label and target fragments are checked globally, not paired within each individual diagnostic.

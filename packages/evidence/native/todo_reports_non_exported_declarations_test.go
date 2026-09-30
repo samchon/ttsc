@@ -14,6 +14,7 @@ import (
  *  1. Put a '@todo' on a local helper beside a realized export.
  *  2. Run the rule.
  *  3. Assert one finding carrying the helper's tag text.
+ *
  * @evidence contracts/testing.md#behavioral-verification runTodoRule checks a local normalize todo beside a realized exported persist; assertReported requires one local debt finding.
  * @evidence contracts/testing.md#independent-expectations Todo scans the file's declarations without limiting debt to exported public identities.
  * @evidence contracts/testing.md#distinguishing-cases The private helper is the only debt; the clean export prevents confusing this scope with public-only evidence collection.

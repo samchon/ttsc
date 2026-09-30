@@ -16,6 +16,7 @@ import (
  *  1. Export one function whose JSDoc carries a single '@todo' with text.
  *  2. Run the rule.
  *  3. Assert one finding carrying the text and the repair.
+ *
  * @evidence contracts/testing.md#behavioral-verification runTodoRule invokes todoRule.Check on a function's todo tag; assertReported requires one finding containing the debt and the realization repair.
  * @evidence contracts/testing.md#independent-expectations A todo records an unrealized contract and its authored text identifies the required work.
  * @evidence contracts/testing.md#distinguishing-cases One named debt supplies the firing arm; prose-only silence is owned by TodoAcceptsARealizedDeclaration.

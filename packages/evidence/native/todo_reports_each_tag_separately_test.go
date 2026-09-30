@@ -15,6 +15,7 @@ import (
  *  1. Stack two '@todo' tags in one block.
  *  2. Run the rule.
  *  3. Assert two findings, each carrying its own text.
+ *
  * @evidence contracts/testing.md#behavioral-verification runTodoRule checks two todo lines in one block; total count two and both independent debt strings are required.
  * @evidence contracts/testing.md#independent-expectations Each todo is a distinct promise and must produce its own finding.
  * @evidence contracts/testing.md#distinguishing-cases Two debts on one declaration detect per-node collapse or duplicate reporting while preserving each text.

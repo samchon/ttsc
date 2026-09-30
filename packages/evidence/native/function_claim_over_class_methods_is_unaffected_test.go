@@ -21,6 +21,7 @@ import "testing"
  *     undocumented.
  *  2. Evaluate a `symbol: "function"` claim.
  *  3. Assert the uncited section is the only thing reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule selects charge as a function host; assertReported requires exactly the uncited H2 finding.
  * @evidence contracts/testing.md#independent-expectations The method can acknowledge Charge under a function claim; the containing class contributes no additional function obligation.
  * @evidence contracts/testing.md#distinguishing-cases The uncited second section prevents disappearance of all method hosts from masquerading as success.

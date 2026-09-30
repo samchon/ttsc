@@ -12,6 +12,7 @@ import "testing"
  *  1. Select the same member population.
  *  2. Cite only one field.
  *  3. Assert the remaining members are reported unacknowledged.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule cites only Sale.prototype.price and requires three remaining missing acknowledgements.
  * @evidence contracts/testing.md#independent-expectations The class fixture independently contains four public selected members; one field citation covers exactly one.
  * @evidence contracts/testing.md#distinguishing-cases A narrow field citation detects accidental widening to the whole class; the three messages are counted without individually checking their targets.

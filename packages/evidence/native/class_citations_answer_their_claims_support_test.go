@@ -7,12 +7,6 @@ const classTypeClaimConfig = `{"claims":[{
   "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
 }]}`
 
-
-
-
-
-
-
 const classMemberReferenceConfig = `{"claims":[{
   "type":"typescript",
   "files":["src/ledger.ts"],

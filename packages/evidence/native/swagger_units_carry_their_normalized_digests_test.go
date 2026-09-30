@@ -14,6 +14,7 @@ import (
  *  1. Materialize an operation whose normalization carried a digest.
  *  2. Materialize one that carried none.
  *  3. Assert each unit reports exactly what it was given.
+ *
  * @evidence contracts/testing.md#behavioral-verification swaggerOperationUnit must accept post/members with its literal digest and get/members without one, preserving each supplied value without problems.
  * @evidence contracts/testing.md#independent-expectations The Go constructor must transfer a normalized operation digest exactly and leave a missing one empty.
  * @evidence contracts/testing.md#distinguishing-cases Digest-present versus digest-absent operations challenge accidental synthesis or loss; normalization and schema reachability belong to the real bridge case.

@@ -22,6 +22,7 @@ import (
  *  2. A third review carries no target at all.
  *  3. Assert one malformed finding per review, and no orphan finding for the
  *     targetless one, which would name a second repair for one mistake.
+ *
  * @evidence contracts/testing.md#behavioral-verification runReviewRule evaluates bare-target, fingerprint-only and targetless reviews; each malformed fragment must be present and no orphan derivative may appear.
  * @evidence contracts/testing.md#independent-expectations A token without explanatory prose is not a review; an absent target should not add a second orphan repair.
  * @evidence contracts/testing.md#distinguishing-cases Three malformed shapes challenge description parsing and derivative suppression; the assertions do not require an exact malformed-count total.

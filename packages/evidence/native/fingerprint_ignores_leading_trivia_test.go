@@ -19,6 +19,7 @@ import (
  *  2. Add a blank line and a `//` comment above it.
  *  3. Assert the digest did not move, then assert a change to the declaration
  *     itself still does.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory retrieves ISale's digest; extra leading blank lines and a line note must preserve it, while price number to string must change it.
  * @evidence contracts/testing.md#independent-expectations A declaration digest excludes leading trivia and includes executable type content; equality and inequality are independently specified relations rather than a hard-coded hash.
  * @evidence contracts/testing.md#distinguishing-cases The preceding IFirst declaration keeps the trivia boundary realistic. Retrieval proves ISale exists, but no separate nonempty digest or exact hash assertion is made.

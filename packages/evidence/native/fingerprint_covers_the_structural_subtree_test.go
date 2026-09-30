@@ -22,6 +22,7 @@ import (
  *  1. Cite an H2 that contains an H3, and review it with the expected value.
  *  2. Assert the graph is clean.
  *  3. Rewrite only the H3's body and assert the H2 citation's review is stale.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule reviews Pricing with H2/H3 selected, then changing only descendant Coupons must report stale Pricing.
  * @evidence contracts/testing.md#independent-expectations An aggregate H2 fingerprint covers its structural descendants; the seed comes from the rule, while the expected change follows independently from subtree coverage.
  * @evidence contracts/testing.md#distinguishing-cases The baseline must accept the token before One becomes Two in the H3; no assertion of the exact hash algorithm is made.

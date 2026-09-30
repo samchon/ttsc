@@ -18,6 +18,7 @@ import (
  *     and one selecting both `h2` and `h3`, both requiring review.
  *  2. Cite an H2 containing an H3 and review it with the value the graph names.
  *  3. Assert the graph is clean, so one token satisfied both obligations.
+ *
  * @evidence contracts/testing.md#behavioral-verification everyExpectedFingerprint obtains Pricing and Coupons tokens under overlapping H2 and H2/H3 references; both tokens must exist and one review per target must satisfy both references.
  * @evidence contracts/testing.md#independent-expectations Overlapping selectors over one structural target must accept the same review value; extracted values are setup, not independent expected digests.
  * @evidence contracts/testing.md#distinguishing-cases Two target ranks challenge selector-dependent fingerprints through accepted coverage, without asserting each diagnostic's proposed value separately.

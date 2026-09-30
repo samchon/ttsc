@@ -14,6 +14,7 @@ import "testing"
  *  1. Cite a Markdown section from the class under a `symbol: "property"` claim.
  *  2. Keep a field as the live host, so the claim is active either way.
  *  3. Assert the class citation is refused and the section stays unacknowledged.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule evaluates a citation on Sale while price keeps the property claim active; host refusal and missing Price are required.
  * @evidence contracts/testing.md#independent-expectations The property selector admits public fields but does not make the containing class a property host.
  * @evidence contracts/testing.md#distinguishing-cases The selected field makes erroneous acceptance distinguishable from an inactive claim; the function-selector boundary belongs to ClassIsNotAHostOfAFunctionClaim.

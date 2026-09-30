@@ -14,6 +14,7 @@ import (
  *  1. Put a '@todo' on an interface property, under a realized interface block.
  *  2. Run the rule.
  *  3. Assert one finding carrying the property's tag text.
+ *
  * @evidence contracts/testing.md#behavioral-verification runTodoRule checks a todo on ISale.price beneath a prose-only interface block; assertReported requires its nested debt.
  * @evidence contracts/testing.md#independent-expectations Nested member documentation is part of the todo scan and cannot hide behind a realized outer declaration.
  * @evidence contracts/testing.md#distinguishing-cases The property-level marker challenges scans limited to top-level statement blocks.
