@@ -17,6 +17,11 @@ import (
 //  1. Adapt a legacy project contributor with only AcceptsOptions returning false.
 //  2. Configure and run a project cycle with an object payload.
 //  3. Assert its generic method is ignored and Check decodes the payload.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual inspected project adapter ignores the unrelated AcceptsOptions:false method, calls project Check once even with no source files, and decodes mode strict from the public project options.
+// @evidence contracts/testing.md#independent-expectations Literal strict, one Check and zero generic-method calls independently define legacy compatibility; the actual callback observation prevents accepted-but-inert configuration from passing.
+// @evidence contracts/testing.md#distinguishing-cases Structurally tempting generic method returning false contrasts with the explicit domain-specific optionless marker; an authored object payload tests transport rather than default decoding.
+// @evidence contracts/testing.md#execution-ownership Real project inspection, Engine configuration and empty-source project execution occur in-process, restoring prior registration; no native producer, installed CLI or interface-source check is used.
 func TestProjectContributorGenericAcceptsOptionsMethodKeepsLegacyPayload(t *testing.T) {
   contributor := &legacyGenericOptionsProjectContributor{}
   adapter, err := inspectProjectContributor(contributor)

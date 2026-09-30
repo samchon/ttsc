@@ -79,6 +79,11 @@ func installProjectResultFileRuleTestDouble(t *testing.T, fileRule projectResult
 //  1. Install failed, off, not-evaluated, panicking, and passed project rules.
 //  2. Run one public file contributor after the project cycle.
 //  3. Assert all six states and two detached, deterministic project findings.
+//
+// @evidence contracts/testing.md#behavioral-verification Real project evaluation precedes a public file contributor observing absent, off, not-evaluated, passed, failed and panicked states; inactive reporters stay inert, duplicate failure messages deduplicate, exact panic text survives and detached project findings precede the real file observation.
+// @evidence contracts/testing.md#independent-expectations An authored six-name/status table defines each independent result; exact project access rejected and panic diagnostic text, three-finding order and real file observer message distinguish statuses from fabricated default results.
+// @evidence contracts/testing.md#distinguishing-cases Every expected key must actually be observed; missing registration differs from registered but undeclared/off, normal failure differs from panic, and duplicate reports plus inactive attempts test deduplication and inertness.
+// @evidence contracts/testing.md#execution-ownership Actual in-process Engine project/file dispatch and public Context.ProjectResult execute against registered fixtures with restoration. Helpers deliberately install adapters and no native registration, source producer, consumer install or transport is asserted.
 func TestProjectRuleResultsReachPublicFileContext(t *testing.T) {
   const (
     absentName       = "project-test/absent"
@@ -140,7 +145,8 @@ func TestProjectRuleResultsReachPublicFileContext(t *testing.T) {
     passedName:       publicrule.ProjectRulePassed,
   }
   for name, status := range expected {
-    if got := observed[name].Status; got != status {
+    result, ok := observed[name]
+    if got := result.Status; !ok || got != status {
       t.Fatalf("ProjectResult(%q): want %q, got %q", name, status, got)
     }
   }
@@ -160,4 +166,5 @@ func TestProjectRuleResultsReachPublicFileContext(t *testing.T) {
   if got := len(findings); got != 3 || findings[0].File != nil || findings[0].Rule != failedName || findings[1].File != nil || findings[1].Rule != panickedName || findings[2].File == nil || findings[2].Rule != fileRuleName {
     t.Fatalf("project findings should be sorted before file findings: %#v", findings)
   }
+  if observed[failedName].Findings[0].Message != "project access rejected" || findings[0].Message != "project access rejected" || findings[2].Message != "file observer ran" || findings[2].engineFailure { t.Fatalf("project/file callback messages or execution identity lost: %#v", findings) }
 }
