@@ -19,6 +19,11 @@ import (
 // 1. Build an engine with noVar (KindVariableDeclarationList) and noDebugger (KindDebuggerStatement).
 // 2. Parse a file with two var declarations and one debugger statement.
 // 3. Assert three total findings split 2 and 1 across the two rules.
+//
+// @evidence contracts/testing.md#behavioral-verification Engine.Run reports two no-var errors and one no-debugger warning from one authored source with nonoverlapping interested AST kinds.
+// @evidence contracts/testing.md#independent-expectations Two literal var statements and one debugger statement independently require the 2:1 rule population; authored error and warning severities establish policy for each registered identity.
+// @evidence contracts/testing.md#distinguishing-cases Owns simultaneous distinct-kind rules with different severities, so duplicate or missed dispatch and exchanged policies fail; duplicate Visits kinds are exercised in the dedicated contributor-like registration case.
+// @evidence contracts/testing.md#execution-ownership NewEngine and Engine.Run consume one real parsed virtual source in the shared Go process; returned Finding identities, counts and severities are observed without contributor compilation, consumer installation or a host child.
 func TestEngineDispatchesOnlyToInterestedRules(t *testing.T) {
   // Build an engine with two rules enabled. The walker should call
   // each rule only on the kinds it registered for.
@@ -41,6 +46,16 @@ func TestEngineDispatchesOnlyToInterestedRules(t *testing.T) {
   names := map[string]int{}
   for _, f := range findings {
     names[f.Rule]++
+    switch f.Rule {
+    case "no-var":
+      if f.Severity != SeverityError {
+        t.Errorf("no-var severity: want error, got %v", f.Severity)
+      }
+    case "no-debugger":
+      if f.Severity != SeverityWarn {
+        t.Errorf("no-debugger severity: want warning, got %v", f.Severity)
+      }
+    }
   }
   if names["no-var"] != 2 || names["no-debugger"] != 1 {
     t.Errorf("expected 2 noVar + 1 noDebugger, got %v", names)

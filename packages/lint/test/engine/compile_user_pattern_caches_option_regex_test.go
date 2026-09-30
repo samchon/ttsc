@@ -17,6 +17,11 @@ import "testing"
 //  2. Compile a different pattern and assert it is a distinct instance.
 //  3. Compile an invalid pattern twice and assert the error is stable and no
 //     regexp is returned.
+//
+// @evidence contracts/testing.md#behavioral-verification compileUserPattern retains case-insensitive marker matching, rejects unrelated text, reuses the same compiled pointer, separates another pattern and retains invalid-pattern errors without returning a regexp.
+// @evidence contracts/testing.md#independent-expectations The authored RE2 expression independently matches CUSTOM marker and excludes unrelated marker; equal-input pointer identity and unequal-pattern separation are the public memoization observations, not an internal cache-layout comparison.
+// @evidence contracts/testing.md#distinguishing-cases Valid first/repeated lookup, distinct pattern and repeated malformed ([ input distinguish success, reuse and error retention; the unmatched text prevents an always-matching cached regexp from passing.
+// @evidence contracts/testing.md#execution-ownership Direct compileUserPattern calls and MatchString predicates run in one Go test process with literal patterns; no source-file scan, consumer installation or native host build participates.
 func TestCompileUserPatternCachesOptionRegex(t *testing.T) {
   const pattern = `(?i)custom\s?marker`
   first, err := compileUserPattern(pattern)
@@ -32,6 +37,10 @@ func TestCompileUserPatternCachesOptionRegex(t *testing.T) {
   }
   if !first.MatchString("CUSTOM marker") {
     t.Fatalf("cached regexp lost its behavior")
+  }
+
+  if first.MatchString("unrelated marker") {
+    t.Fatal("cached regexp matched unrelated source")
   }
 
   other, err := compileUserPattern(pattern + "-other")
