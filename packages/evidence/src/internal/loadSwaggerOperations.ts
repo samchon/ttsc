@@ -70,6 +70,16 @@ interface IReadSource {
  * operation's content taken here because this is the only side that sees the
  * document.
  *
+ * URL protocols are interpreted by the URL parser, preserving the configured
+ * source spelling in every returned inventory or problem. Local paths resolve
+ * against the supplied root and carry their raw-byte digest; remote sources
+ * carry no content-cache digest and retain normal fetch and TLS failures.
+ *
+ * @evidence contracts/common.md#principled-implementation The URL parser canonicalizes protocol case for HTTP(S) locators while native configuration owns locator validation; local paths retain path.resolve and raw-byte SHA256 identity, and operation normalization/digests remain independent of source spelling.
+ * @evidence contracts/common.md#clear-and-simple-design One source reader separates URL transport from local byte reading, while the outer per-source boundary preserves original identity and collects every read or normalization problem.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Protocol semantics come from URL parsing without lowercasing document paths, replacing fetch, weakening TLS, or assigning a local cache digest to remote content.
+ * @evidence contracts/common.md#meaningful-documentation Describes original source attribution, root-relative local resolution, local versus remote digest meaning and transport failures; the matching configuration guide states scheme case and unsupported file URLs.
+ *
  * @internal
  */
 export const loadSwaggerOperations = async (request: {
@@ -109,10 +119,12 @@ const readSource = async (
   root: string,
   source: string,
 ): Promise<IReadSource> => {
-  if (source.startsWith("http://") || source.startsWith("https://"))
+  if (source.includes("://")) {
+    const location: URL = new URL(source);
+    if (location.protocol !== "http:" && location.protocol !== "https:")
+      throw new Error("only http: and https: URLs are supported");
     return { text: await readRemoteSource(source), digest: "" };
-  if (source.includes("://"))
-    throw new Error("only http: and https: URLs are supported");
+  }
 
   // A local document may sit anywhere on the filesystem, including above the
   // project or on an absolute path. The native decoder is what validates the

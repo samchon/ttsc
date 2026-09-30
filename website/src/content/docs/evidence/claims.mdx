@@ -218,6 +218,8 @@ Every reference declares its `type` and may declare [severity](#severity) and an
 
 **Swagger** takes exactly one `file`, which is a path or an `http:`/`https:` URL rather than a glob. The document is normalized from Swagger 2.0 or OpenAPI 3.0, 3.1, and 3.2, in JSON or YAML, before its operations are indexed. A URL is fetched while the rule runs, so an unavailable document fails the build instead of quietly emptying the population. Owe coverage to two documents by writing two references.
 
+URL schemes are case-insensitive, so `HTTPS://` and `hTtPs://` use the same HTTPS transport as `https://`. Document paths and query values keep their spelling. Local paths resolve against the project root and may be absolute or ascend into a sibling directory; write a filesystem path rather than a `file:` URL, which is not supported.
+
 ### TypeScript populations
 
 Use a rooted reference to review an implementation in another workspace without adding evidence tags or installing the plugin there:
