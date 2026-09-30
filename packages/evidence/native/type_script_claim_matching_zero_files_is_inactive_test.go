@@ -1,6 +1,8 @@
 package evidence
 
-import "testing"
+import (
+  "testing"
+)
 
 /**
  * Verifies a healthy claim glob matching zero files is inactive.
@@ -13,10 +15,10 @@ import "testing"
  *  1. Miss every TypeScript source with a typo in the claim glob.
  *  2. Give the empty claim an unreadable Markdown reference root.
  *  3. Assert the whole claim remains inactive and silent.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies a healthy claim glob matching zero files is inactive. The original assertions check assert the whole claim remains inactive and silent.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A typo and an intentionally empty folder are indistinguishable from the selected Program population alone. Both therefore have the same activation semantics: without one matching selected export, no reference is loaded and no acknowledgement diagnostic is emitted. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Miss every TypeScript source with a typo in the claim glob. Give the empty claim an unreadable Markdown reference root. Assert the whole claim remains inactive and silent. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptClaimMatchingZeroFilesIsInactive is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the whole claim remains inactive and silent.
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations A typo and an intentionally empty folder are indistinguishable from the selected Program population alone. Both therefore have the same activation semantics: without one matching selected export, no reference is loaded and no acknowledgement diagnostic is emitted. The authored scenario requires this outcome: Assert the whole claim remains inactive and silent.
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Miss every TypeScript source with a typo in the claim glob. Give the empty claim an unreadable Markdown reference root. Assert the whole claim remains inactive and silent.
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptClaimMatchingZeroFilesIsInactive runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptClaimMatchingZeroFilesIsInactive(t *testing.T) {
   assertNoProblems(t, runIndexRule(t, map[string]string{

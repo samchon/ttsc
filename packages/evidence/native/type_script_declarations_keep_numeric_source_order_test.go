@@ -1,6 +1,8 @@
 package evidence
 
-import "testing"
+import (
+  "testing"
+)
 
 /**
  * Verifies TypeScript declarations retain source order when byte offsets cross
@@ -13,10 +15,10 @@ import "testing"
  *  1. Put one declaration below offset 20 and another beyond offset 100.
  *  2. Scan the TypeScript inventory.
  *  3. Assert declaration order follows numeric source positions.
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises this case: Verifies TypeScript declarations retain source order when byte offsets cross a decimal digit boundary. The original assertions check assert declaration order follows numeric source positions.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations JSDoc ranges are deduplicated through position keys. Sorting those keys as strings places offset 100 before offset 20 and makes a later duplicate appear to be the first acknowledgement in diagnostics. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Put one declaration below offset 20 and another beyond offset 100. Scan the TypeScript inventory. Assert declaration order follows numeric source positions. The assertions and inputs in this function retain its own failure identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptDeclarationsKeepNumericSourceOrder is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls parseTypeScriptInventory within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert declaration order follows numeric source positions.
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations JSDoc ranges are deduplicated through position keys. Sorting those keys as strings places offset 100 before offset 20 and makes a later duplicate appear to be the first acknowledgement in diagnostics. The authored scenario requires this outcome: Assert declaration order follows numeric source positions.
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Put one declaration below offset 20 and another beyond offset 100. Scan the TypeScript inventory. Assert declaration order follows numeric source positions.
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptDeclarationsKeepNumericSourceOrder runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptDeclarationsKeepNumericSourceOrder(t *testing.T) {
   inventory := parseTypeScriptInventory(

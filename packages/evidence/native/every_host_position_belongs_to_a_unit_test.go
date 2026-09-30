@@ -4,7 +4,6 @@ import (
   "sort"
   "strings"
   "testing"
-
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
@@ -96,6 +95,10 @@ export namespace Outer.Inner {
  *  1. Collect one file holding every declaration form that registers a host.
  *  2. Take the host map and the unit-to-node index the collector filled.
  *  3. Assert no key of the host map is missing from the index.
+ * @evidence .agents/skills/contracts/testing.md#behavioral-verification collectTypeScriptStatements exercises the authored fixture. Assert no key of the host map is missing from the index.
+ * @evidence .agents/skills/contracts/testing.md#independent-expectations This is the invariant behind two separate silent failures, rather than one more shape beside them. `supportedHosts` is keyed by node while every consumer that matters walks from a unit to its declarations, so a position in the first set and in no unit's node list is invisible to all of them: the withdrawal reconciliation cannot take it away, and a citation on it resolves to no semantic identity, so the per-host policies and the review ledger both count it as nothing while the obligation it discharged reports satisfied. The variable declarator was the position that had it, and it was found by writing a citation rather than by reading. The authored scenario requires this outcome: Assert no key of the host map is missing from the index.
+ * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Collect one file holding every declaration form that registers a host. Take the host map and the unit-to-node index the collector filled. Assert no key of the host map is missing from the index.
+ * @evidence .agents/skills/contracts/testing.md#execution-ownership TestEveryHostPositionBelongsToAUnit runs as a Go unit entry in the native package. collectTypeScriptStatements executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestEveryHostPositionBelongsToAUnit(t *testing.T) {
   file := parseTestSourceFile(t, "src/contracts.ts", hostPositionCorpus)
