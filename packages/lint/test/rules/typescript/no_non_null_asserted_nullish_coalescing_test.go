@@ -15,6 +15,11 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+// @evidence contracts/testing.md#behavioral-verification Non-null assertion on the left of nullish coalescing must report.
+// @evidence contracts/testing.md#independent-expectations The independently authored fixture markers require exactly typescript/no-non-null-asserted-nullish-coalescing error findings at lines 4; complete rule/severity/line comparison rejects missing, extra or misidentified reports.
+// @evidence contracts/testing.md#distinguishing-cases The same nullable value coalesced without a non-null assertion remains clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoNonNullAssertedNullishCoalescing executes the AST Engine through assertRuleCorpusCase and an independently authored zero-finding counterpart through assertRuleSkipsSource in the same Go unit process; no native build, installation or compiler child runs.
 func TestRuleCorpusNoNonNullAssertedNullishCoalescing(t *testing.T) {
   assertRuleCorpusCase(t, "no-non-null-asserted-nullish-coalescing.ts", "declare const maybe: string | undefined;\n\n// expect: typescript/no-non-null-asserted-nullish-coalescing error\nconst value = maybe! ?? \"fallback\";\nJSON.stringify(value);\n")
+  assertRuleSkipsSource(t, "typescript/no-non-null-asserted-nullish-coalescing", "declare const maybe: string | undefined;\nconst value = maybe ?? \"fallback\";\n")
 }

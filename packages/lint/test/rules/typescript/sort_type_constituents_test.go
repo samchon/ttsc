@@ -15,6 +15,10 @@ import "testing"
 //  1. Load the annotated TypeScript fixture source embedded below.
 //  2. Enable the rule severities declared by its `// expect:` comments.
 //  3. Assert the native Engine reports exactly the annotated diagnostics.
+// @evidence contracts/testing.md#behavioral-verification Out-of-order type constituents must report the surrounding union once.
+// @evidence contracts/testing.md#independent-expectations The independently authored fixture markers require exactly typescript/sort-type-constituents error findings at lines 4 and 8; complete rule/severity/line comparison rejects missing, extra or misidentified reports.
+// @evidence contracts/testing.md#distinguishing-cases Reversed primitives and leading null are paired with number|string and string|null canonical orders.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusTypescriptSortTypeConstituents executes the AST Engine through assertRuleCorpusCase in the same Go unit process; no native build, installation or compiler child runs.
 func TestRuleCorpusTypescriptSortTypeConstituents(t *testing.T) {
   assertRuleCorpusCase(t, "typescript-sort-type-constituents.ts",
     "// Positive: primitives out of alphabetical order — `string` should\n"+

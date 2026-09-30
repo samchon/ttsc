@@ -15,6 +15,11 @@ import "testing"
 // 1. Load the annotated TypeScript fixture source embedded below.
 // 2. Enable the rule severities declared by its // expect: comments.
 // 3. Assert the native Engine reports exactly the annotated diagnostics.
+// @evidence contracts/testing.md#behavioral-verification A literal initializer with redundant number annotation must report.
+// @evidence contracts/testing.md#independent-expectations The independently authored fixture markers require exactly typescript/no-inferrable-types error findings at lines 2; complete rule/severity/line comparison rejects missing, extra or misidentified reports.
+// @evidence contracts/testing.md#distinguishing-cases The same literal without an explicit annotation remains clean.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusNoInferrableTypes executes the AST Engine through assertRuleCorpusCase and an independently authored zero-finding counterpart through assertRuleSkipsSource in the same Go unit process; no native build, installation or compiler child runs.
 func TestRuleCorpusNoInferrableTypes(t *testing.T) {
   assertRuleCorpusCase(t, "no-inferrable-types.ts", "// expect: typescript/no-inferrable-types error\nconst a: number = 5;\nJSON.stringify(a);\n")
+  assertRuleSkipsSource(t, "typescript/no-inferrable-types", "const a = 5;\n")
 }
