@@ -21,7 +21,21 @@ import type { ITtscEvidenceBenchmarkWorkspaceVariables } from "./structures/ITts
  * workspace with one atomic rename.
  */
 export namespace EvidenceBenchmarkWorkspace {
-  /** Renders the current non-product agent instruction surface. */
+  /**
+   * Renders one arm's instructions without creating a measured workspace.
+   *
+   * The caller owns the returned temporary root and must remove it when its
+   * instruction comparison ends; failures remove that root before throwing.
+   *
+   * @evidence contracts/common.md#principled-implementation Copies the common instruction files, substitutes the supplied variables and applies only AGENTS.md or .agents overlays; the arm's other workspace files cannot enter this instruction-only result.
+   * @evidence contracts/common.md#clear-and-simple-design Uses the same renderer and overlay operation as workspace preparation, with a path predicate limiting this operation to its instruction responsibility.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Reads the actual arm overlay and base files rather than returning a precomputed instruction string or modifying a measured cell.
+   * @evidence contracts/common.md#meaningful-documentation States the instruction-only role and the returned directory's caller-owned cleanup obligation, including cleanup on failure.
+   * @evidence contracts/performance.md#efficient-algorithms Traverses the base instruction tree and overlay once and renders each accepted file once; time and temporary bytes follow the files and their text sizes.
+   * @evidence contracts/performance.md#reuse-equivalent-work The shared renderer reuses the preparation policy; each result is a separate caller-owned directory because callers may alter or delete its files and no immutable shared result contract exists.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Owns one mkdtemp root until success transfers it to the caller; any preparation exception removes that exact root, while successful historical roots remain the caller's responsibility.
+   * @evidence contracts/portability.md#os-neutral-implementation Native temporary paths and filesystem copy operations use Node APIs; overlay predicates use repository-relative slash spelling and joins convert those segments into native paths.
+   */
   export function prepareInstructionSurface(request: {
     repository: string;
     arm: "plain" | "evidence";
@@ -59,7 +73,22 @@ export namespace EvidenceBenchmarkWorkspace {
     }
   }
 
-  /** Reinstalls ignored dependencies after a checkpoint workspace is restored. */
+  /**
+   * Reinstalls ignored dependencies after a checkpoint workspace is restored.
+   *
+   * Uses the launching pnpm entry and removes the launcher identity from the
+   * child environment. An install error rejects without deleting the restored
+   * workspace, which remains owned by the checkpoint recovery operation.
+   *
+   * @evidence contracts/common.md#principled-implementation Runs the actual package manager against the restored workspace's manifest, lockfile and retained patch configuration; strips only archive and launcher identity environment inputs that must not enter a measured child.
+   * @evidence contracts/common.md#clear-and-simple-design This recovery operation prepares the environment and delegates package-manager execution to the same pnpm/run adapters used for initial preparation.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Performs a real install and propagates spawn or nonzero exit failure; no dependency presence check or capability assertion substitutes for installation.
+   * @evidence contracts/common.md#meaningful-documentation Documents restored-workspace ownership, the launch-entry requirement and rejection behavior rather than promising atomic recovery.
+   * @evidence contracts/performance.md#efficient-algorithms Copies and filters the environment once; dependency graph and byte costs belong to pnpm, whose retained store and lockfile remain available rather than being deleted for every recovery.
+   * @evidence contracts/performance.md#reuse-equivalent-work Recovery reuses the workspace's installed/store artifacts when pnpm permits, while each invocation revalidates the restored manifests because a checkpoint can change dependency inputs.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The run adapter owns one child until close or spawn failure, with inherited streams and no retained output buffer; the restored tree stays with its recovery caller. No cancellation signal is exposed by this API, so an abandoned caller must await its child.
+   * @evidence contracts/portability.md#os-neutral-implementation Starts process.execPath with npm_execpath as a separate argv element and shell:false, avoiding platform shell quoting and .cmd execution differences; cwd is a native resolved path.
+   */
   export async function installDependencies(workspace: string): Promise<void> {
     const environment: NodeJS.ProcessEnv = { ...process.env };
     for (const name of Object.keys(environment))
@@ -78,8 +107,18 @@ export namespace EvidenceBenchmarkWorkspace {
   /**
    * Builds and atomically publishes the prepared workspace for one cell.
    *
-   * Failure removes only the private stage directory and never exposes a
-   * partially prepared final run path.
+   * The tree settles at its final path before installation so pnpm's native
+   * links target its permanent location. Failure removes the settled root or
+   * private staging root; callers must await completion before using the tree.
+   *
+   * @evidence contracts/common.md#principled-implementation Copies the base and selected overlay, renders variables, copies opaque requirements and exact archives, then settles before pnpm creates path-sensitive links. Neutral catalog/patch/toolchain bindings apply to both arms; only the Evidence dependency and overlay distinguish the treatment.
+   * @evidence contracts/common.md#clear-and-simple-design One transaction owns rendering, requirements, archive injection, settlement, installation, executable validation and baseline commit; helpers separate those operations without introducing another preparation path.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Uses real archives, pnpm installation and git baseline publication. It does not edit frozen requirements or repair measured workspaces, and a patch/version conflict or broken executable rejects preparation.
+   * @evidence contracts/common.md#meaningful-documentation Describes settlement before installation and the await-before-use requirement; its comment no longer claims the final directory remains invisible during preparation.
+   * @evidence contracts/performance.md#efficient-algorithms Each template/requirement/archive tree is copied once, configuration scans are linear in their bytes and exact bindings use maps/sets. Native install and baseline commit costs follow dependency and workspace size; per-arm destination copies are necessary physical deliveries.
+   * @evidence contracts/performance.md#reuse-equivalent-work Callers can share immutable packed archives across arms; this operation creates each arm's distinct mutable tree and baseline, so those effectful installs cannot be shared solely because compiler archives match. Restores subsequently retain ignored dependency stores.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Owns one stage and transfers the settled output on success; any exception removes the exact owned stage/output after child close. Returned trees remain caller-owned. Windows shortenVirtualStore places a path-keyed store outside output, whose reclamation is not performed here; this existing retention limitation remains.
+   * @evidence contracts/portability.md#os-neutral-implementation Settles before install to preserve Windows junction destinations, uses native resolved paths and argv-based Node/pnpm/git spawning, and shortens/validates executable paths at the explicit Windows CreateProcess boundary rather than inferring filesystem case identity from OS names.
    */
   export async function prepareWorkspace(
     request: ITtscEvidenceBenchmarkWorkspaceRequest,
