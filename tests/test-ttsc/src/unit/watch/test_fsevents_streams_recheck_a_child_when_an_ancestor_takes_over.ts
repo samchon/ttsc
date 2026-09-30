@@ -14,6 +14,11 @@ import { FakeFseventsBinding } from "../../internal/FakeFseventsBinding";
  * 1. Open a child stream and queue an edit during its ancestor's opening.
  * 2. Open the ancestor and assert the child receives an unnamed recheck.
  * 3. Assert the retired stream is silent and the new stream delivers edits.
+ *
+ * @evidence contracts/testing.md#behavioral-verification FseventsStreams.open promotes a child to an ancestor, retires its old stream, reports one handoff recheck, rejects a retired callback and delivers later edits through the replacement stream.
+ * @evidence contracts/testing.md#independent-expectations The binding stop contract drops pending callbacks, so literal rename/null closes the handoff gap. Exact old-stream silence and new-stream relative change vectors independently specify identity and delivery.
+ * @evidence contracts/testing.md#distinguishing-cases onOpen queues an old-stream edit during replacement; flush proves its queue is dropped, emit simulates an already handed-off retired callback, and replacement emit is the positive delivery control.
+ * @evidence contracts/testing.md#execution-ownership This exported async source unit uses FakeFseventsBinding queue/flush/emit and drains the registry queueMicrotask via Promise.resolve. The fake models the stop protocol; this does not verify native FSEvents queue behavior.
  */
 export const test_fsevents_streams_recheck_a_child_when_an_ancestor_takes_over =
   async (): Promise<void> => {

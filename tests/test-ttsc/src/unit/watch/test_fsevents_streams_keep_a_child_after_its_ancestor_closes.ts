@@ -13,6 +13,11 @@ import { FakeFseventsBinding } from "../../internal/FakeFseventsBinding";
  * 1. Open a child stream, then an ancestor that takes it over.
  * 2. Close the ancestor and deliver a child event.
  * 3. Assert the child hears it and its close alone stops the stream.
+ *
+ * @evidence contracts/testing.md#behavioral-verification FseventsStreams.open and returned close preserve the transferred child subscription after two ancestor closes; exact delivery and stop counts reject premature stop, duplicate release and delivery after final close.
+ * @evidence contracts/testing.md#independent-expectations A shared stream belongs to its remaining subscriptions. Literal change/main.ts and stop counts zero then one express that lifetime contract without deriving expectations from registry state.
+ * @evidence contracts/testing.md#distinguishing-cases Exercises ancestor-to-child transfer, repeated ancestor close, live child delivery and a late callback after the final child close; successful transfer recheck itself is owned by recheck_a_child_when_an_ancestor_takes_over.
+ * @evidence contracts/testing.md#execution-ownership This exported async source unit constructs FseventsStreams with FakeFseventsBinding, calls open/close, injects callbacks with emit and drains the transfer microtask. It never calls FseventsStreams.load or a native watcher.
  */
 export const test_fsevents_streams_keep_a_child_after_its_ancestor_closes =
   async (): Promise<void> => {
