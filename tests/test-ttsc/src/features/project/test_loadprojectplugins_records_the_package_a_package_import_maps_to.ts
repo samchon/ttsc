@@ -25,6 +25,15 @@ import { createFakeGoBinary } from "../../internal/source-build";
  *    hoisted package, the selected module is a proven input, and no candidate
  *    lies past the root the package resolved in; then create the nearer package
  *    and assert a recorded input no longer matches.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Bare and scoped-subpath #import targets record nearer candidates and selected files, omit farther roots, and detect later nearer-package creation.
+ * @evidence contracts/testing.md#independent-expectations Authored imports mappings and package locations establish which ordinary Node candidates can supersede the selected module.
+ * @evidence contracts/testing.md#distinguishing-cases 1. For the CommonJS evaluator and the ttsx evaluator, write a workspace whose app package maps `#dep` to a package hoisted to the workspace root, once by name and once as a scoped package's subpath, and once to a package installed in the app itself. 2. Load the app's plugins. 3. Assert the candidates of the app's own `node_modules` are proven inputs for a hoisted package, the selected module is a proven input, and no candidate lies past the root the package resolved in; then create the nearer package and assert a recorded input no longer matches.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
+ * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Bare and scoped-subpath #import targets record nearer candidates and selected files, omit farther roots, and detect later nearer-package creation. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_loadprojectplugins_records_the_package_a_package_import_maps_to =
   () => {

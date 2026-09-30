@@ -8,7 +8,23 @@ import {
   path,
 } from "../../internal/project";
 
-/** A same-content link retarget during evaluation must drop cache proof. */
+/**
+ * Verifies a same-content link retarget during evaluation must drop cache proof.
+ *
+ * The shim returns the old linked descriptor and records the lexical selection, but omits proof for a same-content retarget during evaluation.
+ *
+ * 1. Prepare the authored descriptor mutation.
+ * 2. Execute its isolated evaluator and assert the value, observed inputs and missing proof.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The shim returns the old linked descriptor and records the lexical selection, but omits proof for a same-content retarget during evaluation.
+ * @evidence contracts/testing.md#independent-expectations Two distinct physical files carry equal bytes, so link identity rather than content alone must invalidate proof.
+ * @evidence contracts/testing.md#distinguishing-cases The shim returns the old linked descriptor and records the lexical selection, but omits proof for a same-content retarget during evaluation.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
+ * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage The shim returns the old linked descriptor and records the lexical selection, but omits proof for a same-content retarget during evaluation. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
+ */
 export const test_commonjs_plugin_descriptor_retarget_omits_stale_identity_proof =
   (): void => {
     const root = TestProject.tmpdir("ttsc-descriptor-link-retarget-");

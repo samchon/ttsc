@@ -1,12 +1,12 @@
 import zlib from "node:zlib";
 
-import {
-  assert,
-  child_process,
-  fs,
-  path,
-  workspaceRoot,
-} from "../../internal/toolchain";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { createRequire } from "node:module";
+import { TestProject } from "../../../../utils/src/TestProject";
+const { validatePlatformPackages } = createRequire(import.meta.url)(path.join(TestProject.WORKSPACE_ROOT, "scripts", "assert-platform-package.cjs")) as { validatePlatformPackages(args: string[]): string[] };
+const workspaceRoot = TestProject.WORKSPACE_ROOT;
 
 /**
  * Verifies platform package tarballs require executable POSIX modes.
@@ -25,6 +25,11 @@ import {
  * 6. Assert the platform-package verifier accepts the good tarballs, rejects the
  *    bad tarball with the offending path in stderr, and rejects unsafe source
  *    manifests before publish.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The direct validator accepts complete and partial valid tarballs and rejects nonexecutable modes and missing published executable metadata.
+ * @evidence contracts/testing.md#independent-expectations Authored tar headers and manifests define the required platform executable population and POSIX 0755 versus invalid modes.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Write a synthetic @ttsc/linux-x64 tarball with every executable at 0755. 2. Write a second tarball with ttscgraph at 0644. 3. Write a partial tarball whose manifest declares only the executables it carries. 4. Write a source package whose manifest omits pnpm executable-file metadata. 5. Write a source package whose manifest omits the bundled Go tool metadata. 6. Assert the platform-package verifier accepts the good tarballs, rejects the bad tarball with the offending path in stderr, and rejects unsafe source manifests before publish.
+ * @evidence contracts/testing.md#execution-ownership This source unit calls validatePlatformPackages on every original archive and directory variant without a process. The matching feature CLI batch retains positive/negative exit and stderr transport; all original validator failure meanings remain here.
  */
 export const test_platform_package_tarball_requires_posix_executable_modes =
   () => {
@@ -50,55 +55,23 @@ export const test_platform_package_tarball_requires_posix_executable_modes =
         },
       );
 
-      const script = path.join(
-        workspaceRoot,
-        "scripts",
-        "assert-platform-package.cjs",
-      );
-      const ok = child_process.spawnSync(process.execPath, [script, good], {
-        cwd: workspaceRoot,
-        encoding: "utf8",
-        windowsHide: true,
-      });
-      assert.equal(ok.status, 0, ok.stderr);
 
-      const partialOk = child_process.spawnSync(
-        process.execPath,
-        [script, partial],
-        {
-          cwd: workspaceRoot,
-          encoding: "utf8",
-          windowsHide: true,
-        },
-      );
-      assert.equal(partialOk.status, 0, partialOk.stderr);
+      const ok = validatePlatformPackages([good]);
+      assert.equal(ok.length, 0, ok.join("\n"));
 
-      const rejected = child_process.spawnSync(
-        process.execPath,
-        [script, bad],
-        {
-          cwd: workspaceRoot,
-          encoding: "utf8",
-          windowsHide: true,
-        },
-      );
-      assert.equal(rejected.status, 1, rejected.stderr);
-      assert.match(rejected.stderr, /bin\/ttscgraph has mode 644/);
+      const partialOk = validatePlatformPackages([partial]);
+      assert.equal(partialOk.length, 0, partialOk.join("\n"));
+
+      const rejected = validatePlatformPackages([bad]);
+      assert.equal(rejected.length > 0, true, rejected.join("\n"));
+      assert.match(rejected.join("\n"), /bin\/ttscgraph has mode 644/);
 
       const source = path.join(root, "source");
       writePlatformSourcePackage(source);
-      const missingPublishConfig = child_process.spawnSync(
-        process.execPath,
-        [script, source],
-        {
-          cwd: workspaceRoot,
-          encoding: "utf8",
-          windowsHide: true,
-        },
-      );
-      assert.equal(missingPublishConfig.status, 1, missingPublishConfig.stderr);
+      const missingPublishConfig = validatePlatformPackages([source]);
+      assert.equal(missingPublishConfig.length > 0, true, missingPublishConfig.join("\n"));
       assert.match(
-        missingPublishConfig.stderr,
+        missingPublishConfig.join("\n"),
         /publishConfig\.executableFiles missing \.\/bin\/ttsc/,
       );
 
@@ -112,18 +85,10 @@ export const test_platform_package_tarball_requires_posix_executable_modes =
           "./bin/go/bin/gofmt",
         ],
       });
-      const missingToolConfig = child_process.spawnSync(
-        process.execPath,
-        [script, missingTool],
-        {
-          cwd: workspaceRoot,
-          encoding: "utf8",
-          windowsHide: true,
-        },
-      );
-      assert.equal(missingToolConfig.status, 1, missingToolConfig.stderr);
+      const missingToolConfig = validatePlatformPackages([missingTool]);
+      assert.equal(missingToolConfig.length > 0, true, missingToolConfig.join("\n"));
       assert.match(
-        missingToolConfig.stderr,
+        missingToolConfig.join("\n"),
         /publishConfig\.executableFiles missing \.\/bin\/go\/pkg\/tool\/linux_amd64\/compile/,
       );
     } finally {

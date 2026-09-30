@@ -22,6 +22,15 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
  * 1. Point a directory alias at a real project root.
  * 2. Watch the project through the alias and edit a tracked source file.
  * 3. Assert the change is reported under the alias, not the physical root.
+ *
+ * @evidence contracts/testing.md#behavioral-verification This case drives the real WatchTopology: watchers register physical paths while reporting declared ones. 1. Point a directory alias at a real project root. 2. Watch the project through the alias and edit a tracked source file. 3. Assert the change is reported under the alias, not the physical root.
+ * @evidence contracts/testing.md#independent-expectations Authored tsconfig options, source imports and declared input paths establish which files are compiler inputs, products or reload dependencies. Literal event-kind/path assertions and quiet negative twins enforce those independently specified roles rather than snapshotting topology output.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Point a directory alias at a real project root. 2. Watch the project through the alias and edit a tracked source file. 3. Assert the change is reported under the alias, not the physical root.
+ * @evidence contracts/testing.md#execution-ownership This named src/features/watch entry refreshes the real tsgo compiler population and drives native filesystem subscriptions through WatchTopology; the source units own direct event planning and injected watcher decisions.
+ * @evidence contracts/e2e.md#necessary-boundary The real compiler input/output population must agree with native observer registration and notification classification for this authored layout. Direct path planning cannot establish tsgo membership, actual delivered events or subscription survival across mutations.
+ * @evidence contracts/e2e.md#shared-execution The case reuses its built compiler and one Node test process; each topology session serves its authored mutation sequence. Distinct roots/options need their own compiler-population request, and an explicitly new session retains the initial-versus-newly-admitted input distinction; watcher registration installs or builds nothing.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject roots separate mutable config, source, output and declared-input state. Each topology owns its subscriptions and existing finally paths close them. Event counters reset only between asserted transitions; actual cold registration and config recovery remain unprimed.
+ * @evidence contracts/e2e.md#preserved-coverage 1. Point a directory alias at a real project root. 2. Watch the project through the alias and edit a tracked source file. 3. Assert the change is reported under the alias, not the physical root. Every original assertion and authored layout remains in this named entry; no change to timeout, capability guard, input, expected event or quiet negative twin is made by these acknowledgments.
  */
 export const test_watch_topology_registers_physical_watch_paths =
   async (): Promise<void> => {

@@ -19,6 +19,15 @@ import { createFakeGoBinary } from "../../internal/source-build";
  *    `pluginSources` both name the module root and that directory.
  * 2. Load one whose `go.mod` spells the target relatively, and assert the watch
  *    inputs name the target.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Absolute and relative external replace targets remain watch inputs, and the absolute target is included in pluginSources.
+ * @evidence contracts/testing.md#independent-expectations The authored go.mod replaces an external sibling, so both the original module and that sibling are actual binary inputs.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Load a project whose executable plugin's `go.mod` replaces a module with an absolute sibling directory, and assert the watch inputs and the load's `pluginSources` both name the module root and that directory. 2. Load one whose `go.mod` spells the target relatively, and assert the watch inputs name the target.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
+ * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Absolute and relative external replace targets remain watch inputs, and the absolute target is included in pluginSources. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_loadprojectplugins_reports_a_replace_target_outside_the_module_as_a_plugin_source =
   () => {

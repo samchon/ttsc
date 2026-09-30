@@ -1,12 +1,11 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
-import {
-  assert,
-  fs,
-  path,
-  pruneCacheFileRoot,
-  recordCacheFileUse,
-} from "../../internal/source-build";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { pruneCacheFileRoot } from "../../../../../packages/ttsc/src/plugin/internal/source/pruneCacheFileRoot";
+import { recordCacheFileUse } from "../../../../../packages/ttsc/src/plugin/internal/source/recordCacheFileUse";
+
 
 /**
  * Verifies the single-file cache parts of the cache root are collected by the
@@ -25,6 +24,11 @@ import {
  *    gone.
  * 3. Age the fresh entry, collect again without forcing, and assert the daily
  *    marker kept the second pass from running.
+ *
+ * @evidence contracts/testing.md#behavioral-verification pruneCacheFileRoot removes aged unused/staging entries, keeps fresh/reused entries, suppresses the daily repeat and honors forced collection.
+ * @evidence contracts/testing.md#independent-expectations Manually set 31-day ages and an explicit recordCacheFileUse establish retention outcomes independently of the collector.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Seed a part with an entry last used 31 days ago, a fresh entry, an old entry a hit then records a use of, and a staging file a crashed writer left 31 days ago. 2. Collect it, and assert only the old unused entry and the staging file are gone. 3. Age the fresh entry, collect again without forcing, and assert the daily marker kept the second pass from running.
+ * @evidence contracts/testing.md#execution-ownership This matching src/unit/project entry exercises the owning operations directly on isolated fixture inputs; no product host, native artifact build or consumer installation executes.
  */
 export const test_prunecachefileroot_collects_unused_single_file_entries =
   (): void => {

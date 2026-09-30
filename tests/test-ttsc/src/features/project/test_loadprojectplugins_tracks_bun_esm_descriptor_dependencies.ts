@@ -12,6 +12,15 @@ import { createFakeGoBinary } from "../../internal/source-build";
  * The isolated evaluator must therefore observe Bun's resolver as well, or a
  * persistent bundler generation can survive after an imported selection file
  * changes.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Bun descriptor loads retain static ESM dependencies and their resolution premises while rejecting untracked ambient runtime configuration.
+ * @evidence contracts/testing.md#independent-expectations Explicit and ambient authored tsconfigs select different modules; these fixture paths distinguish the requested config from Bun ambient discovery. This case retains its existing availability guard when Bun is absent.
+ * @evidence contracts/testing.md#distinguishing-cases Bun descriptor loads retain static ESM dependencies and their resolution premises while rejecting untracked ambient runtime configuration.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
+ * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Bun descriptor loads retain static ESM dependencies and their resolution premises while rejecting untracked ambient runtime configuration. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies =
   (): void => {

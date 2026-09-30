@@ -23,6 +23,15 @@ import { createFakeGoBinary } from "../../internal/source-build";
  *    contributor, and equal the load's `pluginSources`.
  * 2. Load it again with a build that fails, and assert the same inputs were
  *    reported before the failure.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Successful and failed plugin builds both report module, linked package and contributor inputs; successful pluginSources equals that population.
+ * @evidence contracts/testing.md#independent-expectations The authored module/subpackage/contributor structure establishes binary input ownership before any build result is available.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Load a project with an executable plugin whose source is a subpackage of its module, a contributor, and a linked plugin in another module, and assert the watch inputs are the module root, the linked package, and the contributor, and equal the load's `pluginSources`. 2. Load it again with a build that fails, and assert the same inputs were reported before the failure.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
+ * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Successful and failed plugin builds both report module, linked package and contributor inputs; successful pluginSources equals that population. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_loadprojectplugins_reports_the_directories_its_plugin_builds_key_on =
   () => {

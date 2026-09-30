@@ -1,12 +1,12 @@
 import zlib from "node:zlib";
 
-import {
-  assert,
-  child_process,
-  fs,
-  path,
-  workspaceRoot,
-} from "../../internal/toolchain";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { createRequire } from "node:module";
+import { TestProject } from "../../../../utils/src/TestProject";
+const { validatePlatformPackages } = createRequire(import.meta.url)(path.join(TestProject.WORKSPACE_ROOT, "scripts", "assert-platform-package.cjs")) as { validatePlatformPackages(args: string[]): string[] };
+const workspaceRoot = TestProject.WORKSPACE_ROOT;
 
 const windowsBaseExecutables = [
   "bin/ttsc.exe",
@@ -26,10 +26,15 @@ const windowsBaseExecutables = [
  * package or trusting the artifact to inventory itself.
  *
  * 1. Exercise empty and single-file-missing Windows source packages and tarballs
- *    against the real release verifier.
+ *    against the real release validation operation.
  * 2. Accept complete 0644 Windows artifacts without executable metadata while
  *    keeping the unlisted Go-tool and non-platform boundaries explicit.
  * 3. Confirm win32-arm64 follows the same base-path rule.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Source and tarball validators accept complete Windows 0644 artifacts and reject missing required base executables, while accepting base-only artifacts, win32-arm64 and non-platform packages.
+ * @evidence contracts/testing.md#independent-expectations Authored Windows executable paths and synthetic tar populations determine which required files are present; POSIX execute metadata is inapplicable to Windows.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Exercise empty and single-file-missing Windows source packages and tarballs against the real release validation operation. 2. Accept complete 0644 Windows artifacts without executable metadata while keeping the unlisted Go-tool and non-platform boundaries explicit. 3. Confirm win32-arm64 follows the same base-path rule.
+ * @evidence contracts/testing.md#execution-ownership This source unit calls validatePlatformPackages on every original archive and directory variant without a process. The matching feature CLI batch retains positive/negative exit and stderr transport; all original validator failure meanings remain here.
  */
 export const test_platform_package_windows_contents_require_base_executables =
   () => {
@@ -37,23 +42,17 @@ export const test_platform_package_windows_contents_require_base_executables =
       path.join(process.cwd(), ".tmp-platform-windows-"),
     );
     try {
-      const script = path.join(
-        workspaceRoot,
-        "scripts",
-        "assert-platform-package.cjs",
-      );
+
       const emptySource = path.join(root, "empty-source");
       const emptyTarball = path.join(root, "empty.tgz");
       writeWindowsSourcePackage(emptySource, []);
       writeWindowsTarball(emptyTarball, []);
       assertAllBaseExecutablesMissing(
-        script,
-        emptySource,
+                emptySource,
         "missing executable",
       );
       assertAllBaseExecutablesMissing(
-        script,
-        emptyTarball,
+                emptyTarball,
         "tarball missing executable",
       );
 
@@ -65,13 +64,11 @@ export const test_platform_package_windows_contents_require_base_executables =
       writeWindowsSourcePackage(missingGofmtSource, withoutGofmt);
       writeWindowsTarball(missingGofmtTarball, withoutGofmt);
       assertMissing(
-        script,
-        missingGofmtSource,
+                missingGofmtSource,
         "missing executable bin/go/bin/gofmt.exe",
       );
       assertMissing(
-        script,
-        missingGofmtTarball,
+                missingGofmtTarball,
         "tarball missing executable bin/go/bin/gofmt.exe",
       );
 
@@ -86,15 +83,15 @@ export const test_platform_package_windows_contents_require_base_executables =
         ...windowsBaseExecutables,
         unlistedTool,
       ]);
-      assertAccepted(script, completeSource);
-      assertAccepted(script, completeTarball);
+      assertAccepted(completeSource);
+      assertAccepted(completeTarball);
 
       const baseOnlySource = path.join(root, "base-only-source");
       const baseOnlyTarball = path.join(root, "base-only.tgz");
       writeWindowsSourcePackage(baseOnlySource, windowsBaseExecutables);
       writeWindowsTarball(baseOnlyTarball, windowsBaseExecutables);
-      assertAccepted(script, baseOnlySource);
-      assertAccepted(script, baseOnlyTarball);
+      assertAccepted(baseOnlySource);
+      assertAccepted(baseOnlyTarball);
 
       const arm64Source = path.join(root, "arm64-source");
       const arm64Tarball = path.join(root, "arm64.tgz");
@@ -108,46 +105,42 @@ export const test_platform_package_windows_contents_require_base_executables =
         windowsBaseExecutables,
         "@ttsc/win32-arm64",
       );
-      assertAccepted(script, arm64Source);
-      assertAccepted(script, arm64Tarball);
+      assertAccepted(arm64Source);
+      assertAccepted(arm64Tarball);
 
       const nonPlatform = path.join(root, "non-platform");
       writeWindowsSourcePackage(nonPlatform, [], "@ttsc/example");
-      assertAccepted(script, nonPlatform);
+      assertAccepted(nonPlatform);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
   };
 
-function assertMissing(script: string, target: string, expected: string): void {
-  const result = runVerifier(script, target);
-  assert.equal(result.status, 1, result.stderr);
+function assertMissing(target: string, expected: string): void {
+  const result = runVerifier(target);
+  assert.equal(result.diagnostics.length > 0, true, result.stderr);
   assert.ok(result.stderr.includes(expected), result.stderr);
 }
 
 function assertAllBaseExecutablesMissing(
-  script: string,
   target: string,
   prefix: string,
 ): void {
-  const result = runVerifier(script, target);
-  assert.equal(result.status, 1, result.stderr);
+  const result = runVerifier(target);
+  assert.equal(result.diagnostics.length > 0, true, result.stderr);
   for (const rel of windowsBaseExecutables) {
     assert.ok(result.stderr.includes(`${prefix} ${rel}`), result.stderr);
   }
 }
 
-function assertAccepted(script: string, target: string): void {
-  const result = runVerifier(script, target);
-  assert.equal(result.status, 0, result.stderr);
+function assertAccepted(target: string): void {
+  const result = runVerifier(target);
+  assert.equal(result.diagnostics.length, 0, result.stderr);
 }
 
-function runVerifier(script: string, target: string) {
-  return child_process.spawnSync(process.execPath, [script, target], {
-    cwd: workspaceRoot,
-    encoding: "utf8",
-    windowsHide: true,
-  });
+function runVerifier(target: string) {
+  const diagnostics = validatePlatformPackages([target]);
+  return { diagnostics, stderr: diagnostics.join("\n") };
 }
 
 function writeWindowsSourcePackage(

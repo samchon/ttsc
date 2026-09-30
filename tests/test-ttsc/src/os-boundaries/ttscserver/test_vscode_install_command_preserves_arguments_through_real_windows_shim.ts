@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -7,19 +7,26 @@ import os from "node:os";
 import path from "node:path";
 
 /**
- * Verifies VS Code install script uses a Windows command shim.
+ * Verifies the VS Code install command preserves literal Windows shim arguments.
  *
- * Windows commonly exposes VS Code's CLI as `code.cmd`, which direct
- * `spawnSync("code")` does not reliably resolve. The npm `ttsc-vscode` shim
- * must route through `cmd.exe` on Windows while keeping direct `code` execution
- * on POSIX.
+ * Command quoting must survive actual cmd.exe interpretation, including percent
+ * variables, empty arguments and embedded quotes. Portable command decisions
+ * are exercised in the separate installer source unit.
  *
- * 1. Require the packaged install helper without running its CLI entrypoint.
- * 2. Build POSIX and Windows command shapes, including metacharacters.
- * 3. Assert Windows carries quoted argv fragments through its environment.
- * 4. On Windows, spawn a recording `code.cmd` and compare its exact argv.
+ * 1. Create a recording code.cmd under paths containing shell metacharacters.
+ * 2. Execute the installer command through cmd.exe with literal argument inputs.
+ * 3. Assert successful exit and exact recorded argv, then remove the fixture.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createCodeCommand crosses actual cmd.exe and code.cmd execution; recorded argv must equal every authored input, including percent markers, empty values, trailing backslashes and quotes.
+ * @evidence contracts/testing.md#independent-expectations The literal actualArgs array is authored before command construction; an EXPANDED sentinel exposes unintended percent-variable expansion in the recorded result.
+ * @evidence contracts/testing.md#distinguishing-cases Spaces, ampersands, carets, bare and paired percent signs, empty strings, trailing backslashes, embedded quotes and a backslash before a quote retain distinct argv positions.
+ * @evidence contracts/testing.md#execution-ownership This named os-boundaries/ttscserver entry runs only on Windows within the sole installation matrix; portable createCodeCommand and findWindowsCodeCommand decisions execute in src/unit/ttscserver.
+ * @evidence contracts/e2e.md#necessary-boundary Real Windows cmd.exe interpretation and recording code.cmd transport can corrupt argv even when constructed strings look correct; source unit calls cannot establish this transport.
+ * @evidence contracts/e2e.md#shared-execution One recording shim process carries all argument distinctions in the existing installation OS session; no independent installation, compiler or Go producer is prepared.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A private root owns shim, recorder and result paths; child-only environment owns the percent sentinel, synchronous completion ends the process, and finally removes the fixture.
+ * @evidence contracts/e2e.md#preserved-coverage The original Windows successful exit and exact argv assertion remain here; all original portable command and lookup assertions execute in test_vscode_install_script_uses_windows_command_shim under src/unit/ttscserver.
  */
-export const test_vscode_install_script_uses_windows_command_shim = () => {
+export const test_vscode_install_command_preserves_arguments_through_real_windows_shim = () => {
   const repo = TestProject.WORKSPACE_ROOT;
   const requireFromRepo = createRequire(path.join(repo, "package.json"));
   const mod = requireFromRepo(
@@ -50,70 +57,7 @@ export const test_vscode_install_script_uses_windows_command_shim = () => {
     ) => string;
   };
 
-  const args = ["--install-extension", "C:\\tmp & 100%\\ttsc.vsix", "--force"];
-  assert.deepEqual(mod.createCodeCommand(args, "linux"), {
-    command: "code",
-    args,
-    options: {},
-  });
-
-  const noCodeCmd = {
-    existsSync: () => false,
-    spawnSync: () => ({ stdout: "" }),
-  };
-  const payload =
-    '"%TTSC_VSCODE_COMMAND_SHIM_ARG_0% %TTSC_VSCODE_COMMAND_SHIM_ARG_1% %TTSC_VSCODE_COMMAND_SHIM_ARG_2% %TTSC_VSCODE_COMMAND_SHIM_ARG_3%"';
-  assert.deepEqual(
-    mod.createCodeCommand(args, "win32", { ComSpec: "cmd" }, noCodeCmd),
-    {
-      command: "cmd",
-      args: ["/d", "/s", "/c", payload],
-      options: {
-        env: {
-          ComSpec: "cmd",
-          TTSC_VSCODE_COMMAND_SHIM_ARG_0: '"code.cmd"',
-          TTSC_VSCODE_COMMAND_SHIM_ARG_1: '"--install-extension"',
-          TTSC_VSCODE_COMMAND_SHIM_ARG_2: '"C:\\tmp & 100%\\ttsc.vsix"',
-          TTSC_VSCODE_COMMAND_SHIM_ARG_3: '"--force"',
-        },
-        windowsVerbatimArguments: true,
-      },
-    },
-  );
-
-  const codeCmd =
-    "C:\\Users\\sam\\AppData\\Local\\Programs\\Microsoft VS Code\\bin\\code.cmd";
-  const env = {
-    ComSpec: "cmd",
-    LOCALAPPDATA: "C:\\Users\\sam\\AppData\\Local",
-  };
-  const deps = {
-    existsSync: (candidate: string) => candidate === codeCmd,
-    spawnSync: () => ({ stdout: "D:\\repo\\node_modules\\.bin\\code.cmd\r\n" }),
-  };
-  assert.equal(mod.findWindowsCodeCommand(env, deps), codeCmd);
-  assert.deepEqual(mod.createCodeCommand(args, "win32", env, deps), {
-    command: "cmd",
-    args: ["/d", "/s", "/c", payload],
-    options: {
-      env: {
-        ...env,
-        TTSC_VSCODE_COMMAND_SHIM_ARG_0: `"${codeCmd}"`,
-        TTSC_VSCODE_COMMAND_SHIM_ARG_1: '"--install-extension"',
-        TTSC_VSCODE_COMMAND_SHIM_ARG_2: '"C:\\tmp & 100%\\ttsc.vsix"',
-        TTSC_VSCODE_COMMAND_SHIM_ARG_3: '"--force"',
-      },
-      windowsVerbatimArguments: true,
-    },
-  });
-
-  if (process.platform !== "win32") {
-    console.log(
-      "Skipped Windows code.cmd child-argv assertions: cmd.exe is unavailable.",
-    );
-    return;
-  }
-
+  if (process.platform !== "win32") return;
   const base = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-vscode-code-"));
   const sentinel = "TTSC_VSCODE_PERCENT_SENTINEL";
   const dir = path.join(base, "Code & SDK 100% %" + sentinel + "% ^");

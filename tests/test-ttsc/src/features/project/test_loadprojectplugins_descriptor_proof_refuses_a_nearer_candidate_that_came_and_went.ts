@@ -24,6 +24,15 @@ import { createFakeGoBinary } from "../../internal/source-build";
  * 2. Load the project's plugins.
  * 3. Assert the nearer candidates are inputs without proof, while the selected
  *    package keeps its proof, and no candidate past its root is an input.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Both descriptor evaluators leave nearer transient candidates unproven, retain selected-package proof and omit farther roots.
+ * @evidence contracts/testing.md#independent-expectations A nearer authored package could change Node selection while the selected package remains unchanged; its appearance and disappearance independently invalidate absence proof.
+ * @evidence contracts/testing.md#distinguishing-cases 1. For the CommonJS evaluator and the ttsx evaluator, write a project whose descriptor requires a package installed one directory above the project, and which creates and removes that package in the project's own `node_modules` while it evaluates. 2. Load the project's plugins. 3. Assert the nearer candidates are inputs without proof, while the selected package keeps its proof, and no candidate past its root is an input.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
+ * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Both descriptor evaluators leave nearer transient candidates unproven, retain selected-package proof and omit farther roots. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_loadprojectplugins_descriptor_proof_refuses_a_nearer_candidate_that_came_and_went =
   () => {

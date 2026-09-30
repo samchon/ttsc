@@ -3,10 +3,6 @@ const path = require("node:path");
 const zlib = require("node:zlib");
 
 const root = path.resolve(__dirname, "..");
-const args = process.argv.slice(2);
-const sourceMode = args.includes("--source");
-const targets = args.filter((arg) => !arg.startsWith("--"));
-const failures = [];
 const posixBaseExecutablePaths = [
   "bin/ttsc",
   "bin/ttscserver",
@@ -23,30 +19,44 @@ const requiredExecutableConfigPaths = posixBaseExecutablePaths.map(
   (rel) => `./${rel}`,
 );
 
-if (sourceMode) {
-  for (const dir of listPlatformPackageDirs()) {
-    inspectPackageDir(dir);
-  }
-} else if (targets.length > 0) {
-  for (const target of targets) {
-    const resolved = path.resolve(target);
-    if (resolved.endsWith(".tgz") || resolved.endsWith(".tar.gz")) {
-      inspectTarball(resolved);
-    } else {
-      inspectPackageDir(resolved);
+/**
+ * Validate source package directories or gzip tarballs and return every failure.
+ *
+ * Arguments have the same --source or target-path contract as the executable.
+ * Each call owns its diagnostics; filesystem and malformed archive errors throw.
+ * The CLI alone writes diagnostics and chooses the process exit status.
+ *
+ * @evidence contracts/common.md#principled-implementation Directory files and decoded tar headers supply the same executable population and POSIX mode checks used by the release guard; collecting all diagnostics retains every target failure.
+ * @evidence contracts/common.md#clear-and-simple-design This operation owns validation and per-call diagnostic state; a require.main adapter owns only stderr and exit transport, while existing archive and manifest helpers retain their responsibilities.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The exported operation uses the existing real filesystem and gzip/tar parser without fixture recognition, foreign mutation or a test mode; executable constants remain the published platform contract.
+ * @evidence contracts/common.md#meaningful-documentation Arguments select source discovery or explicit targets, returned diagnostics are isolated per invocation, and malformed input still throws so callers can distinguish validation failure from input failure.
+ * @evidence contracts/portability.md#os-neutral-implementation Package metadata selects Windows executable names or POSIX executable mode obligations; host-native path resolution and filesystem reads preserve the existing directory and archive boundary on each OS.
+ */
+function validatePlatformPackages(args) {
+  const sourceMode = args.includes("--source");
+  const targets = args.filter((arg) => !arg.startsWith("--"));
+  const failures = [];
+  if (sourceMode) {
+    for (const dir of listPlatformPackageDirs()) inspectPackageDir(dir, failures);
+  } else if (targets.length > 0) {
+    for (const target of targets) {
+      const resolved = path.resolve(target);
+      if (resolved.endsWith(".tgz") || resolved.endsWith(".tar.gz")) inspectTarball(resolved, failures);
+      else inspectPackageDir(resolved, failures);
     }
+  } else {
+    throw new Error("Usage: node scripts/assert-platform-package.cjs --source | <package-dir-or-tgz>...");
   }
-} else {
-  throw new Error(
-    "Usage: node scripts/assert-platform-package.cjs --source | <package-dir-or-tgz>...",
-  );
+  return failures;
 }
 
-if (failures.length > 0) {
-  for (const failure of failures) {
-    console.error(failure);
+module.exports = { validatePlatformPackages };
+if (require.main === module) {
+  const failures = validatePlatformPackages(process.argv.slice(2));
+  if (failures.length > 0) {
+    for (const failure of failures) console.error(failure);
+    process.exit(1);
   }
-  process.exit(1);
 }
 
 function listPlatformPackageDirs() {
@@ -60,7 +70,7 @@ function listPlatformPackageDirs() {
     .map((entry) => path.join(packagesDir, entry));
 }
 
-function inspectPackageDir(dir) {
+function inspectPackageDir(dir, failures) {
   const manifestPath = path.join(dir, "package.json");
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
   const platform = platformFromPackageName(manifest.name);
@@ -68,7 +78,7 @@ function inspectPackageDir(dir) {
 
   const executablePaths = requiredExecutablePaths(dir, platform);
   if (platform.os !== "win32") {
-    inspectExecutablePublishConfig(manifest, executablePaths);
+    inspectExecutablePublishConfig(manifest, executablePaths, failures);
   }
   for (const rel of executablePaths) {
     const file = path.join(dir, rel);
@@ -87,7 +97,7 @@ function inspectPackageDir(dir) {
   }
 }
 
-function inspectTarball(file) {
+function inspectTarball(file, failures) {
   const entries = readTarball(file);
   const packageJson = entries.get("package/package.json");
   if (!packageJson) {
@@ -122,7 +132,7 @@ function platformFromPackageName(name) {
   return match ? { os: match[1], arch: match[2] } : null;
 }
 
-function inspectExecutablePublishConfig(manifest, executablePaths) {
+function inspectExecutablePublishConfig(manifest, executablePaths, failures) {
   const executableFiles = new Set(
     Array.isArray(manifest.publishConfig?.executableFiles)
       ? manifest.publishConfig.executableFiles

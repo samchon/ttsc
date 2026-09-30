@@ -8,6 +8,15 @@ import { assert, fs, path, resolveNodeBinary } from "../../internal/project";
  * Two embedders can use the same `./node` spelling from different roots, and a
  * long-lived host can see an absolute candidate replaced after a successful
  * probe. Cached capability must never authorize either different executable.
+ *
+ * @evidence contracts/testing.md#behavioral-verification resolveNodeBinary selects the real runtime in one cwd, falls back in another, rejects a replaced executable and accepts a late-created runtime.
+ * @evidence contracts/testing.md#independent-expectations Real runtime inode/device identity and an authored invalid executable distinguish runtime validity from a cached spelling.
+ * @evidence contracts/testing.md#distinguishing-cases resolveNodeBinary selects the real runtime in one cwd, falls back in another, rejects a replaced executable and accepts a late-created runtime.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The actual child or host operation exercises the transport and execution result named in this case; direct in-process decision helpers cannot establish that process outcome.
+ * @evidence contracts/e2e.md#shared-execution All authored subcases reuse the fixture and available runtime within this named entry; distinct process results or runtime identities retain their required child lifetime, without a consumer installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject fixtures isolate mutable records and runtime identities. Synchronous child completion or existing session cleanup owns process lifetime; temporary roots remain registered with TestProject for exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage resolveNodeBinary selects the real runtime in one cwd, falls back in another, rejects a replaced executable and accepts a late-created runtime. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_resolvenodebinary_scopes_relative_capability_cache_to_cwd =
   (): void => {

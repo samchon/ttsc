@@ -17,6 +17,15 @@ import { createFakeGoBinary } from "../../internal/source-build";
  * 1. Create a plugin module and a replaced module, and a link to the replaced one.
  * 2. Point the module's `replace` directive at the target through the link.
  * 3. Assert the load reports the target's physical directory.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Watch inputs and pluginSources report the replaced linked directory by physical path rather than a duplicate lexical alias.
+ * @evidence contracts/testing.md#independent-expectations The fixture realpath and authored Go replace target independently establish the external module directory.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Create a plugin module and a replaced module, and a link to the replaced one. 2. Point the module's `replace` directive at the target through the link. 3. Assert the load reports the target's physical directory.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
+ * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Watch inputs and pluginSources report the replaced linked directory by physical path rather than a duplicate lexical alias. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_loadprojectplugins_reports_a_linked_replace_target_by_its_physical_path =
   () => {

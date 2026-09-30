@@ -21,6 +21,15 @@ import { createFakeGoBinary } from "../../internal/source-build";
  * 2. Load the project's plugins.
  * 3. Assert the installed entry is a proven input, and no candidate of the package
  *    lies in a search root past the project's own `node_modules`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The selected installed entry is proven and no package candidate beyond its selected node_modules root is reported.
+ * @evidence contracts/testing.md#independent-expectations The descriptor package is authored in the project root and ordinary Node search stops there; farther absence observations cannot affect selection.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Install a descriptor package in the project's `node_modules` and name it as the plugin's `transform`. 2. Load the project's plugins. 3. Assert the installed entry is a proven input, and no candidate of the package lies in a search root past the project's own `node_modules`.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
+ * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage The selected installed entry is proven and no package candidate beyond its selected node_modules root is reported. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_loadprojectplugins_records_no_plugin_entry_candidate_past_its_package =
   () => {

@@ -21,6 +21,15 @@ import {
  * 1. Build a small real Go-shaped tar.gz beneath paths containing spaces.
  * 2. Drive the verified-extraction owner and assert its tar process boundary.
  * 3. Pin checksum-first recovery, zip preservation, and marker boundaries.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Verified extraction drives real tar with relative operands, retains authenticated warm output, rejects checksum/missing-binary/extraction failures without a marker, and preserves zip dispatch.
+ * @evidence contracts/testing.md#independent-expectations Authored archive bytes, SHA-256 checksum, VERSION sentinel and independently specified relative tar argv establish integrity and extraction expectations.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Build a small real Go-shaped tar.gz beneath paths containing spaces. 2. Drive the verified-extraction owner and assert its tar process boundary. 3. Pin checksum-first recovery, zip preservation, and marker boundaries.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/platform entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary Actual tar or verification-command execution connects authored archive headers and filesystem contents to extraction or command exits; direct argument construction cannot establish archive consumption or CLI failure dispatch.
+ * @evidence contracts/e2e.md#shared-execution All archive variants reuse one private fixture and the already available tar/Node tools. Distinct archives and success/failure command exits require their current extraction or command invocation; no SDK download, consumer install or real Go build occurs.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture assigns separate destinations or archives to conflicting validation states; synchronous children terminate before result assertions, and the existing finally path removes the owned root.
+ * @evidence contracts/e2e.md#preserved-coverage Verified extraction drives real tar with relative operands, retains authenticated warm output, rejects checksum/missing-binary/extraction failures without a marker, and preserves zip dispatch. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_platform_package_extracts_go_tar_with_relative_operands =
   () => {

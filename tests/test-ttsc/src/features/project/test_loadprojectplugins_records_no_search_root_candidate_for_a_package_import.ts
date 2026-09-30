@@ -19,6 +19,15 @@ import { createFakeGoBinary } from "../../internal/source-build";
  * 2. Load the project's plugins.
  * 3. Assert the mapped file and the manifest are proven inputs, and no input names
  *    `#dep` below a `node_modules`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Both descriptor runtimes report the mapped file and imports manifest as proven inputs and report no node_modules/#dep candidates.
+ * @evidence contracts/testing.md#independent-expectations Package imports resolve #dep from its authored imports map, independently of ordinary node_modules package search.
+ * @evidence contracts/testing.md#distinguishing-cases 1. For the CommonJS evaluator and the ttsx evaluator, write a project whose package maps `#dep` to a file, and whose descriptor imports `#dep`. 2. Load the project's plugins. 3. Assert the mapped file and the manifest are proven inputs, and no input names `#dep` below a `node_modules`.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
+ * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Both descriptor runtimes report the mapped file and imports manifest as proven inputs and report no node_modules/#dep candidates. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_loadprojectplugins_records_no_search_root_candidate_for_a_package_import =
   () => {

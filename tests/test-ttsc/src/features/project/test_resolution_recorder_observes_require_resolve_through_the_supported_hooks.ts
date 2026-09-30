@@ -22,6 +22,15 @@ import { RuntimeLoaderCapabilities } from "../../../../../packages/ttsc/lib/laun
  * 3. Assert the present file is an input with its content, the missing one an
  *    input proven absent, and the resolver was wrapped exactly where
  *    `require.resolve` does not consult the hooks.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The recorder proves the present require.resolve file and absent candidate and wraps the resolver only when the runtime hook probe requires it.
+ * @evidence contracts/testing.md#independent-expectations Authored present/missing files establish resolution outcomes; the runtime capability probe independently establishes hook visibility on this Node release.
+ * @evidence contracts/testing.md#distinguishing-cases 1. In a child process, create a recorder and let it observe resolutions. 2. Resolve a present file and a missing candidate through `require.resolve`. 3. Assert the present file is an input with its content, the missing one an input proven absent, and the resolver was wrapped exactly where `require.resolve` does not consult the hooks.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The actual child or host operation exercises the transport and execution result named in this case; direct in-process decision helpers cannot establish that process outcome.
+ * @evidence contracts/e2e.md#shared-execution All authored subcases reuse the fixture and available runtime within this named entry; distinct process results or runtime identities retain their required child lifetime, without a consumer installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject fixtures isolate mutable records and runtime identities. Synchronous child completion or existing session cleanup owns process lifetime; temporary roots remain registered with TestProject for exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage The recorder proves the present require.resolve file and absent candidate and wraps the resolver only when the runtime hook probe requires it. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_resolution_recorder_observes_require_resolve_through_the_supported_hooks =
   () => {

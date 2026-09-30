@@ -14,6 +14,15 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../internal/watch";
  * 1. Declare `outDir` and `tsBuildInfoFile` in a nested base config.
  * 2. Suppress writes at the base config's output paths.
  * 3. Treat the old project-root-relative interpretations as external inputs.
+ *
+ * @evidence contracts/testing.md#behavioral-verification This case drives the real WatchTopology: inherited path-valued compiler outputs remain relative to the tsconfig that declared them. 1. Declare `outDir` and `tsBuildInfoFile` in a nested base config. 2. Suppress writes at the base config's output paths. 3. Treat the old project-root-relative interpretations as external inputs.
+ * @evidence contracts/testing.md#independent-expectations Authored tsconfig options, source imports and declared input paths establish which files are compiler inputs, products or reload dependencies. Literal event-kind/path assertions and quiet negative twins enforce those independently specified roles rather than snapshotting topology output.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Declare `outDir` and `tsBuildInfoFile` in a nested base config. 2. Suppress writes at the base config's output paths. 3. Treat the old project-root-relative interpretations as external inputs.
+ * @evidence contracts/testing.md#execution-ownership This named src/features/watch entry refreshes the real tsgo compiler population and drives native filesystem subscriptions through WatchTopology; the source units own direct event planning and injected watcher decisions.
+ * @evidence contracts/e2e.md#necessary-boundary The real compiler input/output population must agree with native observer registration and notification classification for this authored layout. Direct path planning cannot establish tsgo membership, actual delivered events or subscription survival across mutations.
+ * @evidence contracts/e2e.md#shared-execution The case reuses its built compiler and one Node test process; each topology session serves its authored mutation sequence. Distinct roots/options need their own compiler-population request, and an explicitly new session retains the initial-versus-newly-admitted input distinction; watcher registration installs or builds nothing.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject roots separate mutable config, source, output and declared-input state. Each topology owns its subscriptions and existing finally paths close them. Event counters reset only between asserted transitions; actual cold registration and config recovery remain unprimed.
+ * @evidence contracts/e2e.md#preserved-coverage 1. Declare `outDir` and `tsBuildInfoFile` in a nested base config. 2. Suppress writes at the base config's output paths. 3. Treat the old project-root-relative interpretations as external inputs. Every original assertion and authored layout remains in this named entry; no change to timeout, capability guard, input, expected event or quiet negative twin is made by these acknowledgments.
  */
 export const test_watch_topology_preserves_inherited_output_option_bases =
   async (): Promise<void> => {

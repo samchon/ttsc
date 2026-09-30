@@ -23,6 +23,15 @@ import { createFakeGoBinary } from "../../internal/source-build";
  * 2. Load the package's plugins.
  * 3. Assert the declared plugin is loaded, the other is not, and the recorded
  *    manifests of the declaring package stop at the workspace root.
+ *
+ * @evidence contracts/testing.md#behavioral-verification loadProjectPlugins selects the hoisted declaring package and omits the nondeclaring dependency, preserving the declaring package manifest inputs.
+ * @evidence contracts/testing.md#independent-expectations Authored root ttsc.plugin metadata and a nested nondeclaring CommonJS manifest distinguish the package owner from the closest manifest to its runtime entry.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Hoist two scoped dependencies of that shape to the workspace root, one declaring a plugin and one declaring none, and depend on both from a package that configures no plugin. 2. Load the package's plugins. 3. Assert the declared plugin is loaded, the other is not, and the recorded manifests of the declaring package stop at the workspace root.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
+ * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage loadProjectPlugins selects the hoisted declaring package and omits the nondeclaring dependency, preserving the declaring package manifest inputs. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_loadprojectplugins_discovers_a_hoisted_plugin_whose_exports_hide_its_manifest =
   () => {

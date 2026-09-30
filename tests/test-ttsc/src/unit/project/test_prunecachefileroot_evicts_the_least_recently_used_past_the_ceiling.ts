@@ -1,11 +1,10 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
-import {
-  assert,
-  fs,
-  path,
-  pruneCacheFileRoot,
-} from "../../internal/source-build";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { pruneCacheFileRoot } from "../../../../../packages/ttsc/src/plugin/internal/source/pruneCacheFileRoot";
+
 
 /**
  * Verifies a single-file cache part over its size ceiling loses its least
@@ -19,6 +18,11 @@ import {
  * 1. Seed three 10-byte entries used 3, 2 and 1 hours ago, and one used now.
  * 2. Collect with a 25-byte ceiling, a 20-byte target and a 30-minute window.
  * 3. Assert the two oldest are gone and the two newest remain.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The collector removes the two oldest ten-byte entries and keeps the newest and protected entries under the 25-byte ceiling and 20-byte target.
+ * @evidence contracts/testing.md#independent-expectations Authored byte sizes, 3/2/1-hour ages and a 30-minute protection window independently determine the expected surviving pair.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Seed three 10-byte entries used 3, 2 and 1 hours ago, and one used now. 2. Collect with a 25-byte ceiling, a 20-byte target and a 30-minute window. 3. Assert the two oldest are gone and the two newest remain.
+ * @evidence contracts/testing.md#execution-ownership This matching src/unit/project entry exercises the owning operations directly on isolated fixture inputs; no product host, native artifact build or consumer installation executes.
  */
 export const test_prunecachefileroot_evicts_the_least_recently_used_past_the_ceiling =
   (): void => {

@@ -15,6 +15,15 @@ import path from "node:path";
  * 2. Run `packages/vscode/bin/install.js` with no subcommand.
  * 3. Assert it calls `code --install-extension <versioned VSIX> --force`.
  * 4. Assert the referenced VSIX exists in the package dist directory.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The npm install entry invokes a recording code command with --install-extension, the versioned bundled VSIX path and --force.
+ * @evidence contracts/testing.md#independent-expectations The authored recording executable observes actual argv and the package version independently identifies the default extension artifact.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Create a fake `code` executable that records its argv. 2. Run `packages/vscode/bin/install.js` with no subcommand. 3. Assert it calls `code --install-extension <versioned VSIX> --force`. 4. Assert the referenced VSIX exists in the package dist directory.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/ttscserver entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The packaged command must cross actual child argv and command-shell interpretation before its recorded arguments are asserted; direct command construction cannot establish that transport.
+ * @evidence contracts/e2e.md#shared-execution One fixture supplies the recording command and all arguments in this named case. Remaining .cmd/.bat or default-command lifetimes observe distinct execution entrypoints; no compiler, Go plugin build or consumer installation occurs.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject paths and child-only environment separate recording output; each synchronous child completes before its result is consumed, and TestProject owns temporary-directory cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage The npm install entry invokes a recording code command with --install-extension, the versioned bundled VSIX path and --force. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_vscode_install_script_installs_default_bundled_vsix = () => {
   if (process.platform === "win32") return;

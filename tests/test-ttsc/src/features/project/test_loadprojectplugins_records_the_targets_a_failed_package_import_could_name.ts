@@ -20,6 +20,15 @@ import { createFakeGoBinary } from "../../internal/source-build";
  * 2. Load the project's plugins.
  * 3. Assert the missing file and the missing package's manifest candidate are
  *    proven absent inputs.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Caught missing #imports retain proven absence inputs for the mapped relative file and bare-package manifest in both evaluator formats.
+ * @evidence contracts/testing.md#independent-expectations The authored imports map names these missing targets even though no module was returned; later creation must change that resolution premise.
+ * @evidence contracts/testing.md#distinguishing-cases 1. For the CommonJS evaluator and the ttsx evaluator, map `#opt` to a missing file and `#pkg` to a missing package, and catch both imports in the descriptor. 2. Load the project's plugins. 3. Assert the missing file and the missing package's manifest candidate are proven absent inputs.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
+ * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The TestProject-owned root separates module selection and descriptor records from other cases. Authored edits and aged records remain within that root; synchronous evaluator/build children finish before assertions, and TestProject registers temporary roots for process-exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Caught missing #imports retain proven absence inputs for the mapped relative file and bare-package manifest in both evaluator formats. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_loadprojectplugins_records_the_targets_a_failed_package_import_could_name =
   () => {

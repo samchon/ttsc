@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -21,9 +21,19 @@ import path from "node:path";
  *    options and confirm the recorded args equal the expected LSP args.
  * 4. Spawn the same command without the flag and confirm the shim does not receive
  *    those args.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The launch-command child preserves server argv through recording .cmd/.bat shims, with verbatim options only for command shims.
+ * @evidence contracts/testing.md#independent-expectations Literal stdio, cwd, suppression, namespace and tsconfig flags form expected argv independently of createServerExecutable; metacharacter-bearing paths and real cmd.exe interpretation distinguish quoting errors. The separately tested command namespace helper supplies only its prefix.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Build launcher, cwd, and tsconfig paths containing spaces, `&`, `%`, and `^`. 2. Assert only the `.cmd`/`.bat` executables carry `windowsVerbatimArguments`. 3. On Windows, spawn a recording `.cmd` and `.bat` with the exact executable options and confirm the recorded args equal the expected LSP args. 4. Spawn the same command without the flag and confirm the shim does not receive those args.
+ * @evidence contracts/testing.md#execution-ownership This named os-boundaries/ttscserver entry runs actual .cmd/.bat argv transport in the sole installation matrix; portable executable option decisions are separately owned by source units.
+ * @evidence contracts/e2e.md#necessary-boundary The packaged command must cross actual child argv and command-shell interpretation before its recorded arguments are asserted; direct command construction cannot establish that transport.
+ * @evidence contracts/e2e.md#shared-execution One fixture supplies the recording command and all arguments in this named case. Remaining .cmd/.bat or default-command lifetimes observe distinct execution entrypoints; no compiler, Go plugin build or consumer installation occurs.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A parent TestProject-owned root and child-only environment separate recording output; the child removes its fixture in finally even if command construction or spawning throws, and parent exit cleanup retains ownership if the child cannot finish.
+ * @evidence contracts/e2e.md#preserved-coverage The launch-command child preserves server argv through recording .cmd/.bat shims, with verbatim options only for command shims. Original .cmd/.bat positive and missing-verbatim negative argv assertions remain here; JS/native/cmd launch decisions also retain their direct source unit owner test_vscode_server_launch_command_uses_command_mode.
  */
 export const test_vscode_server_launch_command_spawns_windows_command_shim =
   () => {
+    if (process.platform !== "win32") return;
     const repo = TestProject.WORKSPACE_ROOT;
     const serverResolution = path.join(
       repo,
@@ -32,6 +42,7 @@ export const test_vscode_server_launch_command_spawns_windows_command_shim =
       "src",
       "serverResolution.ts",
     );
+    const fixture = TestProject.tmpdir("ttsc-vscode-launch-");
     const script = `
     import { pathToFileURL } from "node:url";
     import fs from "node:fs";
@@ -43,7 +54,8 @@ export const test_vscode_server_launch_command_spawns_windows_command_shim =
       serverResolution,
     )}).href);
 
-    const base = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-vscode-launch-"));
+    const base = ${JSON.stringify(fixture)};
+    try {
     const recorder = path.join(base, "record-argv.cjs");
     const sentinel = "TTSC_VSCODE_PERCENT_SENTINEL";
     process.env[sentinel] = "EXPANDED";
@@ -81,7 +93,13 @@ export const test_vscode_server_launch_command_spawns_windows_command_shim =
       js: verbatimOf(path.join(cwd, "server.js")),
       native: verbatimOf(path.join(cwd, "server.exe")),
     };
-    const expectedArgs = build(path.join(cwd, "server.exe")).args;
+    const expectedArgs = [
+      "--stdio",
+      "--cwd=" + cwd,
+      "--suppress-execute-command-ids=ttsc.lint.fixAll,ttsc.format.document",
+      "--execute-command-id-prefix=" + mod.executeCommandIDPrefix(cwd),
+      "--tsconfig=" + tsconfig,
+    ];
 
     const readRecord = (record) =>
       fs.existsSync(record)
@@ -125,15 +143,15 @@ export const test_vscode_server_launch_command_spawns_windows_command_shim =
 
     const isWin = process.platform === "win32";
     const spawn = isWin ? { cmd: runShim("cmd"), bat: runShim("bat") } : null;
-    try {
-      fs.rmSync(base, { recursive: true, force: true });
-    } catch {}
     console.log(JSON.stringify({
       platform: process.platform,
       shape: shape,
       expectedArgs: expectedArgs,
       spawn: spawn,
     }));
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true });
+    }
   `;
     const result = spawnSync(
       process.execPath,

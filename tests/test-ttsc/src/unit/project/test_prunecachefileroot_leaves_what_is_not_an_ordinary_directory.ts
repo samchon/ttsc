@@ -1,11 +1,10 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 
-import {
-  assert,
-  fs,
-  path,
-  pruneCacheFileRoot,
-} from "../../internal/source-build";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { pruneCacheFileRoot } from "../../../../../packages/ttsc/src/plugin/internal/source/pruneCacheFileRoot";
+
 
 /**
  * Verifies collecting a single-file cache part never throws, never creates the
@@ -18,6 +17,11 @@ import {
  * 1. Collect a part that does not exist, and one that is a file.
  * 2. Link a part to an outside directory holding an old entry, and collect it.
  * 3. Assert nothing threw, nothing was created, and the outside entry remains.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Collection neither throws nor creates a missing root and leaves file roots and linked outside entries untouched.
+ * @evidence contracts/testing.md#independent-expectations Authored absent, regular-file and linked-directory roots distinguish safe collection scope from following an external target.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Collect a part that does not exist, and one that is a file. 2. Link a part to an outside directory holding an old entry, and collect it. 3. Assert nothing threw, nothing was created, and the outside entry remains.
+ * @evidence contracts/testing.md#execution-ownership This matching src/unit/project entry exercises the owning operations directly on isolated fixture inputs; no product host, native artifact build or consumer installation executes.
  */
 export const test_prunecachefileroot_leaves_what_is_not_an_ordinary_directory =
   (): void => {

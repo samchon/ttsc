@@ -17,6 +17,15 @@ import { spawnSyncWithLowDescriptors } from "../../../../../packages/ttsc/lib/in
  * 1. Preserve literal argv, cwd, environment, stdout and stderr.
  * 2. Preserve nonzero, missing-command, signal and timeout results.
  * 3. Remove every broker result file after the parent consumes it.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The low-descriptor broker preserves literal argv, cwd, env, both streams, nonzero/missing/signal/timeout results and removes consumed result files.
+ * @evidence contracts/testing.md#independent-expectations Authored argument and output sentinels plus OS child exit and signal results define spawn semantics independently of the broker transport.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Preserve literal argv, cwd, environment, stdout and stderr. 2. Preserve nonzero, missing-command, signal and timeout results. 3. Remove every broker result file after the parent consumes it.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The actual child or host operation exercises the transport and execution result named in this case; direct in-process decision helpers cannot establish that process outcome.
+ * @evidence contracts/e2e.md#shared-execution All authored subcases reuse the fixture and available runtime within this named entry; distinct process results or runtime identities retain their required child lifetime, without a consumer installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject fixtures isolate mutable records and runtime identities. Synchronous child completion or existing session cleanup owns process lifetime; temporary roots remain registered with TestProject for exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage The low-descriptor broker preserves literal argv, cwd, env, both streams, nonzero/missing/signal/timeout results and removes consumed result files. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_spawn_sync_resilient_broker_preserves_process_contract =
   (): void => {

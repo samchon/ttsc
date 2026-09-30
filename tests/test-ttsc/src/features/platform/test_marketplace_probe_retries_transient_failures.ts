@@ -18,6 +18,15 @@ import { assert } from "../../internal/toolchain";
  * 1. Inject one network failure, then serve 429, 503, empty, and exact results.
  * 2. Run the waiter against an ephemeral local HTTP Gallery server.
  * 3. Assert the fifth attempt succeeds and every request used the exact filter.
+ *
+ * @evidence contracts/testing.md#behavioral-verification A real Gallery endpoint receives four exact filter requests after one injected network failure, and the waiter succeeds on its fifth attempt with version 0.19.4.
+ * @evidence contracts/testing.md#independent-expectations The authored socket-failure, 429, 503, empty and exact-version reply sequence independently determines five attempts and the exact publisher filter.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Inject one network failure, then serve 429, 503, empty, and exact results. 2. Run the waiter against an ephemeral local HTTP Gallery server. 3. Assert the fifth attempt succeeds and every request used the exact filter.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/platform entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The waiter sends its request body through real HTTP fetch and consumes actual status/body transitions from one local Gallery server; injected return objects cannot establish request serialization and HTTP retry assembly.
+ * @evidence contracts/e2e.md#shared-execution One ephemeral server and one waiter session carry all transient replies; four HTTP requests reuse that server and require neither external Marketplace access nor an installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity An ephemeral loopback port and case-local reply counter separate network state; finally awaits server.close so sockets do not survive the case.
+ * @evidence contracts/e2e.md#preserved-coverage A real Gallery endpoint receives four exact filter requests after one injected network failure, and the waiter succeeds on its fifth attempt with version 0.19.4. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_marketplace_probe_retries_transient_failures = async () => {
   const requestBodies: unknown[] = [];

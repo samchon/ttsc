@@ -18,6 +18,15 @@ import path from "node:path";
  * 2. Assert each API result is distinct and its loader directory is removed.
  * 3. Assert only a well-formed envelope becomes the failure reason.
  * 4. Assert the non-zero cause also reaches CLI and LSP startup unchanged.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Nonzero, stdout-only, enveloped, foreign, missing, malformed and successful evaluator replies preserve distinct API outcomes and remove loader directories; CLI/LSP preserve the nonzero cause.
+ * @evidence contracts/testing.md#independent-expectations Authored reply envelopes and sentinel failure text establish which result belongs to the evaluator, independently of the fallback parser.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Drive non-zero, stdout-only, enveloped, foreign-result, missing, malformed, and successful results. 2. Assert each API result is distinct and its loader directory is removed. 3. Assert only a well-formed envelope becomes the failure reason. 4. Assert the non-zero cause also reaches CLI and LSP startup unchanged.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The actual child or host operation exercises the transport and execution result named in this case; direct in-process decision helpers cannot establish that process outcome.
+ * @evidence contracts/e2e.md#shared-execution All authored subcases reuse the fixture and available runtime within this named entry; distinct process results or runtime identities retain their required child lifetime, without a consumer installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject fixtures isolate mutable records and runtime identities. Synchronous child completion or existing session cleanup owns process lifetime; temporary roots remain registered with TestProject for exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage Nonzero, stdout-only, enveloped, foreign, missing, malformed and successful evaluator replies preserve distinct API outcomes and remove loader directories; CLI/LSP preserve the nonzero cause. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp =
   (): void => {
@@ -98,7 +107,7 @@ export const test_plugin_descriptor_failures_propagate_and_cleanup_ttsx_temp =
         '  case "success":',
         "    fs.writeFileSync(",
         "      process.env.TTSC_PLUGIN_DESCRIPTOR_OUT,",
-        '      JSON.stringify({ name: "fake-success", source: "./absent-source" }),',
+        '      JSON.stringify({ descriptor: { name: "fake-success", source: "./absent-source" } }),',
         '      "utf8",',
         "    );",
         "    process.exit(0);",
