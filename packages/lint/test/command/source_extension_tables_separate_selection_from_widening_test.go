@@ -17,6 +17,11 @@ import (
 // 1. Assert every TypeScript source extension satisfies both tables.
 // 2. Assert every JavaScript extension satisfies selection but not widening.
 // 3. Assert non-source extensions satisfy neither.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual source-selection predicates accept all four TypeScript extensions in both lanes, accept all four JavaScript extensions only for explicit project selection, and reject authored nonsource suffixes in both lanes; case variants preserve classification.
+// @evidence contracts/testing.md#independent-expectations Explicit project ownership may include JavaScript, but imported-source widening is TypeScript-only. Literal TS/JS/nonsource filenames define the policy inputs independently of the two returned classifications.
+// @evidence contracts/testing.md#distinguishing-cases TS/TSX/MTS/CTS contrast with JS/JSX/MJS/CJS, mixed-case names test normalization, and JSON/Markdown/buildinfo/extensionless/source-map inputs reject loose suffix matching. This unit does not claim declaration-file exclusion, which uses a separate AST flag.
+// @evidence contracts/testing.md#execution-ownership Direct filename-predicate calls run in-process on authored strings; they exercise product selection policy without reading repository filenames, asserting package existence, compiling native hosts or installing consumers.
 func TestSourceExtensionTablesSeparateSelectionFromWidening(t *testing.T) {
   for _, name := range []string{"a.ts", "a.tsx", "a.mts", "a.cts", "A.TS", "A.Tsx"} {
     if !isTypeScriptSourceFileName(name) || !isLintSourceFileName(name) {

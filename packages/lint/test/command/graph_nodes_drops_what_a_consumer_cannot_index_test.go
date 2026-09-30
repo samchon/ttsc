@@ -22,6 +22,11 @@ import (
 //  1. Hand the filter a set carrying each unusable shape beside a valid node.
 //  2. Assert only the valid nodes survive, first writer winning a duplicate.
 //  3. Assert the dangling parent was cleared, not fabricated and not fatal.
+//
+// @evidence contracts/testing.md#behavioral-verification dropUnusableGraphNodes removes empty addresses and unsupported kinds, keeps the first of duplicate addresses in original order, preserves a published parent link and clears an unpublished Prisma parent without discarding its child.
+// @evidence contracts/testing.md#independent-expectations Literal valid identities/kinds, the first-writer policy and resolvable-parent requirement define the complete expected survivor address sequence and parent fields. The expected set is authored rather than copied from a second filter call.
+// @evidence contracts/testing.md#distinguishing-cases A valid document and child sit beside an empty-address section, invalid-kind section, duplicate child with different readable text and valid Prisma column with a missing parent, separating discard, duplicate precedence and repair behavior.
+// @evidence contracts/testing.md#execution-ownership The actual native graph-node filter runs directly on authored GraphNode values in the Go process. Address strings are functional identity inputs without document existence checks, graph indexing hosts, native build or consumer installation.
 func TestGraphNodesDropsWhatAConsumerCannotIndex(t *testing.T) {
   kept := dropUnusableGraphNodes([]publicrule.GraphNode{
     {Address: "docs/a.md", Kind: publicrule.GraphNodeMarkdownDocument},

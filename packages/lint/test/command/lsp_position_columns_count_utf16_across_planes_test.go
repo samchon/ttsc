@@ -2,22 +2,24 @@ package linthost
 
 import "testing"
 
-// TestLSPPositionColumnsCountUTF16AcrossPlanes verifies that every range the lint
-// sidecar publishes measures its column in UTF-16 code units, whatever width the
-// text before it happens to be.
+// TestLSPPositionColumnsCountUTF16AcrossPlanes verifies raw-text byte offsets
+// become UTF-16 columns regardless of the preceding text's byte or scalar width.
 //
-// byteOffsetToLSPPosition is the single conversion behind diagnostic ranges,
-// related locations, quickfix and suggestion workspace edits, and whole-document
-// formatting edits, and the sidecar protocol carries no encoding field: ttscserver
-// pins every session to UTF-16 at the initialize exchange
-// (constrainInitializePositionEncoding), so tsgo's squiggle and this sidecar's
-// squiggle on the same line have to agree by construction. An astral rune is the
+// byteOffsetToLSPPosition converts raw-text offsets for whole-document edits;
+// source-backed diagnostic and suggestion ranges use the compiler line-map
+// adapter separately. The sidecar protocol has no encoding field: ttscserver
+// pins sessions to UTF-16 at initialization. An astral rune is the
 // boundary where bytes, runes, and UTF-16 units all differ at once, and a
 // combining mark is the boundary where one grapheme still costs two units.
 //
 //  1. Convert byte offsets in ASCII, BMP CJK, astral, and combining text.
 //  2. Assert the line walk over both LF and CRLF endings.
 //  3. Assert the clamping boundaries: negative, past-end, and mid-rune offsets.
+//
+// @evidence contracts/testing.md#behavioral-verification The raw-text position converter produces literal line/UTF-16 columns for ASCII, BMP, astral and combining text, handles LF/CRLF/lone CR/Unicode line separators, and clamps negative, past-end and mid-rune byte offsets.
+// @evidence contracts/testing.md#independent-expectations The authored numeric line/column table follows UTF-16 unit widths and the specified line-break forms; no second converter or compiler line map generates expected coordinates.
+// @evidence contracts/testing.md#distinguishing-cases Start, ASCII, three-byte BMP, four-byte astral and combining marks distinguish byte/scalar/grapheme counting. Original LF/CRLF and clamps remain; lone CR and Unicode separator controls cover the remaining supported line breaks.
+// @evidence contracts/testing.md#execution-ownership Each authored raw string is passed directly to byteOffsetToLSPPosition in the Go process and compared with literal coordinates. The test owns the raw-text helper, while source-backed consumers have separate runtime paths; no native artifact, install or product process runs.
 func TestLSPPositionColumnsCountUTF16AcrossPlanes(t *testing.T) {
   cases := []struct {
     name          string
@@ -76,6 +78,9 @@ func TestLSPPositionColumnsCountUTF16AcrossPlanes(t *testing.T) {
       offset:        99,
       wantCharacter: 3,
     },
+    {name: "lone carriage return starts a line", text: "a\rb", offset: 3, wantLine: 1, wantCharacter: 1},
+    {name: "unicode line separator starts a line", text: "a\u2028b", offset: 5, wantLine: 1, wantCharacter: 1},
+    {name: "unicode paragraph separator starts a line", text: "a\u2029b", offset: 5, wantLine: 1, wantCharacter: 1},
     {
       name:          "a negative offset clamps to the start",
       text:          "abc",
