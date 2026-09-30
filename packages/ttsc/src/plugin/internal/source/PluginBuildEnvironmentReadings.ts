@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import path from "node:path";
-import { Worker } from "node:worker_threads";
+import { SHARE_ENV, Worker } from "node:worker_threads";
 
 import { SidecarEnvironment } from "../../../compiler/internal/sharedHost/SidecarEnvironment";
 import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
@@ -14,6 +14,9 @@ import { pluginBuildEnvironment } from "./pluginBuildEnvironment";
  * Cold asynchronous reads run in an exclusively owned worker. Its complete
  * environment snapshot is passed explicitly to the native reader. Publication
  * rechecks both current host variables and external witnesses after transfer.
+ * The worker reads the parent's shared environment for native fallback rules;
+ * neither it nor this owner writes that environment. Explicit reader inputs
+ * still use the request snapshot and publication still qualifies that snapshot.
  *
  * @evidence contracts/common.md#principled-implementation Current complete environment identity and native pre-read metadata qualify publication and reuse; a worker's returned digest alone supplies no authority.
  * @evidence contracts/common.md#clear-and-simple-design One owner shares observation records across synchronous reads, cache-only proof and asynchronous preparation.
@@ -152,7 +155,7 @@ export namespace PluginBuildEnvironmentReadings {
         }
         return true;
       };
-      const onMessage = (reply: Reading | { thrown: Error }) => {
+      const onMessage = (reply: Reading | { thrown: unknown }) => {
         if (!release(true)) return;
         if ("thrown" in reply) reject(reply.thrown);
         else resolve(reply);
@@ -171,7 +174,7 @@ export namespace PluginBuildEnvironmentReadings {
 
   function acquireWorker(): Worker {
     if (worker !== undefined) return worker;
-    const created = new Worker(path.join(__dirname, "pluginBuildEnvironmentWorker.js"));
+    const created = new Worker(path.join(__dirname, "pluginBuildEnvironmentWorker.js"), { env: SHARE_ENV });
     worker = created;
     const retire = () => { if (worker === created) worker = undefined; };
     // Idle death must retire the cached thread without an unhandled error;
