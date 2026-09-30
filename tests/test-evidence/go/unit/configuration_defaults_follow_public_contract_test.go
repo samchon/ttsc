@@ -17,8 +17,12 @@ import (
  *  1. Omit every claim and reference symbol selector.
  *  2. Decode one Markdown claim and one TypeScript claim.
  *  3. Assert the four documented default sets independently.
+  * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig returns the four literal artifact and role defaults.
+ * @evidence contracts/testing.md#independent-expectations All expected values and diagnostic fragments are literal contract expectations; no product decoder computes the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases Markdown claim/reference defaults contrast TypeScript claim and reference defaults.
+ * @evidence contracts/testing.md#execution-ownership This named decoder unit executes authored Go product functions in the semantic test process, without fixture installation, filesystem population, native plugin build or child process.
  */
-func TestConfigurationDefaultsFollowPublicContract(t *testing.T) {
+func TestEvidenceSemanticConfigurationDefaultsFollowPublicContract(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{
     "claims": [
       {
@@ -61,8 +65,12 @@ func TestConfigurationDefaultsFollowPublicContract(t *testing.T) {
  *  1. Configure one symbol string, one symbol array, and two references.
  *  2. Decode the public configuration.
  *  3. Assert symbol union and reference boundaries survive.
+  * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig preserves the literal symbol union and two independently indexed references.
+ * @evidence contracts/testing.md#independent-expectations All expected values and diagnostic fragments are literal contract expectations; no product decoder computes the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases Symbol arrays form one union while the adjacent reference array remains two obligations.
+ * @evidence contracts/testing.md#execution-ownership This named decoder unit executes authored Go product functions in the semantic test process, without fixture installation, filesystem population, native plugin build or child process.
  */
-func TestConfigurationKeepsSymbolUnionAndReferencesDistinct(t *testing.T) {
+func TestEvidenceSemanticConfigurationKeepsSymbolUnionAndReferencesDistinct(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{
     "claims": [{
       "type": "typescript",
@@ -100,8 +108,12 @@ func TestConfigurationKeepsSymbolUnionAndReferencesDistinct(t *testing.T) {
  *  1. Decode a claim with nested severity and an empty reference array.
  *  2. Decode an empty claim array separately.
  *  3. Assert every failure names the public repair boundary.
+  * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig reports each literal nested severity and empty obligation failure.
+ * @evidence contracts/testing.md#independent-expectations All expected values and diagnostic fragments are literal contract expectations; no product decoder computes the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases Invalid nested severity and empty reference arrays contrast an independently empty claims array.
+ * @evidence contracts/testing.md#execution-ownership This named decoder unit executes authored Go product functions in the semantic test process, without fixture installation, filesystem population, native plugin build or child process.
  */
-func TestConfigurationRejectsObsoleteAndVacuousShapes(t *testing.T) {
+func TestEvidenceSemanticConfigurationRejectsObsoleteAndVacuousShapes(t *testing.T) {
   _, problems := decodeGraphConfig(json.RawMessage(`{
     "claims": [{
       "type": "typescript",
@@ -137,8 +149,12 @@ func TestConfigurationRejectsObsoleteAndVacuousShapes(t *testing.T) {
  *     absolute-path shapes.
  *  2. Decode each shape without graph evaluation.
  *  3. Assert the diagnostic names the violated public boundary.
+  * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig rejects each malformed JSON shape with its independently authored repair diagnostic.
+ * @evidence contracts/testing.md#independent-expectations All expected values and diagnostic fragments are literal contract expectations; no product decoder computes the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases Missing and unknown discriminators, selector emptiness, absolute paths, obsolete relation keys and unknown properties remain separate table cases.
+ * @evidence contracts/testing.md#execution-ownership This named decoder unit executes authored Go product functions in the semantic test process, without fixture installation, filesystem population, native plugin build or child process.
  */
-func TestConfigurationRejectsMalformedPublicBoundaries(t *testing.T) {
+func TestEvidenceSemanticConfigurationRejectsMalformedPublicBoundaries(t *testing.T) {
   cases := []struct {
     name string
     raw  string

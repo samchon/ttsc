@@ -18,8 +18,12 @@ import (
  *  1. Decode omitted, explicit-false, and explicit-true claims.
  *  2. Assert their activation state and original indexes.
  *  3. Reject every representative non-boolean value.
+  * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig preserves three literal activation states and original indexes and rejects non-booleans.
+ * @evidence contracts/testing.md#independent-expectations All expected values and diagnostic fragments are literal contract expectations; no product decoder computes the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases Omitted, explicit false and explicit true contrast string, number, null, object and array input.
+ * @evidence contracts/testing.md#execution-ownership This named decoder unit executes authored Go product functions in the semantic test process, without fixture installation, filesystem population, native plugin build or child process.
  */
-func TestDisabledClaimsDefaultToEnabledAndRequireABoolean(t *testing.T) {
+func TestEvidenceSemanticDisabledClaimsDefaultToEnabledAndRequireABoolean(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[
     {
       "type":"typescript",
@@ -78,8 +82,12 @@ func TestDisabledClaimsDefaultToEnabledAndRequireABoolean(t *testing.T) {
  *  1. Disable a claim with an unknown property and missing required fields.
  *  2. Decode the complete public shape.
  *  3. Assert every independent structural failure is still reported.
+  * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig reports every independently named malformed structural field even on a disabled claim.
+ * @evidence contracts/testing.md#independent-expectations All expected values and diagnostic fragments are literal contract expectations; no product decoder computes the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases The disabled gate must not conceal an unknown property, absent files or absent reference.
+ * @evidence contracts/testing.md#execution-ownership This named decoder unit executes authored Go product functions in the semantic test process, without fixture installation, filesystem population, native plugin build or child process.
  */
-func TestDisabledClaimsStillValidateTheirCompleteShape(t *testing.T) {
+func TestEvidenceSemanticDisabledClaimsStillValidateTheirCompleteShape(t *testing.T) {
   _, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{
     "type":"typescript",
     "disabled":true,

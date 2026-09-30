@@ -14,8 +14,12 @@ import (
  *  1. Declare the option on a Markdown reference and assert it reaches the native policy.
  *  2. Declare it on the Prisma, Swagger, and TypeScript references.
  *  3. Assert each foreign kind is refused by name at its own configuration path.
+  * @evidence contracts/testing.md#behavioral-verification The actual decodeGraphConfig and decoded native model are evaluated; this case asserts a Markdown checklist is admitted while Prisma, Swagger and TypeScript checklists report their own artifact-specific refusals.
+ * @evidence contracts/testing.md#independent-expectations Literal supported model values and repair fragments are authored independently of the decoder; no decoder result supplies the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases A Markdown checklist is admitted while Prisma, Swagger and TypeScript checklists report their own artifact-specific refusals.
+ * @evidence contracts/testing.md#execution-ownership This named semantic unit calls the authored Go decoder and its pure assertion helpers in the shared test process; JSON mentioning Prisma, Swagger or a package performs no artifact loading, installation, native build or child process.
  */
-func TestChecklistDecodesOnlyOnAMarkdownReference(t *testing.T) {
+func TestEvidenceSemanticChecklistDecodesOnlyOnAMarkdownReference(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{
     "type":"typescript",
     "files":["src/**"],
@@ -64,8 +68,12 @@ func TestChecklistDecodesOnlyOnAMarkdownReference(t *testing.T) {
  *  1. Declare a checklist beside a reference type that fails to decode.
  *  2. Decode the graph.
  *  3. Assert the type is reported and the checklist refusal is not.
+  * @evidence contracts/testing.md#behavioral-verification The actual decodeGraphConfig and decoded native model are evaluated; this case asserts an unknown reference kind reports its type failure without a derivative checklist refusal.
+ * @evidence contracts/testing.md#independent-expectations Literal supported model values and repair fragments are authored independently of the decoder; no decoder result supplies the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases An unknown reference kind reports its type failure without a derivative checklist refusal.
+ * @evidence contracts/testing.md#execution-ownership This named semantic unit calls the authored Go decoder and its pure assertion helpers in the shared test process; JSON mentioning Prisma, Swagger or a package performs no artifact loading, installation, native build or child process.
  */
-func TestChecklistIsSilentWhenTheReferenceKindDidNotDecode(t *testing.T) {
+func TestEvidenceSemanticChecklistIsSilentWhenTheReferenceKindDidNotDecode(t *testing.T) {
   _, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{
     "type":"typescript",
     "files":["src/**"],
@@ -89,8 +97,12 @@ func TestChecklistIsSilentWhenTheReferenceKindDidNotDecode(t *testing.T) {
  *  1. Pair the checklist with each cardinality option and with both at once.
  *  2. Decode each graph, disabled and enabled alike.
  *  3. Assert each contradiction is named on its own and both are named together.
+  * @evidence contracts/testing.md#behavioral-verification The actual decodeGraphConfig and decoded native model are evaluated; this case asserts enabled and disabled claims reject each contradictory cardinality option and both together, without reporting an absent option.
+ * @evidence contracts/testing.md#independent-expectations Literal supported model values and repair fragments are authored independently of the decoder; no decoder result supplies the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases Enabled and disabled claims reject each contradictory cardinality option and both together, without reporting an absent option.
+ * @evidence contracts/testing.md#execution-ownership This named semantic unit calls the authored Go decoder and its pure assertion helpers in the shared test process; JSON mentioning Prisma, Swagger or a package performs no artifact loading, installation, native build or child process.
  */
-func TestChecklistIsRefusedBesideTheCardinalityOptions(t *testing.T) {
+func TestEvidenceSemanticChecklistIsRefusedBesideTheCardinalityOptions(t *testing.T) {
   decode := func(t *testing.T, options string) []string {
     t.Helper()
     collected := []string{}
@@ -139,8 +151,12 @@ func TestChecklistIsRefusedBesideTheCardinalityOptions(t *testing.T) {
  *  1. Declare a checklist reference under a claim that confines its exclusions.
  *  2. Assert the pair is refused at the carriers, naming both repairs.
  *  3. Drop the checklist and assert the same carriers decode.
+  * @evidence contracts/testing.md#behavioral-verification The actual decodeGraphConfig and decoded native model are evaluated; this case asserts ordinary carriers and exclusion-refusing checklists remain valid; enabled and disabled contradictory pairs, a second reference and malformed carriers retain their distinct diagnostics.
+ * @evidence contracts/testing.md#independent-expectations Literal supported model values and repair fragments are authored independently of the decoder; no decoder result supplies the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases Ordinary carriers and exclusion-refusing checklists remain valid; enabled and disabled contradictory pairs, a second reference and malformed carriers retain their distinct diagnostics.
+ * @evidence contracts/testing.md#execution-ownership This named semantic unit calls the authored Go decoder and its pure assertion helpers in the shared test process; JSON mentioning Prisma, Swagger or a package performs no artifact loading, installation, native build or child process.
  */
-func TestChecklistIsRefusedBesideGatheredExclusionCarriers(t *testing.T) {
+func TestEvidenceSemanticChecklistIsRefusedBesideGatheredExclusionCarriers(t *testing.T) {
   claim := func(policy string) json.RawMessage {
     return json.RawMessage(`{"claims":[{
       "type":"typescript",
@@ -225,8 +241,12 @@ func TestChecklistIsRefusedBesideGatheredExclusionCarriers(t *testing.T) {
  *  1. Declare a checklist with both composable options.
  *  2. Decode the graph.
  *  3. Assert every option reaches the native policy with no diagnostic.
+  * @evidence contracts/testing.md#behavioral-verification The actual decodeGraphConfig and decoded native model are evaluated; this case asserts checklist, noEvidenceExclude and requireReview remain enabled together without any diagnostic.
+ * @evidence contracts/testing.md#independent-expectations Literal supported model values and repair fragments are authored independently of the decoder; no decoder result supplies the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases Checklist, noEvidenceExclude and requireReview remain enabled together without any diagnostic.
+ * @evidence contracts/testing.md#execution-ownership This named semantic unit calls the authored Go decoder and its pure assertion helpers in the shared test process; JSON mentioning Prisma, Swagger or a package performs no artifact loading, installation, native build or child process.
  */
-func TestChecklistComposesWithExclusionAndReviewPolicies(t *testing.T) {
+func TestEvidenceSemanticChecklistComposesWithExclusionAndReviewPolicies(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{
     "type":"typescript",
     "files":["src/**"],

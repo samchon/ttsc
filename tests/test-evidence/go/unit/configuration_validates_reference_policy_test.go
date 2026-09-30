@@ -14,8 +14,12 @@ import (
  *  1. Decode one reference with no options and one declaring every option false.
  *  2. Inspect both native reference models.
  *  3. Assert every option retains its behavior-preserving zero value.
+  * @evidence contracts/testing.md#behavioral-verification The actual decodeGraphConfig and decoded native model are evaluated; this case asserts omitted reference policy contrasts all four explicitly false policy flags without changing the zero-value model.
+ * @evidence contracts/testing.md#independent-expectations Literal supported model values and repair fragments are authored independently of the decoder; no decoder result supplies the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases Omitted reference policy contrasts all four explicitly false policy flags without changing the zero-value model.
+ * @evidence contracts/testing.md#execution-ownership This named semantic unit calls the authored Go decoder and its pure assertion helpers in the shared test process; JSON mentioning Prisma, Swagger or a package performs no artifact loading, installation, native build or child process.
  */
-func TestReferencePolicyDefaultsPreserveReferenceBehavior(t *testing.T) {
+func TestEvidenceSemanticReferencePolicyDefaultsPreserveReferenceBehavior(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{
     "type":"typescript",
     "files":["src/**"],
@@ -53,8 +57,12 @@ func TestReferencePolicyDefaultsPreserveReferenceBehavior(t *testing.T) {
  *  1. Configure all four reference kinds with every option enabled.
  *  2. Decode the graph through the shared reference boundary.
  *  3. Assert each reference retains all three enabled options.
+  * @evidence contracts/testing.md#behavioral-verification The actual decodeGraphConfig and decoded native model are evaluated; this case asserts markdown, Prisma, Swagger and TypeScript reference decoders each retain the same three enabled reference-local options.
+ * @evidence contracts/testing.md#independent-expectations Literal supported model values and repair fragments are authored independently of the decoder; no decoder result supplies the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases Markdown, Prisma, Swagger and TypeScript reference decoders each retain the same three enabled reference-local options.
+ * @evidence contracts/testing.md#execution-ownership This named semantic unit calls the authored Go decoder and its pure assertion helpers in the shared test process; JSON mentioning Prisma, Swagger or a package performs no artifact loading, installation, native build or child process.
  */
-func TestReferencePolicyAppliesToEveryReferenceKind(t *testing.T) {
+func TestEvidenceSemanticReferencePolicyAppliesToEveryReferenceKind(t *testing.T) {
   policy := `"noEvidenceExclude":true,
     "uniqueEvidence":true,
     "singleEvidencePerSymbol":true`
@@ -92,8 +100,12 @@ func TestReferencePolicyAppliesToEveryReferenceKind(t *testing.T) {
  *  1. Supply numbers, strings, arrays, objects, and nulls for each option.
  *  2. Decode each through a disabled claim as well as an enabled one.
  *  3. Assert the complete public option path names every rejection.
+  * @evidence contracts/testing.md#behavioral-verification The actual decodeGraphConfig and decoded native model are evaluated; this case asserts each of four policy flags rejects number, zero, string, array, object and null on both enabled and disabled claims.
+ * @evidence contracts/testing.md#independent-expectations Literal supported model values and repair fragments are authored independently of the decoder; no decoder result supplies the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases Each of four policy flags rejects number, zero, string, array, object and null on both enabled and disabled claims.
+ * @evidence contracts/testing.md#execution-ownership This named semantic unit calls the authored Go decoder and its pure assertion helpers in the shared test process; JSON mentioning Prisma, Swagger or a package performs no artifact loading, installation, native build or child process.
  */
-func TestReferencePolicyRejectsMalformedRuntimeShapes(t *testing.T) {
+func TestEvidenceSemanticReferencePolicyRejectsMalformedRuntimeShapes(t *testing.T) {
   invalid := []struct {
     name  string
     value string
@@ -142,8 +154,12 @@ func TestReferencePolicyRejectsMalformedRuntimeShapes(t *testing.T) {
  *  1. Put an option beside the claim selectors.
  *  2. Put the same options inside a retired nested `acknowledgement` object.
  *  3. Assert both paths report an unknown property.
+  * @evidence contracts/testing.md#behavioral-verification The actual decodeGraphConfig and decoded native model are evaluated; this case asserts claim-level policy and retired nested acknowledgement configuration are both rejected at their distinct literal paths.
+ * @evidence contracts/testing.md#independent-expectations Literal supported model values and repair fragments are authored independently of the decoder; no decoder result supplies the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases Claim-level policy and retired nested acknowledgement configuration are both rejected at their distinct literal paths.
+ * @evidence contracts/testing.md#execution-ownership This named semantic unit calls the authored Go decoder and its pure assertion helpers in the shared test process; JSON mentioning Prisma, Swagger or a package performs no artifact loading, installation, native build or child process.
  */
-func TestReferencePolicyIsRejectedOutsideAReferenceObject(t *testing.T) {
+func TestEvidenceSemanticReferencePolicyIsRejectedOutsideAReferenceObject(t *testing.T) {
   _, claimLevel := decodeGraphConfig(json.RawMessage(`{"claims":[{
     "type":"typescript",
     "files":["src/**"],
@@ -172,8 +188,12 @@ func TestReferencePolicyIsRejectedOutsideAReferenceObject(t *testing.T) {
  *  1. Decode a reference declaring `noEvidenceExclude`.
  *  2. Decode the same reference declaring the retired `noExclude`.
  *  3. Assert the new name takes effect and the old one is refused by name.
+  * @evidence contracts/testing.md#behavioral-verification The actual decodeGraphConfig and decoded native model are evaluated; this case asserts the enabled noEvidenceExclude spelling contrasts retired noExclude, whose rejection must offer the current name.
+ * @evidence contracts/testing.md#independent-expectations Literal supported model values and repair fragments are authored independently of the decoder; no decoder result supplies the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases The enabled noEvidenceExclude spelling contrasts retired noExclude, whose rejection must offer the current name.
+ * @evidence contracts/testing.md#execution-ownership This named semantic unit calls the authored Go decoder and its pure assertion helpers in the shared test process; JSON mentioning Prisma, Swagger or a package performs no artifact loading, installation, native build or child process.
  */
-func TestReferenceExclusionPolicyAnswersToItsRenamedKey(t *testing.T) {
+func TestEvidenceSemanticReferenceExclusionPolicyAnswersToItsRenamedKey(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{
     "type":"typescript",
     "files":["src/**"],

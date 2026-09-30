@@ -26,8 +26,12 @@ func declaredCarrierGlobs(set globSet) string {
  *  1. Declare `evidenceExcludeCarriers` on a Markdown, a Prisma, and a TypeScript claim.
  *  2. Decode the graph through the shared claim boundary.
  *  3. Assert each claim retains the exact glob spelling it was given.
+  * @evidence contracts/testing.md#behavioral-verification The actual decodeGraphConfig and decoded native model are evaluated; this case asserts markdown, Prisma and TypeScript claims preserve exact positive and exclusion glob spellings independently.
+ * @evidence contracts/testing.md#independent-expectations Literal supported model values and repair fragments are authored independently of the decoder; no decoder result supplies the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases Markdown, Prisma and TypeScript claims preserve exact positive and exclusion glob spellings independently.
+ * @evidence contracts/testing.md#execution-ownership This named semantic unit calls the authored Go decoder and its pure assertion helpers in the shared test process; JSON mentioning Prisma, Swagger or a package performs no artifact loading, installation, native build or child process.
  */
-func TestExclusionCarriersDecodeOnEveryClaimKind(t *testing.T) {
+func TestEvidenceSemanticExclusionCarriersDecodeOnEveryClaimKind(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[
     {
       "type":"markdown",
@@ -82,8 +86,12 @@ func TestExclusionCarriersDecodeOnEveryClaimKind(t *testing.T) {
  *  1. Decode a claim of each kind with no `evidenceExcludeCarriers`.
  *  2. Inspect the native carrier selection of each.
  *  3. Assert every one of them carries no pattern at all.
+  * @evidence contracts/testing.md#behavioral-verification The actual decodeGraphConfig and decoded native model are evaluated; this case asserts each of the three supported claim kinds keeps an empty carrier selection when the option is omitted.
+ * @evidence contracts/testing.md#independent-expectations Literal supported model values and repair fragments are authored independently of the decoder; no decoder result supplies the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases Each of the three supported claim kinds keeps an empty carrier selection when the option is omitted.
+ * @evidence contracts/testing.md#execution-ownership This named semantic unit calls the authored Go decoder and its pure assertion helpers in the shared test process; JSON mentioning Prisma, Swagger or a package performs no artifact loading, installation, native build or child process.
  */
-func TestAbsentExclusionCarriersSelectNothing(t *testing.T) {
+func TestEvidenceSemanticAbsentExclusionCarriersSelectNothing(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[
     {
       "type":"markdown",
@@ -126,8 +134,12 @@ func TestAbsentExclusionCarriersSelectNothing(t *testing.T) {
  *  1. Write the singular misspelling `evidenceExcludeCarrier`.
  *  2. Decode the claim.
  *  3. Assert the unknown-property diagnostic fires and offers the plural name.
+  * @evidence contracts/testing.md#behavioral-verification The actual decodeGraphConfig and decoded native model are evaluated; this case asserts a singular misspelling must be refused, offer the plural key and keep the rejected claim out of the model.
+ * @evidence contracts/testing.md#independent-expectations Literal supported model values and repair fragments are authored independently of the decoder; no decoder result supplies the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases A singular misspelling must be refused, offer the plural key and keep the rejected claim out of the model.
+ * @evidence contracts/testing.md#execution-ownership This named semantic unit calls the authored Go decoder and its pure assertion helpers in the shared test process; JSON mentioning Prisma, Swagger or a package performs no artifact loading, installation, native build or child process.
  */
-func TestMisspelledExclusionCarrierPropertyIsRejected(t *testing.T) {
+func TestEvidenceSemanticMisspelledExclusionCarrierPropertyIsRejected(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{
     "type":"typescript",
     "files":["src/**/*.ts"],
@@ -150,8 +162,12 @@ func TestMisspelledExclusionCarrierPropertyIsRejected(t *testing.T) {
  *  1. Supply a bare string, an empty array, a non-string element, and only exclusions.
  *  2. Decode each through the claim boundary.
  *  3. Assert each is refused at its exact public path and produces no claim.
+  * @evidence contracts/testing.md#behavioral-verification The actual decodeGraphConfig and decoded native model are evaluated; this case asserts bare string, empty array, non-string element and exclusion-only carrier sets are rejected at their literal paths with no admitted claim.
+ * @evidence contracts/testing.md#independent-expectations Literal supported model values and repair fragments are authored independently of the decoder; no decoder result supplies the expected answer.
+ * @evidence contracts/testing.md#distinguishing-cases Bare string, empty array, non-string element and exclusion-only carrier sets are rejected at their literal paths with no admitted claim.
+ * @evidence contracts/testing.md#execution-ownership This named semantic unit calls the authored Go decoder and its pure assertion helpers in the shared test process; JSON mentioning Prisma, Swagger or a package performs no artifact loading, installation, native build or child process.
  */
-func TestExclusionCarriersRejectMalformedShapes(t *testing.T) {
+func TestEvidenceSemanticExclusionCarriersRejectMalformedShapes(t *testing.T) {
   cases := []struct {
     name     string
     value    string
