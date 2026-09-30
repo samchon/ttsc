@@ -12,6 +12,11 @@ import "testing"
 // 1. Parse JSX-shaped source under a `.jsx` filename.
 // 2. Enable a `react-perf/*` rule.
 // 3. Assert no diagnostics are emitted even though the AST shape matches.
+//
+// @evidence contracts/testing.md#behavioral-verification NewEngineWithResolver.Run via the reactPerf assertion helpers verifies an allocating prop under a .jsx filename produces no findings; exact finding-line comparison rejects extra or missing diagnostics for react-perf/jsx-no-new-object-as-prop.
+// @evidence contracts/testing.md#independent-expectations The explicit TypeScript-only rule-family contract accepts this .jsx source despite matching JSX syntax.
+// @evidence contracts/testing.md#distinguishing-cases This pins the supported TSX-only adoption guard; TestReactPerfJsxNoNewObjectAsProp owns the equivalent reported TSX expression.
+// @evidence contracts/testing.md#execution-ownership TestReactPerfRulesSkipJsxSource owns these explicit source/option variants as one Go unit entry; TSX parsing and actual engine execution share the Go test process without installing React or starting a product host.
 func TestReactPerfRulesSkipJsxSource(t *testing.T) {
   source := "const view = <Item config={{}} />;\n"
   reactPerfAssertZero(

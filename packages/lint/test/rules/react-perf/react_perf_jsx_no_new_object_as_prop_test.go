@@ -12,6 +12,11 @@ import "testing"
 // 1. Parse TSX with direct, fallback, and conditional object prop values.
 // 2. Enable `react-perf/jsx-no-new-object-as-prop`.
 // 3. Assert each newly-created object value is reported.
+//
+// @evidence contracts/testing.md#behavioral-verification NewEngineWithResolver.Run via the reactPerf assertion helpers verifies lines 3 through 7 report literal, Object constructor/call and fallback/conditional objects; exact finding-line comparison rejects extra or missing diagnostics for react-perf/jsx-no-new-object-as-prop.
+// @evidence contracts/testing.md#independent-expectations React element and shallow prop identity semantics establish which inline expressions allocate new values; the literal line list locates those authored expressions without consulting rule output.
+// @evidence contracts/testing.md#distinguishing-cases The stable object reference on line 8 remains clean; allocation inside the prop differs from reuse of an existing object.
+// @evidence contracts/testing.md#execution-ownership TestReactPerfJsxNoNewObjectAsProp owns these explicit source/option variants as one Go unit entry; TSX parsing and actual engine execution share the Go test process without installing React or starting a product host.
 func TestReactPerfJsxNoNewObjectAsProp(t *testing.T) {
   source := "const stable = {};\n" +
     "const view = <>\n" +

@@ -15,6 +15,11 @@ import (
 // 1. Load a non-Playwright configure call with a force option.
 // 2. Run only playwright/no-force-option.
 // 3. Assert no findings are reported.
+//
+// @evidence contracts/testing.md#behavioral-verification NewEngine.Run verifies configure({ force: true }) remains free of Playwright findings; the zero-finding assertion prevents option-name-only false positives.
+// @evidence contracts/testing.md#independent-expectations The authored configure function is outside the playwright/no-force-option API contract even though its option spelling overlaps; zero findings follow from that ownership distinction.
+// @evidence contracts/testing.md#distinguishing-cases The same option name on an unrelated function must stay accepted; TestRuleCorpusPlaywrightNoForceOption owns locator actions.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusPlaywrightNoForceOptionIgnoresNonPlaywrightOptions parses a virtual TypeScript source and calls the actual engine in the shared Go unit process; no Playwright runtime or product child is launched.
 func TestRuleCorpusPlaywrightNoForceOptionIgnoresNonPlaywrightOptions(t *testing.T) {
   source := `function configure(options: { force: boolean }) {
   return options;

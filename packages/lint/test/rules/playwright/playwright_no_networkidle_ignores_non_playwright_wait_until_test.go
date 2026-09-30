@@ -15,6 +15,11 @@ import (
 // 1. Load a non-Playwright configure call with a networkidle waitUntil option.
 // 2. Run only playwright/no-networkidle.
 // 3. Assert no findings are reported.
+//
+// @evidence contracts/testing.md#behavioral-verification NewEngine.Run verifies configure({ waitUntil: "networkidle" }) remains free of Playwright findings; the zero-finding assertion prevents option-name-only false positives.
+// @evidence contracts/testing.md#independent-expectations The authored configure function is outside the playwright/no-networkidle API contract even though its option spelling overlaps; zero findings follow from that ownership distinction.
+// @evidence contracts/testing.md#distinguishing-cases The same state string on an unrelated API must stay accepted; navigation and direct wait cases own real Playwright shapes.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusPlaywrightNoNetworkidleIgnoresNonPlaywrightWaitUntil parses a virtual TypeScript source and calls the actual engine in the shared Go unit process; no Playwright runtime or product child is launched.
 func TestRuleCorpusPlaywrightNoNetworkidleIgnoresNonPlaywrightWaitUntil(t *testing.T) {
   source := `function configure(options: { waitUntil: string }) {
   return options;

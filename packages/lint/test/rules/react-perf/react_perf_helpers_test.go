@@ -25,6 +25,9 @@ func reactPerfFindingLines(t *testing.T, ruleName, fileName, source string, opti
   recordFindingBehavioralWitnesses(t, findings, kind)
   lines := make([]int, 0, len(findings))
   for _, finding := range findings {
+    if finding.engineFailure || finding.Severity != SeverityError {
+      t.Fatalf("%s: expected a rule error, not a host failure or different severity: %+v", ruleName, finding)
+    }
     if finding.Rule != ruleName {
       t.Fatalf("expected rule %s, got %s", ruleName, finding.Rule)
     }
