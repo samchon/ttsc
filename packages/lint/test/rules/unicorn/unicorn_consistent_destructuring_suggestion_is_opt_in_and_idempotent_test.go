@@ -14,6 +14,11 @@ import "testing"
 //  2. Assert the automatic-fix path applies zero edits.
 //  3. Apply the suggestion edit, assert the exact rewritten source, and
 //     re-run the rule on it to prove convergence.
+//
+// @evidence contracts/testing.md#behavioral-verification Exact suggestion title/range/text, unchanged automatic-fix result and independently authored rewritten source distinguish accidental autofix or incorrect variable substitution; a rerun checks convergence.
+// @evidence contracts/testing.md#independent-expectations The public suggestion-only contract and authored foo.a-to-a binding identity establish exact source and edit expectations without using emitted source as the oracle.
+// @evidence contracts/testing.md#distinguishing-cases The original read reports but automatic fixing is forbidden; accepting its single suggestion produces the literal clean a reference.
+// @evidence contracts/testing.md#execution-ownership TestUnicornConsistentDestructuringSuggestionIsOptInAndIdempotent owns this authored source matrix as one discoverable Go unit entry. Its authored source exercises the owning checker-backed engine and in-process edit applier, preserving edit/source identity on failure. No installed consumer, native build or child product host runs.
 func TestUnicornConsistentDestructuringSuggestionIsOptInAndIdempotent(t *testing.T) {
   source := "declare const foo: { a: number };\nconst {a} = foo;\nvoid foo.a;\n"
   _, _, findings := runRuleFindingsSnapshot(t, "unicorn/consistent-destructuring", source, nil)

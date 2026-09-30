@@ -17,6 +17,11 @@ import (
 //  1. Destructure `Item` from `Lib` in a TSX file.
 //  2. Use `Lib.Item` as an element tag and inside a JSX attribute expression.
 //  3. Assert only the attribute expression read is reported.
+//
+// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshotFile checks exactly one attribute-expression member range and its literal suggestion title, detecting JSX tags misclassified as ordinary property reads.
+// @evidence contracts/testing.md#independent-expectations The supported JSX-tag exclusion and JavaScript expression read policy establish the independently located marker member and Item replacement.
+// @evidence contracts/testing.md#distinguishing-cases The same Lib.Item spelling is clean as a JSX tag but reports inside marker={...}; the tag-position distinction is the decision boundary.
+// @evidence contracts/testing.md#execution-ownership TestUnicornConsistentDestructuringJsxTagNamesAreExempt owns this authored source matrix as one discoverable Go unit entry. Its TSX fixture exercises the owning checker-backed engine in the shared Go process; failure output identifies the member range or suggestion payload. No installed consumer, native build or child product host runs.
 func TestUnicornConsistentDestructuringJsxTagNamesAreExempt(t *testing.T) {
   source := `declare global {
   namespace JSX {

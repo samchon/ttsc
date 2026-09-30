@@ -44,6 +44,11 @@ func unicornConsistentDestructuringMarkedRanges(t *testing.T, source string) [][
 //  2. Mark every expected member-expression range with `/*<*/ … /*>*/`.
 //  3. Assert range, message, and suggestion payload for each finding, in
 //     source order, with the replacement text taken from the upstream output.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual checker-backed findings are compared with authored marked ranges, exact messages and an independent replacement list, detecting binding-name conflation or wrong suggestion applicability.
+// @evidence contracts/testing.md#independent-expectations Official Unicorn invalid-case policy and source-authored member spans/replacement names establish expected diagnostics and suggestion payloads.
+// @evidence contracts/testing.md#distinguishing-cases Aliased/latest destructuring, TS wrappers, shadows, capture, guard boundaries, this scopes and optional-chain positions report; member-parent cases deliberately have messages without suggestions, complemented by SkipsValidForms.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornConsistentDestructuring owns this authored source matrix as one discoverable Go unit entry. Its authored source exercises the owning checker-backed engine; indexed failures identify every independently marked member range and replacement. No installed consumer, native build or child product host runs.
 func TestRuleCorpusUnicornConsistentDestructuring(t *testing.T) {
   engine := NewEngine(RuleConfig{"unicorn/consistent-destructuring": SeverityError})
   if !engine.NeedsTypeChecker() {
