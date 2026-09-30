@@ -1,11 +1,31 @@
-import assert from "node:assert/strict";
-import path from "node:path";
 
-import { BROKEN_INPUT, recordStates, rename, write } from "./common.mjs";
+import { recordStates } from "./common.mjs";
+import { test_host_initial_failure_and_repair } from "./scenarios/test_host_initial_failure_and_repair.mjs";
+import { test_host_edit_between_builds } from "./scenarios/test_host_edit_between_builds.mjs";
+import { test_host_edit_again } from "./scenarios/test_host_edit_again.mjs";
+import { test_host_break_and_recover } from "./scenarios/test_host_break_and_recover.mjs";
+import { test_host_unchanged_rebuild } from "./scenarios/test_host_unchanged_rebuild.mjs";
+import { test_host_edit_during_the_compile } from "./scenarios/test_host_edit_during_the_compile.mjs";
+import { test_host_new_input_during_the_compile } from "./scenarios/test_host_new_input_during_the_compile.mjs";
+import { test_host_edit_after_ttsc_returned } from "./scenarios/test_host_edit_after_ttsc_returned.mjs";
+import { test_host_new_input_after_ttsc_returned } from "./scenarios/test_host_new_input_after_ttsc_returned.mjs";
+import { test_host_two_edits_in_one_tick } from "./scenarios/test_host_two_edits_in_one_tick.mjs";
+import { test_host_edit_during_the_host_s_build } from "./scenarios/test_host_edit_during_the_host_s_build.mjs";
+import { test_host_saved_by_an_editor } from "./scenarios/test_host_saved_by_an_editor.mjs";
+import { test_host_deleted_and_recreated } from "./scenarios/test_host_deleted_and_recreated.mjs";
+import { test_host_new_root_file } from "./scenarios/test_host_new_root_file.mjs";
+import { test_host_edit_to_the_tsconfig } from "./scenarios/test_host_edit_to_the_tsconfig.mjs";
+import { test_host_dependency_renamed_away_and_back } from "./scenarios/test_host_dependency_renamed_away_and_back.mjs";
+import { test_host_missing_import_that_appears } from "./scenarios/test_host_missing_import_that_appears.mjs";
+import { test_host_declaration_broken_and_repaired } from "./scenarios/test_host_declaration_broken_and_repaired.mjs";
+import { test_host_external_input_broken_and_repaired } from "./scenarios/test_host_external_input_broken_and_repaired.mjs";
+import { test_host_edit_to_the_extended_config } from "./scenarios/test_host_edit_to_the_extended_config.mjs";
+import { test_host_dependency_directory_renamed_away_and_back } from "./scenarios/test_host_dependency_directory_renamed_away_and_back.mjs";
+import { test_host_final_edit } from "./scenarios/test_host_final_edit.mjs";
 
 /**
  * The one list of edits every host must converge on, in one watching session,
- * on every OS, for a project named directly and for one named through a link.
+ * in the Linux boundary batch, through each selected producer/root connection.
  *
  * Each host opens a session (`hosts/*.mjs`) that says how the contract sees the
  * host's output and its failures, and which seams it offers; the scenarios
@@ -29,310 +49,100 @@ import { BROKEN_INPUT, recordStates, rename, write } from "./common.mjs";
 export const SCENARIOS = [
   {
     name: "initial failure and repair",
-    async run({ project, session }) {
-      // The session opened on a broken input.
-      await session.failed("initial failure", BROKEN_INPUT);
-      project.change("FIRST");
-      await session.settled("first build", "FIRST", [project.input]);
-      if (session.exactRuns)
-        assert.equal(project.runs(), 1, "one compile for the four modules");
-    },
+    run: test_host_initial_failure_and_repair,
   },
   {
     name: "edit between builds",
-    async run({ project, session }) {
-      const before = project.runs();
-      project.change("SECOND");
-      await session.settled("edit between builds", "SECOND", [project.input]);
-      if (session.exactRuns)
-        assert.equal(
-          project.runs(),
-          2,
-          "one compile shared across the rebuilt modules",
-        );
-      // A host with several compilers, or a pool of workers, still compiles
-      // the edit once for all of them where its session says so.
-      await session.sharedEdit?.(before);
-    },
+    run: test_host_edit_between_builds,
   },
   {
     name: "edit again",
-    async run({ project, session }) {
-      project.change("THIRD");
-      await session.settled("second edit", "THIRD", [project.input]);
-      if (session.exactRuns) assert.equal(project.runs(), 3);
-    },
+    run: test_host_edit_again,
   },
   {
     name: "break and recover",
-    async run({ project, session }) {
-      project.break();
-      await session.failed("failed rebuild", BROKEN_INPUT, [project.input]);
-      project.change("FOURTH");
-      await session.settled("recovered rebuild", "FOURTH", [project.input]);
-      if (session.exactRuns) assert.equal(project.runs(), 4);
-    },
+    run: test_host_break_and_recover,
   },
   {
     name: "unchanged rebuild",
     when: (session) => session.rebuild !== undefined,
-    async run({ project, session }) {
-      const before = project.runs();
-      await session.rebuild("FOURTH");
-      assert.equal(
-        project.runs(),
-        before,
-        "an unchanged rebuild reuses its generation",
-      );
-    },
+    run: test_host_unchanged_rebuild,
   },
   {
     name: "edit during the compile",
-    async run({ project, session }) {
-      // The fixture plugin rewrites a `RACE_` value without the prefix right
-      // after reading it: the edit lands while the compile is running.
-      project.change("RACE_FIFTH");
-      await session.settled("edit during the compile", "FIFTH", [
-        project.input,
-      ]);
-    },
+    run: test_host_edit_during_the_compile,
   },
   {
     name: "new input during the compile",
-    async run({ project, session }) {
-      project.sibling("late", "RACE_SIXTH");
-      project.change("FROM_LATE");
-      await session.settled("new input during the compile", "SIXTH", [
-        project.input,
-        path.join(project.root, "src", "late-input.server.ts"),
-      ]);
-    },
+    run: test_host_new_input_during_the_compile,
   },
   {
     name: "edit after ttsc returned",
     when: (session) => session.lateRace,
-    async run({ project, session }) {
-      // A seam the host places after ttsc rewrites a `LATE_RACE_` value: the
-      // edit lands after ttsc registered the input and returned the module,
-      // while the host is still building.
-      project.change("LATE_RACE_SEVENTH");
-      await session.settled("edit after ttsc returned", "SEVENTH", [
-        project.input,
-      ]);
-    },
+    run: test_host_edit_after_ttsc_returned,
   },
   {
     name: "new input after ttsc returned",
     when: (session) => session.lateRace,
-    async run({ project, session }) {
-      project.sibling("newer", "LATE_RACE_EIGHTH");
-      project.change("FROM_NEWER");
-      await session.settled("new input after ttsc returned", "EIGHTH", [
-        project.input,
-        path.join(project.root, "src", "newer-input.server.ts"),
-      ]);
-    },
+    run: test_host_new_input_after_ttsc_returned,
   },
   {
     name: "two edits in one tick",
-    async run({ project, session }) {
-      // The second edit lands while the host is still reacting to the first,
-      // during its own build at the latest.
-      project.change("NINTH");
-      project.change("TENTH");
-      await session.settled("two edits in one tick", "TENTH", [project.input]);
-    },
+    run: test_host_two_edits_in_one_tick,
   },
   {
     name: "edit during the host's build",
     when: (session) => session.buildStarted !== undefined,
-    async run({ project, session }) {
-      // Touch a module the host itself watches, so the host builds; the input
-      // is edited once the host reports that build started, while it runs.
-      const started = session.buildStarted();
-      write(
-        project.root,
-        "src/mod1.ts",
-        "export const value = watchValue();\n// touched\n",
-      );
-      await started;
-      project.change("ELEVENTH");
-      await session.settled("edit during the host's build", "ELEVENTH", [
-        path.join(project.root, "src", "mod1.ts"),
-        project.input,
-      ]);
-    },
+    run: test_host_edit_during_the_host_s_build,
   },
   {
     name: "saved by an editor",
-    async run({ project, session }) {
-      await project.save("TWELFTH");
-      await session.settled("saved by an editor", "TWELFTH", [project.input]);
-    },
+    run: test_host_saved_by_an_editor,
   },
   {
     name: "deleted and recreated",
-    async run({ project, session }) {
-      project.remove();
-      await session.failed(
-        "deleted input",
-        /contract-input|ENOENT|not found/i,
-        [project.input],
-      );
-      project.change("THIRTEENTH");
-      await session.settled("recreated input", "THIRTEENTH", [project.input]);
-    },
+    run: test_host_deleted_and_recreated,
   },
   {
     name: "new root file",
     when: (session) => session.membership,
-    async run({ project, session }) {
-      // A root file appearing changes no compiler input the modules read, so
-      // only the project's root-file membership hears it; the generation is
-      // compiled again and every module keeps its value.
-      const before = project.runs();
-      write(
-        project.root,
-        "src/contract-extra.d.ts",
-        "declare const extra: 1;\n",
-      );
-      await session.recompiled("new root file", before, [
-        path.join(project.root, "src", "contract-extra.d.ts"),
-      ]);
-      await session.settled("value after a new root file", "THIRTEENTH", []);
-    },
+    run: test_host_new_root_file,
   },
   {
     name: "edit to the tsconfig",
-    async run({ project, session }) {
-      // The tsconfig is a compiler input of every module: a plugin entry it
-      // gains changes the output, and the edit is heard through the config
-      // chain the generation registered.
-      project.change("FOURTEENTH");
-      await session.settled("edit before the tsconfig", "FOURTEENTH", [
-        project.input,
-      ]);
-      project.configure("CONFIGURED");
-      await session.settled("edit to the tsconfig", "CONFIGURED", [
-        project.tsconfig,
-      ]);
-      project.configure(undefined);
-      await session.settled("tsconfig restored", "FOURTEENTH", [
-        project.tsconfig,
-      ]);
-    },
+    run: test_host_edit_to_the_tsconfig,
   },
   {
     name: "dependency renamed away and back",
-    async run({ project, session }) {
-      // A dependency moved out from under the module is a failure the host
-      // must report, and moved back it must be found again: the watcher hears
-      // a rename, not a write.
-      const late = project.siblingPath("late");
-      const away = `${late}.moved`;
-      project.change("FROM_LATE");
-      await session.settled("dependency in place", "SIXTH", [project.input]);
-      await rename(late, away, "dependency away");
-      await session.failed(
-        "dependency renamed away",
-        /late-input|ENOENT|not found/i,
-        [late],
-      );
-      await rename(away, late, "dependency back");
-      await session.settled("dependency renamed back", "SIXTH", [late]);
-    },
+    run: test_host_dependency_renamed_away_and_back,
   },
   {
     name: "missing import that appears",
     when: (_, project) => project.plugin === "linked",
-    async run({ project, session }) {
-      // The entry gains an import of a declaration that does not exist: the
-      // compiler reports it, and the file appearing under the name it resolved
-      // repairs the module the host never heard change again.
-      project.importLater(true);
-      await session.failed("missing import", /Cannot find module|TS2307/, [
-        project.entry,
-      ]);
-      project.later();
-      await session.settled("missing import created", "SIXTH", [
-        project.laterDeclaration,
-      ]);
-    },
+    run: test_host_missing_import_that_appears,
   },
   {
     name: "declaration broken and repaired",
     when: (_, project) => project.plugin === "linked",
-    async run({ project, session }) {
-      // A declaration inside the project that no bundler loads is still an
-      // input of the entry: only the compiler's verdict on it changes.
-      project.local("broken");
-      await session.failed("declaration broken", /not assignable/, [
-        project.localDeclaration,
-      ]);
-      project.local("ok");
-      await session.settled("declaration repaired", "SIXTH", [
-        project.localDeclaration,
-      ]);
-    },
+    run: test_host_declaration_broken_and_repaired,
   },
   {
     name: "external input broken and repaired",
     when: (_, project) => project.plugin === "linked",
-    async run({ project, session }) {
-      // A declaration outside the project root is an input the compiler reads
-      // and the project does not contain; the module never changes, only the
-      // verdict on it does.
-      project.shape("broken");
-      await session.failed("external input broken", /not assignable|TS2322/, [
-        project.externalDeclaration,
-      ]);
-      project.shape("ok");
-      await session.settled("external input repaired", "SIXTH", [
-        project.externalDeclaration,
-      ]);
-    },
+    run: test_host_external_input_broken_and_repaired,
   },
   {
     name: "edit to the extended config",
-    async run({ project, session }) {
-      // The base config is reached only through the tsconfig's extends
-      // chain; a plugin entry it gains changes every consumer's value.
-      project.configureBase("CONFIGURED");
-      await session.settled("edit to the extended config", "CONFIGURED", [
-        project.baseTsconfig,
-      ]);
-      project.configureBase(undefined);
-      await session.settled("extended config restored", "SIXTH", [
-        project.baseTsconfig,
-      ]);
-    },
+    run: test_host_edit_to_the_extended_config,
   },
   {
     name: "dependency directory renamed away and back",
     when: (_, project) => project.plugin === "linked",
-    async run({ project, session }) {
-      // The directory holding a dependency moves, which no watcher of the
-      // file itself hears: the file's own path emits nothing when its parent
-      // is renamed, only the parent's parent does.
-      const away = `${project.depsDirectory}.moved`;
-      await rename(project.depsDirectory, away, "dependency directory away");
-      await session.failed(
-        "dependency directory renamed away",
-        /Cannot find module|TS2307/,
-        [project.localDeclaration],
-      );
-      await rename(away, project.depsDirectory, "dependency directory back");
-      await session.settled("dependency directory renamed back", "SIXTH", [
-        project.localDeclaration,
-      ]);
-    },
+    run: test_host_dependency_directory_renamed_away_and_back,
   },
   {
     name: "final edit",
-    async run({ project, session }) {
-      project.change("FIFTEENTH");
-      await session.settled("final edit", "FIFTEENTH", [project.input]);
-    },
+    run: test_host_final_edit,
   },
 ];
 

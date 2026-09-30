@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 
-import { AUTOMATIC_RULE_GLOBS } from "../../internal/adapter-next/AUTOMATIC_RULE_GLOBS";
-import type { INextLikeConfig } from "../../internal/adapter-next/INextLikeConfig";
-import { LOADER } from "../../internal/adapter-next/LOADER";
-import { LOADER_FORMS } from "../../internal/adapter-next/LOADER_FORMS";
-import { loadNextModule } from "../../internal/adapter-next/loadNextModule";
+import { AUTOMATIC_RULE_GLOBS } from "../internal/adapter-next/AUTOMATIC_RULE_GLOBS";
+import type { INextLikeConfig } from "../internal/adapter-next/INextLikeConfig";
+import { LOADER } from "../internal/adapter-next/LOADER";
+import { LOADER_FORMS } from "../internal/adapter-next/LOADER_FORMS";
+import { loadNext } from "../internal/adapter-next/loadNext";
+import { loadNextModule } from "../internal/adapter-next/loadNextModule";
 
 const EXTENSION_NAMES = AUTOMATIC_RULE_GLOBS.map((glob) => glob.slice(2));
 
@@ -71,10 +72,18 @@ const REFUSED_GLOBS = [
  * 3. Assert the wrapper adds exactly the globs each one leaves unrouted, for every
  *    loader spelling.
  * 4. Assert every unmeasured spelling suppresses nothing.
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Calls authored next on single and multi-extension, recursive, partial, conditional and foreign-loader rules; exact remaining glob lists detect duplicate registration and silent uncovered source families.
+ * @evidence contracts/testing.md#independent-expectations
+ *   Literal extension families and refused spellings define the supported rule contract. The real packed Turbopack matcher probe independently verifies the exported measured allowlist; this unit does not establish matcher behavior.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Covers every measured family with package, regular-file and option-bearing loader identities, adjacent refused or conditional rules, partial coverage and unrelated loaders; preservation and missing automatic rules distinguish over- and under-registration.
+ * @evidence contracts/testing.md#execution-ownership
+ *   This selectable exported unit calls authored next through loadNext or loadNextModule and fixture filesystem observations, without an installed consumer, native build or real bundler. The packed package batch owns export loading and actual host delivery; the session-inheritance E2E owns worker environment transport.
  */
 export async function test_next_adapter_does_not_double_register_across_globs(): Promise<void> {
   const nextModule = await loadNextModule();
-  const next = nextModule.default;
+  const next = await loadNext();
   const coverageEntries = nextModule.TURBOPACK_PROJECT_WIDE_GLOB_COVERAGE;
   const coverage = new Map(coverageEntries);
   assert.ok(

@@ -16,7 +16,7 @@ import {
   watchRollupLike,
   watchWebpackLike,
 } from "./predicates.mjs";
-import { restartContract } from "./restarts.mjs";
+import { test_host_persistent_cache_restart } from "./scenarios/test_host_persistent_cache_restart.mjs";
 import { runScenarios, SCENARIOS } from "./scenarios.mjs";
 import { unwritableContract } from "./unwritable.mjs";
 import { reactRouterContract } from "./vite.mjs";
@@ -123,7 +123,10 @@ const RESTARTED = [
   "next-turbopack",
 ];
 if (RESTARTED.includes(host)) {
-  await restartContract(fixture(`${host}-restart`, { plugin: "linked" }), host);
+  await test_host_persistent_cache_restart({
+    project: fixture(`${host}-restart`, { plugin: "linked" }),
+    host,
+  });
 }
 
 // Once more where the host's tool directory cannot be written, on one host per

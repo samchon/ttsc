@@ -1,16 +1,16 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { AUTOMATIC_RULE_GLOBS } from "../../internal/adapter-next/AUTOMATIC_RULE_GLOBS";
-import { LOADER } from "../../internal/adapter-next/LOADER";
-import { LOADER_FORMS } from "../../internal/adapter-next/LOADER_FORMS";
-import { LOADER_IDENTITIES } from "../../internal/adapter-next/LOADER_IDENTITIES";
-import { isTtscLoader } from "../../internal/adapter-next/isTtscLoader";
-import { loadNext } from "../../internal/adapter-next/loadNext";
-import { loadersOf } from "../../internal/adapter-next/loadersOf";
+import { AUTOMATIC_RULE_GLOBS } from "../internal/adapter-next/AUTOMATIC_RULE_GLOBS";
+import { LOADER } from "../internal/adapter-next/LOADER";
+import { LOADER_FORMS } from "../internal/adapter-next/LOADER_FORMS";
+import { LOADER_IDENTITIES } from "../internal/adapter-next/LOADER_IDENTITIES";
+import { isTtscLoader } from "../internal/adapter-next/isTtscLoader";
+import { loadNext } from "../internal/adapter-next/loadNext";
+import { loadersOf } from "../internal/adapter-next/loadersOf";
 
 /**
  * Verifies the wrapper is additive: it preserves a caller's Turbopack
@@ -29,6 +29,14 @@ import { loadersOf } from "../../internal/adapter-next/loadersOf";
  * 3. Assert a spelling of ttsc's own loader (package name, path, file URL, or case
  *    variant) suppresses a second registration only while the filesystem proves
  *    the path is this package's regular loader file.
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Calls authored next across object, array and conditional rules and actual fixture package ownership; checks caller settings, loader ordering and duplicate suppression after manifest replacement and link retarget.
+ * @evidence contracts/testing.md#independent-expectations
+ *   The additive configuration contract requires exact preservation and one loader, with right-to-left loader execution fixing its position. Regular-file fixtures and independent manifest contents establish ownership without a compiled artifact.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Covers empty and mixed rule lists, conditions, options, physical paths and file URLs, foreign packages, missing and directory loaders, ownership transitions and filesystem case sensitivity; adjacent negatives must append the actual loader.
+ * @evidence contracts/testing.md#execution-ownership
+ *   This selectable exported unit calls authored next through loadNext or loadNextModule and fixture filesystem observations, without an installed consumer, native build or real bundler. The packed package batch owns export loading and actual host delivery; the session-inheritance E2E owns worker environment transport.
  */
 export async function test_next_adapter_preserves_turbopack_config(): Promise<void> {
   const next = await loadNext();

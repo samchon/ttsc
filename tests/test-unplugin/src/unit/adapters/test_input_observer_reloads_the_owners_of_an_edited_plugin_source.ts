@@ -1,11 +1,11 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createInputObserver } from "../../../../../packages/unplugin/lib/core/observer/createInputObserver.js";
-import { pluginSourceState } from "../../../../../packages/unplugin/lib/core/transform/inputs/pluginSourceState.js";
-import type { TtscWatchInput } from "../../../../../packages/unplugin/lib/core/transform/watch/TtscWatchInput.js";
+import { createInputObserver } from "../../../../../packages/unplugin/src/core/observer/createInputObserver";
+import { pluginSourceState } from "../../../../../packages/unplugin/src/core/transform/inputs/pluginSourceState";
+import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
 
 /**
  * Verifies the input observer hears a plugin's Go source as a whole subtree,
@@ -25,6 +25,14 @@ import type { TtscWatchInput } from "../../../../../packages/unplugin/lib/core/t
  *    reloaded.
  * 4. Register the new state, add a Go file, and assert the owner is reloaded
  *    again.
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Authored createInputObserver observes a source-tree proof; fixture edits and injected notifications assert nested Go edits and additions reload the owner while unchanged and pruned directories remain quiet.
+ * @evidence contracts/testing.md#independent-expectations
+ *   Build-source identity includes authored source files and excludes node_modules and .git. Literal quiet/report expectations follow that ownership contract; no source is built as a binary.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Covers unchanged state, pruned writes, nested existing-file edits, re-registration and a newly created Go file.
+ * @evidence contracts/testing.md#execution-ownership
+ *   This exported unit invokes authored owning functions with fixture filesystem state and injected notification operations. It installs no package, builds no native source and opens no actual product host. Packed lifecycle and cached-session restart boundaries own the real host registrations.
  */
 export async function test_input_observer_reloads_the_owners_of_an_edited_plugin_source(): Promise<void> {
   const root = fs.realpathSync.native(

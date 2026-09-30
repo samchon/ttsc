@@ -1,10 +1,6 @@
 import { execFile } from "node:child_process";
-import fs from "node:fs";
-import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-
-import { write } from "./common.mjs";
 
 /**
  * The edits a host must see across a restart over its persistent cache: the
@@ -15,8 +11,8 @@ import { write } from "./common.mjs";
  * recorded inputs are unchanged. What the adapter registered as the module's
  * inputs is therefore what the host validates, and an input it never heard of
  * lets a stale output through: only the compiler's verdict on the current state
- * may be served. Every step below changes the compiler's verdict while the host
- * is stopped, then starts the host and reads what it serves.
+ * may be served. Two unchanged adoptions distinguish persisted reuse from
+ * rebuilding; the final stopped edit must invalidate that stored generation.
  *
  * Each session runs in a process of its own (`restart-cycle.mjs`), the way a
  * restarted host does, over the host's persistent cache, and proves that cache
@@ -71,70 +67,9 @@ export const RESTART_STEPS = [
     expect: { kind: "settled", value: "SECOND" },
   },
   {
-    name: "tsconfig edited while stopped",
-    edit: (project) => project.configure("CONFIGURED"),
-    expect: { kind: "settled", value: "CONFIGURED" },
-  },
-  {
-    name: "tsconfig restored while stopped",
-    edit: (project) => project.configure(undefined),
-    expect: { kind: "settled", value: "SECOND" },
-  },
-  {
-    name: "restart without edits after edits",
+    name: "restart without edits after offline invalidation",
     edit: () => undefined,
     expect: { kind: "settled", value: "SECOND", compiles: 0 },
-  },
-  {
-    name: "root file added while stopped",
-    // A declaration the tsconfig includes appears; it is broken, so the
-    // compiler's verdict on every module changes, and no module the host
-    // loaded changed.
-    edit: (project) =>
-      write(project.root, "src/broken.d.ts", "export type Broken = ;\n"),
-    expect: { kind: "failed", pattern: "Type expected" },
-  },
-  {
-    name: "root file removed while stopped",
-    edit: (project) =>
-      fs.rmSync(path.join(project.root, "src", "broken.d.ts"), { force: true }),
-    expect: { kind: "settled", value: "SECOND" },
-  },
-  {
-    name: "new dependency while stopped",
-    edit: (project) => {
-      project.sibling("late", "THIRD");
-      project.change("FROM_LATE");
-    },
-    expect: { kind: "settled", value: "THIRD" },
-  },
-  {
-    name: "dependency renamed away while stopped",
-    edit: (project) =>
-      fs.renameSync(
-        project.siblingPath("late"),
-        `${project.siblingPath("late")}.moved`,
-      ),
-    expect: { kind: "failed", pattern: "late-input|ENOENT|not found" },
-  },
-  {
-    name: "dependency renamed back while stopped",
-    edit: (project) =>
-      fs.renameSync(
-        `${project.siblingPath("late")}.moved`,
-        project.siblingPath("late"),
-      ),
-    expect: { kind: "settled", value: "THIRD" },
-  },
-  {
-    name: "external input broken while stopped",
-    edit: (project) => project.shape("broken"),
-    expect: { kind: "failed", pattern: "not assignable" },
-  },
-  {
-    name: "external input repaired while stopped",
-    edit: (project) => project.shape("ok"),
-    expect: { kind: "settled", value: "THIRD" },
   },
 ];
 
@@ -149,10 +84,16 @@ export const RESTART_STEPS = [
  * @param host The host, one `restart-cycle.mjs` knows.
  */
 export async function restartContract(project, host) {
-  // Input-kind invalidation belongs to the shared record proof, covered directly
-  // in units and through webpack's complete persisted-consumer contract. Each
-  // additional backend proves actual persistence, two unchanged adoptions,
-  // live edits from a cached session, and an offline edit that invalidates it.
+  // Every backend consumes one project-record signal; it does not interpret
+  // the config, declaration or membership proofs stored in that record.
+  // test_project_record_proofs_cover_offline_restart_edits owns those input
+  // distinctions directly, including restoration, missing inputs and exclusions.
+  // The live SCENARIOS still verify their native compiler verdicts and watcher
+  // registration. Here each backend owns persistence, repeated unchanged
+  // adoption, live observation after cached adoption and an offline invalidation.
+  // Webpack also proves that the newly compiled offline generation, not just
+  // the original one, can be restored unchanged. Other backends retain their
+  // existing four-lifetime boundary; input-kind variants stay in the proof unit.
   const steps = host === "webpack" ? RESTART_STEPS : RESTART_STEPS.slice(0, 3);
   const cycle = (label, expectation) =>
     restartCycle(project, host, label, expectation);

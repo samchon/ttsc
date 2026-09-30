@@ -1,4 +1,4 @@
-import { TestUnpluginRuntime } from "@ttsc/testing";
+import * as nextModule from "../../../../../../packages/unplugin/src/next";
 
 import type { INextLikeConfig } from "./INextLikeConfig";
 
@@ -9,7 +9,7 @@ interface INextModule {
   >;
 }
 
-/** Load the complete built `next` module, including its measured allowlist. */
+/** Load the complete authored `next` module, including its measured allowlist. */
 export async function loadNextModule(): Promise<INextModule> {
-  return (await import(TestUnpluginRuntime.libUrl("next"))) as INextModule;
+  return nextModule as INextModule;
 }

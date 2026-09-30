@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../../utils/src/TestProject";
 
 import type { INextLikeConfig } from "./INextLikeConfig";
 import { loadNextModule } from "./loadNextModule";
@@ -10,7 +10,7 @@ const SESSION_ENV = "TTSC_UNPLUGIN_TRANSFORM_SESSION";
 const TEMPORARY_ENV = ["TEMP", "TMP", "TMPDIR"];
 
 /**
- * Load the built `next` adapter entry.
+ * Load the authored `next` adapter entry.
  *
  * The wrapper opens a transform session for Turbopack's workers by setting a
  * process-wide variable (samchon/ttsc#1390). This runner shares one process

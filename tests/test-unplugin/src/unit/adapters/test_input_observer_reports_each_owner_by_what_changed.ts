@@ -1,14 +1,14 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import type { InputObserverChange } from "../../../../../packages/unplugin/lib/core/observer/InputObserverChange.js";
-import { createInputObserver } from "../../../../../packages/unplugin/lib/core/observer/createInputObserver.js";
-import { projectMembershipDigest } from "../../../../../packages/unplugin/lib/core/transform/project/projectMembershipDigest.js";
-import { walkProjectInputs } from "../../../../../packages/unplugin/lib/core/transform/project/walkProjectInputs.js";
-import type { TtscWatchInput } from "../../../../../packages/unplugin/lib/core/transform/watch/TtscWatchInput.js";
-import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/lib/core/tsconfig/readProjectMembershipPolicy.js";
+import type { InputObserverChange } from "../../../../../packages/unplugin/src/core/observer/InputObserverChange";
+import { createInputObserver } from "../../../../../packages/unplugin/src/core/observer/createInputObserver";
+import { projectMembershipDigest } from "../../../../../packages/unplugin/src/core/transform/project/projectMembershipDigest";
+import { walkProjectInputs } from "../../../../../packages/unplugin/src/core/transform/project/walkProjectInputs";
+import type { TtscWatchInput } from "../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
+import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 
 /**
  * Verifies the input observer tells its owner which owners' inputs changed, and
@@ -32,6 +32,14 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/li
  * 4. Register all three again, then change the file and add another root file in
  *    the same batch, and assert one report reloads the file's owners and
  *    invalidates only the membership's owner that is not reloaded.
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Authored createInputObserver receives injected notification operations and fixture file/membership proofs; assertions distinguish reload owners from membership-only invalidation owners and coalesce both into one report.
+ * @evidence contracts/testing.md#independent-expectations
+ *   The observer contract requires content owners to reload and root-membership owners to invalidate, with reload covering invalidation for the same owner. Literal owner arrays define those independent expectations.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Covers pre-open registration, quiet unchanged state, content-only change, membership-only change and both in one flush, including one owner subscribing to both kinds.
+ * @evidence contracts/testing.md#execution-ownership
+ *   This exported unit invokes authored owning functions with fixture filesystem state and injected notification operations. It installs no package, builds no native source and opens no actual product host. Packed lifecycle and cached-session restart boundaries own the real host registrations.
  */
 export async function test_input_observer_reports_each_owner_by_what_changed(): Promise<void> {
   const root = fs.realpathSync.native(

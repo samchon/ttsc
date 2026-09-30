@@ -704,7 +704,10 @@ export async function settledOutput(events, label, value, consumers = 4) {
             // a host that only ever fails runs out the deadline. The queue's
             // own deadline is that deadline, not a failed build.
             if (String(error.message).startsWith("Timed out:")) throw error;
-            seen.push(String(error.message ?? error).split("\n")[0]);
+            // webpack starts a diagnostic with its asset summary. Keeping only
+            // that line hid the actual compiler/plugin failure behind a later
+            // timeout even when the emitted output was otherwise current.
+            seen.push(String(error.message ?? error));
             continue;
           }
           const values = valuesIn(code);
