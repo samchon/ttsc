@@ -35,7 +35,7 @@ async function main() {
       ],
       cwd: path.join(root, "tests", "test-factory"),
     },
-    ...["test-ttsc", "test-wasm", "test-playground"].map((suite) => ({
+    ...["test-ttsc", "test-wasm", "test-playground", "test-graph"].map((suite) => ({
       name: `${suite} source units`,
       args: [
         "--import",

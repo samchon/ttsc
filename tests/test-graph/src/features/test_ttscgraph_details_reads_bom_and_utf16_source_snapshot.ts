@@ -38,7 +38,8 @@ const utf16be = (text: string): Buffer =>
   ]);
 
 /**
- * Verifies graph details preserves display facts for BOM and UTF-16 sources.
+ * Verifies graph details preserves display facts across source encodings and
+ * ECMAScript line terminators.
  *
  * The native snapshot hashes raw on-disk bytes separately from the decoded
  * source text that its checker parsed. The Node reader must prove both domains
@@ -46,21 +47,21 @@ const utf16be = (text: string): Buffer =>
  * fail the checker-digest gate forever and details silently drops signatures
  * and docs.
  *
- * 1. Materialize equivalent exported functions as UTF-8 BOM, UTF-16LE, and
- *    UTF-16BE files.
- * 2. Ask the real resident `ttscgraph` server for all three declaration details.
+ * 1. Materialize equivalent functions with three BOM encodings and five
+ *    ECMAScript line-terminator spellings in the same project.
+ * 2. Ask the real resident `ttscgraph` server for all eight declaration details.
  * 3. Assert each result carries its compiler-aligned signature head and doc.
  */
 export const test_ttscgraph_details_reads_bom_and_utf16_source_snapshot =
   async () => {
-    const source = (name: string) =>
+    const source = (name: string, terminator = "\n") =>
       [
         `/** ${name} docs. */`,
         `export function ${name}(): string {`,
         `  return "${name}";`,
         "}",
         "",
-      ].join("\n");
+      ].join(terminator);
     const root = TestProject.createProject({
       "tsconfig.json": JSON.stringify({
         compilerOptions: { target: "ES2022", module: "commonjs", strict: true },
@@ -90,6 +91,10 @@ export const test_ttscgraph_details_reads_bom_and_utf16_source_snapshot =
     );
 
     const names = ["Utf8Bom", "Utf16Le", "Utf16Be"];
+    for (const [name, terminator] of [["Lf", "\n"], ["CrLf", "\r\n"], ["Cr", "\r"], ["Ls", "\u2028"], ["Ps", "\u2029"]] as const) {
+      fs.writeFileSync(path.join(root, "src", `${name}.ts`), source(name, terminator));
+      names.push(name);
+    }
     const client = TtsgraphClient.start(root);
     try {
       await client.request("initialize", {

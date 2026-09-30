@@ -1,31 +1,10 @@
+import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { createRequire } from "node:module";
-import path from "node:path";
-import { pathToFileURL } from "node:url";
 
-import { assert } from "../internal/ttsgraph";
+import { TtscGraphSourceReader } from "../../../../packages/graph/src/model/TtscGraphSourceReader";
+import { docOf } from "../../../../packages/graph/src/server/runDetails";
 
-interface SourceReader {
-  lines(file: string): readonly string[] | undefined;
-}
-
-interface SourceReaderConstructor {
-  new (
-    project: string,
-    provenance: {
-      capabilities: string[];
-      sources: {
-        file: string;
-        checkerDigest: string;
-        diskDigest: string;
-      }[];
-    },
-    read: (file: string) => Buffer,
-  ): SourceReader;
-}
-
-const digest = (value: string | Buffer): string =>
-  createHash("sha256").update(value).digest("hex");
+const digest = (value: string | Buffer): string => createHash("sha256").update(value).digest("hex");
 
 /**
  * Verifies graph source display splits checker-identical snapshots at every
@@ -33,29 +12,16 @@ const digest = (value: string | Buffer): string =>
  *
  * The native compiler reports lines for CR, LS, and PS, but the reader used to
  * split only LF and CRLF. A provenance-approved source then indexed a one-line
- * array with a later compiler line and silently lost its signature or JSDoc.
+ * array with a later compiler line and silently lost its JSDoc. Compiler-owned
+ * signature heads are checked with these same terminators in the batched MCP
+ * source-snapshot integration test.
  *
  * 1. Build one digest-approved reader for each of the five terminators.
- * 2. Read a three-line snapshot through the immutable source cache.
+ * 2. Read the two documented declarations through the immutable source cache.
  * 3. Assert every spelling yields the same logical lines and trailing empty line.
  */
 export const test_ttscgraph_source_reader_matches_ecmascript_line_terminators =
   async (): Promise<void> => {
-    const graphRoot = path.dirname(
-      createRequire(import.meta.url).resolve("@ttsc/graph/package.json"),
-    );
-    const module = (await import(
-      pathToFileURL(
-        path.join(graphRoot, "lib", "model", "TtscGraphSourceReader.js"),
-      ).href
-    )) as { TtscGraphSourceReader: SourceReaderConstructor };
-    const details = (await import(
-      pathToFileURL(path.join(graphRoot, "lib", "server", "runDetails.js")).href
-    )) as {
-      docOf(graph: never, node: never): string | undefined;
-      signatureOf(graph: never, node: never): string | undefined;
-    };
-    const Reader = module.TtscGraphSourceReader;
     const cases = [
       ["LF", "\n"],
       ["CRLF", "\r\n"],
@@ -73,7 +39,7 @@ export const test_ttscgraph_source_reader_matches_ecmascript_line_terminators =
         "",
       ].join(terminator);
       const file = `src/${name}.ts`;
-      const reader = new Reader(
+      const reader = new TtscGraphSourceReader(
         "C:/project",
         {
           capabilities: ["sourceDigests", "diskDigests"],
@@ -96,16 +62,7 @@ export const test_ttscgraph_source_reader_matches_ecmascript_line_terminators =
       ]);
       const graph = { source: reader };
       assert.equal(
-        details.signatureOf(
-          graph as never,
-          {
-            evidence: { file, startLine: 2, endLine: 2 },
-          } as never,
-        ),
-        "export const alpha = 1;",
-      );
-      assert.equal(
-        details.docOf(
+        docOf(
           graph as never,
           {
             evidence: { file, startLine: 2, endLine: 2 },
@@ -114,16 +71,7 @@ export const test_ttscgraph_source_reader_matches_ecmascript_line_terminators =
         "first",
       );
       assert.equal(
-        details.signatureOf(
-          graph as never,
-          {
-            evidence: { file, startLine: 4, endLine: 4 },
-          } as never,
-        ),
-        "export const beta = 2;",
-      );
-      assert.equal(
-        details.docOf(
+        docOf(
           graph as never,
           {
             evidence: { file, startLine: 4, endLine: 4 },

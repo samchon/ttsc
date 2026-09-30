@@ -1,28 +1,9 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
 
-const require = createRequire(import.meta.url);
-const graphLib = path.dirname(require.resolve("@ttsc/graph"));
-const { artifactsAreStale, fingerprintInputs } = require(
-  path.join(graphLib, "model", "publishedArtifacts.js"),
-) as {
-  artifactsAreStale(published: IPublished): boolean;
-  fingerprintInputs(inputs: IArtifactInputs): string;
-};
-
-interface IPublished {
-  file: string | null;
-  inputs: IArtifactInputs;
-  fingerprint: string;
-}
-
-interface IArtifactInputs {
-  files: string[];
-  directories: { path: string; recursive: boolean }[];
-}
+import { artifactsAreStale, fingerprintInputs, type IPublishedArtifacts, type IArtifactInputs } from "../../../../packages/graph/src/model/publishedArtifacts";
 
 /**
  * Verifies the published artifact answer goes stale on the edits that move it,
@@ -73,7 +54,10 @@ export const test_ttscgraph_artifacts_notice_a_document_or_config_edit =
     };
     const artifacts = path.join(root, "artifacts.json");
     write(artifacts, "[]");
-    const published: IPublished = {
+    let discoveryCurrent = true;
+    const discovery = { status: "resolved" as const, plugins: [], isCurrent: () => discoveryCurrent };
+    const published: IPublishedArtifacts = {
+      discovery,
       file: artifacts,
       fingerprint: fingerprintInputs(inputs),
       inputs,
@@ -84,6 +68,12 @@ export const test_ttscgraph_artifacts_notice_a_document_or_config_edit =
       false,
       "an answer read stale against the very state it was published from; every request would republish it",
     );
+
+    discoveryCurrent = false;
+    assert.equal(artifactsAreStale(published), true, "changed discovery withdraws publication reuse");
+    discoveryCurrent = true;
+    assert.equal(artifactsAreStale({ ...published, discovery: undefined }), true, "legacy publication has no discovery authority");
+    assert.equal(artifactsAreStale({ ...published, discovery: { ...discovery, status: "unavailable" } }), true, "unavailable discovery cannot authorize reuse");
 
     // An unrelated source edit is the compiler's business and not this one's.
     // Reporting it here would tie the publisher's cost to the edit loop it was
@@ -132,7 +122,8 @@ export const test_ttscgraph_artifacts_notice_a_document_or_config_edit =
       directories: [{ path: docs, recursive: false }],
       files: [],
     };
-    const shallow: IPublished = {
+    const shallow: IPublishedArtifacts = {
+      discovery,
       file: null,
       fingerprint: fingerprintInputs(shallowInputs),
       inputs: shallowInputs,
@@ -154,7 +145,7 @@ export const test_ttscgraph_artifacts_notice_a_document_or_config_edit =
  * the previous one's staleness.
  */
 function verifyStale(
-  published: IPublished,
+  published: IPublishedArtifacts,
   what: string,
   edit: () => void,
 ): void {
