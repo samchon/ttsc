@@ -133,6 +133,9 @@ func assertRuleCorpusCaseWithKind(
   // engine already knows which lane its rule set needs; ask it, exactly as the
   // snapshot helpers do.
   file, findings := runRuleCorpusEngine(t, engine, relativeFile, source)
+  if err := validateSemanticRuleFindings(rules, findings); err != nil {
+    t.Fatalf("%s: invalid semantic findings: %v", relativeFile, err)
+  }
   actual := normalizeRuleFindings(file, findings)
   if len(actual) != len(expected) {
     t.Fatalf("%s: want %v, got %v", relativeFile, expected, actual)
@@ -167,6 +170,9 @@ func assertRuleCorpusCaseTSX(t *testing.T, relativeFile, source string) {
   }
   file := parseTSXFile(t, "/virtual/"+filepath.ToSlash(relativeFile), source)
   findings := newRuleCorpusEngine(t, relativeFile, source, rules).Run([]*shimast.SourceFile{file}, nil)
+  if err := validateSemanticRuleFindings(rules, findings); err != nil {
+    t.Fatalf("%s: invalid semantic findings: %v", relativeFile, err)
+  }
   actual := normalizeRuleFindings(file, findings)
   if len(actual) != len(expected) {
     t.Fatalf("%s: want %v, got %v", relativeFile, expected, actual)
@@ -243,9 +249,6 @@ func runRuleCorpusEngine(
 func newRuleCorpusEngine(t *testing.T, relativeFile, source string, rules RuleConfig) *Engine {
   t.Helper()
   options := parseRuleOptionsDirectives(t, relativeFile, source)
-  if len(options) == 0 {
-    return NewEngine(rules)
-  }
   for rule := range options {
     if _, enabled := rules[rule]; !enabled {
       t.Fatalf("%s: @ttsc-corpus-options names %q, which has no // expect: annotation", relativeFile, rule)
@@ -255,7 +258,38 @@ func newRuleCorpusEngine(t *testing.T, relativeFile, source string, rules RuleCo
   if err := engine.ConfigError(); err != nil {
     t.Fatalf("%s: @ttsc-corpus-options rejected by the engine: %v", relativeFile, err)
   }
+  if unknown := engine.UnknownRules(); len(unknown) != 0 {
+    t.Fatalf("%s: unknown corpus rule identities: %v", relativeFile, unknown)
+  }
+  enabled := engine.EnabledRules()
+  for rule, severity := range rules {
+    if actual, ok := enabled[rule]; !ok || actual != severity {
+      t.Fatalf("%s: corpus rule %q did not bind at severity %v: %v", relativeFile, rule, severity, enabled)
+    }
+  }
   return engine
+}
+
+// validateSemanticRuleFindings rejects execution failures before semantic
+// harnesses normalize ranges or record positive rule coverage. Panic recovery
+// deliberately uses the original rule identity and error severity, so those
+// fields alone cannot distinguish a diagnostic from a failed rule invocation.
+// This guard is for semantic fixtures; tests of intentional engine failures
+// retain direct access to their recovered findings.
+func validateSemanticRuleFindings(rules RuleConfig, findings []*Finding) error {
+  for index, finding := range findings {
+    if finding == nil {
+      return fmt.Errorf("finding %d is nil", index)
+    }
+    if finding.engineFailure {
+      return fmt.Errorf("rule %q execution failed: %s", finding.Rule, finding.Message)
+    }
+    severity, enabled := rules[finding.Rule]
+    if !enabled || severity == SeverityOff || finding.Severity != severity {
+      return fmt.Errorf("finding %d has unexpected rule/severity %q/%v for %v", index, finding.Rule, finding.Severity, rules)
+    }
+  }
+  return nil
 }
 
 // parseRuleOptionsDirectives reads `// @ttsc-corpus-options: <rule> <json>`
@@ -995,6 +1029,9 @@ func runRuleFindingsSnapshotFile(
       file = parseTSFile(t, filePath, source)
     }
     findings := engine.Run([]*shimast.SourceFile{file}, nil)
+    if err := validateSemanticRuleFindings(RuleConfig{ruleName: SeverityError}, findings); err != nil {
+      t.Fatalf("%s: invalid snapshot findings: %v", ruleName, err)
+    }
     kind := behavioralWitnessEngine
     if len(options) != 0 {
       kind = behavioralWitnessOptions
@@ -1026,6 +1063,9 @@ func runRuleFindingsSnapshotFile(
     t.Fatalf("%s: loadProgram returned no checker for a type-aware rule", ruleName)
   }
   findings := program.runLintCycle(engine)
+  if err := validateSemanticRuleFindings(RuleConfig{ruleName: SeverityError}, findings); err != nil {
+    t.Fatalf("%s: invalid snapshot findings: %v", ruleName, err)
+  }
   recordFindingBehavioralWitnesses(t, findings, behavioralWitnessChecker)
   return root, filePath, findings
 }

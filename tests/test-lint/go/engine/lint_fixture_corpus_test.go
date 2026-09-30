@@ -68,6 +68,9 @@ func TestLintFixtureCorpus(t *testing.T) {
       if err := engine.ConfigError(); err != nil {
         t.Fatal(err)
       }
+      if unknown := engine.UnknownRules(); len(unknown) != 0 {
+        t.Fatalf("unknown corpus rule identities: %v", unknown)
+      }
       engine.SetCurrentDirectory(fixture.ProjectRoot)
       var findings []*Finding
       if !engine.NeedsTypeChecker() && len(fixture.SourcePaths) == 1 {
@@ -102,6 +105,13 @@ func TestLintFixtureCorpus(t *testing.T) {
           t.Fatal("no checker for a type-aware rule")
         }
         findings = project.runLintCycle(engine)
+      }
+      expectedRules := RuleConfig{}
+      for _, expectation := range fixture.Expected {
+        expectedRules[expectation.Rule] = parseExpectedSeverity(t, expectation.Severity)
+      }
+      if err := validateSemanticRuleFindings(expectedRules, findings); err != nil {
+        t.Fatalf("invalid semantic corpus findings: %v", err)
       }
       // Render every rule's findings through the production renderer. The
       // expected sequence remains in its annotated order; sorting it would
