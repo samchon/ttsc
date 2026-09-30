@@ -9,7 +9,7 @@ const {
   nodeTestLane,
   nodeTestLayer,
   selectedNodeTests,
-} = require("./node-tests.cjs");
+} = require("../../../../scripts/ci/node-tests.cjs");
 
 function workspace(t, files) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-node-tests-"));
@@ -23,37 +23,13 @@ function workspace(t, files) {
   return root;
 }
 
-test("a new test joins the lane its directory names without editing a list", (t) => {
-  const root = workspace(t, [
-    "scripts/new-harness.test.cjs",
-    "scripts/ci/new-tooling.test.cjs",
-    "scripts/ci/package/new-package.test.cjs",
-    "packages/tool/scripts/new-build.test.cjs",
-    "scripts/helper.cjs",
-    "scripts/ci/node_modules/dep/ignored.test.cjs",
-  ]);
-  assert.deepEqual(discoverNodeTests(root, "go"), [
-    "scripts/new-harness.test.cjs",
-  ]);
-  assert.deepEqual(discoverNodeTests(root, "package-defenses"), [
-    "scripts/ci/package/new-package.test.cjs",
-  ]);
-  assert.deepEqual(discoverNodeTests(root, "typecheck"), [
-    "packages/tool/scripts/new-build.test.cjs",
-    "scripts/ci/new-tooling.test.cjs",
-  ]);
-});
-
-test("a test no lane owns fails discovery by name instead of running nowhere", (t) => {
-  const root = workspace(t, ["scripts/elsewhere/orphan.test.cjs"]);
-  assert.throws(
-    () => discoverNodeTests(root, "typecheck"),
-    /no CI lane runs scripts\/elsewhere\/orphan\.test\.cjs/,
-  );
-  assert.equal(nodeTestLane("scripts/elsewhere/orphan.test.cjs"), undefined);
-});
-
-test("unit and e2e selections partition discovered tests without dropping boundaries", (
+/**
+ * @evidence contracts/testing.md#behavioral-verification Calls selectedNodeTests for all three lanes and checks the unit/E2E union, exact representative unit populations and invalid-layer rejection.
+ * @evidence contracts/testing.md#independent-expectations Literal representative process-boundary and in-process paths supply the independent layer controls; complete discovered membership must be conserved.
+ * @evidence contracts/testing.md#distinguishing-cases Go runner belongs to units while wasm execution and loader/package checks belong to E2E; an unknown layer must fail rather than drop all tests.
+ * @evidence contracts/testing.md#execution-ownership The actual selectors consume a synthetic directory inventory in process; this tests execution ownership policy and does not execute any represented process boundary.
+ */
+const test_node_test_layers_preserve_a_complete_disjoint_partition = (
   t,
 ) => {
   const root = workspace(t, [
@@ -75,4 +51,8 @@ test("unit and e2e selections partition discovered tests without dropping bounda
   ]);
   assert.deepEqual(selectedNodeTests(root, "package-defenses", "unit"), []);
   assert.throws(() => selectedNodeTests(root, "go", "typo"), /TTSC_TEST_LAYER/);
-});
+};
+
+module.exports = { test_node_test_layers_preserve_a_complete_disjoint_partition };
+
+test("unit and e2e selections partition discovered tests without dropping boundaries", test_node_test_layers_preserve_a_complete_disjoint_partition);
