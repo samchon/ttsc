@@ -16,6 +16,11 @@ import "testing"
 //     that overflows width 80.
 //  2. Apply format/declaration-header with {"endOfLine":"crlf"}.
 //  3. Assert the type-argument list breaks with "\r\n" and no lone LF remains.
+//
+// @evidence contracts/testing.md#behavioral-verification format/declaration-header must break both Serializer type arguments using CRLF while preserving the generic union argument and serialize method.
+// @evidence contracts/testing.md#independent-expectations The configured crlf contract and full escaped literal establish every line separator independently; the helper additionally rejects any LF lacking its CR prefix.
+// @evidence contracts/testing.md#distinguishing-cases This changed CRLF generic-heritage list complements its LF positive and already-broken generic no-op, including argument-internal and closing-angle separators.
+// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderGenericHeritageHonorsCRLFEndOfLine is selected by TestSelectedLintUnits as a public Go unit. The shared syntax-only harness calls the owning declaration-header rule on temporary fixture source and applies reported edits for the literal output assertion without consumer installation, native product build or a host process.
 func TestFormatDeclarationHeaderGenericHeritageHonorsCRLFEndOfLine(t *testing.T) {
   assertFixCRLFConsistentWithOptions(
     t,

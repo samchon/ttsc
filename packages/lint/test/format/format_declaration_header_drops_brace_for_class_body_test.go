@@ -11,6 +11,11 @@ import "testing"
 //     non-empty body.
 //  2. Apply format/declaration-header.
 //  3. Assert the types stay inline and `{` is on its own line.
+//
+// @evidence contracts/testing.md#behavioral-verification format/declaration-header must place the nonempty class opening brace on its own line after a broken implements header, retaining all three types and x=1.
+// @evidence contracts/testing.md#independent-expectations The independently authored full output follows nonempty-class brace layout; type order and the initializer/body delimiters are unchanged semantic payload.
+// @evidence contracts/testing.md#distinguishing-cases This changed first-tier inline-types class contrasts with empty-body glued braces and second-tier one-type-per-line explosion.
+// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderDropsBraceForClassBody is a public Go unit selected by TestSelectedLintUnits. Its shared syntax-only harness invokes the owning formatter on temporary fixture source and applies its reported edits for exact output assertions in the same process, without a consumer install, native product build or host execution.
 func TestFormatDeclarationHeaderDropsBraceForClassBody(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

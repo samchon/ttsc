@@ -11,6 +11,11 @@ import "testing"
 //     body.
 //  2. Apply format/declaration-header.
 //  3. Assert each clause breaks and the brace stays glued to the last one.
+//
+// @evidence contracts/testing.md#behavioral-verification format/declaration-header must break the exported class heritage clauses while keeping empty-body braces attached to the last implements line.
+// @evidence contracts/testing.md#independent-expectations The complete expected source literal records empty-body brace ownership independently and retains export, class name, base and both implemented types.
+// @evidence contracts/testing.md#distinguishing-cases The changed overflowing empty class contrasts with the nonempty-class standalone-brace positive and the empty-body eighty-column boundary.
+// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderGluesBraceForEmptyBody is a public Go unit selected by TestSelectedLintUnits. Its shared syntax-only harness invokes the owning formatter on temporary fixture source and applies its reported edits for exact output assertions in the same process, without a consumer install, native product build or host execution.
 func TestFormatDeclarationHeaderGluesBraceForEmptyBody(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
