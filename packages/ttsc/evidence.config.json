@@ -208,6 +208,8 @@
         "!src/plugin/internal/load/ProjectPluginEntries.ts",
         "!src/plugin/internal/load/collectProjectHostInputs.ts",
         "!src/plugin/internal/load/loadProjectPlugins.ts",
+        "!src/plugin/internal/load/requirePluginSource.ts",
+        "!src/plugin/internal/load/validatePluginContributors.ts",
         "!src/plugin/internal/load/hashHostInputPaths.ts",
         "!src/plugin/internal/load/realpathHostInputPaths.ts",
         "!src/plugin/internal/load/realpathHostInput.ts",
@@ -670,6 +672,8 @@
         "src/plugin/internal/load/ProjectPluginEntries.ts",
         "src/plugin/internal/load/collectProjectHostInputs.ts",
         "src/plugin/internal/load/loadProjectPlugins.ts",
+        "src/plugin/internal/load/requirePluginSource.ts",
+        "src/plugin/internal/load/validatePluginContributors.ts",
         "src/plugin/internal/load/hashHostInputPaths.ts",
         "src/plugin/internal/load/realpathHostInputPaths.ts",
         "src/plugin/internal/load/realpathHostInput.ts"
