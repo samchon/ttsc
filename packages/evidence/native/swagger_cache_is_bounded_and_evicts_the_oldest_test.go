@@ -16,10 +16,10 @@ import (
  *  2. Assert the first is gone and the last is present.
  *  3. Assert the map never exceeds the limit.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification swaggerCache evicts digest0,retains newest and stays within swaggerCacheLimit.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Ordered inserted keys and capacity limit establish retention expectations.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Crossing capacity releases the oldest retained payload.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSwaggerCacheIsBoundedAndEvictsTheOldest is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification swaggerCache evicts digest0,retains newest and stays within swaggerCacheLimit.
+ * @evidence contracts/testing.md#independent-expectations Ordered inserted keys and capacity limit establish retention expectations.
+ * @evidence contracts/testing.md#distinguishing-cases Crossing capacity releases the oldest retained payload.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerCacheIsBoundedAndEvictsTheOldest is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestSwaggerCacheIsBoundedAndEvictsTheOldest(t *testing.T) {
   cache := isolateSwaggerCache(t)

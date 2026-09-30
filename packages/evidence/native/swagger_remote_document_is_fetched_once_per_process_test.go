@@ -14,10 +14,10 @@ import (
  *  2. Look up the same address.
  *  3. Assert the remembered operation survives.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification rememberSwaggerDocument/lookupSwaggerDocument return the seeded remote operation from address cache.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Explicit POST/members outcome establishes expected remembered state.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases No network fetch or Node child runs here, so the test does not count actual fetches.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSwaggerRemoteDocumentIsFetchedOncePerProcess is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification rememberSwaggerDocument/lookupSwaggerDocument return the seeded remote operation from address cache.
+ * @evidence contracts/testing.md#independent-expectations Explicit POST/members outcome establishes expected remembered state.
+ * @evidence contracts/testing.md#distinguishing-cases No network fetch or Node child runs here, so the test does not count actual fetches.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerRemoteDocumentIsFetchedOncePerProcess is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestSwaggerRemoteDocumentIsFetchedOncePerProcess(t *testing.T) {
   source := "https://example.com/openapi.json"

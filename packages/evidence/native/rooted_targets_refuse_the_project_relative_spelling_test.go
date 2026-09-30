@@ -18,10 +18,10 @@ import (
  *  2. Cite the document through the project-relative path instead.
  *  3. Assert the target does not resolve.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runRootedGraph reports the explicit unresolved ../docs/requirements/pricing.md#discounts target.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Declared-root addresses use requirements/pricing.md independently of the physical project-relative spelling.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases The selected document is unchanged while only citation spelling changes.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestRootedTargetsRefuseTheProjectRelativeSpelling is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraph reports the explicit unresolved ../docs/requirements/pricing.md#discounts target.
+ * @evidence contracts/testing.md#independent-expectations Declared-root addresses use requirements/pricing.md independently of the physical project-relative spelling.
+ * @evidence contracts/testing.md#distinguishing-cases The selected document is unchanged while only citation spelling changes.
+ * @evidence contracts/testing.md#execution-ownership TestRootedTargetsRefuseTheProjectRelativeSpelling is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestRootedTargetsRefuseTheProjectRelativeSpelling(t *testing.T) {
   messages := runRootedGraph(t, map[string]string{

@@ -19,10 +19,10 @@ import (
  *  2. Read the resolved absolute and display spellings.
  *  3. Assert the ascent survives and the project root collapses to the default.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification resolvePopulationBase preserves ../../docs display, computes workspace/docs absolute path and recognizes default roots.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Native filepath.Join and literal display establish physical and authored identities separately.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Ascending roots differ from omitted/dot default bases.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPopulationBaseResolutionKeepsBothSpellings is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification resolvePopulationBase preserves ../../docs display, computes workspace/docs absolute path and recognizes default roots.
+ * @evidence contracts/testing.md#independent-expectations Native filepath.Join and literal display establish physical and authored identities separately.
+ * @evidence contracts/testing.md#distinguishing-cases Ascending roots differ from omitted/dot default bases.
+ * @evidence contracts/testing.md#execution-ownership TestPopulationBaseResolutionKeepsBothSpellings is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPopulationBaseResolutionKeepsBothSpellings(t *testing.T) {
   workspace := t.TempDir()

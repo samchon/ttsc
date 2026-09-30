@@ -17,10 +17,10 @@ import (
  *  1. Configure a Prisma reference with `file`, then with `package`.
  *  2. Assert each is rejected with the message that owns it.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification decodePrismaConfig rejects singular file and installed package with separate messages.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Prisma uses files populations; file belongs to Swagger and package to TypeScript.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Two invalid locator channels retain distinct repairs.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaConfigurationRejectsSelectorsItDoesNotOwn is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification decodePrismaConfig rejects singular file and installed package with separate messages.
+ * @evidence contracts/testing.md#independent-expectations Prisma uses files populations; file belongs to Swagger and package to TypeScript.
+ * @evidence contracts/testing.md#distinguishing-cases Two invalid locator channels retain distinct repairs.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaConfigurationRejectsSelectorsItDoesNotOwn is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaConfigurationRejectsSelectorsItDoesNotOwn(t *testing.T) {
   _, singular := decodePrismaConfig(t, `{"claims":[{

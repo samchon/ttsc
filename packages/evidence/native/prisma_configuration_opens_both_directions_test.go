@@ -17,10 +17,10 @@ import (
  *  2. Decode the configuration.
  *  3. Assert both decode with the artifact kinds they named.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification decodePrismaConfig accepts Prisma claims and references with their proper artifact kinds.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Literal configuration sides define supported placement.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Prisma is allowed in both directions unlike Swagger claims.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaConfigurationOpensBothDirections is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification decodePrismaConfig accepts Prisma claims and references with their proper artifact kinds.
+ * @evidence contracts/testing.md#independent-expectations Literal configuration sides define supported placement.
+ * @evidence contracts/testing.md#distinguishing-cases Prisma is allowed in both directions unlike Swagger claims.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaConfigurationOpensBothDirections is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaConfigurationOpensBothDirections(t *testing.T) {
   config, problems := decodePrismaConfig(t, `{"claims":[

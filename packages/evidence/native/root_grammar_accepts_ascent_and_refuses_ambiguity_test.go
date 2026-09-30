@@ -19,10 +19,10 @@ import (
  *  2. Normalize each refused spelling.
  *  3. Assert acceptance, canonical form, and refusal.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification normalizeRootPath preserves the accepted table, maps dot to default and rejects the malformed table.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Explicit value-to-output map and invalid strings define grammar independently.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Default, ascent, absolute and ambiguous spellings execute under this entry.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestRootGrammarAcceptsAscentAndRefusesAmbiguity is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification normalizeRootPath preserves the accepted table, maps dot to default and rejects the malformed table.
+ * @evidence contracts/testing.md#independent-expectations Explicit value-to-output map and invalid strings define grammar independently.
+ * @evidence contracts/testing.md#distinguishing-cases Default, ascent, absolute and ambiguous spellings execute under this entry.
+ * @evidence contracts/testing.md#execution-ownership TestRootGrammarAcceptsAscentAndRefusesAmbiguity is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestRootGrammarAcceptsAscentAndRefusesAmbiguity(t *testing.T) {
   accepted := map[string]string{

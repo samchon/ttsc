@@ -16,10 +16,10 @@ import (
  *  2. Decode each configuration.
  *  3. Assert TypeScript accepts the root and Swagger names its file repair.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification decodeGraphConfig accepts TypeScript root and reports Swagger's file-channel repair.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The two literal artifact types have different supported locator channels.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases TypeScript root is legal while Swagger requires singular file.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestTypeScriptRootsAndSwaggerFilesKeepTheirSelectionChannels is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig accepts TypeScript root and reports Swagger's file-channel repair.
+ * @evidence contracts/testing.md#independent-expectations The two literal artifact types have different supported locator channels.
+ * @evidence contracts/testing.md#distinguishing-cases TypeScript root is legal while Swagger requires singular file.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptRootsAndSwaggerFilesKeepTheirSelectionChannels is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestTypeScriptRootsAndSwaggerFilesKeepTheirSelectionChannels(t *testing.T) {
   _, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{

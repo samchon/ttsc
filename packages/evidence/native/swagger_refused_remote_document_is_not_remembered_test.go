@@ -18,10 +18,10 @@ import (
  *  2. Look the same URL up.
  *  3. Assert nothing was remembered, so the next cycle tries again.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification rememberSwaggerDocument/lookupSwaggerDocument refuse seeded rejected URL state.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Literal Rejected flag and connection-refused reason independently identify transient failure.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Rejected address must not poison successful remote-session storage.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSwaggerRefusedRemoteDocumentIsNotRemembered is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification rememberSwaggerDocument/lookupSwaggerDocument refuse seeded rejected URL state.
+ * @evidence contracts/testing.md#independent-expectations Literal Rejected flag and connection-refused reason independently identify transient failure.
+ * @evidence contracts/testing.md#distinguishing-cases Rejected address must not poison successful remote-session storage.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerRefusedRemoteDocumentIsNotRemembered is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestSwaggerRefusedRemoteDocumentIsNotRemembered(t *testing.T) {
   source := "https://example.com/openapi.json"

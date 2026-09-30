@@ -19,10 +19,10 @@ import (
  *  2. Assert the valid one still hosts.
  *  3. Assert the buried one is reported with the repair named.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaClaimOf preserves the valid tag and reports one buried repair at schema.prisma:1.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The fixture explicitly includes valid and slash-prefixed annotations.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Malformed neighbor must not discard the valid citation.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaReportsACitationBuriedBehindASlash is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification prismaClaimOf preserves the valid tag and reports one buried repair at schema.prisma:1.
+ * @evidence contracts/testing.md#independent-expectations The fixture explicitly includes valid and slash-prefixed annotations.
+ * @evidence contracts/testing.md#distinguishing-cases Malformed neighbor must not discard the valid citation.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaReportsACitationBuriedBehindASlash is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaReportsACitationBuriedBehindASlash(t *testing.T) {
   declarations, problems := prismaClaimOf(`//// @evidence docs/spec.md#buried Written with a fourth slash.

@@ -24,10 +24,10 @@ import (
  *     that overlap on the inner schema.
  *  3. Assert both files are addressed and the shared one is sent once.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification configuredPrismaAddresses returns three addresses and distinctPrismaSources returns two sources.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Literal sibling/inner paths fix the sorted address and deduplicated source expectations.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Inner schema has two population addresses but one parser input; no Prisma parse executes.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestRootedPrismaPopulationsCollectAcrossBasesWithoutDuplicating is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification configuredPrismaAddresses returns three addresses and distinctPrismaSources returns two sources.
+ * @evidence contracts/testing.md#independent-expectations Literal sibling/inner paths fix the sorted address and deduplicated source expectations.
+ * @evidence contracts/testing.md#distinguishing-cases Inner schema has two population addresses but one parser input; no Prisma parse executes.
+ * @evidence contracts/testing.md#execution-ownership TestRootedPrismaPopulationsCollectAcrossBasesWithoutDuplicating is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestRootedPrismaPopulationsCollectAcrossBasesWithoutDuplicating(t *testing.T) {
   workspace := t.TempDir()

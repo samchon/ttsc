@@ -18,10 +18,10 @@ import (
  *  2. Decode the public graph without loading either source.
  *  3. Assert normalized exact locations and the operation selector survive.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification decodeGraphConfig retains both exact sources,operation selection and empty glob selectors.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Literal file/URL inputs and operation selector specify exact-reference semantics.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Singular Swagger files do not become population globs.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSwaggerConfigurationDecodesExactReferenceSources is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig retains both exact sources,operation selection and empty glob selectors.
+ * @evidence contracts/testing.md#independent-expectations Literal file/URL inputs and operation selector specify exact-reference semantics.
+ * @evidence contracts/testing.md#distinguishing-cases Singular Swagger files do not become population globs.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerConfigurationDecodesExactReferenceSources is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestSwaggerConfigurationDecodesExactReferenceSources(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{

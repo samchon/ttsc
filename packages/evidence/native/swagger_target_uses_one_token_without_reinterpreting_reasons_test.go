@@ -16,10 +16,10 @@ import (
  *  2. Parse the proposed two-token spelling beside it.
  *  3. Assert only the colon form belongs wholly to the target.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification splitSwaggerTarget separates POST:/members from its reason and retains legacy slash-prefixed reason prose.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Explicit target/reason pairs independently specify token boundaries.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Colon target and bare-method legacy token must not swallow reason text.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSwaggerTargetUsesOneTokenWithoutReinterpretingReasons is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification splitSwaggerTarget separates POST:/members from its reason and retains legacy slash-prefixed reason prose.
+ * @evidence contracts/testing.md#independent-expectations Explicit target/reason pairs independently specify token boundaries.
+ * @evidence contracts/testing.md#distinguishing-cases Colon target and bare-method legacy token must not swallow reason text.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerTargetUsesOneTokenWithoutReinterpretingReasons is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestSwaggerTargetUsesOneTokenWithoutReinterpretingReasons(t *testing.T) {
   target, reason := splitDeclarationBody("POST:/members Creates a member.")

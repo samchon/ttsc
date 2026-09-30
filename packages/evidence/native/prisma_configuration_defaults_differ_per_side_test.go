@@ -18,10 +18,10 @@ import (
  *  2. Assert the reference selects models alone.
  *  3. Assert the claim selects all three host kinds.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification decodePrismaConfig defaults references to model and claims to model,column,relation.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Literal expected selector names express the default contract independently.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Omission has different claim/reference semantics.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaConfigurationDefaultsDifferPerSide is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification decodePrismaConfig defaults references to model and claims to model,column,relation.
+ * @evidence contracts/testing.md#independent-expectations Literal expected selector names express the default contract independently.
+ * @evidence contracts/testing.md#distinguishing-cases Omission has different claim/reference semantics.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaConfigurationDefaultsDifferPerSide is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaConfigurationDefaultsDifferPerSide(t *testing.T) {
   config, problems := decodePrismaConfig(t, `{"claims":[{

@@ -18,10 +18,10 @@ import (
  *  2. Cite from a column instead.
  *  3. Assert the host is reported and the obligation still stands.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarationsFromComments records the tag and graph validation refuses its unselected host.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Fixture host kind differs from explicit claim selector.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Placement cannot bypass eligibility selection.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaClaimSelectorRefusesAnUnselectedHost is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification prismaDeclarationsFromComments records the tag and graph validation refuses its unselected host.
+ * @evidence contracts/testing.md#independent-expectations Fixture host kind differs from explicit claim selector.
+ * @evidence contracts/testing.md#distinguishing-cases Placement cannot bypass eligibility selection.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaClaimSelectorRefusesAnUnselectedHost is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaClaimSelectorRefusesAnUnselectedHost(t *testing.T) {
   inventories := map[string]*artifactInventory{

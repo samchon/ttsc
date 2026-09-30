@@ -16,10 +16,10 @@ import (
  *  2. Mutate the first copy's models and fields.
  *  3. Assert the second copy is untouched.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaCache lookup mutations of nested model/field values do not alter a later lookup.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Original literal Sale/price values establish retained state.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Both model and nested field data must be detached from readers.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaCacheHandsOutCopies is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification prismaCache lookup mutations of nested model/field values do not alter a later lookup.
+ * @evidence contracts/testing.md#independent-expectations Original literal Sale/price values establish retained state.
+ * @evidence contracts/testing.md#distinguishing-cases Both model and nested field data must be detached from readers.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaCacheHandsOutCopies is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaCacheHandsOutCopies(t *testing.T) {
   cache := newPrismaCache()

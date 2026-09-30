@@ -20,10 +20,10 @@ import (
  *  2. Assert the three units, their symbols, and their targets.
  *  3. Assert both members name the model unit as their parent.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaModelUnits emits exact model,column,relation targets and member ParentIDs while model has no parent.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Authored DTO symbols and literal targets/parent IDs establish graph hierarchy.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Root model and two child kinds remain distinct.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaMaterializesModelColumnAndRelationUnits is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification prismaModelUnits emits exact model,column,relation targets and member ParentIDs while model has no parent.
+ * @evidence contracts/testing.md#independent-expectations Authored DTO symbols and literal targets/parent IDs establish graph hierarchy.
+ * @evidence contracts/testing.md#distinguishing-cases Root model and two child kinds remain distinct.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaMaterializesModelColumnAndRelationUnits is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaMaterializesModelColumnAndRelationUnits(t *testing.T) {
   units := prismaModelUnits(prismaModel{

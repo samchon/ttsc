@@ -20,10 +20,10 @@ import (
  *  2. Invert each under its own base and under the other.
  *  3. Assert each round-trips only under the base that composed it.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification populationBase address/relativeOf round-trip own entries and reject cross-base addresses.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Authored entries and literal default address specify ownership; round-trip equality alone cannot certify a shared encoding bug.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Own-base positive cases contrast with both cross-base refusals.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestInventoryAddressesRoundTripWithinTheirOwnBase is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification populationBase address/relativeOf round-trip own entries and reject cross-base addresses.
+ * @evidence contracts/testing.md#independent-expectations Authored entries and literal default address specify ownership; round-trip equality alone cannot certify a shared encoding bug.
+ * @evidence contracts/testing.md#distinguishing-cases Own-base positive cases contrast with both cross-base refusals.
+ * @evidence contracts/testing.md#execution-ownership TestInventoryAddressesRoundTripWithinTheirOwnBase is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestInventoryAddressesRoundTripWithinTheirOwnBase(t *testing.T) {
   root := filepath.Join(t.TempDir(), "packages", "backend")

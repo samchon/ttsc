@@ -19,10 +19,10 @@ import (
  *  2. Read the diagnostics.
  *  3. Assert the root is named and the glob diagnostic is suppressed.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runRootedGraph retains the TypeScript claim-root failure and suppresses empty-match noise.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The fixture never creates the root and the required message is literal.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Root failure survives whole-rule source selection.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestAnUnresolvableTypeScriptClaimRootIsReportedAsARoot is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraph retains the TypeScript claim-root failure and suppresses empty-match noise.
+ * @evidence contracts/testing.md#independent-expectations The fixture never creates the root and the required message is literal.
+ * @evidence contracts/testing.md#distinguishing-cases Root failure survives whole-rule source selection.
+ * @evidence contracts/testing.md#execution-ownership TestAnUnresolvableTypeScriptClaimRootIsReportedAsARoot is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestAnUnresolvableTypeScriptClaimRootIsReportedAsARoot(t *testing.T) {
   messages := runRootedGraph(t, map[string]string{

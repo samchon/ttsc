@@ -15,10 +15,10 @@ import (
  *  1. Scan a schema declaring one model.
  *  2. Assert a name it does not declare is missing from the result.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification scanPrismaFile omits Absent and Sale.absent.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The fixture contains neither negative identity.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Unknown declarations cannot receive invented fallback positions.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaReportsNoLocationForAnUnknownName is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification scanPrismaFile omits Absent and Sale.absent.
+ * @evidence contracts/testing.md#independent-expectations The fixture contains neither negative identity.
+ * @evidence contracts/testing.md#distinguishing-cases Unknown declarations cannot receive invented fallback positions.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaReportsNoLocationForAnUnknownName is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaReportsNoLocationForAnUnknownName(t *testing.T) {
   locations := prismaLocationsOf("model Sale {\n  id String @id\n}\n")

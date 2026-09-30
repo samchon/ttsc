@@ -16,10 +16,10 @@ import (
  *  1. Materialize a model with one column.
  *  2. Assert the model identity holds one segment and the column two.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaModelUnits preserves one model segment,two member segments and Sale.price locator key.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Literal segments and independent display key pin hierarchical framing.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Member identities retain boundaries rather than flattening prematurely.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaMemberIdentityKeepsItsSegments is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification prismaModelUnits preserves one model segment,two member segments and Sale.price locator key.
+ * @evidence contracts/testing.md#independent-expectations Literal segments and independent display key pin hierarchical framing.
+ * @evidence contracts/testing.md#distinguishing-cases Member identities retain boundaries rather than flattening prematurely.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaMemberIdentityKeepsItsSegments is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaMemberIdentityKeepsItsSegments(t *testing.T) {
   units := prismaModelUnits(prismaModel{

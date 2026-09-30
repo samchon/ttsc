@@ -19,10 +19,10 @@ import (
  *  2. Point `TTSC_NODE_BINARY` at a nonexistent executable and load again.
  *  3. Assert the original diagnostic is reported, not a normalizer failure.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification loadSwaggerInventories returns original unsupported-version rejection without could-not-run-normalizer with Node unavailable.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The explicitly seeded rejection supplies its literal expected reason.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Unchanged rejected bytes reuse their verdict and bypass process startup.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSwaggerReusesARejectedDocumentWithoutSpawning is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host. The warmed entry returns before process startup; the unavailable executable is a sentinel for an accidental cache miss, not a claimed real parser.
+ * @evidence contracts/testing.md#behavioral-verification loadSwaggerInventories returns original unsupported-version rejection without could-not-run-normalizer with Node unavailable.
+ * @evidence contracts/testing.md#independent-expectations The explicitly seeded rejection supplies its literal expected reason.
+ * @evidence contracts/testing.md#distinguishing-cases Unchanged rejected bytes reuse their verdict and bypass process startup.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerReusesARejectedDocumentWithoutSpawning is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host. The warmed entry returns before process startup; the unavailable executable is a sentinel for an accidental cache miss, not a claimed real parser.
  */
 func TestSwaggerReusesARejectedDocumentWithoutSpawning(t *testing.T) {
   isolateSwaggerCache(t)

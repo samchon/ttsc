@@ -14,10 +14,10 @@ import (
  *  1. Digest a set naming a file that does not exist.
  *  2. Assert no key is produced.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaContentDigest returns empty when one requested member is absent.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The fixture never creates the missing member.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases A partially readable set cannot become cacheable.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaDigestDeclinesAnUnreadableSet is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification prismaContentDigest returns empty when one requested member is absent.
+ * @evidence contracts/testing.md#independent-expectations The fixture never creates the missing member.
+ * @evidence contracts/testing.md#distinguishing-cases A partially readable set cannot become cacheable.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaDigestDeclinesAnUnreadableSet is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaDigestDeclinesAnUnreadableSet(t *testing.T) {
   root := prismaDigestRoot(t, map[string]string{

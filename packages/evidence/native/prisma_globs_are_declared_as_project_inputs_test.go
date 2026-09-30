@@ -20,10 +20,10 @@ import (
  *  2. Collect the declared project inputs.
  *  3. Assert both glob sets are declared, and that an exclusion is not.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification graphProjectInputs includes both positive Prisma globs and omits legacy exclusions.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Authored inclusion and negation patterns establish representable host dependencies.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Claim/reference inputs are retained while exclusion-only patterns are not watched.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaGlobsAreDeclaredAsProjectInputs is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification graphProjectInputs includes both positive Prisma globs and omits legacy exclusions.
+ * @evidence contracts/testing.md#independent-expectations Authored inclusion and negation patterns establish representable host dependencies.
+ * @evidence contracts/testing.md#distinguishing-cases Claim/reference inputs are retained while exclusion-only patterns are not watched.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaGlobsAreDeclaredAsProjectInputs is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaGlobsAreDeclaredAsProjectInputs(t *testing.T) {
   config, problems := decodePrismaConfig(t, `{"claims":[{

@@ -17,10 +17,10 @@ import (
  *  2. Read it back.
  *  3. Assert it is still a rejection carrying its reason.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaCache store/lookup preserves rejection,reason and empty models.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Literal rejected outcome fixes the expected payload.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Rejected state remains distinct from successful empty schemas.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaCacheRemembersARejection is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification prismaCache store/lookup preserves rejection,reason and empty models.
+ * @evidence contracts/testing.md#independent-expectations Literal rejected outcome fixes the expected payload.
+ * @evidence contracts/testing.md#distinguishing-cases Rejected state remains distinct from successful empty schemas.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaCacheRemembersARejection is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaCacheRemembersARejection(t *testing.T) {
   cache := newPrismaCache()

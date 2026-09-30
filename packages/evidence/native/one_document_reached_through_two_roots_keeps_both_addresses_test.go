@@ -17,10 +17,10 @@ import (
  *  2. Cite it under both addresses from the same claim.
  *  3. Assert both obligations close.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runRootedGraph closes both obligations on one document reached through two roots.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The authored docs/pricing.md and pricing.md citations independently address the same heading under separate bases.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases A physical file must preserve both addresses rather than overwrite an inventory.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestOneDocumentReachedThroughTwoRootsKeepsBothAddresses is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraph closes both obligations on one document reached through two roots.
+ * @evidence contracts/testing.md#independent-expectations The authored docs/pricing.md and pricing.md citations independently address the same heading under separate bases.
+ * @evidence contracts/testing.md#distinguishing-cases A physical file must preserve both addresses rather than overwrite an inventory.
+ * @evidence contracts/testing.md#execution-ownership TestOneDocumentReachedThroughTwoRootsKeepsBothAddresses is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestOneDocumentReachedThroughTwoRootsKeepsBothAddresses(t *testing.T) {
   messages := runRootedGraph(t, map[string]string{

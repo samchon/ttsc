@@ -17,10 +17,10 @@ import (
  *  1. Write a citation followed by two unrelated tags.
  *  2. Assert the reason stops at the first of them.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaClaimOf keeps one citation and the exact reason before a neighboring tag.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Literal expected reason ends before the unrelated annotation.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Continuation prose belongs to evidence while another tag ends it.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaCitationStopsAtAnotherTag is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification prismaClaimOf keeps one citation and the exact reason before a neighboring tag.
+ * @evidence contracts/testing.md#independent-expectations Literal expected reason ends before the unrelated annotation.
+ * @evidence contracts/testing.md#distinguishing-cases Continuation prose belongs to evidence while another tag ends it.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaCitationStopsAtAnotherTag is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaCitationStopsAtAnotherTag(t *testing.T) {
   declarations, problems := prismaClaimOf(`/// A sale.

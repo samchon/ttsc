@@ -18,10 +18,10 @@ import (
  *  2. Read the missing-acknowledgement diagnostic.
  *  3. Assert it carries the root-relative target and the ascending location.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runRootedGraph reports missing requirements/pricing.md#discounts and ../docs/requirements/pricing.md:1.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The literal uncited heading establishes root-relative target and physical repair location.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases One diagnostic retains both address meanings.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestRootedDiagnosticsNameBothTheTargetAndTheLocation is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraph reports missing requirements/pricing.md#discounts and ../docs/requirements/pricing.md:1.
+ * @evidence contracts/testing.md#independent-expectations The literal uncited heading establishes root-relative target and physical repair location.
+ * @evidence contracts/testing.md#distinguishing-cases One diagnostic retains both address meanings.
+ * @evidence contracts/testing.md#execution-ownership TestRootedDiagnosticsNameBothTheTargetAndTheLocation is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestRootedDiagnosticsNameBothTheTargetAndTheLocation(t *testing.T) {
   messages := runRootedGraph(t, map[string]string{

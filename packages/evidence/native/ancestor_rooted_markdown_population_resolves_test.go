@@ -20,10 +20,10 @@ import (
  *  2. Cite it by its path inside the declared root, with no `..` in the target.
  *  3. Assert the graph closes.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runRootedGraph accepts the rooted discount citation with no diagnostics.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The literal heading and requirements/pricing.md citation belong to declared ../docs.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Ascending sibling-root success complements project-relative citation refusal.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestAncestorRootedMarkdownPopulationResolves is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraph accepts the rooted discount citation with no diagnostics.
+ * @evidence contracts/testing.md#independent-expectations The literal heading and requirements/pricing.md citation belong to declared ../docs.
+ * @evidence contracts/testing.md#distinguishing-cases Ascending sibling-root success complements project-relative citation refusal.
+ * @evidence contracts/testing.md#execution-ownership TestAncestorRootedMarkdownPopulationResolves is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestAncestorRootedMarkdownPopulationResolves(t *testing.T) {
   messages := runRootedGraph(t, map[string]string{

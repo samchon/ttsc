@@ -18,10 +18,10 @@ import (
  *  2. Cite only POST from a selected TypeScript declaration host.
  *  3. Assert GET alone receives the missing-acknowledgement diagnostic.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification checkEvidenceGraph reports missing GET while cited POST is not missing.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The authored two-operation inventory and single POST citation fix which obligation remains.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases One citation cannot satisfy an uncited sibling; no normalizer runs.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSwaggerOperationsParticipateInCoverage is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification checkEvidenceGraph reports missing GET while cited POST is not missing.
+ * @evidence contracts/testing.md#independent-expectations The authored two-operation inventory and single POST citation fix which obligation remains.
+ * @evidence contracts/testing.md#distinguishing-cases One citation cannot satisfy an uncited sibling; no normalizer runs.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerOperationsParticipateInCoverage is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestSwaggerOperationsParticipateInCoverage(t *testing.T) {
   config, configProblems := decodeGraphConfig(json.RawMessage(`{

@@ -18,10 +18,10 @@ import (
  *  2. Evaluate the declarations.
  *  3. Assert it is malformed rather than silently accepted.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaDeclarationsFromComments accepts placement and checkEvidenceGraph reports a reasonless citation as malformed.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The authored tag has no reason and the expected grammar diagnostic is literal.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Placement scanning and graph validity remain separate responsibilities.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaCitationWithoutAReasonIsMalformed is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification prismaDeclarationsFromComments accepts placement and checkEvidenceGraph reports a reasonless citation as malformed.
+ * @evidence contracts/testing.md#independent-expectations The authored tag has no reason and the expected grammar diagnostic is literal.
+ * @evidence contracts/testing.md#distinguishing-cases Placement scanning and graph validity remain separate responsibilities.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaCitationWithoutAReasonIsMalformed is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaCitationWithoutAReasonIsMalformed(t *testing.T) {
   inventories := map[string]*artifactInventory{

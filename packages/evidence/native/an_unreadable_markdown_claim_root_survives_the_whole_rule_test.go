@@ -19,10 +19,10 @@ import (
  *  2. Run the rule.
  *  3. Assert the root is named and no empty-match diagnostic follows.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runRootedGraph preserves unreadable Markdown claim-root failure without healthy empty-match noise.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The deliberately absent directory establishes the failure state.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Unreadable root must survive inactive-claim filtering.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestAnUnreadableMarkdownClaimRootSurvivesTheWholeRule is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraph preserves unreadable Markdown claim-root failure without healthy empty-match noise.
+ * @evidence contracts/testing.md#independent-expectations The deliberately absent directory establishes the failure state.
+ * @evidence contracts/testing.md#distinguishing-cases Unreadable root must survive inactive-claim filtering.
+ * @evidence contracts/testing.md#execution-ownership TestAnUnreadableMarkdownClaimRootSurvivesTheWholeRule is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestAnUnreadableMarkdownClaimRootSurvivesTheWholeRule(t *testing.T) {
   messages := runRootedGraph(t, map[string]string{

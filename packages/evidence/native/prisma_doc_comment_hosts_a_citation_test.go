@@ -19,10 +19,10 @@ import (
  *  2. Assert one declaration per comment, at the line it was written on.
  *  3. Assert each carries the host kind the population says it is.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaClaimOf returns the asserted evidence/exclusion host-line-target-reason index.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Literal comments and explicit expected declaration index specify attachment independently.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Model/member hosts and declaration kinds remain distinct.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaDocCommentHostsACitation is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification prismaClaimOf returns the asserted evidence/exclusion host-line-target-reason index.
+ * @evidence contracts/testing.md#independent-expectations Literal comments and explicit expected declaration index specify attachment independently.
+ * @evidence contracts/testing.md#distinguishing-cases Model/member hosts and declaration kinds remain distinct.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaDocCommentHostsACitation is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaDocCommentHostsACitation(t *testing.T) {
   declarations, problems := prismaClaimOf(`/// A sale.

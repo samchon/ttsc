@@ -16,10 +16,10 @@ import (
  * 2. Evaluate it at error and warning levels without editing the source.
  * 3. Assert each cached diagnostic uses the current level.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification loadSwaggerInventories replays one cached rejection at each configured severity.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations A fixed seeded rejection and explicit warning/error levels establish independent expectations.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Warm payload does not retain an old diagnostic level or start normalization.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSwaggerCachedFailureUsesCurrentSeverity is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host. The warmed entry returns before process startup; the unavailable executable is a sentinel for an accidental cache miss, not a claimed real parser.
+ * @evidence contracts/testing.md#behavioral-verification loadSwaggerInventories replays one cached rejection at each configured severity.
+ * @evidence contracts/testing.md#independent-expectations A fixed seeded rejection and explicit warning/error levels establish independent expectations.
+ * @evidence contracts/testing.md#distinguishing-cases Warm payload does not retain an old diagnostic level or start normalization.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerCachedFailureUsesCurrentSeverity is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host. The warmed entry returns before process startup; the unavailable executable is a sentinel for an accidental cache miss, not a claimed real parser.
  */
 func TestSwaggerCachedFailureUsesCurrentSeverity(t *testing.T) {
   isolateSwaggerCache(t)

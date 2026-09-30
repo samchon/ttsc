@@ -19,10 +19,10 @@ import (
  *  2. Change one file's bytes, then add a file, then rename one.
  *  3. Assert every change produces a different key.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaContentDigest changes after byte edit,file addition or source rename and starts nonempty.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Deliberate mutations independently establish three identity changes.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Source membership/path and bytes all contribute beyond size alone.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaDigestCoversTheWholeSet is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification prismaContentDigest changes after byte edit,file addition or source rename and starts nonempty.
+ * @evidence contracts/testing.md#independent-expectations Deliberate mutations independently establish three identity changes.
+ * @evidence contracts/testing.md#distinguishing-cases Source membership/path and bytes all contribute beyond size alone.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaDigestCoversTheWholeSet is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaDigestCoversTheWholeSet(t *testing.T) {
   base := prismaDigestRoot(t, map[string]string{

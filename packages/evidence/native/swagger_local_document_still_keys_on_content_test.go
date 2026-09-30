@@ -16,10 +16,10 @@ import (
  *  2. Look it up by its path.
  *  3. Assert the path is not a key, and the digest is.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification lookupSwaggerDocument misses local path without digest and hits it with digest.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Literal source and digest keys establish local identity separately.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Local content-keyed lookup remains distinct from remote address-keyed lookup.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSwaggerLocalDocumentStillKeysOnContent is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification lookupSwaggerDocument misses local path without digest and hits it with digest.
+ * @evidence contracts/testing.md#independent-expectations Literal source and digest keys establish local identity separately.
+ * @evidence contracts/testing.md#distinguishing-cases Local content-keyed lookup remains distinct from remote address-keyed lookup.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerLocalDocumentStillKeysOnContent is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestSwaggerLocalDocumentStillKeysOnContent(t *testing.T) {
   swaggerDocuments = newSwaggerCache()

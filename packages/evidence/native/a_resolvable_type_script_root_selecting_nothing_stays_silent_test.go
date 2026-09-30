@@ -18,10 +18,10 @@ import (
  *  2. Read the diagnostics.
  *  3. Assert neither a root nor an empty-match diagnostic is produced.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runRootedGraph reports nothing for a readable root selecting no TypeScript declaration.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The workspace creates the root but has no matching source.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Readable empty selection differs from unresolvable roots.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestAResolvableTypeScriptRootSelectingNothingStaysSilent is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraph reports nothing for a readable root selecting no TypeScript declaration.
+ * @evidence contracts/testing.md#independent-expectations The workspace creates the root but has no matching source.
+ * @evidence contracts/testing.md#distinguishing-cases Readable empty selection differs from unresolvable roots.
+ * @evidence contracts/testing.md#execution-ownership TestAResolvableTypeScriptRootSelectingNothingStaysSilent is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestAResolvableTypeScriptRootSelectingNothingStaysSilent(t *testing.T) {
   messages := runRootedGraph(t, map[string]string{

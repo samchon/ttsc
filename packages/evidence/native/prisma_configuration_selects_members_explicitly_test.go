@@ -15,10 +15,10 @@ import (
  *  1. Select all three kinds on a reference.
  *  2. Assert the selection decodes intact.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification decodePrismaConfig preserves explicit model,column,relation reference selection.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations The authored selector list supplies independent expected names.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Explicit member selection contrasts with reference omission defaults.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaConfigurationSelectsMembersExplicitly is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification decodePrismaConfig preserves explicit model,column,relation reference selection.
+ * @evidence contracts/testing.md#independent-expectations The authored selector list supplies independent expected names.
+ * @evidence contracts/testing.md#distinguishing-cases Explicit member selection contrasts with reference omission defaults.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaConfigurationSelectsMembersExplicitly is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaConfigurationSelectsMembersExplicitly(t *testing.T) {
   config, problems := decodePrismaConfig(t, `{"claims":[{

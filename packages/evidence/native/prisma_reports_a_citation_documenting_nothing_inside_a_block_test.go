@@ -15,10 +15,10 @@ import (
  *  1. Cite above a block attribute and again above the closing brace.
  *  2. Assert both are reported and neither becomes a declaration.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaClaimOf hosts nothing and reports two unattached in-block tags.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Fixture positions have no addressable declaration to document.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Being inside a block alone does not establish member ownership.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaReportsACitationDocumentingNothingInsideABlock is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification prismaClaimOf hosts nothing and reports two unattached in-block tags.
+ * @evidence contracts/testing.md#independent-expectations Fixture positions have no addressable declaration to document.
+ * @evidence contracts/testing.md#distinguishing-cases Being inside a block alone does not establish member ownership.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaReportsACitationDocumentingNothingInsideABlock is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaReportsACitationDocumentingNothingInsideABlock(t *testing.T) {
   declarations, problems := prismaClaimOf(`model Sale {

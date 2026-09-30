@@ -18,10 +18,10 @@ import (
  *  2. Assert only the real members are located.
  *  3. Assert the commented-out member contributed nothing.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification scanPrismaFile finds real declarations and omits checked comment-only names.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Authored source distinguishes declarations from commented text.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Line/block comments must not contribute locations.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaCommentsDeclareNothing is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification scanPrismaFile finds real declarations and omits checked comment-only names.
+ * @evidence contracts/testing.md#independent-expectations Authored source distinguishes declarations from commented text.
+ * @evidence contracts/testing.md#distinguishing-cases Line/block comments must not contribute locations.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaCommentsDeclareNothing is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaCommentsDeclareNothing(t *testing.T) {
   locations := prismaLocationsOf(`model Sale {

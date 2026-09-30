@@ -15,10 +15,10 @@ import (
  *  1. Digest one set twice from two separate roots holding the same bytes.
  *  2. Assert the keys agree.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaContentDigest gives identical nonempty keys for identical relative paths/bytes across roots.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Copied authored inputs establish equivalence; no literal cryptographic hash oracle is claimed.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Disposable absolute roots do not alter reusable identity.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaDigestIsStableAcrossRoots is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification prismaContentDigest gives identical nonempty keys for identical relative paths/bytes across roots.
+ * @evidence contracts/testing.md#independent-expectations Copied authored inputs establish equivalence; no literal cryptographic hash oracle is claimed.
+ * @evidence contracts/testing.md#distinguishing-cases Disposable absolute roots do not alter reusable identity.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaDigestIsStableAcrossRoots is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaDigestIsStableAcrossRoots(t *testing.T) {
   files := map[string]string{

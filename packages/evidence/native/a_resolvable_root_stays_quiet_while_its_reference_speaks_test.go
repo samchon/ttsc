@@ -23,10 +23,10 @@ import (
  *  2. Point its reference at a path no document occupies.
  *  3. Assert the reference names its globs and the root names nothing.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification runRootedGraph reports reference failure without false found-no-directory root diagnostics.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Readable root and independently failing reference fixture fix the two states.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases A healthy root must not invent or absorb a reference failure.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestAResolvableRootStaysQuietWhileItsReferenceSpeaks is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraph reports reference failure without false found-no-directory root diagnostics.
+ * @evidence contracts/testing.md#independent-expectations Readable root and independently failing reference fixture fix the two states.
+ * @evidence contracts/testing.md#distinguishing-cases A healthy root must not invent or absorb a reference failure.
+ * @evidence contracts/testing.md#execution-ownership TestAResolvableRootStaysQuietWhileItsReferenceSpeaks is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestAResolvableRootStaysQuietWhileItsReferenceSpeaks(t *testing.T) {
   messages := runRootedGraph(t, map[string]string{

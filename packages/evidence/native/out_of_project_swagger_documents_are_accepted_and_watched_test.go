@@ -20,10 +20,10 @@ import (
  *  2. Decode them and publish the rule's project inputs.
  *  3. Assert both normalize as written and arrive as exact file dependencies.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification decodeGraphConfig and graphProjectInputs preserve ascending/absolute Swagger sources and reject directory spellings.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Authored external file locations and invalid directory table define file semantics.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases External files remain valid while directories do not; no Node normalization runs.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestOutOfProjectSwaggerDocumentsAreAcceptedAndWatched is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig and graphProjectInputs preserve ascending/absolute Swagger sources and reject directory spellings.
+ * @evidence contracts/testing.md#independent-expectations Authored external file locations and invalid directory table define file semantics.
+ * @evidence contracts/testing.md#distinguishing-cases External files remain valid while directories do not; no Node normalization runs.
+ * @evidence contracts/testing.md#execution-ownership TestOutOfProjectSwaggerDocumentsAreAcceptedAndWatched is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestOutOfProjectSwaggerDocumentsAreAcceptedAndWatched(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{

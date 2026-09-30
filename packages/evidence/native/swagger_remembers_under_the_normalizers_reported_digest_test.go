@@ -22,10 +22,10 @@ import (
  *  2. Look the entry up both ways.
  *  3. Assert only the reported digest finds it.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification rememberSwaggerDocument misses on-disk digest and hits only the supplied reported digest.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Two explicit fixture payloads establish different keys; no real normalizer supplies either expectation here.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Producer-read identity differs from caller-read identity through the supplied-digest seam.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestSwaggerRemembersUnderTheNormalizersReportedDigest is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification rememberSwaggerDocument misses on-disk digest and hits only the supplied reported digest.
+ * @evidence contracts/testing.md#independent-expectations Two explicit fixture payloads establish different keys; no real normalizer supplies either expectation here.
+ * @evidence contracts/testing.md#distinguishing-cases Producer-read identity differs from caller-read identity through the supplied-digest seam.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerRemembersUnderTheNormalizersReportedDigest is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestSwaggerRemembersUnderTheNormalizersReportedDigest(t *testing.T) {
   isolateSwaggerCache(t)

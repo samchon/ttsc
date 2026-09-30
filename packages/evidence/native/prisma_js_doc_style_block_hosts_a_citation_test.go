@@ -15,10 +15,10 @@ import (
  *  2. Scan them with an authored model population.
  *  3. Assert one model-hosted citation to docs/spec.md#a and no problems.
  *
- * @evidence .agents/skills/contracts/testing.md#behavioral-verification prismaClaimOf preserves one model citation and its asserted model host and target for each block variant.
- * @evidence .agents/skills/contracts/testing.md#independent-expectations Authored block fixtures and literal host/target independently specify supported syntax.
- * @evidence .agents/skills/contracts/testing.md#distinguishing-cases Single-line and multi-line leading-asterisk forms execute here; the reason text is fixture input but is not separately asserted.
- * @evidence .agents/skills/contracts/testing.md#execution-ownership TestPrismaJSDocStyleBlockHostsACitation is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification prismaClaimOf preserves one model citation and its asserted model host and target for each block variant.
+ * @evidence contracts/testing.md#independent-expectations Authored block fixtures and literal host/target independently specify supported syntax.
+ * @evidence contracts/testing.md#distinguishing-cases Single-line and multi-line leading-asterisk forms execute here; the reason text is fixture input but is not separately asserted.
+ * @evidence contracts/testing.md#execution-ownership TestPrismaJSDocStyleBlockHostsACitation is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaJSDocStyleBlockHostsACitation(t *testing.T) {
   for name, schema := range map[string]string{
