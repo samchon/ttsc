@@ -1,17 +1,8 @@
 package evidence
 
 import (
-  "encoding/json"
-  "os"
-  "path/filepath"
-  "sort"
   "strings"
   "testing"
-
-  shimast "github.com/microsoft/typescript-go/shim/ast"
-  shimcore "github.com/microsoft/typescript-go/shim/core"
-  shimparser "github.com/microsoft/typescript-go/shim/parser"
-
   "github.com/samchon/ttsc/packages/lint/rule"
 )
 
@@ -35,6 +26,10 @@ import (
 //  2. Take the published nodes.
 //  3. Assert the document and its headings arrive with their kinds, readable
 //     names, and containment — and that a hidden heading does not.
+// @evidence .agents/skills/contracts/testing.md#behavioral-verification runGraphNodes exercises this case: TestGraphNodesPublishWhatACitationCanName verifies that the artifacts this rule already materialized reach a consumer as facts, and that nothing it decided goes with them. The original assertions check assert the document and its headings arrive with their kinds, readable names, and containment — and that a hidden heading does not.
+// @evidence .agents/skills/contracts/testing.md#independent-expectations The graph reports; the linter judges. What crosses this boundary is what an artifact IS — its address, what kind of thing it is, its readable name, where it lives, and what contains it. What must never cross is what this rule concluded about it: coverage, exclusions, cardinality, a diagnostic. A consumer holding any of those would hold a second answer to a question this rule already answers as a compile error, and only one of the two would be maintained. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
+// @evidence .agents/skills/contracts/testing.md#distinguishing-cases Materialize a graph over a document with a selected file and headings. Take the published nodes. Assert the document and its headings arrive with their kinds, readable names, and containment — and that a hidden heading does not. The assertions and inputs in this function retain its own failure identity.
+// @evidence .agents/skills/contracts/testing.md#execution-ownership TestGraphNodesPublishWhatACitationCanName is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runGraphNodes within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
 func TestGraphNodesPublishWhatACitationCanName(t *testing.T) {
   nodes, messages := runGraphNodes(t, map[string]string{
     "docs/pricing.md": "# Pricing\n\n## Sale Price {#sale-price}\n",
@@ -99,151 +94,4 @@ export interface ISale {
       }
     }
   }
-}
-
-// TestGraphNodesOmitAWithdrawnUnit verifies the publisher drops a unit that
-// named the tag it hid itself behind, and keeps its untagged siblings.
-//
-// A withdrawn unit is retained internally so a citation of it can be told why the
-// target it names is not there. Publishing it would put a node in the graph for
-// something the rule says is not part of the surface — the graph would answer a
-// question the linter answers the other way, which is the one thing this
-// boundary exists to prevent.
-//
-// The units are materialized directly rather than parsed from a schema, because
-// the Prisma loader shells out to a resolvable `@ttsc/evidence` install that a
-// scratch directory does not have. What is under test is the publisher's own
-// filter, and that reads `Hidden`, whichever collector set it.
-//
-//  1. Materialize a withdrawn model with its columns, and a surviving one.
-//  2. Publish both populations through the same filter GraphNodes applies.
-//  3. Assert the survivors are published and nothing withdrawn is.
-func TestGraphNodesOmitAWithdrawnUnit(t *testing.T) {
-  withdrawn := prismaModelUnits(prismaModel{
-    Name:          "Ledger",
-    Documentation: "@internal Internal bookkeeping.",
-    Fields: []prismaField{
-      {Name: "amount", Symbol: "column"},
-      {Name: "sale", Symbol: "relation"},
-    },
-  })
-  surviving := prismaModelUnits(prismaModel{
-    Name:   "Sale",
-    Fields: []prismaField{{Name: "price", Symbol: "column"}},
-  })
-
-  // The real publisher, over a corpus built by hand. Replicating its filter
-  // here would test this file's copy of the rule rather than the rule.
-  config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{
-    "type":"typescript",
-    "files":["src/**"],
-    "reference":{"type":"prisma","files":["prisma/**/*.prisma"],"symbol":["model","column","relation"]}
-  }]}`))
-  if len(problems) != 0 {
-    t.Fatalf("the probe configuration did not decode: %v", problems)
-  }
-  resolveGraphBases(t.TempDir(), &config)
-
-  nodes := graphRule{}.GraphNodes(&rule.GraphContext{
-    Identity: rule.ProjectIdentity{PhysicalProjectRoot: t.TempDir()},
-    State: &graphCycleState{Corpus: graphCorpus{
-      Config: config,
-      Prisma: map[string]*artifactInventory{
-        "prisma/schema.prisma": {
-          Address: "prisma/schema.prisma",
-          Path:    "prisma/schema.prisma",
-          Type:    artifactPrisma,
-          Units:   append(append([]*evidenceUnit{}, withdrawn...), surviving...),
-        },
-      },
-    }},
-    Severity: rule.SeverityError,
-  })
-
-  published := map[string]bool{}
-  for _, node := range nodes {
-    published[node.Address] = true
-  }
-
-  for _, target := range []string{"prisma:Sale", "prisma:Sale.price"} {
-    if !published[target] {
-      t.Fatalf(
-        "the surviving unit %s was not published; got %v",
-        target,
-        sortedAddresses(nodes),
-      )
-    }
-  }
-  for _, unit := range withdrawn {
-    if published[unit.Target] {
-      t.Fatalf(
-        "the withdrawn unit %s was published; the rule says it is not part of the surface",
-        unit.Target,
-      )
-    }
-  }
-}
-
-// runGraphNodes materializes a graph and returns what it published, mirroring
-// runGraphHints exactly — the two are projections of the same corpus and a
-// difference in how they are driven would be a difference in what they prove.
-func runGraphNodes(
-  t *testing.T,
-  files map[string]string,
-  config string,
-) ([]rule.GraphNode, []string) {
-  t.Helper()
-  root := t.TempDir()
-  paths := make([]string, 0, len(files))
-  for path := range files {
-    paths = append(paths, path)
-  }
-  sort.Strings(paths)
-  sources := []*shimast.SourceFile{}
-  for _, relative := range paths {
-    content := files[relative]
-    absolute := filepath.Join(root, filepath.FromSlash(relative))
-    if err := os.MkdirAll(filepath.Dir(absolute), 0o755); err != nil {
-      t.Fatal(err)
-    }
-    if err := os.WriteFile(absolute, []byte(content), 0o644); err != nil {
-      t.Fatal(err)
-    }
-    if !isTypeScriptTestPath(relative) {
-      continue
-    }
-    sources = append(sources, shimparser.ParseSourceFile(
-      shimast.SourceFileParseOptions{FileName: filepath.ToSlash(absolute)},
-      content,
-      shimcore.ScriptKindTS,
-    ))
-  }
-  reporter := &capturedProjectReporter{}
-  context := rule.NewProjectContext(
-    rule.ProjectIdentity{PhysicalProjectRoot: root},
-    sources,
-    nil,
-    rule.SeverityError,
-    json.RawMessage(config),
-    reporter,
-  )
-  graphRule{}.Check(context)
-  if reporter.failed || reporter.state == nil {
-    return nil, reporter.messages
-  }
-  return graphRule{}.GraphNodes(&rule.GraphContext{
-    Identity: rule.ProjectIdentity{PhysicalProjectRoot: root},
-    State:    reporter.state,
-    Severity: rule.SeverityError,
-    Options:  json.RawMessage(config),
-  }), reporter.messages
-}
-
-func sortedAddresses(nodes []rule.GraphNode) []string {
-  addresses := make([]string, 0, len(nodes))
-  for _, node := range nodes {
-    addresses = append(addresses, node.Address)
-  }
-  sort.Strings(addresses)
-  return addresses
 }
