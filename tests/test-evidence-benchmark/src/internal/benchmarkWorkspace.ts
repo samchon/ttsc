@@ -1,6 +1,5 @@
 import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { EvidenceBenchmarkToolchain } from "../../../../benchmarks/evidence/src/EvidenceBenchmarkToolchain";
@@ -8,6 +7,7 @@ import { EvidenceBenchmarkWorkspace } from "../../../../benchmarks/evidence/src/
 import type { ITtscEvidenceBenchmarkWorkspaceArtifact } from "../../../../benchmarks/evidence/src/structures/ITtscEvidenceBenchmarkWorkspaceArtifact";
 import type { EvidenceBenchmarkArm } from "../../../../benchmarks/evidence/src/typings/EvidenceBenchmarkArm";
 import type { IBenchmarkWorkspace } from "./IBenchmarkWorkspace";
+import { createSuiteResources } from "./createSuiteResources";
 import { packEvidenceArchive } from "./packEvidenceArchive";
 import { repositoryRoot } from "./suiteRoot";
 
@@ -32,7 +32,10 @@ const SUBJECT = "todo";
 const EVIDENCE_PACKAGE_NAME = "@ttsc/evidence";
 
 /** One temporary directory holding every workspace this process prepared. */
-let suiteDirectory: string | undefined;
+let resources: ReturnType<typeof createSuiteResources> | undefined;
+
+/** Prevents a late acquisition from recreating paths after final reclamation. */
+let released = false;
 
 /** Prepared workspaces, keyed by arm and reused for the life of the process. */
 const prepared = new Map<EvidenceBenchmarkArm, Promise<IBenchmarkWorkspace>>();
@@ -61,6 +64,7 @@ let toolchain: Promise<ITtscEvidenceBenchmarkWorkspaceArtifact[]> | undefined;
 export const acquireBenchmarkWorkspace = async (
   arm: EvidenceBenchmarkArm,
 ): Promise<IBenchmarkWorkspace> => {
+  if (released) throw new Error("The benchmark workspace suite has been released.");
   const existing: Promise<IBenchmarkWorkspace> | undefined = prepared.get(arm);
   if (existing !== undefined) {
     const workspace: IBenchmarkWorkspace = await existing;
@@ -79,6 +83,8 @@ const create = async (
   const apiPackageName = `@benchmark/${SUBJECT}-api`;
   const packed: ITtscEvidenceBenchmarkWorkspaceArtifact[] =
     await acquireToolchain(suite);
+  const captureStore = resources!.beforeWorkspace(path.join(suite, arm, "workspace"));
+  let preparationError: unknown;
   const result = await EvidenceBenchmarkWorkspace.prepareWorkspace({
     repository: repositoryRoot,
     output: path.join(suite, arm),
@@ -98,6 +104,16 @@ const create = async (
             archive: packEvidenceArchive(path.join(suite, "archive")),
           },
     toolchain: packed,
+  }).catch((error: unknown) => {
+    preparationError = error;
+    throw error;
+  }).finally(() => {
+    try {
+      captureStore();
+    } catch (error) {
+      throw preparationError === undefined ? error :
+        new AggregateError([preparationError, error], "Preparation and resource registration failed.");
+    }
   });
   return {
     arm,
@@ -187,34 +203,36 @@ const git = (cwd: string, argumentList: readonly string[]): string => {
  *
  * `benchmarks/evidence/output/` is where a measured run is retained and is
  * never written by a test, so these trees go to the OS temporary directory. The
- * removal is registered on process exit rather than in each case's `finally`,
- * because the workspaces outlive individual cases by design.
+ * suite runner explicitly releases it after every awaited case and child has
+ * finished, because workspaces outlive individual cases by design.
  */
 const suiteTemporaryDirectory = (): string => {
-  if (suiteDirectory !== undefined) return suiteDirectory;
-  const directory: string = fs.mkdtempSync(
-    path.join(os.tmpdir(), "evidence-benchmark-suite-"),
-  );
-  suiteDirectory = directory;
-  process.once("exit", () => cleanupQuietly(directory));
-  return directory;
+  resources ??= createSuiteResources();
+  return resources.directory;
 };
 
 /**
- * Removes the suite's trees, tolerating what Windows has not released yet.
+ * Finishes preparation promises and releases this process's owned resources.
  *
- * A prepared workspace holds a package manager's store links and the
- * toolchain's own handles, so a removal immediately after the last command can
- * lose a race with the OS and raise EBUSY. Leftover temporary files are litter;
- * a suite that reports failure because of that litter is a lie about the code
- * under test.
+ * The runner first joins all retained watch children. Native removal failures
+ * are independent suite failures and remain observable alongside case errors.
+ *
+ * @evidence contracts/common.md#principled-implementation Settles every retained preparation before asking its invocation resource owner to remove exact acquired paths; the runner establishes child closure first.
+ * @evidence contracts/common.md#clear-and-simple-design Separates preparation settlement and resource release from case assertions. The resource owner supplies native identity validation and independent failure collection.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Does not swallow cleanup errors, infer process termination from exit status or reclaim historical campaign stores.
+ * @evidence contracts/common.md#meaningful-documentation States the caller's join prerequisite and distinguishes case failure from cleanup failure; both remain visible in runner output.
+ * @evidence contracts/performance.md#efficient-algorithms Settles at most two arm promises once; filesystem release cost belongs to each owned tree rather than a scan of global caches.
+ * @evidence contracts/performance.md#reuse-equivalent-work Shared prepared arms and packed artifacts retain one lifetime across cases and are no longer reused after release.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Clears preparation and toolchain references even when removal fails; the resource owner's exact failed-path identities remain available for diagnosis and no exit callback conceals them.
+ * @evidence contracts/portability.md#os-neutral-implementation Delegates native Windows store and ordinary directory identity checks to the same invocation owner; no platform shell deletion is constructed here.
  */
-const cleanupQuietly = (directory: string): void => {
-  for (let attempt = 0; attempt < 3; attempt++)
-    try {
-      fs.rmSync(directory, { recursive: true, force: true, maxRetries: 3 });
-      return;
-    } catch {
-      // Retry, then give up: the OS releases these handles on its own schedule.
-    }
+export const releaseBenchmarkWorkspaces = async (): Promise<void> => {
+  released = true;
+  await Promise.allSettled([...prepared.values()]);
+  try {
+    resources?.release();
+  } finally {
+    prepared.clear();
+    toolchain = undefined;
+  }
 };

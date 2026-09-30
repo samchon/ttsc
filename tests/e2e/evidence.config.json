@@ -209,7 +209,9 @@
       "files": [
         "tests/test-evidence/src/internal/startWatch.ts",
         "tests/test-evidence/src/internal/createProject.ts",
-        "tests/test-banner/src/internal/banner-map-boundary.ts"
+        "tests/test-banner/src/internal/banner-map-boundary.ts",
+        "tests/test-evidence-benchmark/src/internal/createSuiteResources.ts",
+        "tests/test-evidence-benchmark/src/internal/startScriptWatch.ts"
       ],
       "symbol": "function",
       "reference": {
