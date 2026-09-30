@@ -1,8 +1,6 @@
 package evidence
 
 import (
-  "path/filepath"
-  "strings"
   "testing"
 )
 
@@ -10,7 +8,7 @@ import (
  * Verifies the containment shortcut answers exactly what `filepath.Rel` would.
  *
  * `relativeProjectPath` decides which files belong to a population, and it is
- * asked once per source file per configured base on every rebuild — which is
+ * asked once per source file per configured base on every rebuild; which is
  * why a shortcut exists at all. A shortcut that answers differently from the
  * form it stands in for does not make the rule faster, it makes the population
  * different, and a file admitted or dropped there is an obligation appearing or
@@ -18,8 +16,8 @@ import (
  *
  * Case is the trap, and the shortcut's one rule is what disarms it: declining is
  * always safe, accepting is not. `filepath.Rel` compares path elements the way
- * the platform does — case-insensitively on Windows, case-sensitively
- * everywhere else — so a shortcut that folds case accepts a differently-cased
+ * the platform does; case-insensitively on Windows, case-sensitively
+ * everywhere else; so a shortcut that folds case accepts a differently-cased
  * sibling that POSIX rejects. Comparing exactly can only ever decline early,
  * which the general form below then answers correctly on both.
  *
@@ -30,6 +28,10 @@ import (
  *  1. Take roots and paths that sit below, beside, above, and beyond each other.
  *  2. Answer each through `relativeProjectPath`.
  *  3. Assert the answer matches the general form's, shortcut or not.
+ * @evidence contracts/testing.md#behavioral-verification relativeProjectPath must agree in both returned path and membership flag with generalRelativeProjectPath for every named subcase. This distinguishes a shortcut that admits case-different siblings or path prefixes without a separator from the standard containment calculation.
+ * @evidence contracts/testing.md#independent-expectations generalRelativeProjectPath is a test helper that calls filepath.Rel directly, rejects parent traversal, normalizes separators and trims a leading dot-slash. It does not call relativeProjectPath. Agreement verifies the shortcut against that general contract; a mistake shared by both interpretations is outside this differential oracle.
+ * @evidence contracts/testing.md#distinguishing-cases The named rows cover nested and direct children, unclean and ascending segments, siblings, case-different roots and files, a sibling sharing only a string prefix, the root itself, empty root and empty path. t.Run retains each row's failure name.
+ * @evidence contracts/testing.md#execution-ownership TestPathShortcutAgreesWithTheGeneralForm is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
  */
 func TestPathShortcutAgreesWithTheGeneralForm(t *testing.T) {
   cases := []struct {
@@ -69,79 +71,4 @@ func TestPathShortcutAgreesWithTheGeneralForm(t *testing.T) {
       }
     })
   }
-}
-
-// generalRelativeProjectPath is the form the shortcut stands in for, kept here
-// so the comparison is against the rule rather than against a remembered answer.
-func generalRelativeProjectPath(root string, absolute string) (string, bool) {
-  if root == "" || absolute == "" {
-    return "", false
-  }
-  relative, err := filepath.Rel(root, absolute)
-  if err != nil {
-    return "", false
-  }
-  relative = strings.ReplaceAll(relative, "\\", "/")
-  if relative == ".." || strings.HasPrefix(relative, "../") {
-    return "", false
-  }
-  return strings.TrimPrefix(relative, "./"), true
-}
-
-/**
- * Verifies the loader's normalization shortcut answers what the general form
- * would.
- *
- * `projectPath` is the identity every module candidate and Program source is
- * keyed by, so two spellings that normalize differently become two modules. The
- * shortcut returns a path unchanged when it is already that identity; anything
- * else has to fall through.
- *
- *  1. Take clean, unclean, absolute, and separator-mixed spellings.
- *  2. Normalize each through the loader.
- *  3. Assert the shortcut and the general form agree.
- */
-func TestLoaderNormalizationShortcutAgreesWithTheGeneralForm(t *testing.T) {
-  loader := &typeScriptLoader{root: "/repo"}
-  for _, value := range []string{
-    "src/x.ts",
-    "node_modules/@org/api/lib/index.d.ts",
-    "./src/x.ts",
-    "src/../src/x.ts",
-    "src\\x.ts",
-    "/repo/src/x.ts",
-    "",
-  } {
-    t.Run(value, func(t *testing.T) {
-      shortcut := loader.projectPath(value)
-      if isCleanProjectRelativePath(value) && shortcut != value {
-        t.Fatalf("a clean path was rewritten to %q", shortcut)
-      }
-      general := generalProjectPath(loader.root, value)
-      if value != "" && shortcut != general {
-        t.Fatalf(
-          "projectPath(%q) = %q, general form = %q",
-          value,
-          shortcut,
-          general,
-        )
-      }
-    })
-  }
-}
-
-func generalProjectPath(root string, relative string) string {
-  local := filepath.FromSlash(relative)
-  absolute := local
-  if !filepath.IsAbs(local) {
-    absolute = filepath.Join(filepath.FromSlash(root), local)
-  }
-  projectRelative, err := filepath.Rel(
-    filepath.FromSlash(root),
-    filepath.Clean(absolute),
-  )
-  if err != nil {
-    return filepath.ToSlash(filepath.Clean(absolute))
-  }
-  return strings.TrimPrefix(filepath.ToSlash(projectRelative), "./")
 }

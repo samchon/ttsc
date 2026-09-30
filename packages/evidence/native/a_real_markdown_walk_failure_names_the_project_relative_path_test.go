@@ -1,0 +1,61 @@
+package evidence
+
+import (
+  "os"
+  "path/filepath"
+  "strings"
+  "testing"
+)
+
+/**
+ * Verifies a real Markdown walk failure reports the project-relative path.
+ *
+ * The unit cases above compose the message from a base a test built. This runs
+ * the actual rule against a directory the process may not list, so the value the
+ * walker hands the callback is the real one and the relevance guard above the
+ * report is genuinely traversed.
+ *
+ *  1. Make a directory inside the configured globs unreadable.
+ *  2. Run the rule.
+ *  3. Assert the path the rule prints is project-relative.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRuleAtRoot is exercised with the scenario below; the assertions require the path the rule prints is project-relative.
+ * @evidence contracts/testing.md#independent-expectations The unit cases above compose the message from a base a test built. This runs the actual rule against a directory the process may not list, so the value the walker hands the callback is the real one and the relevance guard above the report is actually traversed.
+ * @evidence contracts/testing.md#distinguishing-cases Make a directory inside the configured globs unreadable. Run the rule. Assert the path the rule prints is project-relative.
+ * @evidence contracts/testing.md#execution-ownership TestARealMarkdownWalkFailureNamesTheProjectRelativePath is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ */
+func TestARealMarkdownWalkFailureNamesTheProjectRelativePath(t *testing.T) {
+  root := t.TempDir()
+  private := filepath.Join(root, "docs", "private")
+  if err := os.MkdirAll(private, 0o755); err != nil {
+    t.Fatal(err)
+  }
+  if err := os.WriteFile(filepath.Join(private, "hidden.md"), []byte("## Hidden\n"), 0o644); err != nil {
+    t.Fatal(err)
+  }
+  unreadableDirectory(t, private)
+  messages := runIndexRuleAtRoot(t, root, map[string]string{
+    "docs/public.md": "## Public {#public}\n",
+    "src/sale.ts":    "export interface ISale {}\n",
+  }, `{"claims":[{
+    "type":"typescript",
+    "files":["src/**/*.ts"],
+    "symbol":"type",
+    "reference":{"type":"markdown","files":["docs/**/*.md"],"symbol":"h2"}
+  }]}`)
+  assertProblemContains(t, messages, "could not inspect 'docs/private':")
+  if countProblemsContaining(messages, "matched no markdown files") != 0 {
+    t.Fatalf(
+      "an entry the walk could not read fails its population rather than emptying it:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
+  // The quoted segment is the path this rule chose. The cause after it belongs
+  // to the operating system and legitimately carries an absolute path, so the
+  // absence is asserted where the rule is the author.
+  if countProblemsContaining(messages, "'"+filepath.ToSlash(private)+"'") != 0 {
+    t.Fatalf(
+      "the path this rule prints is project-relative:\n%s",
+      strings.Join(messages, "\n"),
+    )
+  }
+}
