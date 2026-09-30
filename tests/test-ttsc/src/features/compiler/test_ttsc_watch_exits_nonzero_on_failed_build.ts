@@ -18,19 +18,23 @@ import {
  * 1. Materialize a project whose single source file has a type error.
  * 2. Spawn the real `ttsc --watch` launcher and wait for one build pass to report
  *    failure, then terminate the watcher with SIGTERM.
- * 3. Assert the watch process exits with a non-zero code.
+ * 3. Assert Linux delivers SIGTERM to the handler and the watcher exits with a numeric non-zero code, rather than being killed by a signal.
  *
- * @evidence contracts/testing.md#behavioral-verification Spawns ttsc watch on a number-valued export initialized by a string, waits for a complete/failed build banner, sends SIGTERM and asserts the observed exit code differs from zero.
- * @evidence contracts/testing.md#independent-expectations The latest failed build must govern watch-session shutdown status. The authored assignability error establishes failure independently; code not-equal-zero also accepts null from signal termination, so it does not distinguish a propagated numeric failure from forced termination.
- * @evidence contracts/testing.md#distinguishing-cases Owns initially invalid watch build followed by termination. It has no successful-session or failure-then-repair status counterpart and does not assert the diagnostic text.
- * @evidence contracts/testing.md#execution-ownership E2E export test_ttsc_watch_exits_nonzero_on_failed_build is discovered under src/features/compiler; it owns its child/WatchSession assertions and uses the built launcher plus suite-selected real native compiler, without dynamic case registration.
+ * @evidence contracts/testing.md#behavioral-verification On Linux, spawns ttsc watch on a number-valued export initialized by a string, waits for a failed build marker, sends SIGTERM and asserts TS2322, a normal numeric exit, no termination signal and the existing nonzero status requirement.
+ * @evidence contracts/testing.md#independent-expectations The authored assignability error independently requires TS2322 and failed checking; the watcher must propagate that failure through its signal handler as a numeric nonzero exit. Null status or signal termination cannot satisfy this oracle.
+ * @evidence contracts/testing.md#distinguishing-cases Owns initially invalid watch build followed by handled termination. Linux runs this portable launcher status contract once; Windows child.kill forcefully terminates the process and cannot exercise the handler, so its null status is not substituted for failure propagation.
+ * @evidence contracts/testing.md#execution-ownership E2E export test_ttsc_watch_exits_nonzero_on_failed_build is discovered under src/features/compiler and executes on Linux with the built launcher plus real native compiler. Other hosts return before this Linux signal-handler case; Windows watch shutdown remains covered by the real WatchSession lifecycle cases.
  * @evidence contracts/e2e.md#necessary-boundary Native compile failure must cross a live launcher watch loop into process shutdown status; direct build or status-calculation units cannot verify that connection.
  * @evidence contracts/e2e.md#shared-execution One watch process combines the initial failed compile and shutdown. Built launcher/native compiler overrides are shared with the suite; no plugin binary is produced.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A unique project and one terminated flag prevent repeated SIGTERM. The close/error handlers clear the 120-second timer and timeout sends SIGKILL; TestProject owns the root at worker exit. There is no separate finally cleanup path for unexpected callback failure.
- * @evidence contracts/e2e.md#preserved-coverage The existing post-build termination and nonzero-code assertion remain intact. The signal-null ambiguity is disclosed rather than treating any killed watcher as proof of numeric status propagation.
+ * @evidence contracts/e2e.md#preserved-coverage The failed native build, post-build SIGTERM and existing nonzero assertion remain. Failed-marker/TS2322 and numeric-code/no-signal checks strengthen status propagation; Windows forced-kill behavior is retained in WatchSession shutdown boundaries without pretending it runs this handler.
  */
 export const test_ttsc_watch_exits_nonzero_on_failed_build =
   async (): Promise<void> => {
+    // Windows child.kill("SIGTERM") terminates the process in the kernel;
+    // it does not deliver a signal to Node's registered handler. The portable
+    // launcher status contract runs once on Linux in the boundary batch.
+    if (process.platform !== "linux") return;
     const root = createProject({
       "tsconfig.json": JSON.stringify({
         compilerOptions: {
@@ -85,7 +89,7 @@ export const test_ttsc_watch_exits_nonzero_on_failed_build =
       // the exit code reflects an evaluated (failed) build rather than startup.
       if (
         !terminated &&
-        /\[ttsc\] watch build (?:failed|complete)/.test(output)
+        /\[ttsc\] watch build failed/.test(output)
       ) {
         terminated = true;
         child.kill("SIGTERM");
@@ -95,6 +99,14 @@ export const test_ttsc_watch_exits_nonzero_on_failed_build =
     child.stderr.on("data", onChunk);
 
     const { code, signal } = await exit;
+    assert.equal(terminated, true, output);
+    assert.match(output, /TS2322/);
+    assert.equal(signal, null, `the watcher must handle SIGTERM:\n${output}`);
+    assert.equal(
+      typeof code,
+      "number",
+      `the watcher must return its build status:\n${output}`,
+    );
     assert.notEqual(
       code,
       0,
