@@ -194,6 +194,8 @@ The host emits flags in equals form; construct your tests the same way.
 
 ## Asserting re-spawn env vars
 
+For host-side environment policy, use `BuildExecution.composeNativePluginEnv` with a fresh layered environment and an already selected Node executable. It publishes this invocation's compiler, config and linked-plugin payloads without discovering a runtime. `BuildExecution.nativePluginEnv` retains actual Node capability discovery before calling the same composer; a test that invokes it exercises that process boundary.
+
 `ttsc` injects `TTSC_NODE_BINARY`, `TTSC_TSGO_BINARY`, and `TTSC_TTSX_BINARY` into every plugin process (see [Architecture → Injected into the plugin process](/docs/development/reference/architecture#injected-into-the-plugin-process)). To pin that your plugin receives them, ship one Go unit test that asserts on the env from inside the plugin's own `runCheck` / `runTransform`:
 
 ```go

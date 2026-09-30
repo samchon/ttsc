@@ -93,14 +93,14 @@ export namespace BuildExecution {
    * remove stale inherited state rather than leaking an ancestor's project.
    *
    * @evidence contracts/common.md#principled-implementation Environment layering preserves caller overrides while the resolved compiler wins last; per-run compiler/config/link payloads are published or cleared according to invocation ownership.
-   * @evidence contracts/common.md#clear-and-simple-design Shared environment helpers own merging and key access, and dedicated publishers own semantic, compiler and linked-plugin payload lifetimes.
+   * @evidence contracts/common.md#clear-and-simple-design Shared environment helpers own merging and key access; runtime discovery precedes the pure composer that owns invocation payload publication.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported environment channels convey compiler/plugin context without patching strict sidecar parsers; clearing inherited payloads corrects ownership rather than compensating for a stale ancestor selection.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain config anchoring, linked sources, precedence and absent-payload effects without mixing prose into tags.
    * @evidence contracts/portability.md#os-neutral-implementation Native environment helpers normalize Windows key aliases while retaining POSIX case distinctions; node:path builds the default launcher path and binary values remain native executable selections.
-   * @evidence contracts/performance.md#efficient-algorithms Environment copying scales with inherited/caller key count and linked payload bytes; field publishers update selected protocol keys rather than launching extra processes.
+   * @evidence contracts/performance.md#efficient-algorithms Environment copying scales with inherited/caller key count and linked payload bytes; Node discovery probes ordered distinct runtime candidates through the existing capability owner before selected protocol keys are published.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Fresh environment composition depends on current invocation and mutable process environment, and coordinates no persistent producer.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The fresh environment object is transferred to the spawn owner; this composer retains no child process or global payload.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Runtime capability probes complete synchronously under their owner, and the fresh environment transfers to the spawn owner without this function retaining a child process or global payload.
    */
   export function nativePluginEnv(
     extra: NodeJS.ProcessEnv | undefined,
@@ -122,6 +122,42 @@ export namespace BuildExecution {
       // The invocation's resolved compiler owns the final environment layer.
       { TTSC_TSGO_BINARY: execution.tsgo.binary },
     );
+    return composeNativePluginEnv(
+      env,
+      extra,
+      execution,
+      SidecarEnvironment.read(env, "TTSC_NODE_BINARY"),
+      plugin,
+      tsgoArgs,
+    );
+  }
+
+  /**
+   * Publish this invocation's payloads into its already layered environment.
+   *
+   * The caller owns the fresh environment and the selected Node executable.
+   * Executable capability discovery remains at the native spawn boundary;
+   * this composer only writes protocol values and removes stale payloads.
+   *
+   * @evidence contracts/common.md#principled-implementation The selected compiler and Node executable own their channels; config, forwarded arguments and linked transforms are published or cleared according to this invocation and explicit caller ownership.
+   * @evidence contracts/common.md#clear-and-simple-design A synchronous payload composer consumes the existing merged environment, keeping native executable discovery in nativePluginEnv without copying environment layers again.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Supplied executable selections are preserved without guessing capabilities, launching a substitute producer or mutating the global environment.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states the required fresh layered environment, caller ownership and the separation of runtime discovery from protocol publication.
+   * @evidence contracts/portability.md#os-neutral-implementation SidecarEnvironment preserves native Windows name identity and POSIX spelling; executable values are supplied native paths rather than shell commands.
+   * @evidence contracts/performance.md#efficient-algorithms Protocol publication visits the environment only for native key access and writes and serializes the selected linked payload; it performs no capability subprocess or repeated environment merge.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Invocation-owned writes apply to current mutable caller state rather than a reusable producer computation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The supplied environment remains caller-owned and is returned without retaining it or acquiring a child process.
+   */
+  export function composeNativePluginEnv(
+    env: NodeJS.ProcessEnv,
+    extra: NodeJS.ProcessEnv | undefined,
+    execution: ReturnType<typeof resolveExecutionContext>,
+    nodeBinary: string | undefined,
+    plugin?: ITtscLoadedNativePlugin,
+    tsgoArgs?: string,
+  ): NodeJS.ProcessEnv {
+    SidecarEnvironment.write(env, "TTSC_NODE_BINARY", nodeBinary);
+    SidecarEnvironment.write(env, "TTSC_TSGO_BINARY", execution.tsgo.binary);
     // Forwarded tsgo argv is per-invocation state this host owns, exactly like
     // the config anchor below: publish this run's payload, or drop whatever an
     // ancestor ttsc process left behind when this lane forwards nothing.
