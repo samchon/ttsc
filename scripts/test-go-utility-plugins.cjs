@@ -1,4 +1,4 @@
-// Run Go unit tests that live beside each utility plugin package.
+// Run utility function contracts once; retain real CLI and filesystem boundaries.
 
 const cp = require("node:child_process");
 const fs = require("node:fs");
@@ -11,6 +11,41 @@ const root = path.resolve(__dirname, "..");
 const goRoot = path.join(os.homedir(), "go-sdk", "go", "bin");
 const ttscDir = path.join(root, "packages", "ttsc");
 const packageNames = ["banner", "paths", "strip"];
+const layer = process.env.TTSC_TEST_LAYER;
+if (layer && layer !== "unit" && layer !== "e2e")
+  throw new Error(`unknown TTSC_TEST_LAYER: ${layer}`);
+
+// Explicit function identities, rather than a name prefix: every new or
+// unclassified test remains in the integration batch. The original Go test
+// functions and assertions execute unchanged, with no generated wrapper.
+const unitTests = {
+  banner: [
+    "TestConfigRejectsUnknownTsconfigKeys",
+    "TestConfigToolAnchorsListsTheConfigThenTheProjectRoot",
+    "TestNodePlatformPairMatchesTheNpmPlatformVocabulary",
+    "TestTypeScriptConfigLoaderSourcePrefersDefaultThenText",
+  ],
+  paths: [
+    "TestRewriterCommonSourceDirTerminatesAtVolumeRoots",
+    "TestRewriterHelpersCoverResolutionEdges",
+    "TestRewriterLookupSourceHonorsHostCaseSensitivity",
+    "TestRewriterLookupSourcePrefersTSForAmbiguousStem",
+    "TestRewriterLookupSourceResolvesAllowJSExtensionlessSource",
+    "TestRewriterLookupSourceResolvesAllowJSIndexSource",
+    "TestRewriterMapsSourceToEmittedOutputExtension",
+    "TestRewriterMatchPatternRejectsOverlappingPrefixSuffix",
+    "TestRewriterOrderPatternsKeepsDeclarationOrderOnPrefixTies",
+    "TestRewriterPlacesOutputBelowRootDirByHostCaseRule",
+    "TestRewriterResolvesExactJsonAliasWithoutWideningExtensionlessLookup",
+    "TestRewriterResolveSourceCommitsToBestPattern",
+    "TestRewriterResolveSourcePrefersLongestPrefixPattern",
+  ],
+  strip: [
+    "TestConfigAndPatternHelpers",
+    "TestConfigToolAnchorsListsTheConfigThenTheProjectRoot",
+    "TestNodePlatformPairMatchesTheNpmPlatformVocabulary",
+  ],
+};
 
 for (const name of packageNames) {
   const packageDir = path.join(root, "packages", name);
@@ -26,34 +61,37 @@ for (const name of packageNames) {
     // `go run ./plugin` DURING test execution, so on a cold cache (fresh CI
     // runner) the full typescript-go compile counts against the 10-minute
     // test timeout and can single-handedly blow it.
-    const warm = cp.spawnSync("go", ["build", "-o", workdir, "./..."], {
-      cwd: packageDir,
-      env: {
-        ...process.env,
-        GOWORK: goWork,
-        PATH: fs.existsSync(goRoot)
-          ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
-          : process.env.PATH,
-      },
-      stdio: "inherit",
-      windowsHide: true,
-    });
-    if (warm.error) {
+    const env = {
+      ...process.env,
+      GOWORK: goWork,
+      PATH: fs.existsSync(goRoot)
+        ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
+        : process.env.PATH,
+    };
+    const warm =
+      layer === "unit"
+        ? null
+        : cp.spawnSync("go", ["build", "-o", workdir, "./..."], {
+            cwd: packageDir,
+            env,
+            stdio: "inherit",
+            windowsHide: true,
+          });
+    if (warm?.error) {
       throw warm.error;
     }
-    if (warm.status !== 0) {
+    if (warm && warm.status !== 0) {
       process.exitCode = warm.status ?? 1;
       continue;
     }
-    const result = cp.spawnSync("go", ["test", "-count=1", "./test"], {
+    const selection = `^(${unitTests[name].join("|")})$`;
+    const args = ["test", "-count=1"];
+    if (layer === "unit") args.push(`-run=${selection}`);
+    else if (layer === "e2e") args.push(`-skip=${selection}`);
+    args.push("./test");
+    const result = cp.spawnSync("go", args, {
       cwd: packageDir,
-      env: {
-        ...process.env,
-        GOWORK: goWork,
-        PATH: fs.existsSync(goRoot)
-          ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
-          : process.env.PATH,
-      },
+      env,
       stdio: "inherit",
       windowsHide: true,
     });
@@ -64,6 +102,9 @@ for (const name of packageNames) {
       process.exitCode = result.status ?? 1;
       continue;
     }
+  } catch (error) {
+    console.error(`utility ${name}:`, error);
+    process.exitCode = 1;
   } finally {
     fs.rmSync(workdir, { recursive: true, force: true });
   }

@@ -31,6 +31,7 @@ const runners = [
 const GO_UNIT_ONLY_RUNNERS = ["test-go-transformer.cjs", "test-go-shim.cjs"];
 const GO_UNIT_RUNNERS = [
   ...GO_UNIT_ONLY_RUNNERS,
+  "test-go-utility-plugins.cjs",
   "test-go-lint.cjs",
   "test-go-evidence.cjs",
 ];
