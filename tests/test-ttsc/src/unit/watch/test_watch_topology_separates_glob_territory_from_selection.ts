@@ -1,8 +1,8 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { projectInputReloadEventShouldNotify } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputReloadEventShouldNotify.js";
+import { projectInputReloadEventShouldNotify } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputReloadEventShouldNotify";
 
 /**
  * Verifies a declared glob's root is data even inside a resolution directory.
@@ -30,9 +30,12 @@ import { projectInputReloadEventShouldNotify } from "../../../../../packages/tts
  * 3. Assert the directory itself and its other entries stay cold when named.
  * 4. Assert the directory's own digest delta alone does not select cold.
  * 5. Assert a data event cancels no other directory's digest evidence.
+ * @evidence contracts/testing.md#behavioral-verification Actual reload-event policy distinguishes warm data territory from cold selection surfaces, including named events versus directory fingerprint deltas.
+ * @evidence contracts/testing.md#independent-expectations Explicit path populations, literal true/false lane expectations and independent changedInputs tuples define the expected policy.
+ * @evidence contracts/testing.md#distinguishing-cases Glob members versus declared files, directory/nested/ancestor identity, unexplained deltas, data explanation and unrelated-directory evidence retain every original assertion.
+ * @evidence contracts/testing.md#execution-ownership The named src/unit/watch entry calls authored policy and resource-reconciliation functions directly over private path fixtures and owned callbacks; no compiler refresh, native event scheduler, product host or build executes.
  */
-export const test_watch_topology_separates_glob_territory_from_selection =
-  (): void => {
+export function test_watch_topology_separates_glob_territory_from_selection() {
     const root = TestProject.tmpdir("ttsc-project-input-territory-");
     const globRoot = path.join(root, "api");
     const declaredFile = path.join(root, "guard-state.txt");
@@ -199,4 +202,4 @@ export const test_watch_topology_separates_glob_territory_from_selection =
       true,
       "a deep data event cannot account for the directory's own digest delta",
     );
-  };
+}

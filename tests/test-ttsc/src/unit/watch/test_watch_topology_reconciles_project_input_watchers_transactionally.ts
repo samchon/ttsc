@@ -1,11 +1,11 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/lib/internal/pathIdentity/createProjectInputPathIdentityContext.js";
-import { projectInputAvailableWatchDirectory } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputAvailableWatchDirectory.js";
-import { syncWatchers } from "../../../../../packages/ttsc/lib/launcher/internal/watch/syncWatchers.js";
+import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/createProjectInputPathIdentityContext";
+import { projectInputAvailableWatchDirectory } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputAvailableWatchDirectory";
+import { syncWatchers } from "../../../../../packages/ttsc/src/launcher/internal/watch/syncWatchers";
 
 /**
  * Verifies project-input watcher reconciliation is transactional.
@@ -17,9 +17,12 @@ import { syncWatchers } from "../../../../../packages/ttsc/lib/launcher/internal
  * 1. Reject descendant creation and assert the ancestor stays open.
  * 2. Retry successfully and assert creation precedes ancestor closure.
  * 3. Reject the descendant root and assert retry selection falls back upward.
+ * @evidence contracts/testing.md#behavioral-verification Subscription replacement remains transactional: a rejected descendant leaves the ancestor open, successful creation precedes closure, and rejection selects the available parent.
+ * @evidence contracts/testing.md#independent-expectations Literal event order, exact map keys, explicit thrown watch rejection and an independently resolved parent path establish replacement and fallback outcomes.
+ * @evidence contracts/testing.md#distinguishing-cases Rejected and successful replacement, handle closure order and rejected-root fallback retain every original assertion.
+ * @evidence contracts/testing.md#execution-ownership The named src/unit/watch entry calls authored policy and resource-reconciliation functions directly over private path fixtures and owned callbacks; no compiler refresh, native event scheduler, product host or build executes.
  */
-export const test_watch_topology_reconciles_project_input_watchers_transactionally =
-  (): void => {
+export function test_watch_topology_reconciles_project_input_watchers_transactionally() {
     const events: string[] = [];
     const errors: unknown[] = [];
     const watchers = new Map<string, FakeWatcher>([
@@ -76,7 +79,7 @@ export const test_watch_topology_reconciles_project_input_watchers_transactional
       projectInputAvailableWatchDirectory(descendant, rejected, identities),
       realpath(ancestor),
     );
-  };
+}
 
 class FakeWatcher {
   public constructor(private readonly onClose: () => void) {}
