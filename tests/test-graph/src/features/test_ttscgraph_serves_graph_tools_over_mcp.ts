@@ -1,8 +1,8 @@
-import { TestProject } from "@ttsc/testing";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 const graphPackage = JSON.parse(
   fs.readFileSync(
@@ -102,110 +102,27 @@ const graphArguments = (props: {
  * initialize/tools-list/tools-call for the single source-flow tool, then exits
  * cleanly when stdin closes.
  *
- * 1. Materialize a project with a Service.run -> helper call chain, then spawn the
+ * 1. Materialize a project with a McpService.run -> mcpHelper call chain, then spawn the
  *    launcher against it.
  * 2. Drive initialize, tools/list, and a call to each request branch.
  * 3. Assert the entrypoints, architecture counts, a lookup hit, forward/path
  *    traces reaching the callee, source-free details, and a clean exit.
  *
  * @evidence contracts/testing.md#behavioral-verification The installed MCP launcher initializes with package identity, lists its sole tool and exercises escape, entrypoints, tour, overview, lookup, trace, path, impact and details with native facts, coordinates and decorators.
- * @evidence contracts/testing.md#independent-expectations Literal tool names, authored Service/helper/source/test declarations and range-only DTO expectations are independent controls; package version checks installed assembly identity.
- * @evidence contracts/testing.md#distinguishing-cases Graph-free escape contrasts populated operations, external inclusion contrasts default exclusion, and method/object outlines and member implementation edges contrast source-body leakage and hub-log noise.
+ * @evidence contracts/testing.md#independent-expectations Literal tool names, authored McpService/mcpHelper/source/test declarations and range-only DTO expectations are independent controls; package version checks installed assembly identity.
+ * @evidence contracts/testing.md#distinguishing-cases Graph-free escape contrasts populated operations, external inclusion contrasts default exclusion, and method/object outlines and member implementation edges contrast source-body leakage and hub-mcpLog noise.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_serves_graph_tools_over_mcp starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary The Node launcher, MCP stdio transport, resident native serve producer and application handlers must assemble together; direct handler calls cannot detect installed identity or wire/schema failures.
- * @evidence contracts/e2e.md#shared-execution All original operations run through one existing client/project and share the suite compiler, so this is already a broad boundary batch. Other stable cases are still separate and further batching remains unfinished.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case owns stable Service and test fixtures and one client; helper lifetime closes stdin after its callback, with normal exit checked, rather than claiming arbitrary failure-path process joins.
+ * @evidence contracts/e2e.md#shared-execution Twenty-one identity/display, citation, DTO/audit, traversal and installed MCP protocol entries borrow one project, initialized MCP session and resident native compiler. The MCP case checks that same initialize payload/tool list and temporarily selects its original closed source universe for global ranking; config restoration and object edits advance real generations. Checker rejection also executes the public dump CLI once for diagnostic/raw-edge delivery.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique files, names, contracts, chain topologies and citation targets isolate fixtures; spec/test suffixes, decorator configuration and real external declarations remain. The roster has no other name matches. MCP ranking scopes compiler include to its two sources and restores exact config bytes in finally; later requests synchronize that generation. Suite finally closes the shared client and checks normal exit after complete collection.
  * @evidence contracts/e2e.md#preserved-coverage Every original server/tool identity, next action, signature/decorator, range, role, exclusion, neighbor cap, object member and implementation-relation assertion remains in this existing batch.
  */
 export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
-  const root = TestProject.createProject({
-    "tsconfig.json": JSON.stringify(
-      {
-        compilerOptions: {
-          target: "ES2022",
-          module: "commonjs",
-          experimentalDecorators: true,
-          strict: true,
-          rootDir: "src",
-          outDir: "dist",
-        },
-        include: ["src"],
-      },
-      null,
-      2,
-    ),
-    "node_modules/external-lib/index.d.ts": [
-      "export interface ExternalThing {",
-      "  id: string;",
-      "}",
-      "",
-    ].join("\n"),
-    "src/app.ts": [
-      "import type { ExternalThing } from 'external-lib';",
-      "",
-      "function Route(path: string): MethodDecorator {",
-      "  return () => undefined;",
-      "}",
-      "export type ExternalAlias = ExternalThing;",
-      "export function log(): void {}",
-      "export function helper(): void {}",
-      "export interface Runner {",
-      "  run(): void;",
-      "}",
-      "export class Service implements Runner {",
-      "  @Route('/run')",
-      "  run(): void {",
-      "    helper();",
-      "    other();",
-      "    third();",
-      "    fourth();",
-      "    fifth();",
-      "    log();",
-      "  }",
-      "}",
-      "export function other(): void {}",
-      "export function third(): void {}",
-      "export function fourth(): void {}",
-      "export function fifth(): void {}",
-      // Twelve extra call sites make `log` a shared fan-in hub (in-degree >= 12)
-      // that drives nothing onward (out-degree 0). Service.run calls both `log`
-      // and `helper` directly, so the tour must prune the hub `log` from the flow
-      // while keeping `helper`, a genuine step at the same depth.
-      ...Array.from(
-        { length: 12 },
-        (_unused, i) => `export function caller${i}(): void { log(); }`,
-      ),
-      "export const adapter = {",
-      "  run: () => helper(),",
-      "  reset() {",
-      "    other();",
-      "  },",
-      "};",
-      "",
-    ].join("\n"),
-    "src/app.spec.ts": [
-      "import { Service } from './app';",
-      "",
-      "export function coversRun(): void {",
-      "  new Service().run();",
-      "}",
-      "",
-    ].join("\n"),
-  });
-
-  const withClient = async (
-    body: (client: ReturnType<typeof TtsgraphClient.start>) => Promise<void>,
-  ): Promise<void> => {
-    const client = TtsgraphClient.start(root);
-    try {
-      const init = (await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      })) as {
-        serverInfo?: { name?: string; version?: string };
-        instructions?: string;
-      };
+  await withIdentityBoundary(async (client, _root, initialization) => {
+    const init = initialization as {
+      serverInfo?: { name?: string; version?: string };
+      instructions?: string;
+    };
       assert.equal(
         init.serverInfo?.name,
         "ttsc-graph",
@@ -220,7 +137,6 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         typeof init.instructions === "string" && init.instructions.length > 0,
         "initialize ships usage guidance",
       );
-      client.notify("notifications/initialized", {});
 
       const list = (await client.request("tools/list", {})) as {
         tools: { name: string }[];
@@ -231,20 +147,6 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         [GRAPH_TOOL_NAME],
         `tools/list advertises the single graph tool, got ${names.join(", ")}`,
       );
-      await body(client);
-    } finally {
-      client.endStdin();
-    }
-
-    const code = await client.waitForExit();
-    assert.equal(
-      code,
-      0,
-      `the launcher should exit cleanly on stdin close\nstderr: ${client.stderrText()}`,
-    );
-  };
-
-  await withClient(async (client) => {
     const skipRaw = (await client.request("tools/call", {
       name: GRAPH_TOOL_NAME,
       arguments: graphArguments({
@@ -287,10 +189,10 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       name: GRAPH_TOOL_NAME,
       arguments: graphArguments({
         thinking:
-          "Find source-free starting handles before tracing Service.run to helper.",
+          "Find source-free starting handles before tracing McpService.run to mcpHelper.",
         request: {
           type: "entrypoints",
-          query: "how Service.run reaches helper",
+          query: "how McpService.run reaches mcpHelper",
           neighbors: 1,
         },
       }),
@@ -320,18 +222,18 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     assert.ok(
       entrypoints.hits.some(
         (hit) =>
-          hit.name === "Service.run" &&
+          hit.name === "McpService.run" &&
           (hit.signature ?? "").includes("run(): void"),
       ),
-      `entrypoints ranks Service.run with a signature: ${JSON.stringify(entrypoints.hits)}`,
+      `entrypoints ranks McpService.run with a signature: ${JSON.stringify(entrypoints.hits)}`,
     );
     assert.ok(
       entrypoints.hits.some(
         (hit) =>
-          hit.name === "Service.run" &&
+          hit.name === "McpService.run" &&
           hit.decorators?.some(
             (decorator) =>
-              decorator.name === "Route" &&
+              decorator.name === "McpRoute" &&
               decorator.arguments.some((arg) => arg.literal === "/run"),
           ),
       ),
@@ -340,31 +242,31 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     assert.ok(
       entrypoints.mentions.some(
         (mention) =>
-          mention.handle === "Service.run" &&
-          mention.node?.name === "Service.run",
+          mention.handle === "McpService.run" &&
+          mention.node?.name === "McpService.run",
       ),
       `entrypoints resolves direct dotted mentions: ${JSON.stringify(entrypoints.mentions)}`,
     );
     assert.ok(
       entrypoints.neighborhood.some(
         (node) =>
-          node.name === "Service.run" &&
+          node.name === "McpService.run" &&
           node.dependsOn.some(
             (ref) =>
-              ref.name === "helper" &&
+              ref.name === "mcpHelper" &&
               typeof ref.evidence?.startLine === "number" &&
-              ref.evidence.file?.endsWith("app.ts") &&
+              ref.evidence.file?.endsWith("mcp-app.ts") &&
               ref.evidence.text === undefined,
           ),
       ),
       `entrypoints includes span-only dependency evidence: ${JSON.stringify(entrypoints.neighborhood)}`,
     );
     const entrypointRun = entrypoints.hits.find(
-      (hit) => hit.name === "Service.run",
+      (hit) => hit.name === "McpService.run",
     );
     assert.ok(
       entrypointRun !== undefined,
-      `entrypoints resolves the Service.run handle: ${JSON.stringify(entrypoints.hits)}`,
+      `entrypoints resolves the McpService.run handle: ${JSON.stringify(entrypoints.hits)}`,
     );
 
     // tour: one answer-ready onboarding slice with flow, tests, and anchors.
@@ -385,16 +287,16 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
           // The tour asks for no question of its own: it ranks against the one
           // the caller already wrote, which `graphArguments` puts in `question`.
           thinking:
-            "I'm new here; trace Service.run to the work it does and show tests to read next.",
+            "I'm new here; trace McpService.run to the work it does and show tests to read next.",
           request: {
             type: "tour",
-            reinterpretations: ["Service.run", "helper"],
+            reinterpretations: ["McpService.run", "mcpHelper"],
           },
         }),
       })) as ToolResult,
     );
     assert.ok(
-      tour.entrypoints.some((node) => node.name === "Service.run"),
+      tour.entrypoints.some((node) => node.name === "McpService.run"),
       `tour includes central entrypoints: ${JSON.stringify(tour.entrypoints)}`,
     );
     // A step is prose: it names both of its ends and the file and line the call
@@ -404,10 +306,10 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     assert.ok(
       tour.primaryFlow.some(
         (flow) =>
-          flow.start.name === "Service.run" &&
-          flow.steps.some((step) => step.includes("helper")) &&
+          flow.start.name === "McpService.run" &&
+          flow.steps.some((step) => step.includes("mcpHelper")) &&
           flow.reached.some(
-            (node) => node.name === "helper" && node.id.includes("app.ts#"),
+            (node) => node.name === "mcpHelper" && node.id.includes("mcp-app.ts#"),
           ),
       ),
       `tour includes source-free primary flow with handles: ${JSON.stringify(tour.primaryFlow)}`,
@@ -415,19 +317,19 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     assert.ok(
       tour.primaryFlow.every(
         (flow) =>
-          !flow.reached.some((node) => node.name === "log") &&
-          !flow.steps.some((step) => /-> log\b/.test(step)),
+          !flow.reached.some((node) => node.name === "mcpLog") &&
+          !flow.steps.some((step) => /-> mcpLog\b/.test(step)),
       ),
-      `tour prunes the shared fan-in hub 'log' from the flow: ${JSON.stringify(tour.primaryFlow)}`,
+      `tour prunes the shared fan-in hub 'mcpLog' from the flow: ${JSON.stringify(tour.primaryFlow)}`,
     );
     assert.ok(
-      tour.tests.some((anchor) => anchor.file.endsWith("app.spec.ts")),
+      tour.tests.some((anchor) => anchor.file.endsWith("mcp-app.spec.ts")),
       `tour includes test anchors: ${JSON.stringify(tour.tests)}`,
     );
     assert.ok(
       tour.answerAnchors.some(
         (anchor) =>
-          anchor.file.endsWith("app.ts") &&
+          anchor.file.endsWith("mcp-app.ts") &&
           typeof anchor.startLine === "number" &&
           anchor.source === undefined,
       ),
@@ -466,27 +368,27 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     assert.ok(
       overview.publicApi?.some(
         (api) =>
-          api.name === "Service" && api.id.length > 0 && api.line !== undefined,
+          api.name === "McpService" && api.id.length > 0 && api.line !== undefined,
       ),
       `overview returns public API handles: ${JSON.stringify(overview.publicApi)}`,
     );
 
-    // lookup: finds Service by name and ranks explicit method queries.
+    // lookup: finds McpService by name and ranks explicit method queries.
     const lookupRaw = (await client.request("tools/call", {
       name: GRAPH_TOOL_NAME,
       arguments: graphArguments({
-        thinking: "Look up Service by exact symbol name.",
+        thinking: "Look up McpService by exact symbol name.",
         request: {
           type: "lookup",
-          query: "Service",
+          query: "McpService",
         },
       }),
     })) as ToolResult;
     const lookup = callGraphJson<{
       hits: { id: string; name: string; kind: string }[];
     }>(lookupRaw);
-    const service = lookup.hits.find((hit) => hit.name === "Service");
-    assert.ok(service, `lookup finds Service: ${JSON.stringify(lookup.hits)}`);
+    const service = lookup.hits.find((hit) => hit.name === "McpService");
+    assert.ok(service, `lookup finds McpService: ${JSON.stringify(lookup.hits)}`);
     assert.equal(
       callGraphNext(lookupRaw).action,
       "answer",
@@ -502,7 +404,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
             "Look up the explicit run method before dependency tracing.",
           request: {
             type: "lookup",
-            query: "How does the `run` method reach helper?",
+            query: "How does the `run` method reach mcpHelper?",
             limit: 3,
           },
         }),
@@ -510,7 +412,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     );
     assert.equal(
       methodQuery.hits[0]?.name,
-      "Service.run",
+      "McpService.run",
       `lookup ranks the explicit method target first: ${JSON.stringify(methodQuery.hits)}`,
     );
     assert.equal(
@@ -525,10 +427,10 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       (await client.request("tools/call", {
         name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
-          thinking: "Look up ExternalThing without crossing into dependencies.",
+          thinking: "Look up McpExternalThing without crossing into dependencies.",
           request: {
             type: "lookup",
-            query: "ExternalThing",
+            query: "McpExternalThing",
           },
         }),
       })) as ToolResult,
@@ -545,10 +447,10 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
           thinking:
-            "Look up ExternalThing as an explicit dependency-boundary type.",
+            "Look up McpExternalThing as an explicit dependency-boundary type.",
           request: {
             type: "lookup",
-            query: "ExternalThing",
+            query: "McpExternalThing",
             includeExternal: true,
           },
         }),
@@ -557,12 +459,12 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     assert.ok(
       externalLookup.hits.some(
         (hit) =>
-          hit.name === "ExternalThing" && hit.file.includes("node_modules"),
+          hit.name === "McpExternalThing" && hit.file.includes("node_modules"),
       ),
       `lookup includes external declarations when requested: ${JSON.stringify(externalLookup.hits)}`,
     );
 
-    // trace: forward from Service.run reaches the helper it calls.
+    // trace: forward from McpService.run reaches the mcpHelper it calls.
     const trace = callGraphJson<{
       reached: { name: string; sourceSpan?: { file: string } }[];
       hops: {
@@ -574,7 +476,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
           thinking:
-            "Trace execution dependencies from run to confirm the helper call.",
+            "Trace execution dependencies from run to confirm the mcpHelper call.",
           request: {
             type: "trace",
             from: entrypointRun.id,
@@ -585,24 +487,24 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       })) as ToolResult,
     );
     assert.ok(
-      trace.reached.some((node) => node.name === "helper"),
-      `trace forward reaches helper: ${JSON.stringify(trace.reached)}`,
+      trace.reached.some((node) => node.name === "mcpHelper"),
+      `trace forward reaches mcpHelper: ${JSON.stringify(trace.reached)}`,
     );
     assert.ok(
-      trace.reached.some((node) => node.sourceSpan?.file.endsWith("app.ts")),
+      trace.reached.some((node) => node.sourceSpan?.file.endsWith("mcp-app.ts")),
       `trace nodes carry source ranges: ${JSON.stringify(trace.reached)}`,
     );
     assert.ok(
       trace.hops.some(
         (hop) =>
-          hop.evidence?.file?.endsWith("app.ts") &&
+          hop.evidence?.file?.endsWith("mcp-app.ts") &&
           typeof hop.evidence.startLine === "number" &&
           hop.evidence.text === undefined,
       ),
       `trace forward carries span-only hop evidence: ${JSON.stringify(trace.hops)}`,
     );
     assert.ok(
-      trace.steps?.some((step) => step.includes("Service.run")),
+      trace.steps?.some((step) => step.includes("McpService.run")),
       `trace returns compact step text: ${JSON.stringify(trace.steps)}`,
     );
 
@@ -619,10 +521,10 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
           thinking:
-            "Trace callers that would be affected by changing Service.run.",
+            "Trace callers that would be affected by changing McpService.run.",
           request: {
             type: "trace",
-            from: "Service.run",
+            from: "McpService.run",
             direction: "impact",
             focus: "execution",
           },
@@ -633,7 +535,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       impact.reached.some(
         (node) =>
           node.roles?.includes("test") &&
-          node.file.endsWith("app.spec.ts") &&
+          node.file.endsWith("mcp-app.spec.ts") &&
           typeof node.sourceSpan?.startLine === "number",
       ),
       `impact trace returns test range anchors: ${JSON.stringify(impact.reached)}`,
@@ -647,18 +549,18 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       (await client.request("tools/call", {
         name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
-          thinking: "Ask for the direct path from Service.run to helper.",
+          thinking: "Ask for the direct path from McpService.run to mcpHelper.",
           request: {
             type: "trace",
-            from: "Service.run",
-            to: "helper",
+            from: "McpService.run",
+            to: "mcpHelper",
           },
         }),
       })) as ToolResult,
     );
     assert.ok(
-      pathTrace.path?.some((node) => node.name === "helper"),
-      `trace path reaches helper from dotted handle: ${JSON.stringify(pathTrace.path)}`,
+      pathTrace.path?.some((node) => node.name === "mcpHelper"),
+      `trace path reaches mcpHelper from dotted handle: ${JSON.stringify(pathTrace.path)}`,
     );
     assert.ok(
       pathTrace.path?.some((node) =>
@@ -667,7 +569,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       `trace path carries signatures: ${JSON.stringify(pathTrace.path)}`,
     );
     assert.ok(
-      pathTrace.steps?.some((step) => step.includes("helper")),
+      pathTrace.steps?.some((step) => step.includes("mcpHelper")),
       `trace path returns step text: ${JSON.stringify(pathTrace.steps)}`,
     );
 
@@ -690,10 +592,10 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       (await client.request("tools/call", {
         name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
-          thinking: "Inspect Service.run shape without reading source.",
+          thinking: "Inspect McpService.run shape without reading source.",
           request: {
             type: "details",
-            handles: ["Service.run"],
+            handles: ["McpService.run"],
           },
         }),
       })) as ToolResult,
@@ -701,12 +603,12 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     assert.ok(
       details.nodes.some(
         (node) =>
-          node.name === "Service.run" &&
+          node.name === "McpService.run" &&
           node.calls?.some(
             (call) =>
-              call.name === "helper" &&
+              call.name === "mcpHelper" &&
               call.relation === "calls" &&
-              call.evidence?.file?.endsWith("app.ts"),
+              call.evidence?.file?.endsWith("mcp-app.ts"),
           ) &&
           Object.hasOwn(node, "source") === false,
       ),
@@ -715,7 +617,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     assert.ok(
       details.nodes.some(
         (node) =>
-          node.sourceSpan?.file.endsWith("app.ts") &&
+          node.sourceSpan?.file.endsWith("mcp-app.ts") &&
           typeof node.sourceSpan.startLine === "number",
       ),
       `details returns source line anchors: ${JSON.stringify(details.nodes)}`,
@@ -724,7 +626,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       details.nodes.some((node) =>
         node.decorators?.some(
           (decorator) =>
-            decorator.name === "Route" &&
+            decorator.name === "McpRoute" &&
             decorator.arguments.some((arg) => arg.literal === "/run"),
         ),
       ),
@@ -740,10 +642,10 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       (await client.request("tools/call", {
         name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
-          thinking: "Inspect adapter object outline without reading source.",
+          thinking: "Inspect mcpAdapter object outline without reading source.",
           request: {
             type: "details",
-            handles: ["adapter"],
+            handles: ["mcpAdapter"],
           },
         }),
       })) as ToolResult,
@@ -751,7 +653,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     assert.ok(
       objectDetails.nodes.some(
         (node) =>
-          node.name === "adapter" &&
+          node.name === "mcpAdapter" &&
           node.members?.some(
             (member) =>
               member.name === "run" &&
@@ -772,10 +674,10 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       (await client.request("tools/call", {
         name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
-          thinking: "Inspect Service.run shape without reading source.",
+          thinking: "Inspect McpService.run shape without reading source.",
           request: {
             type: "details",
-            handles: ["Service.run"],
+            handles: ["McpService.run"],
           },
         }),
       })) as ToolResult,
@@ -783,10 +685,10 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     assert.ok(
       detailsShape.nodes.some(
         (node) =>
-          node.name === "Service.run" &&
+          node.name === "McpService.run" &&
           node.calls?.some(
             (call) =>
-              call.name === "helper" &&
+              call.name === "mcpHelper" &&
               typeof call.evidence?.startLine === "number",
           ) &&
           Object.hasOwn(node, "source") === false,
@@ -810,10 +712,10 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
       (await client.request("tools/call", {
         name: GRAPH_TOOL_NAME,
         arguments: graphArguments({
-          thinking: "Map immediate Service.run dependencies as graph ranges.",
+          thinking: "Map immediate McpService.run dependencies as graph ranges.",
           request: {
             type: "details",
-            handles: ["Service.run"],
+            handles: ["McpService.run"],
             neighbors: true,
             neighborLimit: 1,
           },
@@ -825,8 +727,8 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
         (node) =>
           node.dependsOn?.some(
             (ref) =>
-              ref.name === "helper" &&
-              ref.evidence?.file?.endsWith("app.ts") &&
+              ref.name === "mcpHelper" &&
+              ref.evidence?.file?.endsWith("mcp-app.ts") &&
               typeof ref.evidence.startLine === "number" &&
               ref.evidence.text === undefined,
           ) &&
@@ -849,7 +751,7 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
             "Inspect an interface member and get its concrete implementation candidates.",
           request: {
             type: "details",
-            handles: ["Runner.run"],
+            handles: ["McpRunner.run"],
           },
         }),
       })) as ToolResult,
@@ -857,15 +759,15 @@ export const test_ttscgraph_serves_graph_tools_over_mcp = async () => {
     assert.ok(
       interfaceDetails.nodes.some(
         (node) =>
-          node.name === "Runner.run" &&
+          node.name === "McpRunner.run" &&
           node.implementedBy?.some(
             (ref) =>
-              ref.name === "Service.run" &&
+              ref.name === "McpService.run" &&
               ref.relation === "implements" &&
-              ref.file.endsWith("app.ts"),
+              ref.file.endsWith("mcp-app.ts"),
           ),
       ),
       `details returns implementation candidates: ${JSON.stringify(interfaceDetails.nodes)}`,
     );
-  });
+  }, ["src/mcp-app.ts", "src/mcp-app.spec.ts"]);
 };

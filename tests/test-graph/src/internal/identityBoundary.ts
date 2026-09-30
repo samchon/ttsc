@@ -4,15 +4,30 @@ import path from "node:path";
 
 import { TtsgraphClient, assert } from "./ttsgraph";
 
-let preparation: Promise<{ client: TtsgraphClient; root: string }> | undefined;
+let preparation: Promise<{ client: TtsgraphClient; root: string; initialization: unknown }> | undefined;
 
-/** Borrow the compiler identity project shared by twenty named cases. */
+/** Borrow the compiler identity project shared by twenty-one named cases. */
 export async function withIdentityBoundary(
-  body: (client: TtsgraphClient, root: string) => Promise<void>,
+  body: (client: TtsgraphClient, root: string, initialization: unknown) => Promise<void>,
+  include?: string[],
 ): Promise<void> {
   preparation ??= prepare();
-  const { client, root } = await preparation;
-  await body(client, root);
+  const { client, root, initialization } = await preparation;
+  if (include === undefined) {
+    await body(client, root, initialization);
+    return;
+  }
+  // Global ranking oracles need their original complete compiler universe,
+  // while the native process itself can safely reload this config generation.
+  const configFile = path.join(root, "tsconfig.json");
+  const original = fs.readFileSync(configFile);
+  const config = JSON.parse(original.toString("utf8")) as { include: string[] };
+  fs.writeFileSync(configFile, JSON.stringify({ ...config, include }));
+  try {
+    await body(client, root, initialization);
+  } finally {
+    fs.writeFileSync(configFile, original);
+  }
 }
 
 /** The suite releases its borrowed MCP process after every selected case runs. */
@@ -26,7 +41,7 @@ export async function closeIdentityBoundary(): Promise<void> {
   assert.equal(code, 0, client.stderrText());
 }
 
-async function prepare(): Promise<{ client: TtsgraphClient; root: string }> {
+async function prepare(): Promise<{ client: TtsgraphClient; root: string; initialization: unknown }> {
   const members = Array.from(
       { length: 20 },
       (_, i) => `  m${String(i)}(): void {}`,
@@ -107,6 +122,7 @@ async function prepare(): Promise<{ client: TtsgraphClient; root: string }> {
       compilerOptions: {
         target: "ES2022",
         module: "commonjs",
+        experimentalDecorators: true,
         strict: true,
         rootDir: "src",
         outDir: "dist",
@@ -670,6 +686,63 @@ async function prepare(): Promise<{ client: TtsgraphClient; root: string }> {
       "export namespace Second { export function duplicate(): void {} }",
       "",
     ].join("\n"),
+    "node_modules/external-lib/index.d.ts": [
+      "export interface McpExternalThing {",
+      "  id: string;",
+      "}",
+      "",
+    ].join("\n"),
+    "src/mcp-app.ts": [
+      "import type { McpExternalThing } from 'external-lib';",
+      "",
+      "function McpRoute(path: string): MethodDecorator {",
+      "  return () => undefined;",
+      "}",
+      "export type McpExternalAlias = McpExternalThing;",
+      "export function mcpLog(): void {}",
+      "export function mcpHelper(): void {}",
+      "export interface McpRunner {",
+      "  run(): void;",
+      "}",
+      "export class McpService implements McpRunner {",
+      "  @McpRoute('/run')",
+      "  run(): void {",
+      "    mcpHelper();",
+      "    mcpOther();",
+      "    mcpThird();",
+      "    mcpFourth();",
+      "    mcpFifth();",
+      "    mcpLog();",
+      "  }",
+      "}",
+      "export function mcpOther(): void {}",
+      "export function mcpThird(): void {}",
+      "export function mcpFourth(): void {}",
+      "export function mcpFifth(): void {}",
+      // Twelve extra call sites make `mcpLog` a shared fan-in hub (in-degree >= 12)
+      // that drives nothing onward (out-degree 0). McpService.run calls both `mcpLog`
+      // and `mcpHelper` directly, so the tour must prune the hub `mcpLog` from the flow
+      // while keeping `mcpHelper`, a genuine step at the same depth.
+      ...Array.from(
+        { length: 12 },
+        (_unused, i) => `export function mcpCaller${i}(): void { mcpLog(); }`,
+      ),
+      "export const mcpAdapter = {",
+      "  run: () => mcpHelper(),",
+      "  reset() {",
+      "    mcpOther();",
+      "  },",
+      "};",
+      "",
+    ].join("\n"),
+    "src/mcp-app.spec.ts": [
+      "import { McpService } from './mcp-app';",
+      "",
+      "export function mcpCoversRun(): void {",
+      "  new McpService().run();",
+      "}",
+      "",
+    ].join("\n"),
     "src/object-outline.ts": before,
     "src/identity0.ts": [
         "export enum Colors {",
@@ -763,13 +836,13 @@ async function prepare(): Promise<{ client: TtsgraphClient; root: string }> {
     }
   const client = TtsgraphClient.start(root);
   try {
-    await client.request("initialize", {
+    const initialization = await client.request("initialize", {
       protocolVersion: "2025-06-18",
       capabilities: {},
       clientInfo: { name: "test-graph", version: "0.0.0" },
     });
     client.notify("notifications/initialized", {});
-    return { client, root };
+    return { client, root, initialization };
   } catch (error) {
     client.endStdin();
     await client.waitForExit();
