@@ -14,7 +14,7 @@ async function main() {
   );
   if (nodeTests.length === 0) throw new Error("no unit tests discovered");
   const steps = [
-    { name: "Node units", args: ["--test", ...nodeTests] },
+    { name: "Node units", args: ["--test", "--experimental-test-isolation=none", ...nodeTests] },
     {
       name: "unplugin function units",
       args: [
