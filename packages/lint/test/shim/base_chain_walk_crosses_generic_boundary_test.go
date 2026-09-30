@@ -33,6 +33,11 @@ import (
 //     getDeclaredTypeOfSymbol).
 //  3. Assert the naive walk dead-ends BEFORE `Base` (the gap is real) while the
 //     bridged walk reaches `Base` and does not over-reach to an unrelated class.
+//
+// @evidence contracts/testing.md#behavioral-verification The real standalone checker and exposed base/type-name/declared-type operations reach Base from Sub through Mid<string> only with the declared-type bridge; the naive boundary-limited traversal reaches Mid but not Base, and the bridged traversal excludes Unrelated.
+// @evidence contracts/testing.md#independent-expectations The authored inheritance graph Sub->Mid<T>->Base and disconnected Unrelated define expected membership independently of traversal results. The naive stop at the generic reference pins the premise for the bridge regression without using the successful traversal as its oracle.
+// @evidence contracts/testing.md#distinguishing-cases Direct generic Mid, transitive Base and disconnected Unrelated distinguish underreach and overreach; explicit real checker and declared Sub acquisition prevent empty traversal from passing. The test owns ancestry traversal, not an assertion about private-field emission.
+// @evidence contracts/testing.md#execution-ownership loadProgram creates one real fixture/checker and collectAncestorNames composes the exported shim operations in-process in both modes. Authored temporary source/config are compiler inputs, not repository-layout or symbol-nameability checks; no native host or consumer install runs.
 func TestBaseChainWalkCrossesGenericBoundary(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

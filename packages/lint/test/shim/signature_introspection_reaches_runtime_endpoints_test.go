@@ -25,6 +25,11 @@ type signatureObservation struct {
 //  1. Build a real program with five constructor shapes and one static call.
 //  2. Obtain every signature only through the exported shim producer.
 //  3. Assert required/declared arity, parameter/rest types, and return types.
+//
+// @evidence contracts/testing.md#behavioral-verification Real checker-produced constructor signatures preserve required/declared parameter counts, rest presence, first/rest element types and return types for five classes; a static create method separately exposes its symbol argument and Factory return through a call signature.
+// @evidence contracts/testing.md#independent-expectations Literal constructor and static method declarations determine every authored signatureObservation, including optional number|undefined and rest boolean/number element types. The observation helper only reads actual endpoints and never generates expected values.
+// @evidence contracts/testing.md#distinguishing-cases Zero, optional, required, rest-only and leading-plus-rest constructors distinguish arity and rest behavior; the Factory static call distinguishes call from construct signature production. Each requires exactly one signature and compares the entire observation.
+// @evidence contracts/testing.md#execution-ownership One real temporary project/checker exercises exposed signature producers, parameter accessors and return/rest queries directly in the Go process. The unit tests runtime endpoints rather than export-name or package-file existence and starts no native host or consumer installation.
 func TestSignatureIntrospectionReachesRuntimeEndpoints(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

@@ -16,6 +16,11 @@ import (
 //  1. Compile a generic class whose member references the class as `Pair<B, A>`.
 //  2. Build a mapper from both declaration parameters to both reference arguments.
 //  3. Assert `[A, B]` becomes `[B, A]` without either target being remapped.
+//
+// @evidence contracts/testing.md#behavioral-verification A real generic Pair<A,B> reference Pair<B,A> preserves parameter identities, produces an array mapper, and instantiates its constructor tuple as literal [B,A] without capturing a previously substituted argument; malformed mapper inputs return nil.
+// @evidence contracts/testing.md#independent-expectations The authored swapped reference demands parallel A->B and B->A substitution, so the literal tuple [B, A] distinguishes both capture and no substitution. Parameter identity and mapper-kind expectations follow the declared shape rather than the returned instantiated type.
+// @evidence contracts/testing.md#distinguishing-cases A two-parameter swap contrasts with empty, unequal-length, nil-source and nil-target inputs. Acquiring the actual reference arguments and constructor parameter ensures the final result exercises the real producer-to-instantiation chain.
+// @evidence contracts/testing.md#execution-ownership The temporary Program/checker and exported mapper/instantiation shim operations run in-process with source-authored generic parameters. Existing helper extraction of declaration parameters supplies inputs; no committed API presence, native build, installation or subprocess substitutes for runtime behavior.
 func TestTypeMapperParallelSubstitutionAvoidsCapture(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

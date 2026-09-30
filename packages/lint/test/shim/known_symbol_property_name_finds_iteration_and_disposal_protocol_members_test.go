@@ -30,6 +30,11 @@ import (
 //  2. Resolve all three protocol property names through the exposed shim op.
 //  3. Assert each name finds the implementing interface's member and does
 //     NOT find one on the sibling interface without that protocol.
+//
+// @evidence contracts/testing.md#behavioral-verification The real checker resolves known asyncIterator, iterator and asyncDispose names into properties of their implementing interfaces, while the opposite sync/async sibling lacks each requested protocol member.
+// @evidence contracts/testing.md#independent-expectations Literal computed members in AsyncFeed, SyncFeed, AsyncResource and SyncResource define protocol presence and absence. Expected member lookup is independent of returned late-bound name spelling, allowing that internal spelling to change while rejecting a name that resolves nowhere or overmatches.
+// @evidence contracts/testing.md#distinguishing-cases Built-in lib iteration symbols contrast with the fixture's global disposal augmentation; each positive implementing interface has a negative sibling, and empty/raw known-symbol names fail before property lookup.
+// @evidence contracts/testing.md#execution-ownership One real loadProgram/checker resolves authored TypeScript declarations through exposed shim endpoints and GetPropertyOfType in the shared Go process. The unit tests runtime composition without native builds, consumer installs or committed source/export existence checks.
 func TestKnownSymbolPropertyNameFindsIterationAndDisposalProtocolMembers(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

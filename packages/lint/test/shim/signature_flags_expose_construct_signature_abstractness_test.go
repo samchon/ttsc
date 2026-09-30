@@ -32,6 +32,11 @@ import (
 //     Construct bit everywhere, the nil declaration on both default-signature
 //     boundaries, and the declaring class's modifier on every class-declared
 //     shape — diverging from the flag on both inherited ones.
+//
+// @evidence contracts/testing.md#behavioral-verification Nine real construct-signature shapes expose Construct and the source-prescribed Abstract flag through the public typed SignatureFlags surface; default signatures have no declaration, and inherited signatures retain the declaring base's modifier independently of derived abstractness.
+// @evidence contracts/testing.md#independent-expectations The literal abstract/concrete class declarations and constructor type aliases determine abstractness. Expected nil declarations and inherited base modifiers are authored separately, so declaration modifiers cannot masquerade as the derived signature flag.
+// @evidence contracts/testing.md#distinguishing-cases Declared, default and inherited classes cover both abstract polarities; inheriting abstract from concrete and concrete from abstract specifically distinguish flag semantics from constructor-declaration lookup, while both constructor aliases exercise the nonclass path.
+// @evidence contracts/testing.md#execution-ownership A real fixture Program/checker produces signatures through exported shim operations and runtime flags/declaration access in the Go process. Typing flags also checks the usable API, but observed runtime bits supply the oracle; no committed exports, native host or installation is inspected.
 func TestSignatureFlagsExposeConstructSignatureAbstractness(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

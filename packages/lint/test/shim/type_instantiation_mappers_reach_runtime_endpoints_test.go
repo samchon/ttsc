@@ -32,6 +32,11 @@ import (
 //  3. Build a simple mapper and assert `T[]` becomes `string[]`.
 //  4. Compose two mappers and assert `[A, B]` becomes `[number, boolean]`.
 //  5. Assert the wrappers' nil-input boundaries preserve upstream behavior.
+//
+// @evidence contracts/testing.md#behavioral-verification Real generic constructor types instantiate T[] as string[] with a simple mapper and [A,B] as [number,boolean] with composed mappers. Nil mapper preserves the original type; nil source, target, checker/type and unsupported mapper composition boundaries retain their explicit return contracts.
+// @evidence contracts/testing.md#independent-expectations Source-authored Holder references Box<string> and Pair<number,boolean> define the two literal expected type strings. Identity expectations for nil mapper and a missing first mapper are separate wrapper contracts, not a second instantiation used as an oracle.
+// @evidence contracts/testing.md#distinguishing-cases Nested array and tuple substitution distinguish no-op or partial mappers; the simple mapper's kind and composed observable result exercise different producer routes. All original nil-input boundaries remain, including the asymmetry between missing first and second mappers.
+// @evidence contracts/testing.md#execution-ownership A single real fixture Program/checker composes exported type-argument, mapper and instantiation endpoints in the shared Go process. Runtime results are compared with literal expectations without checking committed exports, invoking native plugin hosts or installing consumers.
 func TestTypeInstantiationMappersReachRuntimeEndpoints(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

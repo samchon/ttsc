@@ -12,13 +12,18 @@ import (
 //
 // Linkage alone does not prove that a standalone checker can traverse types
 // after the Program's file-affinity pool has checked the same AST. This probe
-// resolves a generic declaration from another file only through the dedicated
-// lint checker and pins the resulting type, while the Program pool remains at
-// four checkers.
+// resolves a generic declaration from another file through the dedicated lint
+// checker and pins the resulting type after requesting a four-checker Program
+// pool. It does not inspect the pool's retained cardinality.
 //
 //  1. Build a two-file project whose imported value has a generic string field.
 //  2. Run pooled semantic diagnostics, then find the cross-file property read.
 //  3. Resolve it through the standalone lint checker and assert `string`.
+//
+// @evidence contracts/testing.md#behavioral-verification After real pooled semantic diagnostics over a two-file project, the dedicated lint checker resolves imported box.value through Box<string> to literal string without diagnostics or an absent property-access node.
+// @evidence contracts/testing.md#independent-expectations The authored imported Box<string> declaration fixes the property type as string independently of checker output. Zero compiler diagnostics, the actual cross-file access and a nonnil resolved type separately establish the runtime query's prerequisites.
+// @evidence contracts/testing.md#distinguishing-cases The property read lives in a different source file from the generic declaration and occurs after pooled diagnostics with four checkers requested, exposing shared-AST affinity problems. Exact string excludes unknown, any or unsubstituted T; this unit does not measure the retained pool cardinality.
+// @evidence contracts/testing.md#execution-ownership loadProgram, pooled diagnostics and the dedicated checker type query run directly in one Go process on the real temporary two-file fixture. Source/config files are functional compiler inputs without native builds, consumer installation or repository presence assertions.
 func TestStandaloneCheckerResolvesCrossFileTypeAfterPooledDiagnostics(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
