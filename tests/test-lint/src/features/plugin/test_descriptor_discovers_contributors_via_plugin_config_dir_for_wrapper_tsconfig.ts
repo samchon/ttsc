@@ -27,9 +27,17 @@ import { createLintProject } from "../../internal/config-file";
  * 3. Call the factory with `tsconfig` pointing at the wrapper and
  *    `pluginConfigDir` at the project; assert the demo contributor is forwarded
  *    (the decoy must never win).
+ *
+ * @evidence contracts/testing.md#behavioral-verification The emitted descriptor resolves the linked demo package from the explicit pluginConfigDir while its tsconfig names a separate wrapper with a decoy lint config; the returned contributors must include demo.
+ * @evidence contracts/testing.md#independent-expectations The project config independently declares demo and the wrapper decoy declares none, so presence of demo distinguishes the required project-origin discovery from accidental wrapper-origin discovery.
+ * @evidence contracts/testing.md#distinguishing-cases The real and wrapper roots differ and both contain eligible configs; this competing-origin case cannot pass merely because the wrapper has no config.
+ * @evidence contracts/testing.md#execution-ownership The named entry invokes the built factory with the actual linked package and wrapper/project context; native wrapper rule execution has a separate E2E owner.
+ * @evidence contracts/e2e.md#necessary-boundary The emitted descriptor must discover and require the linked contributor package from the embedder's explicit project anchor; authored path calculation alone cannot establish this package-resolution connection.
+ * @evidence contracts/e2e.md#shared-execution One descriptor resolution uses the same built factory and demo artifact as other descriptor cases; no Go compilation or native process lifetime occurs here.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A fresh project and separately owned wrapper carry competing immutable configs, and both are removed in finally. No result from a different project or wrapper is reused.
+ * @evidence contracts/e2e.md#preserved-coverage The original separate wrapper tsconfig, active decoy config, explicit pluginConfigDir and discovered demo assertions remain executable.
  */
-export const test_descriptor_discovers_contributors_via_plugin_config_dir_for_wrapper_tsconfig =
-  () => {
+export function test_descriptor_discovers_contributors_via_plugin_config_dir_for_wrapper_tsconfig() {
     const project = createLintProject({
       name: "wrapper-anchor",
       source: "export const value = 1;\n",
@@ -75,4 +83,4 @@ export const test_descriptor_discovers_contributors_via_plugin_config_dir_for_wr
       fs.rmSync(wrapper, { recursive: true, force: true });
       project.cleanup();
     }
-  };
+  }

@@ -19,10 +19,18 @@ import { createLintProject } from "../../internal/config-file";
  * 4. Select contributor A through an installed-package string specifier and
  *    preserve the executable-config contract that strings load plugin modules.
  * 5. Change only that package module and require contributor B, proving package
- *    files invalidate cache without becoming project watch inputs.
+ *    changes invalidate contributor selection. This case does not inspect watch inputs.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Repeated emitted-factory calls observe alpha then beta after editing only the sibling CJS helper, then demo source alpha followed by beta after editing only its required package module.
+ * @evidence contracts/testing.md#independent-expectations Independently authored selection files name literal namespaces and explicit source paths; all four exact contributor arrays must match those successive inputs.
+ * @evidence contracts/testing.md#distinguishing-cases Helper-only and installed-package-only edits leave the parent config path unchanged, distinguishing stale require/cache results from correct dependency invalidation.
+ * @evidence contracts/testing.md#execution-ownership The named entry makes four actual descriptor resolutions in one Node suite lifetime; direct dependency-digest units do not replace actual require-cache invalidation.
+ * @evidence contracts/e2e.md#necessary-boundary Real CJS helper and package require caching must not hide changed registration; synthetic dependency records cannot prove the module evaluator reads the updated export.
+ * @evidence contracts/e2e.md#shared-execution One project and two contributor source directories serve all four resolutions. Each changed helper/package input requires reevaluation, but no source is compiled and no native host is launched.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The same config path is intentionally retained during each dependency-only mutation so a stale module result is observable; the owned project is removed in finally. This transition must not reuse a cached completed descriptor.
+ * @evidence contracts/e2e.md#preserved-coverage Original four exact contributor arrays, sibling helper outside configs, logging config and string package-specifier reload remain executable; this case asserts selection freshness, not absence from a watch-input list.
  */
-export const test_descriptor_reloads_changed_cjs_contributor_selection =
-  (): void => {
+export function test_descriptor_reloads_changed_cjs_contributor_selection(): void {
     const project = createLintProject({
       name: "contributor-selection-cjs-reload",
       source: "export const value = 1;\n",
@@ -53,7 +61,7 @@ export const test_descriptor_reloads_changed_cjs_contributor_selection =
     } finally {
       project.cleanup();
     }
-  };
+  }
 
 function createContributorSource(root: string, name: string): string {
   const source = path.join(root, "contributors", name);

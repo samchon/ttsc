@@ -12,9 +12,17 @@ import { createLintProject } from "../../internal/config-file";
  *    without mixing stdout into the result payload.
  * 2. Change only that helper and resolve contributor B from the same entry.
  * 3. Repeat the identical transition through a TypeScript config/helper pair.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Repeated emitted-factory resolution changes alpha to beta after only the imported sibling helper changes, for both MJS and TypeScript config/helper pairs.
+ * @evidence contracts/testing.md#independent-expectations The written helper exports independently name alpha or beta with an explicit corresponding source path; each full literal contributor array is checked after its own input state.
+ * @evidence contracts/testing.md#distinguishing-cases Both native ESM and ttsx TypeScript module routes retain their entry path while the transitive helper changes; CJS and string-package transitions have a separate owner.
+ * @evidence contracts/testing.md#execution-ownership The named entry runs both actual module evaluators and their before/after descriptor calls; source dependency selection tests do not claim to execute ESM or TypeScript module caching.
+ * @evidence contracts/e2e.md#necessary-boundary Real ESM and ttsx transitive module evaluation must observe edits despite stable config paths, a connection direct config-result or digest comparisons cannot establish.
+ * @evidence contracts/e2e.md#shared-execution Each format uses one project and the same two source directories for its before/after calls. Distinct format loaders and changed helper inputs require reevaluation; no contributor Go build or native host is performed.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each format has a fresh project, but its config/helper paths remain stable across the intentional helper mutation; cleanup is in finally and successful before-state output is never reused after the edit.
+ * @evidence contracts/e2e.md#preserved-coverage Both original MJS and TypeScript alpha-to-beta transitions, sibling relative imports and four exact contributor arrays remain executable.
  */
-export const test_descriptor_reloads_changed_esm_and_typescript_contributor_selection =
-  (): void => {
+export function test_descriptor_reloads_changed_esm_and_typescript_contributor_selection(): void {
     for (const extension of ["mjs", "ts"] as const) {
       const project = createLintProject({
         name: `contributor-selection-${extension}-reload`,
@@ -40,7 +48,7 @@ export const test_descriptor_reloads_changed_esm_and_typescript_contributor_sele
         project.cleanup();
       }
     }
-  };
+  }
 
 function createContributorSource(root: string, name: string): string {
   const source = path.join(root, "contributors", name);

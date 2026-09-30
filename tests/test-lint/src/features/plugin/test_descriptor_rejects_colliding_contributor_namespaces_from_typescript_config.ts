@@ -19,9 +19,17 @@ import { createLintProject } from "../../internal/config-file";
  * 2. Write a `.ts` config whose namespaces both normalize to `react_hooks`.
  * 3. Run the built `ttsx` launcher through the factory and assert the path, both
  *    names, and Go name.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real ttsx evaluation supplies react-hooks and react_hooks contributor objects to the emitted descriptor, which must throw an error naming the TS config, both namespaces and their common Go name.
+ * @evidence contracts/testing.md#independent-expectations Go contributor names replace hyphens with underscores, so these independently authored distinct namespaces collide at react_hooks; literal error fragments verify the preserved input vocabulary.
+ * @evidence contracts/testing.md#distinguishing-cases This TS evaluator connection complements the CJS connection; direct normalizeContributors units own ordering, three-way collisions, duplicate source handling and independent names.
+ * @evidence contracts/testing.md#execution-ownership The named entry loads the emitted factory and real ttsx launcher; the source normalization unit does not claim to execute this evaluator connection.
+ * @evidence contracts/e2e.md#necessary-boundary The typed-config evaluator must serialize both distinct contributor registrations before common normalization; a CJS-only or direct normalization test cannot detect loss in that subprocess connection.
+ * @evidence contracts/e2e.md#shared-execution One typed config and one evaluator invocation preserve this connection. The case reuses emitted compiler/launcher artifacts and creates only source directories, never compiling their Go code.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A fresh project owns both immutable contributor directories; the launcher override is restored and the project removed in finally. No previous successful descriptor masks the collision.
+ * @evidence contracts/e2e.md#preserved-coverage The original TS filename, ordered two namespace names and normalized Go-name error assertions remain; source units preserve additional normalization decisions without repeating this evaluator preparation.
  */
-export const test_descriptor_rejects_colliding_contributor_namespaces_from_typescript_config =
-  () => {
+export function test_descriptor_rejects_colliding_contributor_namespaces_from_typescript_config() {
     const project = createLintProject({
       name: "contributor-namespace-typescript",
       source: "export const value = 1;\n",
@@ -71,7 +79,7 @@ export const test_descriptor_rejects_colliding_contributor_namespaces_from_types
       }
       project.cleanup();
     }
-  };
+  }
 
 function createContributorSource(root: string, name: string): string {
   const directory = path.join(root, "contributors", name);
