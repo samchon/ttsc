@@ -16,6 +16,11 @@ import (
  * 2. Enable the corresponding single-pattern rules.
  * 3. Assert each rule reports once at the expected source line.
  */
+//
+// @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify seven exact findings cover DOM import, configured test-id pattern, render-result name, cleanup, test-id query, global-regexp query and direct userEvent; exact normalized findings reject extra or missing results.
+// @evidence contracts/testing.md#independent-expectations The explicit ^[a-z-]+$ option rejects Bad Value, while the named import/query/cleanup policies independently determine the other marked lines.
+// @evidence contracts/testing.md#distinguishing-cases This shared source exercises distinct rules including one option-dependent rule; prefer-user-event-setup and no-container tests own their accepted origin distinctions.
+// @evidence contracts/testing.md#execution-ownership TestMiscTestingLibraryRules owns these variants as a named Go unit entry; actual parsing/engine or registry operations execute in the shared Go process, without a DOM runtime, installed consumer or product child host.
 func TestMiscTestingLibraryRules(t *testing.T) {
   source := `
 import { cleanup, render, screen } from "@testing-library/react";

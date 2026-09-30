@@ -10,6 +10,11 @@ func assertJSDocRuleLines(t *testing.T, ruleName, source string, lines ...int) {
   t.Helper()
   file := parseTSFile(t, "/virtual/jsdoc.ts", source)
   findings := NewEngine(RuleConfig{ruleName: SeverityError}).Run([]*shimast.SourceFile{file}, nil)
+  for _, finding := range findings {
+    if finding.engineFailure {
+      t.Fatalf("%s: expected ordinary rule findings, got engine failure: %+v", ruleName, finding)
+    }
+  }
   actual := normalizeRuleFindings(file, findings)
   if len(actual) != len(lines) {
     t.Fatalf("%s: want lines %v, got %+v", ruleName, lines, actual)

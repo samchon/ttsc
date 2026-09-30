@@ -13,6 +13,11 @@ import "testing"
  * 2. Pass an awaited `findBy*` query into `fireEvent.click`.
  * 3. Assert `no-promise-in-fire-event` reports the `fireEvent` call.
  */
+//
+// @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify fireEvent with an awaited findBy target is reported; exact normalized findings reject extra or missing results.
+// @evidence contracts/testing.md#independent-expectations The supported rule disallows async-query expressions nested in event-helper arguments.
+// @evidence contracts/testing.md#distinguishing-cases A synchronous getBy target removes the nested async-query shape. The original violations remain intact and the authored adjacent source is asserted clean.
+// @evidence contracts/testing.md#execution-ownership TestNoPromiseInFireEvent owns these variants as a named Go unit entry; actual parsing/engine or registry operations execute in the shared Go process, without a DOM runtime, installed consumer or product child host.
 func TestNoPromiseInFireEvent(t *testing.T) {
   source := `
 import { fireEvent, screen } from "@testing-library/react";
@@ -26,4 +31,7 @@ async function testCase() {
   }, []ruleExpectation{
     {Rule: "testing-library/no-promise-in-fire-event", Severity: SeverityError, Line: 5},
   })
+  assertTestingLibraryFindings(t, "import { fireEvent, screen } from \"@testing-library/react\"; function testCase() { fireEvent.click(screen.getByRole(\"button\")); }\n", RuleConfig{
+    "testing-library/no-promise-in-fire-event": SeverityError,
+  }, nil)
 }

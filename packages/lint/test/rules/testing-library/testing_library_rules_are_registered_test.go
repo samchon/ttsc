@@ -13,6 +13,11 @@ import "testing"
  * 2. Look up each `testing-library/*` id in the native registry.
  * 3. Assert every rule is present.
  */
+//
+// @evidence contracts/testing.md#behavioral-verification LookupRule must resolve each of the 29 supported testing-library identifiers, detecting a missing public runtime registration.
+// @evidence contracts/testing.md#independent-expectations These literals name the public supported rule surface; runtime registry lookup checks resolution, not committed file existence.
+// @evidence contracts/testing.md#distinguishing-cases Each configured rule must resolve; actual rule behavior is owned by the individual source cases, so this lookup is not semantic equivalence proof.
+// @evidence contracts/testing.md#execution-ownership TestTestingLibraryRulesAreRegistered owns these variants as a named Go unit entry; actual parsing/engine or registry operations execute in the shared Go process, without a DOM runtime, installed consumer or product child host.
 func TestTestingLibraryRulesAreRegistered(t *testing.T) {
   names := []string{
     "await-async-events",

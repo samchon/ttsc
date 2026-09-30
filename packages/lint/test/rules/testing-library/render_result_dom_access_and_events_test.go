@@ -13,6 +13,11 @@ import "testing"
  * 2. Query through `container`, traverse from a `screen` result, debug output, and use `fireEvent`.
  * 3. Assert each enabled rule reports its matching AST pattern.
  */
+//
+// @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify six exact findings identify render container declaration/access, node traversal, debug and fireEvent usage; exact normalized findings reject extra or missing results.
+// @evidence contracts/testing.md#independent-expectations The imported render result determines container/debug origin; query abstraction and user-event preference establish the other diagnostics.
+// @evidence contracts/testing.md#distinguishing-cases Declaration and access are separate no-container findings; the unrelated-container regression supplies the negative origin case.
+// @evidence contracts/testing.md#execution-ownership TestRenderResultDomAccessAndEvents owns these variants as a named Go unit entry; actual parsing/engine or registry operations execute in the shared Go process, without a DOM runtime, installed consumer or product child host.
 func TestRenderResultDomAccessAndEvents(t *testing.T) {
   source := `
 import { fireEvent, render, screen } from "@testing-library/react";

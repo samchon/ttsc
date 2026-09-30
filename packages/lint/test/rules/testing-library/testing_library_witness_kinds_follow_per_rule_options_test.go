@@ -7,6 +7,11 @@ import (
 
 // TestTestingLibraryWitnessKindsFollowPerRuleOptions prevents a multi-rule
 // resolver from labeling unrelated findings as option-dependent.
+//
+// @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify two actual findings publish their own route as Options for configured test-id and Engine for unconfigured render naming; exact normalized findings reject extra or missing results.
+// @evidence contracts/testing.md#independent-expectations Only consistent-data-testid has an option entry; literal witness-kind expectations follow that per-rule ownership, independent of the recorder.
+// @evidence contracts/testing.md#distinguishing-cases One resolver produces two rules and only one has options; route equality prevents unrelated previously recorded witnesses satisfying this case.
+// @evidence contracts/testing.md#execution-ownership TestTestingLibraryWitnessKindsFollowPerRuleOptions owns these variants as a named Go unit entry; actual parsing/engine or registry operations execute in the shared Go process, without a DOM runtime, installed consumer or product child host.
 func TestTestingLibraryWitnessKindsFollowPerRuleOptions(t *testing.T) {
   source := `
 import { render } from "@testing-library/react";

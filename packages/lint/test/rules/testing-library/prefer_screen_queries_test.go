@@ -13,6 +13,11 @@ import "testing"
  * 2. Call a destructured query and a query method on a render result variable.
  * 3. Assert `prefer-screen-queries` reports both calls.
  */
+//
+// @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify destructured and member queries from render results both report; exact normalized findings reject extra or missing results.
+// @evidence contracts/testing.md#independent-expectations screen owns the shared query API rather than each render result.
+// @evidence contracts/testing.md#distinguishing-cases Both reported binding forms differ from a direct screen query. The original violations remain intact and the authored adjacent source is asserted clean.
+// @evidence contracts/testing.md#execution-ownership TestPreferScreenQueries owns these variants as a named Go unit entry; actual parsing/engine or registry operations execute in the shared Go process, without a DOM runtime, installed consumer or product child host.
 func TestPreferScreenQueries(t *testing.T) {
   source := `
 import { render } from "@testing-library/react";
@@ -30,4 +35,7 @@ function testCase() {
     {Rule: "testing-library/prefer-screen-queries", Severity: SeverityError, Line: 6},
     {Rule: "testing-library/prefer-screen-queries", Severity: SeverityError, Line: 8},
   })
+  assertTestingLibraryFindings(t, "import { screen } from \"@testing-library/react\"; function testCase() { screen.getByText(\"Save\"); screen.getByRole(\"button\"); }\n", RuleConfig{
+    "testing-library/prefer-screen-queries": SeverityError,
+  }, nil)
 }

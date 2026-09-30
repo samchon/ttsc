@@ -35,6 +35,11 @@ func runTestingLibraryResolverWithOptions(
   t.Helper()
   file := parseTSXFile(t, "/virtual/component.test.tsx", source)
   findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+  for _, finding := range findings {
+    if finding.engineFailure {
+      t.Fatalf("Testing Library rule engine failed: %+v; source=%q", finding, source)
+    }
+  }
   recordFindingBehavioralWitnessesByRule(t, findings, func(ruleName string) behavioralWitnessKind {
     return behavioralWitnessKindForOptions(ruleName, options)
   })
