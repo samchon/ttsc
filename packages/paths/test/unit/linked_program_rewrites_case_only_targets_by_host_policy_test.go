@@ -73,6 +73,9 @@ export const value = exact + extensionless + explicit + directory;`,
         t.Fatalf("missing emitted main.js: %v", written)
       }
       for _, entry := range [][2]string{{"@exact", "./exact.js"}, {"@extensionless", "./extensionless.js"}, {"@explicit", "./explicit.js"}, {"@directory", "./directory/index.js"}} {
+        if !sensitive && strings.Contains(output, entry[0]) {
+          t.Errorf("insensitive emit retained alias %s anywhere in output: %s", entry[0], output)
+        }
         changed, unchanged := `require("`+entry[1]+`")`, `require("`+entry[0]+`")`
         if sensitive {
           changed, unchanged = unchanged, changed
