@@ -27,9 +27,17 @@ import {
  *    driver.EmitWithPluginTransformers build.
  * 3. Assert `.js`, `.js.map`, `.d.ts`, and `.d.ts.map` all exist, the JS is
  *    transformed, and the declaration map points back at `src/main.ts`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Exercises a cold driver-backed native host compiling and executing its transformed output; requires a real source-build log; JS, JS map, declaration and declaration map; native output manifest; generated member access; executed value; and declaration/map contents, distinguishing discarded emit diagnostics or incomplete native publication from valid transformed output.
+ * @evidence contracts/testing.md#independent-expectations Compiler declaration semantics and the fixture's literal transform establish required TS4094 failure or generated output; executable and declaration/map expectations are written independently of the launcher result.
+ * @evidence contracts/testing.md#distinguishing-cases This case pins a standalone-factory transform must preserve executable meaning and every declaration/source-map output lane; the strict-host single-file case separately covers private emit provenance consumption.
+ * @evidence contracts/testing.md#execution-ownership The named test_plugin_corpus_driver_emit_transform_preserves_declaration_outputs entry executes in the native corpus E2E batch against the actual source-built Go host, preserving the original fixture/assertion ownership.
+ * @evidence contracts/e2e.md#necessary-boundary The native fixture calls driver.EmitWithPluginTransformers and publishes through a real filesystem writer; only the real source-plugin loader/host connection can reveal failed assembly or discarded native diagnostics.
+ * @evidence contracts/e2e.md#shared-execution This is the one cold-build assembly case for the driver-emit fixture, with an isolated plugin-artifact cache and shared Go-object cache. Other driver consumers reuse the canonical producer; the independent cold lifetime verifies that building the published Go-source integration remains viable.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each consumer has separate mutable compiler configuration and output state, while unchanged source/toolchain identity permits object reuse. Cold binary state stays isolated where asserted; TestProject owns temporary directories until process exit and each synchronous child finishes before output is inspected.
+ * @evidence contracts/e2e.md#preserved-coverage Retains a real source-build log; JS, JS map, declaration and declaration map; native output manifest; generated member access; executed value; and declaration/map contents; the fixture additionally records actual successful final writes through the compiler-owned emit provenance recorder rather than deriving owners from output filenames.
  */
-export const test_plugin_corpus_driver_emit_transform_preserves_declaration_outputs =
-  () => {
+export function test_plugin_corpus_driver_emit_transform_preserves_declaration_outputs() {
     const root = copyProject("go-driver-emit-plugin");
     const cacheDir = TestProject.tmpdir("ttsc-driver-emit-plugin-cache-");
     const result = spawn(ttscBin, ["--cwd", root, "--emit"], {
@@ -97,4 +105,4 @@ export const test_plugin_corpus_driver_emit_transform_preserves_declaration_outp
         dtsMap.sources,
       )}`,
     );
-  };
+}

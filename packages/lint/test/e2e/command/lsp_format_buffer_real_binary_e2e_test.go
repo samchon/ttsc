@@ -38,6 +38,15 @@ import (
 // the file from disk the WorkspaceEdit would echo disk and the assertion would
 // fail. The test also re-reads the file afterward to prove it is byte-for-byte
 // unchanged.
+//
+// @evidence contracts/testing.md#behavioral-verification Exercises the compiled lint plugin command with proxy-shaped argv and dirty buffer stdin; asserts successful exit, empty stderr, exactly one logical-URI edit containing formatted buffer text, literal null for a clean buffer, and unchanged disk text, distinguishing the named lost connection or changed behavior from valid execution.
+// @evidence contracts/testing.md#independent-expectations Literal buffer/disk texts differ deliberately, and the format/semi contract adds the missing semicolon.
+// @evidence contracts/testing.md#distinguishing-cases This case owns dirty stdin cannot be replaced by disk content and an already formatted buffer returns no edit; portable rule decisions remain in the shared Go unit population.
+// @evidence contracts/testing.md#execution-ownership TestLSPFormatBufferRealBinaryE2E is discovered from test/e2e by the flattened lint runner and called once under TestSelectedLintBoundaries; its named subcases retain inputs, assertions and failure identity.
+// @evidence contracts/e2e.md#necessary-boundary The actual connection is the compiled lint plugin command with proxy-shaped argv and dirty buffer stdin; direct native operation calls cannot prove that separate evaluator, formatter, binary-stdin or JavaScript runtime behavior.
+// @evidence contracts/e2e.md#shared-execution One real plugin binary and consumer project serve both named dirty/clean subcases; the second request reuses that binary without another Go build.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns copied build tree, binary and project; each child exits before its result is decoded. Separate stdin bytes select each case and the original disk bytes remain fixed.
+// @evidence contracts/e2e.md#preserved-coverage Keeps successful exit, empty stderr, exactly one logical-URI edit containing formatted buffer text, literal null for a clean buffer, and unchanged disk text and every original input/control branch; preparation sharing changes no expected result or admitted case.
 func TestLSPFormatBufferRealBinaryE2E(t *testing.T) {
   bin := buildLintSidecarBinaryForTest(t)
 

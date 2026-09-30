@@ -2,7 +2,7 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import path from "node:path";
 
-import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
+import { createRequire } from "node:module";
 
 /**
  * Verifies ttsc utility plugins: descriptors own separate native source
@@ -18,15 +18,20 @@ import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
  * 2. Assert the returned descriptor's `name`, `source`, and `stage` fields, and
  *    the host input declaration each one makes.
  * 3. Assert all four `source` directories are distinct.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls all four authored descriptor factories and compares exact descriptor keys, package names, source paths, stages, capabilities and complete host-input hash/physical-identity membership; omitted registration metadata or conflicting native sources fails.
+ * @evidence contracts/testing.md#independent-expectations Literal package protocol registrations establish check versus transform stages, lint verbs and native emit-provenance support; the context supplies an independent module anchor and expected sibling native source, not an implementation-generated snapshot.
+ * @evidence contracts/testing.md#distinguishing-cases Lint owns the check-stage LSP/resident/project-input capabilities, while banner/paths/strip own transform-stage emit provenance; paths declares no external reads while the other factories retain complete declared input keys.
+ * @evidence contracts/testing.md#execution-ownership The named test_ttsc_utility_plugins_descriptors_own_separate_native_source_directories entry executes under unit/utility against authored TypeScript factories. The no-config workspace context performs discovery without a compiler/native build, installed artifact or product host.
  */
-export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_directories =
-  () => {
+export function test_ttsc_utility_plugins_descriptors_own_separate_native_source_directories() {
     const expectations: Record<
       string,
       {
         source: string;
         stage: string;
         capabilities?: {
+          emitProvenance?: boolean;
           diagnosticsTiming?: boolean;
           graphNodes?: boolean;
           lsp?: boolean;
@@ -66,12 +71,14 @@ export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_di
         stage: "check",
       },
       banner: {
+        capabilities: { emitProvenance: true },
         reportsHostInputs: true,
         source: "driver",
         stage: "transform",
       },
-      paths: { readsNoHostInputs: true, source: "driver", stage: "transform" },
+      paths: { capabilities: { emitProvenance: true }, readsNoHostInputs: true, source: "driver", stage: "transform" },
       strip: {
+        capabilities: { emitProvenance: true },
         reportsHostInputs: true,
         source: "driver",
         stage: "transform",
@@ -79,11 +86,17 @@ export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_di
     };
     const seenDirs = new Set();
     for (const [name, expectation] of Object.entries(expectations)) {
-      const mod = TestProject.REQUIRE_FROM_TEST(
-        path.join(TestProject.WORKSPACE_ROOT, "packages", name),
-      );
-      const factory = mod.createTtscPlugin ?? mod.default ?? mod;
-      const descriptor = factory(TestUtilityPlugins.factoryContext(name));
+      const filename = path.join(TestProject.WORKSPACE_ROOT, "packages", name, "src", name === "lint" ? "createTtscPlugin.ts" : "index.ts");
+      const factory = createRequire(import.meta.url)(filename).default;
+      const descriptor = factory({
+        binary: "",
+        cwd: TestProject.WORKSPACE_ROOT,
+        dirname: path.dirname(filename),
+        filename,
+        plugin: { transform: `@ttsc/${name}` },
+        projectRoot: TestProject.WORKSPACE_ROOT,
+        tsconfig: path.join(TestProject.WORKSPACE_ROOT, "tsconfig.json"),
+      });
       assert.equal(descriptor.name, `@ttsc/${name}`);
       assert.equal(descriptor.stage, expectation.stage);
       assert.deepEqual(Object.keys(descriptor).sort(), [
@@ -150,4 +163,4 @@ export const test_ttsc_utility_plugins_descriptors_own_separate_native_source_di
       seenDirs.add(descriptor.source);
     }
     assert.equal(seenDirs.size, 4);
-  };
+}

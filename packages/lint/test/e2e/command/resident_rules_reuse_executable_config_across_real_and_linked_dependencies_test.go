@@ -54,6 +54,15 @@ func (residentConfigProjectInputRule) ProjectInputs(
 //  3. Edit only the imported package and require one fresh evaluation and the
 //     new project-input answer.
 //  4. Ask once more unchanged and require the refreshed resolver to settle.
+//
+// @evidence contracts/testing.md#behavioral-verification Exercises RunLSPServe over real pipes with the TypeScript executable config evaluator and physical package dependency; asserts one load/evaluation for three unchanged requests, exactly two after a dependency edit, old-input removal, new-input retention and settling on a final unchanged request, distinguishing the named lost connection or changed behavior from valid execution.
+// @evidence contracts/testing.md#independent-expectations The config dependency writes an independent evaluation counter and literal before/after project-input paths.
+// @evidence contracts/testing.md#distinguishing-cases This case owns real directory and linked dependency paths both reuse valid answers and invalidate only when imported bytes change; portable rule decisions remain in the shared Go unit population.
+// @evidence contracts/testing.md#execution-ownership TestResidentRulesReuseExecutableConfigAcrossRealAndLinkedDependencies is discovered from test/e2e by the flattened lint runner and called once under TestSelectedLintBoundaries; its named subcases retain inputs, assertions and failure identity.
+// @evidence contracts/e2e.md#necessary-boundary The actual connection is RunLSPServe over real pipes with the TypeScript executable config evaluator and physical package dependency; direct native operation calls cannot prove that separate evaluator, formatter, binary-stdin or JavaScript runtime behavior.
+// @evidence contracts/e2e.md#shared-execution Each real/linked topology uses one persistent daemon for all five requests; the flattened Go binary is shared, while conflicting physical dependency identities require separate consumer fixtures.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity Subcases own temporary modules and pipes; deferred closeDaemon closes the request stream, joins the daemon and checks its exit. Local config memo and registered project-rule state are restored and environment counters use t.Setenv.
+// @evidence contracts/e2e.md#preserved-coverage Keeps one load/evaluation for three unchanged requests, exactly two after a dependency edit, old-input removal, new-input retention and settling on a final unchanged request and every original input/control branch; preparation sharing changes no expected result or admitted case.
 func TestResidentRulesReuseExecutableConfigAcrossRealAndLinkedDependencies(t *testing.T) {
   installResidentConfigProjectInputRule(t)
 

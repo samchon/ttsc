@@ -2,13 +2,12 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   commonJsProject,
-  copyDirectory,
   fs,
   goPath,
+  nativePluginSource,
   path,
   spawn,
   ttscBin,
-  workspaceRoot,
 } from "../../internal/plugin-corpus";
 
 /**
@@ -22,19 +21,23 @@ import {
  * 1. Package a plugin with patterned `ttsc` and default export targets.
  * 2. Compile through the real source-plugin corpus entrypoint.
  * 3. Assert the descriptor transform ran and the runtime branch did not load.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Exercises patterned ttsc export resolution and native descriptor loading; asserts zero exit, no runtime-branch exception and literal PATTERN:pattern output, distinguishing lost delivery or incorrect assembly from valid compilation.
+ * @evidence contracts/testing.md#independent-expectations Literal fixture transforms and the public compiler option/export contracts establish the expected result; expected output is not generated from the launcher under test.
+ * @evidence contracts/testing.md#distinguishing-cases This case pins single-star substitution selects the descriptor instead of the default runtime target; other corpus cases retain cold builds, source mutation, descriptor identity and failed native compilation.
+ * @evidence contracts/testing.md#execution-ownership The named test_plugin_ttsc_export_condition_resolves_pattern_descriptor entry executes from native-plugins/corpus-misc in the Linux E2E population; it starts the actual launcher and native producer.
+ * @evidence contracts/e2e.md#necessary-boundary The real connection is patterned ttsc export resolution and native descriptor loading; direct calls cannot prove descriptor-process, launcher and native-host protocol agreement.
+ * @evidence contracts/e2e.md#shared-execution Reuses the immutable transformer workspace source and shared content-addressed plugin cache with other corpus consumers, avoiding a fresh Go module copy per scenario; a separate CLI invocation is required by this invocation's arguments or descriptor selection.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This case owns its temporary consumer project and outputs while the canonical Go source remains read-only. Exact source, toolchain and host inputs key the shared binary; no cold-build or invalidation assertion uses this warm fixture. TestProject removes temporary consumer state at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Retains zero exit, no runtime-branch exception and literal PATTERN:pattern output with the same fixture meaning; only duplicate native source materialization is removed, with source mutation and cache transitions owned by their existing isolated cases.
  */
-export const test_plugin_ttsc_export_condition_resolves_pattern_descriptor =
-  () => {
+export function test_plugin_ttsc_export_condition_resolves_pattern_descriptor() {
     const root = commonJsProject({
       "src/main.ts": `export const value: string = goUpper("pattern");\nconsole.log(value);\n`,
     });
     fs.writeFileSync(
       path.join(root, "package.json"),
       JSON.stringify({ dependencies: { "pattern-plugin": "0.1.0" } }),
-    );
-    copyDirectory(
-      path.join(workspaceRoot, "tests", "go-transformer"),
-      path.join(root, "go-plugin"),
     );
 
     const packageRoot = path.join(root, "node_modules", "pattern-plugin");
@@ -65,15 +68,7 @@ export const test_plugin_ttsc_export_condition_resolves_pattern_descriptor =
       `const path = require("node:path");
 module.exports = (context) => ({
   name: context.plugin.name,
-  source: path.resolve(
-    context.dirname,
-    "..",
-    "..",
-    "..",
-    "go-plugin",
-    "cmd",
-    "ttsc-go-transformer"
-  ),
+  source: ${JSON.stringify(nativePluginSource())},
 });
 `,
     );
@@ -93,4 +88,4 @@ module.exports = (context) => ({
     assert.doesNotMatch(result.stderr, /TTSC_TEST_PATTERN_RUNTIME_LOADED/);
     const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
     assert.match(js, /"PATTERN:pattern"/);
-  };
+}

@@ -2,13 +2,12 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 import {
   assert,
   commonJsProject,
-  copyDirectory,
   fs,
   goPath,
+  nativePluginSource,
   path,
   spawn,
   ttscBin,
-  workspaceRoot,
 } from "../../internal/plugin-corpus";
 
 /**
@@ -30,16 +29,25 @@ import {
  * 2. Run `ttsc src/main.ts` with no flag of any kind.
  * 3. Assert zero exit, the resolved output path on stdout, and the transformed
  *    JavaScript in that file.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Exercises single-file isolation arguments reaching a strict native host; asserts zero exit, no unknown-flag error, stdout output path and transformed JavaScript, distinguishing lost delivery or incorrect assembly from valid compilation.
+ * @evidence contracts/testing.md#independent-expectations Literal fixture transforms and the public compiler option/export contracts establish the expected result; expected output is not generated from the launcher under test.
+ * @evidence contracts/testing.md#distinguishing-cases This case pins launcher-generated containment flags work without user-supplied forwarding flags; other corpus cases retain cold builds, source mutation, descriptor identity and failed native compilation.
+ * @evidence contracts/testing.md#execution-ownership The named test_plugin_corpus_single_file_emit_survives_a_strict_native_plugin_host entry executes from native-plugins/corpus-misc in the Linux E2E population; it starts the actual launcher and native producer.
+ * @evidence contracts/e2e.md#necessary-boundary The real connection is single-file isolation arguments reaching a strict native host; direct calls cannot prove descriptor-process, launcher and native-host protocol agreement.
+ * @evidence contracts/e2e.md#shared-execution Reuses the immutable driver-emit workspace source and shared content-addressed plugin cache with other corpus consumers, avoiding a fresh Go module copy per scenario; a separate CLI invocation is required by this invocation's arguments or descriptor selection.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This case owns its temporary consumer project and outputs while the canonical Go source remains read-only. Exact source, toolchain and host inputs key the shared binary; no cold-build or invalidation assertion uses this warm fixture. TestProject removes temporary consumer state at process exit.
+ * @evidence contracts/e2e.md#preserved-coverage Retains zero exit, no unknown-flag error, stdout output path and transformed JavaScript with the same fixture meaning; only duplicate native source materialization is removed, with source mutation and cache transitions owned by their existing isolated cases.
  */
-export const test_plugin_corpus_single_file_emit_survives_a_strict_native_plugin_host =
-  () => {
+export function test_plugin_corpus_single_file_emit_survives_a_strict_native_plugin_host() {
     const root = commonJsProject(
       {
         "plugin.cjs": [
           `const path = require("node:path");`,
           `module.exports = (context) => ({`,
           `  name: "go-driver-emit-plugin",`,
-          `  source: path.resolve(context.dirname, "go-plugin"),`,
+          `  capabilities: { emitProvenance: true },`,
+          `  source: ${JSON.stringify(nativePluginSource("driver-emit"))},`,
           `});`,
           ``,
         ].join("\n"),
@@ -54,16 +62,6 @@ export const test_plugin_corpus_single_file_emit_survives_a_strict_native_plugin
           plugins: [{ transform: "./plugin.cjs" }],
         },
       },
-    );
-    copyDirectory(
-      path.join(
-        workspaceRoot,
-        "tests",
-        "projects",
-        "go-driver-emit-plugin",
-        "go-plugin",
-      ),
-      path.join(root, "go-plugin"),
     );
 
     const result = spawn(
@@ -84,4 +82,4 @@ export const test_plugin_corpus_single_file_emit_survives_a_strict_native_plugin
     assert.match(result.stdout.replace(/\\/g, "/"), /dist\/main\.js/);
     const js = fs.readFileSync(path.join(root, "dist", "main.js"), "utf8");
     assert.match(js, /GO DRIVER EMIT PLUGIN/);
-  };
+}

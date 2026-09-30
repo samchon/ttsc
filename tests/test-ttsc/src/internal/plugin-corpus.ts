@@ -48,19 +48,18 @@ function pluginProject(
   );
 }
 
+/** Absolute identity of an immutable native producer shared by CLI consumers. */
+function nativePluginSource(fixture: "transformer" | "driver-emit" = "transformer"): string {
+  return fixture === "transformer"
+    ? path.join(TestProject.WORKSPACE_ROOT, "tests", "go-transformer", "cmd", "ttsc-go-transformer")
+    : path.join(TestProject.WORKSPACE_ROOT, "tests", "projects", "go-driver-emit-plugin", "go-plugin");
+}
+
 function nativePlugin(): string {
-  return `
-    module.exports = (context) => ({
-      name: context.plugin.name,
-      source: require("node:path").resolve(
-        context.dirname,
-        "..",
-        "go-plugin",
-        "cmd",
-        "ttsc-go-transformer"
-      ),
-    });
-  `;
+  return `module.exports = (context) => ({
+    name: context.plugin.name,
+    source: ${JSON.stringify(nativePluginSource())},
+  });`;
 }
 
 function copyDirectory(from: string, to: string): void {
@@ -258,6 +257,7 @@ export {
   goPath,
   NATIVE_BINARY as nativeBinary,
   nativePlugin,
+  nativePluginSource,
   os,
   parseDiagnostics,
   parseExpectations,

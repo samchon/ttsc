@@ -32,6 +32,15 @@ import (
 //     only that rule through ttsc's native disk-backed fixer.
 //  4. Require byte equality, without letting a sibling rule's known divergence
 //     obscure the rule being measured.
+//
+// @evidence contracts/testing.md#behavioral-verification Exercises every named formatter corpus input through its owning native fix operation and the pinned Prettier formatter; asserts exact per-case bytes, required changing/canonical witnesses, registered rule coverage and each Visits node kind, distinguishing the named lost connection or changed behavior from valid execution.
+// @evidence contracts/testing.md#independent-expectations Pinned Prettier 3.8.3 is an independent formatter oracle; explicit canonical exceptions are jsdoc/sort-imports extensions or genuine public-option no-ops with complementary changing witnesses.
+// @evidence contracts/testing.md#distinguishing-cases This case owns all 61 original rule/name/source/options cases remain, including semicolon/member boundaries, ASI guards, width constructs, import effects and CRLF; portable rule decisions remain in the shared Go unit population.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrettierConformance is discovered from test/e2e by the flattened lint runner and called once under TestSelectedLintBoundaries; its named subcases retain inputs, assertions and failure identity.
+// @evidence contracts/e2e.md#necessary-boundary The actual connection is every named formatter corpus input through its owning native fix operation and the pinned Prettier formatter; direct native operation calls cannot prove that separate evaluator, formatter, binary-stdin or JavaScript runtime behavior.
+// @evidence contracts/e2e.md#shared-execution One Node process imports the same pinned core module once and formats all inputs serially. Fresh option objects and per-row IDs/count validation preserve ownership; oracle errors remain individual named subtest failures while later rows still execute.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity Oracle inputs/results live for this test only, no user plugins or config search are supplied, and each request supplies complete parser/options. Each native fix fixture owns its temporary state; Node exits after writing the complete result array.
+// @evidence contracts/e2e.md#preserved-coverage Keeps exact per-case bytes, required changing/canonical witnesses, registered rule coverage and each Visits node kind and every original input/control branch; preparation sharing changes no expected result or admitted case.
 func TestFormatPrettierConformance(t *testing.T) {
   cases := []prettierConformanceCase{
     {"format/arrow-parens", "default", "const identity = value => value;\n", nil, false},
@@ -112,11 +121,19 @@ func TestFormatPrettierConformance(t *testing.T) {
     {"format/whitespace", "default", "const value = 1; ", nil, false},
   }
   assertPrettierConformanceCorpusCoversFormatRules(t, cases)
-  for _, testCase := range cases {
+  oracle := formatWithPinnedPrettierBatch(t, cases)
+  for index, testCase := range cases {
     testCase := testCase
+    expected := oracle[index]
     t.Run(testCase.rule+"/"+testCase.name, func(t *testing.T) {
       format := normalizePrettierFormatOptions(testCase.format)
-      want := formatWithPinnedPrettier(t, testCase.source, format)
+      if expected.Error != "" {
+        t.Fatalf("pinned Prettier failed: %s", expected.Error)
+      }
+      want := expected.Output
+      if want == "" {
+        t.Fatal("pinned Prettier returned an empty result")
+      }
       if testCase.prettierCanonical {
         if want != testCase.source {
           t.Fatalf("%s/%s must be canonical for Prettier: got %q", testCase.rule, testCase.name, want)
@@ -234,40 +251,79 @@ func sourceNodeKinds(t *testing.T, source string) map[shimast.Kind]struct{} {
   return kinds
 }
 
-func formatWithPinnedPrettier(t *testing.T, source string, format map[string]any) string {
+type prettierOracleResult struct {
+  ID string `json:"id"`
+  Output string `json:"output"`
+  Error string `json:"error"`
+}
+
+// formatWithPinnedPrettierBatch loads the pinned, stateless core formatter once.
+// Each source/options pair uses a fresh options object and keeps its own named
+// result, including errors, so one oracle rejection does not hide later cases.
+func formatWithPinnedPrettierBatch(t *testing.T, cases []prettierConformanceCase) []prettierOracleResult {
   t.Helper()
   module := os.Getenv("TTSC_PRETTIER_MODULE")
   if module == "" {
     t.Fatal("TTSC_PRETTIER_MODULE is required for the Prettier conformance corpus")
   }
-  input, err := json.Marshal(struct {
-    Source string         `json:"source"`
+  type oracleInput struct {
+    ID string `json:"id"`
+    Source string `json:"source"`
     Format map[string]any `json:"format"`
-  }{Source: source, Format: format})
+  }
+  inputs := make([]oracleInput, len(cases))
+  for index, testCase := range cases {
+    inputs[index] = oracleInput{
+      ID: testCase.rule + "/" + testCase.name,
+      Source: testCase.source,
+      Format: normalizePrettierFormatOptions(testCase.format),
+    }
+  }
+  input, err := json.Marshal(inputs)
   if err != nil {
-    t.Fatalf("marshal Prettier input: %v", err)
+    t.Fatalf("marshal Prettier input batch: %v", err)
   }
   script := `
+import fs from "node:fs";
 import { pathToFileURL } from "node:url";
-const input = JSON.parse(process.argv[1]);
+const inputs = JSON.parse(fs.readFileSync(0, "utf8"));
 const module = await import(pathToFileURL(process.env.TTSC_PRETTIER_MODULE).href);
 const prettier = module.default ?? module;
-process.stdout.write(await prettier.format(input.source, { parser: "typescript", ...input.format }));
+const results = [];
+for (const input of inputs) {
+  try {
+    const output = await prettier.format(input.source, { parser: "typescript", ...input.format });
+    results.push({ id: input.id, output });
+  } catch (error) {
+    results.push({ id: input.id, error: String(error?.stack ?? error) });
+  }
+}
+process.stdout.write(JSON.stringify(results));
 `
-  command := exec.Command("node", "--input-type=module", "--eval", script, string(input))
+  command := exec.Command("node", "--input-type=module", "--eval", script)
   command.Env = os.Environ()
+  command.Stdin = strings.NewReader(string(input))
   output, err := command.Output()
   if err != nil {
     var stderr strings.Builder
     if exitError, ok := err.(*exec.ExitError); ok {
       stderr.Write(exitError.Stderr)
     }
-    t.Fatalf("pinned Prettier failed: %v\n%s", err, stderr.String())
+    t.Fatalf("pinned Prettier batch failed: %v\n%s", err, stderr.String())
   }
-  if len(output) == 0 {
-    t.Fatal("pinned Prettier returned an empty result")
+  var results []prettierOracleResult
+  if err := json.Unmarshal(output, &results); err != nil {
+    t.Fatalf("decode pinned Prettier batch: %v", err)
   }
-  return string(output)
+  if len(results) != len(inputs) {
+    t.Fatalf("pinned Prettier batch returned %d rows, want %d", len(results), len(inputs))
+  }
+  for index, result := range results {
+    if result.ID != inputs[index].ID {
+      t.Fatalf("pinned Prettier batch row %d: ID %q, want %q", index, result.ID, inputs[index].ID)
+    }
+  }
+  return results
 }
 
 // formatOneRuleWithResolvedFormatOptions resolves the same public format block

@@ -36,12 +36,13 @@ func run(args []string) int {
   }
 }
 
-func runBuild(args []string) int {
+func runBuild(args []string) (status int) {
   fs := flag.NewFlagSet("build", flag.ContinueOnError)
   fs.SetOutput(os.Stderr)
   cwd := fs.String("cwd", "", "")
   tsconfig := fs.String("tsconfig", "", "")
   manifest := fs.String("manifest", "manifest.json", "")
+  provenancePath := fs.String("emit-provenance-json", "", "")
   _ = fs.String("plugins-json", "", "")
   _ = fs.Bool("emit", false, "")
   _ = fs.Bool("noEmit", false, "")
@@ -49,6 +50,10 @@ func runBuild(args []string) int {
   _ = fs.Bool("verbose", false, "")
   _ = fs.String("outDir", "", "")
   if err := fs.Parse(args); err != nil {
+    return 2
+  }
+  if *provenancePath != "" && !filepath.IsAbs(*provenancePath) {
+    fmt.Fprintln(os.Stderr, "go-driver-emit-plugin: emit provenance path must be absolute")
     return 2
   }
   root := *cwd
@@ -76,6 +81,24 @@ func runBuild(args []string) int {
   }
   defer prog.Close()
 
+  publish := writeFile
+  if *provenancePath != "" {
+    var snapshot func() map[string][]string
+    publish, snapshot, err = prog.NewEmitProvenanceRecorder(writeFile)
+    if err != nil {
+      fmt.Fprintln(os.Stderr, "go-driver-emit-plugin: emit provenance failed:", err)
+      return 2
+    }
+    // Only the final writer records publication: buffering transformed outputs
+    // does not establish a successful disk write or an eligible source owner.
+    defer func() {
+      if err := driver.WriteEmitProvenanceJSON(*provenancePath, snapshot()); err != nil {
+        fmt.Fprintln(os.Stderr, "go-driver-emit-plugin: emit provenance failed:", err)
+        status = 2
+      }
+    }()
+  }
+
   // Match existing native hosts that buffer outputs and check only the Go
   // error before publication. Compiler diagnostics must also fail this host.
   pending := map[string]string{}
@@ -90,7 +113,7 @@ func runBuild(args []string) int {
   driver.WritePrettyDiagnostics(os.Stderr, emitDiags, root)
   emitted := []string{}
   for name, text := range pending {
-    if err := writeFile(name, text, nil); err != nil {
+    if err := publish(name, text, nil); err != nil {
       fmt.Fprintln(os.Stderr, err)
       return 2
     }
