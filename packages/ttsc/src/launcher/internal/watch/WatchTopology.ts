@@ -45,15 +45,15 @@ import { watchDirectory } from "./watchDirectory";
  * source trees of selected native plugins supplement that list, while compiler
  * outputs are filtered before any watcher is installed.
  *
- * @evidence contracts/common.md#principled-implementation Compiler-provided membership, published rule inputs and actual content fingerprints qualify notifications; post-registration reconciliation closes observation handoff gaps without treating matching territory as changed content.
- * @evidence contracts/common.md#clear-and-simple-design Compiler, plugin and project-input watch populations keep their own baselines and callbacks under one topology owner; small classifiers separate membership, selection and handle replacement.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported native backends and explicit gap/replacement ownership replace foreign watcher patching; failed observation is reported rather than represented as complete coverage.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain membership authority, plugin fingerprinting, publication races, physical registration and public lifecycle operations following the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node APIs and registration uses realpath; compiler/plugin maps preserve lexical aliases and fold only measured insensitive ASCII components. Project inputs use physical identities, while unknown/native Unicode relations remain conservative event candidates rather than identity proof.
+ * @evidence contracts/common.md#principled-implementation Compiler-provided membership, published rule inputs and actual content fingerprints qualify notifications; post-registration reconciliation closes observation handoff gaps without treating matching territory as changed content. Explicit observer operations preserve native defaults without replacing global filesystem methods; compiler membership remains compiler-owned.
+ * @evidence contracts/common.md#clear-and-simple-design Compiler, plugin and project-input watch populations keep their own baselines and callbacks under one topology owner; small classifiers separate membership, selection and handle replacement. Three distinct operations own directory subscriptions, file subscriptions and immediate reload-directory reads; existing callers need no new argument.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported native backends and explicit gap/replacement ownership replace foreign watcher patching; failed observation is reported rather than represented as complete coverage. The constructor manufactures no observations and bypasses no input or content proof; supplied operations retain the existing callback and result contracts.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain membership authority, plugin fingerprinting, publication races, physical registration and public lifecycle operations following the documentation skill. Parameters identify each supplied operation and native default beside the constructor.
+ * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node APIs and registration uses realpath; compiler/plugin maps preserve lexical aliases and fold only measured insensitive ASCII components. Project inputs use physical identities, while unknown/native Unicode relations remain conservative event candidates rather than identity proof. Registration paths and native read options are passed unchanged; providers do not determine path case or compiler membership.
  *
- * @evidenceExclude contracts/performance.md#efficient-algorithms The class representation groups state; public reconciliation operations and their helpers own traversal and hashing strategies.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Sharing decisions belong to reconciliation and event-processing operations rather than the state representation.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Acquiring and retiring watchers belongs to reconciliation and close; the type declaration acquires no independent resource.
+ * @evidence contracts/performance.md#efficient-algorithms Constructor only retains operation references; reconciliation owns filesystem observation without adding installation, builds or enumeration.
+ * @evidence contracts/performance.md#reuse-equivalent-work Each topology owns its supplied operation identities; this seam adds no result cache or assumption that changed inputs remain equivalent.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Existing watcher registries own acquired handles and close/rearm/error cleanup; constructor acquires no handle and directory arrays remain call-owned.
  */
 export class WatchTopology {
   private analysisOnly = false;
@@ -127,11 +127,16 @@ export class WatchTopology {
    * @param openDirectoryWatch The backend every directory watch goes through:
    *   `watchDirectory`, which chooses the platform's, unless the caller
    *   observes the watch set through another.
+   * @param openFileWatch File subscriptions use this owned observer; native fs.watch by default.
+   * @param readDirectory Immediate reload-directory fingerprints use this reader; native readdirSync by default.
+   *
    */
   public constructor(
     private readonly options: WatchTopologyOptions,
     private readonly callbacks: WatchTopologyCallbacks,
     private readonly openDirectoryWatch: typeof watchDirectory = watchDirectory,
+    private readonly openFileWatch: typeof fs.watch = fs.watch,
+    private readonly readDirectory: typeof fs.readdirSync = fs.readdirSync,
   ) {}
 
   /**
@@ -261,7 +266,7 @@ export class WatchTopology {
     changed: readonly string[],
   ): boolean {
     const matches = this.collectProjectInputMatches();
-    const fingerprints = fingerprintProjectInputMatches(matches);
+    const fingerprints = fingerprintProjectInputMatches(matches, this.readDirectory);
     const changedInputs = projectInputChangedPaths({
       next: matches,
       nextFingerprints: fingerprints,
@@ -362,6 +367,7 @@ export class WatchTopology {
     this.projectInputMatches = this.collectProjectInputMatches();
     this.projectInputFingerprints = fingerprintProjectInputMatches(
       this.projectInputMatches,
+      this.readDirectory,
     );
     this.syncProjectInputWatchers();
   }
@@ -418,7 +424,7 @@ export class WatchTopology {
       this.fileWatchers,
       files,
       (location) =>
-        fs.watch(
+        this.openFileWatch(
           watcherRegistrationPath(location),
           { persistent: true },
           () => {
@@ -1258,7 +1264,7 @@ export class WatchTopology {
         membershipChanged ||
         directlyMatched ||
         topologyMatched
-          ? fingerprintProjectInputMatches(next)
+          ? fingerprintProjectInputMatches(next, this.readDirectory)
           : this.projectInputFingerprints;
       const contentChanged =
         WatchPaths.mapsEqual(
@@ -2455,13 +2461,14 @@ function projectInputCompilerMembershipProjectChanges(
 
 function fingerprintProjectInputMatches(
   matches: ReadonlyMap<string, string>,
+  readDirectory: typeof fs.readdirSync,
 ): Map<string, string> {
   const fingerprints = new Map<string, string>();
   for (const [key, location] of matches) {
     fingerprints.set(
       key,
       WatchPaths.isDirectory(location)
-        ? fingerprintProjectInputDirectory(location)
+        ? fingerprintProjectInputDirectory(location, readDirectory)
         : fingerprintProjectInputFile(location),
     );
   }
@@ -2479,10 +2486,9 @@ function fingerprintProjectInputFile(location: string): string {
   }
 }
 
-function fingerprintProjectInputDirectory(location: string): string {
+function fingerprintProjectInputDirectory(location: string, readDirectory: typeof fs.readdirSync): string {
   try {
-    const entries = fs
-      .readdirSync(location, { withFileTypes: true })
+    const entries = readDirectory(location, { withFileTypes: true })
       .map((entry) => {
         const kind = entry.isDirectory()
           ? "directory"

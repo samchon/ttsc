@@ -13,12 +13,13 @@ import type { DirectoryWatcher } from "./DirectoryWatcher";
  * @param location The directory, spelled as the filesystem names it.
  * @param recursive Whether entries below subdirectories are heard.
  * @param listener Receives each event.
+ * @param openWatch Owned native-compatible subscription operation; fs.watch by default.
  *
  * @returns The open watch.
  *
  * @evidence contracts/common.md#principled-implementation The native event and optional filename are normalized to the common watch contract; an absent name explicitly marks an observation gap.
  * @evidence contracts/common.md#clear-and-simple-design One supported fs.watch subscription maps its event callback without another scheduling or polling layer.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown native events become the declared rename category, without invented filenames or patched fs methods.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown native events become the declared rename category, without invented filenames or patched fs methods. An explicitly supplied observer is invoked through this parameter rather than installed into the global filesystem.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs and parameters explain backend role, recursion and returned watch ownership following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Node owns native recursive-watch support and filename representation; this adapter preserves null names and converts present names through their native string boundary.
  *
@@ -35,8 +36,9 @@ export function watchDirectoryThroughFsWatch(
     filename: string | null,
     gap?: boolean,
   ) => void,
+  openWatch: typeof fs.watch = fs.watch,
 ): DirectoryWatcher {
-  return fs.watch(location, { persistent: true, recursive }, (event, name) => {
+  return openWatch(location, { persistent: true, recursive }, (event, name) => {
     listener(
       event === "change" ? "change" : "rename",
       name === null ? null : name.toString(),

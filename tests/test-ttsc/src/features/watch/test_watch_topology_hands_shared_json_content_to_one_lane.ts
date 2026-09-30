@@ -23,9 +23,17 @@ import {
  * 2. Edit it and deliver compiler watchers before project watchers.
  * 3. Edit again and reverse the delivery order, requiring one project change from
  *    each edit and no later compiler duplicate.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Both compiler-first and project-first delivery produce exactly one project change for the shared JSON member.
+ * @evidence contracts/testing.md#independent-expectations The source imports JSON and separately declares it as a project input; the literal one-project-change expectations establish single ownership.
+ * @evidence contracts/testing.md#distinguishing-cases Both compiler-first and project-first delivery produce exactly one project change for the shared JSON member; the native observer's uncontrolled event scheduling remains exercised by the separate actual fs.watch watch boundaries.
+ * @evidence contracts/testing.md#execution-ownership The named features/watch entry executes the shipped WatchTopology with real tsgo refresh and explicit owned subscription operations; its original assertions and subcase identities remain in this E2E population.
+ * @evidence contracts/e2e.md#necessary-boundary Real tsgo refresh establishes imported resolveJsonModule membership, which overlaps a declared project-input glob; both event orders must produce one project change rather than duplicate compiler scheduling.
+ * @evidence contracts/e2e.md#shared-execution Subcases share one E2E process, installed compiler and compiled launcher; different project origins, config transitions or membership mutations require their current compiler request. Observer registration itself installs or builds nothing.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject roots separate mutable inputs; each topology owns its supplied subscriptions and existing finally/close paths release them. Explicit providers retain the original callback and failure behavior without global observer state leaking between cases.
+ * @evidence contracts/e2e.md#preserved-coverage Every original assertion and subcase input remains; the operation-provider rewrite changes only where observations are acquired, while actual compiler selection, content fingerprints, recovery and cleanup decisions remain the original semantic path.
  */
-export const test_watch_topology_hands_shared_json_content_to_one_lane =
-  async (): Promise<void> => {
+export async function test_watch_topology_hands_shared_json_content_to_one_lane() {
     const root = TestProject.physicalPath(
       TestProject.tmpdir("ttsc-watch-shared-json-"),
     );
@@ -51,7 +59,7 @@ export const test_watch_topology_hands_shared_json_content_to_one_lane =
     );
 
     const changes: WatchInputChange[] = [];
-    const { openDirectoryWatch, restore, watchers } = recordWatchers();
+    const { openDirectoryWatch, openFileWatch, watchers } = recordWatchers();
     const topology = new WatchTopology(
       {
         cwd: root,
@@ -67,6 +75,7 @@ export const test_watch_topology_hands_shared_json_content_to_one_lane =
         onTopologyChange: () => undefined,
       },
       openDirectoryWatch,
+      openFileWatch,
     );
     try {
       topology.refresh(false);
@@ -98,6 +107,5 @@ export const test_watch_topology_hands_shared_json_content_to_one_lane =
       assert.deepEqual(changes, [{ kind: "project", path: json }]);
     } finally {
       topology.close();
-      restore();
     }
-  };
+}

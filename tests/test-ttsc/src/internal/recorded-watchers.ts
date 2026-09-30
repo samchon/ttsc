@@ -21,27 +21,19 @@ export interface IRecordedWatcher {
 }
 
 /**
- * Replace `fs.watch` with watchers that record their location, options, and
- * listener instead of watching, so a case decides which events arrive and in
- * what order.
+ * Own a pair of observer operations that record subscriptions and callbacks.
  *
- * A directory watch goes through `fs.watch` only on the backend that uses it,
- * so a case hands `openDirectoryWatch` to the `WatchTopology` it builds, and
- * every directory watch is recorded on every platform.
- *
- * @returns The watchers registered from now on, the directory-watch backend
- *   that records them, and the function that puts the real `fs.watch` back.
+ * The real directory adapter normalizes events using the supplied file
+ * subscription operation; neither operation replaces a global fs method.
+ * WatchTopology receives both operations explicitly and owns closing handles.
  */
 export function recordWatchers(): {
   openDirectoryWatch: typeof watchDirectoryThroughFsWatch;
-  restore(): void;
+  openFileWatch: typeof fs.watch;
   watchers: IRecordedWatcher[];
 } {
   const watchers: IRecordedWatcher[] = [];
-  const originalWatch = fs.watch;
-  Object.defineProperty(fs, "watch", {
-    configurable: true,
-    value: ((location: fs.PathLike, ...rest: unknown[]) => {
+  const openFileWatch = ((location: fs.PathLike, ...rest: unknown[]) => {
       const listener = rest.find(
         (value): value is RecordedWatchListener => typeof value === "function",
       );
@@ -63,19 +55,10 @@ export function recordWatchers(): {
       };
       watchers.push(watcher);
       return watcher as unknown as fs.FSWatcher;
-    }) as typeof fs.watch,
-    writable: true,
-  });
-  return {
-    openDirectoryWatch: watchDirectoryThroughFsWatch,
-    restore: () =>
-      Object.defineProperty(fs, "watch", {
-        configurable: true,
-        value: originalWatch,
-        writable: true,
-      }),
-    watchers,
-  };
+    }) as typeof fs.watch;
+  const openDirectoryWatch: typeof watchDirectoryThroughFsWatch = (...args) =>
+    watchDirectoryThroughFsWatch(args[0], args[1], args[2], openFileWatch);
+  return { openDirectoryWatch, openFileWatch, watchers };
 }
 
 /**

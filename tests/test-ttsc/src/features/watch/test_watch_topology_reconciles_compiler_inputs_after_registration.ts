@@ -29,9 +29,17 @@ import {
  * 7. Keep a source rearm from repeating a failed config membership refresh.
  * 8. Observe the rebound POSIX file's next in-place edit.
  * 9. Close before reconciliation and drain every fake watcher exactly once.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Preserves all nine handoff scenarios: swallowed config and membership events, event-first deduplication, deleted JSON handoff, Windows mixed membership, transient directory failure, POSIX owner rebind, failed refresh containment and close cancellation.
+ * @evidence contracts/testing.md#independent-expectations Authored config/source/JSON changes, literal error and notification counts, distinct inode assertions and exact close counts define independent handoff outcomes.
+ * @evidence contracts/testing.md#distinguishing-cases Preserves all nine handoff scenarios: swallowed config and membership events, event-first deduplication, deleted JSON handoff, Windows mixed membership, transient directory failure, POSIX owner rebind, failed refresh containment and close cancellation; the native observer's uncontrolled event scheduling remains exercised by the separate actual fs.watch watch boundaries.
+ * @evidence contracts/testing.md#execution-ownership The named features/watch entry executes the shipped WatchTopology with real tsgo refresh and explicit owned subscription operations; its original assertions and subcase identities remain in this E2E population.
+ * @evidence contracts/e2e.md#necessary-boundary Real tsgo program refresh, config failure reporting and membership invalidation connect to deterministic post-registration observations across all nine scenarios. Supplied callbacks expose handoff ordering and handle retirement, while this case does not claim uncontrolled kernel scheduling.
+ * @evidence contracts/e2e.md#shared-execution Subcases share one E2E process, installed compiler and compiled launcher; different project origins, config transitions or membership mutations require their current compiler request. Observer registration itself installs or builds nothing.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject roots separate mutable inputs; each topology owns its supplied subscriptions and existing finally/close paths release them. Explicit providers retain the original callback and failure behavior without global observer state leaking between cases.
+ * @evidence contracts/e2e.md#preserved-coverage Every original assertion and subcase input remains; the operation-provider rewrite changes only where observations are acquired, while actual compiler selection, content fingerprints, recovery and cleanup decisions remain the original semantic path.
  */
-export const test_watch_topology_reconciles_compiler_inputs_after_registration =
-  async (): Promise<void> => {
+export async function test_watch_topology_reconciles_compiler_inputs_after_registration() {
     await verifySwallowedConfigDeletion();
     await verifySwallowedCompilerMembership();
     await verifyBackendEventWinsReconciliation();
@@ -41,26 +49,21 @@ export const test_watch_topology_reconciles_compiler_inputs_after_registration =
     await verifyAtomicReplacementRebindsPosixFileWatcher();
     await verifyFileRearmDoesNotRepeatCompilerRefresh();
     await verifyCloseCancelsReconciliation();
-  };
+}
 
 async function verifySwallowedConfigDeletion(): Promise<void> {
   const fixture = createFixture("ttsc-watch-compiler-registration-");
   const changes: WatchInputChange[] = [];
   const errors: unknown[] = [];
   const watchers: FakeWatcher[] = [];
-  const originalWatch = fs.watch;
 
-  Object.defineProperty(fs, "watch", {
-    configurable: true,
-    value: (() => {
+  const openFileWatch = (() => {
       const watcher = new FakeWatcher();
       watchers.push(watcher);
       return watcher as unknown as fs.FSWatcher;
-    }) as typeof fs.watch,
-    writable: true,
-  });
+    }) as typeof fs.watch;
 
-  const topology = createTopology(fixture.root, changes, errors);
+  const topology = createTopology(fixture.root, changes, errors, undefined, openFileWatch);
   try {
     topology.refresh(false);
     fs.rmSync(fixture.config);
@@ -72,11 +75,7 @@ async function verifySwallowedConfigDeletion(): Promise<void> {
     assert.equal(errors.length, 1, "the failed refresh was not reported");
   } finally {
     topology.close();
-    Object.defineProperty(fs, "watch", {
-      configurable: true,
-      value: originalWatch,
-      writable: true,
-    });
+
   }
   assert.ok(watchers.length > 0, "the regression registered no watchers");
   assert.ok(
@@ -94,20 +93,15 @@ async function verifySwallowedCompilerMembership(): Promise<void> {
   const errors: unknown[] = [];
   const topologyChanges: number[] = [];
   const watchers: FakeWatcher[] = [];
-  const originalWatch = fs.watch;
 
-  Object.defineProperty(fs, "watch", {
-    configurable: true,
-    value: (() => {
+  const openFileWatch = (() => {
       const watcher = new FakeWatcher();
       watchers.push(watcher);
       return watcher as unknown as fs.FSWatcher;
-    }) as typeof fs.watch,
-    writable: true,
-  });
+    }) as typeof fs.watch;
 
   const topology = createTopology(fixture.root, changes, errors, () =>
-    topologyChanges.push(topologyChanges.length + 1),
+    topologyChanges.push(topologyChanges.length + 1), openFileWatch
   );
   try {
     topology.refresh(false);
@@ -124,11 +118,7 @@ async function verifySwallowedCompilerMembership(): Promise<void> {
     );
   } finally {
     topology.close();
-    Object.defineProperty(fs, "watch", {
-      configurable: true,
-      value: originalWatch,
-      writable: true,
-    });
+
   }
   assert.ok(watchers.length > 0, "the membership case registered no watchers");
   assert.ok(
@@ -146,11 +136,8 @@ async function verifyBackendEventWinsReconciliation(): Promise<void> {
     location: string;
     watcher: FakeWatcher;
   }> = [];
-  const originalWatch = fs.watch;
 
-  Object.defineProperty(fs, "watch", {
-    configurable: true,
-    value: ((
+  const openFileWatch = ((
       location: fs.PathLike,
       _options: fs.WatchOptions,
       listener: fs.WatchListener<string>,
@@ -162,11 +149,9 @@ async function verifyBackendEventWinsReconciliation(): Promise<void> {
         watcher,
       });
       return watcher as unknown as fs.FSWatcher;
-    }) as typeof fs.watch,
-    writable: true,
-  });
+    }) as typeof fs.watch;
 
-  const topology = createTopology(fixture.root, changes, errors);
+  const topology = createTopology(fixture.root, changes, errors, undefined, openFileWatch);
   try {
     topology.refresh(false);
     const registration = registrations
@@ -187,11 +172,7 @@ async function verifyBackendEventWinsReconciliation(): Promise<void> {
     assert.deepEqual(errors, []);
   } finally {
     topology.close();
-    Object.defineProperty(fs, "watch", {
-      configurable: true,
-      value: originalWatch,
-      writable: true,
-    });
+
   }
   assert.ok(
     registrations.every(({ watcher }) => watcher.closeCount === 1),
@@ -227,7 +208,7 @@ async function verifyDeletedProjectMemberReconcilesBeforeFileNotification(): Pro
   const changes: WatchInputChange[] = [];
   const errors: unknown[] = [];
   const recorded = recordWatchers();
-  const topology = createTopology(root, changes, errors);
+  const topology = createTopology(root, changes, errors, undefined, recorded.openFileWatch);
   try {
     topology.refresh(false);
     topology.setProjectInputs({
@@ -257,7 +238,6 @@ async function verifyDeletedProjectMemberReconcilesBeforeFileNotification(): Pro
     assert.deepEqual(errors, []);
   } finally {
     topology.close();
-    recorded.restore();
   }
 }
 
@@ -305,10 +285,7 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
     location: string;
     watcher: FakeWatcher;
   }> = [];
-  const originalWatch = fs.watch;
-  Object.defineProperty(fs, "watch", {
-    configurable: true,
-    value: ((
+  const openFileWatch = ((
       location: fs.PathLike,
       _options: fs.WatchOptions,
       listener: fs.WatchListener<string>,
@@ -320,15 +297,9 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
         watcher,
       });
       return watcher as unknown as fs.FSWatcher;
-    }) as typeof fs.watch,
-    writable: true,
-  });
+    }) as typeof fs.watch;
 
-  const topology = createTopology(
-    fixture.root,
-    changes,
-    errors,
-    () => (topologyChanges += 1),
+  const topology = createTopology(fixture.root, changes, errors, () => (topologyChanges += 1), openFileWatch
   );
   try {
     topology.refresh(false);
@@ -483,11 +454,7 @@ async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
     assert.deepEqual(errors, []);
   } finally {
     topology.close();
-    Object.defineProperty(fs, "watch", {
-      configurable: true,
-      value: originalWatch,
-      writable: true,
-    });
+
   }
   assert.ok(
     registrations.every(({ watcher }) => watcher.closeCount === 1),
@@ -509,21 +476,14 @@ async function verifyTransientReloadDirectoryFingerprintRace(): Promise<void> {
   const changes: WatchInputChange[] = [];
   const errors: unknown[] = [];
   const watchers: FakeWatcher[] = [];
-  const originalWatch = fs.watch;
   const originalReaddirSync = fs.readdirSync;
   let injected = false;
-  Object.defineProperty(fs, "watch", {
-    configurable: true,
-    value: (() => {
+  const openFileWatch = (() => {
       const watcher = new FakeWatcher();
       watchers.push(watcher);
       return watcher as unknown as fs.FSWatcher;
-    }) as typeof fs.watch,
-    writable: true,
-  });
-  Object.defineProperty(fs, "readdirSync", {
-    configurable: true,
-    value: ((location: fs.PathLike, options?: unknown) => {
+    }) as typeof fs.watch;
+  const readDirectory = ((location: fs.PathLike, options?: unknown) => {
       if (
         !injected &&
         fs.realpathSync.native(location) === reloadDirectoryIdentity
@@ -536,11 +496,9 @@ async function verifyTransientReloadDirectoryFingerprintRace(): Promise<void> {
         throw error;
       }
       return Reflect.apply(originalReaddirSync, fs, [location, options]);
-    }) as typeof fs.readdirSync,
-    writable: true,
-  });
+    }) as typeof fs.readdirSync;
 
-  const topology = createTopology(fixture.root, changes, errors);
+  const topology = createTopology(fixture.root, changes, errors, undefined, openFileWatch, readDirectory);
   try {
     topology.setProjectInputs({
       files: [],
@@ -550,11 +508,7 @@ async function verifyTransientReloadDirectoryFingerprintRace(): Promise<void> {
       root: fixture.root,
     });
     assert.equal(injected, true, "the transient fingerprint race was not run");
-    Object.defineProperty(fs, "readdirSync", {
-      configurable: true,
-      value: originalReaddirSync,
-      writable: true,
-    });
+
     await Promise.resolve();
 
     assert.deepEqual(changes, [
@@ -566,16 +520,8 @@ async function verifyTransientReloadDirectoryFingerprintRace(): Promise<void> {
     assert.deepEqual(errors, []);
   } finally {
     topology.close();
-    Object.defineProperty(fs, "readdirSync", {
-      configurable: true,
-      value: originalReaddirSync,
-      writable: true,
-    });
-    Object.defineProperty(fs, "watch", {
-      configurable: true,
-      value: originalWatch,
-      writable: true,
-    });
+
+
   }
   assert.ok(
     watchers.every((watcher) => watcher.closeCount === 1),
@@ -594,11 +540,8 @@ async function verifyAtomicReplacementRebindsPosixFileWatcher(): Promise<void> {
     location: string;
     watcher: FakeWatcher;
   }> = [];
-  const originalWatch = fs.watch;
 
-  Object.defineProperty(fs, "watch", {
-    configurable: true,
-    value: ((
+  const openFileWatch = ((
       location: fs.PathLike,
       _options: fs.WatchOptions,
       listener: fs.WatchListener<string>,
@@ -610,11 +553,9 @@ async function verifyAtomicReplacementRebindsPosixFileWatcher(): Promise<void> {
         watcher,
       });
       return watcher as unknown as fs.FSWatcher;
-    }) as typeof fs.watch,
-    writable: true,
-  });
+    }) as typeof fs.watch;
 
-  const topology = createTopology(fixture.root, changes, errors);
+  const topology = createTopology(fixture.root, changes, errors, undefined, openFileWatch);
   try {
     const sharedTime = new Date("2020-01-02T03:04:05.000Z");
     fs.utimesSync(fixture.source, sharedTime, sharedTime);
@@ -655,11 +596,7 @@ async function verifyAtomicReplacementRebindsPosixFileWatcher(): Promise<void> {
     assert.deepEqual(errors, []);
   } finally {
     topology.close();
-    Object.defineProperty(fs, "watch", {
-      configurable: true,
-      value: originalWatch,
-      writable: true,
-    });
+
   }
   assert.ok(
     registrations.every(({ watcher }) => watcher.closeCount === 1),
@@ -677,22 +614,17 @@ async function verifyFileRearmDoesNotRepeatCompilerRefresh(): Promise<void> {
     location: string;
     watcher: FakeWatcher;
   }> = [];
-  const originalWatch = fs.watch;
 
-  Object.defineProperty(fs, "watch", {
-    configurable: true,
-    value: ((location: fs.PathLike) => {
+  const openFileWatch = ((location: fs.PathLike) => {
       const watcher = new FakeWatcher();
       registrations.push({
         location: fs.realpathSync.native(location),
         watcher,
       });
       return watcher as unknown as fs.FSWatcher;
-    }) as typeof fs.watch,
-    writable: true,
-  });
+    }) as typeof fs.watch;
 
-  const topology = createTopology(fixture.root, changes, errors);
+  const topology = createTopology(fixture.root, changes, errors, undefined, openFileWatch);
   try {
     topology.refresh(false);
     const replacement = path.join(fixture.root, "src", "main.next.ts");
@@ -726,11 +658,7 @@ async function verifyFileRearmDoesNotRepeatCompilerRefresh(): Promise<void> {
     );
   } finally {
     topology.close();
-    Object.defineProperty(fs, "watch", {
-      configurable: true,
-      value: originalWatch,
-      writable: true,
-    });
+
   }
   assert.ok(
     registrations.every(({ watcher }) => watcher.closeCount === 1),
@@ -743,19 +671,14 @@ async function verifyCloseCancelsReconciliation(): Promise<void> {
   const changes: WatchInputChange[] = [];
   const errors: unknown[] = [];
   const watchers: FakeWatcher[] = [];
-  const originalWatch = fs.watch;
 
-  Object.defineProperty(fs, "watch", {
-    configurable: true,
-    value: (() => {
+  const openFileWatch = (() => {
       const watcher = new FakeWatcher();
       watchers.push(watcher);
       return watcher as unknown as fs.FSWatcher;
-    }) as typeof fs.watch,
-    writable: true,
-  });
+    }) as typeof fs.watch;
 
-  const topology = createTopology(fixture.root, changes, errors);
+  const topology = createTopology(fixture.root, changes, errors, undefined, openFileWatch);
   try {
     topology.refresh(false);
     topology.close();
@@ -766,11 +689,7 @@ async function verifyCloseCancelsReconciliation(): Promise<void> {
     assert.deepEqual(errors, []);
   } finally {
     topology.close();
-    Object.defineProperty(fs, "watch", {
-      configurable: true,
-      value: originalWatch,
-      writable: true,
-    });
+
   }
   assert.ok(watchers.length > 0, "the close case registered no watchers");
   assert.ok(
@@ -826,7 +745,7 @@ function createTopology(
   root: string,
   changes: WatchInputChange[],
   errors: unknown[],
-  onTopologyChange: () => void = () => undefined,
+  onTopologyChange: () => void = () => undefined, openFileWatch: typeof fs.watch = fs.watch, readDirectory: typeof fs.readdirSync = fs.readdirSync,
 ): WatchTopology {
   return new WatchTopology(
     {
@@ -840,8 +759,10 @@ function createTopology(
       onInputChange: (change) => changes.push(change),
       onTopologyChange,
     },
-    // Every directory watch goes through the `fs.watch` this case replaces.
-    watchDirectoryThroughFsWatch,
+    // Every directory watch goes through the explicitly supplied subscription operation.
+    (location, recursive, listener) => watchDirectoryThroughFsWatch(location, recursive, listener, openFileWatch),
+    openFileWatch,
+    readDirectory,
   );
 }
 
