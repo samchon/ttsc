@@ -25,7 +25,6 @@ import { isPathWithin } from "../source/isPathWithin";
 import { pluginBuildVersions } from "../source/pluginBuildVersions";
 import { pluginModuleReplaceDirectories } from "../source/pluginModuleReplaceDirectories";
 import { pluginSourceState } from "../source/pluginSourceState";
-import { resolvePluginGoModule } from "../source/resolvePluginGoModule";
 import { COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./COMMONJS_PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "./PLUGIN_DESCRIPTOR_SHIM_SOURCE";
 import { PluginDescriptorEvaluationCache } from "./PluginDescriptorEvaluationCache";
@@ -34,7 +33,8 @@ import { ProjectPluginEntries } from "./ProjectPluginEntries";
 import { composePluginSources } from "./composePluginSources";
 import { rejectJsTransformFunctions } from "./rejectJsTransformFunctions";
 import { validatePluginSource } from "./validatePluginSource";
-import { requirePluginSource } from "./requirePluginSource";
+import { pluginLabel } from "./pluginLabel";
+import { resolveNativeSource } from "./resolveNativeSource";
 import { validatePluginContributors } from "./validatePluginContributors";
 import { collectProjectHostInputs } from "./collectProjectHostInputs";
 import { declaresHostInputReads } from "./declaresHostInputReads";
@@ -1984,51 +1984,10 @@ function resolvePluginStage(plugin: ITtscPlugin): TtscPluginStage {
   return plugin.stage;
 }
 
-
-
-function pluginLabel(
-  plugin: ITtscPlugin,
-  config: ITtscProjectPluginConfig,
-  index: number,
-): string {
-  if (typeof plugin.name === "string" && plugin.name.length !== 0) {
-    return plugin.name;
-  }
-  if (typeof config.transform === "string" && config.transform.length !== 0) {
-    return config.transform;
-  }
-  return `#${index}`;
-}
-
 function resolvePluginSource(source: string, projectRoot: string): string {
   return PluginPackageResolution.resolveRealPath(
     path.isAbsolute(source) ? source : path.resolve(projectRoot, source),
   );
-}
-
-/**
- * Whether a plugin's source builds an executable or is linked into a compiler
- * host, and the Go module it builds in (`resolvePluginGoModule`).
- */
-function resolveNativeSource(
-  source: string,
-  plugin: ITtscPlugin,
-  config: ITtscProjectPluginConfig,
-  index: number,
-): { kind: "executable" | "linked"; moduleRoot: string } {
-  const label = pluginLabel(plugin, config, index);
-  requirePluginSource(source, label);
-  const { moduleRoot, packageDir } = resolvePluginGoModule(source, label);
-  const packageName = readGoPackageName(packageDir);
-  if (packageName === null) {
-    throw new Error(
-      `ttsc: plugin "${label}" source must contain at least one non-test ".go" file with a package declaration: ${packageDir}`,
-    );
-  }
-  return {
-    kind: packageName === "main" ? "executable" : "linked",
-    moduleRoot,
-  };
 }
 
 /**
@@ -2085,28 +2044,6 @@ function pluginBuildDirectories(
  */
 function reportsPluginSource(directory: string): boolean {
   return !isPathWithin(directory, ttscPackageRoot());
-}
-
-
-
-function readGoPackageName(dir: string): string | null {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (
-      !entry.isFile() ||
-      !entry.name.endsWith(".go") ||
-      entry.name.endsWith("_test.go")
-    ) {
-      continue;
-    }
-    const file = path.join(dir, entry.name);
-    for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
-      const match = /^\s*package\s+([A-Za-z_][A-Za-z0-9_]*)\b/.exec(line);
-      if (match) {
-        return match[1]!;
-      }
-    }
-  }
-  return null;
 }
 
 

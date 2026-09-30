@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TestUtilityPlugins } from "../../internal/TestUtilityPlugins";
+import { nativePluginSource } from "../../internal/plugin-corpus";
 import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
 
 /**
@@ -22,9 +23,9 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../internal/plugin-cache";
  * @evidence contracts/testing.md#distinguishing-cases Owns false built-in labels on executable sources and public nonzero error transport; does not impersonate actual linked implementations.
  * @evidence contracts/testing.md#execution-ownership The matching named utility-host export executes one real descriptor-admission and compatibility pass in the shared Linux native population.
  * @evidence contracts/e2e.md#necessary-boundary The real loader must classify both Go main sources as executable owners before the shared-host guard; a guard unit with preselected kinds does not establish that earlier classification.
- * @evidence contracts/e2e.md#shared-execution The cheap independent main fixtures and compiler objects use the suite cache without requiring the heavy linked utility host.
+ * @evidence contracts/e2e.md#shared-execution The canonical transformer and driver-emit producers already used by the batch share native binaries and compiler objects; no extra empty Go programs are compiled for labels.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh distinct descriptor/source modules prevent equal-identity reuse from hiding incompatible owners; names are input labels rather than asserted native routing authority.
- * @evidence contracts/e2e.md#preserved-coverage Both original public nonzero exit and exact multiple-native-backend diagnostic pattern remain; no predicate-only replacement discards the actual loader classification boundary.
+ * @evidence contracts/e2e.md#preserved-coverage Both original public nonzero exit and exact multiple-native-backend diagnostic remain. Actual source-classifier and host-guard units additionally preserve the original two empty main-package inputs; this shared-producer survivor retains their real loader-to-BuildExecution connection.
  */
 export function test_ttsc_transform_plugins_fake_names_do_not_bypass_shared_host_error(): void {
     const root = TestProject.commonJsProject(
@@ -33,21 +34,17 @@ export function test_ttsc_transform_plugins_fake_names_do_not_bypass_shared_host
         "plugins/fake-banner.cjs": `
         module.exports = (context) => ({
           name: "@ttsc/banner",
-          source: require("node:path").resolve(context.dirname, "..", "fake-banner"),
+          source: ${JSON.stringify(nativePluginSource("transformer"))},
           stage: "transform",
         });
       `,
         "plugins/fake-strip.cjs": `
         module.exports = (context) => ({
           name: "@ttsc/strip",
-          source: require("node:path").resolve(context.dirname, "..", "fake-strip"),
+          source: ${JSON.stringify(nativePluginSource("driver-emit"))},
           stage: "transform",
         });
       `,
-        "fake-banner/go.mod": "module example.com/fakebanner\n\ngo 1.26\n",
-        "fake-banner/main.go": "package main\n\nfunc main() {}\n",
-        "fake-strip/go.mod": "module example.com/fakestrip\n\ngo 1.26\n",
-        "fake-strip/main.go": "package main\n\nfunc main() {}\n",
       },
       {
         compilerOptions: {
