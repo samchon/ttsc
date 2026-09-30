@@ -68,6 +68,7 @@ const adapterEntrypoints = [
   "rolldown",
   "rollup",
   "rspack",
+  "turbopack",
   "vite",
   "webpack",
 ];

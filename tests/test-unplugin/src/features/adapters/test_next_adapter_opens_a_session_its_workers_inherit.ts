@@ -25,6 +25,39 @@ import { pathIsWithin } from "../../../../../packages/unplugin/lib/core/transfor
  * 2. Assert the child's store existed outside the project, the worker inherited
  *    it, and the dead process's store was removed.
  * 3. Assert the child's store is still there after it exited.
+ * @evidence contracts/testing.md#behavioral-verification
+ *   Executes built withTtsc in a child, then a real worker child reads its
+ *   inherited session variable. Asserts the absolute store exists outside the
+ *   project, under the owned temp root, removes an independently dead owner,
+ *   and remains after the creating process exits.
+ * @evidence contracts/testing.md#independent-expectations
+ *   A child inherits its parent's environment; a persistent transform session
+ *   must outlive that process while dead transient owners are reclaimed. The
+ *   fixture confirms ESRCH before planting the orphan, independently of cleanup.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   Contrasts a live newly opened persistent store with a known-dead transient
+ *   store, project versus temporary location, and same-value worker inheritance
+ *   versus an absent or different variable. Post-exit existence checks lifetime.
+ * @evidence contracts/testing.md#execution-ownership
+ *   This exported E2E entry owns two synchronous child processes and temporary
+ *   filesystem state. It does not compile a plugin; TestProject owns directory
+ *   cleanup, and both processes have exited before final lifetime assertions.
+ * @evidence contracts/e2e.md#necessary-boundary
+ *   Actual process environment inheritance and post-exit filesystem lifetime
+ *   cannot be established by direct option-unit calls. This narrow boundary
+ *   complements packed Next worker delivery without starting another Next host.
+ * @evidence contracts/e2e.md#shared-execution
+ *   One wrapper process and one worker probe jointly verify opening, cleanup,
+ *   inheritance and lifetime. No install or native producer is repeated; the
+ *   already built adapter is the producer shared by this feature population.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity
+ *   TEMP, TMP and TMPDIR select an owned root and the session variable is cleared
+ *   in the child environment. The fixture verifies the orphan PID is dead before
+ *   creation, and synchronous execution prevents inspecting an unfinished child.
+ * @evidence contracts/e2e.md#preserved-coverage
+ *   All existing location, live existence, worker inheritance, dead-owner
+ *   removal and post-exit assertions remain in this same two-process batch.
+ *   The dead-PID precondition strengthens the fixture without removing a case.
  */
 export async function test_next_adapter_opens_a_session_its_workers_inherit(): Promise<void> {
   // In its long spelling, which the store is resolved to.
@@ -40,6 +73,7 @@ export async function test_next_adapter_opens_a_session_its_workers_inherit(): P
     'const root = path.join(os.tmpdir(), `ttsc-unplugin-sessions${user === undefined ? "" : `-${user}`}`);',
     "fs.mkdirSync(root, { mode: 0o700, recursive: true });",
     'const orphan = path.join(root, "2147483646-orphan");',
+    "try { process.kill(2147483646, 0); throw new Error('orphan fixture PID is alive'); } catch (error) { if (error.code !== 'ESRCH') throw error; }",
     "fs.mkdirSync(orphan, { recursive: true });",
     `const next = (await import(${JSON.stringify(TestUnpluginRuntime.libUrl("next"))})).default;`,
     "next({});",

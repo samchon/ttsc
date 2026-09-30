@@ -2,14 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Imports the actual installed root, API and nine adapter exports through separate ESM and CommonJS processes.
+ * Imports the actual installed root, API and ten adapter exports through separate ESM and CommonJS processes.
  *
  * @evidence contracts/testing.md#behavioral-verification
- *   Imports the actual installed root, API and nine adapter exports through separate ESM and CommonJS processes.
+ *   Imports the actual installed root, API and ten adapter exports through separate ESM and CommonJS processes.
  * @evidence contracts/testing.md#independent-expectations
- *   The supported public exports independently require callable adapter defaults, root.default.vite and API transformTtsc. Both module systems must meet the same declared public shapes.
+ *   The supported public exports independently require callable adapter defaults, root.default.vite and API resolveOptions/transformTtsc. Both module systems must meet the same declared public shapes.
  * @evidence contracts/testing.md#distinguishing-cases
- *   Each root must expose the Vite adapter, each API must expose transformTtsc, and every adapter default must be callable.
+ *   Each root must expose the Vite adapter, each API must expose resolveOptions and transformTtsc, and every adapter default including Turbopack must be callable.
  * @evidence contracts/testing.md#execution-ownership
  *   The entrypoints phase calls this function once, which launches the ESM and CommonJS fixture entry scripts and preserves the failing export name in each thrown error.
  * @evidence contracts/e2e.md#necessary-boundary
@@ -19,9 +19,10 @@ import path from "node:path";
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity
  *   The two generated entry scripts are distinct and read the same immutable installed package. Both subprocesses finish before return; no import-cache result is carried from one module system to the other.
  * @evidence contracts/e2e.md#preserved-coverage
- *   The complete former verifyEntrypoints body and all assertion arguments
- *   remain in this entry. Extraction adds no build or process; it provides an
- *   address for the retained boundary instead of an anonymous phase assertion.
+ *   The former packed checks remain. Turbopack callable exports and CJS API
+ *   resolveOptions were previously repeated in two checkout-artifact cases;
+ *   those assertions now join both installed module systems in these same two
+ *   processes, replacing the duplicate cases with stronger export resolution.
  */
 export function test_packed_entrypoints({ workspace, adapterEntrypoints, run }) {
     fs.writeFileSync(path.join(workspace, "verify-entrypoints.mjs"), [
@@ -30,6 +31,9 @@ export function test_packed_entrypoints({ workspace, adapterEntrypoints, run }) 
         '  throw new Error("@ttsc/unplugin ESM default import must expose adapters");',
         "}",
         'const api = await import("@ttsc/unplugin/api");',
+        'if (typeof api.resolveOptions !== "function") {',
+        '  throw new Error("@ttsc/unplugin/api must expose resolveOptions");',
+        "}",
         'if (typeof api.transformTtsc !== "function") {',
         '  throw new Error("@ttsc/unplugin/api must expose transformTtsc");',
         "}",
@@ -48,6 +52,9 @@ export function test_packed_entrypoints({ workspace, adapterEntrypoints, run }) 
         '  throw new Error("@ttsc/unplugin CJS require must expose adapters");',
         "}",
         'const api = require("@ttsc/unplugin/api");',
+        'if (typeof api.resolveOptions !== "function") {',
+        '  throw new Error("@ttsc/unplugin/api must expose resolveOptions through CJS");',
+        "}",
         'if (typeof api.transformTtsc !== "function") {',
         '  throw new Error("@ttsc/unplugin/api must expose transformTtsc through CJS");',
         "}",
