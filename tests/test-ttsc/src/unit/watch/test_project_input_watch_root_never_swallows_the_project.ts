@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { projectInputActiveWatchDirectories } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputActiveWatchDirectories.js";
-import { projectInputWatchDirectories } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputWatchDirectories.js";
+import { projectInputActiveWatchDirectories } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputActiveWatchDirectories";
+import { projectInputWatchDirectories } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputWatchDirectories";
 
 /**
  * Verifies an external declaration never anchors above the project.
@@ -22,9 +22,13 @@ import { projectInputWatchDirectories } from "../../../../../packages/ttsc/lib/l
  * 2. Anchor one whose parent contains the project and require a narrower root.
  * 3. Decline entirely when even the target's own tree contains the project.
  * 4. Assert the project's own root survives the merge beside an external one.
+ *
+ * @evidence contracts/testing.md#behavioral-verification projectInputWatchDirectories and projectInputActiveWatchDirectories preserve the project root while narrowing or rejecting external anchors.
+ * @evidence contracts/testing.md#independent-expectations an external recursive anchor may not contain the project and displace its own coverage.
+ * @evidence contracts/testing.md#distinguishing-cases a safe sibling keeps its parent anchor, a beside-project target narrows to itself, a containing target is rejected and active merging retains the project root.
+ * @evidence contracts/testing.md#execution-ownership The named test_project_input_watch_root_never_swallows_the_project source-unit function under src/unit/watch invokes authored decision or merge operations with fixture paths and supported identity injection; it opens no watcher, product process or native build.
  */
-export const test_project_input_watch_root_never_swallows_the_project =
-  (): void => {
+export function test_project_input_watch_root_never_swallows_the_project(): void {
     const parent = TestProject.tmpdir("ttsc-project-input-anchor-");
     const root = path.join(parent, "project");
     const sibling = path.join(parent, "external", "docs");
@@ -65,4 +69,4 @@ export const test_project_input_watch_root_never_swallows_the_project =
       [beside, root],
       "the project's own root must survive beside an external anchor",
     );
-  };
+  }

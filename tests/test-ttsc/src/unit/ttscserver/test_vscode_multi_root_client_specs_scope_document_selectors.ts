@@ -1,6 +1,6 @@
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -18,9 +18,13 @@ import path from "node:path";
  * 2. Import the VS Code resolution helper through Node's TypeScript loader.
  * 3. Deduplicate candidates the same way the extension does.
  * 4. Assert both roots remain distinct and selectors are root-scoped.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createResolutionCandidates and createDocumentSelectorPattern keep both independent project clients and instantiate literal-root selectors.
+ * @evidence contracts/testing.md#independent-expectations recursive selectors must be anchored to each actual root even when a root name contains glob metacharacters.
+ * @evidence contracts/testing.md#distinguishing-cases two configured roots including pkg[one] retain their own tsconfig and pattern base; the injected constructor instance and its complete own fields are checked.
+ * @evidence contracts/testing.md#execution-ownership The named test_vscode_multi_root_client_specs_scope_document_selectors function runs under src/unit/ttscserver and calls the authored resolution or launch-planning operations directly; no extension host or child process starts, and real shim spawn remains in E2E.
  */
-export const test_vscode_multi_root_client_specs_scope_document_selectors =
-  () => {
+export function test_vscode_multi_root_client_specs_scope_document_selectors() {
     const repo = TestProject.WORKSPACE_ROOT;
     const workspace = TestProject.tmpdir("vscode-multi-root-");
     const left = path.join(workspace, "pkg[one]");
@@ -31,22 +35,16 @@ export const test_vscode_multi_root_client_specs_scope_document_selectors =
       fs.writeFileSync(path.join(root, "src", "main.ts"), "export {};\n");
     }
 
-    const script = `
-      import { pathToFileURL } from "node:url";
-      const mod = await import(pathToFileURL(${JSON.stringify(
-        path.join(repo, "packages", "vscode", "src", "serverResolution.ts"),
-      )}).href);
+    class FakeRelativePattern {
+      constructor(public base: string, public pattern: string) {}
+    }
+    const observed = (() => {
       const candidates = mod.createResolutionCandidates({
-        activeFile: ${JSON.stringify(path.join(right, "src", "main.ts"))},
-        activeWorkspaceRoot: ${JSON.stringify(right)},
-        workspaceRoots: [${JSON.stringify(left)}, ${JSON.stringify(right)}],
+        activeFile: (path.join(right, "src", "main.ts")),
+        activeWorkspaceRoot: (right),
+        workspaceRoots: [(left), (right)],
       });
-      class FakeRelativePattern {
-        constructor(base, pattern) {
-          this.base = base;
-          this.pattern = pattern;
-        }
-      }
+      
       const unique = [...new Map(candidates.map((entry) => [
         entry.cwd,
         {
@@ -55,24 +53,10 @@ export const test_vscode_multi_root_client_specs_scope_document_selectors =
           tsconfig: entry.tsconfig,
         },
       ])).values()];
-      console.log(JSON.stringify(unique));
-    `;
-    const result = spawnSync(
-      process.execPath,
-      [
-        "--disable-warning=ExperimentalWarning",
-        "--experimental-strip-types",
-        "--input-type=module",
-        "--eval",
-        script,
-      ],
-      {
-        cwd: repo,
-        encoding: "utf8",
-      },
-    );
-    assert.equal(result.status, 0, result.stderr);
-    const roots = JSON.parse(result.stdout) as {
+      return unique;
+    
+  })();
+    const roots = observed as {
       cwd: string;
       pattern: { base: string; pattern: string };
       tsconfig: string;
@@ -86,6 +70,7 @@ export const test_vscode_multi_root_client_specs_scope_document_selectors =
         path.normalize(entry.tsconfig),
         path.normalize(path.join(entry.cwd, "tsconfig.json")),
       );
-      assert.deepEqual(entry.pattern, { base: entry.cwd, pattern: "**/*" });
+      assert.ok(entry.pattern instanceof FakeRelativePattern);
+      assert.deepEqual({ ...entry.pattern }, { base: entry.cwd, pattern: "**/*" });
     }
-  };
+}

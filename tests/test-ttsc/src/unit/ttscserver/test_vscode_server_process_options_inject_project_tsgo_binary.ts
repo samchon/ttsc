@@ -1,6 +1,6 @@
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -16,9 +16,13 @@ import path from "node:path";
  *    platform package manifests.
  * 2. Import the VS Code resolution helper through Node's TypeScript loader.
  * 3. Assert `serverProcessOptions` keeps `cwd` and injects the resolved binary.
+ *
+ * @evidence contracts/testing.md#behavioral-verification serverProcessOptions preserves cwd and injects the compiler path resolved from fixture manifests.
+ * @evidence contracts/testing.md#independent-expectations the server must use the owning project platform package rather than a workspace compiler; the independently authored absolute binary path is the oracle.
+ * @evidence contracts/testing.md#distinguishing-cases the fixture has project-local typescript and the current platform manifest with an existing binary; the returned cwd and TTSC_TSGO_BINARY are independently asserted.
+ * @evidence contracts/testing.md#execution-ownership The named test_vscode_server_process_options_inject_project_tsgo_binary function runs under src/unit/ttscserver and calls the authored resolution or launch-planning operations directly; no extension host or child process starts, and real shim spawn remains in E2E.
  */
-export const test_vscode_server_process_options_inject_project_tsgo_binary =
-  () => {
+export function test_vscode_server_process_options_inject_project_tsgo_binary() {
     const root = TestProject.WORKSPACE_ROOT;
     const project = TestProject.physicalPath(
       TestProject.tmpdir("vscode-server-process-options-"),
@@ -53,36 +57,18 @@ export const test_vscode_server_process_options_inject_project_tsgo_binary =
     );
     fs.writeFileSync(binary, "");
 
-    const script = `
-      import { pathToFileURL } from "node:url";
-      const mod = await import(pathToFileURL(${JSON.stringify(
-        path.join(root, "packages", "vscode", "src", "serverResolution.ts"),
-      )}).href);
-      const options = mod.serverProcessOptions(${JSON.stringify(project)});
-      console.log(JSON.stringify({
+    const observed = (() => {
+      const options = mod.serverProcessOptions((project));
+      return {
         cwd: options?.cwd,
         tsgo: options?.env?.TTSC_TSGO_BINARY,
-      }));
-    `;
-    const result = spawnSync(
-      process.execPath,
-      [
-        "--disable-warning=ExperimentalWarning",
-        "--experimental-strip-types",
-        "--input-type=module",
-        "--eval",
-        script,
-      ],
-      {
-        cwd: root,
-        encoding: "utf8",
-      },
-    );
-    assert.equal(result.status, 0, result.stderr);
-    const parsed = JSON.parse(result.stdout) as {
+      };
+    
+  })();
+    const parsed = observed as {
       cwd?: string;
       tsgo?: string;
     };
     assert.equal(path.normalize(parsed.cwd ?? ""), path.normalize(project));
     assert.equal(path.normalize(parsed.tsgo ?? ""), path.normalize(binary));
-  };
+}

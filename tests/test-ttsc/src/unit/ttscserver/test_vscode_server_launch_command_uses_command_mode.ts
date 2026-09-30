@@ -1,6 +1,6 @@
+import * as mod from "../../../../../packages/vscode/src/serverResolution";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import path from "node:path";
 
 /**
@@ -16,8 +16,13 @@ import path from "node:path";
  * 2. Build launch commands for JS and native server paths.
  * 3. Build a Windows `.cmd` launch command.
  * 4. Assert the command/args shapes match the extension contract.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createServerLaunchCommand selects Node, native or Windows shim execution and executeCommandIDPrefix separates client command namespaces.
+ * @evidence contracts/testing.md#independent-expectations public launch commands carry stdio, cwd, config and suppressed command IDs; Windows shim environment preserves the literal argument array.
+ * @evidence contracts/testing.md#distinguishing-cases JavaScript and native arrays contrast with pre-quoted cmd arguments, verbatim mode and six environment slots; different client roots receive distinct namespace prefixes.
+ * @evidence contracts/testing.md#execution-ownership The named test_vscode_server_launch_command_uses_command_mode function runs under src/unit/ttscserver and calls the authored resolution or launch-planning operations directly; no extension host or child process starts, and real shim spawn remains in E2E.
  */
-export const test_vscode_server_launch_command_uses_command_mode = () => {
+export function test_vscode_server_launch_command_uses_command_mode() {
   const repo = TestProject.WORKSPACE_ROOT;
   const cwd = path.join(repo, "packages", "demo");
   const tsconfig = path.join(cwd, "tsconfig.app.json");
@@ -25,38 +30,18 @@ export const test_vscode_server_launch_command_uses_command_mode = () => {
   const nativeLauncher = path.join(cwd, "bin", "ttscserver");
   const cmdLauncher = "C:\\\\Tools & SDK\\\\ttscserver.cmd";
 
-  const script = `
-    import { pathToFileURL } from "node:url";
-    const mod = await import(pathToFileURL(${JSON.stringify(
-      path.join(repo, "packages", "vscode", "src", "serverResolution.ts"),
-    )}).href);
-    const candidate = { cwd: ${JSON.stringify(cwd)}, resolveFrom: ${JSON.stringify(
-      cwd,
-    )}, tsconfig: ${JSON.stringify(tsconfig)} };
-    console.log(JSON.stringify({
-      js: mod.createServerLaunchCommand(${JSON.stringify(jsLauncher)}, candidate),
-      native: mod.createServerLaunchCommand(${JSON.stringify(nativeLauncher)}, candidate),
-      cmd: mod.createServerLaunchCommand(${JSON.stringify(cmdLauncher)}, candidate, "win32", { ComSpec: "cmd.exe" }),
-      prefix: mod.executeCommandIDPrefix(${JSON.stringify(cwd)}),
-      otherPrefix: mod.executeCommandIDPrefix(${JSON.stringify(path.join(repo, "packages", "other"))}),
-    }));
-  `;
-  const result = spawnSync(
-    process.execPath,
-    [
-      "--disable-warning=ExperimentalWarning",
-      "--experimental-strip-types",
-      "--input-type=module",
-      "--eval",
-      script,
-    ],
-    {
-      cwd: repo,
-      encoding: "utf8",
-    },
-  );
-  assert.equal(result.status, 0, result.stderr);
-  const parsed = JSON.parse(result.stdout) as {
+  const observed = (() => {
+    const candidate = { cwd: (cwd), resolveFrom: (cwd), tsconfig: (tsconfig) };
+    return {
+      js: mod.createServerLaunchCommand((jsLauncher), candidate),
+      native: mod.createServerLaunchCommand((nativeLauncher), candidate),
+      cmd: mod.createServerLaunchCommand((cmdLauncher), candidate, "win32", { ComSpec: "cmd.exe" }),
+      prefix: mod.executeCommandIDPrefix((cwd)),
+      otherPrefix: mod.executeCommandIDPrefix((path.join(repo, "packages", "other"))),
+    };
+  
+  })();
+  const parsed = observed as {
     cmd: {
       args: string[];
       command: string;
@@ -115,4 +100,4 @@ export const test_vscode_server_launch_command_uses_command_mode = () => {
     TTSC_VSCODE_COMMAND_SHIM_ARG_4: `"--execute-command-id-prefix=${parsed.prefix}"`,
     TTSC_VSCODE_COMMAND_SHIM_ARG_5: `"--tsconfig=${tsconfig}"`,
   });
-};
+}

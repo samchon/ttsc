@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { projectInputTopologyMayAffect } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputTopologyMayAffect.js";
+import { projectInputTopologyMayAffect } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputTopologyMayAffect";
 
 /**
  * Verifies a directory event is admitted from where it happened.
@@ -22,9 +22,13 @@ import { projectInputTopologyMayAffect } from "../../../../../packages/ttsc/lib/
  * 3. Admit the dependency root beside it and reject everything below that root,
  *    which is the pair the rule turns on.
  * 4. Reject an unrelated ordinary file and keep a missing glob root admissible.
+ *
+ * @evidence contracts/testing.md#behavioral-verification projectInputTopologyMayAffect admits only events that may re-anchor declared inputs.
+ * @evidence contracts/testing.md#independent-expectations an atomic replacement can move a declared ancestor while unrelated dependency descendants cannot move any declaration.
+ * @evidence contracts/testing.md#distinguishing-cases replaced siblings, declared ancestors and the top dependency root are admitted; deeper dependency trees and ordinary files are rejected; missing glob roots remain admitted.
+ * @evidence contracts/testing.md#execution-ownership The named test_project_input_topology_admits_only_anchoring_directories source-unit function under src/unit/watch invokes authored decision or merge operations with fixture paths and supported identity injection; it opens no watcher, product process or native build.
  */
-export const test_project_input_topology_admits_only_anchoring_directories =
-  (): void => {
+export function test_project_input_topology_admits_only_anchoring_directories(): void {
     const root = TestProject.tmpdir("ttsc-project-input-admission-");
     const declared = path.join(root, "docs", "nested", "missing.md");
     const replaced = path.join(root, "docs-old");
@@ -66,4 +70,4 @@ export const test_project_input_topology_admits_only_anchoring_directories =
         `${label} must ${expected ? "be admitted" : "stay outside"} the rescan`,
       );
     }
-  };
+  }

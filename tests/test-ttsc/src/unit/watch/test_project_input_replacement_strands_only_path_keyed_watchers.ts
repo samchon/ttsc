@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { projectInputReplacementStrandsWatchers } from "../../../../../packages/ttsc/lib/launcher/internal/watch/projectInputReplacementStrandsWatchers.js";
+import { projectInputReplacementStrandsWatchers } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputReplacementStrandsWatchers";
 
 /**
  * Verifies a recursive root is reinstalled only where a replacement strands it.
@@ -20,9 +20,13 @@ import { projectInputReplacementStrandsWatchers } from "../../../../../packages/
  * 2. Require a rearm where a declaration is anchored, on the path-keyed backend.
  * 3. Require none on the native backends, for a file, or below a glob root or a
  *    reload directory, whose own digest nothing beneath it can reach.
+ *
+ * @evidence contracts/testing.md#behavioral-verification projectInputReplacementStrandsWatchers requests rearming only for an anchored directory on the path-keyed backend.
+ * @evidence contracts/testing.md#independent-expectations Node path-keyed recursive watches require rearming after ancestor replacement while native subtree backends preserve coverage.
+ * @evidence contracts/testing.md#distinguishing-cases Linux declared ancestors and exact reload roots contrast with macOS and Windows, ordinary files, deep glob descendants and reload-directory children.
+ * @evidence contracts/testing.md#execution-ownership The named test_project_input_replacement_strands_only_path_keyed_watchers source-unit function under src/unit/watch invokes authored decision or merge operations with fixture paths and supported identity injection; it opens no watcher, product process or native build.
  */
-export const test_project_input_replacement_strands_only_path_keyed_watchers =
-  (): void => {
+export function test_project_input_replacement_strands_only_path_keyed_watchers(): void {
     const root = TestProject.tmpdir("ttsc-project-input-strand-");
     const declared = path.join(root, "docs", "nested", "missing.md");
     const replaced = path.join(root, "docs-old");
@@ -79,4 +83,4 @@ export const test_project_input_replacement_strands_only_path_keyed_watchers =
         `${label} must ${expected ? "rearm" : "not rearm"} the delivering root`,
       );
     }
-  };
+  }
