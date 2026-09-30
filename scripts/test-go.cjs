@@ -26,14 +26,9 @@ const runners = [
   "test-go-shim.cjs",
 ];
 
-// These suites call Go APIs in process and need no built product CLI. The
-// remaining runners include real command, runtime, plugin or filesystem
-// integration contracts.
-const GO_UNIT_ONLY_RUNNERS = [
-  "test-go-driver.cjs",
-  "test-go-transformer.cjs",
-  "test-go-shim.cjs",
-];
+// These suites call parser/transformer APIs in process. The remaining runners
+// include real command, runtime, plugin or filesystem integration contracts.
+const GO_UNIT_ONLY_RUNNERS = ["test-go-transformer.cjs", "test-go-shim.cjs"];
 const GO_UNIT_RUNNERS = [
   ...GO_UNIT_ONLY_RUNNERS,
   "test-go-lint.cjs",

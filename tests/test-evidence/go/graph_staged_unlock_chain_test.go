@@ -19,7 +19,7 @@ import (
  * 2. Enable every prefix, including none and all, in the same Go test process.
  * 3. Assert exact diagnostic counts and the original identity of each claim.
  */
-func TestStagedUnlockChainPreservesEveryIntermediateObligation(t *testing.T) {
+func TestEvidenceSemanticStagedUnlockChainPreservesEveryIntermediateObligation(t *testing.T) {
   files := map[string]string{
     "docs/requirement.md": "## Requirement {#requirement}\n",
     "src/model.ts":        "export interface IModel {}\n",

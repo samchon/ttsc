@@ -17,8 +17,8 @@ for (const name of packageNames) {
   const workdir = fs.mkdtempSync(
     path.join(os.tmpdir(), `ttsc-${name}-go-work-`),
   );
-  // A failure ends the run with an exit code and a `break`, never
-  // `process.exit`, which would skip the `finally` that removes the workdir.
+  // Collect every independent package's result. A failed build blocks only
+  // that package's tests; cleanup still runs before the next package.
   try {
     const goWork = path.join(workdir, "go.work");
     writeUtilityGoWork(goWork, packageDir);
@@ -43,7 +43,7 @@ for (const name of packageNames) {
     }
     if (warm.status !== 0) {
       process.exitCode = warm.status ?? 1;
-      break;
+      continue;
     }
     const result = cp.spawnSync("go", ["test", "-count=1", "./test"], {
       cwd: packageDir,
@@ -62,7 +62,7 @@ for (const name of packageNames) {
     }
     if (result.status !== 0) {
       process.exitCode = result.status ?? 1;
-      break;
+      continue;
     }
   } finally {
     fs.rmSync(workdir, { recursive: true, force: true });
