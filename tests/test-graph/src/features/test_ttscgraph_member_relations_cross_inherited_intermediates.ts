@@ -1,6 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
@@ -52,78 +51,25 @@ const traceOf = (result: ToolResult): TraceResult => {
  * 3. Assert the trace dispatches into the concrete implementation and reaches the
  *    work behind it.
  *
- * @evidence contracts/testing.md#behavioral-verification MCP trace crosses Root.process through an inherited abstract intermediate to Concrete.process and reaches persist, retaining the real implementation seam.
- * @evidence contracts/testing.md#independent-expectations The authored inheritance chain has only one concrete implementation and one persist call; literal dispatch and reached-name assertions do not infer implementation from degree.
+ * @evidence contracts/testing.md#behavioral-verification MCP trace crosses RootWorker.process through an inherited abstract intermediate to ConcreteWorker.process and reaches persistInherited, retaining the real implementation seam.
+ * @evidence contracts/testing.md#independent-expectations The authored inheritance chain has only one concrete implementation and one persistInherited call; literal dispatch and reached-name assertions do not infer implementation from degree.
  * @evidence contracts/testing.md#distinguishing-cases An intermediate that declares no override must not break the Root-to-Concrete relation. This positive inherited path does not own invalid-signature rejection; the checker-dispatch case does.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_member_relations_cross_inherited_intermediates starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native checker heritage resolution must publish transitive member relations across the empty intermediate before resident traversal can dispatch.
- * @evidence contracts/e2e.md#shared-execution One immutable hierarchy and its trace share one project/session with the suite compiler. Compatible member-relation cases can share preparation; the current session population is not minimized.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Owner-qualified Root/Concrete handles isolate the hierarchy; stdin ends and exit is awaited in finally without asserting its code. The client observes close from construction, rejects pending requests on child failure, and terminates a child that exceeds its exit timeout.
- * @evidence contracts/e2e.md#preserved-coverage Original Concrete dispatch and persist reachability assertions remain. This case alone does not establish negative dispatch filtering or every intermediate node.
+ * @evidence contracts/e2e.md#shared-execution Twelve identity/display, documentation/citation and member-dispatch entries borrow one composite project, initialized MCP session and resident native compiler. Only the object-source mutation requires a new generation. The checker-rejection entry also executes the public dump CLI once against this project because its diagnostics/raw edges are a separate entrypoint connection; all named assertions remain.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files, symbol names and citation targets isolate each fixture; disjoint checked, abstract and inherited dispatch contracts prevent cross-case implementations. Only object-outline.ts changes. Serial requests synchronize its delta and suite finally closes the shared client with a successful-exit assertion after complete result collection.
+ * @evidence contracts/e2e.md#preserved-coverage Original Concrete dispatch and persistInherited reachability assertions remain. This case alone does not establish negative dispatch filtering or every intermediate node.
  */
 export const test_ttscgraph_member_relations_cross_inherited_intermediates =
   async () => {
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            strict: true,
-            rootDir: "src",
-            outDir: "dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2,
-      ),
-      "src/app.ts": [
-        "export function persist(): void {}",
-        "",
-        "export abstract class RootWorker {",
-        "  public abstract process(): void;",
-        "",
-        "  public start(): void {",
-        "    this.process();",
-        "  }",
-        "}",
-        "",
-        "export abstract class IntermediateWorker extends RootWorker {}",
-        "",
-        "export class ConcreteWorker extends IntermediateWorker {",
-        "  public process(): void {",
-        "    persist();",
-        "  }",
-        "}",
-        "",
-        "export class Runner {",
-        "  public constructor(private readonly worker: RootWorker) {}",
-        "",
-        "  public run(): void {",
-        "    this.worker.start();",
-        "  }",
-        "}",
-        "",
-      ].join("\n"),
-    });
-
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
+    await withIdentityBoundary(async (client) => {
       const result = (await client.request("tools/call", {
         name: "inspect_typescript_graph",
         arguments: graphArguments({
           thinking: "What does a run actually execute?",
           request: {
             type: "trace",
-            from: "Runner.run",
+            from: "InheritedRunner.run",
             direction: "forward",
             focus: "execution",
             maxDepth: 6,
@@ -142,11 +88,8 @@ export const test_ttscgraph_member_relations_cross_inherited_intermediates =
       );
       const reached = trace.reached.map((node) => node.name);
       assert.ok(
-        reached.includes("persist"),
+        reached.includes("persistInherited"),
         `the work behind the implementation is reached: ${reached.join(", ")}`,
       );
-    } finally {
-      client.endStdin();
-      await client.waitForExit();
-    }
+    });
   };

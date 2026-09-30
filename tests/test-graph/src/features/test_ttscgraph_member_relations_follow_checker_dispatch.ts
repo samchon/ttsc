@@ -1,7 +1,6 @@
-import { TestProject } from "@ttsc/testing";
-
 import { dumpGraph, findEdge } from "../internal/graphDump";
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   structuredContent?: unknown;
@@ -28,7 +27,7 @@ const traceOf = (result: ToolResult): TraceResult => {
  * tracing then promoted that false structural edge to dispatches and reached
  * code the interface call could never invoke.
  *
- * 1. Build one valid and one signature-incompatible Pipeline implementation.
+ * 1. Build one valid and one signature-incompatible CheckedPipeline implementation.
  * 2. Require the shipped binary dump to retain TS2416 and only the valid member
  *    edge.
  * 3. Trace an interface call and require dispatch into Good/accepted while Bad and
@@ -39,58 +38,13 @@ const traceOf = (result: ToolResult): TraceResult => {
  * @evidence contracts/testing.md#distinguishing-cases Valid and incompatible methods share one contract, so name equality cannot pass the negative control; the graph remains usable despite the compiler diagnostic.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_member_relations_follow_checker_dispatch starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Actual checker assignability, dump diagnostics and subsequent MCP traversal must agree; a synthetic implements edge cannot test whether the producer rejected Bad.
- * @evidence contracts/e2e.md#shared-execution Dump and MCP consume one fixture and suite binary, but currently use separate producer lifetimes. Combining the observation with a shared producer is pending; no build per method is claimed.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture owns valid/invalid implementations and diagnostics; dump is synchronous, and MCP stdin ends with exit awaited in finally without an exit-code assertion. The client observes close from construction, rejects pending requests on child failure, and terminates a child that exceeds its exit timeout.
+ * @evidence contracts/e2e.md#shared-execution Twelve identity/display, documentation/citation and member-dispatch entries borrow one composite project, initialized MCP session and resident native compiler. Only the object-source mutation requires a new generation. The checker-rejection entry also executes the public dump CLI once against this project because its diagnostics/raw edges are a separate entrypoint connection; all named assertions remain.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files, symbol names and citation targets isolate each fixture; disjoint checked, abstract and inherited dispatch contracts prevent cross-case implementations. Only object-outline.ts changes. Serial requests synchronize its delta and suite finally closes the shared client with a successful-exit assertion after complete result collection.
  * @evidence contracts/e2e.md#preserved-coverage TS2416, retained members, valid-edge positive, invalid-edge negative, Good dispatch/accepted and Bad/rejected exclusions all remain executable.
  */
 export const test_ttscgraph_member_relations_follow_checker_dispatch =
   async () => {
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            strict: true,
-            rootDir: "src",
-            outDir: "dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2,
-      ),
-      "src/app.ts": [
-        "export interface Pipeline {",
-        "  execute(input: number): void;",
-        "}",
-        "",
-        "export function accepted(): void {}",
-        "export function rejected(): void {}",
-        "",
-        "export class Good implements Pipeline {",
-        "  execute(input: number): void {",
-        "    accepted();",
-        "  }",
-        "}",
-        "",
-        "export class Bad implements Pipeline {",
-        "  execute(input: string): void {",
-        "    rejected();",
-        "  }",
-        "}",
-        "",
-        "export class Runner {",
-        "  constructor(private readonly pipeline: Pipeline) {}",
-        "",
-        "  run(): void {",
-        "    this.pipeline.execute(1);",
-        "  }",
-        "}",
-        "",
-      ].join("\n"),
-    });
-
+    await withIdentityBoundary(async (client, root) => {
     const dump = dumpGraph(root, "tsconfig.json");
     assert.ok(
       dump.diagnostics.some((diagnostic) => diagnostic.code === 2416),
@@ -98,7 +52,7 @@ export const test_ttscgraph_member_relations_follow_checker_dispatch =
     );
     const implementations = dump.nodes.filter(
       (node) =>
-        node.file === "src/app.ts" &&
+        node.file === "src/checked-dispatch.ts" &&
         node.name === "execute" &&
         node.kind === "method",
     );
@@ -109,7 +63,7 @@ export const test_ttscgraph_member_relations_follow_checker_dispatch =
       (node) => node.qualifiedName === "Bad.execute",
     );
     const contractExecute = implementations.find(
-      (node) => node.qualifiedName === "Pipeline.execute",
+      (node) => node.qualifiedName === "CheckedPipeline.execute",
     );
     assert.ok(
       goodExecute !== undefined &&
@@ -126,19 +80,10 @@ export const test_ttscgraph_member_relations_follow_checker_dispatch =
       "the checker-rejected member pair is absent",
     );
 
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
       const result = (await client.request("tools/call", {
         name: "inspect_typescript_graph",
         arguments: {
-          question: "What does Runner.run actually execute?",
+          question: "What does CheckedRunner.run actually execute?",
           draft: {
             reason: "Follow the interface call into checker-valid bodies.",
             type: "trace",
@@ -146,7 +91,7 @@ export const test_ttscgraph_member_relations_follow_checker_dispatch =
           review: "Keep the execution trace and its dispatch evidence.",
           request: {
             type: "trace",
-            from: "Runner.run",
+            from: "CheckedRunner.run",
             direction: "forward",
             focus: "execution",
             maxDepth: 5,
@@ -174,8 +119,5 @@ export const test_ttscgraph_member_relations_follow_checker_dispatch =
           !reached.includes("rejected"),
         "rejected implementation stays unreachable: " + reached.join(", "),
       );
-    } finally {
-      client.endStdin();
-      await client.waitForExit();
-    }
+    });
   };

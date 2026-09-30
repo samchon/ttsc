@@ -1,6 +1,5 @@
-import { TestProject } from "@ttsc/testing";
-
-import { TtsgraphClient, assert } from "../internal/ttsgraph";
+import { withIdentityBoundary } from "../internal/identityBoundary";
+import { assert } from "../internal/ttsgraph";
 
 interface ToolResult {
   content: { type: string; text: string }[];
@@ -48,89 +47,31 @@ const traceOf = (result: ToolResult): TraceResult => {
  * continuation: the dead-end declaration yields a `dispatches` hop to every
  * implementation that has a body, cited at the implementation.
  *
- * 1. Materialize a project where `Runner.run` calls the abstract
- *    `Pipeline.execute`, which two concrete pipelines implement.
- * 2. Trace forward from `Runner.run` with execution focus.
+ * 1. Materialize a project where `AbstractRunner.run` calls the abstract
+ *    `AbstractPipeline.execute`, which two concrete pipelines implement.
+ * 2. Trace forward from `AbstractRunner.run` with execution focus.
  * 3. Assert both implementations are reached over `dispatches` hops, and that the
- *    work each one does (`transform`, `persist`) is reached behind them.
+ *    work each one does (`transform`, `persistAbstract`) is reached behind them.
  *
- * @evidence contracts/testing.md#behavioral-verification MCP trace follows Runner through Pipeline.start to both concrete abstract-member implementations and reaches transform and persist.
+ * @evidence contracts/testing.md#behavioral-verification MCP trace follows AbstractRunner through AbstractPipeline.start to both concrete abstract-member implementations and reaches transform and persistAbstract.
  * @evidence contracts/testing.md#independent-expectations The authored call chain and two concrete class bodies independently name the required implementation and terminal handles.
  * @evidence contracts/testing.md#distinguishing-cases Two valid implementations exercise branching dispatch after a real call; this positive case does not own invalid-signature rejection, which member_relations_follow_checker_dispatch covers.
  * @evidence contracts/testing.md#execution-ownership The features export test_ttscgraph_trace_dispatches_to_the_implementation starts the installed MCP launcher and reaches the native resident graph through stdio; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary Native checker member relations must connect the abstract call seam to its concrete implementations before MCP traversal can show runtime continuation.
- * @evidence contracts/e2e.md#shared-execution All requested trace facts share one project/session and suite compiler. Compatible dispatch fixtures are candidates for a shared producer/project; cross-case lifetimes remain unminimized.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Qualified fixture handles isolate the stable implementation population; stdin ends and exit is awaited in finally without asserting its code. The client observes close from construction, rejects pending requests on child failure, and terminates a child that exceeds its exit timeout.
- * @evidence contracts/e2e.md#preserved-coverage Both implementation dispatches and transform/persist reachability assertions remain here; direct traversal units do not alone replace actual checker relation publication.
+ * @evidence contracts/e2e.md#shared-execution Twelve identity/display, documentation/citation and member-dispatch entries borrow one composite project, initialized MCP session and resident native compiler. Only the object-source mutation requires a new generation. The checker-rejection entry also executes the public dump CLI once against this project because its diagnostics/raw edges are a separate entrypoint connection; all named assertions remain.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique source files, symbol names and citation targets isolate each fixture; disjoint checked, abstract and inherited dispatch contracts prevent cross-case implementations. Only object-outline.ts changes. Serial requests synchronize its delta and suite finally closes the shared client with a successful-exit assertion after complete result collection.
+ * @evidence contracts/e2e.md#preserved-coverage Both implementation dispatches and transform/persistAbstract reachability assertions remain here; direct traversal units do not alone replace actual checker relation publication.
  */
 export const test_ttscgraph_trace_dispatches_to_the_implementation =
   async () => {
-    const root = TestProject.createProject({
-      "tsconfig.json": JSON.stringify(
-        {
-          compilerOptions: {
-            target: "ES2022",
-            module: "commonjs",
-            strict: true,
-            rootDir: "src",
-            outDir: "dist",
-          },
-          include: ["src"],
-        },
-        null,
-        2,
-      ),
-      "src/app.ts": [
-        "export function transform(): void {}",
-        "export function persist(): void {}",
-        "",
-        "export abstract class Pipeline {",
-        "  public abstract execute(): void;",
-        "",
-        "  public start(): void {",
-        "    this.execute();",
-        "  }",
-        "}",
-        "",
-        "export class TransformPipeline extends Pipeline {",
-        "  public execute(): void {",
-        "    transform();",
-        "  }",
-        "}",
-        "",
-        "export class PersistPipeline extends Pipeline {",
-        "  public execute(): void {",
-        "    persist();",
-        "  }",
-        "}",
-        "",
-        "export class Runner {",
-        "  public constructor(private readonly pipeline: Pipeline) {}",
-        "",
-        "  public run(): void {",
-        "    this.pipeline.start();",
-        "  }",
-        "}",
-        "",
-      ].join("\n"),
-    });
-
-    const client = TtsgraphClient.start(root);
-    try {
-      await client.request("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "test-graph", version: "0.0.0" },
-      });
-      client.notify("notifications/initialized", {});
-
+    await withIdentityBoundary(async (client) => {
       const result = (await client.request("tools/call", {
         name: "inspect_typescript_graph",
         arguments: graphArguments({
           thinking: "What does a run actually execute?",
           request: {
             type: "trace",
-            from: "Runner.run",
+            from: "AbstractRunner.run",
             direction: "forward",
             focus: "execution",
             maxDepth: 6,
@@ -146,20 +87,17 @@ export const test_ttscgraph_trace_dispatches_to_the_implementation =
         .map((hop) => trace.reached.find((node) => node.id === hop.to)?.name);
 
       assert.ok(
-        reached.includes("Pipeline.start"),
+        reached.includes("AbstractPipeline.start"),
         `the trace reaches the base method: ${reached.join(", ")}`,
       );
       assert.ok(
-        dispatched.includes("TransformPipeline.execute") &&
-          dispatched.includes("PersistPipeline.execute"),
+        dispatched.includes("TransformAbstractPipeline.execute") &&
+          dispatched.includes("PersistAbstractPipeline.execute"),
         `the abstract method dispatches to both implementations: ${dispatched.join(", ")}`,
       );
       assert.ok(
-        reached.includes("transform") && reached.includes("persist"),
+        reached.includes("transform") && reached.includes("persistAbstract"),
         `the work behind each implementation is reached: ${reached.join(", ")}`,
       );
-    } finally {
-      client.endStdin();
-      await client.waitForExit();
-    }
+    });
   };
