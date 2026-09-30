@@ -8,13 +8,15 @@ import (
 /**
  * Verifies todo reports unrealized contract.
  *
- * Preserves the original consumer fixture and every diagnostic assertion.
- * Package registration, exit status and diagnostic rendering run together in
- * the batched consumer contract; this case calls the actual Go rule directly.
+ * The exact @todo spelling contrasts with @todos on parse, which must remain silent and absent from findings.
  *
- * 1. Parse the unchanged TypeScript inputs with the production parser.
- * 2. Invoke the rule for every source in one Go test process.
- * 3. Assert the original positive, negative and boundary expectations.
+ * 1. todoRule.Check reports only persist with the exact @todo tag and its wire the persistence layer text.
+ * 2. The literal Unrealized @todo and realize/remove repair fragments plus exactly one finding are independent of the tag parser.
+ *
+ * @evidence contracts/testing.md#behavioral-verification todoRule.Check reports only persist with the exact @todo tag and its wire the persistence layer text.
+ * @evidence contracts/testing.md#independent-expectations The literal Unrealized @todo and realize/remove repair fragments plus exactly one finding are independent of the tag parser.
+ * @evidence contracts/testing.md#distinguishing-cases The exact @todo spelling contrasts with @todos on parse, which must remain silent and absent from findings.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticTodoReportsUnrealizedContract owns these assertions. runTodoRule parses the two-function fixture and calls todoRule.Check with its supported no-options form in the shared Go unit process.
  */
 func TestEvidenceSemanticTodoReportsUnrealizedContract(t *testing.T) {
   files := map[string]string{
@@ -37,4 +39,8 @@ func TestEvidenceSemanticTodoReportsUnrealizedContract(t *testing.T) {
   if strings.Contains(output, "tracked elsewhere") {
     t.Fatalf("unexpected %q in %s", "tracked elsewhere", output)
   }
+  if len(messages) != 1 {
+    t.Fatalf("only the exact @todo tag must fail, got %d: %s", len(messages), output)
+  }
+
 }

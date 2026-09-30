@@ -8,14 +8,15 @@ import (
 /**
  * Verifies graph reports non participating exclusion.
  *
- * The unchanged consumer inputs now exercise the production parser, graph
- * rule, population loading and resolver together without spawning a compiler.
- * Package wiring, typed options, severity and watches remain batched consumer
- * contracts. Every original positive and negative diagnostic is retained here.
+ * A valid Second citation cannot legalize the foreign exclusion in First; independent-claim coverage and eligible-carrier placement have separate cases.
  *
- * 1. Materialize the original source and document population.
- * 2. Call the actual project rule with the same JSON options.
- * 3. Check the original findings and silent boundaries.
+ * 1. An exclusion in First naming only the second claim reference is rejected as non-participating for Claim 1.
+ * 2. Literal first/second reference documents and claim populations independently establish ownership; the message must pair docs/second.md#second with Claim 1 first.
+ *
+ * @evidence contracts/testing.md#behavioral-verification An exclusion in First naming only the second claim reference is rejected as non-participating for Claim 1.
+ * @evidence contracts/testing.md#independent-expectations Literal first/second reference documents and claim populations independently establish ownership; the message must pair docs/second.md#second with Claim 1 first.
+ * @evidence contracts/testing.md#distinguishing-cases A valid Second citation cannot legalize the foreign exclusion in First; independent-claim coverage and eligible-carrier placement have separate cases.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticGraphReportsNonParticipatingExclusion owns these assertions. runIndexRule invokes graphRule.Check once for both typed claims and their temporary Markdown documents.
  */
 func TestEvidenceSemanticGraphReportsNonParticipatingExclusion(t *testing.T) {
   files := map[string]string{

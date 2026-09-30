@@ -8,14 +8,15 @@ import (
 /**
  * Verifies graph cites an interface callable.
  *
- * The unchanged consumer inputs now exercise the production parser, graph
- * rule, population loading and resolver together without spawning a compiler.
- * Package wiring, typed options, severity and watches remain batched consumer
- * contracts. Every original positive and negative diagnostic is retained here.
+ * Callable charge field and settle method cover distinct headings; the uncited heading is the active negative control. Noncallable price is incidental: this case does not independently prove its classification.
  *
- * 1. Materialize the original source and document population.
- * 2. Call the actual project rule with the same JSON options.
- * 3. Check the original findings and silent boundaries.
+ * 1. graphRule.Check accepts evidence on both a callable interface field and method signature, leaving only uncited.
+ * 2. Charge/Settle/Uncited literal headings define coverage independently; exact one-finding count and named absence checks prevent false callable failures.
+ *
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check accepts evidence on both a callable interface field and method signature, leaving only uncited.
+ * @evidence contracts/testing.md#independent-expectations Charge/Settle/Uncited literal headings define coverage independently; exact one-finding count and named absence checks prevent false callable failures.
+ * @evidence contracts/testing.md#distinguishing-cases Callable charge field and settle method cover distinct headings; the uncited heading is the active negative control. Noncallable price is incidental: this case does not independently prove its classification.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticGraphCitesAnInterfaceCallable owns these assertions. runIndexRule builds the ISale.ts function-host population and calls graphRule.Check directly with the preserved Markdown reference.
  */
 func TestEvidenceSemanticGraphCitesAnInterfaceCallable(t *testing.T) {
   files := map[string]string{
@@ -36,4 +37,8 @@ func TestEvidenceSemanticGraphCitesAnInterfaceCallable(t *testing.T) {
   if strings.Contains(output, "docs/behaviour.md#settle") {
     t.Fatalf("unexpected %q in %s", "docs/behaviour.md#settle", output)
   }
+  if len(messages) != 1 {
+    t.Fatalf("only the deliberately uncited heading must fail, got %d: %s", len(messages), output)
+  }
+
 }

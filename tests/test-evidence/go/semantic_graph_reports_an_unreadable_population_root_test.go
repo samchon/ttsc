@@ -10,14 +10,15 @@ import (
 /**
  * Verifies graph reports an unreadable population root.
  *
- * The unchanged consumer inputs now exercise the production parser, graph
- * rule, population loading and resolver together without spawning a compiler.
- * Package wiring, typed options, severity and watches remain batched consumer
- * contracts. Every original positive and negative diagnostic is retained here.
+ * An absent selected base differs from an available sibling containing pricing.md; the root cause must suppress target-resolution noise.
  *
- * 1. Materialize the original source and document population.
- * 2. Call the actual project rule with the same JSON options.
- * 3. Check the original findings and silent boundaries.
+ * 1. graphRule.Check reports the absent ../documents Markdown root without an unresolved-target derivative; ../docs resolves the same citation silently.
+ * 2. The fixture deliberately creates ../docs and not ../documents; the explicit loader message and silent readable sibling are independent failure/recovery expectations.
+ *
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check reports the absent ../documents Markdown root without an unresolved-target derivative; ../docs resolves the same citation silently.
+ * @evidence contracts/testing.md#independent-expectations The fixture deliberately creates ../docs and not ../documents; the explicit loader message and silent readable sibling are independent failure/recovery expectations.
+ * @evidence contracts/testing.md#distinguishing-cases An absent selected base differs from an available sibling containing pricing.md; the root cause must suppress target-resolution noise.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticGraphReportsAnUnreadablePopulationRoot owns these assertions. runIndexRuleAtRoot invokes graphRule.Check on temporary project/documents with the original failing root and corrected readable-root option.
  */
 func TestEvidenceSemanticGraphReportsAnUnreadablePopulationRoot(t *testing.T) {
   files := map[string]string{
@@ -48,4 +49,11 @@ func TestEvidenceSemanticGraphReportsAnUnreadablePopulationRoot(t *testing.T) {
   if strings.Contains(output, "Unresolved evidence target") {
     t.Fatalf("unexpected %q in %s", "Unresolved evidence target", output)
   }
+  // The independently created ../docs population is the readable sibling; the
+  // earlier ../documents spelling must remain a loader failure.
+  repaired := runIndexRuleAtRoot(t, root, files, strings.Replace("{\"claims\":[{\"type\":\"typescript\",\"files\":[\"src/**/*.ts\"],\"symbol\":\"type\",\"reference\":{\"type\":\"markdown\",\"root\":\"../documents\",\"files\":[\"requirements/**\"],\"symbol\":\"h2\"}}]}", "../documents", "../docs", 1))
+  if len(repaired) != 0 {
+    t.Fatalf("the readable sibling root and original citation must be silent: %s", strings.Join(repaired, "\n"))
+  }
+
 }

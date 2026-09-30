@@ -8,13 +8,15 @@ import (
 /**
  * Verifies review reports unreviewed citation.
  *
- * Preserves the original consumer fixture and every diagnostic assertion.
- * Package registration, exit status and diagnostic rendering run together in
- * the batched consumer contract; this case calls the actual Go rule directly.
+ * Reviewed evidence and reviewed exclusion are positive twins of unreviewed evidence and an exclusion with the wrong review kind.
  *
- * 1. Parse the unchanged TypeScript inputs with the production parser.
- * 2. Invoke the rule for every source in one Go test process.
- * 3. Assert the original positive, negative and boundary expectations.
+ * 1. reviewRule.Check reports missing reviews for refunds/orders and a wrong-kind audit review while accepting pricing and tax review pairs.
+ * 2. Literal evidence/review/exclusion tag kinds and named unreviewed/mismatched messages are independent; the near-miss @evidenceReviewed tag must not satisfy a review.
+ *
+ * @evidence contracts/testing.md#behavioral-verification reviewRule.Check reports missing reviews for refunds/orders and a wrong-kind audit review while accepting pricing and tax review pairs.
+ * @evidence contracts/testing.md#independent-expectations Literal evidence/review/exclusion tag kinds and named unreviewed/mismatched messages are independent; the near-miss @evidenceReviewed tag must not satisfy a review.
+ * @evidence contracts/testing.md#distinguishing-cases Reviewed evidence and reviewed exclusion are positive twins of unreviewed evidence and an exclusion with the wrong review kind.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticReviewReportsUnreviewedCitation owns these assertions. runReviewRule parses and calls reviewRule.Check for ISale/IOrder/ITax within this one Go test; no reference loader or product host is launched.
  */
 func TestEvidenceSemanticReviewReportsUnreviewedCitation(t *testing.T) {
   files := map[string]string{

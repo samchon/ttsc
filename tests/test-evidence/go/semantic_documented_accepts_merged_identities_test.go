@@ -8,13 +8,15 @@ import (
 /**
  * Verifies documented accepts merged identities.
  *
- * Preserves the original consumer fixture and every diagnostic assertion.
- * Package registration, exit status and diagnostic rendering run together in
- * the batched consumer contract; this case calls the actual Go rule directly.
+ * Four documented merged/export forms contrast with a bare interface; both unwanted findings and a silent inactive rule are rejected.
  *
- * 1. Parse the unchanged TypeScript inputs with the production parser.
- * 2. Invoke the rule for every source in one Go test process.
- * 3. Assert the original positive, negative and boundary expectations.
+ * 1. documentedRule.Check accepts documented interface/namespace, class/namespace, overload and named/default identities, and reports only Undocumented.
+ * 2. The independent fixture JSDoc blocks and literal Undocumented diagnostic define the oracle; exactly one finding catches unexpected merged-member errors.
+ *
+ * @evidence contracts/testing.md#behavioral-verification documentedRule.Check accepts documented interface/namespace, class/namespace, overload and named/default identities, and reports only Undocumented.
+ * @evidence contracts/testing.md#independent-expectations The independent fixture JSDoc blocks and literal Undocumented diagnostic define the oracle; exactly one finding catches unexpected merged-member errors.
+ * @evidence contracts/testing.md#distinguishing-cases Four documented merged/export forms contrast with a bare interface; both unwanted findings and a silent inactive rule are rejected.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticDocumentedAcceptsMergedIdentities owns these assertions. runDocumentedRule parses each preserved TypeScript source and calls documentedRule.Check in the shared Go test process.
  */
 func TestEvidenceSemanticDocumentedAcceptsMergedIdentities(t *testing.T) {
   files := map[string]string{
@@ -47,4 +49,8 @@ func TestEvidenceSemanticDocumentedAcceptsMergedIdentities(t *testing.T) {
   if strings.Contains(output, "'evidence'") {
     t.Fatalf("unexpected %q in %s", "'evidence'", output)
   }
+  if len(messages) != 1 {
+    t.Fatalf("only the Undocumented identity must fail, got %d: %s", len(messages), output)
+  }
+
 }

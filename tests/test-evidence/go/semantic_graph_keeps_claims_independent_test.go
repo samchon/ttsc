@@ -8,14 +8,15 @@ import (
 /**
  * Verifies graph keeps claims independent.
  *
- * The unchanged consumer inputs now exercise the production parser, graph
- * rule, population loading and resolver together without spawning a compiler.
- * Package wiring, typed options, severity and watches remain batched consumer
- * contracts. Every original positive and negative diagnostic is retained here.
+ * Disjoint host selections share one reference document; both claim names and their missing targets must pair correctly rather than only occur somewhere in output.
  *
- * 1. Materialize the original source and document population.
- * 2. Call the actual project rule with the same JSON options.
- * 3. Check the original findings and silent boundaries.
+ * 1. Each claim retains its own missing target: team A lacks beta and team B lacks alpha even though the union covers both.
+ * 2. Literal per-team citations and a claim-to-target map independently require exactly two findings with the correct association.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Each claim retains its own missing target: team A lacks beta and team B lacks alpha even though the union covers both.
+ * @evidence contracts/testing.md#independent-expectations Literal per-team citations and a claim-to-target map independently require exactly two findings with the correct association.
+ * @evidence contracts/testing.md#distinguishing-cases Disjoint host selections share one reference document; both claim names and their missing targets must pair correctly rather than only occur somewhere in output.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticGraphKeepsClaimsIndependent owns these assertions. runIndexRule calls graphRule.Check once for the two-claim fixture; this test owns both claim-specific diagnostic checks.
  */
 func TestEvidenceSemanticGraphKeepsClaimsIndependent(t *testing.T) {
   files := map[string]string{
@@ -40,4 +41,19 @@ func TestEvidenceSemanticGraphKeepsClaimsIndependent(t *testing.T) {
   if !strings.Contains(output, "Claim 2") {
     t.Fatalf("missing %q in %s", "Claim 2", output)
   }
+  if len(messages) != 2 {
+    t.Fatalf("each claim must retain its own one missing target, got %d: %s", len(messages), output)
+  }
+  for claim, target := range map[string]string{"Claim 1": "docs/spec.md#beta", "Claim 2": "docs/spec.md#alpha"} {
+    matched := false
+    for _, message := range messages {
+      if strings.Contains(message, claim) && strings.Contains(message, target) {
+        matched = true
+      }
+    }
+    if !matched {
+      t.Fatalf("%s must report its own target %s: %s", claim, target, output)
+    }
+  }
+
 }

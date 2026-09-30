@@ -8,14 +8,15 @@ import (
 /**
  * Verifies graph confines exclusions to declared carriers.
  *
- * The unchanged consumer inputs now exercise the production parser, graph
- * rule, population loading and resolver together without spawning a compiler.
- * Package wiring, typed options, severity and watches remain batched consumer
- * contracts. Every original positive and negative diagnostic is retained here.
+ * An eligible property carrier outside selected function hosts must work; removing only its tag must fail, and misplaced working-host exclusions are covered separately.
  *
- * 1. Materialize the original source and document population.
- * 2. Call the actual project rule with the same JSON options.
- * 3. Check the original findings and silent boundaries.
+ * 1. graphRule.Check accepts an exclusion on LEDGER even when function hosts are selected, and losing the tag exposes deferred.
+ * 2. Literal implemented/deferred obligations, the explicit LEDGER carrier path and Missing acknowledgement removal control specify the oracle.
+ *
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check accepts an exclusion on LEDGER even when function hosts are selected, and losing the tag exposes deferred.
+ * @evidence contracts/testing.md#independent-expectations Literal implemented/deferred obligations, the explicit LEDGER carrier path and Missing acknowledgement removal control specify the oracle.
+ * @evidence contracts/testing.md#distinguishing-cases An eligible property carrier outside selected function hosts must work; removing only its tag must fail, and misplaced working-host exclusions are covered separately.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticGraphConfinesExclusionsToDeclaredCarriers owns these assertions. runIndexRule calls graphRule.Check over temporary fixtures for the original carrier configuration and copied no-exclusion control.
  */
 func TestEvidenceSemanticGraphConfinesExclusionsToDeclaredCarriers(t *testing.T) {
   files := map[string]string{
@@ -34,4 +35,14 @@ func TestEvidenceSemanticGraphConfinesExclusionsToDeclaredCarriers(t *testing.T)
   if strings.Contains(output, "Misplaced @evidenceExclude") {
     t.Fatalf("unexpected %q in %s", "Misplaced @evidenceExclude", output)
   }
+  withoutExclusion := make(map[string]string, len(files))
+  for name, content := range files {
+    withoutExclusion[name] = content
+  }
+  withoutExclusion["src/LEDGER.ts"] = strings.Replace(files["src/LEDGER.ts"], " * @evidenceExclude docs/spec.md#deferred This package intentionally implements no operation for the section.\n", "", 1)
+  rejected := strings.Join(runIndexRule(t, withoutExclusion, "{\"claims\":[{\"name\":\"operations\",\"type\":\"typescript\",\"files\":[\"src/**/*.ts\"],\"symbol\":\"function\",\"evidenceExcludeCarriers\":[\"src/LEDGER.ts\"],\"reference\":{\"type\":\"markdown\",\"files\":[\"docs/spec.md\"],\"symbol\":\"h2\"}}]}"), "\n")
+  if !strings.Contains(rejected, "Missing acknowledgement for 'docs/spec.md#deferred'") {
+    t.Fatalf("removing only the accepted exclusion must expose its obligation: %s", rejected)
+  }
+
 }

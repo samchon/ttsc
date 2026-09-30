@@ -8,13 +8,15 @@ import (
 /**
  * Verifies singular reports second identity.
  *
- * Preserves the original consumer fixture and every diagnostic assertion.
- * Package registration, exit status and diagnostic rendering run together in
- * the batched consumer contract; this case calls the actual Go rule directly.
+ * Two distinct identities versus one identity with the wrong filename exercise cardinality and naming separately; merged identities are permitted in the companion case.
  *
- * 1. Parse the unchanged TypeScript inputs with the production parser.
- * 2. Invoke the rule for every source in one Go test process.
- * 3. Assert the original positive, negative and boundary expectations.
+ * 1. singularRule.Check rejects alpha/beta in one file and independently requires utils.ts to take parseInput.ts identity name.
+ * 2. Literal exported identities and expected one-public-identity/file-rename messages follow the supported public-surface contract, not repository layout inspection.
+ *
+ * @evidence contracts/testing.md#behavioral-verification singularRule.Check rejects alpha/beta in one file and independently requires utils.ts to take parseInput.ts identity name.
+ * @evidence contracts/testing.md#independent-expectations Literal exported identities and expected one-public-identity/file-rename messages follow the supported public-surface contract, not repository layout inspection.
+ * @evidence contracts/testing.md#distinguishing-cases Two distinct identities versus one identity with the wrong filename exercise cardinality and naming separately; merged identities are permitted in the companion case.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticSingularReportsSecondIdentity owns these assertions. runSingularRule parses both virtual TypeScript fixtures and invokes singularRule.Check directly; no committed file presence is tested.
  */
 func TestEvidenceSemanticSingularReportsSecondIdentity(t *testing.T) {
   files := map[string]string{

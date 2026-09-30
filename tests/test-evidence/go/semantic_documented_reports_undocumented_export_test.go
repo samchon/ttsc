@@ -8,13 +8,15 @@ import (
 /**
  * Verifies documented reports undocumented export.
  *
- * Preserves the original consumer fixture and every diagnostic assertion.
- * Package registration, exit status and diagnostic rendering run together in
- * the batched consumer contract; this case calls the actual Go rule directly.
+ * Documented parse versus undocumented render distinguishes absence from ordinary prose; empty blocks have their own test.
  *
- * 1. Parse the unchanged TypeScript inputs with the production parser.
- * 2. Invoke the rule for every source in one Go test process.
- * 3. Assert the original positive, negative and boundary expectations.
+ * 1. documentedRule.Check reports only the render export without JSDoc and explains why citations require a block.
+ * 2. Literal render identity and the JSDoc-only repair fragment are independent expectations; exactly one finding prevents rejecting documented parse.
+ *
+ * @evidence contracts/testing.md#behavioral-verification documentedRule.Check reports only the render export without JSDoc and explains why citations require a block.
+ * @evidence contracts/testing.md#independent-expectations Literal render identity and the JSDoc-only repair fragment are independent expectations; exactly one finding prevents rejecting documented parse.
+ * @evidence contracts/testing.md#distinguishing-cases Documented parse versus undocumented render distinguishes absence from ordinary prose; empty blocks have their own test.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticDocumentedReportsUndocumentedExport owns these assertions. runDocumentedRule calls documentedRule.Check on the preserved two-function source without an installed consumer or product host.
  */
 func TestEvidenceSemanticDocumentedReportsUndocumentedExport(t *testing.T) {
   files := map[string]string{
@@ -34,4 +36,8 @@ func TestEvidenceSemanticDocumentedReportsUndocumentedExport(t *testing.T) {
   if !strings.Contains(output, "only ever read from a JSDoc block") {
     t.Fatalf("missing %q in %s", "only ever read from a JSDoc block", output)
   }
+  if len(messages) != 1 {
+    t.Fatalf("only undocumented render must fail, got %d: %s", len(messages), output)
+  }
+
 }

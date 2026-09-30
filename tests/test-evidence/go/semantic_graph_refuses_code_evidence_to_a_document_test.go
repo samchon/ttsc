@@ -8,14 +8,15 @@ import (
 /**
  * Verifies graph refuses code evidence to a document.
  *
- * The unchanged consumer inputs now exercise the production parser, graph
- * rule, population loading and resolver together without spawning a compiler.
- * Package wiring, typed options, severity and watches remain batched consumer
- * contracts. Every original positive and negative diagnostic is retained here.
+ * A Markdown file host pointing at an unqualified type exercises the identity boundary rather than a missing Markdown heading or no selected source.
  *
- * 1. Materialize the original source and document population.
- * 2. Call the actual project rule with the same JSON options.
- * 3. Check the original findings and silent boundaries.
+ * 1. graphRule.Check refuses the Markdown citation naming bare ISale because an unqualified TypeScript target has no module identity.
+ * 2. The literal bare-symbol fixture independently requires the module-identity error and @link guidance; the test does not claim all code references from documents are illegal.
+ *
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check refuses the Markdown citation naming bare ISale because an unqualified TypeScript target has no module identity.
+ * @evidence contracts/testing.md#independent-expectations The literal bare-symbol fixture independently requires the module-identity error and @link guidance; the test does not claim all code references from documents are illegal.
+ * @evidence contracts/testing.md#distinguishing-cases A Markdown file host pointing at an unqualified type exercises the identity boundary rather than a missing Markdown heading or no selected source.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticGraphRefusesCodeEvidenceToADocument owns these assertions. runIndexRule loads the temporary document and parsed ISale population, then calls graphRule.Check with a TypeScript reference.
  */
 func TestEvidenceSemanticGraphRefusesCodeEvidenceToADocument(t *testing.T) {
   files := map[string]string{

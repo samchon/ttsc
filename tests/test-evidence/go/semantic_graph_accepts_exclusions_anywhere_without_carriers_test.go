@@ -8,14 +8,15 @@ import (
 /**
  * Verifies graph accepts exclusions anywhere without carriers.
  *
- * The unchanged consumer inputs now exercise the production parser, graph
- * rule, population loading and resolver together without spawning a compiler.
- * Package wiring, typed options, severity and watches remain batched consumer
- * contracts. Every original positive and negative diagnostic is retained here.
+ * The original unrestricted exclusion must be silent while the same population without that tag must fail; declared-carrier variants are separate tests.
  *
- * 1. Materialize the original source and document population.
- * 2. Call the actual project rule with the same JSON options.
- * 3. Check the original findings and silent boundaries.
+ * 1. graphRule.Check accepts a deferOperation exclusion when no carrier restriction is declared, and removing it exposes deferred.
+ * 2. Implemented/deferred literal headings and their explicit citation/exclusion establish the contract; the removal control independently expects Missing acknowledgement for deferred.
+ *
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check accepts a deferOperation exclusion when no carrier restriction is declared, and removing it exposes deferred.
+ * @evidence contracts/testing.md#independent-expectations Implemented/deferred literal headings and their explicit citation/exclusion establish the contract; the removal control independently expects Missing acknowledgement for deferred.
+ * @evidence contracts/testing.md#distinguishing-cases The original unrestricted exclusion must be silent while the same population without that tag must fail; declared-carrier variants are separate tests.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticGraphAcceptsExclusionsAnywhereWithoutCarriers owns these assertions. runIndexRule materializes temporary Markdown/TypeScript fixtures and calls graphRule.Check directly for both preserved and removal-control populations.
  */
 func TestEvidenceSemanticGraphAcceptsExclusionsAnywhereWithoutCarriers(t *testing.T) {
   files := map[string]string{
@@ -34,4 +35,14 @@ func TestEvidenceSemanticGraphAcceptsExclusionsAnywhereWithoutCarriers(t *testin
   if strings.Contains(output, "Missing acknowledgement") {
     t.Fatalf("unexpected %q in %s", "Missing acknowledgement", output)
   }
+  withoutExclusion := make(map[string]string, len(files))
+  for name, content := range files {
+    withoutExclusion[name] = content
+  }
+  withoutExclusion["src/service.ts"] = strings.Replace(files["src/service.ts"], "/** @evidenceExclude docs/spec.md#deferred No carrier is declared, so any host may hold this. */\n", "", 1)
+  rejected := strings.Join(runIndexRule(t, withoutExclusion, "{\"claims\":[{\"name\":\"operations\",\"type\":\"typescript\",\"files\":[\"src/**/*.ts\"],\"symbol\":\"function\",\"reference\":{\"type\":\"markdown\",\"files\":[\"docs/spec.md\"],\"symbol\":\"h2\"}}]}"), "\n")
+  if !strings.Contains(rejected, "Missing acknowledgement for 'docs/spec.md#deferred'") {
+    t.Fatalf("removing only the accepted exclusion must expose its obligation: %s", rejected)
+  }
+
 }

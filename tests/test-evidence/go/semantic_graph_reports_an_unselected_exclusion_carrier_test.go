@@ -8,14 +8,15 @@ import (
 /**
  * Verifies graph reports an unselected exclusion carrier.
  *
- * The unchanged consumer inputs now exercise the production parser, graph
- * rule, population loading and resolver together without spawning a compiler.
- * Package wiring, typed options, severity and watches remain batched consumer
- * contracts. Every original positive and negative diagnostic is retained here.
+ * The implemented obligation is properly cited, so the unselected carrier configuration is the relevant failure rather than missing acknowledgment.
  *
- * 1. Materialize the original source and document population.
- * 2. Call the actual project rule with the same JSON options.
- * 3. Check the original findings and silent boundaries.
+ * 1. graphRule.Check rejects vendor/LEDGER.ts as an exclusion carrier outside the declared src file population.
+ * 2. Literal vendor path versus src glob independently establishes configuration invalidity, and the diagnostic must name evidenceExcludeCarriers and that exact path.
+ *
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check rejects vendor/LEDGER.ts as an exclusion carrier outside the declared src file population.
+ * @evidence contracts/testing.md#independent-expectations Literal vendor path versus src glob independently establishes configuration invalidity, and the diagnostic must name evidenceExcludeCarriers and that exact path.
+ * @evidence contracts/testing.md#distinguishing-cases The implemented obligation is properly cited, so the unselected carrier configuration is the relevant failure rather than missing acknowledgment.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticGraphReportsAnUnselectedExclusionCarrier owns these assertions. runIndexRule calls graphRule.Check with the preserved src service, document and vendor carrier option in process.
  */
 func TestEvidenceSemanticGraphReportsAnUnselectedExclusionCarrier(t *testing.T) {
   files := map[string]string{

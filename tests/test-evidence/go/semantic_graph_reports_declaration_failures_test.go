@@ -8,14 +8,15 @@ import (
 /**
  * Verifies graph reports declaration failures.
  *
- * The unchanged consumer inputs now exercise the production parser, graph
- * rule, population loading and resolver together without spawning a compiler.
- * Package wiring, typed options, severity and watches remain batched consumer
- * contracts. Every original positive and negative diagnostic is retained here.
+ * Four invalid tag/host relations coexist with a valid first citation; all original cause-specific and scope repair assertions remain active.
  *
- * 1. Materialize the original source and document population.
- * 2. Call the actual project rule with the same JSON options.
- * 3. Check the original findings and silent boundaries.
+ * 1. graphRule.Check distinguishes a missing reason, absent target, evidence/exclusion conflict and an out-of-scope interface host.
+ * 2. Independently spelled required/absent targets and malformed/conflict/out-of-scope diagnostic fragments specify separate failures and their claim/reference context.
+ *
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check distinguishes a missing reason, absent target, evidence/exclusion conflict and an out-of-scope interface host.
+ * @evidence contracts/testing.md#independent-expectations Independently spelled required/absent targets and malformed/conflict/out-of-scope diagnostic fragments specify separate failures and their claim/reference context.
+ * @evidence contracts/testing.md#distinguishing-cases Four invalid tag/host relations coexist with a valid first citation; all original cause-specific and scope repair assertions remain active.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticGraphReportsDeclarationFailures owns these assertions. runIndexRule parses every declaration in citations.ts and calls graphRule.Check once; this test owns the complete multi-cause diagnostic population.
  */
 func TestEvidenceSemanticGraphReportsDeclarationFailures(t *testing.T) {
   files := map[string]string{

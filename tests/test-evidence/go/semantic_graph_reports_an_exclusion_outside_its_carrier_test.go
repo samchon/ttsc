@@ -8,14 +8,15 @@ import (
 /**
  * Verifies graph reports an exclusion outside its carrier.
  *
- * The unchanged consumer inputs now exercise the production parser, graph
- * rule, population loading and resolver together without spawning a compiler.
- * Package wiring, typed options, severity and watches remain batched consumer
- * contracts. Every original positive and negative diagnostic is retained here.
+ * Implemented is properly cited, LEDGER is allowed but untagged, and deferOperation holds the forbidden exclusion; accepted carrier placement is covered separately.
  *
- * 1. Materialize the original source and document population.
- * 2. Call the actual project rule with the same JSON options.
- * 3. Check the original findings and silent boundaries.
+ * 1. graphRule.Check rejects deferOperation as an undeclared exclusion carrier and retains the missing deferred obligation.
+ * 2. Literal LEDGER-only carrier configuration and named misplaced/deferred diagnostics independently require that a refused tag cannot discharge coverage.
+ *
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check rejects deferOperation as an undeclared exclusion carrier and retains the missing deferred obligation.
+ * @evidence contracts/testing.md#independent-expectations Literal LEDGER-only carrier configuration and named misplaced/deferred diagnostics independently require that a refused tag cannot discharge coverage.
+ * @evidence contracts/testing.md#distinguishing-cases Implemented is properly cited, LEDGER is allowed but untagged, and deferOperation holds the forbidden exclusion; accepted carrier placement is covered separately.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticGraphReportsAnExclusionOutsideItsCarrier owns these assertions. runIndexRule calls graphRule.Check on the preserved carrier/service/document population directly in the semantic test process.
  */
 func TestEvidenceSemanticGraphReportsAnExclusionOutsideItsCarrier(t *testing.T) {
   files := map[string]string{
