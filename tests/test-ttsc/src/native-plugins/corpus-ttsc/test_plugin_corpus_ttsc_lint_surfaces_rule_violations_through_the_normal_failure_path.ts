@@ -27,6 +27,15 @@ import {
  * 3. Assert non-zero exit, that every annotated violation appears in stderr, that
  *    no unannotated violation appears, and that `[no-non-null-assertion]` (the
  *    `off` rule) is absent.
+ *
+ * @evidence contracts/testing.md#behavioral-verification ttsc --noEmit returns failure and matches every parsed fixture rule/severity/line expectation in both directions while the off rule stays absent.
+ * @evidence contracts/testing.md#independent-expectations Authored expect comments and lint config establish the rule, severity and source line before diagnostics run; the expected set is not derived from stderr.
+ * @evidence contracts/testing.md#distinguishing-cases Enabled errors/warnings and an off no-non-null-assertion rule share one consumer check; membership comparisons do not independently count duplicate identical diagnostics.
+ * @evidence contracts/testing.md#execution-ownership The exported test_plugin_corpus_ttsc_lint_surfaces_rule_violations_through_the_normal_failure_path entry is discovered by TestExecutor from corpus-ttsc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary One consumer CLI invocation activates the real lint descriptor/native host and carries rule, severity and source line into rendered diagnostics. Annotated membership and the disabled-rule absence verify the complete diagnostic transport, while portable individual rule semantics belong to their existing Go unit tests.
+ * @evidence contracts/e2e.md#shared-execution One copied lint consumer and one --noEmit invocation carry the entire annotated diagnostic corpus; the shared producer cache reuses the same lint binary for other corpus consumers. Rule severities are options of that producer and do not require a build per rule.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state.
+ * @evidence contracts/e2e.md#preserved-coverage ttsc --noEmit returns failure and matches every parsed fixture rule/severity/line expectation in both directions while the off rule stays absent. These assertions stay in test_plugin_corpus_ttsc_lint_surfaces_rule_violations_through_the_normal_failure_path with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_plugin_corpus_ttsc_lint_surfaces_rule_violations_through_the_normal_failure_path =
   () => {

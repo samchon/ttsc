@@ -22,6 +22,15 @@ import { assert, path } from "../../internal/source-build";
  *    in either case, relative, and absolute, with every wrapper extension in
  *    `PATHEXT`.
  * 3. Assert each result matches the native error field by field.
+ *
+ * @evidence contracts/testing.md#behavioral-verification spawnGoTool returns native ENOENT fields, null status and missing-process pid for every selected absent tool spelling.
+ * @evidence contracts/testing.md#independent-expectations Node spawnSync of an absent native executable supplies the independent platform errno/pid reference; literal paths and version argv establish syscall metadata.
+ * @evidence contracts/testing.md#distinguishing-cases Windows covers bare/case-varied cmd/bat, relative and absolute names with PATHEXT; POSIX covers bare and absolute missing binaries.
+ * @evidence contracts/testing.md#execution-ownership The exported test_spawngotool_reports_every_missing_go_tool_as_native_enoent entry is discovered by TestExecutor from source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary spawnGoTool meets the operating system executable/wrapper boundary. Captured arguments or Node-native missing-process errors distinguish an incorrect shell selection, quoting or lookup result that a direct argument formatter cannot detect. The Windows wrapper matrix is conditional and ordinary Linux execution does not prove that branch.
+ * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. One capture wrapper or native missing-executable reference serves the argument/name matrix; changing lookup inputs needs another spawn, without rebuilding or installing a product host.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
+ * @evidence contracts/e2e.md#preserved-coverage spawnGoTool returns native ENOENT fields, null status and missing-process pid for every selected absent tool spelling. These assertions stay in test_spawngotool_reports_every_missing_go_tool_as_native_enoent with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_spawngotool_reports_every_missing_go_tool_as_native_enoent =
   () => {

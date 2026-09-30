@@ -29,6 +29,15 @@ import {
  * 2. Launch both ttsc processes simultaneously via `child_process.spawn` and await
  *    their completion in parallel.
  * 3. Assert both processes exit zero and each emits `"PLUGIN"` in its JS output.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Two concurrent ttsc --emit children sharing an empty plugin cache both exit zero and emit PLUGIN.
+ * @evidence contracts/testing.md#independent-expectations The copied fixture transforms the literal plugin to PLUGIN; each independent output must carry that literal.
+ * @evidence contracts/testing.md#distinguishing-cases Two distinct consumer roots contend for one cold content key; warm sequential reuse is owned by prepare and cache reuse cases.
+ * @evidence contracts/testing.md#execution-ownership The exported test_plugin_corpus_concurrent_ttsc_invocations_on_a_cold_cache_both_succeed entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary The actual ttsc/ttsx launcher connects package or descriptor discovery to the native/check host and compiler output. This case's fixture messages, status or emitted effects distinguish lost delivery at that connection; direct rule calls do not exercise launcher assembly.
+ * @evidence contracts/e2e.md#shared-execution Two consumer projects share one intentionally empty plugin cache and the suite Go object cache. Two simultaneous child lifetimes are necessary to observe publication contention; both results and both outputs remain distinct.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state.
+ * @evidence contracts/e2e.md#preserved-coverage Two concurrent ttsc --emit children sharing an empty plugin cache both exit zero and emit PLUGIN. These assertions stay in test_plugin_corpus_concurrent_ttsc_invocations_on_a_cold_cache_both_succeed with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_plugin_corpus_concurrent_ttsc_invocations_on_a_cold_cache_both_succeed =
   async () => {

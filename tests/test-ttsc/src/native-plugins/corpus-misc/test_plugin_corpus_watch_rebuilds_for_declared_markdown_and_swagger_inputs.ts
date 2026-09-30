@@ -27,6 +27,15 @@ import { WatchSession } from "../../internal/watch";
  * 6. Suppress positional `.js` and `.jsx` outputs declared by the plugin's
  *    JavaScript globs.
  * 7. Remove the plugin and prove its former Go source no longer wakes watch.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Real watch reacts to declared Markdown edits and Swagger creation, reports fixture diagnostics, and remains quiet for unrelated README, emitted JS/JSX, and retired plugin sources.
+ * @evidence contracts/testing.md#independent-expectations The authored sidecar declares exact inputs and prints fixed TS9001/TS9002 messages for broken content; quiet waits independently observe the absence of extra cycles.
+ * @evidence contracts/testing.md#distinguishing-cases Broken/repaired file, initially empty glob creation, relative snapshot rejection, Windows extended paths, positional JSX modes, and removed plugin all remain asserted.
+ * @evidence contracts/testing.md#execution-ownership The exported test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary Real watch consumes the compiled sidecar project-inputs protocol and connects exact files/globs to subsequent filesystem wakeups and emitted-output suppression. One sidecar fixture supplies all transitions; unit glob/state calculations alone cannot prove producer membership reaches actual watcher registration and retirement.
+ * @evidence contracts/e2e.md#shared-execution The suite reuses built workspace packages and the shared content-addressed producer cache when this case selects it. Separate launcher invocations carry this case's differing arguments or selected runtime entry; a case-local cold cache is retained when preparation or failure is asserted.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state. Every WatchSession closes in finally before the fixture is reset for another session.
+ * @evidence contracts/e2e.md#preserved-coverage Real watch reacts to declared Markdown edits and Swagger creation, reports fixture diagnostics, and remains quiet for unrelated README, emitted JS/JSX, and retired plugin sources. These assertions stay in test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_plugin_corpus_watch_rebuilds_for_declared_markdown_and_swagger_inputs =
   async (): Promise<void> => {

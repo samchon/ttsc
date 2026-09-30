@@ -24,6 +24,15 @@ import {
  *    there.
  * 2. Build it with its Go build cache there instead: the same refusal.
  * 3. Build it with both caches below the module's `node_modules`: it succeeds.
+ *
+ * @evidence contracts/testing.md#behavioral-verification buildSourcePlugin refuses plugin and Go caches within keyed source, leaves the refused plugin cache absent, and accepts both below excluded node_modules.
+ * @evidence contracts/testing.md#independent-expectations Writes among keyed inputs cannot name a stable source binary; the documented excluded node_modules location is the permitted boundary.
+ * @evidence contracts/testing.md#distinguishing-cases Plugin cache and Go object cache each get a rejection case, with an excluded-directory success control.
+ * @evidence contracts/testing.md#execution-ownership The exported test_buildsourceplugin_refuses_a_cache_among_the_sources_it_keys entry is discovered by TestExecutor from source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary buildSourcePlugin passes actual executable arguments, cwd, environment and copied workspace inputs through a child process before publication. The fake Go script can fail or record those inputs independently; it proves build orchestration at this process boundary and does not certify native Go compilation.
+ * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Calls that change source, cache ownership, environment or tool permissions retain distinct observations because those are the inputs under test. The fake subprocess fixtures avoid unnecessary native compilation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
+ * @evidence contracts/e2e.md#preserved-coverage buildSourcePlugin refuses plugin and Go caches within keyed source, leaves the refused plugin cache absent, and accepts both below excluded node_modules. These assertions stay in test_buildsourceplugin_refuses_a_cache_among_the_sources_it_keys with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_buildsourceplugin_refuses_a_cache_among_the_sources_it_keys =
   () => {

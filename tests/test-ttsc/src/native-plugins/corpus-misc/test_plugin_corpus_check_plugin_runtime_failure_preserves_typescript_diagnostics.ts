@@ -20,6 +20,15 @@ import {
  * 2. Register a check-stage Go plugin that reports one error, then exits 3.
  * 3. Run ttsc with `--noEmit`.
  * 4. Assert the failure/status survive and both TS errors occur exactly once.
+ *
+ * @evidence contracts/testing.md#behavioral-verification ttsc --noEmit retains exit 3 and the crash message while reporting exactly two TS2322 occurrences.
+ * @evidence contracts/testing.md#independent-expectations The child explicitly exits 3 and reports one of two incompatible assignments; the second assignment requires independent compiler checking.
+ * @evidence contracts/testing.md#distinguishing-cases Partial diagnostics before a check crash must neither hide the second error nor duplicate the first; the transform crash case owns the other stage.
+ * @evidence contracts/testing.md#execution-ownership The exported test_plugin_corpus_check_plugin_runtime_failure_preserves_typescript_diagnostics entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary The compiled check child emits one compiler-shaped error and crashes with status 3. The launcher must run fallback checking, deduplicate that first error, preserve the second error and retain the child status; this exercises actual sidecar failure transport.
+ * @evidence contracts/e2e.md#shared-execution The suite reuses built workspace packages and the shared content-addressed producer cache when this case selects it. Separate launcher invocations carry this case's differing arguments or selected runtime entry; a case-local cold cache is retained when preparation or failure is asserted.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state.
+ * @evidence contracts/e2e.md#preserved-coverage ttsc --noEmit retains exit 3 and the crash message while reporting exactly two TS2322 occurrences. These assertions stay in test_plugin_corpus_check_plugin_runtime_failure_preserves_typescript_diagnostics with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_plugin_corpus_check_plugin_runtime_failure_preserves_typescript_diagnostics =
   () => {

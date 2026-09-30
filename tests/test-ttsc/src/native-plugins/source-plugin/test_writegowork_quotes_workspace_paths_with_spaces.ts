@@ -32,6 +32,15 @@ import {
  *    space-free copy stays bare.
  * 4. Parse the captured workspace with the real Go modfile tool and assert it
  *    retains the namespaced overlay's copy.
+ *
+ * @evidence contracts/testing.md#behavioral-verification buildSourcePlugin sends quoted spaced use/replace paths and bare clean paths to a fake child; real go work edit -json accepts the captured namespaced overlay.
+ * @evidence contracts/testing.md#independent-expectations Go modfile parsing is the independent syntax oracle, paired with literal required quote distinctions on produced workspace input.
+ * @evidence contracts/testing.md#distinguishing-cases Spaced, space-free and namespaced/double-slash overlay spellings all survive copying and Go parsing.
+ * @evidence contracts/testing.md#execution-ownership The exported test_writegowork_quotes_workspace_paths_with_spaces entry is discovered by TestExecutor from source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary The builder hands a workspace to an actual child cwd, then installed Go parses the captured workspace. The Go parser validates quoted paths independently of the builder; the fake build alone does not establish successful native compilation.
+ * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Calls that change source, cache ownership, environment or tool permissions retain distinct observations because those are the inputs under test. The fake subprocess fixtures avoid unnecessary native compilation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
+ * @evidence contracts/e2e.md#preserved-coverage buildSourcePlugin sends quoted spaced use/replace paths and bare clean paths to a fake child; real go work edit -json accepts the captured namespaced overlay. These assertions stay in test_writegowork_quotes_workspace_paths_with_spaces with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_writegowork_quotes_workspace_paths_with_spaces = () => {
   const root = TestProject.tmpdir("ttsc-gowork-spaces-");

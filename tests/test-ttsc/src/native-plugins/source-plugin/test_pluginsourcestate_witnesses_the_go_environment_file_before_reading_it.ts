@@ -22,6 +22,15 @@ import { pluginSourceState } from "../../../../../packages/ttsc/lib/plugin/inter
  *    the Go environment file right after `go env -json` read it.
  * 2. Take the process's reading of a plugin directory's state.
  * 3. Assert it equals a fresh reading of the file as it now is.
+ *
+ * @evidence contracts/testing.md#behavioral-verification pluginSourceState retries a real go env read whose wrapper edits GOENV afterward and equals the explicit fresh reading.
+ * @evidence contracts/testing.md#independent-expectations The wrapper edit marker proves the race happened; the explicit-env call rereads the now-current state without ambient memo reuse.
+ * @evidence contracts/testing.md#distinguishing-cases One post-read environment edit is compared with a fresh stable reading; this is an independent read path, not an independent hash algorithm.
+ * @evidence contracts/testing.md#execution-ownership The exported test_pluginsourcestate_witnesses_the_go_environment_file_before_reading_it entry is discovered by TestExecutor from source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary The source-state witness must agree with actual go env output from the installed tool behind a mutable wrapper and GOENV file. The wrapper places a deliberate mutation at the read boundary; in-memory state comparisons cannot prove ordering against that external read. This case builds no native plugin.
+ * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Calls that change source, cache ownership, environment or tool permissions retain distinct observations because those are the inputs under test. The selected wrapper invokes the installed Go metadata tool and is reused for each observation; no plugin compilation is needed.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
+ * @evidence contracts/e2e.md#preserved-coverage pluginSourceState retries a real go env read whose wrapper edits GOENV afterward and equals the explicit fresh reading. These assertions stay in test_pluginsourcestate_witnesses_the_go_environment_file_before_reading_it with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_pluginsourcestate_witnesses_the_go_environment_file_before_reading_it =
   () => {

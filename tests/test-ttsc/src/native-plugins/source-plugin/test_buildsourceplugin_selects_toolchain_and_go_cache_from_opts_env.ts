@@ -34,6 +34,15 @@ import {
  * 2. Build the plugin and capture the environment `go build` received.
  * 3. Assert the build succeeded through the `opts.env` toolchain and that the
  *    captured `GOCACHE` is the `opts.env` external cache.
+ *
+ * @evidence contracts/testing.md#behavioral-verification buildSourcePlugin selects the instance fake toolchain and its captured GOCACHE despite contradictory ambient missing tool and cache.
+ * @evidence contracts/testing.md#independent-expectations The independently captured child environment must equal the literal instanceGoCache, and the ambient executable deliberately cannot run.
+ * @evidence contracts/testing.md#distinguishing-cases Effective and ambient environments disagree in both executable and cache; ambient-only fallback would fail or capture the wrong directory.
+ * @evidence contracts/testing.md#execution-ownership The exported test_buildsourceplugin_selects_toolchain_and_go_cache_from_opts_env entry is discovered by TestExecutor from source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary buildSourcePlugin passes actual executable arguments, cwd, environment and copied workspace inputs through a child process before publication. The fake Go script can fail or record those inputs independently; it proves build orchestration at this process boundary and does not certify native Go compilation.
+ * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. The contradictory effective environment requires a separate tool selection, and one capture process establishes the selected GOCACHE; no repeated consumer installation occurs.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
+ * @evidence contracts/e2e.md#preserved-coverage buildSourcePlugin selects the instance fake toolchain and its captured GOCACHE despite contradictory ambient missing tool and cache. These assertions stay in test_buildsourceplugin_selects_toolchain_and_go_cache_from_opts_env with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_buildsourceplugin_selects_toolchain_and_go_cache_from_opts_env =
   () => {

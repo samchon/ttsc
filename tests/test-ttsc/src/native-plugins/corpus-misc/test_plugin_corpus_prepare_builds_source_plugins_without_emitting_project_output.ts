@@ -27,6 +27,15 @@ import {
  *    no `dist/` directory, and exactly one binary under the plugin cache.
  * 3. Run `ttsc --emit` against the same cache and assert it skips the build
  *    (`building source plugin` absent) yet produces correct JS output.
+ *
+ * @evidence contracts/testing.md#behavioral-verification ttsc prepare builds exactly one cached binary without dist, then --emit reuses it without a build log and emits PLUGIN.
+ * @evidence contracts/testing.md#independent-expectations prepare promises preparation without project emit; the fixture transform independently defines PLUGIN.
+ * @evidence contracts/testing.md#distinguishing-cases Cold prepare followed by warm emit distinguishes preparation from accidental compilation or rebuilding.
+ * @evidence contracts/testing.md#execution-ownership The exported test_plugin_corpus_prepare_builds_source_plugins_without_emitting_project_output entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary The prepare CLI builds and publishes a real source plugin without compiling the consumer, and a separate --emit invocation consumes that publication. Native builder units do not prove the subcommand separates preparation from project emit and passes its cache to the subsequent command.
+ * @evidence contracts/e2e.md#shared-execution One cold plugin cache and shared Go object cache prepare the producer once; the subsequent emit consumes that exact cache and explicitly rejects a second source build.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state.
+ * @evidence contracts/e2e.md#preserved-coverage ttsc prepare builds exactly one cached binary without dist, then --emit reuses it without a build log and emits PLUGIN. These assertions stay in test_plugin_corpus_prepare_builds_source_plugins_without_emitting_project_output with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_plugin_corpus_prepare_builds_source_plugins_without_emitting_project_output =
   () => {

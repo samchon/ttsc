@@ -31,6 +31,15 @@ import { assert, fs, path, spawnNodeWorker } from "../../internal/source-build";
  * 2. Spawn a worker that calls `loadProjectPlugins` with the marker only in `env`,
  *    and `TTSC_DESC_MARKER=ambient` in the worker's own environment.
  * 3. Assert the error names `absent-context-only`, never `absent-ambient`.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Plain worker loading through ttsx names absent-context-only and never absent-ambient.
+ * @evidence contracts/testing.md#independent-expectations The descriptor appends the environment marker to a nonexistent source path; literal contradictory markers independently identify the selected environment.
+ * @evidence contracts/testing.md#distinguishing-cases Effective instance env differs from worker ambient env, with both required and forbidden source names checked.
+ * @evidence contracts/testing.md#execution-ownership The exported test_loadprojectplugins_ttsx_descriptor_reads_context_env entry is discovered by TestExecutor from source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary Plain Node workers call the built descriptor loader, which crosses into the isolated TypeScript/ttsx evaluator. Extensionless source forces the fallback where specified; its result envelope, effective environment, logging and input witnesses must survive actual child transport. A direct loader-semantic call with the suite loader already active cannot prove this route.
+ * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Each plain worker has a fresh module cache so the actual fallback cannot be bypassed by the test runner. The isolated-process inputs are reused within a scenario; rewritten descriptors or loader-error snapshots require a fresh evaluation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
+ * @evidence contracts/e2e.md#preserved-coverage Plain worker loading through ttsx names absent-context-only and never absent-ambient. These assertions stay in test_loadprojectplugins_ttsx_descriptor_reads_context_env with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_loadprojectplugins_ttsx_descriptor_reads_context_env =
   async () => {

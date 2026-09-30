@@ -1,6 +1,9 @@
 import { TestProject } from "@ttsc/testing";
 
-import { assert, computeCacheKey, fs, path } from "../../internal/source-build";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { computeCacheKey } from "../../../../../packages/ttsc/src/plugin/internal/source/computeCacheKey";
 
 /**
  * Verifies computeCacheKey is stable across source path spellings.
@@ -17,6 +20,11 @@ import { assert, computeCacheKey, fs, path } from "../../internal/source-build";
  * 1. Materialize a Go plugin package with a nested source file.
  * 2. Compute the key for its directory spelled four equivalent ways.
  * 3. Assert every spelling yields the canonical key.
+ *
+ * @evidence contracts/testing.md#behavioral-verification computeCacheKey equals the canonical key for trailing separator, forward slash, redundant parent and dot source spellings.
+ * @evidence contracts/testing.md#independent-expectations Each spelling resolves to the same nested-source fixture; the oracle is required equivalence rather than a digest generated as a expected snapshot.
+ * @evidence contracts/testing.md#distinguishing-cases Equivalent native path spellings must share identity; POSIX-invalid backslash spelling is deliberately not included.
+ * @evidence contracts/testing.md#execution-ownership This named source unit executes the authored computeCacheKey directly. No goBinary or replace directive is supplied, so the environment owner performs no Go subprocess probe; native path spelling and filesystem content are the only fixture inputs. The source-unit runner discovers it under src/unit/source-plugin.
  */
 export const test_computecachekey_is_stable_across_source_path_spellings =
   () => {

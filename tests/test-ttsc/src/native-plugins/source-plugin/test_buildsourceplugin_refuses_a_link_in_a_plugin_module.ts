@@ -26,6 +26,15 @@ import {
  * 3. Assert the build fails naming the link, and never runs `go build`.
  * 4. Replace the link with the files and build again: it succeeds, and the link in
  *    `node_modules` is ignored.
+ *
+ * @evidence contracts/testing.md#behavioral-verification buildSourcePlugin names an included source link and invokes no build, then succeeds after replacing it with files while an excluded node_modules link remains.
+ * @evidence contracts/testing.md#independent-expectations Keyed module contents must consist of owned files; independent invocation logging proves the refused module did not compile.
+ * @evidence contracts/testing.md#distinguishing-cases Included directory symlink/junction is refused, copied real files are accepted, and a link below excluded node_modules is ignored.
+ * @evidence contracts/testing.md#execution-ownership The exported test_buildsourceplugin_refuses_a_link_in_a_plugin_module entry is discovered by TestExecutor from source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary buildSourcePlugin passes actual executable arguments, cwd, environment and copied workspace inputs through a child process before publication. The fake Go script can fail or record those inputs independently; it proves build orchestration at this process boundary and does not certify native Go compilation.
+ * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Calls that change source, cache ownership, environment or tool permissions retain distinct observations because those are the inputs under test. The fake subprocess fixtures avoid unnecessary native compilation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
+ * @evidence contracts/e2e.md#preserved-coverage buildSourcePlugin names an included source link and invokes no build, then succeeds after replacing it with files while an excluded node_modules link remains. These assertions stay in test_buildsourceplugin_refuses_a_link_in_a_plugin_module with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_buildsourceplugin_refuses_a_link_in_a_plugin_module = () => {
   const root = TestProject.tmpdir("ttsc-plugin-module-link-");

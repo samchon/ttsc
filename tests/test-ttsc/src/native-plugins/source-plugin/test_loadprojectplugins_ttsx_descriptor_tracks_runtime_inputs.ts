@@ -23,6 +23,15 @@ import {
  * 3. Assert the selected source, owning tsconfig, and missing candidates for both
  *    extensionless and explicit-JavaScript substitutions carry evaluation-time
  *    fingerprints.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Isolated ttsx returns selected source/config inputs, null fingerprints for absent candidates, and no proven hash for a config created during evaluation.
+ * @evidence contracts/testing.md#independent-expectations Fixture topology fixes the selected and absent paths; inode comparisons handle equivalent spellings and the created config cannot have a pre-evaluation witness.
+ * @evidence contracts/testing.md#distinguishing-cases Extensionless and explicit-JS substitution, NODE_PATH package selection, orphan config absence, and config creation during evaluation retain separate assertions.
+ * @evidence contracts/testing.md#execution-ownership The exported test_loadprojectplugins_ttsx_descriptor_tracks_runtime_inputs entry is discovered by TestExecutor from source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary Plain Node workers call the built descriptor loader, which crosses into the isolated TypeScript/ttsx evaluator. Extensionless source forces the fallback where specified; its result envelope, effective environment, logging and input witnesses must survive actual child transport. A direct loader-semantic call with the suite loader already active cannot prove this route.
+ * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Each plain worker has a fresh module cache so the actual fallback cannot be bypassed by the test runner. The isolated-process inputs are reused within a scenario; rewritten descriptors or loader-error snapshots require a fresh evaluation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
+ * @evidence contracts/e2e.md#preserved-coverage Isolated ttsx returns selected source/config inputs, null fingerprints for absent candidates, and no proven hash for a config created during evaluation. These assertions stay in test_loadprojectplugins_ttsx_descriptor_tracks_runtime_inputs with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_loadprojectplugins_ttsx_descriptor_tracks_runtime_inputs =
   async () => {

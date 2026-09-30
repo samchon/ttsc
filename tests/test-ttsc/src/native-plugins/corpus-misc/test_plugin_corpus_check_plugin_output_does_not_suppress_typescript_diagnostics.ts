@@ -24,6 +24,15 @@ import {
  * 2. Register a check-stage Go plugin that always emits a custom TS9001 warning.
  * 3. Run ttsc with `--noEmit`.
  * 4. Assert both TS9001 and TS2322 appear in stderr with a non-zero exit code.
+ *
+ * @evidence contracts/testing.md#behavioral-verification ttsc --noEmit reports both the check child warning TS9001 and compiler TS2322 with a failing status.
+ * @evidence contracts/testing.md#independent-expectations The Go fixture prints a literal warning and assigning a string to number independently requires TS2322.
+ * @evidence contracts/testing.md#distinguishing-cases A successful warning-producing check child coexists with a failing compiler; runtime-failure cases own crashed children.
+ * @evidence contracts/testing.md#execution-ownership The exported test_plugin_corpus_check_plugin_output_does_not_suppress_typescript_diagnostics entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary An actually compiled check child writes a warning while the independent TypeScript compiler finds a type error. The CLI must merge both stderr streams and select failure; direct diagnostic merging without those real child invocations cannot establish their delivery.
+ * @evidence contracts/e2e.md#shared-execution The suite reuses built workspace packages and the shared content-addressed producer cache when this case selects it. Separate launcher invocations carry this case's differing arguments or selected runtime entry; a case-local cold cache is retained when preparation or failure is asserted.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state.
+ * @evidence contracts/e2e.md#preserved-coverage ttsc --noEmit reports both the check child warning TS9001 and compiler TS2322 with a failing status. These assertions stay in test_plugin_corpus_check_plugin_output_does_not_suppress_typescript_diagnostics with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_plugin_corpus_check_plugin_output_does_not_suppress_typescript_diagnostics =
   () => {

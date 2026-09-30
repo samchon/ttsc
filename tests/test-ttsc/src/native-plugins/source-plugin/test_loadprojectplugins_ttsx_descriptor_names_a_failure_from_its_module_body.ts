@@ -25,6 +25,15 @@ import { assert, fs, path, spawnNodeWorker } from "../../internal/source-build";
  * 2. Spawn a worker that calls `loadProjectPlugins` against it.
  * 3. Assert the thrown message carries the status _and_ the descriptor's own
  *    reason on the line after it.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Plain Node loads through the ttsx fallback and returns a failure naming both exit status and descriptor-module-body-failed.
+ * @evidence contracts/testing.md#independent-expectations The descriptor throws the literal reason after an extensionless export forces the fallback path.
+ * @evidence contracts/testing.md#distinguishing-cases Failure during module initialization precedes factory execution; the context-env case owns successful evaluation followed by source validation.
+ * @evidence contracts/testing.md#execution-ownership The exported test_loadprojectplugins_ttsx_descriptor_names_a_failure_from_its_module_body entry is discovered by TestExecutor from source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary Plain Node workers call the built descriptor loader, which crosses into the isolated TypeScript/ttsx evaluator. Extensionless source forces the fallback where specified; its result envelope, effective environment, logging and input witnesses must survive actual child transport. A direct loader-semantic call with the suite loader already active cannot prove this route.
+ * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Each plain worker has a fresh module cache so the actual fallback cannot be bypassed by the test runner. The isolated-process inputs are reused within a scenario; rewritten descriptors or loader-error snapshots require a fresh evaluation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
+ * @evidence contracts/e2e.md#preserved-coverage Plain Node loads through the ttsx fallback and returns a failure naming both exit status and descriptor-module-body-failed. These assertions stay in test_loadprojectplugins_ttsx_descriptor_names_a_failure_from_its_module_body with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_loadprojectplugins_ttsx_descriptor_names_a_failure_from_its_module_body =
   async () => {

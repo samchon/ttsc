@@ -25,6 +25,15 @@ import {
  *    `include`.
  * 2. Run the in-include entry and the script through ttsx.
  * 3. Assert both run and no build information appears in the project.
+ *
+ * @evidence contracts/testing.md#behavioral-verification ttsx runs both included entry and orphan script, asserts their distinct stdout, and leaves no build directory.
+ * @evidence contracts/testing.md#independent-expectations The scripts print literal messages and runtime output isolation forbids project tsBuildInfoFile publication.
+ * @evidence contracts/testing.md#distinguishing-cases Included and excluded entries require different compile paths; both have an incremental project plus a check child requiring a separate type check.
+ * @evidence contracts/testing.md#execution-ownership The exported test_plugin_corpus_ttsx_check_plugin_pass_leaves_build_info_untouched entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary ttsx connects runtime output isolation to both the emitting compiler and separate fallback no-emit compiler invoked beside the real check child. Running the included and orphan entry detects build-info writes from either compile path while proving runtime execution still succeeds.
+ * @evidence contracts/e2e.md#shared-execution The suite reuses built workspace packages and the shared content-addressed producer cache when this case selects it. Separate launcher invocations carry this case's differing arguments or selected runtime entry; a case-local cold cache is retained when preparation or failure is asserted.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state.
+ * @evidence contracts/e2e.md#preserved-coverage ttsx runs both included entry and orphan script, asserts their distinct stdout, and leaves no build directory. These assertions stay in test_plugin_corpus_ttsx_check_plugin_pass_leaves_build_info_untouched with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_plugin_corpus_ttsx_check_plugin_pass_leaves_build_info_untouched =
   () => {

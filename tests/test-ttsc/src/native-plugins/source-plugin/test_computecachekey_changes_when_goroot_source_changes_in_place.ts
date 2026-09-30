@@ -20,6 +20,15 @@ import {
  * 1. Create one source plugin, one fake Go executable, and one toolchain root.
  * 2. Compute a cache key, then edit a standard-library source file in place.
  * 3. Assert the next cache key differs.
+ *
+ * @evidence contracts/testing.md#behavioral-verification computeCacheKey changes after stdlib source is rewritten at the same GOROOT in the same process.
+ * @evidence contracts/testing.md#independent-expectations Changing alpha to bravo is an independent content mutation, requiring a distinct toolchain identity.
+ * @evidence contracts/testing.md#distinguishing-cases Same executable, root and process must not preserve a stale stdlib fingerprint after the edit.
+ * @evidence contracts/testing.md#execution-ownership The exported test_computecachekey_changes_when_goroot_source_changes_in_place entry is discovered by TestExecutor from source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary The cache identity owner resolves actual tool paths and consumes the Go metadata process result when goBinary is supplied. The handwritten fake producer or intentionally unusable compiler files constrain that connection; these assertions establish identity selection, not native binary compatibility by execution.
+ * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. The same source and version inputs remain fixed while the named identity axis changes; each key observes that state through the existing metadata owner, without installing a consumer or compiling a native artifact.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
+ * @evidence contracts/e2e.md#preserved-coverage computeCacheKey changes after stdlib source is rewritten at the same GOROOT in the same process. These assertions stay in test_computecachekey_changes_when_goroot_source_changes_in_place with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_computecachekey_changes_when_goroot_source_changes_in_place =
   () => {

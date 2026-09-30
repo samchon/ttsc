@@ -27,6 +27,15 @@ import {
  *    error.
  * 6. Reject default plugin-cache root and content-addressed entry junctions so
  *    neither publication nor metadata writes can escape the owned cache.
+ *
+ * @evidence contracts/testing.md#behavioral-verification buildSourcePlugin passes its owned GOCACHE, forces post-build maintenance on success and failure, and preserves outside sentinels for linked cache roots, entries and lock generations.
+ * @evidence contracts/testing.md#independent-expectations The fake child records GOCACHE and writes deliberately future maintenance markers; changed markers and unchanged outside entries independently witness maintenance and confinement.
+ * @evidence contracts/testing.md#distinguishing-cases Explicit cache and managed default, successful and failed cold builds, unsafe root/entry, and legacy/v2/v3 linked locks remain asserted; v2 recovery is allowed while legacy/v3 reject.
+ * @evidence contracts/testing.md#execution-ownership The exported test_buildsourceplugin_sets_ttsc_owned_go_build_cache entry is discovered by TestExecutor from source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary buildSourcePlugin passes actual executable arguments, cwd, environment and copied workspace inputs through a child process before publication. The fake Go script can fail or record those inputs independently; it proves build orchestration at this process boundary and does not certify native Go compilation.
+ * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Calls that change source, cache ownership, environment or tool permissions retain distinct observations because those are the inputs under test. The fake subprocess fixtures avoid unnecessary native compilation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
+ * @evidence contracts/e2e.md#preserved-coverage buildSourcePlugin passes its owned GOCACHE, forces post-build maintenance on success and failure, and preserves outside sentinels for linked cache roots, entries and lock generations. These assertions stay in test_buildsourceplugin_sets_ttsc_owned_go_build_cache with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_buildsourceplugin_sets_ttsc_owned_go_build_cache = () => {
   const root = TestProject.tmpdir("ttsc-source-plugin-");

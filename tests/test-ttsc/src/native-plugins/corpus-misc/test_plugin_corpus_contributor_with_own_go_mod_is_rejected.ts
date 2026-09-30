@@ -23,6 +23,15 @@ import {
  * 2. Run ttsc and capture its stderr.
  * 3. Assert non-zero exit and a stderr message that names the offending
  *    contributor and points at the `go.mod` path.
+ *
+ * @evidence contracts/testing.md#behavioral-verification ttsc --emit rejects the rogue contributor with the contributor name and go.mod-found reason.
+ * @evidence contracts/testing.md#independent-expectations Contributors must use the host module graph; the authored rogue module deliberately violates that contract.
+ * @evidence contracts/testing.md#distinguishing-cases A contributor carrying its own module is refused before compilation; valid contributed rules are exercised by the lifecycle case.
+ * @evidence contracts/testing.md#execution-ownership The exported test_plugin_corpus_contributor_with_own_go_mod_is_rejected entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary The actual CLI evaluates the host descriptor and validates its contributor module graph before compiling. The named rejection proves the launcher does not forward a separate contributor module into the native workspace; no native build success is claimed by this negative case.
+ * @evidence contracts/e2e.md#shared-execution One temporary consumer and one invocation of the already built CLI suffice for this descriptor/discovery rejection. No native build is required or claimed; sharing the built launcher does not share mutable package exports, contributor modules or config absence across consumers.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state.
+ * @evidence contracts/e2e.md#preserved-coverage ttsc --emit rejects the rogue contributor with the contributor name and go.mod-found reason. These assertions stay in test_plugin_corpus_contributor_with_own_go_mod_is_rejected with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_plugin_corpus_contributor_with_own_go_mod_is_rejected =
   () => {

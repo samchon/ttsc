@@ -24,6 +24,15 @@ import { assert, fs, path, spawnNodeWorker } from "../../internal/source-build";
  *    assert retry classification remains bound to the failure-time snapshot.
  * 6. Put a directory at a TypeScript candidate path and assert it is not mistaken
  *    for source that the fallback could load.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Isolated descriptor workers keep stdout empty, redirect descriptor logging to stderr, select effective env, and avoid duplicate factory/module side effects or counterfeit fallback.
+ * @evidence contracts/testing.md#independent-expectations Literal log markers, one-line counters and absent fallback marker independently identify execution count and transport channels.
+ * @evidence contracts/testing.md#distinguishing-cases Factory throw, module throw, forged loader codes/messages, mutated errors, late missing candidate and directory candidate each retain their own counter and fallback assertions.
+ * @evidence contracts/testing.md#execution-ownership The exported test_loadprojectplugins_isolated_typescript_descriptor_preserves_process_boundaries entry is discovered by TestExecutor from source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary Plain Node workers call the built descriptor loader, which crosses into the isolated TypeScript/ttsx evaluator. Extensionless source forces the fallback where specified; its result envelope, effective environment, logging and input witnesses must survive actual child transport. A direct loader-semantic call with the suite loader already active cannot prove this route.
+ * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Each plain worker has a fresh module cache so the actual fallback cannot be bypassed by the test runner. The isolated-process inputs are reused within a scenario; rewritten descriptors or loader-error snapshots require a fresh evaluation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
+ * @evidence contracts/e2e.md#preserved-coverage Isolated descriptor workers keep stdout empty, redirect descriptor logging to stderr, select effective env, and avoid duplicate factory/module side effects or counterfeit fallback. These assertions stay in test_loadprojectplugins_isolated_typescript_descriptor_preserves_process_boundaries with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_loadprojectplugins_isolated_typescript_descriptor_preserves_process_boundaries =
   async () => {

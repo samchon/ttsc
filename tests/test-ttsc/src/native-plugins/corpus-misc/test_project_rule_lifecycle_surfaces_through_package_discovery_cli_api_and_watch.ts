@@ -181,6 +181,15 @@ func init() { rule.Register(independentAST{}) }
  * 4. Trigger two additional watch cycles by changing the contributor-declared
  *    external input and assert the blocked cycles carry distinct lifecycle
  *    ids.
+ *
+ * @evidence contracts/testing.md#behavioral-verification CLI, TtscCompiler, LSP and watch retain project identity, deduplicate project findings, preserve independent file findings, clear LSP findings, and create distinct blocked watch lifecycle IDs.
+ * @evidence contracts/testing.md#independent-expectations The authored contributors report passed-in identities and deliberate marker states; expected path channels and counts are specified separately by each assertion.
+ * @evidence contracts/testing.md#distinguishing-cases Logical linked and physical project roots, explicit API origin, blocked/clean LSP cycles, and blocked-clean-blocked watch cycles distinguish transport and lifetime ownership.
+ * @evidence contracts/testing.md#execution-ownership The exported test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch entry is discovered by TestExecutor from corpus-misc in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
+ * @evidence contracts/e2e.md#necessary-boundary One source-backed lint contributor crosses package discovery, public compiler diagnostics, LSP publication and watch input invalidation. Logical/physical identities, project-before-file ordering, clear notifications and fresh lifecycle IDs must survive those different public transports; contributor-semantic units cannot establish those connections.
+ * @evidence contracts/e2e.md#shared-execution The suite reuses built workspace packages and the shared content-addressed producer cache when this case selects it. Separate launcher invocations carry this case's differing arguments or selected runtime entry; a case-local cold cache is retained when preparation or failure is asserted.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the temporary consumer and cache roots until process exit. Authored descriptor/source mutations stay in that consumer; shared cached binaries are valid only for equivalent source, host and toolchain inputs. Child-specific environment options do not mutate ambient process state. The LSP session helper closes its client; watch owns a timeout and completion path, with clean/blocked marker transitions performed only after observed cycles.
+ * @evidence contracts/e2e.md#preserved-coverage CLI, TtscCompiler, LSP and watch retain project identity, deduplicate project findings, preserve independent file findings, clear LSP findings, and create distinct blocked watch lifecycle IDs. These assertions stay in test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_project_rule_lifecycle_surfaces_through_package_discovery_cli_api_and_watch =
   async (): Promise<void> => {
