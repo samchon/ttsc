@@ -11,6 +11,11 @@ import "testing"
 //  2. Run the format/arrow-parens rule in "avoid" mode.
 //  3. Expect the rule to skip the source, since "x: number => x" would
 //     attach the type annotation to the parameter instead.
+//
+// @evidence contracts/testing.md#behavioral-verification format/arrow-parens must decline removal of parameter parentheses from an arrow with an explicit number return type.
+// @evidence contracts/testing.md#independent-expectations TypeScript return-type grammar associates the colon after the closing parameter list with the return type; a bare x:number would change the annotation attachment.
+// @evidence contracts/testing.md#distinguishing-cases The return-annotation negative complements the otherwise eligible plain singleton positive and separately typed-parameter negative.
+// @evidence contracts/testing.md#execution-ownership Test_format_arrow_parens_avoid_keeps_return_type_parens is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only harness calls the owning arrow rule on temporary fixture source and observes zero findings without applying any edit; this host owns every named case without a consumer install, native product build or product host.
 func Test_format_arrow_parens_avoid_keeps_return_type_parens(t *testing.T) {
   const ruleID = "format/arrow-parens"
   const source = "const f = (x): number => x;\n"

@@ -19,6 +19,11 @@ import (
 // 1. Build three synthetic rules covering each branch.
 // 2. Probe each through isFormatRule.
 // 3. Assert the boolean result per branch.
+//
+// @evidence contracts/testing.md#behavioral-verification isFormatRule must admit an explicitly true FormatRule marker and reject both an absent interface and an implemented false marker.
+// @evidence contracts/testing.md#independent-expectations The FormatRule capability contract supplies independently authored booleans; the synthetic rule types declare the three capabilities rather than deriving expected classification from names.
+// @evidence contracts/testing.md#distinguishing-cases The true marker, absent marker and false marker cases distinguish interface membership from its boolean value. The host owns every named table row and preserves its failure identity.
+// @evidence contracts/testing.md#execution-ownership TestIsFormatRuleDetectsMarkerInterface is selected as a public Go unit by TestSelectedLintUnits; its local cases call the owning operation in the shared process without a consumer install, native artifact build or product host.
 func TestIsFormatRuleDetectsMarkerInterface(t *testing.T) {
   cases := []struct {
     name string
