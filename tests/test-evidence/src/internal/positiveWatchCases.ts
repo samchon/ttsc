@@ -9,7 +9,7 @@ import { assertExcludes, assertFailure, assertIncludes, assertStatus, runCheck, 
  * Authored watch mutations and assertions consumed by one positive watcher.
  *
  * @evidence contracts/common.md#principled-implementation Literal authored document/model/operation mutations drive actual native cycles, and the canonical cold check observes identical physical inputs; assertion callbacks never generate expected findings from parser output.
- * @evidence contracts/common.md#clear-and-simple-design Named callbacks own Markdown, cold, Swagger, ancestor, code-link, staged and cache transitions; the batch supplies only process, path, write, settle and assertion collection operations.
+ * @evidence contracts/common.md#clear-and-simple-design Named callbacks own missing-input creation, documented configuration recovery, review expiry, Markdown, cold, Swagger, ancestor, code-link, staged and cache transitions; the batch supplies only process, path, guarded mutation, settle and assertion collection operations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing modules are revoked only from an actual detached library, and PID/count come from actual native output; no synthetic result or forced compiler/cache policy supplies a verdict.
  * @evidence contracts/common.md#meaningful-documentation Each callback records its original assertion ownership, independent literal oracle, shared preparation, reset and limitation; telemetry equality applies only inside the Markdown phase, not across config reloads.
  * @evidence contracts/performance.md#efficient-algorithms Mutation and assertion work is linear in the finite authored input and observed diagnostic lists; exact sorted cold comparison retains duplicate findings rather than deduplicating them.
@@ -124,6 +124,77 @@ export namespace positiveWatchCases {
     const deleted = await context.next(2);
     context.check(() => assertIncludes(deleted, "matched no markdown files", "Deleting the only matched document must empty the population again."));
     context.check(() => assertExcludes(deleted, "Missing acknowledgement for 'docs/spec.md#alpha'", "A deleted heading must not survive as an obligation in the next cycle."));
+  }
+
+  /**
+   * Verifies documented configuration findings reset on each watch cycle.
+   *
+   * Process-wide deduplication would silence a later invalid build or retain
+   * the first error after the public option is repaired.
+   *
+   * 1. Observe one invalid documented option across the original two sources.
+   * 2. Edit the extra source and require the same finding exactly once again.
+   * 3. Repair symbols to symbol and require the actual build to pass.
+   *
+   * @evidence contracts/testing.md#behavioral-verification Both actual invalid cycles return2, name Invalid evidence/documented configuration exactly once, then repairing the option returns0.
+   * @evidence contracts/testing.md#independent-expectations The unsupported symbols key and valid symbol selector independently prescribe rejection and recovery; the original literal count1 prevents both suppression and duplicated configuration reports.
+   * @evidence contracts/testing.md#distinguishing-cases Initial invalid, changed source while still invalid and repaired config are separate observations with original src-only Program membership and covered graph sibling.
+   * @evidence contracts/testing.md#execution-ownership documentedConfig runs through the positive features batch with its actual watcher after original include/config/source activation; independent assertions collect without blocking the next edit.
+   * @evidence contracts/e2e.md#necessary-boundary Actual filesystem source events and config reload must reset contributor cycle state and transport its diagnostic once, which direct deduplication units cannot establish.
+   * @evidence contracts/e2e.md#shared-execution Three original cycles share the existing launcher and canonical producer; source/config reinitialization may retire the Program and is never presented as phase residency.
+   * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the tracked extra source and primary lint config change after actual settled cycles; the batch restores exact original invalid bytes and status2 before another phase, refusing mutation with unknown readers.
+   * @evidence contracts/e2e.md#preserved-coverage Original test_evidence_documented_configuration_recovers_in_watch keeps all three statuses, both literal findings and both occurrence1 assertions with original source/config bytes and first/rebuild budgets.
+   */
+  export async function documentedConfig(context: Context): Promise<void> {
+    const invalid = (result: IRunResult): void => {
+      context.check(() => assertStatus(result, 2, "The invalid documented option must fail."));
+      context.check(() => assertIncludes(result, "Invalid evidence/documented configuration", "The invalid setting must name its rule."));
+      context.check(() => assert.equal(result.output.split("Invalid evidence/documented configuration").length - 1, 1, "Each invalid cycle must report its configuration finding once.\n" + result.output));
+    };
+    invalid(context.baseline);
+    context.write("src/extra.ts", "/** Extra, edited. */\nexport interface Extra {}\n");
+    invalid(await context.next(2));
+    const config = fs.readFileSync(path.join(context.localRoot, "lint.config.ts"), "utf8");
+    assert.equal(config.split('symbols: "type"').length - 1, 1, "Exactly the original unsupported option must be repaired.");
+    context.write("lint.config.ts", config.replace('symbols: "type"', 'symbol: "type"'));
+    const repaired = await context.next(0);
+    context.check(() => assertStatus(repaired, 0, "Repairing the option must clear the cycle-scoped configuration finding."));
+  }
+
+  /**
+   * Verifies a native review expires when its cited Markdown content changes.
+   *
+   * The public typed requireReview option and actionable diagnostic fingerprint
+   * must survive actual configuration loading and native watch transport.
+   *
+   * 1. Observe the original unreviewed Pricing citation and requested fingerprint.
+   * 2. Write that review into the original source and require success.
+   * 3. Change the rate from30% to45% and require stale diagnostics quoting the old token.
+   *
+   * @evidence contracts/testing.md#behavioral-verification The actual unreviewed build fails with its Pricing citation, the requested review passes0, then changed Markdown fails as stale and names the source's old fingerprint.
+   * @evidence contracts/testing.md#independent-expectations The authored30%→45% change and literal unreviewed/stale categories establish expiry independently. The accepted token is product-derived transport input, not an independent digest-value oracle.
+   * @evidence contracts/testing.md#distinguishing-cases Unreviewed, accepted and content-changed states retain the original typed config in default Program membership; new-token correctness and post-expiry repair remain outside this case.
+   * @evidence contracts/testing.md#execution-ownership reviewExpiry runs through the positive features entry against the actual watcher after the original requireReview population activates; a missing requested fingerprint blocks its dependent review states rather than manufacturing a token.
+   * @evidence contracts/e2e.md#necessary-boundary Public typed config, actual Markdown loader, source review and actionable diagnostic rendering connect through real native cycles; independent fingerprint arithmetic belongs to owning Go units.
+   * @evidence contracts/e2e.md#shared-execution Three required states share the existing launcher and canonical contributor instead of another watcher; actual source edits may retire and reload Programs without a cross-cycle reuse assertion.
+   * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Source and document writes occur only between settled observations; both original bytes restore before later phases and unknown reader ownership blocks mutation and fixture cleanup.
+   * @evidence contracts/e2e.md#preserved-coverage Original test_evidence_graph_expires_a_review_when_cited_content_changes retains initial failure/category, accepted0, stale failure/category and quoted old-token assertions, original source/document bytes, typechecked config membership and timeouts.
+   */
+  export async function reviewExpiry(context: Context): Promise<void> {
+    context.check(() => assertFailure(context.baseline, "An unreviewed requireReview citation must fail."));
+    context.check(() => assertIncludes(context.baseline, "Unreviewed @evidence for 'docs/spec.md#pricing'", "The finding must name its citation."));
+    const opening = [context.baseline.output.indexOf("Unreviewed @"), context.baseline.output.indexOf("Unfingerprinted @evidenceReview")].filter(index => index >= 0).sort((left, right) => left - right)[0];
+    const match = opening === undefined ? null : context.baseline.output.slice(opening).match(/#([0-9a-f]{7})(?=[\s'",.)])/);
+    if (match === null) throw new Error("Expected a review diagnostic naming a fingerprint:\n" + context.baseline.output);
+    const fingerprint = match[1]!;
+    context.write("src/ISale.ts", "/**\n * @evidence docs/spec.md#pricing Derives the sale price from this section.\n * @evidenceReview docs/spec.md#pricing #" + fingerprint + " Section caps the rate at 30%; price clamps to 30.\n */\nexport interface ISale {\n  price: number;\n}\n");
+    const accepted = await context.next(0);
+    context.check(() => assertStatus(accepted, 0, "The requested review fingerprint must satisfy the obligation."));
+    context.write("docs/spec.md", "## Pricing\n\nThe rate is capped at 45%.\n");
+    const stale = await context.next(2);
+    context.check(() => assertFailure(stale, "Rewriting the cited section must expire its review."));
+    context.check(() => assertIncludes(stale, "Stale @evidenceReview for 'docs/spec.md#pricing'", "The finding must report stale rather than missing."));
+    context.check(() => assertIncludes(stale, `names '#${fingerprint}'`, "The diagnostic must quote the review's old value."));
   }
 
   /**

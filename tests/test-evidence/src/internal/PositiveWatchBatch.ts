@@ -96,7 +96,7 @@ export namespace PositiveWatchBatch {
             observation = phase.props.name + " activation baseline";
             activate(owned, previous, phase.props);
             previous = phase.props;
-            phaseBaseline = await next(phase.initialStatus ?? 0, undefined, phase.props.name === "positive-markdown-life" || phase.props.name === "positive-alpha");
+            phaseBaseline = await next(phase.initialStatus ?? 0, undefined, phase.initialStatus === 2 || phase.props.name === "positive-alpha");
           }
           for (const external of Object.keys(phase.props.workspaceFiles ?? {})) {
             const physical = fs.realpathSync.native(path.join(owned.workspace, external));
@@ -203,6 +203,23 @@ function watchScenes(): [IWatchScene, ...IWatchScene[]] {
       cases: [positiveWatchCases.markdownLife],
     },
     {
+      props: { name: "positive-documented-config", include: ["src"], lintConfig: documentedConfig("symbols"), files: {
+        "docs/spec.md": "## Contract\n",
+        "src/claim.ts": "/**\n * Claim.\n * @evidence docs/spec.md#contract Implements this contract.\n */\nexport interface Claim {}\n",
+        "src/extra.ts": "/** Extra. */\nexport interface Extra {}\n",
+      } },
+      initialStatus: 2,
+      cases: [positiveWatchCases.documentedConfig],
+    },
+    {
+      props: { name: "positive-review-expiry", lintConfig: graph([{ type: "typescript", files: ["src/**"], symbol: "type", reference: { type: "markdown", files: ["docs/**/*.md"], symbol: "h2", requireReview: true } }], "graph"), files: {
+        "docs/spec.md": "## Pricing\n\nThe rate is capped at 30%.\n",
+        "src/ISale.ts": "/**\n * @evidence docs/spec.md#pricing Derives the sale price from this section.\n */\nexport interface ISale {\n  price: number;\n}\n",
+      } },
+      initialStatus: 2,
+      cases: [positiveWatchCases.reviewExpiry],
+    },
+    {
       props: { name: "positive-alpha", lintConfig: graph([{ type: "typescript", files: ["src/**/*.ts"], symbol: "type", reference: { type: "markdown", files: ["docs/**/*.md"], symbol: "h2" } }]), files: {
         "README.md": "# Fixture\n", "docs/spec.md": positiveWatchCases.alpha,
         "src/implementation.ts": "/** @evidence docs/spec.md#alpha Implements the current specification section. */\nexport interface Implementation {}\n",
@@ -244,4 +261,17 @@ function watchScenes(): [IWatchScene, ...IWatchScene[]] {
       cases: [positiveWatchCases.caches],
     },
   ];
+}
+
+/** Preserves the original untyped documented option and covered claim inputs. */
+function documentedConfig(key: "symbol" | "symbols"): string {
+  return [
+    'import { evidence } from "@ttsc/evidence";', "", "export default {",
+    '  plugins: { "evidence": evidence },', "  rules: {",
+    '    "evidence/graph": ["error", { claims: [{',
+    '      type: "typescript",', '      files: ["src/claim.ts"],', '      symbol: "type",',
+    '      reference: { type: "markdown", files: ["docs/spec.md"], symbol: "h2" },',
+    "    }] }],", `    "evidence/documented": ["error", { ${key}: "type" }],`,
+    "  },", "};", "",
+  ].join("\n");
 }
