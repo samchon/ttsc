@@ -13,8 +13,11 @@ import { consumerCases } from "./consumerCases";
  *
  * @evidence contracts/common.md#principled-implementation Original sources, options and assertion callbacks remain executable inputs; disjoint local and genuinely external roots plus one active original graph prevent neighboring scenes from granting coverage. Unrooted TypeScript references remain Program-only, package references retain actual top-level package resolution, and Swagger keeps its exact-file channel.
  * @evidence contracts/common.md#clear-and-simple-design One assembly owner returns project inputs and scene metadata; the real runtime config loads original config exports, while callers own the single check and collected assertions.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The operation never substitutes a compiler result or invokes assertion callbacks during assembly. Scoped results contain only real emitted diagnostic chunks and retain the actual cycle status. Independent graphs cannot be unioned because their shared alias space and Prisma parser would change the authored behavior.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The operation never substitutes a compiler result or invokes assertion callbacks during assembly. Each phase's complete real response and status reach its original assertion callback. Independent graphs cannot be unioned because their shared alias space and Prisma parser would change the authored behavior.
  * @evidence contracts/common.md#meaningful-documentation Explains original Program membership, excluded runtime-root imports, distinct path channels and ownership of transported assertions.
+ * @evidence contracts/performance.md#efficient-algorithms Assembly visits each authored file and selected include once; compiler-family grouping sorts only the original override entries. Diagnostic splitting scales with response bytes and each callback receives that complete response without copying a filtered verdict.
+ * @evidence contracts/performance.md#reuse-equivalent-work Immutable source/config bytes and one captured contributor can serve compatible original compiler families. The caller owns actual Program lifetimes and fresh SDK registration checks; this assembly never certifies artifact freshness or shares diagnostic outcomes.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Assembly retains the finite authored input table, phase configs and assertion callbacks; actual fixture/process release belongs to its caller and the shared process-ownership guard. No installed producer or process is created by assembly.
  */
 export namespace ConsumerBatch {
   /**
@@ -43,6 +46,33 @@ export namespace ConsumerBatch {
     "package-population-complete",
     "singular-declarations",
   ]);
+
+  /** Groups scenes only when their authored compiler overrides are identical. */
+  export function compilerFamilies(succeeds: boolean): readonly {
+    compilerOptions: Readonly<Record<string, unknown>>;
+    names: readonly string[];
+  }[] {
+    const groups = new Map<
+      string,
+      { compilerOptions: Readonly<Record<string, unknown>>; names: string[] }
+    >();
+    for (const scenario of consumerCases) {
+      if (successNames.has(scenario.props.name) !== succeeds) continue;
+      const compilerOptions = scenario.props.compilerOptions ?? {};
+      const key = JSON.stringify(
+        Object.entries(compilerOptions).sort(([left], [right]) =>
+          left.localeCompare(right),
+        ),
+      );
+      let group = groups.get(key);
+      if (group === undefined) {
+        group = { compilerOptions, names: [] };
+        groups.set(key, group);
+      }
+      group.names.push(scenario.props.name);
+    }
+    return [...groups.values()];
+  }
 
   /**
    * Materializes immutable scenes and sequential graph settings for one
@@ -185,27 +215,25 @@ export namespace ConsumerBatch {
   }
 
   /**
-   * Runs every original assertion against that scene's genuinely emitted
-   * findings.
+   * Runs one original scene's assertions against its complete real response.
+   *
+   * A phase activates only that original graph and its file-rule scope. Package
+   * and project findings need no scene path, so path filtering would erase
+   * meaningful diagnostics from this response.
    */
   export function verify(
     result: IRunResult,
     scenes: readonly IScene[],
     check: (assertion: () => void) => void,
   ): void {
+    if (scenes.length !== 1)
+      throw new Error("A consumer response must own exactly one original scene.");
     const chunks = diagnostics(result);
     for (const scene of scenes) {
-      const selected = chunks.filter(
-        (chunk) =>
-          chunk.includes(scene.local + "/") ||
-          chunk.includes(scene.external + "/") ||
-          chunk.includes("('" + scene.scenario.props.name + ":"),
-      );
-      const scoped = { ...result, output: selected.join("\n") };
       if (!successNames.has(scene.scenario.props.name))
         check(() => {
           if (
-            !selected.some((chunk) =>
+            !chunks.some((chunk) =>
               /^(?:[^\r\n]*(?:\(\d+,\d+\):|:\d+:\d+\s+-)\s*)?error\s+TS\d+:/m.test(
                 chunk,
               ),
@@ -227,7 +255,7 @@ export namespace ConsumerBatch {
             : scene.local + "/" + relative)
         );
       };
-      scene.scenario.verify(scoped, check, location);
+      scene.scenario.verify(result, check, location);
     }
   }
 }

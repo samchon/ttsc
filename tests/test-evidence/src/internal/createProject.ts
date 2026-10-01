@@ -5,6 +5,7 @@ import path from "node:path";
 import { getNativeLintProducer } from "../../../utils/src/NativeLintProducer";
 
 import type { ICreateProjectProps } from "./ICreateProjectProps";
+import { EvidenceProcessOwnership } from "./EvidenceProcessOwnership";
 import type { ITtscEvidenceProject } from "./ITtscEvidenceProject";
 import { linkDirectory } from "./linkDirectory";
 import { resolveDependency } from "./resolveDependency";
@@ -32,7 +33,7 @@ import { suiteRoot } from "./suiteRoot";
  * @evidence contracts/portability.md#os-neutral-implementation Node path and filesystem APIs construct native workspace/link paths; package entrypoint strings keep their package-relative spelling, and the shared linkDirectory owner handles native directory-link creation.
  * @evidence contracts/performance.md#efficient-algorithms File writing visits each authored input once and dependency links follow the declared runtime manifest; retained fixture space scales with input bytes rather than copying installed dependency trees.
  * @evidence contracts/performance.md#reuse-equivalent-work Explicit non-mutating consumers reuse one verified authored lint snapshot and content-addressed native cache; the original live producer remains the default and changed test fixture inputs are written for every invocation.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Each invocation owns one exact private workspace, initial failures release partial output and the returned callback releases successful preparation; Node retries transient removal failures finitely and exhaustion propagates.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Each invocation owns one exact private workspace; preparation failures release partial output. The returned callback refuses removal after unknown process-reader closure, retaining inputs and reporting its cause; known released fixtures use finite Node removal retries and propagate exhaustion.
  */
 export const createProject = (
   props: ICreateProjectProps,
@@ -118,7 +119,10 @@ export const createProject = (
   );
   linkDirectory(resolveDependency("ttsc"), path.join(modules, "ttsc"));
 
-  return { directory, workspace, cleanup: () => cleanupWorkspace(workspace) };
+  return { directory, workspace, cleanup: () => {
+    EvidenceProcessOwnership.assertAvailable(directory);
+    cleanupWorkspace(workspace);
+  } };
   } catch (error) {
     try {
       cleanupWorkspace(workspace);

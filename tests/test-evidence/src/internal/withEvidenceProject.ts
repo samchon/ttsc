@@ -12,10 +12,10 @@
  * @evidence contracts/common.md#principled-implementation The failure array records whether each operation threw independently of its thrown value; finally always invokes the explicit cleanup owner, and the result is returned only when neither operation failed. Inferred callback return types reject PromiseLike constituents so typed asynchronous work cannot release the fixture before completion; erased or cast return types remain outside that premise.
  * @evidence contracts/common.md#clear-and-simple-design One synchronous operation owns result propagation and release ordering for ordinary Evidence consumers; callers supply their existing project and unchanged assertion callback.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit operation and cleanup inputs retain actual consumer behavior without replacing foreign methods, swallowing release failures or fabricating a passing result.
- * @evidence contracts/common.md#meaningful-documentation The declaration explains synchronous ownership, unconditional release and preservation of both ordinary and undefined thrown values.
+ * @evidence contracts/common.md#meaningful-documentation The declaration explains synchronous ownership, unconditional cleanup invocation and preservation of both ordinary and undefined thrown values; the cleanup owner may refuse unresolved-reader input removal.
  * @evidence contracts/performance.md#efficient-algorithms The owner invokes each callback once and retains at most two failures, using constant bookkeeping independently of fixture size.
  * @evidence contracts/performance.md#reuse-equivalent-work All ordinary callers share one release policy; the operation's result is invocation-local and is not reused across changed consumer inputs.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The caller-provided project is released in finally; the result and at most two errors survive only for this call's return or throw, and release exhaustion remains observable.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Finally requests the caller-provided project's release; its cleanup owner may refuse removal after unknown process closure and that failure remains observable. The result and at most two errors survive only for this call's return or throw.
  */
 export function withEvidenceProject<Result, Release>(
   project: {

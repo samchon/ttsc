@@ -3,7 +3,13 @@
  *
  * The directory is a real temporary project with its own `node_modules`, so a
  * case that forgets to clean up leaves a linked copy of the workspace behind.
- * Every case therefore disposes it in a `finally`.
+ * Cases request disposal in `finally`; unknown process closure retains the
+ * inputs and reports a blocking failure instead of removing active inputs.
+ *
+ * @evidence contracts/common.md#principled-implementation The handle identifies the actual project and containing workspace; cleanup refuses removal when the process owner recorded unknown descendants.
+ * @evidence contracts/common.md#clear-and-simple-design Two readonly absolute paths and one synchronous cleanup operation carry fixture ownership without duplicating preparation or process policy.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A cleanup call requests release rather than declaring process closure; unknown input retention remains an observable error with its original cause.
+ * @evidence contracts/common.md#meaningful-documentation Explains ancestor population inputs, repeated cleanup after known release and the failure that preserves unresolved-reader inputs.
  */
 export interface ITtscEvidenceProject {
   /** Absolute path of the throwaway project root. */
@@ -20,7 +26,8 @@ export interface ITtscEvidenceProject {
   /**
    * Removes the fixture, tolerating a directory the OS has not released yet.
    *
-   * Safe to call more than once, and safe to call after a failed run.
+   * Safe to call more than once after known process release. An unknown
+   * descendant lifetime refuses removal and preserves the original cause.
    */
   cleanup(): void;
 }

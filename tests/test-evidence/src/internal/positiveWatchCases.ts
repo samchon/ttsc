@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { EvidenceProcessOwnership } from "./EvidenceProcessOwnership";
 import { assertExcludes, assertFailure, assertIncludes, assertStatus, runCheck, type IRunResult, type ITtscEvidenceProject } from "./index";
 
 /**
@@ -13,11 +14,18 @@ import { assertExcludes, assertFailure, assertIncludes, assertStatus, runCheck, 
  * @evidence contracts/common.md#meaningful-documentation Each callback records its original assertion ownership, independent literal oracle, shared preparation, reset and limitation; telemetry equality applies only inside the Markdown phase, not across config reloads.
  * @evidence contracts/performance.md#efficient-algorithms Mutation and assertion work is linear in the finite authored input and observed diagnostic lists; exact sorted cold comparison retains duplicate findings rather than deduplicating them.
  * @evidence contracts/performance.md#reuse-equivalent-work Alpha callbacks share verified identical source/document inputs and one phase Program; both cache controls share one private library and unrelated rebuild, while cold retains one independently loaded Program.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Callbacks retain only their current results and own no separate watcher or fixture; the batch closes its launcher and completed cold invocation before owned workspace removal, preserving cleanup errors. Native sidecar lifetime remains delegated to the launcher rather than exposing separate close handles here.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Callbacks retain only current results and own no separate watcher or fixture; the batch requests launcher closure before guarded cleanup and preserves errors. Direct source and private-loader deletion also refuse unknown reader ownership. Normal Node exit is not independently native sidecar join proof; that lifetime remains delegated to the launcher.
  * @evidence contracts/portability.md#os-neutral-implementation Native path joins locate owned local, genuinely external and detached-library files; text expectations use authored portable addresses and shared helpers own actual Node/compiler processes.
  */
 export namespace positiveWatchCases {
-  /** The batch-owned actual fixture, roots, results and cycle operations for one phase. */
+  /**
+   * The batch-owned actual fixture, roots, results and cycle operations for one phase.
+   *
+   * @evidence contracts/common.md#principled-implementation Actual owned paths and captured verdicts connect authored mutations to the original independent assertions; the batch owns guarded writes and process lifetime.
+   * @evidence contracts/common.md#clear-and-simple-design One readonly context carries the phase inputs and observation operations without allocating another consumer or watcher.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Requested status or text never supplies the observed result; loader deletion targets only the verified private copy and unresolved-reader admission remains explicit.
+   * @evidence contracts/common.md#meaningful-documentation Fields distinguish local and external physical roots, actual baseline, guarded mutation, settled observation and collected assertions.
+   */
   export interface Context {
     /** Canonical primary project used unchanged by the original cold check. */
     readonly project: ITtscEvidenceProject;
@@ -205,6 +213,7 @@ export namespace positiveWatchCases {
     const renamed = await context.next(2, "Missing TypeScript evidence export");
     context.check(() => assertFailure(renamed, "Renamed external export must fail."));
     context.check(() => assertIncludes(renamed, "Missing TypeScript evidence export", "The rename must invalidate the link."));
+    EvidenceProcessOwnership.assertAvailable(context.project.directory);
     fs.unlinkSync(path.join(context.outsideRoot, "api/example.ts"));
     const deleted = await context.next(2, "Missing TypeScript evidence file");
     context.check(() => assertFailure(deleted, "Deleted external file must fail."));
@@ -259,6 +268,7 @@ export namespace positiveWatchCases {
    * @evidence contracts/e2e.md#preserved-coverage Both original initial0 and unchanged0 verdicts share actual equivalent cycles; changed2 and exact Prisma/Swagger categories remain separate, with an added original-Prisma reset0 before Swagger.
    */
   export async function caches(context: Context): Promise<void> {
+    EvidenceProcessOwnership.assertAvailable(context.project.directory);
     for (const name of ["loadPrismaModels.js", "loadSwaggerOperations.js"]) fs.rmSync(path.join(context.library, "internal", name));
     context.write("src/unrelated.ts", "export const version = 2;\n");
     const reused = await context.next(0);

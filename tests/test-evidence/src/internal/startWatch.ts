@@ -1,8 +1,10 @@
 import { type ChildProcess, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 
 import type { IRunResult } from "./IRunResult";
 import type { IWatchSession } from "./IWatchSession";
+import { EvidenceProcessOwnership } from "./EvidenceProcessOwnership";
 import { pluginCacheDirectory } from "./pluginCacheDirectory";
 import { resolveDependency } from "./resolveDependency";
 
@@ -36,11 +38,27 @@ const REBUILD_TIMEOUT: number = 120_000;
  * from one reloaded every time. Freshness and residency are separate
  * properties, and a rebuild that discards the Program satisfies every freshness
  * case in this suite while being the regression that makes watch mode useless.
+ *
+ * Shutdown uses the launcher's inherited IPC channel. A nonce-bound stopped
+ * response confirms its owning native sessions and active cycle were joined;
+ * cleanup additionally requires actual launcher/stdio closure and agreement
+ * between the response, final build marker and exit status. Ordinary callers
+ * finish a build before closing, so a response with no completed status fails.
+ *
+ * @evidence contracts/common.md#principled-implementation Build terminators advance one transcript cursor; startup/exit failures reject observations. Shutdown requires the owning launcher's nonce-bound joined response, its last completed 0/2 marker and matching actual close status. Signal, forced, missing-response or mismatched closure permanently retains fixture inputs; Node exit alone supplies no descendant authority.
+ * @evidence contracts/common.md#clear-and-simple-design One owner exposes cycle, quiet-window and shutdown operations; notification bookkeeping is local and shutdown has one memoized operation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Real Node launcher/native watcher execution is preserved without foreign method replacement, fabricated cycle success or termination retries that hide a live child.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains output preservation, watch-input diagnostics, resident telemetry and why shutdown needs both the owning joined response and real launcher closure; no-completed-build responses are outside these callers' lifecycle.
+ * @evidence contracts/portability.md#os-neutral-implementation Node spawns an executable plus argv without a shell; its real IPC channel requests graceful owning cleanup on Windows and POSIX rather than assuming signal delivery executes a JavaScript handler. Forced signals and actual close events still expose failure; fixture paths are native paths and protocol markers remain text.
+ * @evidence contracts/performance.md#efficient-algorithms Marker searches start at the consumed cursor, while output append and diagnostic slices scale with transcript bytes; notifying current waiters scales with outstanding observations.
+ * @evidence contracts/performance.md#reuse-equivalent-work One live watcher and cached native contributor serve successive changed Program cycles; memoized close requests share the same termination and join rather than starting duplicate shutdown work.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The owner retains one child and a full transcript until the session is discarded; wait callbacks remove themselves on timer/output settlement. Memoized close removes its IPC/close listeners and timers, while unknown signal/forced/missing-or-invalid-response closure retains fixture and existing shared producer/cache inputs. Only the owning joined receipt plus observed close admits cleanup. Transcript bytes are not capped.
  */
 export const startWatch = (
   directory: string,
   options: { readonly diagnostics?: boolean } = {},
 ): IWatchSession => {
+  EvidenceProcessOwnership.assertAvailable(directory);
   const launcher: string = path.join(
     resolveDependency("ttsc"),
     "lib",
@@ -62,26 +80,53 @@ export const startWatch = (
       cwd: directory,
       env: {
         ...process.env,
-        TTSC_CACHE_DIR: pluginCacheDirectory(),
+        TTSC_CACHE_DIR: pluginCacheDirectory(directory),
         TTSC_WATCH_DEBUG_INPUTS: "1",
       },
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["ignore", "pipe", "pipe", "ipc"],
     },
   );
 
   let text: string = "";
   let cursor: number = 0;
   let exited: boolean = false;
-  const wake: Array<() => void> = [];
-  const absorb = (chunk: Buffer): void => {
-    text += chunk.toString("utf8");
-    while (wake.length !== 0) wake.pop()?.();
+  let closed: boolean = false;
+  let startupError: Error | undefined;
+  let closeOperation: Promise<void> | undefined;
+  let acknowledgedStopStatus: number | undefined;
+  const wake = new Set<() => void>();
+  const notify = (): void => {
+    const waiting = [...wake];
+    wake.clear();
+    for (const resume of waiting) resume();
   };
+  const absorb = (chunk: string): void => {
+    text += chunk;
+    notify();
+  };
+  child.stdout?.setEncoding("utf8");
+  child.stderr?.setEncoding("utf8");
   child.stdout?.on("data", absorb);
   child.stderr?.on("data", absorb);
+  child.on("error", (error: Error) => {
+    startupError = error;
+    EvidenceProcessOwnership.retain(directory, error);
+    notify();
+  });
+  child.on("close", (code, signal) => {
+    closed = true;
+    const lastMarker = [...text.matchAll(/\[ttsc\] watch build (complete|failed)\r?\n/g)].at(-1);
+    const lastStatus = lastMarker === undefined ? undefined : lastMarker[1] === "failed" ? 2 : 0;
+    if (acknowledgedStopStatus === undefined || acknowledgedStopStatus !== lastStatus || code !== acknowledgedStopStatus || signal !== null)
+      EvidenceProcessOwnership.retain(directory, new Error(
+        "Watch launcher closure does not establish joined native descendants.",
+        { cause: { code, signal } },
+      ));
+    notify();
+  });
   child.on("exit", () => {
     exited = true;
-    while (wake.length !== 0) wake.pop()?.();
+    notify();
   });
 
   const slice = (from: number, to: number, status: number): IRunResult => {
@@ -115,8 +160,10 @@ export const startWatch = (
   ): Promise<T> => {
     const deadline: number = Date.now() + timeout;
     for (;;) {
+      EvidenceProcessOwnership.assertAvailable(directory);
       const value: T | null = settled();
       if (value !== null) return value;
+      if (startupError !== undefined) throw startupError;
       if (exited)
         throw new Error(
           `${describe}, but the watch process exited first.\n\nTranscript:\n${text}`,
@@ -127,14 +174,13 @@ export const startWatch = (
           `${describe} within ${timeout} ms.\n\nTranscript:\n${text}`,
         );
       await new Promise<void>((resolve) => {
-        const timer: NodeJS.Timeout = setTimeout(
-          resolve,
-          Math.min(remaining, 50),
-        );
-        wake.push(() => {
+        const resume = (): void => {
           clearTimeout(timer);
+          wake.delete(resume);
           resolve();
-        });
+        };
+        const timer = setTimeout(resume, Math.min(remaining, 50));
+        wake.add(resume);
       });
     }
   };
@@ -143,8 +189,12 @@ export const startWatch = (
     nextBuild: (timeout: number = REBUILD_TIMEOUT): Promise<IRunResult> =>
       until(findBuild, timeout, "Expected the watcher to finish a rebuild"),
     expectNoBuild: async (milliseconds: number): Promise<IRunResult> => {
+      EvidenceProcessOwnership.assertAvailable(directory);
       const from: number = cursor;
       await new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+      if (startupError !== undefined) throw startupError;
+      if (exited || closed)
+        throw new Error("The watcher exited during the no-build observation.");
       const seen: IRunResult = slice(from, text.length, 0);
       // The launcher prints this the moment a rebuild starts, so it catches a
       // spurious wake even when the rebuild has not finished within the window.
@@ -155,27 +205,89 @@ export const startWatch = (
       cursor = text.length;
       return seen;
     },
-    close: async (): Promise<void> => {
-      if (exited) return;
-      // The launcher's SIGINT/SIGTERM handlers tear the watchers down on POSIX;
-      // on Windows the signal terminates it outright. Either way the resident
-      // check-serve child sees its stdin pipe close and returns on EOF, so the
-      // grandchild does not outlive the session.
-      child.kill();
-      await new Promise<void>((resolve) => {
-        const timer: NodeJS.Timeout = setTimeout(() => {
-          child.kill("SIGKILL");
-          resolve();
-        }, 10_000);
-        child.on("exit", () => {
-          clearTimeout(timer);
-          resolve();
-        });
-        if (exited) {
-          clearTimeout(timer);
-          resolve();
+    close: (): Promise<void> => {
+      if (closeOperation !== undefined) return closeOperation;
+      if (closed) {
+        try {
+          EvidenceProcessOwnership.assertAvailable(directory);
+          return (closeOperation = Promise.resolve());
+        } catch (error) {
+          return (closeOperation = Promise.reject(error));
+        }
+      }
+      closeOperation = new Promise<void>((resolve, reject) => {
+        const id = randomUUID();
+        let force: NodeJS.Timeout | undefined;
+        let deadline: NodeJS.Timeout | undefined;
+        let settled = false;
+        const settle = (success: boolean, error?: unknown): void => {
+          if (settled) return;
+          settled = true;
+          if (force !== undefined) clearTimeout(force);
+          if (deadline !== undefined) clearTimeout(deadline);
+          child.removeListener("close", onClose);
+          child.removeListener("message", onMessage);
+          if (success) {
+            try {
+              EvidenceProcessOwnership.assertAvailable(directory);
+              resolve();
+            } catch (failure) {
+              reject(failure);
+            }
+          } else {
+            EvidenceProcessOwnership.retain(directory, error);
+            reject(error);
+          }
+        };
+        const onClose = (): void => settle(true);
+        const onMessage = (value: unknown): void => {
+          if (typeof value !== "object" || value === null) return;
+          const message = value as Record<string, unknown>;
+          if (message.type !== "ttsc.watch.stopped" || message.id !== id) return;
+          if (message.status !== 0 && message.status !== 2) {
+            settle(false, new Error("The watcher returned an invalid joined shutdown status."));
+            return;
+          }
+          acknowledgedStopStatus = message.status;
+          try {
+            if (child.connected) child.disconnect();
+          } catch (error) {
+            settle(false, error);
+          }
+        };
+        child.once("close", onClose);
+        child.on("message", onMessage);
+        // The IPC receipt is owning join authority, not an exit observation.
+        // Every success also joins launcher close;
+        // every failure removes this shutdown owner's listener and timers.
+        deadline = setTimeout(() => {
+          settle(false, new Error("The watch child did not close after termination."));
+        }, 20_000);
+        try {
+          if (child.exitCode === null && child.signalCode === null) {
+            if (!child.connected) throw new Error("The watch child has no owning shutdown channel.");
+            child.send({ type: "ttsc.watch.stop", id }, (error) => {
+              if (error) settle(false, error);
+            });
+            if (!settled)
+              force = setTimeout(() => {
+                if (closed) return;
+                EvidenceProcessOwnership.retain(directory, new Error(
+                  "Watch shutdown required forced launcher termination.",
+                ));
+                try {
+                  child.kill("SIGKILL");
+                } catch (error) {
+                  settle(false, error);
+                }
+              }, 10_000);
+          }
+          if (closed) onClose();
+        } catch (error) {
+          settle(false, error);
         }
       });
+      return closeOperation;
     },
   };
 };

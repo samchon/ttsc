@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { positiveWatchCases } from "./positiveWatchCases";
+import { EvidenceProcessOwnership } from "./EvidenceProcessOwnership";
 import { FIRST_BUILD_TIMEOUT, assertStatus, createProject, privatizeLibrary, startWatch, type IRunResult, type ITtscEvidenceProject } from "./index";
 import type { ICreateProjectProps } from "./ICreateProjectProps";
 
@@ -13,14 +14,16 @@ import type { ICreateProjectProps } from "./ICreateProjectProps";
  * Config and source-topology changes legitimately reload the Program; Markdown-only
  * residency is measured within its phase. Staged keeps its first position and name;
  * changed parser capability is isolated in a detached private Evidence library.
+ * Each real build transcript is forwarded unchanged with its requested phase;
+ * unknown process closure blocks every later fixture mutation and cleanup.
  *
  * @evidence contracts/common.md#principled-implementation Original primary graph settings, compiler options, include populations and authored mutation bytes exercise the same actual watcher; an independent canonical cold check keeps identical physical inputs. Plain default consumer configs remain plain, typed named consumers retain their public type checks, and file-qualified links retain their original primary/sibling layout.
- * @evidence contracts/common.md#clear-and-simple-design One owner prepares the consumer/library, exposes mutation and settled-cycle operations, collects phase/assertion failures and independently joins watcher and fixture cleanup before throwing.
+ * @evidence contracts/common.md#clear-and-simple-design One owner prepares the consumer/library, exposes guarded mutation and settled-cycle operations, forwards each actual build transcript with its phase, collects assertion failures and independently requests watcher closure and fixture cleanup before throwing.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No result, PID, count, cache proof, source identity or watcher is replaced. The canonical live producer is selected from startup to preserve the original cold exception without package-junction changes; real library deletion occurs only after verified detachment.
  * @evidence contracts/common.md#meaningful-documentation Explains first-claim identity, same-directory cold oracle, bounded settle/reset behavior, config-driven Program reloads and final irreversible private loader revocation.
  * @evidence contracts/performance.md#efficient-algorithms Activation visits the previous and next finite authored file maps once, mutation resets read only tracked changed paths, and settling examines at most eight real cycles per request. Empty owned directories remain until final cleanup rather than recursively scanning each transition.
  * @evidence contracts/performance.md#reuse-equivalent-work Watch consumers share one canonical producer, workspace and watcher lifetime. Original source/config/include populations change only at genuine phase boundaries and may reload Programs; the three identical Alpha cases retain one phase Program, one necessary fresh cold Program remains, and one private parser-library copy serves both last-phase cache controls with independent original source filters.
- * @evidence contracts/performance.md#bound-retention-and-release-resources One workspace, private library and native watcher remain until all phases finish. Watch closure and strict project cleanup are independently attempted; failures aggregate rather than report successful release. Session transcript retention belongs to startWatch.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One workspace, private library and native watcher remain until all phases finish. Watch closure and strict project cleanup are independently attempted; unknown descendant closure retains inputs and blocks writes, while failures aggregate. Normal Node closure alone is not independent native-descendant join proof. Session transcript retention belongs to startWatch; logging forwards each actual consumed cycle once.
  * @evidence contracts/portability.md#os-neutral-implementation Native path APIs construct exact owned roots, existing helpers own junction detachment and Node process execution, and source/protocol literals remain platform-neutral. Physical ancestor targets stay outside compiler project membership.
  */
 export namespace PositiveWatchBatch {
@@ -41,12 +44,21 @@ export namespace PositiveWatchBatch {
       watcher = startWatch(owned.directory, { diagnostics: true });
       const session = watcher;
       console.log("Positive watch owned workspace: " + owned.workspace + "; private library: " + library);
+      let observation = "positive-alpha initial baseline";
+      const quiet = async (milliseconds: number): Promise<IRunResult> => {
+        const actual = await session.expectNoBuild(milliseconds);
+        console.log("Positive watch actual quiet observation " + JSON.stringify({ phase: observation, milliseconds, actualStatus: actual.status }));
+        process.stdout.write(actual.output);
+        return actual;
+      };
       const next = async (status: number, marker?: string, first = false): Promise<IRunResult> => {
         let last: IRunResult | undefined;
         for (let cycle = 0; cycle < 8; cycle++) {
           last = await session.nextBuild(first && cycle === 0 ? FIRST_BUILD_TIMEOUT : undefined);
+          console.log("Positive watch actual observation " + JSON.stringify({ phase: observation, cycle, requestedStatus: status, marker, actualStatus: last.status }));
+          process.stdout.write(last.output);
           try {
-            await session.expectNoBuild(300);
+            await quiet(300);
             return last;
           } catch (error) {
             if (!(error instanceof Error) || !error.message.startsWith("Expected no rebuild within")) throw error;
@@ -65,6 +77,7 @@ export namespace PositiveWatchBatch {
         const outsideRoot = owned.workspace;
         const originals = new Map<string, string>();
         const write = (relative: string, bytes: string, outside = false): void => {
+          EvidenceProcessOwnership.assertAvailable(owned.directory);
           const file = path.join(outside ? outsideRoot : localRoot, relative);
           if (!originals.has(file)) originals.set(file, fs.readFileSync(file, "utf8"));
           fs.writeFileSync(file, bytes, "utf8");
@@ -72,6 +85,7 @@ export namespace PositiveWatchBatch {
         try {
           let phaseBaseline = baseline;
           if (phase.props.name !== "positive-alpha") {
+            observation = phase.props.name + " activation baseline";
             activate(owned, previous, phase.props);
             previous = phase.props;
             phaseBaseline = await next(0);
@@ -82,18 +96,21 @@ export namespace PositiveWatchBatch {
           }
           check(() => assertStatus(phaseBaseline, 0, "The original watch inputs must pass before mutation: " + phase.props.name));
           console.log("Positive watch " + phase.props.name + " resident: " + phaseBaseline.output.match(/@ttsc\/lint resident check: pid=\d+ programLoads=\d+/)?.[0]);
-          const context: positiveWatchCases.Context = { project: owned, localRoot, outsideRoot, library, baseline: phaseBaseline, write, next, quiet: milliseconds => session.expectNoBuild(milliseconds), check };
+          const context: positiveWatchCases.Context = { project: owned, localRoot, outsideRoot, library, baseline: phaseBaseline, write, next, quiet, check };
           for (const mutate of phase.cases) {
+            observation = phase.props.name + " " + mutate.name + " mutation";
             const before = failures.length;
             try { await mutate(context); } catch (error) { failures.push(new Error(mutate.name + " phase failed", { cause: error })); }
             if (mutate !== positiveWatchCases.caches) {
               try {
                 let changed = false;
                 for (const [file, bytes] of originals) if (!fs.existsSync(file) || fs.readFileSync(file, "utf8") !== bytes) {
+                  EvidenceProcessOwnership.assertAvailable(owned.directory);
                   fs.writeFileSync(file, bytes, "utf8");
                   if (file !== path.join(localRoot, "README.md")) changed = true;
                 }
                 if (changed) {
+                  observation = phase.props.name + " " + mutate.name + " reset";
                   const reset = await next(0);
                   check(() => assertStatus(reset, 0, "Original bytes must restore the actual graph."));
                 }
@@ -121,6 +138,7 @@ export namespace PositiveWatchBatch {
 
 /** Replaces only recorded authored files, retaining original phase Program roots. */
 function activate(project: ITtscEvidenceProject, previous: ICreateProjectProps, next: ICreateProjectProps): void {
+  EvidenceProcessOwnership.assertAvailable(project.directory);
   const replace = (root: string, before: Record<string, string>, after: Record<string, string>): void => {
     for (const relative of Object.keys(before)) if (!Object.hasOwn(after, relative)) {
       const file = path.join(root, relative);

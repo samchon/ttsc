@@ -6,6 +6,13 @@ import { ConsumerBatch } from "../internal/ConsumerBatch";
  * Verifies the actual batch splitter preserves separate project and source
  * findings.
  *
+ * Unanchored package and project findings must remain visible alongside source
+ * findings, including the explanatory lines that belong to each banner.
+ *
+ * 1. Supply literal project errors and plain or pretty source banners.
+ * 2. Split and normalize those direct operation inputs.
+ * 3. Assert all four independent chunks and their continuation text.
+ *
  * @evidence contracts/testing.md#behavioral-verification Calls the maintained diagnostic splitter with literal plain-project, source-position and pretty source banners; each banner remains its own chunk, including multiline explanatory text.
  * @evidence contracts/testing.md#independent-expectations The input and expected chunks are independently authored literal renderer shapes. The result-shaped object is direct splitter input; it is never claimed as a real compiler outcome or passed to an E2E assertion.
  * @evidence contracts/testing.md#distinguishing-cases Consecutive unanchored project errors distinguish the previous source-only splitter; pretty warnings and Windows path normalization exercise separate supported banners, while continuation lines remain attached.

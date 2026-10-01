@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { performance } from "node:perf_hooks";
 
 import { ConsumerBatch } from "../internal/ConsumerBatch";
+import { EvidenceProcessOwnership } from "../internal/EvidenceProcessOwnership";
 import { graphDeclarationFixtures } from "../internal/graphDeclarationFixtures";
 import { graphTypingConfigurations } from "../internal/graphTypingConfigurations";
 import {
@@ -12,7 +14,10 @@ import {
   createProject,
   runCheck,
 } from "../internal/index";
-import { startNativeCheck } from "../internal/startNativeCheck";
+import {
+  type INativeCheckResult,
+  startNativeCheck,
+} from "../internal/startNativeCheck";
 
 /**
  * Verifies file rules, declarations and twenty negative consumer variants in
@@ -43,16 +48,22 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
   const cases = [
     {
       /**
-       * documented_accepts_merged_identities.
+       * Verifies documented accepts merged identities.
        *
-       * @evidence contracts/testing.md#behavioral-verification Documented merged interface/namespace, class/namespace, overload and default identities accompany one undocumented type. The Undocumented finding is present while ISale, Something, format and evidence findings are absent.
-       * @evidence contracts/testing.md#independent-expectations The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
-       * @evidence contracts/testing.md#distinguishing-cases The first-declaration negative case changes which merged declaration owns documentation.
-       * @evidence contracts/testing.md#execution-ownership This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
-       * @evidence contracts/e2e.md#necessary-boundary The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
-       * @evidence contracts/e2e.md#shared-execution Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
-       * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
-       * @evidence contracts/e2e.md#preserved-coverage The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
+       * The first-declaration negative case changes which merged declaration owns documentation.
+       *
+       * 1. Documented merged interface/namespace, class/namespace, overload and default identities accompany one undocumented type.
+       * 2. Run the canonical consumer CLI with this isolated source population.
+       * 3. The Undocumented finding is present while ISale, Something, format and evidence findings are absent.
+       *
+       * Behavioral verification (contracts/testing.md#behavioral-verification): Documented merged interface/namespace, class/namespace, overload and default identities accompany one undocumented type. The Undocumented finding is present while ISale, Something, format and evidence findings are absent.
+       * Independent expectations (contracts/testing.md#independent-expectations): The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
+       * Distinguishing cases (contracts/testing.md#distinguishing-cases): The first-declaration negative case changes which merged declaration owns documentation.
+       * Execution ownership (contracts/testing.md#execution-ownership): This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
+       * Necessary boundary (contracts/e2e.md#necessary-boundary): The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
+       * Shared execution (contracts/e2e.md#shared-execution): Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
+       * State isolation and reuse validity (contracts/e2e.md#state-isolation-and-reuse-validity): Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
+       * Preserved coverage (contracts/e2e.md#preserved-coverage): The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
        */
       name: "documented_accepts_merged_identities",
       rule: "documented",
@@ -73,16 +84,22 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
     },
     {
       /**
-       * documented_narrows_to_selected_symbols.
+       * Verifies documented narrows to selected symbols.
        *
-       * @evidence contracts/testing.md#behavioral-verification A documented ISale type has an undocumented member and sibling function, with symbol:type selected. Its entire source prefix and evidence/documented findings are absent.
-       * @evidence contracts/testing.md#independent-expectations The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
-       * @evidence contracts/testing.md#distinguishing-cases Default selection in the undocumented cases must still diagnose exported callables.
-       * @evidence contracts/testing.md#execution-ownership This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
-       * @evidence contracts/e2e.md#necessary-boundary The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
-       * @evidence contracts/e2e.md#shared-execution Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
-       * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
-       * @evidence contracts/e2e.md#preserved-coverage The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
+       * Default selection in the undocumented cases must still diagnose exported callables.
+       *
+       * 1. A documented ISale type has an undocumented member and sibling function, with symbol:type selected.
+       * 2. Run the canonical consumer CLI with this isolated source population.
+       * 3. Its entire source prefix and evidence/documented findings are absent.
+       *
+       * Behavioral verification (contracts/testing.md#behavioral-verification): A documented ISale type has an undocumented member and sibling function, with symbol:type selected. Its entire source prefix and evidence/documented findings are absent.
+       * Independent expectations (contracts/testing.md#independent-expectations): The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
+       * Distinguishing cases (contracts/testing.md#distinguishing-cases): Default selection in the undocumented cases must still diagnose exported callables.
+       * Execution ownership (contracts/testing.md#execution-ownership): This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
+       * Necessary boundary (contracts/e2e.md#necessary-boundary): The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
+       * Shared execution (contracts/e2e.md#shared-execution): Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
+       * State isolation and reuse validity (contracts/e2e.md#state-isolation-and-reuse-validity): Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
+       * Preserved coverage (contracts/e2e.md#preserved-coverage): The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
        */
       name: "documented_narrows_to_selected_symbols",
       rule: "documented",
@@ -99,16 +116,22 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
     },
     {
       /**
-       * documented_reports_empty_block.
+       * Verifies documented reports empty block.
        *
-       * @evidence contracts/testing.md#behavioral-verification Documented parse and an empty JSDoc on render share src/parse.ts. Empty JSDoc on exported function render and its source filename are present.
-       * @evidence contracts/testing.md#independent-expectations The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
-       * @evidence contracts/testing.md#distinguishing-cases The absent-block counterpart requires Missing JSDoc rather than Empty JSDoc.
-       * @evidence contracts/testing.md#execution-ownership This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
-       * @evidence contracts/e2e.md#necessary-boundary The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
-       * @evidence contracts/e2e.md#shared-execution Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
-       * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
-       * @evidence contracts/e2e.md#preserved-coverage The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
+       * The absent-block counterpart requires Missing JSDoc rather than Empty JSDoc.
+       *
+       * 1. Documented parse and an empty JSDoc on render share src/parse.ts.
+       * 2. Run the canonical consumer CLI with this isolated source population.
+       * 3. Empty JSDoc on exported function render and its source filename are present.
+       *
+       * Behavioral verification (contracts/testing.md#behavioral-verification): Documented parse and an empty JSDoc on render share src/parse.ts. Empty JSDoc on exported function render and its source filename are present.
+       * Independent expectations (contracts/testing.md#independent-expectations): The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
+       * Distinguishing cases (contracts/testing.md#distinguishing-cases): The absent-block counterpart requires Missing JSDoc rather than Empty JSDoc.
+       * Execution ownership (contracts/testing.md#execution-ownership): This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
+       * Necessary boundary (contracts/e2e.md#necessary-boundary): The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
+       * Shared execution (contracts/e2e.md#shared-execution): Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
+       * State isolation and reuse validity (contracts/e2e.md#state-isolation-and-reuse-validity): Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
+       * Preserved coverage (contracts/e2e.md#preserved-coverage): The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
        */
       name: "documented_reports_empty_block",
       rule: "documented",
@@ -122,16 +145,22 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
     },
     {
       /**
-       * documented_reports_undocumented_export.
+       * Verifies documented reports undocumented export.
        *
-       * @evidence contracts/testing.md#behavioral-verification Documented parse and unannotated render share src/parse.ts. Missing JSDoc on exported function render and the only-ever-read-from-a-JSDoc-block explanation are present.
-       * @evidence contracts/testing.md#independent-expectations The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
-       * @evidence contracts/testing.md#distinguishing-cases The empty-block counterpart has a block but no description.
-       * @evidence contracts/testing.md#execution-ownership This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
-       * @evidence contracts/e2e.md#necessary-boundary The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
-       * @evidence contracts/e2e.md#shared-execution Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
-       * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
-       * @evidence contracts/e2e.md#preserved-coverage The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
+       * The empty-block counterpart has a block but no description.
+       *
+       * 1. Documented parse and unannotated render share src/parse.ts.
+       * 2. Run the canonical consumer CLI with this isolated source population.
+       * 3. Missing JSDoc on exported function render and the only-ever-read-from-a-JSDoc-block explanation are present.
+       *
+       * Behavioral verification (contracts/testing.md#behavioral-verification): Documented parse and unannotated render share src/parse.ts. Missing JSDoc on exported function render and the only-ever-read-from-a-JSDoc-block explanation are present.
+       * Independent expectations (contracts/testing.md#independent-expectations): The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
+       * Distinguishing cases (contracts/testing.md#distinguishing-cases): The empty-block counterpart has a block but no description.
+       * Execution ownership (contracts/testing.md#execution-ownership): This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
+       * Necessary boundary (contracts/e2e.md#necessary-boundary): The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
+       * Shared execution (contracts/e2e.md#shared-execution): Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
+       * State isolation and reuse validity (contracts/e2e.md#state-isolation-and-reuse-validity): Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
+       * Preserved coverage (contracts/e2e.md#preserved-coverage): The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
        */
       name: "documented_reports_undocumented_export",
       rule: "documented",
@@ -148,16 +177,22 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
     },
     {
       /**
-       * documented_reports_undocumented_first_declaration.
+       * Verifies documented reports undocumented first declaration.
        *
-       * @evidence contracts/testing.md#behavioral-verification Undocumented first interface/class/property declarations are followed by documented merged or default declarations. ISale, Something and evidence each retain the literal Missing JSDoc finding.
-       * @evidence contracts/testing.md#independent-expectations The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
-       * @evidence contracts/testing.md#distinguishing-cases The merged-positive fixture documents the identity's original declaration.
-       * @evidence contracts/testing.md#execution-ownership This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
-       * @evidence contracts/e2e.md#necessary-boundary The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
-       * @evidence contracts/e2e.md#shared-execution Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
-       * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
-       * @evidence contracts/e2e.md#preserved-coverage The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
+       * The merged-positive fixture documents the identity's original declaration.
+       *
+       * 1. Undocumented first interface/class/property declarations are followed by documented merged or default declarations.
+       * 2. Run the canonical consumer CLI with this isolated source population.
+       * 3. ISale, Something and evidence each retain the literal Missing JSDoc finding.
+       *
+       * Behavioral verification (contracts/testing.md#behavioral-verification): Undocumented first interface/class/property declarations are followed by documented merged or default declarations. ISale, Something and evidence each retain the literal Missing JSDoc finding.
+       * Independent expectations (contracts/testing.md#independent-expectations): The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
+       * Distinguishing cases (contracts/testing.md#distinguishing-cases): The merged-positive fixture documents the identity's original declaration.
+       * Execution ownership (contracts/testing.md#execution-ownership): This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
+       * Necessary boundary (contracts/e2e.md#necessary-boundary): The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
+       * Shared execution (contracts/e2e.md#shared-execution): Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
+       * State isolation and reuse validity (contracts/e2e.md#state-isolation-and-reuse-validity): Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
+       * Preserved coverage (contracts/e2e.md#preserved-coverage): The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
        */
       name: "documented_reports_undocumented_first_declaration",
       rule: "documented",
@@ -179,16 +214,22 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
     },
     {
       /**
-       * singular_accepts_merged_declarations.
+       * Verifies singular accepts merged declarations.
        *
-       * @evidence contracts/testing.md#behavioral-verification Interface/namespace and class/namespace merges, a named default and a barrel retain one public identity per source. The entire source prefix and evidence/singular findings are absent.
-       * @evidence contracts/testing.md#independent-expectations The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
-       * @evidence contracts/testing.md#distinguishing-cases The second-identity counterpart exports alpha and beta separately.
-       * @evidence contracts/testing.md#execution-ownership This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
-       * @evidence contracts/e2e.md#necessary-boundary The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
-       * @evidence contracts/e2e.md#shared-execution Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
-       * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
-       * @evidence contracts/e2e.md#preserved-coverage The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
+       * The second-identity counterpart exports alpha and beta separately.
+       *
+       * 1. Interface/namespace and class/namespace merges, a named default and a barrel retain one public identity per source.
+       * 2. Run the canonical consumer CLI with this isolated source population.
+       * 3. The entire source prefix and evidence/singular findings are absent.
+       *
+       * Behavioral verification (contracts/testing.md#behavioral-verification): Interface/namespace and class/namespace merges, a named default and a barrel retain one public identity per source. The entire source prefix and evidence/singular findings are absent.
+       * Independent expectations (contracts/testing.md#independent-expectations): The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
+       * Distinguishing cases (contracts/testing.md#distinguishing-cases): The second-identity counterpart exports alpha and beta separately.
+       * Execution ownership (contracts/testing.md#execution-ownership): This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
+       * Necessary boundary (contracts/e2e.md#necessary-boundary): The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
+       * Shared execution (contracts/e2e.md#shared-execution): Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
+       * State isolation and reuse validity (contracts/e2e.md#state-isolation-and-reuse-validity): Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
+       * Preserved coverage (contracts/e2e.md#preserved-coverage): The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
        */
       name: "singular_accepts_merged_declarations",
       rule: "singular",
@@ -208,16 +249,22 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
     },
     {
       /**
-       * singular_reports_second_identity.
+       * Verifies singular reports second identity.
        *
-       * @evidence contracts/testing.md#behavioral-verification pair.ts exports alpha and beta while utils.ts exports only parseInput. The exactly-one-public-identity finding and Rename the file to parseInput.ts repair are present.
-       * @evidence contracts/testing.md#independent-expectations The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
-       * @evidence contracts/testing.md#distinguishing-cases The merged counterpart distinguishes merged declarations from independent identities.
-       * @evidence contracts/testing.md#execution-ownership This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
-       * @evidence contracts/e2e.md#necessary-boundary The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
-       * @evidence contracts/e2e.md#shared-execution Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
-       * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
-       * @evidence contracts/e2e.md#preserved-coverage The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
+       * The merged counterpart distinguishes merged declarations from independent identities.
+       *
+       * 1. pair.ts exports alpha and beta while utils.ts exports only parseInput.
+       * 2. Run the canonical consumer CLI with this isolated source population.
+       * 3. The exactly-one-public-identity finding and Rename the file to parseInput.ts repair are present.
+       *
+       * Behavioral verification (contracts/testing.md#behavioral-verification): pair.ts exports alpha and beta while utils.ts exports only parseInput. The exactly-one-public-identity finding and Rename the file to parseInput.ts repair are present.
+       * Independent expectations (contracts/testing.md#independent-expectations): The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
+       * Distinguishing cases (contracts/testing.md#distinguishing-cases): The merged counterpart distinguishes merged declarations from independent identities.
+       * Execution ownership (contracts/testing.md#execution-ownership): This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
+       * Necessary boundary (contracts/e2e.md#necessary-boundary): The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
+       * Shared execution (contracts/e2e.md#shared-execution): Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
+       * State isolation and reuse validity (contracts/e2e.md#state-isolation-and-reuse-validity): Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
+       * Preserved coverage (contracts/e2e.md#preserved-coverage): The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
        */
       name: "singular_reports_second_identity",
       rule: "singular",
@@ -235,16 +282,22 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
     },
     {
       /**
-       * review_reports_unreviewed_citation.
+       * Verifies review reports unreviewed citation.
        *
-       * @evidence contracts/testing.md#behavioral-verification Pricing and tax have matching review tags; refunds has none, orders uses the wrong tag and audit reviews an exclusion as evidence. Refunds/orders unreviewed findings, the refunds repair and audit mismatch are present; reviewed pricing/tax findings are absent.
-       * @evidence contracts/testing.md#independent-expectations The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
-       * @evidence contracts/testing.md#distinguishing-cases Accepted reviews and missing or mismatched reviews coexist in the same authored input.
-       * @evidence contracts/testing.md#execution-ownership This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
-       * @evidence contracts/e2e.md#necessary-boundary The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
-       * @evidence contracts/e2e.md#shared-execution Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
-       * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
-       * @evidence contracts/e2e.md#preserved-coverage The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
+       * Accepted reviews and missing or mismatched reviews coexist in the same authored input.
+       *
+       * 1. Pricing and tax have matching review tags; refunds has none, orders uses the wrong tag and audit reviews an exclusion as evidence.
+       * 2. Run the canonical consumer CLI with this isolated source population.
+       * 3. Refunds/orders unreviewed findings, the refunds repair and audit mismatch are present; reviewed pricing/tax findings are absent.
+       *
+       * Behavioral verification (contracts/testing.md#behavioral-verification): Pricing and tax have matching review tags; refunds has none, orders uses the wrong tag and audit reviews an exclusion as evidence. Refunds/orders unreviewed findings, the refunds repair and audit mismatch are present; reviewed pricing/tax findings are absent.
+       * Independent expectations (contracts/testing.md#independent-expectations): The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
+       * Distinguishing cases (contracts/testing.md#distinguishing-cases): Accepted reviews and missing or mismatched reviews coexist in the same authored input.
+       * Execution ownership (contracts/testing.md#execution-ownership): This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
+       * Necessary boundary (contracts/e2e.md#necessary-boundary): The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
+       * Shared execution (contracts/e2e.md#shared-execution): Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
+       * State isolation and reuse validity (contracts/e2e.md#state-isolation-and-reuse-validity): Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
+       * Preserved coverage (contracts/e2e.md#preserved-coverage): The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
        */
       name: "review_reports_unreviewed_citation",
       rule: "review",
@@ -270,16 +323,22 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
     },
     {
       /**
-       * todo_reports_unrealized_contract.
+       * Verifies todo reports unrealized contract.
        *
-       * @evidence contracts/testing.md#behavioral-verification parse has @todos while persist has the singular @todo wire the persistence layer. The exact todo content and Realize-the-declaration repair are present; tracked elsewhere is absent.
-       * @evidence contracts/testing.md#independent-expectations The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
-       * @evidence contracts/testing.md#distinguishing-cases The neighboring plural tag must remain ordinary prose.
-       * @evidence contracts/testing.md#execution-ownership This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
-       * @evidence contracts/e2e.md#necessary-boundary The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
-       * @evidence contracts/e2e.md#shared-execution Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
-       * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
-       * @evidence contracts/e2e.md#preserved-coverage The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
+       * The neighboring plural tag must remain ordinary prose.
+       *
+       * 1. parse has @todos while persist has the singular @todo wire the persistence layer.
+       * 2. Run the canonical consumer CLI with this isolated source population.
+       * 3. The exact todo content and Realize-the-declaration repair are present; tracked elsewhere is absent.
+       *
+       * Behavioral verification (contracts/testing.md#behavioral-verification): parse has @todos while persist has the singular @todo wire the persistence layer. The exact todo content and Realize-the-declaration repair are present; tracked elsewhere is absent.
+       * Independent expectations (contracts/testing.md#independent-expectations): The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
+       * Distinguishing cases (contracts/testing.md#distinguishing-cases): The neighboring plural tag must remain ordinary prose.
+       * Execution ownership (contracts/testing.md#execution-ownership): This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
+       * Necessary boundary (contracts/e2e.md#necessary-boundary): The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
+       * Shared execution (contracts/e2e.md#shared-execution): Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
+       * State isolation and reuse validity (contracts/e2e.md#state-isolation-and-reuse-validity): Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
+       * Preserved coverage (contracts/e2e.md#preserved-coverage): The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
        */
       name: "todo_reports_unrealized_contract",
       rule: "todo",
@@ -296,16 +355,22 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
     },
     {
       /**
-       * singular_typing_rejects_options.
+       * Verifies singular typing rejects options.
        *
-       * @evidence contracts/testing.md#behavioral-verification A typed singular config accepts error and declares an options tuple as an expected type error. The accepted handler prefix and typed config diagnostics are absent; unused expect-error would be a compiler diagnostic.
-       * @evidence contracts/testing.md#independent-expectations The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
-       * @evidence contracts/testing.md#distinguishing-cases The scalar severity and forbidden options tuple distinguish this optionless public contract.
-       * @evidence contracts/testing.md#execution-ownership This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
-       * @evidence contracts/e2e.md#necessary-boundary The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
-       * @evidence contracts/e2e.md#shared-execution Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
-       * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
-       * @evidence contracts/e2e.md#preserved-coverage The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
+       * The scalar severity and forbidden options tuple distinguish this optionless public contract.
+       *
+       * 1. A typed singular config accepts error and declares an options tuple as an expected type error.
+       * 2. Run the canonical consumer CLI with this isolated source population.
+       * 3. The accepted handler prefix and typed config diagnostics are absent; unused expect-error would be a compiler diagnostic.
+       *
+       * Behavioral verification (contracts/testing.md#behavioral-verification): A typed singular config accepts error and declares an options tuple as an expected type error. The accepted handler prefix and typed config diagnostics are absent; unused expect-error would be a compiler diagnostic.
+       * Independent expectations (contracts/testing.md#independent-expectations): The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
+       * Distinguishing cases (contracts/testing.md#distinguishing-cases): The scalar severity and forbidden options tuple distinguish this optionless public contract.
+       * Execution ownership (contracts/testing.md#execution-ownership): This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
+       * Necessary boundary (contracts/e2e.md#necessary-boundary): The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
+       * Shared execution (contracts/e2e.md#shared-execution): Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
+       * State isolation and reuse validity (contracts/e2e.md#state-isolation-and-reuse-validity): Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
+       * Preserved coverage (contracts/e2e.md#preserved-coverage): The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
        */
       name: "singular_typing_rejects_options",
       rule: "singular",
@@ -320,16 +385,22 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
     },
     {
       /**
-       * review_typing_rejects_options.
+       * Verifies review typing rejects options.
        *
-       * @evidence contracts/testing.md#behavioral-verification A typed review config accepts error and declares an options tuple as an expected type error. The accepted handler prefix and typed config diagnostics are absent; unused expect-error would be a compiler diagnostic.
-       * @evidence contracts/testing.md#independent-expectations The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
-       * @evidence contracts/testing.md#distinguishing-cases This separately owns the review declaration rather than assuming singular's type shape applies.
-       * @evidence contracts/testing.md#execution-ownership This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
-       * @evidence contracts/e2e.md#necessary-boundary The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
-       * @evidence contracts/e2e.md#shared-execution Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
-       * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
-       * @evidence contracts/e2e.md#preserved-coverage The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
+       * This separately owns the review declaration rather than assuming singular's type shape applies.
+       *
+       * 1. A typed review config accepts error and declares an options tuple as an expected type error.
+       * 2. Run the canonical consumer CLI with this isolated source population.
+       * 3. The accepted handler prefix and typed config diagnostics are absent; unused expect-error would be a compiler diagnostic.
+       *
+       * Behavioral verification (contracts/testing.md#behavioral-verification): A typed review config accepts error and declares an options tuple as an expected type error. The accepted handler prefix and typed config diagnostics are absent; unused expect-error would be a compiler diagnostic.
+       * Independent expectations (contracts/testing.md#independent-expectations): The authored declaration identities, tags and literal includes/excludes below prescribe the findings independently of compiler output.
+       * Distinguishing cases (contracts/testing.md#distinguishing-cases): This separately owns the review declaration rather than assuming singular's type shape applies.
+       * Execution ownership (contracts/testing.md#execution-ownership): This dynamically registered E2E case runs through test_evidence_file_rules_share_one_consumer_check and its actual CLI baseline. The object is not an independently selected test export.
+       * Necessary boundary (contracts/e2e.md#necessary-boundary): The actual installed Evidence descriptor, typed config where supplied, scoped lint options and source-anchored CLI diagnostics connect here; direct Go rule assertions cannot certify that transport.
+       * Shared execution (contracts/e2e.md#shared-execution): Eleven file-rule cases and seven declaration scenes share one consumer and baseline CLI host; this item starts no separate install, native link or process. The twenty later config phases reuse the same captured contributor producer.
+       * State isolation and reuse validity (contracts/e2e.md#state-isolation-and-reuse-validity): Its disjoint source prefix and scoped rule settings prevent neighboring declarations deciding this case. All bytes/configs are written before checking; the async outer caller joins its native sidecar and removes the exact fixture after success or failure.
+       * Preserved coverage (contracts/e2e.md#preserved-coverage): The baseline loop checks every literal includes/excludes assertion below and requires source silence for clean cases or an actual source-anchored error for failures. Both optionless typed controls remain in the Program; earlier failures accumulate without suppressing later cases.
        */
       name: "review_typing_rejects_options",
       rule: "review",
@@ -440,9 +511,15 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
     compilerOptions: { pretty: false },
   });
   const failures: unknown[] = [];
+  const visited = new Set<string>();
   let session: ReturnType<typeof startNativeCheck> | undefined;
   try {
+    const cliStarted = performance.now();
     const result = runCheck(project.directory);
+    console.log(
+      "Negative CLI baseline timing " +
+        JSON.stringify({ milliseconds: performance.now() - cliStarted }),
+    );
     const verify = (assertion: () => void): void => {
       try {
         assertion();
@@ -585,22 +662,47 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
         );
     }
     session = startNativeCheck(project.directory);
-    console.log("Negative batch actual producer " + JSON.stringify(session.provenance));
-    const initial = await session.observe();
-    verify(() =>
-      assertStatus(
-        initial,
-        2,
-        "The actual SDK-selected native contributor must preserve the canonical failure verdict.",
-      ),
+    console.log(
+      "Negative batch actual producer " +
+        JSON.stringify({
+          provenance: session.provenance,
+          timing: session.preparationTiming,
+        }),
     );
-    verify(() =>
-      assert.equal(
-        initial.telemetry.programLoads,
-        1,
-        "The canonical baseline must load one actual native Program.",
-      ),
-    );
+    let initial: INativeCheckResult | undefined;
+    try {
+      initial = await session.observe();
+    } catch (error) {
+      failures.push(new Error("Negative canonical initial observation failed.", {
+        cause: error,
+      }));
+    }
+    if (initial !== undefined) {
+      const baseline = initial;
+      console.log(
+        "Negative canonical baseline actual observation " +
+          JSON.stringify({
+            status: baseline.status,
+            telemetry: baseline.telemetry,
+            registration: baseline.registration,
+            timing: baseline.timing,
+          }),
+      );
+      verify(() =>
+        assertStatus(
+          baseline,
+          2,
+          "The actual SDK-selected native contributor must preserve the canonical failure verdict.",
+        ),
+      );
+      verify(() =>
+        assert.equal(
+          baseline.telemetry.programLoads,
+          1,
+          "The canonical baseline must load one actual native Program.",
+        ),
+      );
+    }
     for (const phase of batch.phases) {
       const label = "Negative phase " + phase.scene.scenario.props.name;
       const phaseVerify = (assertion: () => void): void => {
@@ -612,7 +714,9 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
           );
         }
       };
+      visited.add(phase.scene.scenario.props.name);
       try {
+        EvidenceProcessOwnership.assertAvailable(project.directory);
         fs.writeFileSync(
           path.join(project.directory, "lint.config.ts"),
           phase.lintConfig,
@@ -620,37 +724,47 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
         );
         const config = path.join(project.directory, "lint.config.ts");
         const observed = await session.observe([config], [config]);
-        phaseVerify(() =>
-          assert.deepEqual(
-            {
-              pid: observed.telemetry.pid,
-              programLoads: observed.telemetry.programLoads,
-            },
-            {
-              pid: initial.telemetry.pid,
-              programLoads: initial.telemetry.programLoads,
-            },
-            label +
-              " must retain its actual native PID and Program load count.",
-          ),
-        );
-        phaseVerify(() =>
-          assert.deepEqual(
-            {
-              binary: observed.registration.binary,
-              binaryDigest: observed.registration.binaryDigest,
-              manifest: observed.registration.manifest,
-              projectContext: observed.registration.projectContext,
-            },
-            {
-              binary: initial.registration.binary,
-              binaryDigest: initial.registration.binaryDigest,
-              manifest: initial.registration.manifest,
-              projectContext: initial.registration.projectContext,
-            },
-            label + " must retain its freshly resolved actual producer tuple.",
-          ),
-        );
+        if (initial === undefined) {
+          initial = observed;
+          phaseVerify(() => assert.equal(
+            observed.telemetry.programLoads,
+            1,
+            label + " must load one real Program after joined retirement.",
+          ));
+        } else {
+          const baseline = initial;
+          phaseVerify(() =>
+            assert.deepEqual(
+              {
+                pid: observed.telemetry.pid,
+                programLoads: observed.telemetry.programLoads,
+              },
+              {
+                pid: baseline.telemetry.pid,
+                programLoads: baseline.telemetry.programLoads,
+              },
+              label +
+                " must retain its actual native PID and Program load count.",
+            ),
+          );
+          phaseVerify(() =>
+            assert.deepEqual(
+              {
+                binary: observed.registration.binary,
+                binaryDigest: observed.registration.binaryDigest,
+                manifest: observed.registration.manifest,
+                projectContext: observed.registration.projectContext,
+              },
+              {
+                binary: baseline.registration.binary,
+                binaryDigest: baseline.registration.binaryDigest,
+                manifest: baseline.registration.manifest,
+                projectContext: baseline.registration.projectContext,
+              },
+              label + " must retain its freshly resolved actual producer tuple.",
+            ),
+          );
+        }
         console.log(
           label +
             " actual observation " +
@@ -658,6 +772,7 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
               status: observed.status,
               telemetry: observed.telemetry,
               registration: observed.registration,
+              timing: observed.timing,
             }),
         );
         phaseVerify(() =>
@@ -676,6 +791,13 @@ export async function test_evidence_file_rules_share_one_consumer_check(): Promi
     }
   } catch (error) {
     failures.push(error);
+    for (const phase of batch.phases)
+      if (!visited.has(phase.scene.scenario.props.name))
+        failures.push(new Error(
+          "Negative phase " + phase.scene.scenario.props.name +
+            " is blocked by batch initialization failure.",
+          { cause: error },
+        ));
   } finally {
     try {
       await session?.close();
