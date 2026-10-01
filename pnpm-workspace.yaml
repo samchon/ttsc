@@ -15,8 +15,6 @@ overrides:
   # mathjax-full pins speech-rule-engine 4, which pins this vulnerable exact
   # version; Marp and Nextra do not yet have released upgrade paths to v5.
   "@xmldom/xmldom": 0.9.12
-patchedDependencies:
-  typia@15.0.0: patches/typia@15.0.0.patch
 catalogs:
   typescript:
     typescript: ^7.0.2

@@ -28,7 +28,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Every registered rule runs before and after a source edit; incremental and cold finding fingerprints must agree and differ from the original nonempty result.
 // @evidence contracts/testing.md#independent-expectations Cold loading provides a differential oracle independent of the incremental update mechanism but shares rule implementations, so shared rule defects remain indistinguishable. The original nonempty set and changed-result assertion reject vacuous reuse.
 // @evidence contracts/testing.md#distinguishing-cases One source edit turns var into const, loose into strict equality and adds a declaration; the incremental fingerprint (rule, file, positions and message of every finding from every registered rule) must differ from the pre-edit fingerprint, which also requires that the seed produced findings, and must equal the fingerprint of a freshly loaded Program. Only this one edit shape is covered.
-// @evidence contracts/testing.md#execution-ownership TestResidentWholeCorpusMatchesColdLoad owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership Loads Programs with loadProgram, applies applyChange and runs every registered rule through an Engine with runLintCycle on temporary files in one process; because both paths share the rule implementations, a defect common to both would not be detected.
 func TestResidentWholeCorpusMatchesColdLoad(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

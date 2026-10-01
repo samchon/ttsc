@@ -20,7 +20,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification A checker-bearing resident Program serves a later checker-free verb with the same identity and one retained cache entry.
 // @evidence contracts/testing.md#independent-expectations The request capability flags establish permitted reuse independently of cache lookup output; the originally captured Program identity is the resource whose lifetime is asserted.
 // @evidence contracts/testing.md#distinguishing-cases The warm acquisition asks for a checker and the second asks for none for the same project; the second must return the identical Program pointer and the cache must still hold exactly one entry, so a separate checker-free Program for the project would fail on either check. The reverse arrival order is owned by the replace-checker-free test.
-// @evidence contracts/testing.md#execution-ownership TestResidentCacheServesACheckerFreeVerbFromTheCheckerProgram owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership Calls residentProgramCache.acquire and invalidate directly on one temporary project; Programs are loaded in process and no daemon is started.
 func TestResidentCacheServesACheckerFreeVerbFromTheCheckerProgram(t *testing.T) {
   root := seedLintProject(t, "export const value = 1;\n")
   opts := &lspCommandOptions{cwd: root, tsconfig: filepath.Join(root, "tsconfig.json")}

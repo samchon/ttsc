@@ -19,7 +19,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification lsp-code-actions rejects an included, fixable source outside cwd by returning no actions, rather than offering a failing fix-all command.
 // @evidence contracts/testing.md#independent-expectations The fixture supplies the outside URI and independent empty-array expectation from the workspace mutation boundary.
 // @evidence contracts/testing.md#distinguishing-cases The tsconfig lists ../outside.ts, which has an authored no-var violation, so the rule would otherwise produce a fix-all action; only the location outside --cwd distinguishes the empty answer. The in-project positive case is covered by the lint/format split test.
-// @evidence contracts/testing.md#execution-ownership TestLSPCodeActionsReturnsEmptyForOutsideCwdTarget owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership Calls run lsp-code-actions in process through runLSPCodeActionsForTest over a temporary project whose tsconfig lists a file outside the project directory; no editor or built host is started.
 func TestLSPCodeActionsReturnsEmptyForOutsideCwdTarget(t *testing.T) {
   parent := t.TempDir()
   root := filepath.Join(parent, "project")

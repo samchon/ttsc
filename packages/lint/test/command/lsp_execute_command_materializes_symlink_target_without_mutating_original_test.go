@@ -20,7 +20,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Fix-all returns the authored edit for an included file symlink URI without changing either target or visible-link source content.
 // @evidence contracts/testing.md#independent-expectations The literal source rewrite and original fixture bytes establish expectations independently of link-copy decisions or WorkspaceEdit generation.
 // @evidence contracts/testing.md#distinguishing-cases The included src/main.ts is a file symlink to real/main.ts, so a staging copy that preserved the link would write through to the target; the literal let rewrite must be returned and both the link path and the target must still read the original var text. The test skips where symlinks cannot be created.
-// @evidence contracts/testing.md#execution-ownership TestLSPExecuteCommandMaterializesSymlinkTargetWithoutMutatingOriginal owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership Creates a real file symlink and calls run lsp-execute-command with fix-all in process through executeLSPCommandAppliedTextForTest; the test is skipped where symlinks cannot be created, and no editor or built host is started.
 func TestLSPExecuteCommandMaterializesSymlinkTargetWithoutMutatingOriginal(t *testing.T) {
   root := t.TempDir()
   source := "var legacy = 1;\nJSON.stringify(legacy);\nexport {};\n"

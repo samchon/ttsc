@@ -27,7 +27,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification matchAnyPattern is called with the base directory, the lowercase glob src/directory/** and the miscased path SRC/DIRECTORY/index.ts of an existing file, and must report a match. The test skips itself where the temporary directory distinguishes case, so it executes only on case-insensitive volumes such as Windows and default macOS.
 // @evidence contracts/testing.md#independent-expectations The literal uppercase target and lowercase authored glob define the supported case-folding expectation independently of the matcher.
 // @evidence contracts/testing.md#distinguishing-cases There is a single positive case: a directory glob in lowercase against an uppercase spelling of the same existing directory. A glob that must not match a different directory is not covered, and the character-class sibling test owns the stored-case range.
-// @evidence contracts/testing.md#execution-ownership TestOverrideGlobMatchesAFileNamedThroughAMiscasedImport owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership Calls matchAnyPattern directly on a temporary directory tree; the miscased path exists only on case-insensitive volumes, so the test skips elsewhere, and no host is started.
 func TestOverrideGlobMatchesAFileNamedThroughAMiscasedImport(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "src", "directory", "index.ts"), "var x = 1;\n")

@@ -20,7 +20,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The check and lsp-diagnostics dispatchers must publish both no-alert and no-unreachable, with unequal numeric codes, their original rule IDs and literal messages.
 // @evidence contracts/testing.md#independent-expectations The rule IDs and literal messages come from the configured rule contracts. Code inequality independently detects the historical collision; the numerical rendering uses RuleCode and therefore does not pin allocation stability.
 // @evidence contracts/testing.md#distinguishing-cases One project triggers both no-alert and no-unreachable. The test requires RuleCode values that differ, then checks that the check command renders each rule's own TS code with its own message and that lsp-diagnostics reports each rule under its rule-ID code with the matching message and the @ttsc/lint source, so neither surface can merge the two rules. Other rule pairs are not covered.
-// @evidence contracts/testing.md#execution-ownership TestDiagnosticCodesDistinguishFormerCollisionAcrossCLIAndLSP owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership Calls the run dispatcher for check and lsp-diagnostics in the shared Go test process on one temporary project, with the process stdout and stderr swapped for capture and the lsp-diagnostics JSON decoded; no installed CLI, ttscserver or editor process is started.
 func TestDiagnosticCodesDistinguishFormerCollisionAcrossCLIAndLSP(t *testing.T) {
   root := seedLintProject(t, `declare function alert(message: string): void;
 alert("boom");

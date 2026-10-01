@@ -20,7 +20,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification lsp-hints dispatches the configured JSDoc publisher and must include the literal representative typed tag trigger and detail in decoded JSON.
 // @evidence contracts/testing.md#independent-expectations The literal param tag, its "accepts a type" detail, the jsdoc scope and the "@" trigger describe the supported completion payload independently of the implementation. The corpus size is only compared with the production knownJSDocTags table, so a tag missing from both the table and the output would not be detected, and tags other than param are not inspected.
 // @evidence contracts/testing.md#distinguishing-cases A project with the jsdoc/check-tag-names publisher enabled must return one hint per known tag, including a param hint that keeps its wire metadata; the contrast with a project that declares no publisher is owned by the skip-the-Program test.
-// @evidence contracts/testing.md#execution-ownership TestLSPHintsPublishesJSDocCheckTagNamesCorpus owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership Calls run lsp-hints in process over a temporary project with captured streams and decodes the JSON hints; no editor or built host is started.
 func TestLSPHintsPublishesJSDocCheckTagNamesCorpus(t *testing.T) {
   root := seedLintProject(t, "/** Public value. */\nexport const value = 1;\n")
   seedLintRules(t, root, map[string]string{"jsdoc/check-tag-names": "warn"})

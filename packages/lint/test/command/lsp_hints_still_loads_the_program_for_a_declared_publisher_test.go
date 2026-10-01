@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification lsp-hints with a declared JSDoc publisher and nonexistent tsconfig surfaces a nonzero loader failure, distinguishing it from the empty-corpus fast path.
 // @evidence contracts/testing.md#independent-expectations The deliberately absent fixture config independently determines failure; no hints output is treated as a substitute for the required loader error.
 // @evidence contracts/testing.md#distinguishing-cases The same nonexistent tsconfig as the skip test is used but jsdoc/check-tag-names is enabled; the result must have nonempty stderr and a nonzero status, so a verb that stopped loading Programs or swallowed loader errors would fail. The failure text itself is not asserted.
-// @evidence contracts/testing.md#execution-ownership TestLSPHintsStillLoadsTheProgramForADeclaredPublisher owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership Calls run lsp-hints in process with a nonexistent tsconfig path and captured streams so the Program loader is reached and fails; no editor or built host is started.
 func TestLSPHintsStillLoadsTheProgramForADeclaredPublisher(t *testing.T) {
   root := seedLintProject(t, "/** Public value. */\nexport const value = 1;\n")
   seedLintRules(t, root, map[string]string{"jsdoc/check-tag-names": "warn"})

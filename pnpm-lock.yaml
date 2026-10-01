@@ -60,11 +60,6 @@ overrides:
   next@16.3.4: 16.3.6
   '@xmldom/xmldom': 0.9.12
 
-patchedDependencies:
-  typia@15.0.0:
-    hash: 1fda702a4eef132d0ad1ac07b59bf3a646cef4503862f9ba089f94eae6224e9f
-    path: patches/typia@15.0.0.patch
-
 importers:
 
   .:
@@ -113,7 +108,7 @@ importers:
         version: 7.0.2
       typia:
         specifier: catalog:samchon
-        version: 15.0.0(patch_hash=1fda702a4eef132d0ad1ac07b59bf3a646cef4503862f9ba089f94eae6224e9f)(ttsc@packages+ttsc)
+        version: 15.0.0(ttsc@packages+ttsc)
       yaml:
         specifier: catalog:utils
         version: 2.9.0
@@ -225,7 +220,7 @@ importers:
         version: 15.0.0(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))
       typia:
         specifier: catalog:samchon
-        version: 15.0.0(patch_hash=1fda702a4eef132d0ad1ac07b59bf3a646cef4503862f9ba089f94eae6224e9f)(ttsc@packages+ttsc)
+        version: 15.0.0(ttsc@packages+ttsc)
     devDependencies:
       '@types/node':
         specifier: catalog:utils
@@ -954,7 +949,7 @@ importers:
         version: 5.9.3
       typia:
         specifier: catalog:samchon
-        version: 15.0.0(patch_hash=1fda702a4eef132d0ad1ac07b59bf3a646cef4503862f9ba089f94eae6224e9f)(ttsc@packages+ttsc)
+        version: 15.0.0(ttsc@packages+ttsc)
     devDependencies:
       '@marp-team/marp-cli':
         specifier: ^4.5.0
@@ -13135,7 +13130,7 @@ snapshots:
     optionalDependencies:
       ttsc: 0.30.4
 
-  typia@15.0.0(patch_hash=1fda702a4eef132d0ad1ac07b59bf3a646cef4503862f9ba089f94eae6224e9f)(ttsc@packages+ttsc):
+  typia@15.0.0(ttsc@packages+ttsc):
     dependencies:
       '@typia/interface': 15.0.0
       '@typia/utils': 15.0.0

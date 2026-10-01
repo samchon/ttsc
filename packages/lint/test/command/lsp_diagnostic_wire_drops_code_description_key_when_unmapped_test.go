@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification JSON marshaling omits codeDescription entirely for an unmapped rule and round-trips nil, while a mapped rule serializes its href.
 // @evidence contracts/testing.md#independent-expectations Literal key absence and the authored mapped href express the optional JSON field contract; round-trip assertions supplement these direct wire expectations.
 // @evidence contracts/testing.md#distinguishing-cases A format/quotes diagnostic, whose family has no documentation page, must marshal without any codeDescription text and decode back to a nil pointer, while a no-alert diagnostic built the same way must contain the literal eslint.org href key, so absence is the mapping decision and not a marshalling accident.
-// @evidence contracts/testing.md#execution-ownership TestLSPDiagnosticWireDropsCodeDescriptionKeyWhenUnmapped owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership Builds lspDiagnostic values with lspCodeDescriptionForRule and round-trips them through encoding/json in process; no command dispatch, project or host process is involved.
 func TestLSPDiagnosticWireDropsCodeDescriptionKeyWhenUnmapped(t *testing.T) {
   unmapped := lspDiagnostic{
     Code:            "format/quotes",

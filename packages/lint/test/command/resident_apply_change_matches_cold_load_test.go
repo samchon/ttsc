@@ -44,7 +44,7 @@ func (residentVarStatementRule) Check(ctx *publicrule.Context, node *shimast.Nod
 // @evidence contracts/testing.md#behavioral-verification applyChange updates only the edited source and the synthetic variable rule must count two statements before and three after, retaining the other file.
 // @evidence contracts/testing.md#independent-expectations Literal counts 2 and 3 come from counting authored top-level declarations, independently of either warm or cold compiler result; cold equality is supplementary.
 // @evidence contracts/testing.md#distinguishing-cases Edits to one of two files must raise the warm count from two to three, which also shows the untouched file's finding survived and the edit was not a silent no-op, and the warm count must equal a freshly loaded Program over the edited files. Only an appended statement is exercised; deletions, renames and type-dependent rules are not covered.
-// @evidence contracts/testing.md#execution-ownership TestResidentApplyChangeMatchesColdLoad owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership Loads Programs with loadProgram, updates one with program.applyChange and runs an Engine through runLintCycle over temporary files in one process; the synthetic contributor rule is registered in the in-process registry and removed on cleanup.
 func TestResidentApplyChangeMatchesColdLoad(t *testing.T) {
   metadata, err := inspectContributor(residentVarStatementRule{})
   if err != nil {

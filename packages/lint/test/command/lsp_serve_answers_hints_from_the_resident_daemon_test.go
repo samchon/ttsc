@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The in-process lsp-serve stream handles one hints request and returns code 0 with the configured built-in tag corpus.
 // @evidence contracts/testing.md#independent-expectations The authored request line and literal reply code zero express the resident protocol contract. The corpus is checked only by comparing its length with the production knownJSDocTags table, so the tag contents are not independently asserted here.
 // @evidence contracts/testing.md#distinguishing-cases A daemon that rejects or omits the lsp-hints verb would reply with a nonzero code or an empty or undecodable result, which this single request detects. Other verbs and multiple requests per stream are not covered.
-// @evidence contracts/testing.md#execution-ownership TestLSPServeAnswersHintsFromTheResidentDaemon owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership Drives RunLSPServe in process with a one-line stdin reader and a buffer writer and decodes the reply; the daemon loop runs inside the test process rather than as a spawned binary.
 func TestLSPServeAnswersHintsFromTheResidentDaemon(t *testing.T) {
   root := seedLintProject(t, "/** Public value. */\nexport const value = 1;\n")
   seedLintRules(t, root, map[string]string{"jsdoc/check-tag-names": "warn"})

@@ -20,7 +20,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification ttsc.lint.fixAll returns the full authored lint cascade result and leaves the original source unchanged on disk.
 // @evidence contracts/testing.md#independent-expectations The literal fixed text and original source bytes pin the lint transformations and non-mutation independently of generated WorkspaceEdit contents.
 // @evidence contracts/testing.md#distinguishing-cases The first declaration is var and the second is already let, so prefer-const can only convert the first after no-var has made it block-scoped; the typeof loose equality is a third independent rewrite. The literal result needs all three passes, and the disk file read back must still contain the original var source.
-// @evidence contracts/testing.md#execution-ownership TestLSPExecuteCommandCascadesLintFixesWithoutMutatingDisk owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership Calls run lsp-execute-command with the fix-all command in process through executeLSPCommandAppliedTextForTest, applies the returned edits to the in-memory source and reads the file back from disk; no editor or built host is started.
 func TestLSPExecuteCommandCascadesLintFixesWithoutMutatingDisk(t *testing.T) {
   source := "var legacy = 1;\nlet stable = legacy;\nif (typeof stable == \"number\") { JSON.stringify(stable); }\nexport {};\n"
   want := "const legacy = 1;\nconst stable = legacy;\nif (typeof stable === \"number\") { JSON.stringify(stable); }\nexport {};\n"

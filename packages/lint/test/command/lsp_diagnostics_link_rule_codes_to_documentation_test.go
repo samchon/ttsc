@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification lsp-diagnostics must attach the exact independently authored documentation URLs to no-alert and unicorn/no-null, retaining both findings.
 // @evidence contracts/testing.md#independent-expectations Literal ESLint and Unicorn documentation URLs express the per-family mapping contract, independent of ruleDocumentationURL output.
 // @evidence contracts/testing.md#distinguishing-cases One project violates a core rule (no-alert) and a unicorn rule (unicorn/no-null); the lsp-diagnostics output must carry the eslint.org URL on the first and the eslint-plugin-unicorn repository URL on the second, so a single hardcoded base URL fails. Other rule families are not covered.
-// @evidence contracts/testing.md#execution-ownership TestLSPDiagnosticsLinkRuleCodesToDocumentation owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership Calls run lsp-diagnostics in process over a temporary project and decodes the JSON result, so the documentation mapping is exercised only through that verb; no editor or built host is started.
 func TestLSPDiagnosticsLinkRuleCodesToDocumentation(t *testing.T) {
   root := seedLintProject(t, `declare function alert(message: string): void;
 alert("boom");

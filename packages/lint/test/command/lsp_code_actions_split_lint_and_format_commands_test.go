@@ -19,7 +19,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification A project with lint and format fixes produces only the lint command for source.fixAll.ttsc and only the format command for source.format.
 // @evidence contracts/testing.md#independent-expectations The requested action kinds and literal single-command lists express the supported filter contract, independently of returned action enumeration.
 // @evidence contracts/testing.md#distinguishing-cases One source has a no-var lint finding and, through the empty format block, missing-semicolon format findings, so both command kinds are available; each of the two context.only requests must then return exactly one command, the lint fix-all command for source.fixAll.ttsc and the format-document command for source.format, so neither request can leak the other's action.
-// @evidence contracts/testing.md#execution-ownership TestLSPCodeActionsSplitLintAndFormatCommands owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#execution-ownership Calls run lsp-code-actions twice in process through runLSPCodeActionsForTest (source.fixAll.ttsc and source.format) over one temporary project and compares the returned command ids; the commands themselves are not executed here.
 func TestLSPCodeActionsSplitLintAndFormatCommands(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\nexport {}\n")
   // no-var is a lint rule; the format block enables format/semi (formatting
