@@ -144,7 +144,7 @@ export namespace TtscGraphLinePeer {
    * @evidence contracts/common.md#meaningful-documentation Prose explains EOF completion and unknown/forced failure and connection comments describe bounded stderr and retirement.
    * @evidence contracts/performance.md#efficient-algorithms One spawn/reader setup is constant-count; writes and line decoding process frame bytes once, while captured diagnostics retain a tail of at most 65,536 UTF-16 code units and draining avoids pipe backpressure.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This effectful opener creates one native peer; resident state determines when that peer remains reusable or must be replaced.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The returned close owns one reader and child, detaches once and terminates at most once; escalation starts after stdin finishes delivering EOF, and its finite timer and join deadline are cleared on close while streams remain drained through authoritative completion.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The returned close owns one reader and child, detaches once and terminates at most once; a delivery deadline bounds an unread pipe after the caller yields, while child grace starts after EOF delivery. Streams drain through authoritative completion; an unjoined deadline first rejects and then releases only this connection's handles without terminating foreign pipe holders.
    * @evidence contracts/portability.md#os-neutral-implementation Node spawn receives an executable and argv vector directly with windowsHide; Node stream/process APIs own native signals and optional cwd, without a shell or manual path normalization.
    */
   export function open(
@@ -163,8 +163,10 @@ export namespace TtscGraphLinePeer {
     let terminated = false;
     let joined = false;
     let forced = false;
+    let joinFailed = false;
     let failure: Error | undefined;
     let force: ReturnType<typeof setTimeout> | undefined;
+    let flushDeadline: ReturnType<typeof setTimeout> | undefined;
     let deadline: ReturnType<typeof setTimeout> | undefined;
     let resolve!: () => void;
     let reject!: (error: Error) => void;
@@ -178,18 +180,51 @@ export namespace TtscGraphLinePeer {
     child.once("close", (code, signal) => {
       joined = true;
       if (force !== undefined) clearTimeout(force);
+      if (flushDeadline !== undefined) clearTimeout(flushDeadline);
       if (deadline !== undefined) clearTimeout(deadline);
+      if (joinFailed) return;
       if (failure !== undefined || forced || code !== 0 || signal !== null)
         reject(failure ?? new Error(`@ttsc/graph: peer shutdown failed (code=${String(code)}, signal=${String(signal)}, forced=${forced})`));
       else resolve();
     });
+    const captureStderr = (chunk: string) => { stderr = (stderr + chunk).slice(-64 * 1024); };
     if (options.stderr === "capture") {
       child.stderr.setEncoding("utf8");
-      child.stderr.on("data", (chunk: string) => { stderr = (stderr + chunk).slice(-64 * 1024); });
+      child.stderr.on("data", captureStderr);
     } else child.stderr.resume();
     lines.on("line", events.line);
     child.on("error", events.error);
     child.on("exit", events.exit);
+    const forceTerminationAndJoin = () => {
+      if (joined || deadline !== undefined) return;
+      if (child.exitCode === null && child.signalCode === null) {
+        forced = true;
+        try { child.kill("SIGKILL"); } catch (error) { failure = error instanceof Error ? error : new Error(String(error)); }
+      }
+      deadline = setTimeout(() => {
+        if (joined) return;
+        // Failure is final before destroying our streams can induce Node close.
+        // Foreign descendants may retain inherited pipe endpoints; release our
+        // endpoints without claiming their lifetime was joined or killing them.
+        joinFailed = true;
+        reject(new Error("@ttsc/graph: peer shutdown could not be joined"));
+        if (force !== undefined) clearTimeout(force);
+        if (flushDeadline !== undefined) clearTimeout(flushDeadline);
+        if (deadline !== undefined) clearTimeout(deadline);
+        lines.removeListener("line", events.line);
+        lines.close();
+        child.removeListener("error", events.error);
+        child.removeListener("exit", events.exit);
+        child.stderr.removeListener("data", captureStderr);
+        for (const stream of [child.stdin, child.stdout, child.stderr]) stream.destroy();
+        child.unref();
+      }, TERMINATION_GRACE_MS);
+    };
+    const startTerminationGrace = () => {
+      if (flushDeadline !== undefined) clearTimeout(flushDeadline);
+      if (joined || force !== undefined || deadline !== undefined) return;
+      force = setTimeout(forceTerminationAndJoin, TERMINATION_GRACE_MS);
+    };
     return {
       get stderr() { return stderr; },
       alive: () => child.exitCode === null && child.signalCode === null,
@@ -205,19 +240,21 @@ export namespace TtscGraphLinePeer {
         // The child cannot act on EOF until the pipe finishes. Starting its
         // grace period before that callback charged a blocked parent event
         // loop against a shutdown request it had not yet delivered.
-        child.stdin.end(() => {
-          if (joined) return;
-          force = setTimeout(() => {
-            if (joined) return;
-            if (child.exitCode === null && child.signalCode === null) {
-              forced = true;
-              try { child.kill("SIGKILL"); } catch (error) { failure = error instanceof Error ? error : new Error(String(error)); }
-            }
-            deadline = setTimeout(() => {
-              if (!joined) reject(new Error("@ttsc/graph: peer shutdown could not be joined"));
-            }, TERMINATION_GRACE_MS);
-          }, TERMINATION_GRACE_MS);
-        });
+        if (!child.stdin.destroyed) {
+          try {
+            child.stdin.end(startTerminationGrace);
+            // An unread pipe can prevent the EOF callback indefinitely. Start
+            // delivery's own deadline only after synchronous caller work yields.
+            queueMicrotask(() => {
+              if (joined || force !== undefined || deadline !== undefined) return;
+              flushDeadline = setTimeout(forceTerminationAndJoin, TERMINATION_GRACE_MS);
+            });
+          } catch (error) {
+            failure = error instanceof Error ? error : new Error(String(error));
+            child.stdin.destroy();
+            startTerminationGrace();
+          }
+        } else startTerminationGrace();
         return completion;
       },
     };

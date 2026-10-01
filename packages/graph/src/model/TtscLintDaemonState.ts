@@ -4,7 +4,8 @@ import { TtscGraphLinePeer } from "./TtscGraphLinePeer";
  * FIFO reply correlation and direct-command fallback for one lint daemon.
  *
  * Replies have no request id, so admission is serialized. Null means the
- * resident protocol cannot answer; callers retain their direct verb fallback.
+ * resident protocol cannot answer after successful retirement; callers retain
+ * their direct verb fallback. Failed joined shutdown rejects instead.
  *
  * @evidence contracts/common.md#principled-implementation Serialized requests and FIFO replies preserve the sidecar protocol; failed and unsupported answers permanently retire this owner.
  * @evidence contracts/common.md#clear-and-simple-design Line parsing and queue/failure transitions are local; the declared opener owns actual process transport.
@@ -42,7 +43,7 @@ export class TtscLintDaemonState {
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain null meaning and why requests must be serialized.
    * @evidence contracts/performance.md#efficient-algorithms Each request writes and decodes one JSON frame; queue work is linear in serialized frame bytes with one active reply.
    * @evidence contracts/performance.md#reuse-equivalent-work The same target/project sidecar retains process, plugin load and configuration across verbs; invalidate explicitly retires warm Program facts when input generations change.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The daemon owns one child and reader; close settles pending replies and kills the child, while queued promises remain proportional to submitted caller demand.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The daemon owns one child and reader; close settles pending replies and delegates joined EOF shutdown to the actual adapter, while queued promises remain proportional to submitted caller demand.
    */
   public ask(verb: string, invalidate: boolean): Promise<string | null> {
     const run = this.queue.then(() => this.send(verb, invalidate));
@@ -53,7 +54,8 @@ export class TtscLintDaemonState {
   /**
    * Stop the sidecar. Safe to call more than once, and after a failure.
    *
-   * Pending replies settle null so callers can switch to the direct command.
+   * Reply callbacks settle null. Their asks switch to the direct command only
+   * after successful retirement; a shutdown failure propagates to the caller.
    *
    * @evidence contracts/common.md#principled-implementation Marking failed before settling requests prevents new daemon work while reader and child ownership are cleared.
    * @evidence contracts/common.md#clear-and-simple-design One shutdown operation is shared by explicit disposal and transport failure.
