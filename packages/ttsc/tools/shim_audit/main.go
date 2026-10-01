@@ -73,6 +73,7 @@ const internalPrefix = "github.com/microsoft/typescript-go/internal/"
 // package suffix. Kept explicit (rather than globbed) so a new shim dir is a
 // conscious add.
 var shimDirs = map[string]string{
+  "stringutil": "stringutil",
   "ast":              "ast",
   "bundled":          "bundled",
   "checker":          "checker",

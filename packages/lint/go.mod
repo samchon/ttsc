@@ -21,6 +21,7 @@ require (
 	github.com/microsoft/typescript-go/shim/diagnosticwriter v0.0.0
 	github.com/microsoft/typescript-go/shim/parser v0.0.0
 	github.com/microsoft/typescript-go/shim/scanner v0.0.0
+	github.com/microsoft/typescript-go/shim/stringutil v0.0.0
 	github.com/microsoft/typescript-go/shim/tsoptions v0.0.0
 	github.com/microsoft/typescript-go/shim/tspath v0.0.0
 	github.com/microsoft/typescript-go/shim/vfs v0.0.0

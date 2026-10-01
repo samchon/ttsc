@@ -551,8 +551,9 @@ export interface ITtscLintUnicornRules {
   "unicorn/no-useless-collection-argument"?: TtscLintRuleSetting;
 
   /**
-   * Reject `Error.captureStackTrace(this, constructor)` when the surrounding
-   * subclass relies on the default `Error` capture.
+   * Recommend omitting repeated this-target stack capture. A supplied filter
+   * must name the surrounding constructor or new.target; external frame
+   * filters are retained. The AST matcher does not prove inheritance.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-error-capture-stack-trace.md
    */
@@ -1031,7 +1032,7 @@ export interface ITtscLintUnicornRules {
 
   /**
    * Prefer `String#replaceAll(literal, replacement)` over `replace(/literal/g,
-   * replacement)`.
+   * replacement)` for fixed patterns without case-insensitive or sticky flags.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-string-replace-all.md
    */
@@ -1045,8 +1046,8 @@ export interface ITtscLintUnicornRules {
   "unicorn/prefer-string-slice"?: TtscLintRuleSetting;
 
   /**
-   * Prefer `String#startsWith` / `String#endsWith` over equivalent
-   * `RegExp#test` and slice-then-compare idioms.
+   * Prefer `String#startsWith` / `String#endsWith` over slice-then-compare
+   * whose fixed bound equals the cooked literal's JavaScript UTF-16 length.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-string-starts-ends-with.md
    */
@@ -1110,8 +1111,9 @@ export interface ITtscLintUnicornRules {
   "unicorn/prevent-abbreviations"?: TtscLintRuleOptionsSetting<ITtscLintUnicornPreventAbbreviationsRuleOptions>;
 
   /**
-   * Enforce a single style (always leading `./` vs. never) for relative URLs
-   * passed to `new URL`.
+   * Remove a leading ./ only when it retains path meaning. Scheme-like and
+   * network-path forms remain; empty/query/fragment forms require a literal
+   * directory base.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/relative-url-style.md
    */

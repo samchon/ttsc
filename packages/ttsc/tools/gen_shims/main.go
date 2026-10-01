@@ -49,6 +49,7 @@ var packagesToShim = []string{
   "core",
   "parser",
   "scanner",
+  "stringutil",
   "tsoptions",
   "tspath",
   "vfs",
