@@ -35,6 +35,7 @@ const GO_UNIT_RUNNERS = [
   "test-go-utility-plugins.cjs",
   "test-go-lint.cjs",
   "test-go-evidence.cjs",
+  "test-go-graph.cjs",
 ];
 
 function selectedRunners(layer = process.env.TTSC_TEST_LAYER) {

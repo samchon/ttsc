@@ -45,7 +45,7 @@ const test_go_runner_partitions_runner_layers = () => {
   assert.ok(!e2e.includes("test-go-driver.cjs"));
   assert.deepEqual(
     unit.filter((runner) => e2e.includes(runner)),
-    ["test-go-utility-plugins.cjs", "test-go-lint.cjs", "test-go-evidence.cjs"],
+    ["test-go-utility-plugins.cjs", "test-go-lint.cjs", "test-go-evidence.cjs", "test-go-graph.cjs"],
   );
   assert.ok(!e2e.includes("test-go-transformer.cjs"));
   assert.ok(!e2e.includes("test-go-shim.cjs"));

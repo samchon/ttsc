@@ -142,6 +142,29 @@
       ]
     },
     {
+      "name": "Go graph Git and kernel boundaries",
+      "type": "go",
+      "root": "../..",
+      "files": ["tests/test-graph/go/e2e/**/*_test.go"],
+      "symbol": "function",
+      "reference": [
+        {
+          "type": "markdown",
+          "root": "../../.agents/skills",
+          "files": ["contracts/testing.md"],
+          "symbol": "h2",
+          "checklist": true
+        },
+        {
+          "type": "markdown",
+          "root": "../../.agents/skills",
+          "files": ["contracts/e2e.md"],
+          "symbol": "h2",
+          "checklist": true
+        }
+      ]
+    },
+    {
       "name": "Utility boundary producer lifetimes",
       "type": "go",
       "root": "../..",

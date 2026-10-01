@@ -187,12 +187,45 @@
       }
     },
     {
-      "name": "Go graph source encoding units",
+      "name": "Go shim generator source units",
+      "type": "go",
+      "root": "../..",
+      "files": ["packages/ttsc/tools/gen_shims/*_test.go"],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": ["contracts/testing.md"],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Go VFS source decoding units",
       "type": "go",
       "root": "../..",
       "files": [
-        "packages/ttsc/shim/vfs/decode_test.go",
-        "packages/ttsc/cmd/ttscgraph/serve_source_encoding_test.go"
+        "packages/ttsc/shim/vfs/decode_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": ["contracts/testing.md"],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Go graph projection and protocol units",
+      "type": "go",
+      "root": "../..",
+      "files": [
+        "packages/ttsc/internal/graph/*_test.go",
+        "packages/ttsc/internal/graphsymbols/*_test.go",
+        "packages/ttsc/cmd/ttscgraph/*_test.go",
+        "packages/ttsc/cmd/graphdump/*_test.go",
+        "packages/ttsc/cmd/graphbench/*_test.go"
       ],
       "symbol": "function",
       "reference": {
@@ -213,7 +246,8 @@
         "packages/ttsc/test/driver-unit/source_sdk_program_checker_test.go",
         "packages/ttsc/test/driver-unit/source_sdk_citation_import_usage_test.go",
         "packages/ttsc/test/driver-unit/source_sdk_interface_properties_test.go",
-        "packages/ttsc/test/driver-unit/source_sdk_factory_printer_test.go"
+        "packages/ttsc/test/driver-unit/source_sdk_factory_printer_test.go",
+        "packages/ttsc/test/driver-unit/parse_tsconfig_preserves_native_diagnostics_test.go"
       ],
       "symbol": "function",
       "reference": {

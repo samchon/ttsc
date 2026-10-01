@@ -1,4 +1,4 @@
-// Run the Go tests that live inside the shim.
+// Run owning Go units for the shim and its source generator.
 //
 // `shim/ast/test` is committed, executable, and passing, and no runner list
 // named it, so it had never run in CI. It is its own Go module — the shim
@@ -26,6 +26,7 @@ const goPath = fs.existsSync(goRoot)
 // the compiler module's pinned dependency and replace directives, which supply
 // its dependency checksums without creating a standalone shim-module go.sum.
 const targets = [
+  [path.join(root, "packages", "ttsc", "tools", "gen_shims"), "./..."],
   [path.join(root, "packages", "ttsc", "shim", "ast"), "./test"],
   [
     path.join(root, "packages", "ttsc"),
@@ -41,7 +42,11 @@ for (const [cwd, pkg] of targets) {
     stdio: "inherit",
     windowsHide: true,
   });
-  if (result.error) throw result.error;
+  if (result.error) {
+    console.error(result.error);
+    failed++;
+    continue;
+  }
   if ((result.status ?? 1) !== 0) failed++;
 }
 

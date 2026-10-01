@@ -53,6 +53,9 @@ jobs:
       - name: Install and execute the packed CLI
         id: installed
         run: pnpm exec node scripts/ci/installed-cli-smoke.cjs --keep
+      - name: Check checkout Graph kernel boundaries on the current OS
+        if: ${{ !cancelled() && steps.installed.outcome == 'success' }}
+        run: pnpm exec node scripts/test-go-graph.cjs --os-boundaries
       - name: Check installed SDK filesystem identities in one OS boundary batch
         if: ${{ !cancelled() && steps.installed.outcome == 'success' }}
         run: pnpm exec node --import ./scripts/register-typescript-loader.mjs tests/e2e/installed-os-boundaries.mts
