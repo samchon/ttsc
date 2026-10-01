@@ -7,12 +7,14 @@ import path from "node:path";
  *
  * VS Code can report workspace roots and document paths with different drive or
  * segment casing. Command routing should still choose the deepest matching
- * language client on Windows while preserving normal case-sensitive behavior on
- * POSIX platforms.
+ * language client on Windows, using the injected directory case authority rather
+ * than the host operating system.
  *
- * 1. Import the pure path-selection helper.
+ * 1. Build a Windows identity context from an injected realpath map that reports
+ *    case-insensitive directories.
  * 2. Select a client root for a differently-cased Windows document path.
- * 3. Assert the nested root is selected.
+ * 3. Assert the nested root is selected and a document outside every root has no
+ *    owner.
  *
  * @evidence contracts/testing.md#behavioral-verification selectDeepestRootForPath selects the deepest Windows client despite casing aliases.
  * @evidence contracts/testing.md#independent-expectations An independently authored directory map supplies canonical parent/nested roots and ordinary directory case authority; the literal nested client is the expected deepest owner.

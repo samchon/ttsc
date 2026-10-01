@@ -15,7 +15,7 @@ import { assertOptionsPreservePluginsFalse } from "../../internal/metro-options"
  * @evidence contracts/testing.md#behavioral-verification The actual serializer and resolver retain explicit plugins:false instead of reverting to automatic project plugin selection.
  * @evidence contracts/testing.md#independent-expectations The options contract distinguishes absent plugins from explicit false; the assertion demands the boolean false.
  * @evidence contracts/testing.md#distinguishing-cases Explicit false contrasts the populated plugin list and absent-property defaults owned by adjacent entries.
- * @evidence contracts/testing.md#execution-ownership This named src/features/options export calls authored options source in the serial source-unit runner; the helper restores the environment after each call and starts no installed artifact, native build or child process.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls serializeOptions and resolveOptionsFromEnv from packages/metro/src/core/options.ts in-process with TTSC_METRO_OPTIONS set and restored by the helper; no child process, native build or installed package.
  */
 export const test_options_preserve_plugins_false_through_the_env = async () => {
   await assertOptionsPreservePluginsFalse();

@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestResolveConfigTsgoFallsBackToTheProjectRootAnchor verifies a config whose
@@ -24,15 +26,15 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns second-anchor fallback after an empty first lookup. requireNoAmbientInstall may skip polluted TypeScript ancestry; config-first precedence has a separate case.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoFallsBackToTheProjectRootAnchor is selected from test/unit by the utility runner unit overlay. Runs stripResolveConfigTsgo, stripConfigToolAnchors and manifest/stat lookup in the Go process; the seeded empty compiler file is never launched.
 func TestResolveConfigTsgoFallsBackToTheProjectRootAnchor(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  base := stripRealpathIfPossible(t.TempDir())
+  shared.ShedConfigToolEnvironment(t)
+  base := shared.StripRealpathIfPossible(t.TempDir())
   requireNoAmbientInstall(t, base, "typescript")
   root := filepath.Join(base, "project")
-  want := seedProjectTypeScript(t, root)
+  want := shared.SeedProjectTypeScript(t, root)
   config := filepath.Join(base, "shared", "strip.config.ts")
-  writeFile(t, config, "export default {};\n")
+  shared.WriteFile(t, config, "export default {};\n")
 
-  if got := stripResolveConfigTsgo(stripConfigToolAnchors(config, root)); got != want {
+  if got := shared.StripResolveConfigTsgo(shared.StripConfigToolAnchors(config, root)); got != want {
     t.Fatalf("stripResolveConfigTsgo = %q, want the project root compiler %q", got, want)
   }
 }

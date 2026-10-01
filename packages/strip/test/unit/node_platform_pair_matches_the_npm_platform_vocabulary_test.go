@@ -3,6 +3,8 @@ package strip_test
 import (
   "runtime"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestNodePlatformPairMatchesTheNpmPlatformVocabulary verifies the Go build
@@ -53,7 +55,7 @@ func TestNodePlatformPairMatchesTheNpmPlatformVocabulary(t *testing.T) {
     }
   }
 
-  platform, arch := stripNodePlatformPair()
+  platform, arch := shared.StripNodePlatformPair()
   if platform == "windows" || arch == "amd64" || arch == "386" {
     t.Fatalf(
       "stripNodePlatformPair() = (%q, %q) on GOOS=%s GOARCH=%s: still Go spelling",

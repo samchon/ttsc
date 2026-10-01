@@ -6,6 +6,8 @@ import (
   "slices"
   "strings"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestCommandRejectsInlineConfigKeys verifies that the strip sidecar rejects
@@ -24,16 +26,16 @@ import (
 //     and a diagnostic naming the unsupported key and strip.config.*.
 // @evidence contracts/testing.md#behavioral-verification For calls and statements supplied inline, native transform must fail and return empty source output, one key-specific diagnostic and graph.configs containing tsconfig.json, plus migration guidance on stderr.
 // @evidence contracts/testing.md#independent-expectations The file-only strip configuration contract rejects both former inline keys; literal key names and strip.config guidance independently specify the migration failure.
-// @evidence contracts/testing.md#distinguishing-cases Both forbidden keys preserve structured recovery metadata instead of output; malformed JSON is a different earlier failure, and file-based success has its own entry.
+// @evidence contracts/testing.md#distinguishing-cases Both former inline keys (calls, statements) are tried against one project and each must fail with an empty typescript map plus graph.configs. No success route and no malformed-JSON route is run in this body; file-based success belongs to command_loads_config_from_file.
 // @evidence contracts/testing.md#execution-ownership The discoverable TestCommandRejectsInlineConfigKeys entry runs in the strip E2E population and calls the real compiled package sidecar; runPlugin captures its native exit and separate streams. This classification does not move its portable assertions into units.
 // @evidence contracts/e2e.md#necessary-boundary The native failure path must return diagnostic/graph recovery data while refusing transformed sources and exposing the error on stderr. Direct key validation cannot prove that failed-command payload wiring.
-// @evidence contracts/e2e.md#shared-execution All strip command entries use resolvePluginBinary once per test process, or the suite-supplied immutable producer. This case starts independent command consumers with the exact arguments above; only binary bytes are shared, not a loaded project or process session.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity For TestCommandRejectsInlineConfigKeys, command exits release each process; t.TempDir owns any fixture and output tree until case cleanup. TestMain owns only a fallback producer directory, while a supplied binary is runner-owned. No cold/invalidation transition is asserted here.
-// @evidence contracts/e2e.md#preserved-coverage The existing TestCommandRejectsInlineConfigKeys inputs, statuses, stream checks and any output assertions remain executable in this entry unchanged. No portable owner is inferred merely from another unit suite, and further reduction requires an exact assertion transfer.
+// @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts two transform processes, one per forbidden key, from that binary and shares no loaded project or running session with any other entry.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity seedStripProject writes the fixture project under t.TempDir, which the test framework removes at cleanup; one project is seeded before the loop and both transform processes read it without writing to it (transform emits to stdout), so no state passes between iterations. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
+// @evidence contracts/e2e.md#preserved-coverage The non-zero status (L49), structured failure envelope (L61-L66), single key-specific diagnostic (L67) and the stderr key/strip.config checks (L70-L75) are all made in this body for each of the two keys; nothing is delegated elsewhere.
 func TestCommandRejectsInlineConfigKeys(t *testing.T) {
   root := seedStripProject(t, false)
   for _, key := range []string{"calls", "statements"} {
-    manifest := mustJSON(t, []map[string]any{{
+    manifest := shared.MustJSON(t, []map[string]any{{
       "name":  "@ttsc/strip",
       "stage": "transform",
       "config": map[string]any{

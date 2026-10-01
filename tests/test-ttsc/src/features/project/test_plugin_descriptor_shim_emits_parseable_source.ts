@@ -27,8 +27,8 @@ import { PLUGIN_DESCRIPTOR_SHIM_SOURCE } from "../../../../../packages/ttsc/src/
  *
  * @evidence contracts/testing.md#behavioral-verification Parses both actual emitted shim programs using TypeScript transpileModule with syntax diagnostics enabled and retains per-line quote/control-character guards.
  * @evidence contracts/testing.md#independent-expectations An independently maintained language parser must report zero diagnostics for the complete generated programs; separately authored unterminated strings and missing expressions must be rejected by the same oracle.
- * @evidence contracts/testing.md#distinguishing-cases ESM top-level-await and CommonJS evaluator programs both parse; raw line terminators inside strings and syntactically incomplete expressions distinguish the parser from a quote-count-only validator.
- * @evidence contracts/testing.md#execution-ownership Executes only emitted-source constants and an in-process language parser. Descriptor entry/context/output transport remains owned by the CJS factory-context and ttsx dirname-resolution E2E cases, not by source-text substring checks.
+ * @evidence contracts/testing.md#distinguishing-cases Both exported shim source constants are parsed as ESM with the TypeScript parser and checked line by line, while a string literal broken by a raw newline and an incomplete expression are control inputs that the same parser must report as errors, so the check is not a quote-count alone. Whether the shims behave correctly when run is not tested here.
+ * @evidence contracts/testing.md#execution-ownership A unit test that reads two source-text constants from production code and parses them in process with the TypeScript transpiler; no descriptor is loaded, no ttsx run and no native build.
  */
 export const test_plugin_descriptor_shim_emits_parseable_source = (): void => {
   for (const source of [

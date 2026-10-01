@@ -6,7 +6,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Checker-backed findings compare exact line/target/message triples for captured and merged parameter writes while requiring unrelated shadows to stay silent.
 // @evidence contracts/testing.md#independent-expectations Independently authored target identities distinguish lexical parameter references from same-spelled local/catch/class members; the literal finding list does not reuse checker symbols as its oracle.
 // @evidence contracts/testing.md#distinguishing-cases Nested closure/class capture, inner parameters, var merge, constructor/method/setter/arrow/expression parameters report; block/catch/local/static-field shadows and ordinary aliases stay clean.
-// @evidence contracts/testing.md#execution-ownership TestNoParamReassignUsesCheckerIdentityAcrossNestedScopes is selected in the shared Go unit population. It calls runNoParamReassign with a real Program/Checker for the unchanged nested-scope matrix and retains every original assertion. No consumer install, native artifact build or real host runs.
+// @evidence contracts/testing.md#execution-ownership TestNoParamReassignUsesCheckerIdentityAcrossNestedScopes is selected in the shared Go unit population. It calls runNoParamReassign with a real Program/Checker on the single nested-scope source and compares all ten expected report lines and targets. No consumer install, native artifact build or real host runs.
 func TestNoParamReassignUsesCheckerIdentityAcrossNestedScopes(t *testing.T) {
   source := `function scopes(value: any): void {
   { let value = 0; value = 1; }

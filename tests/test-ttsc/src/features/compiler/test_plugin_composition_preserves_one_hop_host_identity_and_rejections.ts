@@ -19,8 +19,8 @@ import type { ITtscPlugin } from "../../../../../packages/ttsc/src/structures/IT
  *    with its own contributors and malformed aliases to be rejected with their
  *    literal messages.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls production composePluginSources with the original A-to-B-to-C, aggregate/target and reciprocal-cycle shapes; checks exact source/contributor/capability records, nonmutation and original complete rejection messages.
- * @evidence contracts/testing.md#independent-expectations Literal A/B/C source identities and exact diagnostics establish expected results; the target suffix and source-missing counterexample remain in one real contributor-redirect E2E.
+ * @evidence contracts/testing.md#behavioral-verification composePluginSources is called on a compose-a to compose-b to compose-c chain (sources become source-a, source-a, source-b, input records unchanged, the aggregate returned by identity and the redirected one copied), on an aggregate/target pair (target inherits source, contributors and capabilities, or keeps its own capabilities when the aggregate has none), and on cycle, double-aggregate, target-owned-contributor and malformed-alias inputs that must throw the literal messages.
+ * @evidence contracts/testing.md#independent-expectations Expected sources, the shared contributors/capabilities objects and the full error messages are authored literals following the one-hop contract (A.composes=[B] redirects B to A's source without cascading), not values produced by the function under test.
  * @evidence contracts/testing.md#distinguishing-cases Owns nontransitive redirects, name and transform-specifier aliases, inherited contributors/capabilities, absent-capability fallback, independent records, reciprocal cycles, conflicting aggregates, invalid targets and forbidden target contributors.
  * @evidence contracts/testing.md#execution-ownership This named source-unit export invokes the authored pure composition adapter directly with fresh descriptors; no descriptor evaluator, native build or filesystem identity is simulated.
  */

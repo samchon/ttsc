@@ -26,7 +26,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printArrowFunction must safely return empty, covered output for a factory arrow with no body or source range.
 // @evidence contracts/testing.md#independent-expectations The supported factory supplies an undefined source range, so verbatim fallback cannot supply an expression.
 // @evidence contracts/testing.md#distinguishing-cases A public nil-body factory input differs from an absent node and an intact parsed arrow body.
-// @evidence contracts/testing.md#execution-ownership TestDispatchArrowFunctionReturnsVerbatimForNilBody is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchArrowFunctionReturnsVerbatimForNilBody is a plain top-level Go unit test, selectable with go test -run, that calls printArrowFunction directly on a factory-built arrow function with no body inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchArrowFunctionReturnsVerbatimForNilBody(t *testing.T) {
   file := parseTS(t, "const x = 1;\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

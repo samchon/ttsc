@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printBlock must return empty output and covered true for an absent block node.
 // @evidence contracts/testing.md#independent-expectations The no-node identity has neither payload nor unsupported multiline content.
 // @evidence contracts/testing.md#distinguishing-cases Nil block complements empty parsed braces and factory blocks whose statement lists are absent or contain nil.
-// @evidence contracts/testing.md#execution-ownership TestDispatchBlockReturnsCoveredForNilNode is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchBlockReturnsCoveredForNilNode is a plain top-level Go unit test, selectable with go test -run, that calls printBlock directly on a nil node with a PrintContext built from a trivial parsed file inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchBlockReturnsCoveredForNilNode(t *testing.T) {
   file := parseTS(t, "const x = 1;\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

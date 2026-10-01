@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestResolveTtsxLauncherKeepsAnExplicitlyPinnedBinary verifies an explicit
@@ -22,16 +24,16 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns nonempty override priority against a valid project launcher; empty-environment discovery and missing-launcher fallback are separate cases.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveTtsxLauncherKeepsAnExplicitlyPinnedBinary is selected from test/unit by the utility runner unit overlay. Runs stripResolveTtsxLauncher in the Go process with testing-restored environment; neither launcher is invoked.
 func TestResolveTtsxLauncherKeepsAnExplicitlyPinnedBinary(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := stripRealpathIfPossible(t.TempDir())
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.StripRealpathIfPossible(t.TempDir())
   project := seedProjectTtsc(t, root)
   config := filepath.Join(root, "strip.config.ts")
-  writeFile(t, config, "export default {};\n")
+  shared.WriteFile(t, config, "export default {};\n")
 
   pinned := filepath.Join(root, "pinned", "ttsx.js")
   t.Setenv("TTSC_TTSX_BINARY", pinned)
 
-  got := stripResolveTtsxLauncher(stripConfigToolAnchors(config, root))
+  got := stripResolveTtsxLauncher(shared.StripConfigToolAnchors(config, root))
   if got == project {
     t.Fatalf("stripResolveTtsxLauncher took the project launcher %q over the pinned %q", project, pinned)
   }

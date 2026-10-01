@@ -20,10 +20,10 @@ import { prepareTtscBuildMode } from "../../../../../packages/ttsc/src/launcher/
  * 4. Parse single-file extensions, forwarded flags and the quiet and verbose
  *    switches.
  *
- * @evidence contracts/testing.md#behavioral-verification Executes production argument parsing and prepareTtscBuildMode for all six original fix/format refusal inputs, then checks valid modes, watch handling and conflicting option precedence.
+ * @evidence contracts/testing.md#behavioral-verification parseTtscBuildArgs and prepareTtscBuildMode are executed for fix and format with five refusal argv lists each (--emit, --watch, a single file, and the two combined orderings), then for --emit=false acceptance, build/check/watch emit resolution, the four emit/noEmit spellings, four source extensions, forwarded flag values and the quiet/verbose switches.
  * @evidence contracts/testing.md#independent-expectations Literal complete messages, booleans and ordered argument arrays define the oracle; no CLI subprocess or duplicate mode validator generates expectations.
  * @evidence contracts/testing.md#distinguishing-cases Owns emit/watch/single-file rejection for both mutation commands, error precedence when combined, accepted false emit, ordinary build/check and watch check emit ownership, all source extensions and unknown flag/value adjacency.
- * @evidence contracts/testing.md#execution-ownership The named source-unit export is discovered from unit/compiler and calls authored owning functions once per input with fresh option objects; one surviving real CLI refusal retains stderr and exit transport.
+ * @evidence contracts/testing.md#execution-ownership A unit test that calls parseTtscBuildArgs and prepareTtscBuildMode in process with fresh option objects for each argv; it spawns no CLI and compiles no project, so exit codes and stderr transport are not exercised.
  */
 export function test_build_mode_options_preserve_rejections_and_emit_precedence(): void {
   for (const mode of ["fix", "format"] as const) {

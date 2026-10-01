@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestConfigToolAnchorsListsTheConfigThenTheProjectRoot verifies the anchor
@@ -27,7 +29,7 @@ func TestConfigToolAnchorsListsTheConfigThenTheProjectRoot(t *testing.T) {
   root := filepath.Join("project", "root")
   config := filepath.Join(root, "packages", "app", "strip.config.ts")
 
-  anchors := stripConfigToolAnchors(config, root)
+  anchors := shared.StripConfigToolAnchors(config, root)
   want := []string{config, filepath.Join(root, "package.json")}
   if len(anchors) != len(want) {
     t.Fatalf("stripConfigToolAnchors = %v, want %v", anchors, want)
@@ -40,13 +42,13 @@ func TestConfigToolAnchorsListsTheConfigThenTheProjectRoot(t *testing.T) {
 
   // The negative twins: a blank entry is absent, not an empty-string anchor
   // that would make the walk start from the process working directory.
-  if only := stripConfigToolAnchors("   ", root); len(only) != 1 || only[0] != filepath.Join(root, "package.json") {
+  if only := shared.StripConfigToolAnchors("   ", root); len(only) != 1 || only[0] != filepath.Join(root, "package.json") {
     t.Fatalf("stripConfigToolAnchors with a blank config = %v, want the root manifest alone", only)
   }
-  if only := stripConfigToolAnchors(config, "   "); len(only) != 1 || only[0] != config {
+  if only := shared.StripConfigToolAnchors(config, "   "); len(only) != 1 || only[0] != config {
     t.Fatalf("stripConfigToolAnchors with a blank root = %v, want the config alone", only)
   }
-  if none := stripConfigToolAnchors("", ""); len(none) != 0 {
+  if none := shared.StripConfigToolAnchors("", ""); len(none) != 0 {
     t.Fatalf("stripConfigToolAnchors with nothing to anchor on = %v, want an empty list", none)
   }
 }

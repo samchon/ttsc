@@ -15,7 +15,7 @@ import { assertNonObjectEnvFallsBackToDefaults } from "../../internal/metro-opti
  * @evidence contracts/testing.md#behavioral-verification resolveOptionsFromEnv returns empty filters and undefined project/upstream for array, null, number, string and boolean JSON values.
  * @evidence contracts/testing.md#independent-expectations The transport contract requires an object payload; literal default fields are independent of the parser result.
  * @evidence contracts/testing.md#distinguishing-cases Five valid JSON non-object kinds exercise object admission separately from malformed JSON and absent input.
- * @evidence contracts/testing.md#execution-ownership This named src/features/options export calls authored options source in the serial source-unit runner; the helper restores the environment after each call and starts no installed artifact, native build or child process.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls resolveOptionsFromEnv from packages/metro/src/core/options.ts in-process once per payload with TTSC_METRO_OPTIONS set and restored by the helper each time; no child process, native build or installed package.
  */
 export const test_options_fall_back_to_defaults_on_non_object_env =
   async () => {

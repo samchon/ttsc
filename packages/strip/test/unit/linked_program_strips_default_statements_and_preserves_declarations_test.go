@@ -9,6 +9,8 @@ import (
 
   _ "github.com/samchon/ttsc/packages/strip/driver"
   "github.com/samchon/ttsc/packages/ttsc/driver"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestLinkedProgramStripsDefaultStatementsAndPreservesDeclarations verifies default removal on actual compiler statement lists and embedded bodies.
@@ -26,7 +28,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Top-level removals differ from the required embedded body slot: the if itself and its condition remain even though its console.log body disappears. Interface, assert implementation, box export and console.info are negative controls; retained literal strings prove a clean list count alone cannot pass after deleting useful content. Custom-only patterns and non-expression calls are owned by the adjacent linked-program custom case.
 // @evidence contracts/testing.md#execution-ownership Named unit entry TestLinkedProgramStripsDefaultStatementsAndPreservesDeclarations is in test/unit for the utility overlay. A single noLib single-threaded Program runs LoadProgram and ApplyLinkedPlugins in this Go process; an absolute fixture JSON path selects native JSON parsing, t.Setenv restores the manifest and Close releases the checker. No Node config evaluation, native build, command process, private linkname or registry replacement is used.
 func TestLinkedProgramStripsDefaultStatementsAndPreservesDeclarations(t *testing.T) {
-  root := seedProject(t, map[string]string{
+  root := shared.SeedProject(t, map[string]string{
     "tsconfig.json": `{"compilerOptions":{"target":"ES2022","module":"commonjs","noLib":true},"files":["src/main.ts"]}`,
     "strip.config.json": `{}`,
     "src/main.ts": `export interface StripBox { value: string }
@@ -39,7 +41,7 @@ console.info("kept");
 export const box: StripBox = { value: "kept" };
 if (box.value) console.log("drop-if");`,
   })
-  t.Setenv(driver.LinkedPluginsEnv, mustJSON(t, []driver.PluginEntry{{Name: "@ttsc/strip", Stage: "transform", Config: map[string]any{"transform": "@ttsc/strip", "configFile": filepath.Join(root, "strip.config.json")}}}))
+  t.Setenv(driver.LinkedPluginsEnv, shared.MustJSON(t, []driver.PluginEntry{{Name: "@ttsc/strip", Stage: "transform", Config: map[string]any{"transform": "@ttsc/strip", "configFile": filepath.Join(root, "strip.config.json")}}}))
   prog, diagnostics, err := driver.LoadProgram(root, filepath.Join(root, "tsconfig.json"), driver.LoadProgramOptions{SingleThreaded: true, ForceNoEmit: true, TsgoArgs: []string{}})
   if err != nil || len(diagnostics) != 0 || prog == nil {
     t.Fatalf("load parsed fixture: program=%v diagnostics=%v error=%v", prog != nil, diagnostics, err)

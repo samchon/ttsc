@@ -15,10 +15,10 @@ import { resolveSourceBuildCachePaths } from "../../../../../packages/ttsc/src/p
  * 2. Resolve cache paths for the nested project during that pre-marker state.
  * 3. Assert the nested default root remains authoritative.
  *
- * @evidence contracts/testing.md#behavioral-verification The actual source-build cache resolver interprets the fixture's installation and owned-cache boundaries and returns the asserted root without invoking the CLI.
- * @evidence contracts/testing.md#independent-expectations Expected native paths follow explicit fixture ownership: an installed dependency and workspace marker are authoritative, while a legacy ttsx-only payload is not an installation.
- * @evidence contracts/testing.md#distinguishing-cases An empty nested cache remains authoritative despite a populated outer installation, pinning the pre-marker publication boundary rather than treating emptiness as a legacy payload.
- * @evidence contracts/testing.md#execution-ownership The named source unit directly calls the maintained resolver using real fixture directories; CLI argument/output assembly remains with retained cache command boundary tests.
+ * @evidence contracts/testing.md#behavioral-verification Calls resolveSourceBuildCachePaths for the nested `test` project, whose `node_modules/.cache/ttsc` exists but is empty while an outer `node_modules/dependency` exists, and asserts the returned root.
+ * @evidence contracts/testing.md#independent-expectations The expected root is the authored nested `test/node_modules/.cache/ttsc` path: a cache directory that exists with nothing in it is the state a first writer creates before publishing its marker, so it must be treated as the project's own boundary rather than as absent evidence that sends the lookup to the outer installation.
+ * @evidence contracts/testing.md#distinguishing-cases A single case: an empty nested ttsc root stays authoritative although a populated outer installation exists. The adjacent cases (a nested root holding only legacy payload, a root with a real dependency, a workspace marker) are covered by the sibling test_ttsc_cache_paths_ignores_only_a_ttsc_owned_node_modules_tree.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttsx-runtime; it calls resolveSourceBuildCachePaths with an empty env over directories created by TestProject.createProject (the placeholder file is removed to leave the empty root), and starts no CLI, compiler or process.
  */
 export function test_ttsc_cache_paths_keeps_an_empty_ttsc_root_as_a_boundary() {
     const root = TestProject.createProject({

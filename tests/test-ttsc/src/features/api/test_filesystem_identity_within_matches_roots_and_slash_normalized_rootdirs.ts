@@ -22,10 +22,10 @@ import { createFilesystemPathIdentityContext } from "../../../../../packages/tts
  *    native real paths.
  * 4. Inject both Windows directory semantics and reject a case-distinct sibling.
  *
- * @evidence contracts/testing.md#behavioral-verification filesystem identity containment matches roots and descendants without admitting sibling prefixes.
- * @evidence contracts/testing.md#independent-expectations directory containment includes the root itself and descendants; independently injected Windows semantics establish ordinary and sensitive directory identities.
- * @evidence contracts/testing.md#distinguishing-cases native and volume roots, sibling prefixes, separator normalization, ordinary case folding and sensitive case-distinct siblings retain the complete prior matrix.
- * @evidence contracts/testing.md#execution-ownership The named test_filesystem_identity_within_matches_roots_and_slash_normalized_rootdirs export is discovered under src/features/api and calls the owning authored operation without installation, native compilation or a product host.
+ * @evidence contracts/testing.md#behavioral-verification createFilesystemPathIdentityContext(...).isWithin is called on an a/b directory with a descendant, itself and a name-prefix sibling, on a volume root, and (on Windows hosts) with slash-form and differently-cased C:/ roots; with an injected win32 platform it is called for an insensitive C:\Ordinary\Project (true across case) and a case-sensitive C:\Sensitive\Project (false for the differently-cased sibling).
+ * @evidence contracts/testing.md#independent-expectations The expected booleans are authored from the containment rule (a directory contains itself and its descendants but not a sibling that merely shares a name prefix, and case-differing paths match only under an insensitive directory), not computed from the context; the injected realpath/caseSensitive stubs define the Windows volumes independently of the real filesystem.
+ * @evidence contracts/testing.md#distinguishing-cases Positive cases are descendant, the directory itself, a volume root and (win32) slash-form and case-folded roots and an insensitive-directory case difference; negatives are the sibling 'bc' prefix and a case-distinct path under a sensitive directory. The native-Windows rows only execute on win32 hosts; the injected-win32 rows execute everywhere.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling the in-process path-identity context directly, using the real filesystem only for nonexistent paths and injected realpath/caseSensitive stubs for the Windows cases; no process, native build or ttsc host.
  */
 export function test_filesystem_identity_within_matches_roots_and_slash_normalized_rootdirs() {
     const base = path.resolve(path.sep, "a", "b");

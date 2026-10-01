@@ -17,7 +17,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printImportDeclaration must preserve the complete default-only import from x rather than losing Default or the module specifier.
 // @evidence contracts/testing.md#independent-expectations The source literal is the independent verbatim oracle; this default-only clause has no named-bindings list to reflow.
 // @evidence contracts/testing.md#distinguishing-cases A default-only import complements ordinary named bindings, namespace imports and side-effect-only imports.
-// @evidence contracts/testing.md#execution-ownership TestDispatchImportDeclarationFallsBackForDefaultImport is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchImportDeclarationFallsBackForDefaultImport is a plain top-level Go unit test, selectable with go test -run, that calls printImportDeclaration directly on a parsed default-only import inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchImportDeclarationFallsBackForDefaultImport(t *testing.T) {
   src := "import Default from \"x\";\n"
   file := parseTS(t, src)

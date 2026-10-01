@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printObjectLiteral must preserve the original key/value source when Properties.Nodes contains nil.
 // @evidence contracts/testing.md#independent-expectations The literal { a: 1, b: 2 } prevents an empty or partly reconstructed object from passing; the original synthetic empty output is also asserted.
 // @evidence contracts/testing.md#distinguishing-cases A malformed entry complements absent Properties and valid property lists in the flat/broken object cases.
-// @evidence contracts/testing.md#execution-ownership TestDispatchObjectLiteralFallsBackWhenPropertyNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native product build or product host executes.
+// @evidence contracts/testing.md#execution-ownership TestDispatchObjectLiteralFallsBackWhenPropertyNil is a plain top-level Go unit test, selectable with go test -run, that calls printObjectLiteral directly on a factory-built object literal holding a nil property and a parsed object whose Properties.Nodes is replaced by nil inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchObjectLiteralFallsBackWhenPropertyNil(t *testing.T) {
   file := parseTS(t, "\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

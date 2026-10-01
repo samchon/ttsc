@@ -12,10 +12,10 @@ import { assertWithTtscResolvesUpstreamFromTheProject } from "../../internal/met
  * 2. Call authored withTtsc for each project.
  * 3. Assert the worker payload contains the exact resolved project module path.
  *
- * @evidence contracts/testing.md#behavioral-verification withTtsc resolves automatic and explicit upstream packages from each project and publishes their absolute fixture module paths.
- * @evidence contracts/testing.md#independent-expectations Only the fixture project installs these authored module entries, so exact paths independently prove the resolution anchor.
- * @evidence contracts/testing.md#distinguishing-cases Automatic React Native candidate contrasts an explicit third-party package path.
- * @evidence contracts/testing.md#execution-ownership This matching src/features export calls authored Metro operations through the source-unit loader. Input filesystem/module fixtures and declared upstream callbacks remain test-local; no installed consumer, native compiler or product host is launched.
+ * @evidence contracts/testing.md#behavioral-verification withTtsc publishes the absolute path of @react-native/metro-babel-transformer installed only under the project root as the automatic upstream, resolves an explicit upstreamTransformer package name from the project, passes an unresolvable explicit name through unchanged, and publishes no upstream when no candidate is installed.
+ * @evidence contracts/testing.md#independent-expectations The fake packages exist only under each temp project's node_modules, so the exact module path each call must publish is known from the fixture layout, not computed by the resolver under test.
+ * @evidence contracts/testing.md#distinguishing-cases An automatic candidate and an explicit third-party package (positives) are contrasted with an unresolvable explicit name and a project with no candidate installed (pass-through and undefined).
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls withTtsc in-process against temp projects with fake node_modules packages and reads TTSC_METRO_OPTIONS (restored afterwards); no native compile, consumer install or Metro host.
  */
 export const test_withttsc_resolves_upstream_transformers_from_the_project =
   async () => {

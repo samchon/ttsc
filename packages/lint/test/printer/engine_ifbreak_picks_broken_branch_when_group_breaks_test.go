@@ -20,7 +20,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Print must append ! rather than ~ after the broken aaaa and bbbb group.
 // @evidence contracts/testing.md#independent-expectations Width four cannot contain the nine-column flat pair, and IfBreak selects its first operand in broken mode.
 // @evidence contracts/testing.md#distinguishing-cases The broken arm complements the fitting flat-arm case with opposite punctuation.
-// @evidence contracts/testing.md#execution-ownership TestEngineIfBreakPicksBrokenBranchWhenGroupBreaks is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineIfBreakPicksBrokenBranchWhenGroupBreaks is one Go unit entry that renders a literal Group containing an IfBreak with Print at PrintWidth 4 in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineIfBreakPicksBrokenBranchWhenGroupBreaks(t *testing.T) {
   doc := Group(Text("aaaa"), Line(), Text("bbbb"), IfBreak(Text("!"), Text("~")))
   opts := DefaultPrintOptions()

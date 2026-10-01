@@ -8,20 +8,26 @@ import { linkDirectory } from "../../../utils/src/evidence/linkDirectory";
 import { pluginCacheDirectory } from "../../../utils/src/evidence/pluginCacheDirectory";
 
 /**
- * Verifies cache admission follows actual native aliases and retargeted identities.
+ * Verifies cache admission stays refused for a used cache path and link spelling after retargeting and replacement.
  *
- * Lexical path equality cannot establish which physical cache a directory link
- * selects. This case owns that real filesystem boundary without preparing a
- * compiler or supplying a synthetic SDK or native protocol response.
+ * The case creates a real directory link (junction on Windows) and registers both
+ * the cache path and the link path for the first fixture through the cache
+ * selector, so the registry holds each spelling and the native identity of the
+ * linked directory. It does not prepare a compiler or supply a synthetic SDK or
+ * native protocol response.
  *
- * 1. Link one actual cache and register its native identity for a fixture.
- * 2. Retain the authored unknown-reader state and refuse another fixture's alias.
- * 3. Retarget the used link, refuse that spelling and admit the distinct target directly.
- * 4. Replace the original cache at its old path and require sticky refusal.
+ * 1. Link one actual cache, then resolve the cache path and the link path for the
+ *    first fixture.
+ * 2. Retain the authored unknown-reader state and refuse a second fixture that
+ *    selects the link path.
+ * 3. Retarget the link at another directory, refuse the link spelling again and
+ *    admit the other directory by its own path.
+ * 4. Delete and recreate the original cache directory and require its path to stay
+ *    refused.
  *
- * @evidence contracts/testing.md#behavioral-verification Uses a real native directory link, realpath and directory replacement with the actual cache/ownership operations. The used alias remains refused after unknown-reader input and retargeting, the distinct target is admitted through its independent spelling, and the replaced original path remains refused.
- * @evidence contracts/testing.md#independent-expectations Authored target paths and actual realpath observations establish which directory the kernel selected independently of registry keys; unchanged sentinel bytes distinguish admission from accidental deletion.
- * @evidence contracts/testing.md#distinguishing-cases Same physical target through another spelling is refused; a used alias stays blocked after retargeting while the distinct target's independent spelling is admitted. Replacement at the original physical path cannot clear sticky unknown state. There is no Windows permission skip.
+ * @evidence contracts/testing.md#behavioral-verification Uses a real directory link, native realpath and directory deletion/recreation with the actual pluginCacheDirectory and EvidenceProcessOwnership operations. After the first fixture retains an unknown-reader reason, a second fixture is refused for the link spelling, still refused after the link is retargeted, admitted for the unrelated target directory, and refused for the recreated original cache path.
+ * @evidence contracts/testing.md#independent-expectations Authored paths and fs.realpathSync.native observations (asserted equal for the link and its target before and after retargeting) establish which directory the filesystem selected independently of the registry's keys; the unchanged sentinel file bytes show that refusal did not delete cache content, and the recreated cache's replacement bytes are read back.
+ * @evidence contracts/testing.md#distinguishing-cases Refused: the link path and the recreated original path. Admitted: the unrelated `other` directory under its own path. Because the first fixture itself resolved both the cache path and the link path, the link refusal is not isolated to physical identity alone; the body does not select the cache through a link path the first fixture never used. There is no Windows permission skip.
  * @evidence contracts/testing.md#execution-ownership The matching src/features export is discovered by the unit runner and central function claim. It executes actual native filesystem identity/link operations in that Node process; no CLI, Go binary, installer or additional product host is created.
  */
 export function test_evidence_unknown_reader_cache_identity_blocks_native_alias_reuse(): void {

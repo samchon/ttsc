@@ -14,9 +14,9 @@ import { pathTraversesSymbolicLink } from "../../../../packages/unplugin/src/cor
  * directory is re-checked by identity on every delivery instead, so only the
  * components between the input and the root decide.
  *
- * 1. On a filesystem where the project root's parent is a link, assert an input
- *    below the root does not traverse a link when the root is given, and does
- *    when it is not.
+ * 1. With an lstat double in which `/var`, an ancestor of the project root, is a
+ *    link, assert an input below the root does not traverse a link when the root
+ *    is given, and does when it is not.
  * 2. Assert an input below a link inside the root traverses one, and an input
  *    outside the root is examined all the way up.
  *

@@ -3,6 +3,8 @@ package banner_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestResolveTtsxLauncherFallsBackToTheBareCommand verifies an unresolvable
@@ -23,14 +25,14 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns absent-install fallback; requireNoAmbientInstall may skip ambient ttsc ancestry. An installed manifest missing its launcher is covered separately.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveTtsxLauncherFallsBackToTheBareCommand is selected from test/unit by the utility runner unit overlay. Runs bannerResolveTtsxLauncher and the manifest walk in the Go process; the returned command is not executed.
 func TestResolveTtsxLauncherFallsBackToTheBareCommand(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := bannerRealpathIfPossible(t.TempDir())
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.BannerRealpathIfPossible(t.TempDir())
   requireNoAmbientInstall(t, root, "ttsc")
   project := filepath.Join(root, "project")
   config := filepath.Join(project, "banner.config.ts")
-  writeFile(t, config, "export default { text: \"from ts\" };\n")
+  shared.WriteFile(t, config, "export default { text: \"from ts\" };\n")
 
-  if got := bannerResolveTtsxLauncher(bannerConfigToolAnchors(config, project)); got != "ttsx" {
+  if got := bannerResolveTtsxLauncher(shared.BannerConfigToolAnchors(config, project)); got != "ttsx" {
     t.Fatalf("resolveTtsxLauncher = %q, want the bare ttsx fallback", got)
   }
 }

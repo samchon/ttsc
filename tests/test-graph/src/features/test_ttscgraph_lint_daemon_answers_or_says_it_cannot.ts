@@ -24,20 +24,23 @@ const admitted = async (ports: ReturnType<typeof fixture>["ports"], count: numbe
 };
 
 /**
- * Verifies supported, unavailable and concurrent lint daemon reply ownership.
+ * Verifies the lint daemon state returns supported replies, answers null when it cannot, and serializes concurrent asks.
  *
- * Null must request the actual direct-command fallback rather than describe an
- * empty project. Since replies lack ids, simultaneous callers must remain
- * serialized until the first reply has been consumed.
+ * A null answer means the caller must run the direct command; it must never be
+ * mistaken for an empty project. Replies carry no request id, so a second
+ * caller must wait until the first reply has been consumed.
  *
- * 1. Submit two supported verbs and verify reply identity and invalidate flags.
- * 2. Reject a verb or end the transport and require permanent null fallback.
- * 3. Submit simultaneous callers and verify no second write precedes the first reply.
+ * 1. Ask two supported verbs and check each reply's content, the invalidate flag
+ *    written for each, and the lint argv builder's flags.
+ * 2. Answer a verb with a nonzero code, and exit the transport before any reply;
+ *    require null for that ask and for every later ask, with no new port.
+ * 3. Ask two verbs at once and require the second request line to be written
+ *    only after the first reply arrives.
  *
- * @evidence contracts/testing.md#behavioral-verification Authored daemon state parses explicit supported replies, retires nonzero and exited ports, and serializes two concurrent asks; actual lint argv builder retains all original project/context flags.
- * @evidence contracts/testing.md#independent-expectations Literal verbs, servedBy marker, invalidate flags, null outcomes and one opener/no-respawn counts are independent of returned state. No line-generating peer or executable supplies them.
- * @evidence contracts/testing.md#distinguishing-cases All four original serve/reject/no-serve/concurrent scenarios remain; the concurrent scenario additionally proves the second write is absent before the first response.
- * @evidence contracts/testing.md#execution-ownership This src/features entry imports actual authored daemon state and argument builder. Caller-authored JSON lines reach its real parser through declared events; actual process I/O remains in the default adapter E2E boundary.
+ * @evidence contracts/testing.md#behavioral-verification TtscLintDaemonState.ask must return the parsed result text of a code-0 reply for "project-inputs" and "graph-nodes" and write [verb, invalidate] pairs [["project-inputs", true], ["graph-nodes", false]]; a code-1 reply must yield null, close the port once and make the next ask null; an exit event must yield null for the pending and later asks; and two simultaneous asks must be written one at a time in order. TtscGraphNativeArguments.lint must start with "lsp-serve" and carry --cwd=, --tsconfig=, --plugins-json= and --project-context-json=.
+ * @evidence contracts/testing.md#independent-expectations The verbs, the "servedBy" marker, the invalidate flags, the reply codes, the expected null outcomes, the port count of one and the close count of one are literals authored in the test; the replies are JSON lines written by the test through the port events, not produced by a daemon.
+ * @evidence contracts/testing.md#distinguishing-cases Four scenarios contrast a served reply, a declined reply (code 1), a transport exit with no reply, and concurrent asks; the concurrent scenario shows the second write absent after five microtask turns and present only after the first reply. A line that is not valid JSON, a reply without a numeric code and a write failure are not exercised.
+ * @evidence contracts/testing.md#execution-ownership Runs TtscLintDaemonState and TtscGraphNativeArguments.lint in the test process against recorded line ports that the test feeds JSON lines and exit events through the declared events; no lint sidecar process, direct-command fallback or real transport is involved.
  */
 export async function test_ttscgraph_lint_daemon_answers_or_says_it_cannot(): Promise<void> {
   const errors: unknown[] = [];

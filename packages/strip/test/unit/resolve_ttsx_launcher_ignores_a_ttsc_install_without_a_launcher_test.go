@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestResolveTtsxLauncherIgnoresATtscInstallWithoutALauncher verifies a `ttsc`
@@ -24,13 +26,13 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns partial installation without a launcher; successful project lookup and complete absence of the package are separate cases.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveTtsxLauncherIgnoresATtscInstallWithoutALauncher is selected from test/unit by the utility runner unit overlay. Runs stripResolveTtsxLauncher with native fixture stat operations in the Go process; no command is constructed or launched from its result.
 func TestResolveTtsxLauncherIgnoresATtscInstallWithoutALauncher(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := stripRealpathIfPossible(t.TempDir())
-  missing := seedProjectTtscWithoutLauncher(t, root)
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.StripRealpathIfPossible(t.TempDir())
+  missing := shared.SeedProjectTtscWithoutLauncher(t, root)
   config := filepath.Join(root, "strip.config.ts")
-  writeFile(t, config, "export default {};\n")
+  shared.WriteFile(t, config, "export default {};\n")
 
-  if got := stripResolveTtsxLauncher(stripConfigToolAnchors(config, root)); got != "ttsx" {
+  if got := stripResolveTtsxLauncher(shared.StripConfigToolAnchors(config, root)); got != "ttsx" {
     t.Fatalf("stripResolveTtsxLauncher = %q, want the bare ttsx fallback when %q does not exist", got, missing)
   }
 }

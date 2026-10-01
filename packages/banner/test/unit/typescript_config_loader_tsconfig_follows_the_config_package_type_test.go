@@ -5,6 +5,8 @@ import (
   "os"
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestTypeScriptConfigLoaderTsconfigFollowsTheConfigPackageType verifies the
@@ -74,7 +76,7 @@ func TestTypeScriptConfigLoaderTsconfigFollowsTheConfigPackageType(t *testing.T)
     {filepath.Join(root, "cjs", "banner.config.js"), "CommonJS", "an ambiguous .js follows the same scope"},
   } {
     dir := t.TempDir()
-    raw := bannerTypeScriptConfigLoaderTsconfig(
+    raw := shared.BannerTypeScriptConfigLoaderTsconfig(
       filepath.Join(dir, "loader.mts"),
       testCase.config,
       dir,

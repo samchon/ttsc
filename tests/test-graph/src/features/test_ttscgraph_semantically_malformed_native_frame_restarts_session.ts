@@ -2,18 +2,23 @@ import assert from "node:assert/strict";
 import { admitted, assertRetired, emptyResponse, sessionState } from "./internal/sessionState";
 
 /**
- * Verifies contradictory typed state retires its peer.
+ * Verifies a response that contradicts its own mode retires the peer before recovery.
  *
- * A shape-valid unchanged frame carrying a dump violates generation semantics independently of schema decoding.
+ * The envelope is shape-valid (mode "initial", a full dump) but is flagged
+ * changed: false, which the state's semantic checks must refuse. The peer that
+ * sent it must be retired and the next request served from a fresh peer.
  *
- * 1. Admit the original request state through the authored state owner.
- * 2. Supply explicit typed envelopes or transport events and check the original rejection, settlement or model assertions.
- * 3. Check retirement, recovery or reuse and close the owned state in finally.
+ * 1. Start a graph request on a recorded line port and deliver an empty initial
+ *    dump response whose changed flag is set to false.
+ * 2. Require the rejection "an unchanged response carried changed mode or
+ *    snapshot state" and the port to be retired (reader detached, then stdio joined).
+ * 3. Request again, answer the second port with a valid empty full-dump response,
+ *    and require an empty node list and exactly two opened ports.
  *
- * @evidence contracts/testing.md#behavioral-verification A typed initial dump claiming changed:false reaches state semantic validation, rejects its contradiction, retires the port and recovers on one replacement.
- * @evidence contracts/testing.md#independent-expectations The authored dump/changed:false contradiction and exact semantic diagnostic do not depend on parser behavior; empty recovered nodes and two opener calls preserve recovery.
- * @evidence contracts/testing.md#distinguishing-cases A shape-valid unchanged frame carrying a dump violates generation semantics independently of schema decoding.
- * @evidence contracts/testing.md#execution-ownership The matching src/features export imports authored state and decoder source. Declared line-port recordings generate no reply; this executes in the source-unit Node process without a native executable. Actual kernel retirement and generated schema integration remain in the minimal E2E boundary.
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphSessionState.receive of an envelope with mode "initial", a dump body and changed set to false must reject graph() with "an unchanged response carried changed mode or snapshot state", retire the first port as close(false) then close(true) with live false, and a second graph() must open a second port and resolve to a model with no nodes.
+ * @evidence contracts/testing.md#independent-expectations The contradiction (changed false beside mode initial and a dump) is authored by setting changed to false on an empty dump response, and the error pattern, the retirement sequence [false, true], the empty node list and the port count of two are literals; none is computed by the product's validation.
+ * @evidence contracts/testing.md#distinguishing-cases The response differs from the accepted recovery reply only in its changed flag, so the semantic check is the one that fires rather than a schema or version check. The other contradictions (an error-mode response with a body, a changed response with no body or two bodies) are not exercised.
+ * @evidence contracts/testing.md#execution-ownership Runs TtscGraphSessionState directly in the test process against the recorded line ports of internal/sessionState, delivering a typed envelope to receive; TtscGraphProtocol.decode and a native process are not executed.
  */
 export async function test_ttscgraph_semantically_malformed_native_frame_restarts_session(): Promise<void> {
   const fixture = sessionState();

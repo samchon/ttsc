@@ -5,9 +5,9 @@ import "testing"
 // TestNoEmptyFunctionCommentsPreserveEveryKind ensures a comment must be
 // inside each function body's braces and works for every primary function kind.
 //
-// @evidence contracts/testing.md#behavioral-verification Engine requires zero findings for every original internally commented function body.
+// @evidence contracts/testing.md#behavioral-verification runRuleFindingsSnapshot runs the no-empty-function engine over fourteen empty-bodied functions (declaration, expression, arrow, generator declaration and expression, async declaration and expression, async generator expression, constructor, method, generator method, async method, getter, setter), each holding an interior block comment, and the test requires zero findings.
 // @evidence contracts/testing.md#independent-expectations Intentional comments inside body braces establish the policy exemption independently of Engine output; exterior-comment counterexamples belong to the category-boundary test.
-// @evidence contracts/testing.md#distinguishing-cases Declarations, expressions, arrows, generators, async functions, methods, constructor and accessors retain their internal comments and remain clean.
+// @evidence contracts/testing.md#distinguishing-cases Each of the fourteen listed function shapes keeps an interior comment and stays clean. This test has no reporting counterpart of its own; the uncommented and exterior-comment cases that must report are owned by AllowCategories and the category-boundary test.
 // @evidence contracts/testing.md#execution-ownership TestNoEmptyFunctionCommentsPreserveEveryKind is selected in the shared Go unit population. It calls runRuleFindingsSnapshot directly for the full authored comment matrix; this entry owns all in-source variants. No consumer install, native artifact build or real host runs.
 func TestNoEmptyFunctionCommentsPreserveEveryKind(t *testing.T) {
   source := `function ordinary() { /* intentional */ }

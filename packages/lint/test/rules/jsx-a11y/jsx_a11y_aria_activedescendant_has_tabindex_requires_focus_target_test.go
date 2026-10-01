@@ -2,19 +2,21 @@ package linthost
 
 import "testing"
 
-// TestJsxA11yAriaActivedescendantHasTabindexRequiresFocusTarget verifies active descendants need focus.
+// TestJsxA11yAriaActivedescendantHasTabindexRequiresFocusTarget verifies
+// jsx-a11y/aria-activedescendant-has-tabindex reports an element that sets
+// aria-activedescendant without tabIndex and accepts one with tabIndex.
 //
-// `aria-activedescendant` only works from a focused container, so the lint rule
-// must connect the ARIA attribute to a sibling `tabIndex` attribute on the same tag.
+// aria-activedescendant only works from a focused container, so the rule ties
+// the attribute to a sibling tabIndex on the same tag.
 //
-// 1. Parse a div with aria-activedescendant and no tabIndex.
-// 2. Enable only `jsx-a11y/aria-activedescendant-has-tabindex`.
-// 3. Assert one diagnostic is reported.
+// 1. Run only the rule over `<div aria-activedescendant="item-1" />` and
+//    expect one finding whose message contains "tabIndex".
+// 2. Run it over the same div with `tabIndex={0}` and expect none.
 //
-// @evidence contracts/testing.md#behavioral-verification Actual TSX parsing and NewEngine.Run verify active-descendant div lacks a focus target; reported variants require one ordinary SeverityError finding from the named rule with the authored message fragment, and clean variants require zero findings.
-// @evidence contracts/testing.md#independent-expectations tabIndex zero makes the controlling container focusable. The source inputs and literal expected findings follow this supported accessibility policy without sampling implementation output.
-// @evidence contracts/testing.md#distinguishing-cases A div naming aria-activedescendant without tabIndex reports; adding tabIndex={0} is clean.
-// @evidence contracts/testing.md#execution-ownership TestJsxA11yAriaActivedescendantHasTabindexRequiresFocusTarget owns these explicit AST variants as a named Go unit entry; the owning engine executes in the shared test process without a browser, accessibility runtime installation or product child host.
+// @evidence contracts/testing.md#behavioral-verification assertJsxA11yRuleFinds parses the TSX source and runs NewEngine.Run with only jsx-a11y/aria-activedescendant-has-tabindex enabled. The div without tabIndex yields exactly one ordinary SeverityError finding from that rule whose message contains "tabIndex"; assertJsxA11yRuleSkips requires zero findings for the div with tabIndex={0}.
+// @evidence contracts/testing.md#independent-expectations A tabIndex of zero makes the controlling container focusable, which is what aria-activedescendant requires. The two literal sources and the "tabIndex" fragment are authored from that policy.
+// @evidence contracts/testing.md#distinguishing-cases The two sources are the same div with and without tabIndex={0}. A negative tabIndex, a lowercase tabindex attribute and spread attributes are not exercised by this Test.
+// @evidence contracts/testing.md#execution-ownership The Test is one Go unit with one assertJsxA11yRuleFinds and one assertJsxA11yRuleSkips call, executing the rule engine on parsed virtual TSX files in the test process with no browser, accessibility runtime or product host.
 func TestJsxA11yAriaActivedescendantHasTabindexRequiresFocusTarget(t *testing.T) {
   assertJsxA11yRuleFinds(t, "jsx-a11y/aria-activedescendant-has-tabindex", `const Component = () => <div aria-activedescendant="item-1" />;`, "tabIndex")
   assertJsxA11yRuleSkips(t, "jsx-a11y/aria-activedescendant-has-tabindex", "declare const props: object; const Component = () => <div aria-activedescendant=\"item-1\" tabIndex={0} />;")

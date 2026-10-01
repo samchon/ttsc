@@ -6,6 +6,8 @@ import (
   "runtime"
   "strings"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestTypeScriptConfigLoader verifies TypeScript banner.config loading branches.
@@ -22,15 +24,15 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The actual native file preparation and TypeScript config loader must route JavaScript and direct fixture launchers, decode dependency-observation envelopes and report malformed output, nonzero or silent exit, relative-import failure and tempdir failure with their original context.
 // @evidence contracts/testing.md#independent-expectations Authored child programs emit distinct literal from-ts/from-direct values or intentional invalid bytes/statuses; config path and supported diagnostic labels determine expectations independently, and these launchers do not evaluate the authored TypeScript config.
 // @evidence contracts/testing.md#distinguishing-cases Node-routed versus direct launchers, dispatcher versus direct loading, environment-pinned versus bare command arguments, same/parent/invalid imports, malformed payload, stderr versus silent exit and non-directory tempbase remain; injected preparation failures belong to the direct preparation unit.
-// @evidence contracts/testing.md#execution-ownership This named E2E entry runs the real loader's native filesystem adapter and actual child processes; pure option/resolver and preparation failure decisions have source-unit owners, while generated export behavior has TestTypeScriptConfigLoaderPrecedence.
+// @evidence contracts/testing.md#execution-ownership The function runs the real loader's filesystem preparation and spawns fixture launchers as child processes (a node-routed .mjs and direct executables); it also calls pure helpers directly (launcher extension classification, ttsxCommand arguments, loader tsconfig files, relative import specifiers). TestTypeScriptConfigLoaderPrecedence runs the generated loader source.
 // @evidence contracts/e2e.md#necessary-boundary Files written by the native preparation adapter, launcher selection, real process status and stdout-envelope decoding must cooperate; source-unit I/O outcomes do not establish this transport or that user-facing stderr is separate from the returned error.
 // @evidence contracts/e2e.md#shared-execution The Go test process shares compiled driver source and fixture launchers; each actual loader invocation owns its temporary project and child because selected launcher, payload or exit state changes, without rebuilding a native plugin for each branch.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir and t.Setenv isolate files and tool/temp variables; the actual loader releases its temporary tree after each invocation and waits for its child. Global link/write replacement is absent; the production caller supplies native operations explicitly.
-// @evidence contracts/e2e.md#preserved-coverage Original runtime payload/routing/status/error/temp assertions survive; three global-injection assertions are preserved and strengthened in TestTypeScriptConfigLoaderPreparationReportsIOFailures, and source-substring checks are replaced by actual generated-loader precedence outputs.
+// @evidence contracts/e2e.md#preserved-coverage The body asserts node-routed, dispatcher and direct-launcher loads, launcher extension classification, ttsxCommand argument layout for node-routed, direct and bare launchers, loader tsconfig files, same-dir/parent/invalid relative specifiers, the relative-import load error, invalid-stdout, exit-status-8 (without echoing child stderr), silent-exit and temp-directory-creation errors; link/write failure injection lives in the unit TestTypeScriptConfigLoaderPreparationReportsIOFailures.
 func TestTypeScriptConfigLoader(t *testing.T) {
   root := t.TempDir()
   config := filepath.Join(root, "banner.config.ts")
-  writeFile(t, config, `export default { text: "ignored by fake ttsx" };`)
+  shared.WriteFile(t, config, `export default { text: "ignored by fake ttsx" };`)
 
   nodeLauncher := writeExecutable(t, filepath.Join(root, "fake-ttsx.mjs"), `process.stdout.write(JSON.stringify({ complete: true, inputs: [], hashes: {}, realpaths: {}, value: { text: "from ts" } }));`+"\n")
   t.Setenv("TTSC_TTSX_BINARY", nodeLauncher)
@@ -43,7 +45,7 @@ func TestTypeScriptConfigLoader(t *testing.T) {
   if !ok || object["text"] != "from ts" {
     t.Fatalf("node-routed ts config mismatch: %#v", raw)
   }
-  raw, err = bannerLoadBannerConfigFile(config, root)
+  raw, err = shared.BannerLoadBannerConfigFile(config, root)
   if err != nil {
     t.Fatal(err)
   }
@@ -67,22 +69,22 @@ func TestTypeScriptConfigLoader(t *testing.T) {
     t.Fatal("ttsx launcher extension classification mismatch")
   }
   t.Setenv("TTSC_TTSX_BINARY", nodeLauncher)
-  cmd := bannerTtsxCommand(nil, "--project", "tsconfig.json")
+  cmd := shared.BannerTtsxCommand(nil, "--project", "tsconfig.json")
   if len(cmd.Args) < 3 || cmd.Args[1] != nodeLauncher || cmd.Args[2] != "--project" {
     t.Fatalf("node-routed ttsx command mismatch: %#v", cmd.Args)
   }
   t.Setenv("TTSC_TTSX_BINARY", directLauncher)
-  cmd = bannerTtsxCommand(nil, "--project", "tsconfig.json")
+  cmd = shared.BannerTtsxCommand(nil, "--project", "tsconfig.json")
   if len(cmd.Args) < 2 || cmd.Args[0] != directLauncher || cmd.Args[1] != "--project" {
     t.Fatalf("direct ttsx command mismatch: %#v", cmd.Args)
   }
   t.Setenv("TTSC_TTSX_BINARY", "")
-  cmd = bannerTtsxCommand(nil, "--project", "tsconfig.json")
+  cmd = shared.BannerTtsxCommand(nil, "--project", "tsconfig.json")
   if len(cmd.Args) < 2 || cmd.Args[0] != "ttsx" || cmd.Args[1] != "--project" {
     t.Fatalf("default ttsx command mismatch: %#v", cmd.Args)
   }
 
-  tsconfigText := bannerTypeScriptConfigLoaderTsconfig("/loader.mts", "/banner.config.ts", root)
+  tsconfigText := shared.BannerTypeScriptConfigLoaderTsconfig("/loader.mts", "/banner.config.ts", root)
   var tsconfig map[string]any
   if err := json.Unmarshal([]byte(tsconfigText), &tsconfig); err != nil {
     t.Fatal(err)
@@ -131,7 +133,7 @@ func TestTypeScriptConfigLoader(t *testing.T) {
     t.Fatalf("expected silent exit error, got %v", err)
   }
   badTmp := filepath.Join(root, "not-a-directory")
-  writeFile(t, badTmp, "file")
+  shared.WriteFile(t, badTmp, "file")
   // os.TempDir reads TMP/TEMP on Windows and TMPDIR elsewhere.
   if runtime.GOOS == "windows" {
     t.Setenv("TMP", badTmp)

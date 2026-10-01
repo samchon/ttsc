@@ -19,7 +19,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification flatten must yield a by for flat Line, Softline and IfBreak while rejecting intrinsically multiline docs.
 // @evidence contracts/testing.md#independent-expectations Doc algebra defines Line as a space, Softline as empty and IfBreak as its flat arm; literal outputs retain operand order.
 // @evidence contracts/testing.md#distinguishing-cases Hardline, Literalline, suffix, newline text, nested break and forced Group are rejected; empty alternatives, first alternative and transparent wrappers are admitted.
-// @evidence contracts/testing.md#execution-ownership TestEngineFlattenResolvesBreaksToFlatForm is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineFlattenResolvesBreaksToFlatForm is one Go unit entry that calls the unexported flatten directly on literal Doc trees and renders the flat results with Print in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineFlattenResolvesBreaksToFlatForm(t *testing.T) {
   flat, ok := flatten(Group(
     Text("a"), Line(), Softline(), Text("b"), IfBreak(Text("X"), Text("y")),

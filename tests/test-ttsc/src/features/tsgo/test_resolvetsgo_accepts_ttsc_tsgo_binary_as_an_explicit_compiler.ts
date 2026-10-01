@@ -18,11 +18,13 @@ import { resolveTsgo } from "../../../../../packages/ttsc/src/compiler/internal/
  * 1. Write an empty file at a temp path to act as a fake tsgo binary.
  * 2. Call `resolveTsgo` with `env.TTSC_TSGO_BINARY` pointing at that file.
  * 3. Assert the result `binary` equals the path and `version` is `"custom"`.
+ * 4. Assert a relative override and a missing absolute override each throw an
+ *    "existing absolute path" error.
  *
- * @evidence contracts/testing.md#behavioral-verification resolveTsgo preserves the existing explicit file identity and custom version while refusing relative and missing overrides.
- * @evidence contracts/testing.md#independent-expectations explicit compiler authority requires an existing absolute path and uses custom metadata independently of package manifests.
- * @evidence contracts/testing.md#distinguishing-cases existing absolute file contrasts with relative and absent absolute paths.
- * @evidence contracts/testing.md#execution-ownership The named test_resolvetsgo_accepts_ttsc_tsgo_binary_as_an_explicit_compiler function runs under src/features/tsgo and calls the authored resolver directly; manifests and empty binary files are filesystem inputs, not an installed or launched compiler.
+ * @evidence contracts/testing.md#behavioral-verification Calls resolveTsgo with only an env TTSC_TSGO_BINARY and asserts the returned binary path and the "custom" version for an existing absolute file, then asserts the throw for a relative path and for a missing absolute path.
+ * @evidence contracts/testing.md#independent-expectations The expected binary is the authored temp path and the expected version is the literal "custom" the resolver contract defines for explicit overrides; no package.json is read or needed, and the error is matched by the literal phrase "existing absolute path".
+ * @evidence contracts/testing.md#distinguishing-cases The existing absolute file is accepted, while "relative-tsgo" (relative, nonexistent) and a nonexistent absolute path inside the temp directory are refused. A relative path that exists is not covered, so the two refusal conditions are not separated from each other.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/tsgo; it calls resolveTsgo directly over an empty file in a TestProject.tmpdir directory, which is never executed. No typescript package is installed and no compiler is launched.
  */
 export function test_resolvetsgo_accepts_ttsc_tsgo_binary_as_an_explicit_compiler() {
     const root = TestProject.tmpdir("ttsc-tsgo-test-");

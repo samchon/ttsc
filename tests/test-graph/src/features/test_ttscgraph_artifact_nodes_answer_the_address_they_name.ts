@@ -84,9 +84,10 @@ const dump = (): ITtscGraphDump => ({
  * 2. Assert containment was synthesized from `parent`, not from a `file` node.
  * 3. Assert a lookup on the address returns the artifact and the citing
  *    declaration.
-  * @evidence contracts/testing.md#behavioral-verification TtscGraphMemory.from and runLookup return the literal artifact identity and title first, preserve its citation hit and synthesize document containment.
- * @evidence contracts/testing.md#independent-expectations Literal authored node IDs and document parent define the expected ownership and lookup result independently of the product indexes.
- * @evidence contracts/testing.md#distinguishing-cases A document and section coexist with citing and unrelated code declarations; synthesized containment must use the document rather than a file node.
+ *
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphMemory.from must synthesize a contains edge from the section's parent document, and runLookup on "docs/sale.md#pricing" must return the section first, named "Pricing", with the citing declaration renderNotice also among the hits. The section body is not part of the dump and the test does not assert its absence.
+ * @evidence contracts/testing.md#independent-expectations The expected ids ("docs/sale.md", "docs/sale.md#pricing", "src/notice.ts#renderNotice:function") and the title "Pricing" are literals authored in the dump fixture, not computed by the memory or lookup indexes.
+ * @evidence contracts/testing.md#distinguishing-cases The incoming contains edges of the section must be exactly [docs/sale.md], which excludes a file-node parent or a missing parent. The dump also holds an unrelated calls target (price) that the lookup assertions neither require nor exclude, so only the artifact-first ordering and the citing hit are distinguished.
  * @evidence contracts/testing.md#execution-ownership The named src/features entry invokes authored memory and lookup functions on deliberately synthetic index data without installed artifacts, native builds or a host.
  */
 export function test_ttscgraph_artifact_nodes_answer_the_address_they_name(): void {

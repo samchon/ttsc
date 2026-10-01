@@ -21,7 +21,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification fits must return false for Text x when remaining is minus one.
 // @evidence contracts/testing.md#independent-expectations A negative available-column budget cannot contain the one-column literal.
 // @evidence contracts/testing.md#distinguishing-cases Already-exhausted budget complements the positive and exact-budget first-line measurements.
-// @evidence contracts/testing.md#execution-ownership TestEngineFitsReturnsFalseWhenRemainingNegative is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineFitsReturnsFalseWhenRemainingNegative is one Go unit entry that calls the unexported fits directly on a literal Doc tree in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineFitsReturnsFalseWhenRemainingNegative(t *testing.T) {
   result := fits(Text("x"), -1, 0)
   if result != false {

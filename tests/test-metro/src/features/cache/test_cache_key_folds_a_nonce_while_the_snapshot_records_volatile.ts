@@ -13,10 +13,10 @@ import { assertCacheKeyFoldsNonceWhileSnapshotVolatile } from "../../internal/me
  * 2. Compute `getCacheKey` in two fresh transformer modules.
  * 3. Assert the keys differ.
  *
- * @evidence contracts/testing.md#behavioral-verification A valid worker document declaring volatile output causes two fresh cache keys to differ.
- * @evidence contracts/testing.md#independent-expectations Non-file inputs cannot be fingerprinted and must withdraw cross-run reuse; the independent oracle is inequality for the same project bytes.
- * @evidence contracts/testing.md#distinguishing-cases A schema4 volatile worker contrasts an ordinary stable snapshot and the clearing-worker case.
- * @evidence contracts/testing.md#execution-ownership This named src/features/cache entry runs authored Metro fingerprint and transformer operations through the serial source-unit loader. Real fixture files and upstream input modules exercise resolution; no consumer installation, native compilation or product host is started.
+ * @evidence contracts/testing.md#behavioral-verification After prepareSnapshot, a hand-written worker document with version 4 and volatile true makes two getCacheKey calls from fresh transformer modules return different keys.
+ * @evidence contracts/testing.md#independent-expectations The authored document is a literal version-4 volatile worker file, and the expectation is inequality over unchanged sources, following the contract that non-file inputs withdraw reuse rather than any implementation output.
+ * @evidence contracts/testing.md#distinguishing-cases Only the volatile case is run here. The prepared stable snapshot and the volatile-clearing transition are covered by other entries, not by this body.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls prepareSnapshot and getCacheKey in-process over a temp project with a fake upstream, writing the worker document with fs; no native compile, consumer install or Metro host.
  */
 export const test_cache_key_folds_a_nonce_while_the_snapshot_records_volatile =
   async () => {

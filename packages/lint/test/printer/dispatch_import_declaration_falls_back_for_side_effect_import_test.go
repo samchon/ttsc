@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printImportDeclaration must preserve import x with its quoted module and semicolon when no clause exists.
 // @evidence contracts/testing.md#independent-expectations The exact side-effect-only source specifies a module evaluation import without inventing bindings.
 // @evidence contracts/testing.md#distinguishing-cases Absent ImportClause differs from default, namespace and named clauses.
-// @evidence contracts/testing.md#execution-ownership TestDispatchImportDeclarationFallsBackForSideEffectImport is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchImportDeclarationFallsBackForSideEffectImport is a plain top-level Go unit test, selectable with go test -run, that calls printImportDeclaration directly on a parsed side-effect import inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchImportDeclarationFallsBackForSideEffectImport(t *testing.T) {
   src := "import \"x\";\n"
   file := parseTS(t, src)

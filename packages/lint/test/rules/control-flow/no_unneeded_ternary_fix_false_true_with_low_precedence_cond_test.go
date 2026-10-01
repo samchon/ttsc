@@ -11,7 +11,7 @@ import "testing"
 // silently change associativity. This branch is separate from the
 // no-parens path and must be exercised independently.
 //
-// 1. Snapshot `(a || b) ? false : true`.
+// 1. Snapshot `a || b ? false : true`.
 // 2. Apply `no-unneeded-ternary` fix.
 // 3. Assert the result wraps the condition in parens before negating.
 //

@@ -3,6 +3,8 @@ package banner_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestResolveConfigTsgoResolvesTheProjectCompilerWithoutTheEnvironment verifies
@@ -27,13 +29,13 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns successful project discovery without overrides; absent TypeScript, platform package and executable each have dedicated negative cases.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoResolvesTheProjectCompilerWithoutTheEnvironment is selected from test/unit by the utility runner unit overlay. Runs bannerResolveConfigTsgo through linkname and native manifest/stat lookup in the Go process; the empty compiler fixture is never spawned.
 func TestResolveConfigTsgoResolvesTheProjectCompilerWithoutTheEnvironment(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := bannerRealpathIfPossible(t.TempDir())
-  want := seedProjectTypeScript(t, root)
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.BannerRealpathIfPossible(t.TempDir())
+  want := shared.SeedProjectTypeScript(t, root)
   config := filepath.Join(root, "banner.config.ts")
-  writeFile(t, config, "export default { text: \"from ts\" };\n")
+  shared.WriteFile(t, config, "export default { text: \"from ts\" };\n")
 
-  if got := bannerResolveConfigTsgo(bannerConfigToolAnchors(config, root)); got != want {
+  if got := shared.BannerResolveConfigTsgo(shared.BannerConfigToolAnchors(config, root)); got != want {
     t.Fatalf("resolveConfigTsgo = %q, want the project compiler %q", got, want)
   }
 }

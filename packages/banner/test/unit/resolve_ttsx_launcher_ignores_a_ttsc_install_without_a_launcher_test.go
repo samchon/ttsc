@@ -3,6 +3,8 @@ package banner_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestResolveTtsxLauncherIgnoresATtscInstallWithoutALauncher verifies a `ttsc`
@@ -24,13 +26,13 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns partial installation without a launcher; successful project lookup and complete absence of the package are separate cases.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveTtsxLauncherIgnoresATtscInstallWithoutALauncher is selected from test/unit by the utility runner unit overlay. Runs bannerResolveTtsxLauncher with native fixture stat operations in the Go process; no command is constructed or launched from its result.
 func TestResolveTtsxLauncherIgnoresATtscInstallWithoutALauncher(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := bannerRealpathIfPossible(t.TempDir())
-  missing := seedProjectTtscWithoutLauncher(t, root)
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.BannerRealpathIfPossible(t.TempDir())
+  missing := shared.SeedProjectTtscWithoutLauncher(t, root)
   config := filepath.Join(root, "banner.config.ts")
-  writeFile(t, config, "export default { text: \"from ts\" };\n")
+  shared.WriteFile(t, config, "export default { text: \"from ts\" };\n")
 
-  if got := bannerResolveTtsxLauncher(bannerConfigToolAnchors(config, root)); got != "ttsx" {
+  if got := bannerResolveTtsxLauncher(shared.BannerConfigToolAnchors(config, root)); got != "ttsx" {
     t.Fatalf("resolveTtsxLauncher = %q, want the bare ttsx fallback when %q does not exist", got, missing)
   }
 }

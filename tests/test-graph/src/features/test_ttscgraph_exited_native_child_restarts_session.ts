@@ -2,18 +2,22 @@ import assert from "node:assert/strict";
 import { admitted, emptyResponse, sessionState } from "./internal/sessionState";
 
 /**
- * Verifies an exit event retires correlation before recovery.
+ * Verifies a native exit event rejects the active request and retires the peer before recovery.
  *
- * An exit event must settle the pending request once and permit the next request to open a new transport owner.
+ * An exit event must reject the pending request, detach the reader and request
+ * stdio joining, and the next request must open a new peer.
  *
- * 1. Admit the original request state through the authored state owner.
- * 2. Supply explicit typed envelopes or transport events and check the original rejection, settlement or model assertions.
- * 3. Check retirement, recovery or reuse and close the owned state in finally.
+ * 1. Start a graph request on a recorded line port, mark the port dead and emit
+ *    exit(17, null).
+ * 2. Require the request to reject with the session-exited error and the port to
+ *    record close(false) then close(true).
+ * 3. Request again, answer the second port with an empty full-dump response, and
+ *    require an empty node list and exactly two opened ports.
  *
- * @evidence contracts/testing.md#behavioral-verification An explicit exit-17 event rejects the active request, detaches its reader and requests stdio joining without assuming the exit event completed transport release and returns empty nodes on one replacement.
- * @evidence contracts/testing.md#independent-expectations The typed exit event is the failure stimulus; literal error alternatives, [false, true] reader retirement and transport join and two opener calls define the required source-state consequence. Actual kernel exit is checked by the real adapter boundary.
- * @evidence contracts/testing.md#distinguishing-cases An exit event must settle the pending request once and permit the next request to open a new transport owner.
- * @evidence contracts/testing.md#execution-ownership The matching src/features export imports authored state and decoder source. Declared line-port recordings generate no reply; this executes in the source-unit Node process without a native executable. Actual kernel retirement and generated schema integration remain in the minimal E2E boundary.
+ * @evidence contracts/testing.md#behavioral-verification An exit(17, null) event delivered to the session's events must reject the pending graph() request, record port close(false) then close(true), and a second graph() must open a second port and resolve to a model with no nodes. The test does not assert that the exit code 17 appears in the message.
+ * @evidence contracts/testing.md#independent-expectations The exit event with code 17 is the authored stimulus; the accepted error pattern, the retirement sequence [false, true], the empty node list and the port count of two are literals, and the recovery reply is an empty dump built by emptyResponse.
+ * @evidence contracts/testing.md#distinguishing-cases The retirement sequence ends with close(true) even though the process already exited, so the stdio join is requested rather than assumed complete; the replacement port answering normally contrasts the failed first port. Signal exits, exits after a response and write failures are not exercised.
+ * @evidence contracts/testing.md#execution-ownership Runs TtscGraphSessionState directly in the test process against the recorded line ports of internal/sessionState. No line is decoded and no native process, generated schema validator or kernel exit is involved.
  */
 export async function test_ttscgraph_exited_native_child_restarts_session(): Promise<void> {
   const fixture = sessionState();

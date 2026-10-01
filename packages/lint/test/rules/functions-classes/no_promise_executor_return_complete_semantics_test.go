@@ -21,8 +21,8 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Three named Checker-backed cases compare every marked return line and rule/severity without admitting findings from shadowed bindings.
 // @evidence contracts/testing.md#independent-expectations Authored markers follow actual global Promise constructor identity and executor-scope return ownership; the empty module-shadow and script-value cases supply independent negative oracles.
-// @evidence contracts/testing.md#distinguishing-cases Concise/parenthesized/control-flow/function/nested Promise returns report; nested functions and class methods, local/module/script shadows and globalThis member syntax retain their original clean policy controls.
-// @evidence contracts/testing.md#execution-ownership TestNoPromiseExecutorReturnCompleteSemantics is selected in the shared Go unit population. Its three named subtests call runRuleFindingsSnapshot with the real Program/Checker for each source, retaining original case names and assertions. No consumer install, native artifact build or real host runs.
+// @evidence contracts/testing.md#distinguishing-cases Concise/parenthesized/control-flow/function/nested Promise returns report; returns inside nested function declarations, arrows, function expressions and class methods, a parameter-shadowed and a block-scoped class `Promise`, `new globalThis.Promise(...)`, a module-level `let Promise` and a script-level `declare var Promise` all stay clean.
+// @evidence contracts/testing.md#execution-ownership TestNoPromiseExecutorReturnCompleteSemantics is selected in the shared Go unit population. Its three named subtests call runRuleFindingsSnapshot with the real Program/Checker for each source and compare the marked `// diagnostic` lines to the reported lines, so each subtest name identifies its failing source. No consumer install, native artifact build or real host runs.
 func TestNoPromiseExecutorReturnCompleteSemantics(t *testing.T) {
   cases := []struct {
     name   string

@@ -9,10 +9,10 @@ import { assertSnapshotFailureWithoutRecoveryStorageFailsClosed } from "../../in
  * 2. Assert the recorder fails and preparation transports a private nonreusable token.
  * 3. Restore storage and verify old private tokens still nonce while ordinary runs stabilize.
  *
- * @evidence contracts/testing.md#behavioral-verification Denied primary and sibling recovery storage makes the recorder throw AggregateError and preparation return a nonreusable token that still nonces after permissions recover.
- * @evidence contracts/testing.md#independent-expectations The fail-closed transport contract requires the authored diagnostic, nonce token grammar, durable cleanup and later ordinary stable reuse.
- * @evidence contracts/testing.md#distinguishing-cases Both storage locations denied contrasts recovered access; the denial uses mode bits on POSIX and an Everyone deny entry on Windows; as root, which neither binds, the case logs a SKIPPED notice and asserts nothing.
- * @evidence contracts/testing.md#execution-ownership This named src/features/cache entry runs authored Metro fingerprint and transformer operations through the serial source-unit loader. Real fixture files and upstream input modules exercise resolution; no consumer installation, native compilation or product host is started.
+ * @evidence contracts/testing.md#behavioral-verification With the main snapshot unreadable and both the snapshot and cache directories denied for creation, a reusable-run recorder throws an AggregateError with the persist-failure message and prepareSnapshot returns a nonce:<32 hex> token; after access returns, recovery files are gone, computeProjectFingerprint with that token differs between two calls, and ordinary getCacheKey values are equal.
+ * @evidence contracts/testing.md#independent-expectations The fail-closed contract is checked through authored literals: the exact error name and message, the nonce token regular expression, empty recovery listing, inequality for the old token and equality for ordinary runs.
+ * @evidence contracts/testing.md#distinguishing-cases Both storage locations denied (throw and nonce token) contrast restored access (token still nonces, ordinary keys stable). Denial uses mode bits on POSIX and an Everyone deny entry via icacls on Windows; when the process is root the body logs a SKIPPED notice and asserts nothing.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls prepareSnapshot, createSnapshotRecorder, computeProjectFingerprint and getCacheKey in-process, using chmod or icacls only to deny access; no native compile, consumer install or Metro host.
  */
 export const test_snapshot_failure_without_recovery_storage_fails_closed =
   async () => {

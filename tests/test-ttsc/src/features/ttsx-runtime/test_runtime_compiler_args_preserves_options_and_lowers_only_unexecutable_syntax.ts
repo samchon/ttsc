@@ -8,9 +8,10 @@ import { runtimeCompilerArgs } from "../../../../../packages/ttsc/src/launcher/i
 /**
  * Verifies runtime arguments preserve checked options while making emit executable.
  *
- * Portable target, JSX and CLI precedence decisions do not require repeatedly
- * compiling decorators or starting Node. Actual library output effects have shared Go/VM unit owners; native runtime
- * assembly remains in surviving host cases, including compiler-owned response files.
+ * Portable target, JSX and CLI precedence decisions can be checked on the
+ * argument list alone, without compiling decorators or starting Node. The
+ * forwarded-`@file` path, which asks the native compiler for `--showConfig`, is
+ * not exercised here.
  *
  * 1. Resolve one fixture project through the authored config reader.
  * 2. Apply the target and JSX decision matrix directly to the argument owner.

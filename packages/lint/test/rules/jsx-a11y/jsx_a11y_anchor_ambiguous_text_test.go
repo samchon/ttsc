@@ -2,22 +2,22 @@ package linthost
 
 import "testing"
 
-// TestJsxA11yAnchorAmbiguousTextRejectsClickHere verifies anchors whose
-// visible text is one of the ambiguous-phrase blacklist surface as a
-// diagnostic.
+// TestJsxA11yAnchorAmbiguousTextRejectsClickHere verifies
+// jsx-a11y/anchor-ambiguous-text reports an anchor whose text is the ambiguous
+// phrase "click here" and accepts descriptive text.
 //
-// Screen-reader users navigate by listing links; "click here" / "more"
-// / "read more" become indistinguishable noise on that list. The rule
-// catches the most common offenders before they ship.
+// Screen-reader users navigate by listing links, where "click here" or "more"
+// carry no information about the destination.
 //
-// 1. Parse an anchor whose only child is the ambiguous text "click here".
-// 2. Enable only `jsx-a11y/anchor-ambiguous-text`.
-// 3. Assert one diagnostic is reported.
+// 1. Run only `jsx-a11y/anchor-ambiguous-text` over
+//    `<a href="/docs">click here</a>` and expect one finding whose message
+//    contains "ambiguous".
+// 2. Run it over `<a href="/docs">Documentation</a>` and expect none.
 //
-// @evidence contracts/testing.md#behavioral-verification Actual TSX parsing and NewEngine.Run verify anchor text is click here; reported variants require one ordinary SeverityError finding from the named rule with the authored message fragment, and clean variants require zero findings.
-// @evidence contracts/testing.md#independent-expectations Descriptive link text identifies its destination in assistive navigation. The source inputs and literal expected findings follow this supported accessibility policy without sampling implementation output.
-// @evidence contracts/testing.md#distinguishing-cases The click here label reports; Documentation with the same /docs href is clean.
-// @evidence contracts/testing.md#execution-ownership TestJsxA11yAnchorAmbiguousTextRejectsClickHere owns these explicit AST variants as a named Go unit entry; the owning engine executes in the shared test process without a browser, accessibility runtime installation or product child host.
+// @evidence contracts/testing.md#behavioral-verification assertJsxA11yRuleFinds parses the TSX source and runs NewEngine.Run with only jsx-a11y/anchor-ambiguous-text enabled. The "click here" anchor yields exactly one ordinary SeverityError finding from that rule whose message contains "ambiguous"; assertJsxA11yRuleSkips requires zero findings for the Documentation anchor.
+// @evidence contracts/testing.md#independent-expectations Descriptive link text identifies the destination for assistive navigation, while "click here" does not. The two literal sources and the "ambiguous" message fragment are authored from that policy.
+// @evidence contracts/testing.md#distinguishing-cases The two anchors share the same /docs href and differ only in their text. The other phrases in the rule's list ("here", "link", "more", "read more", ...) and case or whitespace normalisation are not exercised by this Test.
+// @evidence contracts/testing.md#execution-ownership The Test is one Go unit with one assertJsxA11yRuleFinds and one assertJsxA11yRuleSkips call, executing the rule engine on parsed virtual TSX files in the test process with no browser, accessibility runtime or product host.
 func TestJsxA11yAnchorAmbiguousTextRejectsClickHere(t *testing.T) {
   assertJsxA11yRuleFinds(t, "jsx-a11y/anchor-ambiguous-text", `const Component = () => <a href="/docs">click here</a>;`, "ambiguous")
   assertJsxA11yRuleSkips(t, "jsx-a11y/anchor-ambiguous-text", "declare const props: object; const Component = () => <a href=\"/docs\">Documentation</a>;")

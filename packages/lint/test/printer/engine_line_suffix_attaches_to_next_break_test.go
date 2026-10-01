@@ -20,7 +20,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Print must emit the queued comment after a and before the newline leading to b.
 // @evidence contracts/testing.md#independent-expectations The LineSuffix contract orders the literal a // c\nb without moving or dropping comment bytes.
 // @evidence contracts/testing.md#distinguishing-cases A following Hardline flushes the suffix; the no-following-break case covers final draining.
-// @evidence contracts/testing.md#execution-ownership TestEngineLineSuffixAttachesToNextBreak is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineLineSuffixAttachesToNextBreak is one Go unit entry that renders a literal Concat holding a LineSuffix before a Hardline with Print in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineLineSuffixAttachesToNextBreak(t *testing.T) {
   doc := Concat(
     Text("a"),

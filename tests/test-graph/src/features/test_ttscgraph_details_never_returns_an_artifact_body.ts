@@ -52,27 +52,24 @@ const dump = (): ITtscGraphDump => ({
  * its content.
  *
  * The graph is an index with spans, and that rule is what keeps a large project
- * from turning one tool call into a prompt full of prose. A declaration is safe
- * by construction — the producer renders a signature and cuts it where the
- * compiler says the body opens — but an artifact has no such producer-side cut:
- * a Markdown section is prose from its heading to the next one, so "return the
- * span, not the text" is the only thing standing between an index and a
- * document dump.
+ * from turning one tool call into a prompt full of prose. A Markdown section is
+ * prose from its heading to the next one, so "return the span, not the text" is
+ * the only thing standing between an index and a document dump.
  *
  * It holds today because the source reader is fail-closed: a file the compiler
  * never loaded has no digest, so nothing can be sliced out of it. That is a
- * property of a different module, which is exactly why it is asserted here —
- * loosening that fallback would inline a document with nothing else objecting.
+ * property of a different module, which is why it is asserted here.
  *
- * 1. Build a memory over a dump carrying a section whose file the manifest does
- *    not describe.
+ * 1. Write a Markdown file containing the heading and a body sentence, and build a
+ *    memory over a dump whose section node points at it with no source digest.
  * 2. Ask `details` for the section by its address.
- * 3. Assert it answers with the heading and the line, and that no field carries
- *    the document's prose.
-  * @evidence contracts/testing.md#behavioral-verification TtscGraphMemory.from and runDetails return the artifact heading and span but no body from a real independently written Markdown file lacking provenance.
- * @evidence contracts/testing.md#independent-expectations A literal heading, line and body plus independently written fixture bytes define the expected details; serialization searches every returned field for the forbidden body.
- * @evidence contracts/testing.md#distinguishing-cases The physical document exists but its digest is absent; heading and span must survive while prose and invented members must not appear.
- * @evidence contracts/testing.md#execution-ownership The named src/features entry invokes authored memory and details functions over a real resolver fixture filesystem, without consumer installation, native producer or host.
+ * 3. Assert it answers with the heading and the line, that no serialized field
+ *    contains the body sentence, and that no members are listed.
+ *
+ * @evidence contracts/testing.md#behavioral-verification runDetails over a TtscGraphMemory whose project is a temporary directory holding docs/discount.md must answer the handle "docs/discount.md#coupon-stacking" with name "Coupon stacking" and sourceSpan.startLine 12, with the JSON of the whole answer not containing the body sentence and with no members.
+ * @evidence contracts/testing.md#independent-expectations The heading text, the line 12 (eleven preamble lines precede the heading in the file the test writes) and the body sentence are literals authored by the test; the check searches the serialized answer, so a body leaking through any field would be found.
+ * @evidence contracts/testing.md#distinguishing-cases The document exists on disk and contains the body, but the dump's source manifest is empty so the reader has no digest to trust; the heading and span must be returned while the prose and any invented members must not. A dump that does list the document's digest is not exercised.
+ * @evidence contracts/testing.md#execution-ownership Calls TtscGraphMemory.from and runDetails in the test process over a real temporary directory holding the Markdown file; no consumer is installed and no native producer or host is started.
  */
 export function test_ttscgraph_details_never_returns_an_artifact_body(): void {
     const directory = TestProject.tmpdir("graph-artifact-prose-");

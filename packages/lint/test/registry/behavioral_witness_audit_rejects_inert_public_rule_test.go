@@ -7,18 +7,18 @@ import (
 )
 
 // TestBehavioralWitnessAuditRejectsInertPublicRule is the regression sentinel.
-// It runs an actual registered no-op rule through production Engine dispatch,
-// then proves that the absence of a diagnostic leaves the synthetic public key
-// uncovered.
+// It runs an actual registered no-op rule through production Engine dispatch to
+// show it reports nothing, then shows the auditor rejects a public identity that
+// has no recorded positive witness.
 //
 //
 //  1. Register and execute a configured no-op rule on authored TypeScript.
 //  2. Require zero findings and a missing-positive-witness audit rejection for that public identity.
 //
-// @evidence contracts/testing.md#behavioral-verification A real registered no-op rule binds and executes in Engine without a diagnostic; requiring that identity in the public set then produces the missing-positive-witness error rather than registry-parity coverage.
-// @evidence contracts/testing.md#independent-expectations Registration and an AST visit alone do not demonstrate a functioning diagnostic. The authored inert Check does nothing, so zero findings and a missing-positive-witness rejection are independent consequences of that fixture.
-// @evidence contracts/testing.md#distinguishing-cases Successful active binding rules out an absent or disabled engine route, while the actual no-op invocation contrasts with the required positive witness. Other auditor units supply valid candidate controls; cleanup removes this test-only registration.
-// @evidence contracts/testing.md#execution-ownership Direct Register, configured Engine.Run and auditBehavioralWitnesses operate in the shared Go process on literal source and an empty candidate map. This test checks actual auditor decisions, not committed test-file existence or native installation.
+// @evidence contracts/testing.md#behavioral-verification A registered no-op rule is bound at error severity by newRuleSnapshotEngine and Engine.Run over one parsed source returns zero findings; auditBehavioralWitnesses given that identity as public and an empty candidate map returns an error naming the rule and "public rules without a positive production witness". The no-op Check is not observed to run, and the engine result is not fed to the auditor: the candidate map is passed empty by the test.
+// @evidence contracts/testing.md#independent-expectations The authored Check does nothing, so zero findings is the expected engine result, and a public identity with no recorded candidate must be rejected as missing a witness; the expected error fragments are literals taken from the audit contract, not from the auditor's output.
+// @evidence contracts/testing.md#distinguishing-cases Successful binding in newRuleSnapshotEngine rules out an unregistered or disabled rule as the reason for silence, and the rejection is for a public rule with no witness record; valid-candidate acceptance is owned by the prerequisite-kinds and deterministic-route auditor tests. Cleanup removes this test-only registration.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestBehavioralWitnessAuditRejectsInertPublicRule calls Register, newRuleSnapshotEngine, Engine.Run and auditBehavioralWitnesses in the shared linthost test process on a literal source and an empty candidate map; it reads no repository file and starts no native host.
 func TestBehavioralWitnessAuditRejectsInertPublicRule(t *testing.T) {
   inert := inertBehavioralWitnessRule{}
   Register(inert)

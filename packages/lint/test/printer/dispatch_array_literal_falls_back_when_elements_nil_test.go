@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printArrayLiteral must preserve [a, b] when its parsed Elements list is nil, and return empty for the original synthetic range.
 // @evidence contracts/testing.md#independent-expectations The fixture source supplies independent verbatim bytes; an unconditional empty result would now fail the nonempty case.
 // @evidence contracts/testing.md#distinguishing-cases A missing list complements a list containing a nil element and the valid flat/broken array cases.
-// @evidence contracts/testing.md#execution-ownership TestDispatchArrayLiteralFallsBackWhenElementsNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native product build or product host executes.
+// @evidence contracts/testing.md#execution-ownership TestDispatchArrayLiteralFallsBackWhenElementsNil is a plain top-level Go unit test, selectable with go test -run, that calls printArrayLiteral directly on a factory-built array with no Elements and a parsed array whose Elements are cleared inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchArrayLiteralFallsBackWhenElementsNil(t *testing.T) {
   file := parseTS(t, "\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

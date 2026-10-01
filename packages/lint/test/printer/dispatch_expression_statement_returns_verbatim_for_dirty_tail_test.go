@@ -25,7 +25,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification PrintNode must preserve foo() /* note */; verbatim and report it covered rather than dropping the expression-tail comment.
 // @evidence contracts/testing.md#independent-expectations The exact source literal retains both comment text and semicolon; the single-line subtree can be preserved without frozen continuation columns.
 // @evidence contracts/testing.md#distinguishing-cases A comment-bearing statement tail complements ordinary nested-call reflow and nil expression/node boundaries.
-// @evidence contracts/testing.md#execution-ownership TestDispatchExpressionStatementReturnsVerbatimForDirtyTail is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchExpressionStatementReturnsVerbatimForDirtyTail is a plain top-level Go unit test, selectable with go test -run, that calls PrintNode directly on a parsed expression statement with a block comment before its semicolon inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchExpressionStatementReturnsVerbatimForDirtyTail(t *testing.T) {
   src := "foo() /* note */;\n"
   file := parseTS(t, src)

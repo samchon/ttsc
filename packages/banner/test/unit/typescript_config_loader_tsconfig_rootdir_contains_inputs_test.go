@@ -5,6 +5,8 @@ import (
   "path/filepath"
   "strings"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestTypeScriptConfigLoaderTsconfigRootDirContainsInputs verifies the
@@ -28,7 +30,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership Unit entry TestTypeScriptConfigLoaderTsconfigRootDirContainsInputs is selected from test/unit by the utility runner unit overlay. Runs bannerTypeScriptConfigLoaderTsconfig and native root/path calculations in the Go process; no compiler project or child launcher is loaded.
 func TestTypeScriptConfigLoaderTsconfigRootDirContainsInputs(t *testing.T) {
   dir := t.TempDir()
-  raw := bannerTypeScriptConfigLoaderTsconfig(
+  raw := shared.BannerTypeScriptConfigLoaderTsconfig(
     filepath.Join(dir, "loader.mts"),
     filepath.Join(dir, "banner.config.ts"),
     dir,

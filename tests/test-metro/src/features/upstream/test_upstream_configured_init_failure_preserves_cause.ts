@@ -15,10 +15,10 @@ import { assertConfiguredInitFailurePreservesCause } from "../../internal/metro-
  * 3. Assert the original message is preserved and attached as `cause`, not the
  *    absence message.
  *
- * @evidence contracts/testing.md#behavioral-verification Resolving a module that throws its authored ABI mismatch retains the original message, Error cause and stack without claiming absence.
- * @evidence contracts/testing.md#independent-expectations The fixture module throws a literal upstream dependency ABI mismatch, so its message/cause are independent of the resolver implementation.
- * @evidence contracts/testing.md#distinguishing-cases Resolvable but broken initialization contrasts absent candidates and missing transitive dependency cases.
- * @evidence contracts/testing.md#execution-ownership This matching src/features export calls authored Metro operations through the source-unit loader. Input filesystem/module fixtures and declared upstream callbacks remain test-local; no installed consumer, native compiler or product host is launched.
+ * @evidence contracts/testing.md#behavioral-verification resolveUpstreamTransformer with the path of a temp CommonJS file that throws "upstream dependency ABI mismatch" at top level, through the default require loader, throws an error whose message chain contains that text, which does not match the could-not-load absence message, and whose cause is an Error with that message and a string stack.
+ * @evidence contracts/testing.md#independent-expectations The fixture file throws an authored literal message, so the expected text and the cause attachment come from the test's own module rather than from the resolver.
+ * @evidence contracts/testing.md#distinguishing-cases Only a module that resolves and then throws on initialization is run; plain absence, an unexported subpath and a missing transitive dependency are covered by neighboring entries.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls resolveUpstreamTransformer from packages/metro/src/core/upstream.ts in-process with the real require loader against one temp .cjs file; no compile, install or Metro host is involved.
  */
 export const test_upstream_configured_init_failure_preserves_cause =
   async () => {

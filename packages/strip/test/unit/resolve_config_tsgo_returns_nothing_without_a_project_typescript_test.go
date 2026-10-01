@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestResolveConfigTsgoReturnsNothingWithoutAProjectTypeScript verifies an
@@ -22,14 +24,14 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns missing-TypeScript resolution; requireNoAmbientInstall can skip polluted ancestry. Missing platform and executable after a TypeScript install have separate cases.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoReturnsNothingWithoutAProjectTypeScript is selected from test/unit by the utility runner unit overlay. Runs stripResolveConfigTsgo and its manifest walk in the Go process; fixture and environment state are testing-owned and no compiler or launcher starts.
 func TestResolveConfigTsgoReturnsNothingWithoutAProjectTypeScript(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := stripRealpathIfPossible(t.TempDir())
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.StripRealpathIfPossible(t.TempDir())
   requireNoAmbientInstall(t, root, "typescript")
   project := filepath.Join(root, "project")
   config := filepath.Join(project, "strip.config.ts")
-  writeFile(t, config, "export default {};\n")
+  shared.WriteFile(t, config, "export default {};\n")
 
-  if got := stripResolveConfigTsgo(stripConfigToolAnchors(config, project)); got != "" {
+  if got := shared.StripResolveConfigTsgo(shared.StripConfigToolAnchors(config, project)); got != "" {
     t.Fatalf("stripResolveConfigTsgo = %q, want no compiler for a project with no typescript install", got)
   }
 }

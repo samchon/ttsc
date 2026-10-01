@@ -3,6 +3,8 @@ package banner_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestResolveConfigTsgoPrefersTheConfigAnchorOverTheProjectRoot verifies the
@@ -23,15 +25,15 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns two successful competing anchors; root fallback after an unresolved config anchor and explicit override are separate cases.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoPrefersTheConfigAnchorOverTheProjectRoot is selected from test/unit by the utility runner unit overlay. Runs bannerConfigToolAnchors and bannerResolveConfigTsgo in the Go process over manifest/stat fixtures; no compiler executes.
 func TestResolveConfigTsgoPrefersTheConfigAnchorOverTheProjectRoot(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := bannerRealpathIfPossible(t.TempDir())
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.BannerRealpathIfPossible(t.TempDir())
   workspace := filepath.Join(root, "packages", "app")
-  rootBinary := seedProjectTypeScript(t, root)
-  workspaceBinary := seedProjectTypeScript(t, workspace)
+  rootBinary := shared.SeedProjectTypeScript(t, root)
+  workspaceBinary := shared.SeedProjectTypeScript(t, workspace)
   config := filepath.Join(workspace, "banner.config.ts")
-  writeFile(t, config, "export default { text: \"from ts\" };\n")
+  shared.WriteFile(t, config, "export default { text: \"from ts\" };\n")
 
-  got := bannerResolveConfigTsgo(bannerConfigToolAnchors(config, root))
+  got := shared.BannerResolveConfigTsgo(shared.BannerConfigToolAnchors(config, root))
   if got == rootBinary {
     t.Fatalf("resolveConfigTsgo took the root compiler %q over the config's %q", rootBinary, workspaceBinary)
   }

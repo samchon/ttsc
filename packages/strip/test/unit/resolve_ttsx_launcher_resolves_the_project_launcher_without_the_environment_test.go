@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestResolveTtsxLauncherResolvesTheProjectLauncherWithoutTheEnvironment
@@ -23,13 +25,13 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns successful project discovery without overrides; explicit override, absent installation and absent launcher have separate owners.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveTtsxLauncherResolvesTheProjectLauncherWithoutTheEnvironment is selected from test/unit by the utility runner unit overlay. Runs stripResolveTtsxLauncher and stripConfigToolAnchors in the Go process using ordinary fixture files; the empty launcher is never evaluated.
 func TestResolveTtsxLauncherResolvesTheProjectLauncherWithoutTheEnvironment(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := stripRealpathIfPossible(t.TempDir())
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.StripRealpathIfPossible(t.TempDir())
   want := seedProjectTtsc(t, root)
   config := filepath.Join(root, "strip.config.ts")
-  writeFile(t, config, "export default {};\n")
+  shared.WriteFile(t, config, "export default {};\n")
 
-  if got := stripResolveTtsxLauncher(stripConfigToolAnchors(config, root)); got != want {
+  if got := stripResolveTtsxLauncher(shared.StripConfigToolAnchors(config, root)); got != want {
     t.Fatalf("stripResolveTtsxLauncher = %q, want the project launcher %q", got, want)
   }
 }

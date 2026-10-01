@@ -3,6 +3,8 @@ package banner_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestNodePackageManifestFromResolvesARelativeAnchor verifies a relatively
@@ -27,11 +29,11 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns bare and parent-relative anchors plus an absent package; the node_modules-directory decoy is covered separately.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestNodePackageManifestFromResolvesARelativeAnchor is selected from test/unit by the utility runner unit overlay. Runs bannerNodePackageManifestFrom and native path/stat operations in the Go process. t.Chdir is restored by testing; no fixture package is imported.
 func TestNodePackageManifestFromResolvesARelativeAnchor(t *testing.T) {
-  root := bannerRealpathIfPossible(t.TempDir())
+  root := shared.BannerRealpathIfPossible(t.TempDir())
   want := filepath.Join(root, "node_modules", "sibling", "package.json")
-  writeFile(t, want, `{"name":"sibling"}`)
+  shared.WriteFile(t, want, `{"name":"sibling"}`)
   nested := filepath.Join(root, "project", "nested")
-  writeFile(t, filepath.Join(nested, "banner.config.ts"), "export default {};\n")
+  shared.WriteFile(t, filepath.Join(nested, "banner.config.ts"), "export default {};\n")
   t.Chdir(nested)
 
   got := bannerNodePackageManifestFrom("banner.config.ts", "sibling")

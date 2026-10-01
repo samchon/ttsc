@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestConfigFileResolvesRelativeToPluginConfigDirEnv verifies that a relative
@@ -25,10 +27,10 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns custom JSON filename resolution through the environment project anchor; ordinary explicit JSON loading and automatic discovery have separate cases.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestConfigFileResolvesRelativeToPluginConfigDirEnv is selected from test/unit by the utility runner unit overlay. Runs stripLoadStripConfigMap, path/base-dir resolution and native JSON loading in the Go process; no compiler or Node child is spawned.
 func TestConfigFileResolvesRelativeToPluginConfigDirEnv(t *testing.T) {
-  project := seedProject(t, map[string]string{
+  project := shared.SeedProject(t, map[string]string{
     "custom.strip.json": `{"calls":["logger.trace"],"statements":["debugger"]}`,
   })
-  wrapper := seedProject(t, map[string]string{
+  wrapper := shared.SeedProject(t, map[string]string{
     "tsconfig.json": `{"compilerOptions":{"target":"ES2022"}}`,
   })
   t.Setenv("TTSC_PLUGIN_CONFIG_DIR", project)

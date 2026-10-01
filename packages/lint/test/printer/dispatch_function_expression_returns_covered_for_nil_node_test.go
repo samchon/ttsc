@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printFunctionExpression must produce empty output and covered true for nil.
 // @evidence contracts/testing.md#independent-expectations The missing-subtree identity has no tokens or unsafe multiline verbatim slice.
 // @evidence contracts/testing.md#distinguishing-cases Nil node complements a valid parsed function expression and a factory expression with no body.
-// @evidence contracts/testing.md#execution-ownership TestDispatchFunctionExpressionReturnsCoveredForNilNode is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchFunctionExpressionReturnsCoveredForNilNode is a plain top-level Go unit test, selectable with go test -run, that calls printFunctionExpression directly on a nil node with a PrintContext built from a trivial parsed file inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchFunctionExpressionReturnsCoveredForNilNode(t *testing.T) {
   file := parseTS(t, "const x = 1;\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

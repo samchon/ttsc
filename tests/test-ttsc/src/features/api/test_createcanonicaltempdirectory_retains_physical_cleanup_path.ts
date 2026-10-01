@@ -18,7 +18,7 @@ import { assert, fs, path } from "../../internal/script-unit";
  * @evidence contracts/testing.md#behavioral-verification createCanonicalTempDirectory pins its physical parent across alias retargeting, preserves the victim sentinel and rejects non-directory or escaped postflights.
  * @evidence contracts/testing.md#independent-expectations The explicitly observed operation order, physical parent and literal victim sentinel independently define safe creation and deletion.
  * @evidence contracts/testing.md#distinguishing-cases Successful alias handoff contrasts with non-directory and escaped-child failures; the original physical child is removed while the retargeted victim survives.
- * @evidence contracts/testing.md#execution-ownership This named src/features/api entry calls the authored filesystem operation directly on private fixtures, with no installed consumer, native compilation or product host; every original observable assertion is retained.
+ * @evidence contracts/testing.md#execution-ownership A unit test: it calls createCanonicalTempDirectory directly with real fs operations and a junction in a private temp directory, plus injected stubs for the failure cases; no process, native build or ttsc host. Prefix validation is not exercised.
  */
 export function test_createcanonicaltempdirectory_retains_physical_cleanup_path() {
     const root = createCanonicalTempDirectory("ttsc-canonical-temp-test-");

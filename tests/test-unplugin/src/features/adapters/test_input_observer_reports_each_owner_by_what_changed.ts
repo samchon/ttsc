@@ -39,7 +39,7 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  * @evidence contracts/testing.md#distinguishing-cases
  *   Covers pre-open registration, quiet unchanged state, content-only change, membership-only change and both in one flush, including one owner subscribing to both kinds.
  * @evidence contracts/testing.md#execution-ownership
- *   test_input_observer_reports_each_owner_by_what_changed calls createInputObserver.open/replace and injects paired file/membership events against its three owners; it owns every flush trace and finally disposes, without a watcher process.
+ *   test_input_observer_reports_each_owner_by_what_changed calls createInputObserver.open/replace with an injected watch/poll seam and drives change/rename events by hand against four owners (unopened, file, membership, both) over a real temporary project; it owns every flush report and disposes the observer in a finally block. No native watcher or process starts.
  */
 export async function test_input_observer_reports_each_owner_by_what_changed(): Promise<void> {
   const root = fs.realpathSync.native(

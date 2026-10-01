@@ -12,10 +12,10 @@ import { assertCacheKeyFoldsNonceAfterSnapshotWriteFailure } from "../../interna
  * 2. Deny worker writes while leaving sibling recovery storage available.
  * 3. Restore access, retry publication and verify fresh stable compaction.
  *
- * @evidence contracts/testing.md#behavioral-verification A denied worker write leaves a durable recovery record and nonreusable keys; restoring access republishes the retained observation, rotates the epoch and restores stable keys.
- * @evidence contracts/testing.md#independent-expectations Fail-closed persistence and recovered reuse independently require inequality before recovery, membership of the authored external path and equality afterwards.
- * @evidence contracts/testing.md#distinguishing-cases Readable main state with denied worker writes contrasts restored storage; the denial is enforced on POSIX and Windows; as root, which neither binds, the case logs a SKIPPED notice and asserts nothing.
- * @evidence contracts/testing.md#execution-ownership This named src/features/cache entry runs authored Metro fingerprint and transformer operations through the serial source-unit loader. Real fixture files and upstream input modules exercise resolution; no consumer installation, native compilation or product host is started.
+ * @evidence contracts/testing.md#behavioral-verification With the snapshot directory denied for creation, a recorder's record of an external .d.ts leaves no worker file, exactly one recovery record and non-equal keys; after restoring access the retried record republishes [external], prepareSnapshot rotates the epoch id, includes the path, clears worker and recovery files, and two later keys are equal and differ from the original key.
+ * @evidence contracts/testing.md#independent-expectations Authored literals define the expectations: no worker snapshots and one recovery file during the denial, inequality of two keys, then the external path in the worker union, a changed id and key equality afterwards.
+ * @evidence contracts/testing.md#distinguishing-cases Denied worker write and restored retry are both exercised against the same readable main snapshot. Denial uses mode bits on POSIX and an Everyone deny entry via icacls on Windows; when the process is root the body logs a SKIPPED notice and asserts nothing.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: drives createSnapshotRecorder, prepareSnapshot and getCacheKey in-process, using chmod or icacls only to deny directory writes; no native compile, consumer install or Metro host.
  */
 export const test_cache_key_folds_a_nonce_after_snapshot_write_failure =
   async () => {

@@ -9,6 +9,8 @@ import (
 
   _ "github.com/samchon/ttsc/packages/strip/driver"
   "github.com/samchon/ttsc/packages/ttsc/driver"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestLinkedProgramStripsCustomCallsOnlyInStatementPositions verifies configured removals on parsed statements with adjacent callee and position controls.
@@ -26,7 +28,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Exact and wildcard calls disappear while the wildcard prefix itself does not; computed and call-left callees are not identifier chains. The same drop callee disappears as a statement but survives in an initializer and return. Lists compact while required embedded slots become empty, and a block's kept sibling/if's else survive. The adjacent default case owns default debugger/console/debug/assert behavior rather than repeating parser predicates here.
 // @evidence contracts/testing.md#execution-ownership Named unit entry TestLinkedProgramStripsCustomCallsOnlyInStatementPositions is in test/unit for the utility overlay. One noLib single-threaded Program and actual registered plugin execute in this Go process; the absolute fixture configFile is JSON-only, t.Setenv restores the manifest and Close releases the checker lease. No script evaluation, native producer, subprocess, private linkname or global registry replacement is involved.
 func TestLinkedProgramStripsCustomCallsOnlyInStatementPositions(t *testing.T) {
-  root := seedProject(t, map[string]string{
+  root := shared.SeedProject(t, map[string]string{
     "tsconfig.json": `{"compilerOptions":{"target":"ES2022","module":"commonjs","noLib":true},"files":["src/main.ts"]}`,
     "strip.config.json": `{"calls":["console.warn","drop","custom.*"],"statements":[]}`,
     "src/main.ts": `function drop(value: string) { return value; }
@@ -53,7 +55,7 @@ for (const key in {}) drop("for-in");
 for (const item of []) drop("for-of");
 with ({}) drop("with");`,
   })
-  t.Setenv(driver.LinkedPluginsEnv, mustJSON(t, []driver.PluginEntry{{Name: "@ttsc/strip", Stage: "transform", Config: map[string]any{"transform": "@ttsc/strip", "configFile": filepath.Join(root, "strip.config.json")}}}))
+  t.Setenv(driver.LinkedPluginsEnv, shared.MustJSON(t, []driver.PluginEntry{{Name: "@ttsc/strip", Stage: "transform", Config: map[string]any{"transform": "@ttsc/strip", "configFile": filepath.Join(root, "strip.config.json")}}}))
   prog, diagnostics, err := driver.LoadProgram(root, filepath.Join(root, "tsconfig.json"), driver.LoadProgramOptions{SingleThreaded: true, ForceNoEmit: true, TsgoArgs: []string{}})
   if err != nil || len(diagnostics) != 0 || prog == nil {
     t.Fatalf("load parsed fixture: program=%v diagnostics=%v error=%v", prog != nil, diagnostics, err)

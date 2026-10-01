@@ -16,10 +16,10 @@ import (
 //  2. Enable `cypress/no-assigning-return-values`.
 //  3. Assert the assignment is reported once.
 //
-// @evidence contracts/testing.md#behavioral-verification The actual NewEngine.Run verifies assigning the cy.get chain produces one finding for cypress/no-assigning-return-values; findingRules asserts the complete count and rule identity, so this does not check repository metadata.
-// @evidence contracts/testing.md#independent-expectations A Cypress chain queues commands and is not the eventual DOM subject. The expected rule and count are independently authored for that policy rather than read from engine output.
-// @evidence contracts/testing.md#distinguishing-cases Executing get without storing the chain removes the misleading assignment. Both the original reported source and an independently authored zero-finding control execute.
-// @evidence contracts/testing.md#execution-ownership TestCypressNoAssigningReturnValuesReportsCyAssignment is a public Go unit entry parsing Cypress-shaped TypeScript and running the owning engine in-process; it does not install Cypress, start a browser or run a product host.
+// @evidence contracts/testing.md#behavioral-verification NewEngine with only cypress/no-assigning-return-values enabled runs over `const button = cy.get("button");`; the test requires exactly one finding whose rule is cypress/no-assigning-return-values at error severity (assertCypressOrdinaryRuleErrors rejects engine-failure or other-severity findings) and registers it as an engine behavioral witness.
+// @evidence contracts/testing.md#independent-expectations Cypress commands enqueue work and do not yield their subject synchronously, so a variable initialized from a cy chain is misleading. The expected count of one and the zero-finding control are literals authored from that rule contract, not computed by the rule.
+// @evidence contracts/testing.md#distinguishing-cases Positive: `const button = cy.get("button");` yields one finding. Negative control: `cy.get("button");` is run through assertRuleSkipsSource and must yield zero findings; the identical command as a bare statement without a variable is accepted.
+// @evidence contracts/testing.md#execution-ownership TestCypressNoAssigningReturnValuesReportsCyAssignment is an in-process Go unit test: parseTS plus NewEngine(...).Run for the positive case and runRuleFindingsSnapshot (via assertRuleSkipsSource) for the control. It installs no Cypress, starts no browser and no product host.
 func TestCypressNoAssigningReturnValuesReportsCyAssignment(t *testing.T) {
   file := parseTS(t, `
     const button = cy.get("button");

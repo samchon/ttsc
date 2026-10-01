@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestConfigDiscoveryAnchorsAtPluginConfigDirEnv verifies that the strip driver
@@ -26,10 +28,10 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns environment discovery without a wrapper config; a populated wrapper decoy is owned by TestConfigDiscoveryEnvIgnoresConfigNextToWrapperTsconfig.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestConfigDiscoveryAnchorsAtPluginConfigDirEnv is selected from test/unit by the utility runner unit overlay. Runs stripLoadStripConfigMap, base-dir/discovery and native JSON loading in the Go process; fixture tsconfig text is not loaded by a compiler.
 func TestConfigDiscoveryAnchorsAtPluginConfigDirEnv(t *testing.T) {
-  project := seedProject(t, map[string]string{
+  project := shared.SeedProject(t, map[string]string{
     "strip.config.json": `{"calls":["logger.trace"],"statements":[]}`,
   })
-  wrapper := seedProject(t, map[string]string{
+  wrapper := shared.SeedProject(t, map[string]string{
     "tsconfig.json": `{"compilerOptions":{"target":"ES2022"}}`,
   })
   t.Setenv("TTSC_PLUGIN_CONFIG_DIR", project)

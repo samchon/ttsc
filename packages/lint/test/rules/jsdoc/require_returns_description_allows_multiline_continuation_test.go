@@ -2,19 +2,18 @@ package linthost
 
 import "testing"
 
-// TestRuleJSDocRequireReturnsDescriptionAllowsMultilineContinuation verifies jsdoc/require-returns-description accepts continued prose.
+// TestRuleJSDocRequireReturnsDescriptionAllowsMultilineContinuation verifies
+// jsdoc/require-returns-description counts an indented continuation line after
+// a typed @returns as its description.
 //
-// Return descriptions may sit below a typed @returns line. This pins the parser
-// path that appends the continuation before the description rule checks payloads.
+// 1. Run the rule over a block with `@returns {number}` on one line and
+//    `Rounded total.` on the next indented line.
+// 2. Expect no findings.
 //
-// 1. Parse a TypeScript file with @returns {number} on one line.
-// 2. Continue the return description on the following indented line.
-// 3. Enable jsdoc/require-returns-description and assert no findings.
-//
-// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the actual engine and requires zero findings when the returns description continues on the following indented line.
-// @evidence contracts/testing.md#independent-expectations JSDoc continuation prose belongs to the preceding @returns tag; an independently authored explanation satisfies the description policy despite the line break.
-// @evidence contracts/testing.md#distinguishing-cases This is the wrapped-prose accepted boundary; TestRuleJSDocRequireReturnsDescription owns the incomplete tag and a same-line accepted description.
-// @evidence contracts/testing.md#execution-ownership TestRuleJSDocRequireReturnsDescriptionAllowsMultilineContinuation is a discoverable Go unit using actual JSDoc parsing and in-process engine execution; no native artifact or documentation runtime is built.
+// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/require-returns-description rule through NewEngine.Run over a parsed virtual TypeScript file and requires zero findings for a typed @returns whose description starts on the next comment line.
+// @evidence contracts/testing.md#independent-expectations Wrapped JSDoc prose belongs to the preceding tag, so the authored continuation line satisfies the description requirement. The zero expectation is a literal.
+// @evidence contracts/testing.md#distinguishing-cases This is the wrapped-prose accepted case. TestRuleJSDocRequireReturnsDescription reports a @returns with only a type and accepts one with a same-line description.
+// @evidence contracts/testing.md#execution-ownership The Test is a single Go unit with one direct helper call; assertJSDocRuleLines parses the source with parseTSFile and runs the rule engine in the test process, with no installed consumer, native build or host.
 func TestRuleJSDocRequireReturnsDescriptionAllowsMultilineContinuation(t *testing.T) {
   assertJSDocRuleLines(t, "jsdoc/require-returns-description", `/**
  * Computes a value.

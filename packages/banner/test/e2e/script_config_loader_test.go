@@ -4,6 +4,8 @@ import (
   "path/filepath"
   "strings"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestScriptConfigLoader verifies JavaScript banner.config loading success and failures.
@@ -23,15 +25,15 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary Actual Node import/async export and parent stdout/exit decoding cross process boundaries. Validation semantics remain direct concerns; fake binaries establish parent protocol handling, not JS evaluator failure internals.
 // @evidence contracts/e2e.md#shared-execution One fixture root contains valid config and failure launchers. Each load currently starts an independent process without a native Go producer or resident Node batch.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.Setenv restores TTSC_NODE_BINARY and t.TempDir releases fixture programs/configs. The parent waits for child exit; assertions deliberately reject stderr text being repeated in the error.
-// @evidence contracts/e2e.md#preserved-coverage All original CJS/MJS values, invalid-name/export, malformed stdout and loud/silent exit assertions remain. Stderr is not captured as an exact byte oracle by this entry.
+// @evidence contracts/e2e.md#preserved-coverage The body asserts the CJS and MJS texts, the invalid-name and numeric-export errors, the malformed-stdout parse error, the exit-status-7 error naming the config without repeating the child's stderr, and the silent exit-status error; stderr itself is not captured as an oracle.
 func TestScriptConfigLoader(t *testing.T) {
   root := t.TempDir()
   cjs := filepath.Join(root, "banner.config.cjs")
   mjs := filepath.Join(root, "banner.config.mjs")
-  writeFile(t, cjs, `module.exports = async () => ({ text: "from cjs" });`)
-  writeFile(t, mjs, `export default { text: "from mjs" };`)
+  shared.WriteFile(t, cjs, `module.exports = async () => ({ text: "from cjs" });`)
+  shared.WriteFile(t, mjs, `export default { text: "from mjs" };`)
 
-  raw, err := bannerLoadBannerConfigFile(cjs, root)
+  raw, err := shared.BannerLoadBannerConfigFile(cjs, root)
   if err != nil {
     t.Fatal(err)
   }
@@ -47,12 +49,12 @@ func TestScriptConfigLoader(t *testing.T) {
   if !ok || object["text"] != "from mjs" {
     t.Fatalf("mjs config mismatch: %#v", raw)
   }
-  if _, err := bannerLoadBannerConfigFile(filepath.Join(root, "other.cjs"), root); err == nil || !strings.Contains(err.Error(), "config file must be named") {
+  if _, err := shared.BannerLoadBannerConfigFile(filepath.Join(root, "other.cjs"), root); err == nil || !strings.Contains(err.Error(), "config file must be named") {
     t.Fatalf("expected invalid name error, got %v", err)
   }
 
   badExport := filepath.Join(root, "bad", "banner.config.cjs")
-  writeFile(t, badExport, `module.exports = 1;`)
+  shared.WriteFile(t, badExport, `module.exports = 1;`)
   if _, err := bannerLoadBannerScriptConfigFile(badExport); err == nil || !strings.Contains(err.Error(), "config file must export") {
     t.Fatalf("expected invalid export error, got %v", err)
   }

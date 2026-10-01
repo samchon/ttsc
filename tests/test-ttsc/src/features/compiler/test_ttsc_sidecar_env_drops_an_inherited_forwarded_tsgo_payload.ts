@@ -27,8 +27,8 @@ import { clearInheritedTsgoArgs } from "../../../../../packages/ttsc/src/compile
  *
  * @evidence contracts/testing.md#behavioral-verification Direct clearInheritedTsgoArgs and clearInheritedSemanticConfigPath calls remove undeclared inherited channels, retain explicitly declared values and preserve unrelated PATH/absent environments.
  * @evidence contracts/testing.md#independent-expectations Literal --strict payload, explicit config paths and unchanged PATH follow per-invocation caller ownership; expected maps are authored independently of environment-cleanup helpers.
- * @evidence contracts/testing.md#distinguishing-cases Forwarded argv covers inherited, declared and absent channel; semantic config covers inherited and declared. Native differently cased environment aliases belong to separate SidecarEnvironment units and are not repeated here.
- * @evidence contracts/testing.md#execution-ownership Source-unit test_ttsc_sidecar_env_drops_an_inherited_forwarded_tsgo_payload is discovered in unit/compiler through run-source-units and calls authored owning helpers with fresh local environment maps. The prior feature file is transferred with every assertion intact; no consumer/native process is needed.
+ * @evidence contracts/testing.md#distinguishing-cases Forwarded tsgo args: an inherited value is cleared, a caller-declared identical value is kept, and an environment with no payload keeps its PATH untouched; semantic config path: an inherited value is cleared and a caller-declared one kept. Differently cased variable names and the absent semantic-config case are not exercised here.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling clearInheritedTsgoArgs and clearInheritedSemanticConfigPath on fresh in-memory environment objects; no subprocess, install or native host runs.
  */
 export const test_ttsc_sidecar_env_drops_an_inherited_forwarded_tsgo_payload =
   (): void => {

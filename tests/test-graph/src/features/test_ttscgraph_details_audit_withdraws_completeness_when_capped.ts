@@ -14,17 +14,17 @@ import { createSyntheticGraph } from "../internal/resolverGraph";
  * A reduced member list cannot show the caller what was omitted. The application
  * must select the capped audit from the actual details result, while an exact
  * limit and an uncapped request retain the complete audit and member identity.
- * The public audit wording also keeps the still-valid fan-out and next guidance.
+ * The audit wording also keeps the still-valid fan-out and next guidance.
  *
- * 1. Build a two-member enum through the authored synthetic-memory helper.
+ * 1. Build a two-member enum through the synthetic-memory helper.
  * 2. Request uncapped, one-member and exact two-member details from the application.
  * 3. Assert returned member names, preserved identity and values, and audit selection.
- * 4. Retain the literal public-wording assertions for complete and capped audits.
+ * 4. Assert literal substrings of the complete and capped audit texts.
  *
- * @evidence contracts/testing.md#behavioral-verification TtscGraphApplication.inspect_typescript_graph runs the real details projection over a two-member enum; a one-member cap changes both the returned members and selected audit, while the exact limit retains both members and the complete audit.
- * @evidence contracts/testing.md#independent-expectations The fixture declares Red and Blue with literal values; literal expected member pairs and retained identity derive from those inputs, while distinct audit constants and the original public wording checks expose an incorrect completeness claim. This case does not verify native enum extraction.
- * @evidence contracts/testing.md#distinguishing-cases Default and exact-limit requests return both enum members under the complete audit; the adjacent limit of one omits Blue and selects the capped audit without changing identity, values or answer continuation. Original capped wording exclusion and retained guidance assertions remain.
- * @evidence contracts/testing.md#execution-ownership The matching src/features test_ttscgraph_details_audit_withdraws_completeness_when_capped export is selected by the source-unit runner and calls authored application, details and memory code in its Node process; no installed graph package, native producer or MCP host is started.
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphApplication.inspect_typescript_graph must run the real details projection over a two-member enum: with no memberLimit and with memberLimit 2 it returns both members and RESULT_AUDIT_DETAILS, while memberLimit 1 returns only Colors.Red and RESULT_AUDIT_DETAILS_CAPPED; id, name, kind, file and literals are unchanged in every case and next.action stays "answer".
+ * @evidence contracts/testing.md#independent-expectations The fixture declares Red and Blue with literal values, and the expected member names, signatures and identity are literals derived from those inputs. The audit selection is compared with the product's own two audit constants, and the wording checks assert literal substrings of them; native enum extraction is not verified.
+ * @evidence contracts/testing.md#distinguishing-cases Default and exact-limit requests (both members, complete audit) contrast the adjacent limit of one (Blue omitted, capped audit). The capped text must differ from the complete text, no longer contain the complete-members sentence, mention memberLimit, and keep the substrings "short orientation" and "Follow".
+ * @evidence contracts/testing.md#execution-ownership Calls TtscGraphApplication, runDetails and TtscGraphMemory through createSyntheticGraph in the test process; no installed graph package, native producer or MCP host is started.
  */
 export async function test_ttscgraph_details_audit_withdraws_completeness_when_capped(): Promise<void> {
     const graph = createSyntheticGraph([

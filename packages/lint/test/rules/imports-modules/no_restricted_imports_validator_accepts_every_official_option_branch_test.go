@@ -5,18 +5,23 @@ import (
   "testing"
 )
 
-// TestNoRestrictedImportsValidatorAcceptsEveryOfficialOptionBranch verifies ConfigError accepts eight supported option representations, keeps the rule enabled at error severity and does not request a checker.
+// TestNoRestrictedImportsValidatorAcceptsEveryOfficialOptionBranch verifies
+// engine construction accepts eight valid no-restricted-imports option shapes,
+// leaves the rule enabled at error severity and does not ask for a type checker.
 //
-// Pins the distinct option, syntax or failure branch represented by this fixture.
+// The eight values are: no options, a bare string path, a mixed positional
+// array, an empty object, empty paths and patterns, paths with string patterns,
+// an object pattern with group, importNames, importNamePattern, caseSensitive
+// and allowTypeImports, and two regex patterns with allowImportNames and
+// allowImportNamePattern.
 //
-// 1. Supply the authored source and configuration inputs.
-// 2. Run the owning engine or command operation in this process.
-// 3. Compare the literal findings, messages or failure state below.
+// 1. Build an engine through noRestrictedImportsValidationEngine for each value.
+// 2. Require no ConfigError, error severity in EnabledRules and no type-checker need.
 //
-// @evidence contracts/testing.md#behavioral-verification ConfigError accepts eight supported option representations, keeps the rule enabled at error severity and does not request a checker.
-// @evidence contracts/testing.md#independent-expectations The official path/pattern option contract admits missing, positional, object, empty, grouped and regex forms; expected activation and AST-only capability are literal requirements.
-// @evidence contracts/testing.md#distinguishing-cases Empty arrays, allow/deny import names, case/regex/group patterns and type exemptions exercise distinct valid schema branches; malformed rejection is owned by the sibling validator.
-// @evidence contracts/testing.md#execution-ownership Each authored valid option object is passed to noRestrictedImportsValidationEngine, which calls NewEngineWithResolver. This entry owns ConfigError, EnabledRules and NeedsTypeChecker assertions for every loop iteration.
+// @evidence contracts/testing.md#behavioral-verification NewEngineWithResolver, driven through noRestrictedImportsValidationEngine, reports no ConfigError for each of the eight option values, lists no-restricted-imports as enabled at error severity, and reports that no type checker is required.
+// @evidence contracts/testing.md#independent-expectations The official path and pattern option contract admits missing, positional, object, empty, grouped and regex forms; the acceptance, activation and checker-free requirements are literal expectations rather than derived from decoder output.
+// @evidence contracts/testing.md#distinguishing-cases The eight values exercise distinct valid branches: empty importNames and allowImportNames arrays, allowTypeImports, group and regex patterns, name patterns and caseSensitive. Rejection of malformed values belongs to the sibling validator Test.
+// @evidence contracts/testing.md#execution-ownership noRestrictedImportsValidationEngine calls NewEngineWithResolver with an InlineRuleResolver in the Go test process; the Test body asserts ConfigError, EnabledRules and NeedsTypeChecker for each of the eight values in a loop. No source file is parsed.
 func TestNoRestrictedImportsValidatorAcceptsEveryOfficialOptionBranch(t *testing.T) {
   valid := []json.RawMessage{
     nil,

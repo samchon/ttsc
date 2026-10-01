@@ -15,7 +15,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification runFunctionalRule executes the actual engine and verifies state.count write reports; assertFunctionalFinding requires exactly one finding carrying this rule identity, no autofix and a message containing the expected fragment, which separates the policy report from duplicate or unrelated findings.
 // @evidence contracts/testing.md#independent-expectations Immutable data policy rejects member writes but allows reading the property. The authored source states the policy case independently of rule output.
-// @evidence contracts/testing.md#distinguishing-cases The original violating input remains intact and a separately authored accepted source is checked for zero findings.
+// @evidence contracts/testing.md#distinguishing-cases Positive: `const state = { count: 0 }; state.count = 1;` must yield exactly one functional/immutable-data finding (assertFunctionalFinding). Negative control run through the same rule via assertNoFunctionalFinding: `const state = { count: 0 }; const current = state.count;` must yield zero findings; reading the property is accepted while writing it is reported. No option-configured variant is exercised here.
 // @evidence contracts/testing.md#execution-ownership TestFunctionalImmutableDataRejectsPropertyAssignment is a named Go unit entry running actual TypeScript AST policy operations in the shared engine process; no consumer install, native build or real product host is used.
 func TestFunctionalImmutableDataRejectsPropertyAssignment(t *testing.T) {
   const ruleName = "functional/immutable-data"

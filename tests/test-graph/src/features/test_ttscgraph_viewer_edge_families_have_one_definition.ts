@@ -60,24 +60,25 @@ const legendHost = (): { footer: StubElement; document: LegendDocument } => {
 /**
  * Verifies graph viewer: one definition of the edge families.
  *
- * The vocabulary lived in five unenforced places — a display map copied into
+ * The vocabulary lived in five unenforced places - a display map copied into
  * three reducers, a colour map in each viewer, and a legend written out by hand
- * in `packages/graph/src/viewer/index.html`. `doc_ref` shipped with no legend
- * entry, and `exports` was drawn in the fallback colour under no legend entry
- * and no filter row at all. This case holds the three reducers and the bundled
- * viewer's legend to one definition, so a new family cannot be half-added
- * across them.
+ * in the bundled viewer markup. `doc_ref` shipped with no legend entry, and
+ * `exports` was drawn in the fallback colour under no legend entry. This case
+ * holds the three reducers and the bundled viewer's legend to one definition, so
+ * a new family cannot be half-added across them.
  *
- * 1. Reduce a dump carrying one edge of every kind a dump can hold, through all
- *    three reducer copies, and require them to fold it identically.
+ * 1. Reduce a dump carrying one edge of each of ten wire kinds through all three
+ *    reducer copies, and require them to fold it identically.
  * 2. Require every family the reducers produce to have a colour in the bundled
- *    viewer, and an unknown kind to still pass through with none.
- * 3. Render the legend and require one entry per family, in order, with the right
- *    swatch.
-  * @evidence contracts/testing.md#behavioral-verification Three authored reducer functions process all ten seeded wire relationships and an unknown kind; renderLegend creates ordered visible swatches, preserves the footer note and refuses duplicate rendering.
- * @evidence contracts/testing.md#independent-expectations Literal wire kinds and unknown input determine survivor counts and identities; separately maintained reducer implementations cross-check folding. The palette map supplies the rendering input, so this case detects transport or copy disagreement rather than independently judging palette design.
- * @evidence contracts/testing.md#distinguishing-cases Every supported wire relationship contrasts an unknown kind without a legend family; swatch class, order, static-note placement and repeated rendering each have independent assertions.
- * @evidence contracts/testing.md#execution-ownership This named src/features entry loads authored reducer and legend source functions with a bounded DOM fixture, without installed artifacts, a native build, browser or product host.
+ *    viewer's LINK_COLORS, and an unknown kind to pass through with none.
+ * 3. Render the legend into a stub footer and require one entry per family, in
+ *    order, with its swatch colour and classes, ahead of the static note, and not
+ *    duplicated by a second render.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The package, website and fixture reducer copies must each keep all ten seeded wire relationships as links and fold them to the same kind per edge; the set of folded kinds must equal the keys of the viewer's LINK_COLORS; an unknown kind must pass through unfolded and have no colour; and renderLegend must prepend one dot per LINK_COLORS entry, in order, with its colour, the classes dot and swatch, the static note kept after them, and a second render adding nothing.
+ * @evidence contracts/testing.md#independent-expectations The ten wire kinds and the unknown kind are literals. The folded kinds are not written as literals: the three reducer copies are compared with one another and with the keys of LINK_COLORS, so the test detects disagreement between copies and the palette (for example a missing legend family) but not an identical error in all of them or a poor palette choice.
+ * @evidence contracts/testing.md#distinguishing-cases Ten supported kinds contrast an unknown kind that must stay unfolded and uncoloured; swatch class, order, note placement and repeated rendering are asserted separately. The website and benchmark legend implementations are not rendered, only the bundled viewer's.
+ * @evidence contracts/testing.md#execution-ownership Imports and runs the three reducer source files and the bundled legend module in the test process, rendering into a hand-written stub of the DOM footer; no browser, installed artifact, native build or product host is involved.
  */
 export async function test_ttscgraph_viewer_edge_families_have_one_definition(): Promise<void> {
     const copies = await loadViewerReducers();

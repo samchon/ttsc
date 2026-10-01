@@ -2,19 +2,18 @@ package linthost
 
 import "testing"
 
-// TestRuleJSDocRequireParamDescriptionAllowsMultilineContinuation verifies jsdoc/require-param-description accepts continued prose.
+// TestRuleJSDocRequireParamDescriptionAllowsMultilineContinuation verifies
+// jsdoc/require-param-description counts an indented continuation line as the
+// description of the preceding @param tag.
 //
-// Parameter descriptions may wrap onto the next indented JSDoc line. This pins
-// the parser path that attaches non-tag continuation lines to the preceding tag.
+// 1. Run the rule over a block with `@param name` on one line and
+//    `Normalized display name.` on the next indented line.
+// 2. Expect no findings.
 //
-// 1. Parse a TypeScript file with @param name on one line.
-// 2. Continue the parameter description on the following indented line.
-// 3. Enable jsdoc/require-param-description and assert no findings.
-//
-// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the actual engine and requires zero findings when the param description continues on the following indented line.
-// @evidence contracts/testing.md#independent-expectations JSDoc continuation prose belongs to the preceding @param tag; an independently authored explanation satisfies the description policy despite the line break.
-// @evidence contracts/testing.md#distinguishing-cases This is the wrapped-prose accepted boundary; TestRuleJSDocRequireParamDescription owns the incomplete tag and a same-line accepted description.
-// @evidence contracts/testing.md#execution-ownership TestRuleJSDocRequireParamDescriptionAllowsMultilineContinuation is a discoverable Go unit using actual JSDoc parsing and in-process engine execution; no native artifact or documentation runtime is built.
+// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/require-param-description rule through NewEngine.Run over a parsed virtual TypeScript file and requires zero findings for a @param whose description starts on the next comment line.
+// @evidence contracts/testing.md#independent-expectations Wrapped JSDoc prose belongs to the preceding tag, so the authored continuation line satisfies the description requirement. The zero expectation is a literal.
+// @evidence contracts/testing.md#distinguishing-cases This is the wrapped-prose accepted case. TestRuleJSDocRequireParamDescription reports a @param with no description and accepts one on the same line.
+// @evidence contracts/testing.md#execution-ownership The Test is a single Go unit with one direct helper call; assertJSDocRuleLines parses the source with parseTSFile and runs the rule engine in the test process, with no installed consumer, native build or host.
 func TestRuleJSDocRequireParamDescriptionAllowsMultilineContinuation(t *testing.T) {
   assertJSDocRuleLines(t, "jsdoc/require-param-description", `/**
  * Handles a name.

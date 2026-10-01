@@ -21,8 +21,8 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification A real fixture Program/checker produces alias metadata and the actual upstream conversion must yield a TypeReference with the authored name and string keyword argument; nested and recovered calls execute the same endpoint.
 // @evidence contracts/testing.md#independent-expectations The fixture's global Pair<T> and namespace Named.Pair<T> declarations establish literal identifier and qualified-name expectations; both Holder properties supply the independently authored string argument.
-// @evidence contracts/testing.md#distinguishing-cases Ordinary and nested conversion contrast with nil callback return, exact callback error identity and a propagated panic followed by healthy conversion. Each nested invocation owns a separate builder while sharing the valid checker and emit round.
-// @evidence contracts/testing.md#execution-ownership The normal lint shim source-unit population copies this case beside linthost and runs one actual loadProgram/checker in the shared Go process; it installs no consumer and builds no native compiler artifact.
+// @evidence contracts/testing.md#distinguishing-cases Ordinary and nested conversion contrast with nil callback return, exact callback error identity and a propagated panic followed by healthy conversion. The nested call is made from inside an outer WithNodeBuilderContext callback and must still return a correct reference; the test does not compare the two builder pointers.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestTypeAliasReferenceNodeUsesBorrowedBuilderContext runs one loadProgram and checker over a temporary single-file project in the Go test process and calls the exposed WithNodeBuilderContext and ToTypeReferenceNode endpoints; it installs no consumer and builds no native compiler artifact.
 func TestTypeAliasReferenceNodeUsesBorrowedBuilderContext(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{"compilerOptions":{"strict":true},"files":["main.ts"]}`)

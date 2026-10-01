@@ -16,10 +16,10 @@ import (
 //  2. Enable `cypress/no-async-tests`.
 //  3. Assert the async test callback is reported once.
 //
-// @evidence contracts/testing.md#behavioral-verification The actual NewEngine.Run verifies an async it callback produces one finding for cypress/no-async-tests; findingRules asserts the complete count and rule identity, so this does not check repository metadata.
-// @evidence contracts/testing.md#independent-expectations Cypress test commands already use their managed queue. The expected rule and count are independently authored for that policy rather than read from engine output.
-// @evidence contracts/testing.md#distinguishing-cases A synchronous test callback removes the async modifier while keeping the command. Both the original reported source and an independently authored zero-finding control execute.
-// @evidence contracts/testing.md#execution-ownership TestCypressNoAsyncTestsReportsAsyncIt is a public Go unit entry parsing Cypress-shaped TypeScript and running the owning engine in-process; it does not install Cypress, start a browser or run a product host.
+// @evidence contracts/testing.md#behavioral-verification NewEngine with only cypress/no-async-tests enabled runs over `it("saves", async () => { await cy.get("button"); });`; the test requires exactly one finding whose rule is cypress/no-async-tests at error severity (assertCypressOrdinaryRuleErrors rejects engine-failure or other-severity findings) and registers it as an engine behavioral witness.
+// @evidence contracts/testing.md#independent-expectations Cypress test callbacks rely on the command queue, so an async arrow callback to it is wrong. The expected count of one and the zero-finding control are literals authored from that rule contract, not computed by the rule.
+// @evidence contracts/testing.md#distinguishing-cases Positive: `it("saves", async () => { await cy.get("button"); });` yields one finding. Negative control: `it("saves", () => { cy.get("button"); });` is run through assertRuleSkipsSource and must yield zero findings; the same test with a synchronous arrow callback is accepted.
+// @evidence contracts/testing.md#execution-ownership TestCypressNoAsyncTestsReportsAsyncIt is an in-process Go unit test: parseTS plus NewEngine(...).Run for the positive case and runRuleFindingsSnapshot (via assertRuleSkipsSource) for the control. It installs no Cypress, starts no browser and no product host.
 func TestCypressNoAsyncTestsReportsAsyncIt(t *testing.T) {
   file := parseTS(t, `
     it("saves", async () => {

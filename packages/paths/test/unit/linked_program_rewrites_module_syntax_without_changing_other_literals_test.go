@@ -9,6 +9,8 @@ import (
 
   _ "github.com/samchon/ttsc/packages/paths/driver"
   "github.com/samchon/ttsc/packages/ttsc/driver"
+
+  shared "github.com/samchon/ttsc/packages/paths/test/internal/shared"
 )
 
 // TestLinkedProgramRewritesModuleSyntaxWithoutChangingOtherLiterals verifies actual parsed module literals and lexical loader bindings.
@@ -26,7 +28,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases A missing first wildcard target precedes the real source; every eligible syntax form changes while fn/obj.require, relative and unmatched specifiers do not. External-module augmentation changes but the same global-script declaration does not. Ambient and unresolved require change, while parameter, local and imported require retain their argument. Existing resolution-helper units own their separate precedence/extension matrices.
 // @evidence contracts/testing.md#execution-ownership Named unit entry TestLinkedProgramRewritesModuleSyntaxWithoutChangingOtherLiterals is in test/unit for the utility overlay. One noLib single-threaded compiler Program and its actual checker execute in this Go process, with fixture-owned linked manifest restored by t.Setenv and checker lease released by Close; no registry replacement, private linkname, native producer or subprocess is used.
 func TestLinkedProgramRewritesModuleSyntaxWithoutChangingOtherLiterals(t *testing.T) {
-  root := seedProject(t, map[string]string{
+  root := shared.SeedProject(t, map[string]string{
     "tsconfig.json": `{"compilerOptions":{"target":"ES2022","module":"ES2022","noLib":true,"rootDir":"src","outDir":"dist","paths":{"@pkg":["./src/pkg"],"@lib/exact":["./src/modules/exact.ts"],"@lib/*":["./src/missing/*","./src/modules/*"]}},"include":["src"]}`,
     "src/modules/message.ts": `export interface MessageBox { value: string }; export const message = 1;`,
     "src/modules/exact.ts": `export const exact = 2;`,

@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printNamedExports must break five named exports at width twenty while retaining each binding and a final comma.
 // @evidence contracts/testing.md#independent-expectations The literal expected clause preserves alpha through echo in order and follows the documented two-space broken named-list layout.
 // @evidence contracts/testing.md#distinguishing-cases The overflowing five-entry clause complements the fitting two-entry exports and absent-node boundary.
-// @evidence contracts/testing.md#execution-ownership TestDispatchNamedExportsBreaksWhenOverflows is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchNamedExportsBreaksWhenOverflows is a plain top-level Go unit test, selectable with go test -run, that calls printNamedExports directly on a parsed five-specifier export clause at width twenty inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchNamedExportsBreaksWhenOverflows(t *testing.T) {
   file := parseTS(t, "export { alpha, bravo, charlie, delta, echo };\n")
   node := firstNodeOfKind(t, file, shimast.KindNamedExports)

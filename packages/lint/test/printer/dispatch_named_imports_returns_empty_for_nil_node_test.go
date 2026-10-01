@@ -20,7 +20,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printNamedImports must produce no clause for nil.
 // @evidence contracts/testing.md#independent-expectations An absent named-bindings node contributes no source bytes or delimiters.
 // @evidence contracts/testing.md#distinguishing-cases The nil boundary complements nonempty flat/broken imports and missing-list or missing-item fallbacks.
-// @evidence contracts/testing.md#execution-ownership TestDispatchNamedImportsReturnsEmptyForNilNode is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchNamedImportsReturnsEmptyForNilNode is a plain top-level Go unit test, selectable with go test -run, that calls printNamedImports directly on a nil node with a PrintContext built from a trivial parsed file inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchNamedImportsReturnsEmptyForNilNode(t *testing.T) {
   file := parseTS(t, "export {};\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

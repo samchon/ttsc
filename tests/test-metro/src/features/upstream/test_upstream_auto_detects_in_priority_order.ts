@@ -12,10 +12,10 @@ import { assertAutoDetectsInPriorityOrder } from "../../internal/metro-upstream-
  * 2. With Expo absent, assert modern RN is chosen.
  * 3. With Expo and modern RN absent, assert the legacy package is chosen.
  *
- * @evidence contracts/testing.md#behavioral-verification resolveUpstreamTransformer selects Expo, modern React Native, then legacy React Native as earlier candidates become absent.
- * @evidence contracts/testing.md#independent-expectations The documented priority uses literal package specifiers independently of exported candidate data.
- * @evidence contracts/testing.md#distinguishing-cases All present, Expo absent and the first two absent preserve the three selected-transformer assertions.
- * @evidence contracts/testing.md#execution-ownership This named src/features export executes authored Metro decisions in the source-unit Node process; fixture callbacks supply resolver results and no compiled package, native build, install or host starts.
+ * @evidence contracts/testing.md#behavioral-verification resolveUpstreamTransformer(undefined, load) with an injected loader that tags each specifier returns the Expo transformer when all load, the @react-native one when Expo returns undefined, and the metro-react-native-babel-transformer one when both earlier candidates return undefined.
+ * @evidence contracts/testing.md#independent-expectations The three candidate specifiers are written out literally in the test and compared with the tag the loader attached, not read from UPSTREAM_CANDIDATES.
+ * @evidence contracts/testing.md#distinguishing-cases All candidates present, the first absent, and the first two absent are three separate selections, so a wrong order or a missing fall-through changes the chosen name.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls resolveUpstreamTransformer from packages/metro/src/core/upstream.ts in-process with an injected loader callback; no module is required from disk, and no compile, install or Metro host is involved.
  */
 export const test_upstream_auto_detects_in_priority_order = async () => {
   await assertAutoDetectsInPriorityOrder();

@@ -5,18 +5,17 @@ import (
   "testing"
 )
 
-// TestNoRestrictedImportsStringPatternsKeepGitignoreParentNegationSemantics verifies String pattern negation exempts descendants of lib/public while retaining lib/private restriction.
+// TestNoRestrictedImportsStringPatternsKeepGitignoreParentNegationSemantics
+// verifies string patterns ["lib/*", "!lib/public"] restrict lib/private/value
+// but exempt descendants of lib/public.
 //
-// Pins the distinct option, syntax or failure branch represented by this fixture.
+// 1. Run the rule with the two string patterns over three imports.
+// 2. Compare the reported ranges with the single literal target.
 //
-// 1. Supply the authored source and configuration inputs.
-// 2. Run the owning engine or command operation in this process.
-// 3. Compare the literal findings, messages or failure state below.
-//
-// @evidence contracts/testing.md#behavioral-verification String pattern negation exempts descendants of lib/public while retaining lib/private restriction.
-// @evidence contracts/testing.md#independent-expectations The authored lib/* and !lib/public pattern sequence follows the supported gitignore-style parent exception; only private/value is in the literal target list.
-// @evidence contracts/testing.md#distinguishing-cases A private child, a public child and other/value distinguish negation traversal from matching all children or no children.
-// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot for this entry's authored source/options and validates rule, ranges and absence of edits. assertNoRestrictedImportsTargets compares the displayed literal target list; this Test owns every invocation and message assertion in the Go process.
+// @evidence contracts/testing.md#behavioral-verification Only `import "lib/private/value"` is reported; "lib/public/value", whose parent directory is re-included by the negation, and "other/value" are not.
+// @evidence contracts/testing.md#independent-expectations Gitignore-style semantics with the ordered patterns lib/* then !lib/public re-include the lib/public directory, so only lib/private/value is expected; the expectation is one authored literal.
+// @evidence contracts/testing.md#distinguishing-cases A private child, a public child and an unrelated module distinguish negation of a parent directory from matching every child of lib or matching none.
+// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot, which binds the rule at error severity, parses the source in a temporary project and runs Engine.Run in the Go test process, then rejects other rules, edits and invalid ranges. assertNoRestrictedImportsTargets compares the one literal range; the Test asserts no messages.
 func TestNoRestrictedImportsStringPatternsKeepGitignoreParentNegationSemantics(t *testing.T) {
   source := `import "lib/private/value";
 import "lib/public/value";

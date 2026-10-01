@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification PrintNode must retain the complete outer/inner/deep call nesting with consistently indented callback bodies and report full coverage.
 // @evidence contracts/testing.md#independent-expectations The full literal result independently fixes every call, arrow, brace and statement order, excluding only the enclosing final statement terminator.
 // @evidence contracts/testing.md#distinguishing-cases Two nested callback levels distinguish recursive statement dispatch from reflow limited to the first callback.
-// @evidence contracts/testing.md#execution-ownership TestDispatchNestedCallbackReflowsAtEveryDepth is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchNestedCallbackReflowsAtEveryDepth is a plain top-level Go unit test, selectable with go test -run, that calls PrintNode directly on a parsed call with callbacks nested two levels deep inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchNestedCallbackReflowsAtEveryDepth(t *testing.T) {
   file := parseTS(t, "outer(() => {\n  inner(() => {\n    deep();\n  });\n});\n")
   node := firstNodeOfKind(t, file, shimast.KindCallExpression)

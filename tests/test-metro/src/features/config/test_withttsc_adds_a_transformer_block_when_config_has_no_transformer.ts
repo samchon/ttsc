@@ -9,14 +9,14 @@ import { assertWithTtscAddsTransformerWhenAbsent } from "../../internal/metro-co
  * `transformer.babelTransformerPath` without crashing, while preserving
  * unrelated top-level keys.
  *
- * 1. Call withTtsc on a config that has no `transformer` key.
- * 2. Assert an unrelated top-level key survives.
- * 3. Assert `transformer.babelTransformerPath` is set to the package transformer.
+ * 1. Call withTtsc on a config that has only a `projectRoot` key.
+ * 2. Assert `projectRoot` survives.
+ * 3. Assert `transformer.babelTransformerPath` is a string ending in `transformer.js`.
  *
- * @evidence contracts/testing.md#behavioral-verification withTtsc creates a transformer path when no transformer block exists while retaining projectRoot.
- * @evidence contracts/testing.md#independent-expectations Metro configuration requires a callable transformer module path and preservation of unrelated caller values; the original assertions pin returned string shape only.
- * @evidence contracts/testing.md#distinguishing-cases Missing block contrasts existing-field preservation; built-module execution belongs to the surviving CJS boundary.
- * @evidence contracts/testing.md#execution-ownership This matching src/features export calls authored Metro operations through the source-unit loader. Input filesystem/module fixtures and declared upstream callbacks remain test-local; no installed consumer, native compiler or product host is launched.
+ * @evidence contracts/testing.md#behavioral-verification withTtsc({ projectRoot }) returns a config whose projectRoot is unchanged and whose transformer.babelTransformerPath is a string ending in transformer.js, without throwing on the missing transformer key.
+ * @evidence contracts/testing.md#independent-expectations The expected values are literals from the Metro config contract: the caller's projectRoot string is returned verbatim and the transformer path is a string naming a transformer.js module. The assertions do not check that the file exists or is loadable.
+ * @evidence contracts/testing.md#distinguishing-cases Only the absent-transformer input is run; preservation of existing transformer fields is a separate entry, and loading the built module is not exercised here.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls withTtsc from packages/metro source in-process (which runs prepareSnapshot on a temp projectRoot and sets TTSC_METRO_OPTIONS, restored afterwards); no native compile, consumer install or Metro host is started.
  */
 export const test_withttsc_adds_a_transformer_block_when_config_has_no_transformer =
   async () => {

@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printObjectLiteral must preserve { a: 1, b: 2 } when Properties is absent while keeping the original synthetic no-panic case.
 // @evidence contracts/testing.md#independent-expectations The fixture literal is the verbatim oracle, retaining both key/value pairs independently of the printer.
 // @evidence contracts/testing.md#distinguishing-cases An absent property list complements nil-entry fallback and valid flat/broken object layouts.
-// @evidence contracts/testing.md#execution-ownership TestDispatchObjectLiteralFallsBackWhenPropertiesNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native product build or product host executes.
+// @evidence contracts/testing.md#execution-ownership TestDispatchObjectLiteralFallsBackWhenPropertiesNil is a plain top-level Go unit test, selectable with go test -run, that calls printObjectLiteral directly on a factory-built object literal with no Properties and a parsed object whose Properties are cleared inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchObjectLiteralFallsBackWhenPropertiesNil(t *testing.T) {
   file := parseTS(t, "\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

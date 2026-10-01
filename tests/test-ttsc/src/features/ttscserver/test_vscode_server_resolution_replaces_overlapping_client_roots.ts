@@ -17,9 +17,9 @@ import path from "node:path";
  * 4. Assert only overlapping roots are selected for replacement.
  *
  * @evidence contracts/testing.md#behavioral-verification rootsToStopForTarget identifies conflicts when selecting parent or nested clients.
- * @evidence contracts/testing.md#independent-expectations two recursive selectors for an ancestor and descendant would double-own documents.
- * @evidence contracts/testing.md#distinguishing-cases parent-to-nested and nested-to-parent transitions retain unrelated clients.
- * @evidence contracts/testing.md#execution-ownership The named test_vscode_server_resolution_replaces_overlapping_client_roots function runs under src/features/ttscserver and calls authored serverResolution functions directly; fixture manifests are resolver input, and no language client or product process starts.
+ * @evidence contracts/testing.md#independent-expectations The expectations are authored literals from the one-owner-per-document rule: an existing nested client must stop when its ancestor becomes the target, and an existing ancestor must stop when a nested target starts, while a sibling directory must not.
+ * @evidence contracts/testing.md#distinguishing-cases Target=parent with running [nested] returns the nested root; target=nested with running [root, sibling] returns only the root and keeps the sibling, so overlap is directional in both ways and a non-overlapping sibling is retained. Alias, equal-root and case-variant targets are not covered.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls rootsToStopForTarget with the default identity context over path strings that are never created on disk (lexical containment), with no fixture files, language client or child process.
  */
 export function test_vscode_server_resolution_replaces_overlapping_client_roots() {
   const repo = TestProject.WORKSPACE_ROOT;

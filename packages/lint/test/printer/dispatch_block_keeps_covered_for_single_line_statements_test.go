@@ -8,8 +8,8 @@ import (
 
 // TestDispatchBlockKeepsCoveredForSingleLineStatements verifies the
 // block printer reports `covered == true` when every statement is
-// confined to a single source line, even though those statements fall
-// back to the verbatim printer.
+// confined to a single source line (each is an expression statement
+// whose call is printed structurally, with a verbatim callee slice).
 //
 // Single-line verbatim is reflow-safe: a node that lives on one line
 // has no interior column for the enclosing re-indent to strand. The
@@ -26,7 +26,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification PrintNode must retain a() then b() in a consistently indented block and report it fully covered.
 // @evidence contracts/testing.md#independent-expectations The authored block literal preserves both calls, statement separators and order with two-space indentation.
 // @evidence contracts/testing.md#distinguishing-cases Plain nonempty statements complement empty blocks and inter-statement comments that must prevent coverage.
-// @evidence contracts/testing.md#execution-ownership TestDispatchBlockKeepsCoveredForSingleLineStatements is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchBlockKeepsCoveredForSingleLineStatements is a plain top-level Go unit test, selectable with go test -run, that calls PrintNode directly on a parsed function body block of two single-line call statements inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchBlockKeepsCoveredForSingleLineStatements(t *testing.T) {
   file := parseTS(t, "function f() {\n  a();\n  b();\n}\n")
   node := firstNodeOfKind(t, file, shimast.KindBlock)

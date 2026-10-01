@@ -5,6 +5,8 @@ import (
   "path/filepath"
   "strings"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestCommandLoadsConfigFromFile verifies that the strip sidecar reads its
@@ -13,9 +15,8 @@ import (
 //
 // Locks the config-file loading path in loadStripConfigMap and its integration
 // with ApplyProgram so that the file-based configuration contract is observable
-// from the command boundary. The default strip targets (console.log, debugger)
-// must be absent from output; a call explicitly configured to be retained must
-// survive.
+// from the command boundary. The call the file names (console.warn) must be
+// absent from output, and a call it does not name (console.info) must survive.
 //
 //  1. Create a project with src/main.ts containing console.warn (stripped) and
 //     console.info (kept); supply config via strip.config.json.
@@ -26,9 +27,9 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Separate disposable explicit and implicit projects use the same policy. Retained info detects over-stripping; both source-selection routes must carry the policy into transform.
 // @evidence contracts/testing.md#execution-ownership The discoverable TestCommandLoadsConfigFromFile entry runs in the strip E2E population and calls the real compiled package sidecar; runPlugin captures its native exit and separate streams. This classification does not move its portable assertions into units.
 // @evidence contracts/e2e.md#necessary-boundary File-backed JSON selection must reach the native strip transform through manifest configuration and discovery. Direct config parsing cannot establish selected-file-to-project wiring; two command consumers currently remain.
-// @evidence contracts/e2e.md#shared-execution All strip command entries use resolvePluginBinary once per test process, or the suite-supplied immutable producer. This case starts independent command consumers with the exact arguments above; only binary bytes are shared, not a loaded project or process session.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity For TestCommandLoadsConfigFromFile, command exits release each process; t.TempDir owns any fixture and output tree until case cleanup. TestMain owns only a fallback producer directory, while a supplied binary is runner-owned. No cold/invalidation transition is asserted here.
-// @evidence contracts/e2e.md#preserved-coverage The existing TestCommandLoadsConfigFromFile inputs, statuses, stream checks and any output assertions remain executable in this entry unchanged. No portable owner is inferred merely from another unit suite, and further reduction requires an exact assertion transfer.
+// @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts two transform processes, one per t.Run scenario (explicit configFile, auto-discovered), from that binary and shares no loaded project or running session with any other entry.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each t.Run scenario calls seedProject, so each of the two projects lives in its own t.TempDir removed when that subtest ends; the scenarios share only the compiled binary. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
+// @evidence contracts/e2e.md#preserved-coverage The status/stderr check (L74), JSON decode (L78) and the console.warn-absent / console.info-present checks (L82-L87) run in each of the two scenarios in this body; nothing is delegated to a unit test. The doc prose previously described console.log and debugger default targets, which this body does not run (prose corrected).
 func TestCommandLoadsConfigFromFile(t *testing.T) {
   for _, scenario := range []struct {
     label  string
@@ -60,8 +61,8 @@ func TestCommandLoadsConfigFromFile(t *testing.T) {
     },
   } {
     t.Run(scenario.label, func(t *testing.T) {
-      root := seedProject(t, scenario.files)
-      manifest := mustJSON(t, []map[string]any{{
+      root := shared.SeedProject(t, scenario.files)
+      manifest := shared.MustJSON(t, []map[string]any{{
         "name":   "@ttsc/strip",
         "stage":  "transform",
         "config": scenario.config,

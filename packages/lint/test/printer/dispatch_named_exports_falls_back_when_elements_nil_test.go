@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printNamedExports must retain the original { a, b } clause when Elements is nil.
 // @evidence contracts/testing.md#independent-expectations The independently authored export fixture specifies the exact source bytes; the synthetic no-range fallback must be empty.
 // @evidence contracts/testing.md#distinguishing-cases An absent list complements a nil specifier and the valid flat/broken exports cases.
-// @evidence contracts/testing.md#execution-ownership TestDispatchNamedExportsFallsBackWhenElementsNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native product build or product host executes.
+// @evidence contracts/testing.md#execution-ownership TestDispatchNamedExportsFallsBackWhenElementsNil is a plain top-level Go unit test, selectable with go test -run, that calls printNamedExports directly on a factory-built NamedExports with no Elements and a parsed clause whose Elements are cleared inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchNamedExportsFallsBackWhenElementsNil(t *testing.T) {
   file := parseTS(t, "\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

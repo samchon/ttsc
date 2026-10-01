@@ -25,7 +25,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Print must expand both Softlines and preserve brackets around ab at width three.
 // @evidence contracts/testing.md#independent-expectations The flat [ab] needs four columns; the literal multiline form follows the broken Softline contract.
 // @evidence contracts/testing.md#distinguishing-cases One-column-short budget complements empty Softline output when the group fits.
-// @evidence contracts/testing.md#execution-ownership TestEngineSoftlineEmitsNewlineWhenGroupBreaks is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineSoftlineEmitsNewlineWhenGroupBreaks is one Go unit entry that renders a literal Group holding two Softlines with Print at PrintWidth 3 in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineSoftlineEmitsNewlineWhenGroupBreaks(t *testing.T) {
   doc := Group(Text("["), Softline(), Text("ab"), Softline(), Text("]"))
   opts := DefaultPrintOptions()

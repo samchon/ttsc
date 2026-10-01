@@ -25,7 +25,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification PrintNode must expand function () { step(); } into an indented block and report it fully covered.
 // @evidence contracts/testing.md#independent-expectations The literal expected function retains the signature and step() statement, changing only body layout.
 // @evidence contracts/testing.md#distinguishing-cases A parsed valid body complements nil-node/nil-body factory safety and multiline-signature abstention.
-// @evidence contracts/testing.md#execution-ownership TestDispatchFunctionExpressionBlockBodyReindents is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchFunctionExpressionBlockBodyReindents is a plain top-level Go unit test, selectable with go test -run, that calls PrintNode directly on a parsed function expression with a block body inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchFunctionExpressionBlockBodyReindents(t *testing.T) {
   file := parseTS(t, "const run = function () { step(); };\n")
   node := firstNodeOfKind(t, file, shimast.KindFunctionExpression)

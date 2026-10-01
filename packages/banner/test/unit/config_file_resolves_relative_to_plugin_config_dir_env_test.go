@@ -3,6 +3,8 @@ package banner_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestConfigFileResolvesRelativeToPluginConfigDirEnv verifies that a relative
@@ -27,7 +29,7 @@ import (
 func TestConfigFileResolvesRelativeToPluginConfigDirEnv(t *testing.T) {
   project := t.TempDir()
   wrapper := t.TempDir()
-  writeFile(t, filepath.Join(wrapper, "tsconfig.json"), "{}")
+  shared.WriteFile(t, filepath.Join(wrapper, "tsconfig.json"), "{}")
 
   t.Setenv("TTSC_PLUGIN_CONFIG_DIR", project)
   got := bannerResolveBannerConfigPath(

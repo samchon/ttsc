@@ -26,7 +26,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printBlock must safely fall back to empty, covered output when a factory statement list contains nil.
 // @evidence contracts/testing.md#independent-expectations The constructed block has no source span, so no statement or punctuation can legitimately be invented.
 // @evidence contracts/testing.md#distinguishing-cases A present list with a missing item complements the absent-list fixture and covered valid statements.
-// @evidence contracts/testing.md#execution-ownership TestDispatchBlockReturnsVerbatimForNilStatement is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchBlockReturnsVerbatimForNilStatement is a plain top-level Go unit test, selectable with go test -run, that calls printBlock directly on a factory-built block whose statement list holds a nil entry inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchBlockReturnsVerbatimForNilStatement(t *testing.T) {
   file := parseTS(t, "const x = 1;\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

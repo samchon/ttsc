@@ -2,18 +2,22 @@ import assert from "node:assert/strict";
 import { admitted, sessionState } from "./internal/sessionState";
 
 /**
- * Verifies queued abort preserves the active peer.
+ * Verifies aborting a queued request rejects it at once and leaves the active peer running.
  *
- * The head remains outstanding while queued cancellation must settle immediately, independently of that head or any transport response.
+ * With one request outstanding on the peer, a second request is queued. Aborting
+ * the queued request must reject it without waiting for the first request and
+ * without retiring the peer.
  *
- * 1. Admit the original request state through the authored state owner.
- * 2. Supply explicit typed envelopes or transport events and check the original rejection, settlement or model assertions.
- * 3. Check retirement, recovery or reuse and close the owned state in finally.
+ * 1. Start a request and wait for its write, then queue a second request with an
+ *    AbortSignal and abort it.
+ * 2. Require the queued request to reject with the cancellation error within one
+ *    second while the port is still live with one write and one port opened.
+ * 3. Close the session and require the first request to reject as closed.
  *
- * @evidence contracts/testing.md#behavioral-verification Queued abort rejects under the original one-second bound while the head remains live with exactly one write/opener; close then rejects that head.
- * @evidence contracts/testing.md#independent-expectations An outstanding recorded head, elapsed bound, live port and exact write/opener counts distinguish immediate queue cancellation from waiting behind or retiring the head.
- * @evidence contracts/testing.md#distinguishing-cases The head remains outstanding while queued cancellation must settle immediately, independently of that head or any transport response.
- * @evidence contracts/testing.md#execution-ownership The matching src/features export imports authored state and decoder source. Declared line-port recordings generate no reply; this executes in the source-unit Node process without a native executable. Actual kernel retirement and generated schema integration remain in the minimal E2E boundary.
+ * @evidence contracts/testing.md#behavioral-verification Aborting a queued graph() request while the first request is outstanding must reject it with "native snapshot request cancelled" in under one second, leave port.live true with one recorded write and one opened port, and a later session.close() must reject the first request with "native session closed".
+ * @evidence contracts/testing.md#independent-expectations The outstanding first request (no reply is ever sent), the one-second bound, the live flag and the write and port counts of one are literals; waiting behind the unanswered head would never settle, so the rejection can only come from queued cancellation.
+ * @evidence contracts/testing.md#distinguishing-cases Cancelling a queued request (the peer stays live, no retirement) contrasts cancelling an active one, covered by the active-abort test; the first request staying pending until close contrasts the immediately rejected one.
+ * @evidence contracts/testing.md#execution-ownership Runs TtscGraphSessionState directly in the test process against the recorded line ports of internal/sessionState. No line is decoded and no native process is involved.
  */
 export async function test_ttscgraph_queued_native_request_can_abort_before_start(): Promise<void> {
   const fixture = sessionState();

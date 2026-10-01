@@ -18,7 +18,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Print must use exactly the eighty-column budget for zero or negative PrintWidth, retaining a short flat group and distinguishing widths eighty and eighty-one.
 // @evidence contracts/testing.md#independent-expectations Literal lengths seventy-eight or seventy-nine plus one space and b independently establish eighty versus eighty-one columns under the documented default.
 // @evidence contracts/testing.md#distinguishing-cases Both zero and negative widths retain foo bar, keep the exact eighty-column projection flat and break the adjacent eighty-one-column projection.
-// @evidence contracts/testing.md#execution-ownership TestEnginePrintWidthDefaultsWhenZero is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEnginePrintWidthDefaultsWhenZero is one Go unit entry that renders literal Group docs with Print under PrintWidth 0 and -1 in-process; it parses no source and installs, builds and launches nothing.
 func TestEnginePrintWidthDefaultsWhenZero(t *testing.T) {
   for _, omitted := range []int{0, -1} {
     opts := PrintOptions{PrintWidth: omitted, TabWidth: 2, EndOfLine: "lf"}

@@ -18,7 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Print must emit a newline between a and b when Break is set even though both would fit.
 // @evidence contracts/testing.md#independent-expectations The explicit forced-break contract overrides the three-column flat projection.
 // @evidence contracts/testing.md#distinguishing-cases Forced multiline under a wide budget distinguishes this from ordinary width-driven breaking.
-// @evidence contracts/testing.md#execution-ownership TestEngineGroupBreakFlagForcesBrokenLayout is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineGroupBreakFlagForcesBrokenLayout is one Go unit entry that renders a literal Group whose Break field is set with Print under default options in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineGroupBreakFlagForcesBrokenLayout(t *testing.T) {
   forced := Group(Text("a"), Line(), Text("b"))
   forced.Break = true

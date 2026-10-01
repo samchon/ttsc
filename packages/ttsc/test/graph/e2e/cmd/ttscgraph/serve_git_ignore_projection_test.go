@@ -17,18 +17,19 @@ import (
 // authored peer. The source remains a graph endpoint while its ignored flag is
 // preserved through full, partial, unchanged and repaired generations.
 //
-// 1. Initialize an owned Git worktree and query its real NUL-delimited membership.
+// 1. Initialize an owned Git worktree whose .gitignore names one source; the
+//    adapters then obtain real NUL-delimited membership through git check-ignore.
 // 2. Run the default dump and resident adapters over the same source corpus.
 // 3. Edit, restore and repair the project, checking every published membership.
 //
-// @evidence contracts/testing.md#behavioral-verification Real Git processes initialize and evaluate an owned worktree; default dump and resident adapters publish its evaluated source membership rather than a supplied result.
+// @evidence contracts/testing.md#behavioral-verification The test runs a real `git init` on an owned worktree, and the production acquisition then evaluates membership with git check-ignore; the default dump command, the resident shard snapshots and the legacy resident snapshot must each publish Generated with ignored=true and Visible with ignored=false, checked per node by checkNodes after every transition.
 // @evidence contracts/testing.md#independent-expectations The literal ignore rule selects Generated and excludes Visible. Restoring the exact prior config bytes preserves the committed program, so recovery is unchanged; private body edits require incremental publication.
 // @evidence contracts/testing.md#distinguishing-cases A space-bearing ignored source, nonignored dependency, full and partial publications, byte restoration, unchanged requests and invalid-config recovery distinguish acquisition and publication paths.
-// @evidence contracts/testing.md#execution-ownership This Go E2E entry calls the authored default native adapters and actually spawns Git; Git init uses CombinedOutput and membership uses Output; both join their children. The three sequential adapter subtests restore streams or close their compiler before fixture cleanup, and a failed adapter does not suppress the other independent adapters. It does not claim a built product CLI invocation.
+// @evidence contracts/testing.md#execution-ownership This Go E2E entry calls run for the dump verb and newGraphSession for the resident adapters in the Go test process and actually spawns Git: the test's own git init uses CombinedOutput and the production check-ignore call uses Output, so both children are joined. The three sequential subtests restore the swapped output streams or close their session before fixture cleanup, and a failed subtest does not stop the others. It does not invoke a built product CLI.
 // @evidence contracts/e2e.md#necessary-boundary Git's NUL-delimited child process must evaluate the real worktree and the default acquisition-to-projection connection; direct state units consume supplied membership and cannot prove that connection.
 // @evidence contracts/e2e.md#shared-execution One owned worktree and compiler corpus serves the dump, shard and legacy adapters. The stateless command program, incremental shard owner and independently initial legacy owner need three distinct compiler lifetimes to exercise their different default compositions; no product binary is built or installed.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only this case owns its worktree. Exact project/source bytes are restored before recovery and the legacy initial request; deferred compiler closes run before t.TempDir cleanup, and each Git command joins synchronously.
-// @evidence contracts/e2e.md#preserved-coverage The original 66 acquisition-dependent scenarios retain their assertions on real prepared projection/state owners. The constructor-only and unchanged-preamble cases retain their original direct calls. This boundary checks actual Git membership through top-level dump dispatch and command/full/partial/retry compositions; the three real kernel alias cases remain separate E2E entries.
+// @evidence contracts/e2e.md#preserved-coverage This boundary keeps one real-Git membership check through the top-level dump dispatch and through the resident shard and legacy snapshot adapters, across full, unchanged, partial, restored, invalid-config and recovered transitions. The in-package serve_* session tests in cmd/ttscgraph own the state transitions that do not need Git membership, and the symlink or junction retarget, Windows short-root and symlinked-project-base cases are separate E2E entries.
 func TestGitIgnoreMembershipFlowsThroughNativeProjectionAdapters(t *testing.T) {
   root := t.TempDir()
   config := `{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true},"include":["src"]}`

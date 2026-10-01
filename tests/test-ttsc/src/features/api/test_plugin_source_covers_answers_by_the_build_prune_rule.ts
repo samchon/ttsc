@@ -22,7 +22,7 @@ import { pluginSourceCovers } from "../../../../../packages/ttsc/src/plugin/inte
  * @evidence contracts/testing.md#behavioral-verification pluginSourceCovers distinguishes build-visible entries, pruned directories and paths outside the source.
  * @evidence contracts/testing.md#independent-expectations the build reads files named node_modules, .git and .ttsc but prunes directories carrying those names.
  * @evidence contracts/testing.md#distinguishing-cases source root, descendants, directory versus entry, pruned descendants, sibling and parent paths and ..tools remain distinguished.
- * @evidence contracts/testing.md#execution-ownership The named test_plugin_source_covers_answers_by_the_build_prune_rule export is discovered under src/features/api and calls the owning authored operation without installation, native compilation or a product host.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling pluginSourceCovers directly with path strings (no filesystem access); no process, build or watcher host.
  */
 export function test_plugin_source_covers_answers_by_the_build_prune_rule(): void {
     const root = path.resolve("plugin-module");

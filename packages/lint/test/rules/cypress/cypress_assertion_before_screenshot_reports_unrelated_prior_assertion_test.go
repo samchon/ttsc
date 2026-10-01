@@ -10,16 +10,16 @@ import (
 //
 // A previous `.should()` must not bless every later screenshot in the file.
 // The intervening Cypress command makes the assertion unrelated to the
-// screenshot, covering the regression where a file-global flag hid the report.
+// screenshot, so only the immediately preceding statement counts.
 //
 //  1. Parse an assertion, an intervening Cypress command, and `cy.screenshot()`.
 //  2. Enable `cypress/assertion-before-screenshot`.
 //  3. Assert the screenshot command is reported once.
 //
-// @evidence contracts/testing.md#behavioral-verification The actual NewEngine.Run verifies a screenshot after an intervening get produces one finding for cypress/assertion-before-screenshot; findingRules asserts the complete count and rule identity, so this does not check repository metadata.
-// @evidence contracts/testing.md#independent-expectations An assertion for dialog cannot establish the menu state accessed afterward. The expected rule and count are independently authored for that policy rather than read from engine output.
-// @evidence contracts/testing.md#distinguishing-cases The intervening command invalidates the immediately-prior assertion condition; the adjacent-assertion case distinguishes accepted state.
-// @evidence contracts/testing.md#execution-ownership TestCypressAssertionBeforeScreenshotReportsUnrelatedPriorAssertion is a public Go unit entry parsing Cypress-shaped TypeScript and running the owning engine in-process; it does not install Cypress, start a browser or run a product host.
+// @evidence contracts/testing.md#behavioral-verification NewEngine with only cypress/assertion-before-screenshot enabled runs over a should assertion on the dialog, then `cy.get("[data-cy=menu]");`, then `cy.screenshot();`; the test requires exactly one finding, rule cypress/assertion-before-screenshot at error severity (assertCypressOrdinaryRuleErrors), registered as an engine behavioral witness.
+// @evidence contracts/testing.md#independent-expectations An assertion on the dialog that is separated from the screenshot by another command does not establish the state captured afterward; the expected count of one is a literal authored from that policy.
+// @evidence contracts/testing.md#distinguishing-cases Positive case whose earlier assertion is not the immediately preceding statement: the intervening cy.get makes the previous statement a non-assertion. The adjacent-assertion test owns the accepted case where the assertion is immediately before.
+// @evidence contracts/testing.md#execution-ownership TestCypressAssertionBeforeScreenshotReportsUnrelatedPriorAssertion is an in-process Go unit test: parseTS plus NewEngine(...).Run over the source. It installs no Cypress, starts no browser and no product host.
 func TestCypressAssertionBeforeScreenshotReportsUnrelatedPriorAssertion(t *testing.T) {
   file := parseTS(t, `
     cy.get("[data-cy=dialog]").should("be.visible");

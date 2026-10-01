@@ -6,18 +6,23 @@ import (
   "testing"
 )
 
-// TestNoRestrictedImportsPatternsHonorNegationCaseRegexAndNamePatterns verifies Pattern restrictions combine group negation, case-sensitive module regex and forbidden import-name regex without losing custom message suffixes.
+// TestNoRestrictedImportsPatternsHonorNegationCaseRegexAndNamePatterns
+// verifies pattern entries combine group negation, a case-sensitive module
+// regex and an import-name pattern, and append their custom messages.
 //
-// Pins the distinct option, syntax or failure branch represented by this fixture.
+// Two pattern entries run together: group ["lib/*", "!lib/pick"] with the
+// message "Grouped restriction.", and regex "^@internal/" (case sensitive) with
+// importNames ["secret"], importNamePattern "^unsafe" and the message
+// "Internal name.".
 //
-// 1. Supply the authored source and configuration inputs.
-// 2. Run the owning engine or command operation in this process.
-// 3. Compare the literal findings, messages or failure state below.
+// 1. Run the rule over two lib imports and two @internal imports.
+// 2. Compare the three reported ranges with the literal list.
+// 3. Check the exact group message and that the name findings end with the second message.
 //
-// @evidence contracts/testing.md#behavioral-verification Pattern restrictions combine group negation, case-sensitive module regex and forbidden import-name regex without losing custom message suffixes.
-// @evidence contracts/testing.md#independent-expectations The literal lib/* minus lib/pick group and case-sensitive ^@internal/ policy determine the three authored targets independently.
-// @evidence contracts/testing.md#distinguishing-cases LIB/private reports, LIB/pick is exempt; secret and unsafeThing report but safe and mixed-case @Internal remain clean.
-// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot for this entry's authored source/options and validates rule, ranges and absence of edits. assertNoRestrictedImportsTargets compares the displayed literal target list; this Test owns every invocation and message assertion in the Go process.
+// @evidence contracts/testing.md#behavioral-verification "LIB/private" is reported with the exact pattern message plus "Grouped restriction.", "LIB/pick" is exempt through the negation, `secret` and `unsafeThing` are reported from "@internal/pkg" with a message ending in "Internal name.", and `safe` and the "@Internal/pkg" import are not reported.
+// @evidence contracts/testing.md#independent-expectations The group lib/* minus lib/pick (matched case-insensitively by default) and the case-sensitive ^@internal/ regex determine the three expected targets and the message texts, which are authored literals.
+// @evidence contracts/testing.md#distinguishing-cases LIB/pick versus LIB/private isolates the negation; the same name secret imported from "@Internal/pkg" is clean while it is reported from "@internal/pkg", isolating caseSensitive; safe next to secret and unsafeThing isolates the name filters.
+// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot, which binds the rule at error severity, parses the source in a temporary project and runs Engine.Run in the Go test process, then rejects other rules, edits and invalid ranges. assertNoRestrictedImportsTargets compares the three literal ranges, and the Test body compares the group message and the suffix of the other two.
 func TestNoRestrictedImportsPatternsHonorNegationCaseRegexAndNamePatterns(t *testing.T) {
   source := `import "LIB/private";
 import "LIB/pick";

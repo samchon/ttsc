@@ -32,7 +32,7 @@ import { TtscCompiler } from "../../../../../packages/ttsc/src/TtscCompiler";
  * @evidence contracts/testing.md#behavioral-verification TtscCompiler.clean removes instance-selected plugin and external Go caches while preserving the user GOCACHE and ambient environment.
  * @evidence contracts/testing.md#independent-expectations TTSC_GO_CACHE_DIR is compiler-owned and GOCACHE is caller-owned; independently seeded roots make accidental deletion observable.
  * @evidence contracts/testing.md#distinguishing-cases Relative plugin cache and external owned Go cache are removed while a separate user Go cache remains; the effective instance environment differs from ambient state.
- * @evidence contracts/testing.md#execution-ownership This named source-unit function calls the authored TtscCompiler.clean on fixture directories without preparation, compilation or a host; prepare-to-clean publication remains covered by the surviving API E2E.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling TtscCompiler.clean in process on seeded directories under os.tmpdir(); it runs no prepare, compile, native build or host, and process.env.TTSC_GO_CACHE_DIR is saved, removed and restored around the call.
  */
 export function test_ttsccompiler_clean_removes_context_env_external_go_cache() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-clean-context-unit-"));

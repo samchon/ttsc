@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification PrintNode must keep the object hugged to save while breaking its members at width thirty, with complete coverage.
 // @evidence contracts/testing.md#independent-expectations The authored output retains alpha:first and beta:second in order and keeps the call parentheses attached to the object braces.
 // @evidence contracts/testing.md#distinguishing-cases Object flat-form overflow complements a fitting hugged object and an overflowing leading header that must explode the whole call.
-// @evidence contracts/testing.md#execution-ownership TestDispatchCallBreaksHuggedObjectWhenFlatFormOverflows is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchCallBreaksHuggedObjectWhenFlatFormOverflows is a plain top-level Go unit test, selectable with go test -run, that calls PrintNode directly on a parsed call with an object-literal argument at width thirty inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchCallBreaksHuggedObjectWhenFlatFormOverflows(t *testing.T) {
   file := parseTS(t, "save({ alpha: first, beta: second });\n")
   node := firstNodeOfKind(t, file, shimast.KindCallExpression)

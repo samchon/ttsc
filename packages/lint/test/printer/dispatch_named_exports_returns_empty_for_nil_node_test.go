@@ -19,7 +19,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printNamedExports must emit no clause for a nil node.
 // @evidence contracts/testing.md#independent-expectations No AST input provides an export binding or brace span, so empty output is the safe identity.
 // @evidence contracts/testing.md#distinguishing-cases Absent node complements intact flat/broken export clauses and malformed public lists.
-// @evidence contracts/testing.md#execution-ownership TestDispatchNamedExportsReturnsEmptyForNilNode is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchNamedExportsReturnsEmptyForNilNode is a plain top-level Go unit test, selectable with go test -run, that calls printNamedExports directly on a nil node with a PrintContext built from a trivial parsed file inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchNamedExportsReturnsEmptyForNilNode(t *testing.T) {
   file := parseTS(t, "export {};\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

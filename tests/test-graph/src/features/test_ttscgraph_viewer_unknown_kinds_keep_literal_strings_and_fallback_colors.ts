@@ -5,19 +5,24 @@ import website from "../../../../website/src/components/graph/TtscWebsiteGraphVi
 import { loadViewerReducers } from "../internal/viewerReducers";
 
 /**
- * Verifies unknown relationship names and both viewers' palette fallbacks.
+ * Verifies unknown relationship names stay literal in every reducer and fall back to the declared colours in both palettes.
  *
- * Object prototype names must remain unknown data rather than inherited map
- * values that corrupt the payload or replace a color with a function.
+ * Object prototype names such as __proto__, constructor and toString must stay
+ * ordinary unknown data, neither corrupting the payload nor being found as
+ * inherited palette entries and replacing a colour with a function.
  *
- * 1. Reduce known and unknown kinds through all three authored copies.
- * 2. Preserve the literal unknown names through JSON serialization.
- * 3. Check both palettes' fallback and known colors independently.
+ * 1. Reduce edges of kinds calls, exports, new_relation, __proto__, constructor
+ *    and toString through the package, website and fixture reducers.
+ * 2. Require the kinds to come out as value-call, exports and the four unknown
+ *    names unchanged, also after JSON serialization.
+ * 3. For the package and website palettes, require the four unknown names to
+ *    resolve to the fallback node and link colours and not to be palette keys,
+ *    and require class and value-call to keep their known colours.
  *
- * @evidence contracts/testing.md#behavioral-verification All three authored reducers preserve unknown literal kinds through JSON serialization; both authored viewer palettes yield their explicit fallback colors for unknown node and link kinds.
- * @evidence contracts/testing.md#independent-expectations Literal expected folded and unknown names plus separately stated fallback colors determine results without reading the display mapping implementation.
- * @evidence contracts/testing.md#distinguishing-cases Known calls and exports contrast an ordinary unknown name and all three inherited Object names; both palettes retain known colors and enumerate only declared entries.
- * @evidence contracts/testing.md#execution-ownership This named source unit imports real pure reducer and palette sources without a browser, installed artifact, native producer or benchmark campaign.
+ * @evidence contracts/testing.md#behavioral-verification Each of the three reducer copies must output the link kinds ["value-call", "exports", "new_relation", "__proto__", "constructor", "toString"] for the six input kinds, and the same after JSON round-trip; in the package and website palettes NODE_COLORS and LINK_COLORS lookups for the four unknown names must fall back to UNKNOWN_NODE_COLOR and UNKNOWN_LINK_COLOR and must not appear in Object.keys, while class and value-call keep their known colours.
+ * @evidence contracts/testing.md#independent-expectations The expected link kind lists and the colour values are literals authored in the test. The colour literals duplicate the palette constants, so they pin the current palette values rather than derive them independently.
+ * @evidence contracts/testing.md#distinguishing-cases calls and exports (known, folded or kept) contrast new_relation (ordinary unknown) and the three inherited Object property names, which a plain-object lookup would resolve to functions; known colours are checked beside the fallbacks. The fixture benchmark copy is not covered by the palette checks, and unknown kinds in the node kind of a reduced payload are not exercised.
+ * @evidence contracts/testing.md#execution-ownership Imports and runs the three reducer sources, the bundled viewer legend module and the website viewer model in the test process; no browser, installed artifact, native producer or benchmark run is involved.
  */
 export async function test_ttscgraph_viewer_unknown_kinds_keep_literal_strings_and_fallback_colors(): Promise<void> {
   const kinds = ["calls", "exports", "new_relation", "__proto__", "constructor", "toString"];

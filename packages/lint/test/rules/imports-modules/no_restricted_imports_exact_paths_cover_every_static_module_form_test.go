@@ -5,18 +5,22 @@ import (
   "testing"
 )
 
-// TestNoRestrictedImportsExactPathsCoverEveryStaticModuleForm verifies The restricted-import engine reports each of eight static blocked module forms and preserves the exact custom message.
+// TestNoRestrictedImportsExactPathsCoverEveryStaticModuleForm verifies an exact
+// restricted path is reported at the module specifier of every static form that
+// loads the module, with the custom message appended.
 //
-// Pins the distinct option, syntax or failure branch represented by this fixture.
+// The source loads "blocked" through a default import, an aliased named import,
+// a namespace import, a bare side-effect import, a named reexport, `export *`,
+// `export * as`, and `import … = require`; "allowed" is imported once as a control.
 //
-// 1. Supply the authored source and configuration inputs.
-// 2. Run the owning engine or command operation in this process.
-// 3. Compare the literal findings, messages or failure state below.
+// 1. Run the rule with a paths entry for "blocked" carrying a message.
+// 2. Compare the eight reported ranges with the literal list.
+// 3. Require every message to equal the exact path message plus the custom text.
 //
-// @evidence contracts/testing.md#behavioral-verification The restricted-import engine reports each of eight static blocked module forms and preserves the exact custom message.
-// @evidence contracts/testing.md#independent-expectations A paths entry naming blocked forbids the module operation regardless of declaration syntax; eight literal quoted targets and the authored message are independent expectations.
-// @evidence contracts/testing.md#distinguishing-cases Default, aliased named, namespace, side-effect, named/star/namespace reexports and import-equals report; allowed remains clean.
-// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot for this entry's authored source/options and validates rule, ranges and absence of edits. assertNoRestrictedImportsTargets compares the displayed literal target list; this Test owns every invocation and message assertion in the Go process.
+// @evidence contracts/testing.md#behavioral-verification The rule reports eight findings, one at the "blocked" specifier of each of the eight authored forms, and none for the "allowed" import. Every message equals the exact-path message followed by the custom message.
+// @evidence contracts/testing.md#independent-expectations A paths entry naming "blocked" forbids loading that module regardless of declaration syntax. Eight literal quoted targets and the full literal message text are authored independently of the rule output.
+// @evidence contracts/testing.md#distinguishing-cases Default, aliased named, namespace, side-effect, named reexport, star reexport, namespace reexport and import-equals forms report; the allowed module in the same source stays clean.
+// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot, which binds the rule at error severity, parses the source in a temporary project and runs Engine.Run in the Go test process, then rejects other rules, edits and invalid ranges. assertNoRestrictedImportsTargets compares the eight literal ranges, and the loop in the Test body compares each full message.
 func TestNoRestrictedImportsExactPathsCoverEveryStaticModuleForm(t *testing.T) {
   source := `import Default from "blocked";
 import { source as alias } from "blocked";

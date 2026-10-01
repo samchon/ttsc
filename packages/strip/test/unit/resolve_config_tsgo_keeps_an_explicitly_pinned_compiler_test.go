@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestResolveConfigTsgoKeepsAnExplicitlyPinnedCompiler verifies an explicit
@@ -23,16 +25,16 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns nonempty override precedence against a valid project install; empty-environment discovery and missing artifacts are covered separately.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoKeepsAnExplicitlyPinnedCompiler is selected from test/unit by the utility runner unit overlay. Runs stripResolveConfigTsgo in the Go process with testing-restored environment; neither compiler path is executed.
 func TestResolveConfigTsgoKeepsAnExplicitlyPinnedCompiler(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := stripRealpathIfPossible(t.TempDir())
-  project := seedProjectTypeScript(t, root)
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.StripRealpathIfPossible(t.TempDir())
+  project := shared.SeedProjectTypeScript(t, root)
   config := filepath.Join(root, "strip.config.ts")
-  writeFile(t, config, "export default {};\n")
+  shared.WriteFile(t, config, "export default {};\n")
 
   pinned := filepath.Join(root, "pinned", "tsc")
   t.Setenv("TTSC_TSGO_BINARY", pinned)
 
-  got := stripResolveConfigTsgo(stripConfigToolAnchors(config, root))
+  got := shared.StripResolveConfigTsgo(shared.StripConfigToolAnchors(config, root))
   if got == project {
     t.Fatalf("stripResolveConfigTsgo took the project compiler %q over the pinned %q", project, pinned)
   }

@@ -18,7 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Print must separate foo and bar by a newline at width four.
 // @evidence contracts/testing.md#independent-expectations The flat foo bar is seven columns, exceeding four; both payloads and their order remain unchanged.
 // @evidence contracts/testing.md#distinguishing-cases This tight-width branch complements the wide-budget flat group case.
-// @evidence contracts/testing.md#execution-ownership TestEngineGroupBreaksWhenOverflowsWidth is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineGroupBreaksWhenOverflowsWidth is one Go unit entry that renders a literal Group with Print at PrintWidth 4 in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineGroupBreaksWhenOverflowsWidth(t *testing.T) {
   doc := Group(Text("foo"), Line(), Text("bar"))
   opts := DefaultPrintOptions()

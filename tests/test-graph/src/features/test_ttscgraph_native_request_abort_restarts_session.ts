@@ -2,18 +2,23 @@ import assert from "node:assert/strict";
 import { admitted, assertRetired, emptyResponse, sessionState } from "./internal/sessionState";
 
 /**
- * Verifies active abort retires and resets the resident owner.
+ * Verifies aborting an active request retires the peer even when the abort reason cannot be printed.
  *
- * Queue admission and an outstanding recorded write establish active ownership before abort; an unprintable reason must not prevent cleanup.
+ * Once the request has been written to the peer, an AbortSignal abort must reject
+ * the request, retire the peer, and let the next request open a new one. A reason
+ * whose toString throws must not stop that cleanup.
  *
- * 1. Admit the original request state through the authored state owner.
- * 2. Supply explicit typed envelopes or transport events and check the original rejection, settlement or model assertions.
- * 3. Check retirement, recovery or reuse and close the owned state in finally.
+ * 1. Start a graph request with an AbortSignal and wait until its request line is
+ *    recorded as written to the port.
+ * 2. Abort with an object whose toString throws, and require the cancellation
+ *    error and the port to be retired (reader detached, then stdio joined).
+ * 3. Request again, answer the second port with an empty full-dump response, and
+ *    require an empty node list and exactly two opened ports.
  *
- * @evidence contracts/testing.md#behavioral-verification An AbortSignal with an unprintable reason rejects a confirmed pending request, retires its port and returns an empty graph through one replacement.
- * @evidence contracts/testing.md#independent-expectations A recorded request write proves admission before abort; the throwing toString, literal cancellation error and exact port/retirement counts independently distinguish active cleanup from queued cancellation.
- * @evidence contracts/testing.md#distinguishing-cases Queue admission and an outstanding recorded write establish active ownership before abort; an unprintable reason must not prevent cleanup.
- * @evidence contracts/testing.md#execution-ownership The matching src/features export imports authored state and decoder source. Declared line-port recordings generate no reply; this executes in the source-unit Node process without a native executable. Actual kernel retirement and generated schema integration remain in the minimal E2E boundary.
+ * @evidence contracts/testing.md#behavioral-verification Aborting the signal of an admitted graph() request with a throwing-toString reason must reject it with "native snapshot request cancelled", record port close(false) then close(true), and a second graph() must open a second port and resolve to a model with no nodes.
+ * @evidence contracts/testing.md#independent-expectations The recorded request write proves the request was active before the abort; the throwing reason object, the expected error pattern, the retirement sequence [false, true], the empty node list and the port count of two are authored literals.
+ * @evidence contracts/testing.md#distinguishing-cases An abort after the write retires the peer (close(false) then close(true)), which a cancellation of a still-queued request would not do; the unprintable reason covers the diagnostic path that must degrade to a message without detail. Queued abort is covered by a separate test.
+ * @evidence contracts/testing.md#execution-ownership Runs TtscGraphSessionState directly in the test process against the recorded line ports of internal/sessionState. No line is decoded and no native process or kernel termination is involved.
  */
 export async function test_ttscgraph_native_request_abort_restarts_session(): Promise<void> {
   const fixture = sessionState();

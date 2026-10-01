@@ -15,10 +15,10 @@ import { assertMissingTransitiveDependencyReported } from "../../internal/metro-
  * 3. Assert the diagnostic names the missing dependency, not the "could not load"
  *    absence message.
  *
- * @evidence contracts/testing.md#behavioral-verification A resolvable upstream requiring an absent dependency names that dependency instead of misreporting the upstream candidate as absent.
- * @evidence contracts/testing.md#independent-expectations The fixture independently requires its literal nonexistent transitive specifier; that name must survive the error chain.
- * @evidence contracts/testing.md#distinguishing-cases Resolution success followed by MODULE_NOT_FOUND in module evaluation contrasts failure to resolve the candidate itself.
- * @evidence contracts/testing.md#execution-ownership This matching src/features export calls authored Metro operations through the source-unit loader. Input filesystem/module fixtures and declared upstream callbacks remain test-local; no installed consumer, native compiler or product host is launched.
+ * @evidence contracts/testing.md#behavioral-verification resolveUpstreamTransformer with the path of a temp CommonJS file that requires "@@ttsc-metro-absent-transitive-dependency@@" throws an error whose message chain names that dependency and whose message does not match the could-not-load absence message.
+ * @evidence contracts/testing.md#independent-expectations The fixture file itself requires the authored nonexistent specifier, so the name that must survive in the error chain is known independently of the resolver.
+ * @evidence contracts/testing.md#distinguishing-cases Only a candidate that resolves and then fails with MODULE_NOT_FOUND for another module is run; genuine candidate absence is the neighboring absent-candidate entry.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls resolveUpstreamTransformer from packages/metro/src/core/upstream.ts in-process with the real require loader against one temp .cjs file; no compile, install or Metro host is involved.
  */
 export const test_upstream_missing_transitive_dependency_reported =
   async () => {

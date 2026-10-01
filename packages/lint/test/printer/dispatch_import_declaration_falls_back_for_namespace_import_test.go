@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printImportDeclaration must preserve import * as ns from x verbatim.
 // @evidence contracts/testing.md#independent-expectations The authored namespace source fixes the wildcard, alias and module rather than treating them as named-list items.
 // @evidence contracts/testing.md#distinguishing-cases Namespace binding kind contrasts with the ordinary named-import reflow target and default-only import.
-// @evidence contracts/testing.md#execution-ownership TestDispatchImportDeclarationFallsBackForNamespaceImport is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchImportDeclarationFallsBackForNamespaceImport is a plain top-level Go unit test, selectable with go test -run, that calls printImportDeclaration directly on a parsed namespace import inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchImportDeclarationFallsBackForNamespaceImport(t *testing.T) {
   src := "import * as ns from \"x\";\n"
   file := parseTS(t, src)

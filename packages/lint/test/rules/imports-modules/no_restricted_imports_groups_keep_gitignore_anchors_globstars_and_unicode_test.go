@@ -5,18 +5,20 @@ import (
   "testing"
 )
 
-// TestNoRestrictedImportsGroupsKeepGitignoreAnchorsGlobstarsAndUnicode verifies Grouped pattern matching preserves root anchors, ordinary-star segment boundaries, trailing nonempty components, Unicode negation and invalid-range behavior.
+// TestNoRestrictedImportsGroupsKeepGitignoreAnchorsGlobstarsAndUnicode verifies
+// group patterns follow gitignore semantics for root anchors, double stars that
+// are not path globstars, trailing stars, Unicode negation and unusable ranges.
 //
-// Pins the distinct option, syntax or failure branch represented by this fixture.
+// The Test runs six rule invocations, each with its own source and group:
+// "/root", "foo**bar", "foo/*", "foo/**", ["패키지/*", "!패키지/공개"] and "[z-a]".
 //
-// 1. Supply the authored source and configuration inputs.
-// 2. Run the owning engine or command operation in this process.
-// 3. Compare the literal findings, messages or failure state below.
+// 1. Run each group over its two small sources and compare the reported ranges.
+// 2. Require the descending range "[z-a]" to yield no finding and no configuration error.
 //
-// @evidence contracts/testing.md#behavioral-verification Grouped pattern matching preserves root anchors, ordinary-star segment boundaries, trailing nonempty components, Unicode negation and invalid-range behavior.
-// @evidence contracts/testing.md#independent-expectations Each authored target follows gitignore pattern meaning: /root excludes nested/root, foo**bar cannot cross slash, trailing stars require a child, the Unicode public path is negated, and [z-a] cannot match.
-// @evidence contracts/testing.md#distinguishing-cases Separate calls own anchor/segment/trailing-star/globstar/Unicode cases and an invalid reversed range; all literals and target lists survive splitting.
-// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot for this entry's authored source/options and validates rule, ranges and absence of edits. assertNoRestrictedImportsTargets compares the displayed literal target list; this Test owns every invocation and message assertion in the Go process.
+// @evidence contracts/testing.md#behavioral-verification "/root" reports only the root import and not "nested/root"; "foo**bar" reports "fooxbar" and not "foo/deep/bar"; "foo/*" and "foo/**" report "foo/value" and not "foo/"; the Unicode group reports the internal path and spares the negated public path; the unusable "[z-a]" range matches nothing.
+// @evidence contracts/testing.md#independent-expectations Each literal expectation follows gitignore pattern meaning: a leading slash anchors to the root, a double star inside a name cannot cross a slash, a trailing star or globstar needs a child component, a later negation re-includes its path, and an unusable bracket range does not match. The target lists are authored literals.
+// @evidence contracts/testing.md#distinguishing-cases Each invocation pairs a matching import with an adjacent import that must stay clean, and the invalid-range invocation guards against rejecting the configuration. Case-folding and message text are owned by sibling Tests.
+// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot for each invocation, which binds the rule at error severity (so a configuration error would fail the Test), parses the source in a temporary project and runs Engine.Run in the Go test process. assertNoRestrictedImportsTargets compares the literal ranges; the Test asserts no messages.
 func TestNoRestrictedImportsGroupsKeepGitignoreAnchorsGlobstarsAndUnicode(t *testing.T) {
   anchoredSource := `import "root";
 import "nested/root";

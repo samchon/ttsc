@@ -11,6 +11,8 @@ import (
 
   _ "github.com/samchon/ttsc/packages/paths/driver"
   "github.com/samchon/ttsc/packages/ttsc/driver"
+
+  shared "github.com/samchon/ttsc/packages/paths/test/internal/shared"
 )
 
 // TestLinkedProgramRewritesCaseOnlyTargetsByHostPolicy verifies compiler-backed alias rewriting under both filesystem policies.
@@ -41,7 +43,7 @@ import { explicit } from "@explicit";
 import { directory } from "@directory";
 export const value = exact + extensionless + explicit + directory;`,
   }
-  root := seedProject(t, files)
+  root := shared.SeedProject(t, files)
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"@ttsc/paths","stage":"transform","config":{"transform":"@ttsc/paths"}}]`)
   for _, sensitive := range []bool{true, false} {
     t.Run(map[bool]string{true: "sensitive", false: "insensitive"}[sensitive], func(t *testing.T) {

@@ -4,6 +4,8 @@ import (
   "context"
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // Verifies strip: constructs a project launcher command.
@@ -20,15 +22,15 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns construction from a discovered project script launcher; direct-executable routing and actual child output/status are owned by loader boundary cases.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestTtsxCommandContextSpawnsTheProjectLauncher is selected from test/unit by the utility runner unit overlay. Runs stripTtsxCommandContext, launcher resolution and exec.Cmd construction in the Go process. This entry never calls Run, Output or Start and proves no spawn.
 func TestTtsxCommandContextSpawnsTheProjectLauncher(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := stripRealpathIfPossible(t.TempDir())
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.StripRealpathIfPossible(t.TempDir())
   launcher := seedProjectTtsc(t, root)
   config := filepath.Join(root, "strip.config.ts")
-  writeFile(t, config, "export default {};\n")
+  shared.WriteFile(t, config, "export default {};\n")
 
   cmd := stripTtsxCommandContext(
     context.Background(),
-    stripConfigToolAnchors(config, root),
+    shared.StripConfigToolAnchors(config, root),
     "--no-plugins",
     "loader.mts",
   )

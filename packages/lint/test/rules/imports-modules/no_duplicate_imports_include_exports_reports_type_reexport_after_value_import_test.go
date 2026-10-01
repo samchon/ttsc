@@ -16,7 +16,7 @@ import "testing"
 // 2. Run the rule with `includeExports: true` only.
 // 3. Assert exactly one duplicated-as-import finding on the second line.
 //
-// @evidence contracts/testing.md#behavioral-verification runNoDuplicateImports exercises the actual no-duplicate-imports Engine operation. Without type separation, a type reexport joins a preceding value import comparison. The shared assertion also rejects unexpected rules and any offered autofix.
+// @evidence contracts/testing.md#behavioral-verification runNoDuplicateImports exercises the actual no-duplicate-imports Engine operation. Without type separation, a type reexport joins a preceding value import comparison. The shared runner also rejects unexpected rules and any offered autofix.
 // @evidence contracts/testing.md#independent-expectations allowSeparateTypeImports defaults false; the authored line-2 export-as-import message is required despite type syntax. The helper only normalizes returned line/message pairs and compares them with literal expectations.
 // @evidence contracts/testing.md#distinguishing-cases Same fixture is exempt when both separation and export checking are enabled in the companion case.
 // @evidence contracts/testing.md#execution-ownership runNoDuplicateImports calls parseTSFile and NewEngineWithResolver.Run for this entry's authored source/options, then assertDuplicateImportsFindings performs the displayed literal result comparison. This Test owns that source and option combination in the Go process, without dynamic registration or a native host.

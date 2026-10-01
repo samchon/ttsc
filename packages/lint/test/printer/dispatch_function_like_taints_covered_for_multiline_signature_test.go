@@ -18,7 +18,7 @@ import (
 // covered to false. The formatPrintWidth rule checks this flag and abstains
 // rather than emitting a half-reflowed edit.
 //
-//  1. Parse an arrow function whose parameter list spans two lines (the `=>`
+//  1. Parse an arrow function whose parameter list spans several lines (the `=>`
 //     is on a separate line from the opening paren).
 //  2. Dispatch the ArrowFunction through PrintNode.
 //  3. Assert covered is false, signalling that the rule must not reflow this
@@ -27,7 +27,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification PrintNode must report an arrow with a multiline signature uncovered even though its return body could be reflowed.
 // @evidence contracts/testing.md#independent-expectations The independently authored parameter lines remain verbatim, so reindenting the body alone would leave frozen signature columns.
 // @evidence contracts/testing.md#distinguishing-cases A multiline prefix contrasts with the covered single-line arrow signature; this case observes coverage only.
-// @evidence contracts/testing.md#execution-ownership TestDispatchFunctionLikeTaintsCoveredForMultilineSignature is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchFunctionLikeTaintsCoveredForMultilineSignature is a plain top-level Go unit test, selectable with go test -run, that calls PrintNode directly on a parsed arrow function whose parameter list spans several lines inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchFunctionLikeTaintsCoveredForMultilineSignature(t *testing.T) {
   src := "const f = (\n  a: string,\n  b: number\n) => { return a; };\n"
   file := parseTS(t, src)

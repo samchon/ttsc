@@ -20,7 +20,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Print must retain the exact Text payload including whitespace, comma and UTF-8 bytes.
 // @evidence contracts/testing.md#independent-expectations Text is a verbatim leaf; the independently written input string is the expected output without layout computation.
 // @evidence contracts/testing.md#distinguishing-cases A standalone payload covers the identity branch; embedded-newline Text is covered separately.
-// @evidence contracts/testing.md#execution-ownership TestEngineTextRendersVerbatim is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineTextRendersVerbatim is one Go unit entry that renders a single literal Text with Print under default options in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineTextRendersVerbatim(t *testing.T) {
   got := Print(Text("foo, bar 한글"), DefaultPrintOptions())
   if got != "foo, bar 한글" {

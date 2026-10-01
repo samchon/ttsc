@@ -34,7 +34,7 @@ const parse = (argv: string[]) =>
  *    flag are still forwarded verbatim with their adjacency intact.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls parseFlags and resolveFlagSpec to assert canonical launcher identities, verbatim compiler forwarding and exact positional partitioning; negative twins reject capture of unknown, near-miss and bare names.
- * @evidence contracts/testing.md#independent-expectations The compiler option-name grammar folds case and accepts one or two dashes, while launcher-owned inline values and compiler-owned argv remain distinct. Literal canonical maps and ordered argv vectors independently specify identity, arity and receiver syntax.
+ * @evidence contracts/testing.md#independent-expectations Expected maps and ordered argv vectors are authored literals encoding the rule that names match case-insensitively with one or two dashes while launcher-owned values are consumed and compiler-owned argv is forwarded verbatim; the TypeScript-Go parser is not run to confirm that rule, so these literals pin ttsc's documented reading of it.
  * @evidence contracts/testing.md#distinguishing-cases Owns case/dash/alias/value spellings, false boolean values, compiler-output aliases, a source-looking option value, compiler inline and uppercase value tokens, launcher-only CWD, unknown strict/target, cwd2 and bare out controls.
  * @evidence contracts/testing.md#execution-ownership This exported source-unit entry invokes authored flag functions through a local build parser with an explicit TypeScript-file positional predicate. Every assertion runs in this entry without starting tsgo or reading a consumer project.
  */

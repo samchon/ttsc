@@ -21,8 +21,8 @@ import { resolveSafeCacheCleanupTargets } from "../../../../../packages/ttsc/src
  *
  * @evidence contracts/testing.md#behavioral-verification resolveSafeCacheCleanupTargets pins ancestor identity while preserving terminal links, so bounded deletion removes the original cache/link and preserves unrelated targets.
  * @evidence contracts/testing.md#independent-expectations The independent victim and target sentinels, physical original cache and lexical terminal-link path establish the supported cleanup contract.
- * @evidence contracts/testing.md#distinguishing-cases Ordinary nested cache deletion contrasts with a terminal-link target; both pre-validation and in-validation retargets preserve victim state.
- * @evidence contracts/testing.md#execution-ownership This named src/features/api entry calls the authored filesystem operation directly on private fixtures, with no installed consumer, native compilation or product host; every original observable assertion is retained.
+ * @evidence contracts/testing.md#distinguishing-cases Two cases: an ordinary nested cache directory behind an alias retargeted after the targets were resolved but before deletion, and a terminal symlink/junction cache whose alias ancestor is retargeted from inside the lstat hook during resolution; the resolved path must stay under the original physical parent, removing it must not touch the victim tree, and a terminal link is removed itself while its destination survives.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling resolveSafeCacheCleanupTargets and fs.rmSync directly over junctions/symlinks in a private temp directory; no ttsc clean command, process or native build.
  */
 export function test_resolvesafecachecleanuptargets_pins_alias_ancestors_and_preserves_terminal_links() {
     const root = TestProject.tmpdir("ttsc-clean-target-alias-");

@@ -16,10 +16,10 @@ import (
 //  2. Enable `cypress/no-unnecessary-waiting`.
 //  3. Assert the numeric wait is reported once.
 //
-// @evidence contracts/testing.md#behavioral-verification The actual NewEngine.Run verifies a numeric wait produces one finding for cypress/no-unnecessary-waiting; findingRules asserts the complete count and rule identity, so this does not check repository metadata.
-// @evidence contracts/testing.md#independent-expectations Numeric waits sleep for elapsed time; an alias waits for a known request event. The expected rule and count are independently authored for that policy rather than read from engine output.
-// @evidence contracts/testing.md#distinguishing-cases A string alias wait is accepted instead of the numeric 250ms input. Both the original reported source and an independently authored zero-finding control execute.
-// @evidence contracts/testing.md#execution-ownership TestCypressNoUnnecessaryWaitingReportsNumericWait is a public Go unit entry parsing Cypress-shaped TypeScript and running the owning engine in-process; it does not install Cypress, start a browser or run a product host.
+// @evidence contracts/testing.md#behavioral-verification NewEngine with only cypress/no-unnecessary-waiting enabled runs over `cy.wait(250);`; the test requires exactly one finding whose rule is cypress/no-unnecessary-waiting at error severity (assertCypressOrdinaryRuleErrors rejects engine-failure or other-severity findings) and registers it as an engine behavioral witness.
+// @evidence contracts/testing.md#independent-expectations A numeric wait sleeps for elapsed time, whereas an alias wait synchronizes on a known request. The expected count of one and the zero-finding control are literals authored from that rule contract, not computed by the rule.
+// @evidence contracts/testing.md#distinguishing-cases Positive: `cy.wait(250);` yields one finding. Negative control: `cy.wait("@request");` is run through assertRuleSkipsSource and must yield zero findings; a string alias wait is accepted.
+// @evidence contracts/testing.md#execution-ownership TestCypressNoUnnecessaryWaitingReportsNumericWait is an in-process Go unit test: parseTS plus NewEngine(...).Run for the positive case and runRuleFindingsSnapshot (via assertRuleSkipsSource) for the control. It installs no Cypress, starts no browser and no product host.
 func TestCypressNoUnnecessaryWaitingReportsNumericWait(t *testing.T) {
   file := parseTS(t, `
     cy.wait(250);

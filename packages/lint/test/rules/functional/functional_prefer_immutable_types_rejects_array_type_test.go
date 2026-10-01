@@ -13,7 +13,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification runFunctionalRule executes the actual engine and verifies mutable variable array annotation reports; assertFunctionalFinding requires exactly one finding carrying this rule identity, no autofix and a message containing the expected fragment, which separates the policy report from duplicate or unrelated findings.
 // @evidence contracts/testing.md#independent-expectations readonly array syntax expresses the required immutable declaration type. The authored source states the policy case independently of rule output.
-// @evidence contracts/testing.md#distinguishing-cases The original violating input remains intact and a separately authored accepted source is checked for zero findings.
+// @evidence contracts/testing.md#distinguishing-cases Positive: `const values: string[] = [];` must yield exactly one functional/prefer-immutable-types finding (assertFunctionalFinding). Negative control run through the same rule via assertNoFunctionalFinding: `const values: readonly string[] = [];` must yield zero findings; the readonly string[] annotation is accepted. No option-configured variant is exercised here.
 // @evidence contracts/testing.md#execution-ownership TestFunctionalPreferImmutableTypesRejectsArrayType is a named Go unit entry running actual TypeScript AST policy operations in the shared engine process; no consumer install, native build or real product host is used.
 func TestFunctionalPreferImmutableTypesRejectsArrayType(t *testing.T) {
   const ruleName = "functional/prefer-immutable-types"

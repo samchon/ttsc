@@ -7,9 +7,9 @@ import { RuntimeModuleFormat } from "../../../../../packages/ttsc/src/launcher/i
 /**
  * Verifies module format follows extension, dependency scope and emit options.
  *
- * Compiler and Node assembly stays in the mixed-format runtime batches. This
- * unit owns portable classification precedence without recompiling a project
- * for every manifest or option spelling.
+ * This test checks the classification precedence on manifests written to a
+ * temporary directory, without compiling a project for every manifest or option
+ * spelling.
  *
  * 1. Create module, CommonJS, silent and malformed nearest package scopes.
  * 2. Classify extensions and owning module/target decisions directly.
@@ -18,7 +18,7 @@ import { RuntimeModuleFormat } from "../../../../../packages/ttsc/src/launcher/i
  * @evidence contracts/testing.md#behavioral-verification The authored moduleFormat function reads actual fixture package scopes and returns formats for extension, compiler-option and package-precedence branches.
  * @evidence contracts/testing.md#independent-expectations Explicit .mts/.cts extensions and Node package type determine their contracted formats; upstream compiler emit precedence establishes preserve, node-family, target-derived and dependency override expectations independently of classifier output.
  * @evidence contracts/testing.md#distinguishing-cases Module/commonjs/missing/malformed package types, both authoritative extensions, preserve versus commonjs, all node-family kinds, implicit targets, literal node_modules versus miscased directory, explicit versus silent dependency types and null ownership cover adjacent policy branches.
- * @evidence contracts/testing.md#execution-ownership This named source unit calls the owning classifier without a compiler or product host; filesystem manifests are resolver inputs. Real mixed-format emit, public hooks and builtin connections remain in the registered runtime hosts.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttsx-runtime; it calls RuntimeModuleFormat.moduleFormat over package.json manifests written by TestProject.createProject, which the classifier reads as resolver input. No compiler, emit or Node module hook runs.
  */
 export function test_runtime_module_format_preserves_extension_package_and_option_precedence() {
   const root = TestProject.createProject({

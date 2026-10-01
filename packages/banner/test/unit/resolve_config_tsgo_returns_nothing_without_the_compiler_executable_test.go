@@ -3,6 +3,8 @@ package banner_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestResolveConfigTsgoReturnsNothingWithoutTheCompilerExecutable verifies a
@@ -23,13 +25,13 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns an install missing only the executable; full install success and missing platform package are covered separately.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoReturnsNothingWithoutTheCompilerExecutable is selected from test/unit by the utility runner unit overlay. Runs bannerResolveConfigTsgo with ordinary manifest/stat fixtures in the Go process; no spawn failure is substituted for the resolution assertion.
 func TestResolveConfigTsgoReturnsNothingWithoutTheCompilerExecutable(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := bannerRealpathIfPossible(t.TempDir())
-  missing := seedProjectTypeScriptWithoutCompiler(t, root)
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.BannerRealpathIfPossible(t.TempDir())
+  missing := shared.SeedProjectTypeScriptWithoutCompiler(t, root)
   config := filepath.Join(root, "banner.config.ts")
-  writeFile(t, config, "export default { text: \"from ts\" };\n")
+  shared.WriteFile(t, config, "export default { text: \"from ts\" };\n")
 
-  if got := bannerResolveConfigTsgo(bannerConfigToolAnchors(config, root)); got != "" {
+  if got := shared.BannerResolveConfigTsgo(shared.BannerConfigToolAnchors(config, root)); got != "" {
     t.Fatalf("resolveConfigTsgo = %q, want no compiler when %q does not exist", got, missing)
   }
 }

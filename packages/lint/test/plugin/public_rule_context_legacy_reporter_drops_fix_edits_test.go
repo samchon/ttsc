@@ -16,7 +16,7 @@ import (
 // sibling pins the `ReportFix` half: when the host does NOT implement
 // `FixReporter`, `ReportFix(node, msg, edits...)` falls back to the
 // plain `Report(node, msg)` path. Without this assertion, a regression
-// in the type-assertion site (`rule.go:178`) could leak panics into
+// in the FixReporter type assertion inside Context.ReportFix could leak panics into
 // contributor unit tests that wire their own minimal reporters.
 //
 // 1. Construct a Context whose reporter implements ONLY Report and ReportRange.

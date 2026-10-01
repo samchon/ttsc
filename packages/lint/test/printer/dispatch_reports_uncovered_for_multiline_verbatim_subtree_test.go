@@ -30,7 +30,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification PrintNode must mark the enclosing callback call uncovered when its do/while subtree is multiline verbatim.
 // @evidence contracts/testing.md#independent-expectations The independent source has interior do/while lines outside structured dispatcher coverage; reindenting only surrounding frames would freeze those columns.
 // @evidence contracts/testing.md#distinguishing-cases An unsupported multiline statement contrasts with covered nested callbacks and single-line unknown-kind verbatim.
-// @evidence contracts/testing.md#execution-ownership TestDispatchReportsUncoveredForMultilineVerbatimSubtree is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchReportsUncoveredForMultilineVerbatimSubtree is a plain top-level Go unit test, selectable with go test -run, that calls PrintNode directly on a parsed call whose callback body holds a multi-line do-while statement inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchReportsUncoveredForMultilineVerbatimSubtree(t *testing.T) {
   file := parseTS(t, "run(() => {\n  do {\n    a();\n  } while (ready);\n});\n")
   node := firstNodeOfKind(t, file, shimast.KindCallExpression)

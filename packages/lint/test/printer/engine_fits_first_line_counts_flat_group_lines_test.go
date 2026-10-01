@@ -21,7 +21,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification fitsFirstLine must admit seven columns and reject six for a flat nested group followed by cdef.
 // @evidence contracts/testing.md#independent-expectations The independent arithmetic is one plus one space plus one plus four characters.
 // @evidence contracts/testing.md#distinguishing-cases The adjacent exact-width and one-column-short budgets distinguish premature stopping at Line from full flat measurement.
-// @evidence contracts/testing.md#execution-ownership TestEngineFitsFirstLineCountsFlatGroupLines is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineFitsFirstLineCountsFlatGroupLines is one Go unit entry that calls the unexported fitsFirstLine directly on a literal Doc tree in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineFitsFirstLineCountsFlatGroupLines(t *testing.T) {
   doc := Concat(Group(Concat(Text("a"), Line(), Text("b"))), Text("cdef"))
   if !fitsFirstLine(doc, 7) {

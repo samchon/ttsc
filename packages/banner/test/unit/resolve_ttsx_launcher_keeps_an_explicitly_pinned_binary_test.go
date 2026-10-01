@@ -3,6 +3,8 @@ package banner_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestResolveTtsxLauncherKeepsAnExplicitlyPinnedBinary verifies an explicit
@@ -22,16 +24,16 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns nonempty override priority against a valid project launcher; empty-environment discovery and missing-launcher fallback are separate cases.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveTtsxLauncherKeepsAnExplicitlyPinnedBinary is selected from test/unit by the utility runner unit overlay. Runs bannerResolveTtsxLauncher in the Go process with testing-restored environment; neither launcher is invoked.
 func TestResolveTtsxLauncherKeepsAnExplicitlyPinnedBinary(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := bannerRealpathIfPossible(t.TempDir())
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.BannerRealpathIfPossible(t.TempDir())
   project := seedProjectTtsc(t, root)
   config := filepath.Join(root, "banner.config.ts")
-  writeFile(t, config, "export default { text: \"from ts\" };\n")
+  shared.WriteFile(t, config, "export default { text: \"from ts\" };\n")
 
   pinned := filepath.Join(root, "pinned", "ttsx.js")
   t.Setenv("TTSC_TTSX_BINARY", pinned)
 
-  got := bannerResolveTtsxLauncher(bannerConfigToolAnchors(config, root))
+  got := bannerResolveTtsxLauncher(shared.BannerConfigToolAnchors(config, root))
   if got == project {
     t.Fatalf("resolveTtsxLauncher took the project launcher %q over the pinned %q", project, pinned)
   }

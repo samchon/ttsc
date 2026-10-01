@@ -9,6 +9,8 @@ import (
   "strings"
   "testing"
   "time"
+
+  shared "github.com/samchon/ttsc/packages/paths/test/internal/shared"
 )
 
 // TestCommandCheckCompletesOnCrossVolumeFilesList verifies the sidecar never hangs on two-volume inputs.
@@ -33,7 +35,7 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary The native command, compiler files membership and paths plugin must cooperate on real volume-separated sources; the path-calculation source unit cannot establish host termination or orphan-process prevention.
 // @evidence contracts/e2e.md#shared-execution The case reuses the same per-package producer as the other native command cases; only this distinct cross-volume project and deadline-supervised invocation remain separate, with no per-case Go build.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity Temp project and repository-volume external source have separate cleanup owners; CommandContext kills the actual producer on the local deadline, and the runner releases its binary only after the whole test process returns.
-// @evidence contracts/e2e.md#preserved-coverage Original different-volume admission, two-minute deadlock bound and successful-empty-stream assertions remain; binary identity comes from the shared producer and this real boundary is not claimed by the portable volume-root unit.
+// @evidence contracts/e2e.md#preserved-coverage The body asserts, only on machines where the project and the external file are on different volumes, that check --quiet over a files list mixing both volumes returns before a 2-minute deadline with no error and empty trimmed stdout/stderr; on a single-volume machine it skips at L57 and asserts nothing.
 func TestCommandCheckCompletesOnCrossVolumeFilesList(t *testing.T) {
   cacheDir := filepath.Join(packageRoot(t), "..", "..", "node_modules", ".cache")
   if err := os.MkdirAll(cacheDir, 0o755); err != nil {
@@ -47,7 +49,7 @@ func TestCommandCheckCompletesOnCrossVolumeFilesList(t *testing.T) {
   externalFile := filepath.Join(externalDir, "external.ts")
   writeFile(t, externalFile, `export const external = "ok";`+"\n")
 
-  root := seedProject(t, map[string]string{
+  root := shared.SeedProject(t, map[string]string{
     "tsconfig.json":      `{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true,"paths":{"@lib/*":["./src/lib/*"]}},"files":["src/main.ts","src/lib/message.ts",` + mustJSON(t, externalFile) + `]}`,
     "src/lib/message.ts": `export const message = "ok";` + "\n",
     "src/main.ts":        `import { message } from "@lib/message";` + "\n" + `export const value = message;` + "\n",

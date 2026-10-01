@@ -15,10 +15,10 @@ import { assertCompactionDoesNotMergeALeftoverClaimedFileAgain } from "../../int
  * 2. Read the retained tainted claim and assert its published epoch is unchanged.
  * 3. Prepare once more, and assert the epoch is kept and the leftover is gone.
  *
- * @evidence contracts/testing.md#behavioral-verification readSnapshotState ignores a tainted claimed worker already listed in the committed main snapshot; subsequent preparation preserves the epoch and removes that residue.
- * @evidence contracts/testing.md#independent-expectations Publication-before-unlink records which claims have already been applied; equality of the observed epoch and false taint independently distinguish replay.
- * @evidence contracts/testing.md#distinguishing-cases A retained tainted claim contrasts new uncommitted observations. The fixture represents post-commit residue and does not certify an actual OS unlink denial.
- * @evidence contracts/testing.md#execution-ownership This named src/features/cache entry runs authored Metro fingerprint and transformer operations through the serial source-unit loader. Real fixture files and upstream input modules exercise resolution; no consumer installation, native compilation or product host is started.
+ * @evidence contracts/testing.md#behavioral-verification With the main snapshot naming graph-inputs.worker-claimed-retained.json as compacted and that tainted worker file left on disk, readSnapshotState returns the same epoch id with tainted false, and the next prepareSnapshot keeps the id and removes the leftover file.
+ * @evidence contracts/testing.md#independent-expectations Expected values follow from the authored fixture: an unchanged id, tainted false and an empty worker list after compaction, distinguishing replay of the tainted claim from ignoring it.
+ * @evidence contracts/testing.md#distinguishing-cases The listed-as-compacted tainted claim is the only case; no new uncommitted observation is created. The fixture models post-commit residue and does not exercise a real OS unlink denial.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls readSnapshotState and prepareSnapshot in-process over files written by fs; no transformer, native compile, consumer install or Metro host.
  */
 export const test_prepare_snapshot_does_not_merge_a_leftover_claimed_file_again =
   async () => {

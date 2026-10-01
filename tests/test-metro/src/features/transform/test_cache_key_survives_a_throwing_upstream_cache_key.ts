@@ -11,10 +11,10 @@ import { assertCacheKeySurvivesThrowingUpstreamCacheKey } from "../../internal/m
  * 2. Call getCacheKey.
  * 3. Assert it returns a valid 64-char hex digest instead of throwing.
  *
- * @evidence contracts/testing.md#behavioral-verification An upstream whose getCacheKey throws leaves the authored getCacheKey callable with a 64-character result.
- * @evidence contracts/testing.md#independent-expectations The fixture throws a literal upstream key failure; nonfatal result shape is the independent oracle retained by this case.
- * @evidence contracts/testing.md#distinguishing-cases Callback failure contrasts module-resolution failure. This case does not assert nonce inequality or successful transformation.
- * @evidence contracts/testing.md#execution-ownership This matching src/features export calls authored Metro operations through the source-unit loader. Input filesystem/module fixtures and declared upstream callbacks remain test-local; no installed consumer, native compiler or product host is launched.
+ * @evidence contracts/testing.md#behavioral-verification getCacheKey with a resolvable fake upstream whose getCacheKey throws returns a 64-character string instead of throwing.
+ * @evidence contracts/testing.md#independent-expectations The fixture throws a literal Error("upstream getCacheKey boom"); the nonfatal contract is checked only as string type and width, not as a nonce.
+ * @evidence contracts/testing.md#distinguishing-cases Only the throwing-callback failure is run; the missing-upstream failure belongs to the neighboring entry, and no cross-run key comparison is made.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls the transformer module's getCacheKey in-process with a temp CommonJS upstream; no snapshot, native compile, consumer install or Metro host.
  */
 export const test_cache_key_survives_a_throwing_upstream_cache_key =
   async () => {

@@ -3,6 +3,8 @@ package banner_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestConfigToolAnchorsListsTheConfigThenTheProjectRoot verifies the anchor
@@ -27,7 +29,7 @@ func TestConfigToolAnchorsListsTheConfigThenTheProjectRoot(t *testing.T) {
   root := filepath.Join("project", "root")
   config := filepath.Join(root, "packages", "app", "banner.config.ts")
 
-  anchors := bannerConfigToolAnchors(config, root)
+  anchors := shared.BannerConfigToolAnchors(config, root)
   want := []string{config, filepath.Join(root, "package.json")}
   if len(anchors) != len(want) {
     t.Fatalf("configToolAnchors = %v, want %v", anchors, want)
@@ -40,13 +42,13 @@ func TestConfigToolAnchorsListsTheConfigThenTheProjectRoot(t *testing.T) {
 
   // The negative twins: a blank entry is absent, not an empty-string anchor
   // that would make the walk start from the process working directory.
-  if only := bannerConfigToolAnchors("   ", root); len(only) != 1 || only[0] != filepath.Join(root, "package.json") {
+  if only := shared.BannerConfigToolAnchors("   ", root); len(only) != 1 || only[0] != filepath.Join(root, "package.json") {
     t.Fatalf("configToolAnchors with a blank config = %v, want the root manifest alone", only)
   }
-  if only := bannerConfigToolAnchors(config, "   "); len(only) != 1 || only[0] != config {
+  if only := shared.BannerConfigToolAnchors(config, "   "); len(only) != 1 || only[0] != config {
     t.Fatalf("configToolAnchors with a blank root = %v, want the config alone", only)
   }
-  if none := bannerConfigToolAnchors("", ""); len(none) != 0 {
+  if none := shared.BannerConfigToolAnchors("", ""); len(none) != 0 {
     t.Fatalf("configToolAnchors with nothing to anchor on = %v, want an empty list", none)
   }
 }

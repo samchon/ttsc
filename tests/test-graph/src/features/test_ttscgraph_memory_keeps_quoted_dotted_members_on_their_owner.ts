@@ -14,14 +14,15 @@ import {
  * at its final dot invents `Box.a`; the exact simple-name suffix identifies
  * `Box` instead.
  *
- * 1. Build a class and its quoted dotted variable from a synthetic dump.
- * 2. Let the real memory synthesis refine containment and property kind.
- * 3. Assert the class owns the refined property.
+ * 1. Build a class Box and a variable named "a.b" (qualified Box.a.b) from a
+ *    synthetic dump.
+ * 2. Let TtscGraphMemory.from refine containment and the member kind.
+ * 3. Assert the member became a property and Box contains it.
  *
- * @evidence contracts/testing.md#behavioral-verification TtscGraphMemory.from refines the dotted quoted member and synthesizes containment under Box, not Box.a.
- * @evidence contracts/testing.md#independent-expectations The authored simple name a.b belongs to Box; its dot is identifier data.
- * @evidence contracts/testing.md#distinguishing-cases A class and one dotted-name variable distinguish exact member suffix ownership from a last-dot split.
- * @evidence contracts/testing.md#execution-ownership The named exported src/features entry executes authored graph memory and resolver through the unit loader; no installed consumer, native producer or child process is used.
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphMemory.from over a class Box and a variable with name "a.b" and qualifiedName "Box.a.b" must refine the variable's kind to "property" and give it a contains edge from Box.
+ * @evidence contracts/testing.md#independent-expectations The fixture authors the simple name "a.b" and the qualified name "Box.a.b" as separate fields and the expected owner id "src/box.ts#Box:class" as a literal; the dot in the name is data, not a separator.
+ * @evidence contracts/testing.md#distinguishing-cases A last-dot split of the qualified name would look for an owner "Box.a", find none, and leave the member kind a variable under the file; the assertions on kind and contains owner exclude that. Only one member and one owner are used, and a same-named member of another class is not covered.
+ * @evidence contracts/testing.md#execution-ownership Calls TtscGraphMemory.from through createSyntheticGraph in the test process with typed in-memory nodes; no resolver call is made, and no native producer or process is involved.
  */
 export function test_ttscgraph_memory_keeps_quoted_dotted_members_on_their_owner(): void {
     const box: ResolverGraphNode = {

@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printCallExpression must break the three long identifiers at width twenty.
 // @evidence contracts/testing.md#independent-expectations The literal output preserves process and the exact argument names/order with the documented broken-list comma policy.
 // @evidence contracts/testing.md#distinguishing-cases The overflowing argument list complements the short flat foo call and last-argument hugging cases.
-// @evidence contracts/testing.md#execution-ownership TestDispatchCallExpressionBreaksArgumentsWhenOverflows is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchCallExpressionBreaksArgumentsWhenOverflows is a plain top-level Go unit test, selectable with go test -run, that calls printCallExpression directly on a parsed three-identifier call at width twenty inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchCallExpressionBreaksArgumentsWhenOverflows(t *testing.T) {
   file := parseTS(t, "process(aaaaaaaaa, bbbbbbbbb, ccccccccc);\n")
   node := firstNodeOfKind(t, file, shimast.KindCallExpression)

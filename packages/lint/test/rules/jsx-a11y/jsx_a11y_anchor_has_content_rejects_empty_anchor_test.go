@@ -2,19 +2,22 @@ package linthost
 
 import "testing"
 
-// TestJsxA11yAnchorHasContentRejectsEmptyAnchor verifies anchors need content.
+// TestJsxA11yAnchorHasContentRejectsEmptyAnchor verifies
+// jsx-a11y/anchor-has-content reports empty paired and self-closing anchors
+// and accepts an anchor with text.
 //
-// Empty links are invisible to assistive technology. Both normal and
-// self-closing JSX elements can omit accessible child content.
+// Empty links are invisible to assistive technology, and both JSX element
+// syntaxes can omit their content.
 //
-// 1. Parse normal and self-closing anchors with no accessible label.
-// 2. Enable only `jsx-a11y/anchor-has-content`.
-// 3. Assert each empty anchor reports a diagnostic.
+// 1. Run only `jsx-a11y/anchor-has-content` over `<a href="/home"></a>` and
+//    over `<a href="/home" />`, expecting one finding each whose message
+//    contains "content".
+// 2. Run it over `<a href="/home">Home</a>` and expect none.
 //
-// @evidence contracts/testing.md#behavioral-verification Actual TSX parsing and NewEngine.Run verify normal and self-closing anchors have no accessible content; reported variants require one ordinary SeverityError finding from the named rule with the authored message fragment, and clean variants require zero findings.
-// @evidence contracts/testing.md#independent-expectations Visible text provides the link name for both element syntaxes. The source inputs and literal expected findings follow this supported accessibility policy without sampling implementation output.
-// @evidence contracts/testing.md#distinguishing-cases Empty paired and self-closing anchors report; adding Home content with the same /home href is clean.
-// @evidence contracts/testing.md#execution-ownership TestJsxA11yAnchorHasContentRejectsEmptyAnchor owns these explicit AST variants as a named Go unit entry; the owning engine executes in the shared test process without a browser, accessibility runtime installation or product child host.
+// @evidence contracts/testing.md#behavioral-verification assertJsxA11yRuleFinds parses each TSX source and runs NewEngine.Run with only jsx-a11y/anchor-has-content enabled. The paired empty anchor and the self-closing anchor each yield exactly one ordinary SeverityError finding from that rule whose message contains "content"; assertJsxA11yRuleSkips requires zero findings for the anchor containing Home.
+// @evidence contracts/testing.md#independent-expectations Visible text gives a link its accessible name, so an anchor with neither text nor a label is a violation in both element syntaxes. The three literal sources and the "content" fragment are authored from that policy.
+// @evidence contracts/testing.md#distinguishing-cases All three anchors share the /home href; the paired and self-closing forms report and the form with child text does not. Other accessible-name sources (aria-label and similar) are not exercised by this Test.
+// @evidence contracts/testing.md#execution-ownership The Test is one Go unit with two assertJsxA11yRuleFinds calls and one assertJsxA11yRuleSkips call, executing the rule engine on parsed virtual TSX files in the test process with no browser, accessibility runtime or product host.
 func TestJsxA11yAnchorHasContentRejectsEmptyAnchor(t *testing.T) {
   assertJsxA11yRuleFinds(t, "jsx-a11y/anchor-has-content", `const Component = () => <a href="/home"></a>;`, "content")
   assertJsxA11yRuleFinds(t, "jsx-a11y/anchor-has-content", `const Component = () => <a href="/home" />;`, "content")

@@ -19,7 +19,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Print must emit one tab before x for both zero and negative TabWidth with UseTabs enabled.
 // @evidence contracts/testing.md#independent-expectations The documented default of two columns divides Indent two into one tab, yielding the literal newline-tab-x.
 // @evidence contracts/testing.md#distinguishing-cases Both nonpositive tab widths must select the two-column default; explicit-width and remainder-space cases cover positive widths.
-// @evidence contracts/testing.md#execution-ownership TestEngineTabWidthDefaultsWhenZero is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineTabWidthDefaultsWhenZero is one Go unit entry that renders a literal Indent with Print under UseTabs and TabWidth 0 and -1 in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineTabWidthDefaultsWhenZero(t *testing.T) {
   doc := Indent(2, Hardline(), Text("x"))
   for _, omitted := range []int{0, -1} {

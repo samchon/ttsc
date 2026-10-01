@@ -34,8 +34,9 @@ interface IFilesystemState {
  * claims coverage it does not have, and project discovery must select the same
  * config TypeScript-Go would through the same observations.
  *
- * 1. Capture file baselines for missing, regular, non-regular, directory, linked,
- *    and malformed entries, and compare them with each evidence codec.
+ * 1. Capture file baselines for missing, regular and non-regular candidates, build
+ *    serialized-baseline variants that are malformed, and compare them with the
+ *    predicates, host and graph evidence codecs.
  * 2. Assert every kind and transition matches only the predicates it satisfies,
  *    and malformed input fails closed.
  * 3. Replay TypeScript-Go's realpath fallback and accessible-entry listings under

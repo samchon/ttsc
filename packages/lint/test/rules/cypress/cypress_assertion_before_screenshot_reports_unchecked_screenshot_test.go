@@ -9,17 +9,17 @@ import (
 // TestCypressAssertionBeforeScreenshotReportsUncheckedScreenshot verifies screenshot assertion ordering.
 //
 // Screenshots without a prior Cypress assertion can capture race-dependent UI
-// state. The rule walks the file in source order and reports screenshots that
-// appear before any `.should()` or `.and()` assertion.
+// state. The rule reports a screenshot whose receiver chain has no `.should()`
+// or `.and()` and whose previous sibling statement is not an assertion call.
 //
 //  1. Parse a file that calls `cy.screenshot()` first.
 //  2. Enable `cypress/assertion-before-screenshot`.
 //  3. Assert the screenshot command is reported once.
 //
-// @evidence contracts/testing.md#behavioral-verification The actual NewEngine.Run verifies a screenshot without an assertion produces one finding for cypress/assertion-before-screenshot; findingRules asserts the complete count and rule identity, so this does not check repository metadata.
-// @evidence contracts/testing.md#independent-expectations An unchecked screenshot has no asserted DOM state before capture. The expected rule and count are independently authored for that policy rather than read from engine output.
-// @evidence contracts/testing.md#distinguishing-cases The empty assertion history is rejected; same-chain and immediately preceding assertions have separate accepted cases.
-// @evidence contracts/testing.md#execution-ownership TestCypressAssertionBeforeScreenshotReportsUncheckedScreenshot is a public Go unit entry parsing Cypress-shaped TypeScript and running the owning engine in-process; it does not install Cypress, start a browser or run a product host.
+// @evidence contracts/testing.md#behavioral-verification NewEngine with only cypress/assertion-before-screenshot enabled runs over `cy.screenshot();` alone; the test requires exactly one finding, rule cypress/assertion-before-screenshot at error severity (assertCypressOrdinaryRuleErrors), registered as an engine behavioral witness.
+// @evidence contracts/testing.md#independent-expectations A screenshot with no assertion in its chain and no preceding statement captures unchecked DOM state; the expected count of one is a literal authored from that policy.
+// @evidence contracts/testing.md#distinguishing-cases Positive case with an empty assertion history (no previous statement). The same-chain and adjacent-assertion tests own the accepted counterparts, and the unrelated-prior test owns the reported case that has an earlier but non-adjacent assertion.
+// @evidence contracts/testing.md#execution-ownership TestCypressAssertionBeforeScreenshotReportsUncheckedScreenshot is an in-process Go unit test: parseTS plus NewEngine(...).Run over the source. It installs no Cypress, starts no browser and no product host.
 func TestCypressAssertionBeforeScreenshotReportsUncheckedScreenshot(t *testing.T) {
   file := parseTS(t, `
     cy.screenshot();

@@ -3,6 +3,8 @@ package banner_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestRealpathIfPossibleKeepsAnUnevaluablePath verifies a path that cannot be
@@ -24,12 +26,12 @@ import (
 // @evidence contracts/testing.md#execution-ownership Unit entry TestRealpathIfPossibleKeepsAnUnevaluablePath is selected from test/unit by the utility runner unit overlay. Calls bannerRealpathIfPossible in the Go process on ordinary paths; it creates no link or subprocess.
 func TestRealpathIfPossibleKeepsAnUnevaluablePath(t *testing.T) {
   root := t.TempDir()
-  if real := bannerRealpathIfPossible(root); real == "" {
+  if real := shared.BannerRealpathIfPossible(root); real == "" {
     t.Fatal("realpathIfPossible emptied an existing directory")
   }
 
-  missing := filepath.Join(bannerRealpathIfPossible(root), "no-such-directory", "package.json")
-  if got := bannerRealpathIfPossible(missing); got != missing {
+  missing := filepath.Join(shared.BannerRealpathIfPossible(root), "no-such-directory", "package.json")
+  if got := shared.BannerRealpathIfPossible(missing); got != missing {
     t.Fatalf("realpathIfPossible = %q, want the unevaluable path %q back", got, missing)
   }
 }

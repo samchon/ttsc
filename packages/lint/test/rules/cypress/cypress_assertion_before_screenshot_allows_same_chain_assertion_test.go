@@ -8,19 +8,17 @@ import (
 
 // TestCypressAssertionBeforeScreenshotAllowsSameChainAssertion verifies same-chain assertions.
 //
-// The tsgo visitor can encounter the outer `.screenshot()` call before the
-// inner `.should()` call in a fluent chain. The rule sorts call expressions and
-// also inspects the receiver chain so a valid same-chain assertion is not
-// reported.
+// The rule visits each `screenshot` call and inspects its receiver chain for a
+// `.should()` or `.and()` call, so a valid same-chain assertion is not reported.
 //
 //  1. Parse `cy.get(...).should(...).screenshot()`.
 //  2. Enable `cypress/assertion-before-screenshot`.
 //  3. Assert no finding is emitted.
 //
-// @evidence contracts/testing.md#behavioral-verification The actual NewEngine.Run verifies should followed by screenshot in the same fluent chain produces zero findings for cypress/assertion-before-screenshot; findingRules asserts the complete count and rule identity, so this does not check repository metadata.
-// @evidence contracts/testing.md#independent-expectations The screenshot receiver includes the assertion that establishes its captured state. The expected rule and count are independently authored for that policy rather than read from engine output.
-// @evidence contracts/testing.md#distinguishing-cases Nested AST visitation order must not misclassify this same-chain assertion; the adjacent-statement test owns the other accepted shape.
-// @evidence contracts/testing.md#execution-ownership TestCypressAssertionBeforeScreenshotAllowsSameChainAssertion is a public Go unit entry parsing Cypress-shaped TypeScript and running the owning engine in-process; it does not install Cypress, start a browser or run a product host.
+// @evidence contracts/testing.md#behavioral-verification NewEngine with only cypress/assertion-before-screenshot enabled runs over `cy.get("[data-cy=dialog]").should("be.visible").screenshot();`; the test requires zero findings (findingRules is empty).
+// @evidence contracts/testing.md#independent-expectations A screenshot whose receiver chain already contains a should assertion has a checked DOM state; the zero count is a literal authored from that policy.
+// @evidence contracts/testing.md#distinguishing-cases Accepted case where the assertion is in the same fluent chain as the screenshot call (previousChainHasAnyMethod over the receiver); the adjacent-statement test owns the other accepted shape.
+// @evidence contracts/testing.md#execution-ownership TestCypressAssertionBeforeScreenshotAllowsSameChainAssertion is an in-process Go unit test: parseTS plus NewEngine(...).Run over the source. It installs no Cypress, starts no browser and no product host.
 func TestCypressAssertionBeforeScreenshotAllowsSameChainAssertion(t *testing.T) {
   file := parseTS(t, `
     cy.get("[data-cy=dialog]").should("be.visible").screenshot();

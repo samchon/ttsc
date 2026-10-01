@@ -16,10 +16,13 @@ import { routeWatchBrokerMessage } from "../../../../packages/unplugin/src/core/
  * macOS that let FSEvents silence stand for a filesystem recheck
  * (samchon/ttsc#1546).
  *
- * 1. Drain for registration A, then register B, and drain for B and again for A.
- * 2. Assert A shares the in-flight drain and B's starts a new one.
- * 3. Answer the first drain, then the second, and assert each verdict reached only
- *    the registrations its request covered.
+ * 1. Drain for registration A, then register B, drain for B, and drain for A
+ *    again while B's drain is in flight.
+ * 2. Assert B's drain is a different promise from A's first and that exactly two
+ *    requests were sent. A's second call joins B's in-flight drain, which also
+ *    covers A, and is not asserted to be a distinct promise.
+ * 3. Answer the first request, then the second, and assert the first verdict
+ *    reached only A while the second reached A and B.
  *
  * @evidence contracts/testing.md#behavioral-verification drainWatchBroker and routeWatchBrokerMessage keep a late registration out of an earlier drain and release each covered scope after its own reply.
  * @evidence contracts/testing.md#independent-expectations Authored registration IDs and exact proven traces specify scope ownership; two requests and distinct promises detect sharing a drain that never covered B.

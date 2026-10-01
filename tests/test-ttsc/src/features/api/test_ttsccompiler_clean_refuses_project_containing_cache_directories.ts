@@ -24,7 +24,7 @@ import {
  * @evidence contracts/testing.md#behavioral-verification TtscCompiler.clean and resolveSafeCacheCleanupTargets reject project, ancestor, alias, environment-selected ancestor and filesystem-root targets before removing any sentinel.
  * @evidence contracts/testing.md#independent-expectations Literal project, sibling and plugin sentinels independently establish what must survive an invalid cleanup request.
  * @evidence contracts/testing.md#distinguishing-cases Direct project and ancestor requests, physical alias, instance environment and filesystem root are all rejected while earlier data remains intact.
- * @evidence contracts/testing.md#execution-ownership This named src/features/api entry calls the authored filesystem operation directly on private fixtures, with no installed consumer, native compilation or product host; every original observable assertion is retained.
+ * @evidence contracts/testing.md#execution-ownership A unit test running TtscCompiler.clean and resolveSafeCacheCleanupTargets in process over a throwaway project, a sibling file and a junction in os.tmpdir(); no tsgo compile, native plugin build or ttsc CLI process is started.
  */
 export function test_ttsccompiler_clean_refuses_project_containing_cache_directories() {
     const parent = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-clean-safety-"));

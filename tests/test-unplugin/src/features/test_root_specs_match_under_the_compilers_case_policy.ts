@@ -25,7 +25,7 @@ import { matchesProjectRootFile } from "../../../../packages/unplugin/src/core/t
  * @evidence contracts/testing.md#behavioral-verification matchesProjectRootFile obeys the supplied case policy for .MIN.js exclusion and Src versus src matching rather than inferring policy from the running OS.
  * @evidence contracts/testing.md#independent-expectations Literal true/false outcomes follow the compiler membership policy: sensitive matching retains case differences while insensitive matching folds both min and directory spellings.
  * @evidence contracts/testing.md#distinguishing-cases The same three paths run under both explicit case answers, distinguishing uppercase min, canonical min and differently cased include directory.
- * @evidence contracts/testing.md#execution-ownership Calls matchesProjectRootFile with authored policy fixtures; both platform policies are exercised in one source-unit entry, with no OS matrix or compiler host.
+ * @evidence contracts/testing.md#execution-ownership Calls matchesProjectRootFile with authored policy fixtures; both case-sensitivity answers (useCaseSensitiveFileNames true and false) are exercised in one source-unit entry on the host's own path grammar, with no OS matrix, filesystem or compiler host.
  */
 export function test_root_specs_match_under_the_compilers_case_policy(): void {
   const root = path.resolve("/ttsc-root-case-policy");

@@ -18,8 +18,8 @@ import path from "node:path";
  * 4. Assert only the nested package root remains.
  *
  * @evidence contracts/testing.md#behavioral-verification createResolutionCandidates and filterNonOverlappingCandidates select the nested configured root.
- * @evidence contracts/testing.md#independent-expectations a parent recursive client and nested client must never claim the same document.
- * @evidence contracts/testing.md#distinguishing-cases configured parent and nested roots choose only the nested owner.
+ * @evidence contracts/testing.md#independent-expectations The expectation follows from the one-owner-per-document rule: the authored nested directory is the only root that may survive, and it is compared as a literal path rather than derived from the filter.
+ * @evidence contracts/testing.md#distinguishing-cases The active file's nested config produces a nested candidate and the workspace root contributes a parent candidate; only the nested one is kept. A sibling-root case, an alias case and a no-nested-config case are not covered by this test.
  * @evidence contracts/testing.md#execution-ownership The named test_vscode_server_resolution_filters_overlapping_project_roots function runs under src/features/ttscserver and calls authored serverResolution functions directly; fixture manifests are resolver input, and no language client or product process starts.
  */
 export function test_vscode_server_resolution_filters_overlapping_project_roots() {

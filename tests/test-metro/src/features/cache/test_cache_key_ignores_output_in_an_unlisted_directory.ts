@@ -11,10 +11,10 @@ import { assertCacheKeyIgnoresOutputInAnUnlistedDirectory } from "../../internal
  * 2. Write three differently named JavaScript bundles and assert unchanged keys.
  * 3. Create a supported TypeScript source and assert invalidation.
  *
- * @evidence contracts/testing.md#behavioral-verification Three new hashed JavaScript bundles outside configured inputs keep the key while a new src/late.ts changes it.
- * @evidence contracts/testing.md#independent-expectations Program input membership excludes JavaScript when allowJs is absent and admits authored TypeScript sources; this oracle does not copy traversal output.
- * @evidence contracts/testing.md#distinguishing-cases Repeated generated-output appearances contrast one new supported source, preventing an always-stable implementation from passing.
- * @evidence contracts/testing.md#execution-ownership This named src/features/cache entry runs authored Metro fingerprint and transformer operations through the serial source-unit loader. Real fixture files and upstream input modules exercise resolution; no consumer installation, native compilation or product host is started.
+ * @evidence contracts/testing.md#behavioral-verification After prepareSnapshot, writing three differently named JavaScript files under lib/ leaves getCacheKey equal to its earlier value after each write, and then adding src/late.ts makes it differ.
+ * @evidence contracts/testing.md#independent-expectations The project has no allowJs, so .js is not a program input, while a new .ts under the src include is; the equal and not-equal expectations follow from that membership rule rather than from traversal output.
+ * @evidence contracts/testing.md#distinguishing-cases Three generated-output appearances (negative) contrast one new supported source (positive), so an implementation that never re-keys cannot pass.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls prepareSnapshot and getCacheKey from fresh transformer modules in-process over a temp project; no native compile, consumer install or Metro host.
  */
 export const test_cache_key_ignores_output_in_an_unlisted_directory =
   async () => {

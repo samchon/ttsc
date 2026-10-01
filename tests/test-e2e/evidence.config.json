@@ -171,9 +171,9 @@
       "type": "go",
       "root": "../..",
       "files": [
-        "packages/banner/test/shared/helpers_test.go",
-        "packages/paths/test/shared/helpers_test.go",
-        "packages/strip/test/shared/helpers_test.go"
+        "packages/banner/test/e2e/helpers_test.go",
+        "packages/paths/test/e2e/helpers_test.go",
+        "packages/strip/test/e2e/helpers_test.go"
       ],
       "symbol": "function",
       "reference": {

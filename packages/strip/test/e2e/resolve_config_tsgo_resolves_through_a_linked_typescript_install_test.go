@@ -7,6 +7,8 @@ import (
   "testing"
 
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestResolveConfigTsgoResolvesThroughALinkedTypeScriptInstall verifies the
@@ -26,15 +28,15 @@ import (
 // @evidence contracts/testing.md#independent-expectations The authored store topology and binary filename specify the target. The fixture platform pair comes from product code, so platform vocabulary needs its independent unit oracle.
 // @evidence contracts/testing.md#distinguishing-cases The platform package is beside the real install, not the link. Symlink or Windows junction fallback is used, and unavailable links skip the case; compiler bytes are never executed.
 // @evidence contracts/testing.md#execution-ownership This named entry directly invokes the owning strip resolver over real filesystem fixtures. Empty compiler files and manifests are resolver inputs, not actual consumer installation.
-// @evidence contracts/e2e.md#necessary-boundary The resolver consumes a real linked install; when Windows symlink creation is unavailable, windowsjunction.Create invokes the actual native junction command. Portable resolver selection still needs a direct source-unit owner, and these empty compiler bytes do not establish compiler startup.
+// @evidence contracts/e2e.md#necessary-boundary The case needs a real directory link: os.Symlink, or windowsjunction.Create (cmd.exe mklink /J) on Windows when symlinks are denied; the resolver must follow it to the store copy to find the sibling platform package. No compiler process starts, so this verifies path resolution through a link, not compiler startup.
 // @evidence contracts/e2e.md#shared-execution One store/link layout is prepared in t.TempDir without a plugin build or compiler process; only the Windows link fallback can start its necessary junction command.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.Setenv restores tool variables and t.TempDir owns the store, link and empty compiler fixture. Link creation can prevent the assertion from executing.
-// @evidence contracts/e2e.md#preserved-coverage The exact linked-store compiler-path assertion remains unchanged. This docs-only change does not prove compiler startup or correct the existing layer placement.
+// @evidence contracts/e2e.md#preserved-coverage The body asserts one equality at L53: the compiler path resolved from a linked node_modules/typescript equals the seeded store lib/tsc path. When no directory link can be created the case skips and asserts nothing.
 func TestResolveConfigTsgoResolvesThroughALinkedTypeScriptInstall(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := stripRealpathIfPossible(t.TempDir())
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.StripRealpathIfPossible(t.TempDir())
   store := filepath.Join(root, ".store", "typescript@5", "node_modules")
-  want := seedProjectTypeScript(t, filepath.Dir(store))
+  want := shared.SeedProjectTypeScript(t, filepath.Dir(store))
 
   link := filepath.Join(root, "node_modules", "typescript")
   if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
@@ -48,9 +50,9 @@ func TestResolveConfigTsgoResolvesThroughALinkedTypeScriptInstall(t *testing.T) 
   }
 
   config := filepath.Join(root, "strip.config.ts")
-  writeFile(t, config, "export default {};\n")
+  shared.WriteFile(t, config, "export default {};\n")
 
-  if got := stripResolveConfigTsgo(stripConfigToolAnchors(config, root)); got != want {
+  if got := shared.StripResolveConfigTsgo(shared.StripConfigToolAnchors(config, root)); got != want {
     t.Fatalf("stripResolveConfigTsgo = %q, want the linked install's compiler %q", got, want)
   }
 }

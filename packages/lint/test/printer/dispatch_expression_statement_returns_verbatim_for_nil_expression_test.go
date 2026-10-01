@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printExpressionStatement must safely return empty, covered output for a factory statement with no expression.
 // @evidence contracts/testing.md#independent-expectations The public factory node has no source range and no expression to print, so fallback cannot create text.
 // @evidence contracts/testing.md#distinguishing-cases Missing public expression data complements a missing node and an intact statement with a preserved dirty tail.
-// @evidence contracts/testing.md#execution-ownership TestDispatchExpressionStatementReturnsVerbatimForNilExpression is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchExpressionStatementReturnsVerbatimForNilExpression is a plain top-level Go unit test, selectable with go test -run, that calls printExpressionStatement directly on a factory-built expression statement with no expression inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchExpressionStatementReturnsVerbatimForNilExpression(t *testing.T) {
   file := parseTS(t, "const x = 1;\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

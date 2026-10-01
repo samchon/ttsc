@@ -6,6 +6,8 @@ import (
   "runtime"
   "strings"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestNodeEnvironmentHelpers verifies node_modules discovery and env assembly.
@@ -30,13 +32,13 @@ func TestNodeEnvironmentHelpers(t *testing.T) {
   if err := os.MkdirAll(filepath.Join(nodeModules, "pkg"), 0o755); err != nil {
     t.Fatal(err)
   }
-  if got := bannerFindNearestNodeModules(nested); got != nodeModules {
+  if got := shared.BannerFindNearestNodeModules(nested); got != nodeModules {
     t.Fatalf("nearest node_modules mismatch: %q", got)
   }
   // Hermetic: a stray node_modules above the test temp dir (developer
   // machines have them at drive roots) is a legitimate discovery — only a
   // hit inside the fixture would be a bug.
-  if got := bannerFindNearestNodeModules(filepath.Join(root, "without-modules")); got != "" && strings.HasPrefix(got, root) {
+  if got := shared.BannerFindNearestNodeModules(filepath.Join(root, "without-modules")); got != "" && strings.HasPrefix(got, root) {
     t.Fatalf("unexpected node_modules discovery: %q", got)
   }
 
@@ -68,7 +70,7 @@ func TestNodeEnvironmentHelpers(t *testing.T) {
 
   // Hermetic for the same reason as above: with a stray ancestor
   // node_modules the call is a real link attempt, not a no-op.
-  if bannerFindNearestNodeModules(filepath.Join(root, "without-modules")) == "" {
+  if shared.BannerFindNearestNodeModules(filepath.Join(root, "without-modules")) == "" {
     if err := bannerLinkNearestNodeModules(filepath.Join(root, "no-link"), filepath.Join(root, "without-modules")); err != nil {
       t.Fatalf("no node_modules link should be a no-op: %v", err)
     }
@@ -90,7 +92,7 @@ func TestNodeEnvironmentHelpers(t *testing.T) {
   if err := os.MkdirAll(failingLinkDir, 0o755); err != nil {
     t.Fatal(err)
   }
-  writeFile(t, filepath.Join(failingLinkDir, "node_modules"), "conflict")
+  shared.WriteFile(t, filepath.Join(failingLinkDir, "node_modules"), "conflict")
   if err := bannerLinkNearestNodeModules(failingLinkDir, nested); err == nil || !strings.Contains(err.Error(), "link config node_modules") {
     t.Fatalf("expected symlink conflict error, got %v", err)
   }

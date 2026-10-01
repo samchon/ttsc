@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestResolveConfigTsgoReturnsNothingWithoutTheCompilerExecutable verifies a
@@ -23,13 +25,13 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns an install missing only the executable; full install success and missing platform package are covered separately.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoReturnsNothingWithoutTheCompilerExecutable is selected from test/unit by the utility runner unit overlay. Runs stripResolveConfigTsgo with ordinary manifest/stat fixtures in the Go process; no spawn failure is substituted for the resolution assertion.
 func TestResolveConfigTsgoReturnsNothingWithoutTheCompilerExecutable(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := stripRealpathIfPossible(t.TempDir())
-  missing := seedProjectTypeScriptWithoutCompiler(t, root)
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.StripRealpathIfPossible(t.TempDir())
+  missing := shared.SeedProjectTypeScriptWithoutCompiler(t, root)
   config := filepath.Join(root, "strip.config.ts")
-  writeFile(t, config, "export default {};\n")
+  shared.WriteFile(t, config, "export default {};\n")
 
-  if got := stripResolveConfigTsgo(stripConfigToolAnchors(config, root)); got != "" {
+  if got := shared.StripResolveConfigTsgo(shared.StripConfigToolAnchors(config, root)); got != "" {
     t.Fatalf("stripResolveConfigTsgo = %q, want no compiler when %q does not exist", got, missing)
   }
 }

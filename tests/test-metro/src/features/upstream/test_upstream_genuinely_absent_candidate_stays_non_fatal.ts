@@ -14,10 +14,10 @@ import { assertAbsentConfiguredPathReportsNotLoaded } from "../../internal/metro
  * 2. Resolve it through the real loader.
  * 3. Assert the absence message, with no init-failure wrapper and no `cause`.
  *
- * @evidence contracts/testing.md#behavioral-verification The authored upstream resolver reports an absent custom module as ordinary absence with no initialization cause.
- * @evidence contracts/testing.md#independent-expectations The literal nonexistent specifier and documented configured-upstream absence diagnostic determine the oracle.
- * @evidence contracts/testing.md#distinguishing-cases Actual require.resolve absence contrasts module initialization and transitive-dependency failures.
- * @evidence contracts/testing.md#execution-ownership This matching src/features export calls authored Metro operations through the source-unit loader. Input filesystem/module fixtures and declared upstream callbacks remain test-local; no installed consumer, native compiler or product host is launched.
+ * @evidence contracts/testing.md#behavioral-verification resolveUpstreamTransformer("@@ttsc-metro-absent-candidate@@") through the default require loader throws an error matching could-not-load-the-configured-upstream, not matching failed to load or initialize, and carrying no cause.
+ * @evidence contracts/testing.md#independent-expectations The authored nonexistent specifier and the documented configured-upstream absence message determine the expectation; absence of a cause distinguishes it from a wrapped initialization error.
+ * @evidence contracts/testing.md#distinguishing-cases Only a specifier that fails require.resolve with MODULE_NOT_FOUND is run; initialization failure, missing transitive dependency and unexported subpath are neighboring entries.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls resolveUpstreamTransformer from packages/metro/src/core/upstream.ts in-process with the real require loader for a specifier that does not exist; no compile, install or Metro host is involved.
  */
 export const test_upstream_genuinely_absent_candidate_stays_non_fatal =
   async () => {

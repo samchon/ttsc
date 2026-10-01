@@ -34,7 +34,7 @@ func (projectInputSnapshotRule) ProjectInputs(ctx *publicrule.ProjectInputContex
 //
 // Missing exact paths and zero-match globs must survive unchanged so a later
 // create or rename can wake the host. The lint config is another exact
-// dependency, and duplicate declarations from multiple rules share one owner.
+// dependency, and a file declared twice by one rule is published once.
 // Config paths remain in Files for decoder compatibility and are also marked
 // as ReloadFiles so CLI watch can replace its selected execution. Resolution
 // directories publish ReloadDirectories so package-manifest and

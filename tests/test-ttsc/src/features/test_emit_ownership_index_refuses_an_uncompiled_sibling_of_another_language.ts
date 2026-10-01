@@ -18,7 +18,7 @@ import { TestProject } from "../../../utils/src/TestProject";
  * @evidence contracts/testing.md#behavioral-verification Calls EmitOwnershipIndex.find for same-stem TS/JS, MTS/MJS, CTS/CJS and TSX/JSX source pairs against authored producer provenance.
  * @evidence contracts/testing.md#independent-expectations Literal language pairs and captured JavaScript owner paths establish who produced each existing output; independently authored source maps deliberately agree, disappear or contradict this authority.
  * @evidence contracts/testing.md#distinguishing-cases An uncompiled language sibling returns null while the recorded owner receives its output in all three map states; unavailable, empty and conflicting producer records must throw rather than guessing by extension.
- * @evidence contracts/testing.md#execution-ownership Executes the authored ownership index and private filesystem fixtures in one source-unit process, without compiler emission or a product host; producer transport is verified separately.
+ * @evidence contracts/testing.md#execution-ownership Executes EmitOwnershipIndex.find over files written under a private TestProject.tmpdir in one unit process; the producer provenance is authored in the test, so no compiler emission, native producer or product host runs.
  */
 export function test_emit_ownership_index_refuses_an_uncompiled_sibling_of_another_language(): void {
   const base = fs.realpathSync.native(TestProject.tmpdir("ttsc-ownership-"));

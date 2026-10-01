@@ -3,18 +3,20 @@ import { admitted, sessionState } from "./internal/sessionState";
 import { sessionTransaction } from "./internal/sessionTransactions";
 
 /**
- * Verifies UTF-8 manifest order accepts the complete generation.
+ * Verifies a manifest ordered by UTF-8 bytes is accepted although it is not UTF-16 order.
  *
- * Pinned literal U+E000 then U+10000 keys and content witnesses distinguish Go UTF-8 order from JavaScript UTF-16 ordering without calling the product digest helper.
+ * The transaction's two shard keys end in U+E000 and U+10000. UTF-8 byte order
+ * (the producer's order) puts U+E000 first, while JavaScript string comparison
+ * would put U+10000 first. The session must accept the manifest as ordered.
  *
- * 1. Admit the original request state through the authored state owner.
- * 2. Supply explicit typed envelopes or transport events and check the original rejection, settlement or model assertions.
- * 3. Check retirement, recovery or reuse and close the owned state in finally.
+ * 1. Start a graph request on a recorded line port and load the "unicode" typed
+ *    transaction, asserting its manifest keys are U+E000 then U+10000.
+ * 2. Deliver it and require the graph to resolve with an empty node list.
  *
- * @evidence contracts/testing.md#behavioral-verification State and shard store accept literal U+E000-before-U+10000 manifest inputs with pinned valid witnesses and return empty nodes.
- * @evidence contracts/testing.md#independent-expectations The two literal keys reverse JavaScript UTF-16 order; their pinned content/generation hashes are independent typed protocol inputs, not results of the product hash or sort helper.
- * @evidence contracts/testing.md#distinguishing-cases Pinned literal U+E000 then U+10000 keys and content witnesses distinguish Go UTF-8 order from JavaScript UTF-16 ordering without calling the product digest helper.
- * @evidence contracts/testing.md#execution-ownership The matching src/features export imports authored state and decoder source. Declared line-port recordings generate no reply; this executes in the source-unit Node process without a native executable. Actual kernel retirement and generated schema integration remain in the minimal E2E boundary.
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphSessionState.receive of the unicode transaction, whose manifest keys are 0:metadata:U+E000 then 0:metadata:U+10000, must let graph() resolve to a model with no nodes, which requires the shard store to accept that order and the pinned digests and generation.
+ * @evidence contracts/testing.md#independent-expectations The two keys, their shard digests and the generation are pinned literals in sessionTransactions, authored from the producer's Go encoding and key order rather than computed by the product's hash or sort helpers; the test asserts the key order literally before delivering.
+ * @evidence contracts/testing.md#distinguishing-cases The keys sort differently under UTF-8 and UTF-16 comparison, so an implementation comparing JavaScript strings would reject this manifest as unsorted. Only the accepting direction is covered; a manifest in UTF-16 order is not delivered to show rejection.
+ * @evidence contracts/testing.md#execution-ownership Runs TtscGraphSessionState and TtscGraphShardStore in the test process against the recorded line ports of internal/sessionState with a typed envelope passed to receive; TtscGraphProtocol.decode and a native process are not executed.
  */
 export async function test_ttscgraph_native_manifest_uses_go_utf8_order(): Promise<void> {
   const fixture = sessionState();

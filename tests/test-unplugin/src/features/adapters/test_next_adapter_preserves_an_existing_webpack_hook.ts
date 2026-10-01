@@ -6,21 +6,22 @@ import assert from "node:assert/strict";
  * replacing it.
  *
  * A Next.js config often carries its own `webpack` customization. Replacing it
- * would silently drop that setup, so the wrapper has to call it and then append
- * its plugin to the config the hook returns.
+ * would silently drop that setup, so the wrapper has to inject its plugin into
+ * the config and then call the caller's hook with that config, returning what
+ * the hook returns.
  *
  * 1. Wrap a config whose `webpack` hook marks the config it receives.
  * 2. Call the wrapped hook with an empty plugin list.
- * 3. Assert the caller's hook ran, its change survived, and exactly one plugin was
- *    appended.
+ * 3. Assert the caller's hook ran, its mark is on the returned config, and the
+ *    returned config holds exactly one plugin.
  * @evidence contracts/testing.md#behavioral-verification
- *   Calls authored next and the returned webpack hook, asserting the caller runs, its original property survives and one plugin is injected; replacing the caller or double injection fails independently.
+ *   Calls the authored next wrapper and the webpack hook it returns on `{ plugins: [] }`. The assertions require the caller's hook to have run (a flag), its `original` mark to appear on the returned config, and the plugin list to have length one; a wrapper that dropped the caller's hook or injected no plugin or two fails. The caller hook returns the very object it received, so the test cannot tell whether the wrapper returns the hook's result or its own config.
  * @evidence contracts/testing.md#independent-expectations
- *   The additive wrapper contract requires calling the supplied hook and preserving its returned customization. The caller boolean, original property and literal plugin count are independent of wrapper internals.
+ *   The expectations are literals authored in the test body (a called flag, `original === true`, plugin count 1) taken from the additive-wrapper contract, not computed from the wrapper's code; the plugin itself is not inspected, only counted.
  * @evidence contracts/testing.md#distinguishing-cases
- *   Uses an existing hook and empty plugin list; wires_both_bundlers owns the no-caller positive case and preserves_turbopack_config owns rule-shape negatives. No real webpack compiler is needed for hook composition.
+ *   One positive case: a caller-supplied hook plus an empty plugin list. The no-caller case is not exercised here (check test_next_adapter_wires_both_bundlers), nor are turbopack rule shapes (test_next_adapter_preserves_turbopack_config); an empty initial list means a pre-existing plugin ordering is not tested.
  * @evidence contracts/testing.md#execution-ownership
- *   test_next_adapter_preserves_an_existing_webpack_hook invokes next from loadNext and then the returned webpack hook against its caller-marked config; the hook trace is in process and no webpack compiler starts.
+ *   Unit test: test_next_adapter_preserves_an_existing_webpack_hook calls the loadNext wrapper around the real next() and then its returned webpack hook in process; no webpack compiler, Next build or worker starts.
  */
 export async function test_next_adapter_preserves_an_existing_webpack_hook(): Promise<void> {
   const unpluginNext = await loadNext();

@@ -3,6 +3,8 @@ package banner_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestResolveConfigTsgoReturnsNothingWithoutThePlatformPackage verifies a
@@ -24,19 +26,19 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns TypeScript-present/platform-absent lookup; requireNoAmbientInstall may skip an ambient platform install. Platform-present/executable-absent has a separate case.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoReturnsNothingWithoutThePlatformPackage is selected from test/unit by the utility runner unit overlay. Runs bannerResolveConfigTsgo, platform mapping and manifest traversal in the Go process; no native compiler executes.
 func TestResolveConfigTsgoReturnsNothingWithoutThePlatformPackage(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := bannerRealpathIfPossible(t.TempDir())
-  platform, arch := bannerNodePlatformPair()
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.BannerRealpathIfPossible(t.TempDir())
+  platform, arch := shared.BannerNodePlatformPair()
   requireNoAmbientInstall(t, root, "@typescript/typescript-"+platform+"-"+arch)
-  writeFile(
+  shared.WriteFile(
     t,
     filepath.Join(root, "node_modules", "typescript", "package.json"),
     `{"name":"typescript"}`,
   )
   config := filepath.Join(root, "banner.config.ts")
-  writeFile(t, config, "export default { text: \"from ts\" };\n")
+  shared.WriteFile(t, config, "export default { text: \"from ts\" };\n")
 
-  if got := bannerResolveConfigTsgo(bannerConfigToolAnchors(config, root)); got != "" {
+  if got := shared.BannerResolveConfigTsgo(shared.BannerConfigToolAnchors(config, root)); got != "" {
     t.Fatalf("resolveConfigTsgo = %q, want no compiler when the platform package is absent", got)
   }
 }

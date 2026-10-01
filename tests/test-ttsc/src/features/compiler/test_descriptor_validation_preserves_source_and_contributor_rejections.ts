@@ -14,7 +14,7 @@ import type { ITtscPlugin } from "../../../../../packages/ttsc/src/structures/IT
  *
  * Descriptor errors are decided before native compilation. These cases call
  * those owning operations with the original missing/empty/absent/duplicate
- * inputs and stronger exact diagnostics; one CLI survivor retains error transport.
+ * inputs and exact diagnostics.
  *
  * 1. Validate source values and both prohibited JavaScript transform keys.
  * 2. Probe an existing and absent actual source path with exact guidance.

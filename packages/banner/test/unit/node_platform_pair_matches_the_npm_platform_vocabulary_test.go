@@ -3,6 +3,8 @@ package banner_test
 import (
   "runtime"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestNodePlatformPairMatchesTheNpmPlatformVocabulary verifies the Go build
@@ -53,7 +55,7 @@ func TestNodePlatformPairMatchesTheNpmPlatformVocabulary(t *testing.T) {
     }
   }
 
-  platform, arch := bannerNodePlatformPair()
+  platform, arch := shared.BannerNodePlatformPair()
   if platform == "windows" || arch == "amd64" || arch == "386" {
     t.Fatalf(
       "nodePlatformPair() = (%q, %q) on GOOS=%s GOARCH=%s: still Go spelling",

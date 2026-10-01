@@ -9,18 +9,20 @@ import { TtscGraphSession } from "../../../../packages/graph/src/model/TtscGraph
 /**
  * Verifies binary lookup and lazy session construction use their target cwd.
  *
- * The resolver interprets a package-shaped filesystem fixture. Its binary
- * pathname is inert and is never executed: module resolution and constructor
- * preconditions need no compiler build or process to prove these controls.
+ * The resolver interprets a package-shaped filesystem fixture: a temporary
+ * node_modules tree holding ttsc and a platform package whose binary file is
+ * inert text. The binary is never executed.
  *
- * 1. Resolve the target peer path and contrast an uninstalled root.
- * 2. Check absolute override precedence, ignored relative override and default cwd.
- * 3. Construct and close a lazy target session; require the owned missing error from its uninstalled twin.
+ * 1. Resolve the binary for the fixture cwd and for an empty cwd.
+ * 2. Check absolute override precedence, a relative override being ignored, and
+ *    the default-cwd equivalence.
+ * 3. Construct and close a session for the fixture cwd without a peer, and require
+ *    the missing-binary error from a session for the empty cwd.
  *
- * @evidence contracts/testing.md#behavioral-verification Authored resolveGraphBinary resolves the fixture peer path, returns null without a peer, honors absolute override, ignores relative override and uses default process cwd; authored lazy Session construction resolves that target and closes without opening a native peer.
- * @evidence contracts/testing.md#independent-expectations Literal installed path, null and override values independently define precedence. Missing-session error is a literal contract and zero peer ownership is observed without deriving expected results from lookup.
- * @evidence contracts/testing.md#distinguishing-cases Installed versus absent peer, explicit versus default cwd, absolute versus relative override and resolver versus lazy constructor retain all original pure controls. Real executing facade connections are preserved in the installed native boundary.
- * @evidence contracts/testing.md#execution-ownership This src/features export imports authored resolver and facade source under their actual CommonJS mode. A real temporary package layout supplies module-resolution inputs; its inert file is never installed as a consumer, built or executed, and session construction starts no host.
+ * @evidence contracts/testing.md#behavioral-verification resolveGraphBinary must return the fixture platform binary (compared by realpath) for the cwd holding node_modules/ttsc, null for a cwd with no ttsc, the absolute TTSC_GRAPH_BINARY value even for the empty cwd, and null for a relative override; new TtscGraphSession for the fixture cwd must construct with no peer (hasPeer false) and close, while one for the empty cwd must throw the could-not-resolve error.
+ * @evidence contracts/testing.md#independent-expectations The expected path is the binary file the test itself created, and the null results and override values are literals. TTSC_GRAPH_BINARY is removed from the environment around the session cases so only cwd resolution is exercised. The assertion resolveGraphBinary({}) equals resolveGraphBinary({}, process.cwd()) compares the function with itself under its default and only pins the default-cwd rule.
+ * @evidence contracts/testing.md#distinguishing-cases Installed versus uninstalled cwd, absolute versus relative override, and constructor success versus the missing-binary throw. A platform package without a ttsc peer, another platform name, and ensureExecutable failures are not covered.
+ * @evidence contracts/testing.md#execution-ownership Runs resolveGraphBinary and the TtscGraphSession constructor in the test process over a temporary node_modules layout. The constructor applies ensureExecutable to the inert file, graph() is never called and no native process starts.
  */
 export async function test_ttscgraph_dump_resolves_binary_from_target_cwd(): Promise<void> {
   const root = TestProject.tmpdir("ttscgraph-resolver-source-");

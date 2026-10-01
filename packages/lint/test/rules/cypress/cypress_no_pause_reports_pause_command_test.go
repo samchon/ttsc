@@ -9,17 +9,16 @@ import (
 // TestCypressNoPauseReportsPauseCommand verifies pause command detection.
 //
 // `cy.pause()` is useful while debugging locally but should not remain in specs
-// committed to the project. The rule recognizes both root and chained Cypress
-// calls through the same chain helper.
+// committed to the project. This test exercises only the root `cy.pause()` form.
 //
 //  1. Parse a root `cy.pause()` command.
 //  2. Enable `cypress/no-pause`.
 //  3. Assert the pause command is reported once.
 //
-// @evidence contracts/testing.md#behavioral-verification The actual NewEngine.Run verifies cy.pause produces one finding for cypress/no-pause; findingRules asserts the complete count and rule identity, so this does not check repository metadata.
-// @evidence contracts/testing.md#independent-expectations pause stops execution for interactive debugging. The expected rule and count are independently authored for that policy rather than read from engine output.
-// @evidence contracts/testing.md#distinguishing-cases A normal selector command has no interactive pause. Both the original reported source and an independently authored zero-finding control execute.
-// @evidence contracts/testing.md#execution-ownership TestCypressNoPauseReportsPauseCommand is a public Go unit entry parsing Cypress-shaped TypeScript and running the owning engine in-process; it does not install Cypress, start a browser or run a product host.
+// @evidence contracts/testing.md#behavioral-verification NewEngine with only cypress/no-pause enabled runs over `cy.pause();`; the test requires exactly one finding whose rule is cypress/no-pause at error severity (assertCypressOrdinaryRuleErrors rejects engine-failure or other-severity findings) and registers it as an engine behavioral witness.
+// @evidence contracts/testing.md#independent-expectations pause halts the run for interactive debugging and must not remain in a spec. The expected count of one and the zero-finding control are literals authored from that rule contract, not computed by the rule.
+// @evidence contracts/testing.md#distinguishing-cases Positive: `cy.pause();` yields one finding. Negative control: `cy.get("button");` is run through assertRuleSkipsSource and must yield zero findings; an ordinary selector command is accepted. Only the root cy.pause() form is exercised here.
+// @evidence contracts/testing.md#execution-ownership TestCypressNoPauseReportsPauseCommand is an in-process Go unit test: parseTS plus NewEngine(...).Run for the positive case and runRuleFindingsSnapshot (via assertRuleSkipsSource) for the control. It installs no Cypress, starts no browser and no product host.
 func TestCypressNoPauseReportsPauseCommand(t *testing.T) {
   file := parseTS(t, `
     cy.pause();

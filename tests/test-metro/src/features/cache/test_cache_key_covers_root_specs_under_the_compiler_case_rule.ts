@@ -13,10 +13,10 @@ import { assertCacheKeyCoversRootSpecsUnderTheCompilerCaseRule } from "../../int
  * 3. Assert the key moved exactly when the compiler compares names
  *    case-insensitively.
  *
- * @evidence contracts/testing.md#behavioral-verification Editing Lib/extra.ts under a lib include changes the key exactly when the actual compiler policy compares names insensitively.
- * @evidence contracts/testing.md#independent-expectations The owning compiler case-policy operation supplies the contextual oracle for the authored case-only directory mismatch; this does not independently prove that policy operation.
- * @evidence contracts/testing.md#distinguishing-cases Matching insensitive volume behavior contrasts the sensitive policy, using the same case-differing source.
- * @evidence contracts/testing.md#execution-ownership This named src/features/cache entry runs authored Metro fingerprint and transformer operations through the serial source-unit loader. Real fixture files and upstream input modules exercise resolution; no consumer installation, native compilation or product host is started.
+ * @evidence contracts/testing.md#behavioral-verification With include [src, lib] and a file at Lib/extra.ts, editing that file changes getCacheKey if and only if compilerUsesCaseSensitiveFileNames reports an insensitive policy for the project root.
+ * @evidence contracts/testing.md#independent-expectations The expected direction is taken from the owning compiler case-policy function, so it is a contextual oracle rather than an independent one: a wrong policy answer shared by both sides would pass.
+ * @evidence contracts/testing.md#distinguishing-cases Each run exercises only the branch its host selects (key moves on an insensitive policy, stays on a sensitive one); both branches are asserted by the same expression but not both within one run.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls compilerUsesCaseSensitiveFileNames, prepareSnapshot and getCacheKey (fresh transformer module, fake upstream) in-process on a temp project; no native build of the compiler or Metro host is started.
  */
 export const test_cache_key_covers_root_specs_under_the_compiler_case_rule =
   async () => {

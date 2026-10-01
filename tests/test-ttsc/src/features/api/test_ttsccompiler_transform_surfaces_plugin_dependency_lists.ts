@@ -14,14 +14,14 @@ import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEn
  * type-only inputs. If the host dropped the field, HMR invalidation for
  * generated code could never work regardless of what plugins report.
  *
- * 1. Decode the original native wire input directly through the production decoder.
- * 2. Assert the retained fields or exact rejection below.
- * 3. The real Go transport batch retains API result and no-publication boundaries.
+ * 1. Decode the valid fixture envelope and assert dependencies equals { "src/main.ts": ["src/consulted.d.ts"] }.
+ * 2. Decode envelopes whose dependencies field is null, [], 42, "invalid" or { "src/main.ts": [42, null] }, each with an empty typescript record.
+ * 3. Assert every malformed field decodes to undefined dependencies without rejecting the (empty) source output.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls parseNativeTransformOutput with the valid native fixture and requires the exact importer-to-consulted-input dependency record.
  * @evidence contracts/testing.md#independent-expectations The fixture explicitly reports src/main.ts consulting src/consulted.d.ts; the independent literal object establishes importer and input identity without computing graph expansion.
- * @evidence contracts/testing.md#distinguishing-cases The valid dependency record contrasts with null, array, scalar and all-invalid list fields that must disappear without rejecting source text. Declaration completeness and actual transport remain separately owned.
- * @evidence contracts/testing.md#execution-ownership The exported unit directly invokes the source decoder once using immutable fixture bytes. It creates no watch registration or compiler host; downstream registration and producer transport belong to surviving shared E2E coverage.
+ * @evidence contracts/testing.md#distinguishing-cases One valid per-file dependency record survives verbatim, contrasted with five malformed dependency fields (null, empty array, number, string, and a record whose only list holds no strings) that all decode to undefined while the source record is still returned.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling parseNativeTransformOutput on in-memory JSON; it registers no watch files and starts no compiler host or native producer.
  */
 export const test_ttsccompiler_transform_surfaces_plugin_dependency_lists =
   () => {

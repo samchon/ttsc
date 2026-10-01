@@ -3,6 +3,8 @@ package banner_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestResolveConfigTsgoReturnsNothingWithoutAProjectTypeScript verifies an
@@ -22,14 +24,14 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns missing-TypeScript resolution; requireNoAmbientInstall can skip polluted ancestry. Missing platform and executable after a TypeScript install have separate cases.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoReturnsNothingWithoutAProjectTypeScript is selected from test/unit by the utility runner unit overlay. Runs bannerResolveConfigTsgo and its manifest walk in the Go process; fixture and environment state are testing-owned and no compiler or launcher starts.
 func TestResolveConfigTsgoReturnsNothingWithoutAProjectTypeScript(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := bannerRealpathIfPossible(t.TempDir())
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.BannerRealpathIfPossible(t.TempDir())
   requireNoAmbientInstall(t, root, "typescript")
   project := filepath.Join(root, "project")
   config := filepath.Join(project, "banner.config.ts")
-  writeFile(t, config, "export default { text: \"from ts\" };\n")
+  shared.WriteFile(t, config, "export default { text: \"from ts\" };\n")
 
-  if got := bannerResolveConfigTsgo(bannerConfigToolAnchors(config, project)); got != "" {
+  if got := shared.BannerResolveConfigTsgo(shared.BannerConfigToolAnchors(config, project)); got != "" {
     t.Fatalf("resolveConfigTsgo = %q, want no compiler for a project with no typescript install", got)
   }
 }

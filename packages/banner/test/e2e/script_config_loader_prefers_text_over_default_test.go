@@ -3,6 +3,8 @@ package banner_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestScriptConfigLoaderPrefersTextOverDefault verifies explicit banner object wins.
@@ -22,10 +24,10 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary CJS/ESM namespace selection and export serialization cross actual Node. These sibling decisions still use independent Node consumers, so minimum resident batching has not been established.
 // @evidence contracts/e2e.md#shared-execution One temporary config and one Node import are prepared without Go producer or compiler. A shared batch must retain this exact competing export shape.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns the config and the child finishes before load returns. Separate process state prevents sibling module-cache contamination; no artifact cache is claimed.
-// @evidence contracts/e2e.md#preserved-coverage The original exact returned text and object assertions remain in this named entry. No precedence distinction is replaced by generic module-loading success.
+// @evidence contracts/e2e.md#preserved-coverage The body asserts a nil error and a returned object whose text equals 'outer' (L35).
 func TestScriptConfigLoaderPrefersTextOverDefault(t *testing.T) {
   config := filepath.Join(t.TempDir(), "banner.config.cjs")
-  writeFile(t, config, `module.exports = { text: "outer", default: { text: "inner" } };`)
+  shared.WriteFile(t, config, `module.exports = { text: "outer", default: { text: "inner" } };`)
 
   raw, err := bannerLoadBannerScriptConfigFile(config)
   if err != nil {

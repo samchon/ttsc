@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestRealpathIfPossibleKeepsAnUnevaluablePath verifies a path that cannot be
@@ -24,12 +26,12 @@ import (
 // @evidence contracts/testing.md#execution-ownership Unit entry TestRealpathIfPossibleKeepsAnUnevaluablePath is selected from test/unit by the utility runner unit overlay. Calls stripRealpathIfPossible in the Go process on ordinary paths; it creates no link or subprocess.
 func TestRealpathIfPossibleKeepsAnUnevaluablePath(t *testing.T) {
   root := t.TempDir()
-  if real := stripRealpathIfPossible(root); real == "" {
+  if real := shared.StripRealpathIfPossible(root); real == "" {
     t.Fatal("stripRealpathIfPossible emptied an existing directory")
   }
 
-  missing := filepath.Join(stripRealpathIfPossible(root), "no-such-directory", "package.json")
-  if got := stripRealpathIfPossible(missing); got != missing {
+  missing := filepath.Join(shared.StripRealpathIfPossible(root), "no-such-directory", "package.json")
+  if got := shared.StripRealpathIfPossible(missing); got != missing {
     t.Fatalf("stripRealpathIfPossible = %q, want the unevaluable path %q back", got, missing)
   }
 }

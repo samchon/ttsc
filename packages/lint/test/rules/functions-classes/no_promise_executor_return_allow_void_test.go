@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Checker-backed Engine compares exact marked lines and rule/severity under the explicit allowVoid option.
 // @evidence contracts/testing.md#independent-expectations The public option exempts unary void syntax rather than every expression typed void; fixed markers independently reject undefined and an outer sequence expression.
 // @evidence contracts/testing.md#distinguishing-cases Concise/block/function and parenthesized unary void stay clean; undefined and sequence returns report; nested closure and bare return remain clean.
-// @evidence contracts/testing.md#execution-ownership TestNoPromiseExecutorReturnAllowVoid is selected in the shared Go unit population. It calls runRuleFindingsSnapshot with the authored allowVoid JSON and a real Program/Checker; every original input variant is owned by this entry. No consumer install, native artifact build or real host runs.
+// @evidence contracts/testing.md#execution-ownership TestNoPromiseExecutorReturnAllowVoid is selected in the shared Go unit population. It calls runRuleFindingsSnapshot with the authored allowVoid JSON and a real Program/Checker; this entry owns all eight authored executor variants (four unary-void forms accepted, three reported, one nested-function plus bare-return form). No consumer install, native artifact build or real host runs.
 func TestNoPromiseExecutorReturnAllowVoid(t *testing.T) {
   source := `declare function consume(value: unknown): void;
 

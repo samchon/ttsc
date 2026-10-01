@@ -14,14 +14,14 @@ import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEn
  * inputs and bypass caching. A host that dropped either field would make sound
  * cache invalidation impossible regardless of what plugins emit.
  *
- * 1. Decode the original native wire input directly through the production decoder.
- * 2. Assert the retained fields or exact rejection below.
- * 3. The real Go transport batch retains API result and no-publication boundaries.
+ * 1. Decode the valid fixture envelope, which carries a graph section and a volatile list.
+ * 2. Assert the graph keeps its config chain, resolved edge and global source exactly.
+ * 3. Assert the volatile list is returned as ["src/volatile.ts"].
  *
  * @evidence contracts/testing.md#behavioral-verification Decodes the valid native fixture and asserts the complete config/edge/global graph and separate volatile source list with exact path identities.
  * @evidence contracts/testing.md#independent-expectations Literal graph and volatile values authored in the wire fixture define the expected result; the unit does not synthesize dependencies from product graph logic or a generated snapshot.
  * @evidence contracts/testing.md#distinguishing-cases Config-chain, resolved edge, global source and volatile output occupy distinct fields and must all survive. The malformed-graph case owns negative filtering while candidate-order metadata has its own positive case.
- * @evidence contracts/testing.md#execution-ownership This named unit calls parseNativeTransformOutput with in-memory JSON only. It registers no filesystem watches or cache exemptions; actual native transport and consumer invalidation remain separate boundaries.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling parseNativeTransformOutput on in-memory JSON; it registers no filesystem watches or cache exemptions and starts no native producer.
  */
 export const test_ttsccompiler_transform_surfaces_reference_graph_and_volatile_list =
   () => {

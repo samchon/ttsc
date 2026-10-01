@@ -17,8 +17,6 @@
     "experimental": "pnpm experimental:install && pnpm experimental:unplugin",
     "experimental:install": "pnpm --dir experimental/install start",
     "experimental:unplugin": "pnpm --dir experimental/test-unplugin start",
-    "experimental:source-map": "pnpm --dir experimental/source-map start",
-    "experimental:unplugin-perf": "pnpm --dir experimental/unplugin-perf start",
     "package:next": "bash next.bash",
     "release": "bumpp -r",
     "package:latest": "pnpm build && pnpm run package:latest:publish",

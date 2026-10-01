@@ -1,0 +1,767 @@
+package linthost
+
+import (
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+  shimscanner "github.com/microsoft/typescript-go/shim/scanner"
+)
+
+// formatIndent normalizes the leading indentation of each statement's
+// first line to `depth * tabWidth` columns (or `depth` tabs under
+// useTabs), mirroring Prettier's block indentation.
+//
+// The rule shares `format/statement-split`'s file-level walk: it
+// registers for KindSourceFile and visits every statement in every
+// statement list (SourceFile body, Block, ModuleBlock, case/default
+// clause) at its nesting depth.
+//
+// Per-statement decision:
+//
+//  1. Find the statement's first non-trivia byte and the start of its
+//     physical line.
+//  2. Abstain unless the statement is the first non-whitespace token on
+//     that line. A statement sharing a line with a previous statement is
+//     `format/statement-split`'s surface; keeping the two rules disjoint
+//     means their edits never overlap on one cascade pass.
+//  3. Compare the leading-whitespace run `[lineStart, firstNonWS)` to the
+//     desired indent. When they differ, replace the run with the indent.
+//
+// The rule only ever touches a statement's own starting line. Interior
+// and continuation lines belong to `format/print-width`, which owns
+// reflow indentation; rewriting them here would fight that rule.
+//
+// Idempotent: a correctly-indented statement compares equal in step 3
+// and emits nothing.
+type formatIndent struct{ optionsRule }
+
+func (formatIndent) Name() string   { return "format/indent" }
+func (formatIndent) IsFormat() bool { return true }
+func (formatIndent) Visits() []shimast.Kind {
+  return []shimast.Kind{shimast.KindSourceFile}
+}
+
+func (formatIndent) Check(ctx *Context, node *shimast.Node) {
+  if ctx == nil || ctx.File == nil {
+    return
+  }
+  layout := loadFormatLayout(ctx)
+  src := ctx.File.Text()
+  var edits []TextEdit
+  forEachStatementInList(ctx.File, func(stmt *shimast.Node, depth int) {
+    // A statement whose indentation is owned by format/print-width's
+    // expression reflow (it sits inside a call/new/array/object that the
+    // printer lays out) must not be re-indented here: the printer hangs a
+    // callback body under its call-argument column, which is deeper than
+    // this rule's block-nesting depth, and reindenting it would oscillate
+    // against the printer pass forever (the cascade never converges).
+    if indentCededToReflow(stmt) || cededUnderBracelessBody(stmt) ||
+      cededUnderWrappedFunctionExpression(src, stmt) {
+      return
+    }
+    start := shimscanner.SkipTrivia(src, stmt.Pos())
+    if start < 0 || start > len(src) {
+      return
+    }
+    lineStart := lineStartOffset(src, start)
+    // Only the leading run may be whitespace for this to be the first
+    // token on its line. A non-whitespace byte in `[lineStart, start)`
+    // means a previous statement shares the line, defer to
+    // `format/statement-split`.
+    for i := lineStart; i < start; i++ {
+      if src[i] != ' ' && src[i] != '\t' {
+        return
+      }
+    }
+    want := layout.indent(depth)
+    // Cede everything inside a chained-arrow body (`a => b => { … }`).
+    // Prettier indents such a body one extra level for the chain
+    // continuation, so the body block AND every statement nested below it
+    // sit one level deeper than the column-0 depth model computes;
+    // reindenting any of them to depth*tabWidth de-indents correct source.
+    // This is detected structurally (an ancestor block whose owning arrow is
+    // itself another arrow's body), so a mangled input cannot fool it,
+    // unlike a class method body, a switch case body, a single-head arrow,
+    // or a multi-line-condition `if` body, all of which the depth model
+    // places correctly.
+    if cededByChainedArrowAncestor(stmt) {
+      return
+    }
+    // A decorated declaration statement (`@Dec class B {}`,
+    // `@Dec function f() {}`, `@Dec interface I {}` nested in a block or
+    // namespace) spans multiple physical lines when its decorators sit on
+    // their own lines. `start` is the first decorator's `@`, so the single
+    // first-line edit below would align only that first decorator line and
+    // leave each further decorator line and the DECLARATION line (`class B`,
+    // `function f`, …) at their original column — the very gap FIX C closes.
+    // Mirror the decorated-member header pass: re-indent every decorator line
+    // and the declaration line to the statement's depth via the shared
+    // helpers, which generalize to any decorated node. This is checked before
+    // the single-line short-circuit because the first decorator line can
+    // already be correct while the declaration line is not (`@Dec\nclass B`
+    // with the decorator indented and `class B` left at column 0).
+    // reindentHeaderLine is a no-op when a position is not the first
+    // non-whitespace byte on its line (a same-line decorator such as `@Dec
+    // class B`) or when the run already equals `want`, so this stays
+    // idempotent and never double-edits one physical line.
+    if decorators := stmt.Decorators(); len(decorators) > 0 {
+      for _, dec := range decorators {
+        if dec == nil {
+          continue
+        }
+        reindentHeaderLine(src, shimscanner.SkipTrivia(src, dec.Pos()), want, &edits)
+      }
+      if declPos := memberDeclarationStart(src, stmt); declPos >= 0 {
+        reindentHeaderLine(src, declPos, want, &edits)
+      }
+      return
+    }
+    if src[lineStart:start] == want {
+      return
+    }
+    edits = append(edits, TextEdit{Pos: lineStart, End: start, Text: want})
+  })
+  // Second pass: align the block-closing `}` lines and the header lines
+  // (class / interface / type-literal member declarations and
+  // `case`/`default` labels) that are neither statements nor closing
+  // braces. Both surfaces are visited by a single ForEachChild descent
+  // (forEachIndentFrame) that tracks depth once and fires a brace callback
+  // and a header callback at the right nodes/depths; the two callbacks
+  // never target the same node, so this is exactly the two former
+  // descents fused.
+  //
+  // Closing brace: a `}` is not a statement, so the statement walk never
+  // touches it; without this a mangled (flat) block body gets its
+  // statements re-indented while the closing braces stay at their wrong
+  // column, and the cascade "converges" on that malformed result (exit 0
+  // on broken output). The brace aligns to the block OWNER's depth, one
+  // level shallower than the block's own statements, under the same cede /
+  // wrapped-head guards as the opening pass, so an expression-nested or
+  // wrapped-head block's `}` is left to the printer / its head.
+  //
+  // Header: the statement walk never visits a member declaration or a
+  // clause label (neither is a statement), so without this a flattened
+  // class body or switch leaves member headers and case labels at column 0
+  // while their bodies are re-indented, a malformed result the cascade
+  // reports as success.
+  forEachIndentFrame(
+    ctx.File,
+    func(block *shimast.Node, ownerDepth int) {
+      closeBrace := blockCloseBracePos(src, block)
+      if closeBrace < 0 {
+        return
+      }
+      lineStart := lineStartOffset(src, closeBrace)
+      // A `}` sharing its line with content splits into two cases, and
+      // abstaining on both is what let the cascade converge on a malformed
+      // block. When the block opened on this same line it is a one-line block
+      // the cascade left whole (`{ x }`), and the brace is not this rule's to
+      // move. When the block opened earlier, the statement split already broke
+      // the body onto its own lines and stranded the brace at the end of the
+      // last statement — a hybrid Prettier never produces, and a fixed point,
+      // because nothing else claimed that brace. This rule takes it, so the two
+      // stay edit-disjoint within a pass instead of both abstaining.
+      stranded := false
+      for i := lineStart; i < closeBrace; i++ {
+        if src[i] != ' ' && src[i] != '\t' {
+          stranded = true
+          break
+        }
+      }
+      if stranded {
+        // An empty body is `{}` in Prettier however its header wrapped, so a
+        // `}` whose only preceding content on the line is its own `{` is never
+        // this rule's to move. Checked first, and independently of the frame
+        // span below: `format/declaration-header` deliberately GLUES `{}` to
+        // the last line of a broken class or interface header, and that head
+        // starts lines above the brace, so the span test alone would unglue on
+        // the next pass exactly what that rule just gathered.
+        if bodyIsEmptyAtBrace(src, lineStart, closeBrace) {
+          return
+        }
+        // A frame that begins on the brace's own line is still whole
+        // (`{ x }`, `class C { m() {} }` before anything has split): the
+        // cascade has not broken the body out yet, so there is nothing for the
+        // brace to be consistent with. Once another pass moves the body onto
+        // its own lines the frame spans lines, this test stops holding, and
+        // the brace is claimed then.
+        //
+        // Measured on the frame node, which for a Block, ModuleBlock,
+        // CaseBlock, or type literal IS its `{`, and for a class or interface
+        // is the first byte of the declaration. The declaration start is never
+        // below its own `{`, so a body that has been broken out still reads as
+        // spanning; the one shape where the two differ — a wrapped header over
+        // a one-line body — is a shape Prettier expands as well.
+        if start := shimscanner.SkipTrivia(src, block.Pos()); start < 0 ||
+          start > len(src) || lineStartOffset(src, start) == lineStart {
+          return
+        }
+        if indentCededToReflow(block) || cededUnderBracelessBody(block) ||
+          typeLiteralIndentCeded(src, block, ownerDepth, layout) ||
+          cededUnderWrappedFunctionExpression(src, block) ||
+          cededByChainedArrowAncestor(block) {
+          return
+        }
+        // Replace the run of spaces and tabs before the brace rather than
+        // inserting beside it, so a re-run finds the brace already alone on its
+        // line and this branch never fires twice.
+        gap := closeBrace
+        for gap > lineStart && (src[gap-1] == ' ' || src[gap-1] == '\t') {
+          gap--
+        }
+        edits = append(edits, TextEdit{
+          Pos:  gap,
+          End:  closeBrace,
+          Text: layout.eol + layout.indent(ownerDepth),
+        })
+        return
+      }
+      // indentCededToReflow walks block.Parent upward, the same ancestor
+      // chain a body statement would, so a callback / expression-nested
+      // block's `}` cedes in lockstep with its body (print-width owns it).
+      if indentCededToReflow(block) || cededUnderBracelessBody(block) ||
+        typeLiteralIndentCeded(src, block, ownerDepth, layout) ||
+        cededUnderWrappedFunctionExpression(src, block) {
+        return
+      }
+      // Chained-arrow body: cede the `}` in lockstep with its body
+      // statements. A chained-arrow body's own brace, and any brace nested
+      // inside it, sit one extra level deep for the chain continuation, so
+      // leave them be.
+      if cededByChainedArrowAncestor(block) {
+        return
+      }
+      want := layout.indent(ownerDepth)
+      if src[lineStart:closeBrace] == want {
+        return
+      }
+      edits = append(edits, TextEdit{Pos: lineStart, End: closeBrace, Text: want})
+    },
+    func(header *shimast.Node, depth int) {
+      if indentCededToReflow(header) || cededByChainedArrowAncestor(header) ||
+        cededUnderBracelessBody(header) ||
+        typeLiteralIndentCeded(src, header.Parent, depth-1, layout) {
+        return
+      }
+      want := layout.indent(depth)
+      // A member or clause label sharing a line with the `{` that opened its
+      // body, or with the member before it, is the other half of the stranded
+      // brace: nothing else claims it, so a flat `class C { m() { … } }` or
+      // `switch (n) { case 1: … }` had no first edit and the whole cascade
+      // stalled on it. Breaking it out is what lets the statement split and the
+      // brace pass see the multi-line frame they act on.
+      pos := shimscanner.SkipTrivia(src, header.Pos())
+      if breakOntoOwnLine(src, header, pos, depth, want, layout, &edits) {
+        return
+      }
+      decorators := header.Decorators()
+      if len(decorators) == 0 {
+        // Undecorated member: header.Pos() is the declaration's first byte,
+        // so its line is the only one to align.
+        reindentHeaderLine(src, pos, want, &edits)
+        return
+      }
+      // A decorated member spans multiple physical lines when its decorators
+      // sit on their own lines. header.Pos() is the first decorator's `@`, so
+      // the bare header pass would only align the first decorator line and
+      // leave each further decorator line and the member's DECLARATION line
+      // (`name: type` / method signature past the last decorator) at their
+      // original column. Re-indent every decorator line and the declaration
+      // line to the member's depth. reindentHeaderLine is a no-op when a
+      // position is not the first non-whitespace byte on its line (a
+      // same-line decorator such as `@Column() name: string`, or `@A @B` on
+      // one line) or when the run already equals `want`, so this stays
+      // idempotent and never emits two edits for one physical line.
+      for _, dec := range decorators {
+        if dec == nil {
+          continue
+        }
+        reindentHeaderLine(src, shimscanner.SkipTrivia(src, dec.Pos()), want, &edits)
+      }
+      if declPos := memberDeclarationStart(src, header); declPos >= 0 {
+        reindentHeaderLine(src, declPos, want, &edits)
+      }
+    },
+  )
+  if len(edits) == 0 {
+    return
+  }
+  ctx.ReportRangeFix(
+    edits[0].Pos,
+    edits[0].End,
+    "Statement indentation must match its nesting depth.",
+    edits...,
+  )
+}
+
+// indentCededToReflow reports whether `stmt` lives inside an expression
+// whose layout column format/indent cannot compute from block-nesting
+// depth alone, a call/new argument, an array/object element, a
+// conditional branch, or a parenthesized expression. format/indent's
+// depth counts only Block/clause/declaration nesting, so a statement
+// hung under such an expression (a callback body, a `new (class {…})()`
+// method, a `cond ? () => {…} : …` arm) sits at a deeper column than its
+// block depth, and reindenting it to depth*tabWidth both corrupts
+// correct source and ping-pongs against format/print-width every cascade
+// pass (the cascade never converges).
+//
+// Walking outward from the statement, an enclosing expression of those
+// kinds means the indentation is owned by the printer (when print-width
+// is active) or by the already-correct source (when it is off), so
+// format/indent cedes. Reaching the source file or a module block first
+// means the statement is in ordinary block/declaration position,
+// format/indent owns it and indents to its nesting depth.
+func indentCededToReflow(stmt *shimast.Node) bool {
+  for n := stmt.Parent; n != nil; n = n.Parent {
+    switch n.Kind {
+    case shimast.KindCallExpression,
+      shimast.KindNewExpression,
+      shimast.KindArrayLiteralExpression,
+      shimast.KindObjectLiteralExpression,
+      shimast.KindConditionalExpression,
+      shimast.KindParenthesizedExpression:
+      return true
+    case shimast.KindSourceFile,
+      shimast.KindModuleBlock:
+      return false
+    }
+  }
+  return false
+}
+
+// cededUnderWrappedFunctionExpression reports whether `node` sits inside a
+// function or arrow EXPRESSION whose header was pushed onto a continuation line,
+// the initializer or value broke after `=` (or a `return`), indenting the
+// `function`/arrow one or more levels past the column its statement starts at:
+//
+//  export const f: Sig =
+//    function f(
+//      a,
+//    ): R {
+//      body;   // sits at the continuation header's depth + 1, not the
+//    };        // statement-base depth + 1 the block model computes
+//
+// The block-depth model counts only Block/clause/declaration nesting, so it
+// places the body relative to the statement base and would de-indent the
+// already-correct (printer-/source-owned) body. Detected structurally and
+// positionally, the enclosing function expression begins on a different
+// physical line than its own parent (the declaration / assignment / return it
+// is the value of), so a same-line `const f = () => { … }` is unaffected.
+func cededUnderWrappedFunctionExpression(src string, node *shimast.Node) bool {
+  for n := node.Parent; n != nil; n = n.Parent {
+    switch n.Kind {
+    case shimast.KindSourceFile, shimast.KindModuleBlock:
+      return false
+    case shimast.KindFunctionExpression, shimast.KindArrowFunction:
+      if n.Parent == nil {
+        continue
+      }
+      fnStart := shimscanner.SkipTrivia(src, n.Pos())
+      parentStart := shimscanner.SkipTrivia(src, n.Parent.Pos())
+      if fnStart < 0 || parentStart < 0 || fnStart > len(src) || parentStart > len(src) {
+        continue
+      }
+      if lineStartOffset(src, fnStart) != lineStartOffset(src, parentStart) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+// typeLiteralIndentCeded reports whether a type-literal member or its closing
+// brace sits in a layout-dependent position the block-depth model misplaces.
+// A type literal opens on its own indented continuation line when it is a
+// parameter's type (`f(input: Payload & { … })`), an intersection/union
+// operand (`A &\n  { … }`), or a multi-line generic argument (`Record<\n
+// string,\n { … }>`); Prettier then indents the members relative to that
+// opening line, not the block depth. The structural walk expects the opening
+// line to be indented to layout.indent(ownerDepth); when that disagrees with
+// the line's actual leading whitespace, the literal is in such a layout-
+// dependent spot and reindenting its members or brace to depth*tabWidth would
+// de-indent already-correct source, so cede. When the opening line IS at its
+// depth (a type literal annotating a variable, or a single-line generic
+// argument), the model is correct and the rule owns it.
+func typeLiteralIndentCeded(src string, owner *shimast.Node, ownerDepth int, layout formatLayout) bool {
+  if owner == nil || owner.Kind != shimast.KindTypeLiteral {
+    return false
+  }
+  open := shimscanner.SkipTrivia(src, owner.Pos())
+  if open < 0 || open > len(src) {
+    return false
+  }
+  lineStart := lineStartOffset(src, open)
+  i := lineStart
+  for i < len(src) && (src[i] == ' ' || src[i] == '\t') {
+    i++
+  }
+  return src[lineStart:i] != layout.indent(ownerDepth)
+}
+
+// cededUnderBracelessBody reports whether `node` sits inside the braceless
+// body of a control-flow statement (`for (...) stmt;`, `if (c) stmt;`).
+// Prettier indents a braceless body one level past the header line, layout
+// the block-depth model has no frame for, so it would de-indent the body and
+// any block nested inside it (a `for (...) try { … }` loses a level on the
+// `try` body and `catch`). Cede to keep it byte-identical. The walk stops at
+// the enclosing function or source boundary so an ordinary block body, which
+// the depth model places correctly, is unaffected.
+func cededUnderBracelessBody(node *shimast.Node) bool {
+  for n := node; n != nil; n = n.Parent {
+    p := n.Parent
+    if p == nil {
+      return false
+    }
+    switch p.Kind {
+    case shimast.KindSourceFile,
+      shimast.KindModuleBlock,
+      shimast.KindFunctionDeclaration,
+      shimast.KindFunctionExpression,
+      shimast.KindArrowFunction,
+      shimast.KindMethodDeclaration,
+      shimast.KindConstructor,
+      shimast.KindGetAccessor,
+      shimast.KindSetAccessor:
+      return false
+    case shimast.KindIfStatement,
+      shimast.KindForStatement,
+      shimast.KindForInStatement,
+      shimast.KindForOfStatement,
+      shimast.KindWhileStatement:
+      if bracelessControlBody(p, n) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+// bracelessControlBody reports whether `child` is the controlled body of
+// control-flow `parent` and is not itself a Block, the `then`/`else` branch
+// of an `if` (an `else if` chain's nested `if` is excluded) or the loop body
+// of an iteration statement.
+func bracelessControlBody(parent, child *shimast.Node) bool {
+  switch parent.Kind {
+  case shimast.KindIfStatement:
+    ifs := parent.AsIfStatement()
+    if ifs.ThenStatement == child && child.Kind != shimast.KindBlock {
+      return true
+    }
+    if ifs.ElseStatement == child && child.Kind != shimast.KindBlock &&
+      child.Kind != shimast.KindIfStatement {
+      return true
+    }
+  case shimast.KindWhileStatement:
+    if parent.AsWhileStatement().Statement == child &&
+      child.Kind != shimast.KindBlock {
+      return true
+    }
+  case shimast.KindForStatement:
+    if parent.AsForStatement().Statement == child &&
+      child.Kind != shimast.KindBlock {
+      return true
+    }
+  case shimast.KindForInStatement, shimast.KindForOfStatement:
+    if parent.AsForInOrOfStatement().Statement == child &&
+      child.Kind != shimast.KindBlock {
+      return true
+    }
+  }
+  return false
+}
+
+// cededByChainedArrowAncestor reports whether `node` sits inside the body of
+// a chained arrow (`a => b => { … }`). Prettier indents a chained arrow's
+// body one extra level for the chain continuation, so the body block AND
+// every statement / brace nested below it sit one level deeper than the
+// column-0 depth model computes; format/indent must cede all of them or it
+// de-indents correct source. Walking ancestor blocks (not just the nearest)
+// catches a statement deep inside the body, e.g. an `if` body two levels
+// down. Purely structural (AST kinds), so a mangled input cannot fool it,
+// and it does NOT match a class method body, a switch case body, a
+// single-head arrow body, or a multi-line-condition `if` body, those the
+// depth model places correctly.
+//
+// `node` may be a statement (statement pass) or a Block (closing-brace
+// pass). The walk starts at `node` itself so a Block argument's own
+// chained-arrow-body-ness is tested (its `}` must cede too), then climbs
+// ancestors for a statement nested deeper inside the body.
+func cededByChainedArrowAncestor(node *shimast.Node) bool {
+  for n := node; n != nil; n = n.Parent {
+    if n.Kind == shimast.KindSourceFile {
+      return false
+    }
+    if n.Kind == shimast.KindBlock {
+      arrow := n.Parent
+      if arrow != nil && arrow.Kind == shimast.KindArrowFunction &&
+        arrow.Parent != nil && arrow.Parent.Kind == shimast.KindArrowFunction {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+// forEachIndentFrame walks the file's AST once and fires two callbacks at
+// the nodes/depths the former forEachBlockClose and forEachIndentHeader
+// descents fired, fused into a single ForEachChild descent that tracks
+// depth once. The two former walks computed an identical childDepth for
+// every child kind and only differed in which callback they fired on which
+// node (the brace surface and the header surface never overlap on one
+// node), so one descent firing both is exactly the two passes combined.
+//
+//   - brace(owner, ownerDepth): fired for every Block / ModuleBlock /
+//     CaseBlock / class / interface / type-literal owner with the depth
+//     its closing `}` aligns to (one level shallower than the owner's own
+//     statements). A case-body Block fires at depth-1 so its `}` aligns
+//     with the `case` label one level up. It mirrors walkStatementLists's
+//     depth model so all indent passes agree.
+//   - header(node, depth): fired for every class/interface/type-literal
+//     member declaration and every case/default label with the depth its
+//     header line should align to. A class/interface/type-literal body is
+//     a +1 frame and its member headers sit at that body depth; a switch's
+//     CaseBlock is a +1 frame and each case/default label sits at that
+//     CaseBlock depth (its body statements nest one deeper, handled by the
+//     statement pass).
+func forEachIndentFrame(
+  file *shimast.SourceFile,
+  brace func(block *shimast.Node, ownerDepth int),
+  header func(node *shimast.Node, depth int),
+) {
+  if file == nil {
+    return
+  }
+  walkIndentFrames(file.AsNode(), file.Text(), 0, brace, header)
+}
+
+func walkIndentFrames(
+  node *shimast.Node,
+  src string,
+  depth int,
+  brace func(block *shimast.Node, ownerDepth int),
+  header func(node *shimast.Node, depth int),
+) {
+  if node == nil {
+    return
+  }
+  node.ForEachChild(func(child *shimast.Node) bool {
+    if child == nil {
+      return false
+    }
+    childDepth := depth
+    switch child.Kind {
+    case shimast.KindBlock, shimast.KindModuleBlock:
+      // Only a SAME-LINE case-body block (`case X: { … }`) adds no extra
+      // level; a block on its own line under the clause is an ordinary
+      // nested block (see blockStartsOwnLine).
+      isCaseBody := child.Kind == shimast.KindBlock && child.Parent != nil &&
+        (child.Parent.Kind == shimast.KindCaseClause ||
+          child.Parent.Kind == shimast.KindDefaultClause) &&
+        !blockStartsOwnLine(src, child)
+      if isCaseBody {
+        // A same-line case-body block (`case X: { … }`) adds no extra level
+        // for its statements (they stay at the clause body depth, this
+        // `depth`), but its own closing `}` aligns with the `case` label one
+        // level up.
+        brace(child, depth-1)
+        childDepth = depth
+      } else {
+        // The block's `}` aligns to the owner depth (this `depth`); its
+        // statements nest one deeper.
+        brace(child, depth)
+        childDepth = depth + 1
+      }
+    case shimast.KindCaseClause, shimast.KindDefaultClause:
+      // The label (`case X:` / `default:`) sits at the current (CaseBlock)
+      // depth; its body statements nest one deeper.
+      header(child, depth)
+      childDepth = depth + 1
+    case shimast.KindCaseBlock,
+      shimast.KindClassDeclaration,
+      shimast.KindClassExpression,
+      shimast.KindInterfaceDeclaration,
+      shimast.KindTypeLiteral:
+      // These carry a real closing `}` that is not a Block node: a switch's
+      // `}` (CaseBlock), a class/interface/type-literal body `}`. Align it to
+      // the depth the owner sits at (this `depth`); the members/clauses nest
+      // one deeper.
+      brace(child, depth)
+      childDepth = depth + 1
+    case shimast.KindObjectLiteralExpression:
+      // Object-literal braces live in expression position (assignments,
+      // arguments); their layout is the printer's / source's, so leave the
+      // `}` alone and only descend one level for any nested statement lists.
+      childDepth = depth + 1
+    case shimast.KindMethodDeclaration,
+      shimast.KindPropertyDeclaration,
+      shimast.KindGetAccessor,
+      shimast.KindSetAccessor,
+      shimast.KindConstructor,
+      shimast.KindMethodSignature,
+      shimast.KindPropertySignature,
+      shimast.KindIndexSignature:
+      // A class/interface/type-literal member: its header line sits at the
+      // current body depth (the enclosing frame already bumped it).
+      header(child, depth)
+    }
+    walkIndentFrames(child, src, childDepth, brace, header)
+    return false
+  })
+}
+
+// reindentHeaderLine normalizes the leading whitespace of the physical line
+// containing `pos` to `want`, appending an edit only when the line begins
+// with `pos` as its first non-whitespace byte and the run differs. Shared by
+// the decorator line and the declaration line of a decorated member so both
+// land at the member's nesting depth. A no-op when the run already equals
+// `want`, which keeps the rule idempotent.
+func reindentHeaderLine(src string, pos int, want string, edits *[]TextEdit) {
+  if pos < 0 || pos > len(src) {
+    return
+  }
+  lineStart := lineStartOffset(src, pos)
+  for i := lineStart; i < pos; i++ {
+    if src[i] != ' ' && src[i] != '\t' {
+      return
+    }
+  }
+  if src[lineStart:pos] == want {
+    return
+  }
+  *edits = append(*edits, TextEdit{Pos: lineStart, End: pos, Text: want})
+}
+
+// bodyIsEmptyAtBrace reports whether the only thing before `closeBrace` on its
+// line, past horizontal whitespace, is the `{` that opened the same body.
+func bodyIsEmptyAtBrace(src string, lineStart int, closeBrace int) bool {
+  probe := closeBrace
+  for probe > lineStart && (src[probe-1] == ' ' || src[probe-1] == '\t') {
+    probe--
+  }
+  return probe > 0 && src[probe-1] == '{'
+}
+
+// frameLineIsWhereDepthSays reports whether the line a frame opens on is
+// indented to exactly the depth the block model computes for it. It is
+// typeLiteralIndentCeded's test, generalized: when it does not hold, some other
+// owner (a printer reflow, a wrapped initializer, a chain continuation) placed
+// the frame, and a member indented to `layout.indent(memberDepth)` would land
+// at a column unrelated to its own `{`.
+func frameLineIsWhereDepthSays(
+  src string,
+  frame *shimast.Node,
+  frameDepth int,
+  layout formatLayout,
+) bool {
+  if frame == nil {
+    return false
+  }
+  open := shimscanner.SkipTrivia(src, frame.Pos())
+  if open < 0 || open > len(src) {
+    return false
+  }
+  lineStart := lineStartOffset(src, open)
+  i := lineStart
+  for i < len(src) && (src[i] == ' ' || src[i] == '\t') {
+    i++
+  }
+  return src[lineStart:i] == layout.indent(frameDepth)
+}
+
+// breakOntoOwnLine moves a member or clause header that shares its line with
+// earlier content down to a line of its own at `want`, and reports whether it
+// emitted that edit. It replaces the run of spaces and tabs before the header
+// rather than inserting beside it, so a re-run finds the header already alone
+// on its line and this never fires twice.
+//
+// A type-literal member is exempt. Prettier expands a class or interface body
+// unconditionally, but an object TYPE keeps the author's shape when the source
+// wrote no line break after `{` — `type T = { a: number }` stays one line — so
+// breaking its members out would reformat conforming source. The type
+// literal's own `}` is not exempt: a member already on its own line above a
+// stranded `}` is a shape Prettier does not produce either way.
+//
+// A frame whose own line is not at the column the depth model computes is
+// exempt too. `want` is derived from block nesting alone, so under a wrapped
+// initializer (`const C: Ctor =\n  class { m() {} };`) it names a column
+// shallower than the `{` the member belongs to, and breaking there would place
+// the member left of its own frame.
+func breakOntoOwnLine(
+  src string,
+  header *shimast.Node,
+  pos int,
+  depth int,
+  want string,
+  layout formatLayout,
+  edits *[]TextEdit,
+) bool {
+  if pos < 0 || pos > len(src) {
+    return false
+  }
+  if header.Parent != nil && header.Parent.Kind == shimast.KindTypeLiteral {
+    return false
+  }
+  if !frameLineIsWhereDepthSays(src, header.Parent, depth-1, layout) {
+    return false
+  }
+  lineStart := lineStartOffset(src, pos)
+  gap := pos
+  for gap > lineStart && (src[gap-1] == ' ' || src[gap-1] == '\t') {
+    gap--
+  }
+  if gap == lineStart {
+    return false
+  }
+  *edits = append(*edits, TextEdit{Pos: gap, End: pos, Text: layout.eol + want})
+  return true
+}
+
+// memberDeclarationStart returns the byte offset where a decorated member's
+// actual declaration begins (just past its last leading decorator), or -1
+// when the member has no decorators. The declaration start is the first
+// non-trivia byte after the final decorator's End(). When the last decorator
+// and the declaration share a physical line (`@Column() name: string`), the
+// returned offset lands on the same line the decorator pass already handled,
+// so the caller's reindentHeaderLine emits nothing the second time; only a
+// decorator alone on its line followed by the declaration on a later line
+// produces a distinct line to re-indent.
+func memberDeclarationStart(src string, member *shimast.Node) int {
+  if member == nil {
+    return -1
+  }
+  decorators := member.Decorators()
+  if len(decorators) == 0 {
+    return -1
+  }
+  last := decorators[len(decorators)-1]
+  if last == nil {
+    return -1
+  }
+  start := shimscanner.SkipTrivia(src, last.End())
+  if start < 0 || start > len(src) {
+    return -1
+  }
+  return start
+}
+
+// blockCloseBracePos returns the byte offset of a block's closing `}`.
+// A block's End() points just past the `}`, so the brace is the last
+// non-whitespace byte before End(); returns -1 if it is not a `}`.
+func blockCloseBracePos(src string, block *shimast.Node) int {
+  end := block.End()
+  if end <= 0 || end > len(src) {
+    return -1
+  }
+  for i := end - 1; i >= 0; i-- {
+    c := src[i]
+    if c == '}' {
+      return i
+    }
+    if c != ' ' && c != '\t' && c != '\n' && c != '\r' {
+      return -1
+    }
+  }
+  return -1
+}
+
+func init() {
+  Register(formatIndent{})
+}

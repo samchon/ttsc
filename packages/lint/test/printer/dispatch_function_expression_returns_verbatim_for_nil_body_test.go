@@ -26,7 +26,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printFunctionExpression must safely return empty, covered output for a factory function whose Body is nil.
 // @evidence contracts/testing.md#independent-expectations Its undefined source range provides no verbatim bytes; no function signature or braces may be invented.
 // @evidence contracts/testing.md#distinguishing-cases The public missing-body fixture complements missing-node safety and real block-body reflow.
-// @evidence contracts/testing.md#execution-ownership TestDispatchFunctionExpressionReturnsVerbatimForNilBody is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchFunctionExpressionReturnsVerbatimForNilBody is a plain top-level Go unit test, selectable with go test -run, that calls printFunctionExpression directly on a factory-built function expression with no body inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchFunctionExpressionReturnsVerbatimForNilBody(t *testing.T) {
   file := parseTS(t, "const x = 1;\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

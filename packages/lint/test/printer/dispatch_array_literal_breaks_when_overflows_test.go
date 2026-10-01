@@ -14,7 +14,7 @@ import (
 // shape-class divergence (e.g. forgetting trailing commas only on
 // arrays).
 //
-//  1. Parse a source with a six-element array of long strings.
+//  1. Parse a source with a three-element array of strings.
 //  2. Print under printWidth=20 to force a break.
 //  3. Assert each element is on its own indented line with a trailing
 //     comma after the last.
@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printArrayLiteral must break the three string elements at width twenty without changing their spelling or order.
 // @evidence contracts/testing.md#independent-expectations The literal alpha/beta/gamma array exceeds the budget and the documented list layout uses two-space indentation and a final comma.
 // @evidence contracts/testing.md#distinguishing-cases The overflowing string array complements the fitting numeric-array case; this case retains every literal value.
-// @evidence contracts/testing.md#execution-ownership TestDispatchArrayLiteralBreaksWhenOverflows is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchArrayLiteralBreaksWhenOverflows is a plain top-level Go unit test, selectable with go test -run, that calls printArrayLiteral directly on a parsed string-array literal printed at width twenty inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchArrayLiteralBreaksWhenOverflows(t *testing.T) {
   file := parseTS(t, "const x = [\"alpha\", \"beta\", \"gamma\"];\n")
   node := firstNodeOfKind(t, file, shimast.KindArrayLiteralExpression)

@@ -28,7 +28,6 @@ jobs:
         with:
           repository: samchon/typia
           path: experimental/typia
-      - run: git -C experimental/typia apply --directory=packages/typia "$GITHUB_WORKSPACE/experimental/native-host-provenance/typia.patch"
       - run: node .github/workflows/scripts/consumer.cjs experimental/typia
       - run: pnpm install --no-frozen-lockfile
         working-directory: experimental/typia
@@ -36,4 +35,3 @@ jobs:
         working-directory: experimental/typia
       - run: pnpm run test:go:public && pnpm run test:go:native
         working-directory: experimental/typia
-      - run: pnpm --dir experimental/source-map start -- --skip-pack --typia-master

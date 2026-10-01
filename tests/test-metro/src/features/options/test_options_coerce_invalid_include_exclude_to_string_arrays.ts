@@ -17,7 +17,7 @@ import { assertInvalidIncludeExcludeCoerced } from "../../internal/metro-options
  * @evidence contracts/testing.md#behavioral-verification resolveOptionsFromEnv filters mixed include entries to a,b, converts string exclude into an empty array and preserves sibling plugins:false.
  * @evidence contracts/testing.md#independent-expectations The worker filter contract admits string arrays only; the input independently identifies a,b as the valid include members.
  * @evidence contracts/testing.md#distinguishing-cases Mixed-validity array and non-array filters distinguish element filtering from container rejection while a valid sibling stays intact.
- * @evidence contracts/testing.md#execution-ownership This named src/features/options export calls authored options source in the serial source-unit runner; the helper restores the environment after each call and starts no installed artifact, native build or child process.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls resolveOptionsFromEnv from packages/metro/src/core/options.ts in-process with TTSC_METRO_OPTIONS set by the helper and restored afterwards; no child process, native build or installed package.
  */
 export const test_options_coerce_invalid_include_exclude_to_string_arrays =
   async () => {

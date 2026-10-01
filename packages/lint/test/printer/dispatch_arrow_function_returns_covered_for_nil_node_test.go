@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printArrowFunction must return an empty rendering and covered true for nil.
 // @evidence contracts/testing.md#independent-expectations An absent subtree has no output or unsupported content, independently establishing both expectations.
 // @evidence contracts/testing.md#distinguishing-cases Nil node complements valid block-body reflow and a constructed arrow with no body.
-// @evidence contracts/testing.md#execution-ownership TestDispatchArrowFunctionReturnsCoveredForNilNode is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchArrowFunctionReturnsCoveredForNilNode is a plain top-level Go unit test, selectable with go test -run, that calls printArrowFunction directly on a nil node with a PrintContext built from a trivial parsed file inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchArrowFunctionReturnsCoveredForNilNode(t *testing.T) {
   file := parseTS(t, "const x = 1;\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

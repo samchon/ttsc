@@ -8,7 +8,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Three named invalid configurations require exact stderr, code two, empty stdout and no rule diagnostic.
 // @evidence contracts/testing.md#independent-expectations Literal full command errors independently specify unknown option, incompatible disabled props and malformed regex rejection before any source finding.
-// @evidence contracts/testing.md#distinguishing-cases All three configuration failures must suppress a real reportable property source; HonorsPropsConfig owns the successful option-transport counterpart.
+// @evidence contracts/testing.md#distinguishing-cases Each of the three subtests lints the same `value.field = 1` source; the unknown-option and invalid-regex cases set props true, so that source would be reported if linting ran, and the disabled-props case rejects a props:false plus ignore-list combination. All three must fail with the exact configuration error and no "[no-param-reassign]" diagnostic. HonorsPropsConfig owns the successful option-transport counterpart.
 // @evidence contracts/testing.md#execution-ownership TestCommandCheckRejectsInvalidNoParamReassignOptionsBeforeLinting is selected in the shared Go unit population. Each named subtest calls run(check) in-process on a real parsed fixture config with an explicit lint manifest; no consumer install, native artifact build or real host runs.
 func TestCommandCheckRejectsInvalidNoParamReassignOptionsBeforeLinting(t *testing.T) {
   cases := []struct {

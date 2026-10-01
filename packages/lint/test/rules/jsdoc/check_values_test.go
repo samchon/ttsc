@@ -2,20 +2,20 @@ package linthost
 
 import "testing"
 
-// TestRuleJSDocCheckValues verifies jsdoc/check-values validates @access.
+// TestRuleJSDocCheckValues verifies jsdoc/check-values reports an @access value
+// outside the visibility vocabulary and accepts `public`.
 //
-// The pragmatic JSDoc family only implements value checks whose valid sets are
-// closed and cheap to validate. @access is one of those stable tags, so a typo
-// must become a diagnostic without consulting the TypeScript checker.
+// The rule validates only @access, whose valid values are a closed set, so no
+// TypeScript checker is needed.
 //
-// 1. Parse a TypeScript file with @access friend.
-// 2. Enable jsdoc/check-values.
-// 3. Assert the @access line is reported.
+// 1. Run the rule over a block whose third line is `@access friend` and
+//    expect one finding on line 3.
+// 2. Run the rule over a block with `@access public` and expect none.
 //
-// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines calls the actual engine and verifies @access friend is reported on line 3; exact rule, error severity and line checks detect missing, extra or misplaced findings.
-// @evidence contracts/testing.md#independent-expectations JSDoc access values use the defined visibility vocabulary; public is valid. The literal comment and expected line establish this supported policy independently of the parser or rule result.
-// @evidence contracts/testing.md#distinguishing-cases The deficient tag in the first source is the reported case, and a second independently authored block using @access public must produce zero findings.
-// @evidence contracts/testing.md#execution-ownership TestRuleJSDocCheckValues is a named Go unit entry running real comment parsing and the owning engine over virtual TypeScript in the shared test process, without an installed documentation consumer or host.
+// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/check-values rule through NewEngine.Run over a parsed virtual TypeScript file. `@access friend` yields exactly one finding, with that rule at error severity, on line 3; `@access public` yields none.
+// @evidence contracts/testing.md#independent-expectations The JSDoc @access vocabulary is public, protected, private and package, so `friend` is invalid and `public` is valid. The literal sources and the expected line 3 follow from that vocabulary; the message text is not asserted.
+// @evidence contracts/testing.md#distinguishing-cases The two sources differ only in the @access value. The remaining valid values (protected, private, package) are not exercised by this Test.
+// @evidence contracts/testing.md#execution-ownership The Test is a single Go unit with two direct helper calls; assertJSDocRuleLines parses the source with parseTSFile and runs the rule engine in the test process, with no installed consumer, native build or host.
 func TestRuleJSDocCheckValues(t *testing.T) {
   assertJSDocRuleLines(t, "jsdoc/check-values", `/**
  * Creates a value.

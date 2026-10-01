@@ -12,14 +12,14 @@ import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEn
  * map. Pins the validation that detects and rejects the wrong shape with a
  * clear error rather than writing undefined into the output.
  *
- * 1. Decode the original native wire input directly through the production decoder.
- * 2. Assert the retained fields or exact rejection below.
- * 3. The real Go transport batch retains API result and no-publication boundaries.
+ * 1. Decode an envelope whose typescript is a non-empty array and require the 'did not return a TypeScript source map' error.
+ * 2. Decode {typescript: []} and require the same error.
+ * 3. Decode {typescript: {}} and assert the zero-file record is returned unchanged.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls parseNativeTransformOutput with nonempty and empty array-shaped required source fields, requires rejection, and accepts the adjacent empty-object record.
  * @evidence contracts/testing.md#independent-expectations The native transform contract requires an object mapping filenames to string source text; array indices cannot substitute for that record. Literal empty-object acceptance is independent of decoder internals.
  * @evidence contracts/testing.md#distinguishing-cases Original nonempty-array rejection is preserved and an empty-array boundary rejects despite vacuous element validation. Empty object is a successful zero-file control, preventing blanket rejection from passing.
- * @evidence contracts/testing.md#execution-ownership This exported unit invokes the source decoder directly with JSON strings, without installing a consumer or launching a host. It owns required-source container shape; the non-string-member case owns value validation.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling parseNativeTransformOutput with JSON strings; no consumer install, native producer or host runs. Non-string member values are covered by the sibling test_ttsccompiler_transform_rejects_plugin_output_that_is_not_typescript_source.
  */
 export const test_ttsccompiler_transform_rejects_array_typescript_source_map =
   () => {

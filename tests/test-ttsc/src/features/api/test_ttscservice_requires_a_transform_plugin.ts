@@ -15,7 +15,7 @@ import { TtscService } from "../../../../../packages/ttsc/src/TtscService";
  *
  * @evidence contracts/testing.md#behavioral-verification Constructs TtscService for a plain project and requires an error naming the missing transform-stage plugin.
  * @evidence contracts/testing.md#independent-expectations The service contract requires at least one transform plugin to create its resident host; the fixture contains none, so rejection is independent of compiler output.
- * @evidence contracts/testing.md#distinguishing-cases The zero-plugin negative isolates admission; actual resident requests, updates and disposal are exercised by the service/native protocol survivors.
+ * @evidence contracts/testing.md#distinguishing-cases Only the zero-plugin negative is exercised: a plain commonjs project with no plugins entry must make the constructor throw the transform-stage-plugin error; a project that does declare a transform plugin is not constructed here.
  * @evidence contracts/testing.md#execution-ownership The named src/features/api entry invokes the authored service constructor on a private fixture; its empty transform list rejects before selecting or spawning any native resident host.
  */
 export const test_ttscservice_requires_a_transform_plugin = () => {

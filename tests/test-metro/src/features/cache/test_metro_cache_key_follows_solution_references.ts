@@ -12,10 +12,10 @@ import { assertCacheKeyFollowsSolutionReferences } from "../../internal/metro-ca
  * 2. Verify unchanged reuse, then edit a referenced source.
  * 3. Edit the referenced config and verify each change invalidates the key.
  *
- * @evidence contracts/testing.md#behavioral-verification An unchanged solution keeps its key, then a referenced source edit and referenced tsconfig edit each change it.
- * @evidence contracts/testing.md#independent-expectations Solution references route compilation to the referenced project, so its inputs independently own invalidation even though the solution has files: [].
- * @evidence contracts/testing.md#distinguishing-cases Empty solution roots contrast populated reference roots, unchanged state and two distinct referenced input edits.
- * @evidence contracts/testing.md#execution-ownership This named src/features/cache entry runs authored Metro fingerprint and transformer operations through the serial source-unit loader. Real fixture files and upstream input modules exercise resolution; no consumer installation, native compilation or product host is started.
+ * @evidence contracts/testing.md#behavioral-verification With a root tsconfig of files [] referencing tsconfig.app.json, repeated getCacheKey calls match, then editing src/app.ts changes it, then editing tsconfig.app.json (strict true to false) changes it again.
+ * @evidence contracts/testing.md#independent-expectations The referenced-project routing contract (the worker compiles through the referenced config) is expressed as literal equality then two inequalities over authored edits, not recomputed from the fingerprint.
+ * @evidence contracts/testing.md#distinguishing-cases An unchanged solution (equal), a referenced source edit and a referenced config edit are three distinct decisions run on a solution whose own files list is empty.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls prepareSnapshot and getCacheKey from fresh transformer modules in-process over a temp solution layout; no native compile, consumer install or Metro host.
  */
 export const test_metro_cache_key_follows_solution_references = async () => {
   await assertCacheKeyFollowsSolutionReferences();

@@ -16,7 +16,7 @@ import { parseNativeTransformOutput } from "../../../../../packages/ttsc/src/com
  * @evidence contracts/testing.md#behavioral-verification parseNativeTransformOutput retains the candidate map keyed by importing file and all original graph fields.
  * @evidence contracts/testing.md#independent-expectations The native envelope contract preserves producer-reported candidate priority; independently authored literal graph values are the oracle.
  * @evidence contracts/testing.md#distinguishing-cases Two ordered superseding candidates remain distinct from the absence of candidates owned by the existing graph unit; config, resolved edge and global values remain intact.
- * @evidence contracts/testing.md#execution-ownership The named source-unit function runs under src/features/api and calls the authored decoder directly; the same payload crosses real native transport in the one-project E2E batch.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling parseNativeTransformOutput on an inline JSON envelope; no native producer, install or compiler host runs.
  */
 export function test_ttsccompiler_transform_surfaces_superseding_resolution_candidates() {
   const result = parseNativeTransformOutput(JSON.stringify({

@@ -3,6 +3,8 @@ package banner_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // Verifies banner: constructs a project launcher command.
@@ -19,14 +21,14 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns construction from a discovered project script launcher; direct-executable routing and actual child output/status are owned by loader boundary cases.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestTtsxCommandSpawnsTheProjectLauncher is selected from test/unit by the utility runner unit overlay. Runs bannerTtsxCommand, launcher resolution and exec.Cmd construction in the Go process. This entry never calls Run, Output or Start and proves no spawn.
 func TestTtsxCommandSpawnsTheProjectLauncher(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := bannerRealpathIfPossible(t.TempDir())
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.BannerRealpathIfPossible(t.TempDir())
   launcher := seedProjectTtsc(t, root)
   config := filepath.Join(root, "banner.config.ts")
-  writeFile(t, config, "export default { text: \"from ts\" };\n")
+  shared.WriteFile(t, config, "export default { text: \"from ts\" };\n")
 
-  cmd := bannerTtsxCommand(
-    bannerConfigToolAnchors(config, root),
+  cmd := shared.BannerTtsxCommand(
+    shared.BannerConfigToolAnchors(config, root),
     "--no-plugins",
     "loader.mts",
   )

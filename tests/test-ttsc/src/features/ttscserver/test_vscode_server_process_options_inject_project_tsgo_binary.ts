@@ -14,13 +14,14 @@ import path from "node:path";
  *
  * 1. Create a package-shaped project with a fake `typescript` package and its
  *    platform package manifests.
- * 2. Import the VS Code resolution helper through Node's TypeScript loader.
- * 3. Assert `serverProcessOptions` keeps `cwd` and injects the resolved binary.
+ * 2. Call `serverProcessOptions` with the project directory.
+ * 3. Assert it keeps `cwd` and sets `env.TTSC_TSGO_BINARY` to the platform
+ *    package's binary.
  *
- * @evidence contracts/testing.md#behavioral-verification serverProcessOptions preserves cwd and injects the compiler path resolved from fixture manifests.
- * @evidence contracts/testing.md#independent-expectations the server must use the owning project platform package rather than a workspace compiler; the independently authored absolute binary path is the oracle.
- * @evidence contracts/testing.md#distinguishing-cases the fixture has project-local typescript and the current platform manifest with an existing binary; the returned cwd and TTSC_TSGO_BINARY are independently asserted.
- * @evidence contracts/testing.md#execution-ownership The named test_vscode_server_process_options_inject_project_tsgo_binary function runs under src/features/ttscserver and calls the authored resolution or launch-planning operations directly; no extension host or child process starts, and real shim spawn remains in E2E.
+ * @evidence contracts/testing.md#behavioral-verification Calls the real serverProcessOptions, which resolves typescript and its platform package from the temp project's node_modules, and asserts the returned cwd and env.TTSC_TSGO_BINARY.
+ * @evidence contracts/testing.md#independent-expectations The expected binary is the authored path of the lib/tsc (lib/tsc.exe on win32) file the test wrote inside the fixture's @typescript/typescript-<platform>-<arch> package, not a value read back from the resolver.
+ * @evidence contracts/testing.md#distinguishing-cases A single positive case: a project-local typescript package and platform package with an existing binary. The absent-binary case (environment left unchanged) and an empty cwd (undefined) are not covered here, and no second compiler is present to contrast with.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls serverProcessOptions over package.json files and an empty binary written into a TestProject.tmpdir tree, never executing the binary, and starts no extension host or child process.
  */
 export function test_vscode_server_process_options_inject_project_tsgo_binary() {
     const root = TestProject.WORKSPACE_ROOT;

@@ -14,10 +14,10 @@ import * as mod from "../../../../../packages/vscode/src/expectedServerRestart";
  * 3. Assert every close restarts without invoking the fallback crash handler.
  * 4. Send one unannounced close and one error and assert both delegate.
  *
- * @evidence contracts/testing.md#behavioral-verification The restart controller consumes six announced closes without fallback and delegates the later unexpected close and error.
- * @evidence contracts/testing.md#independent-expectations Authored edit records and literal restart/fallback results and counters independently define the supported policy.
- * @evidence contracts/testing.md#distinguishing-cases Six expected closes contrast with unexpected close/error and exact restart/fallback values and counters.
- * @evidence contracts/testing.md#execution-ownership The named src/features/ttscserver entry calls the authored pure module directly, retaining the original serialized result view and every behavioral assertion without an editor host or child process.
+ * @evidence contracts/testing.md#behavioral-verification Builds the controller with createExpectedServerRestartHandler around a counting fallback, calls expectRestart then errorHandler.closed() six times, then one unannounced closed() and one error(), and asserts the returned actions and the fallback call counters.
+ * @evidence contracts/testing.md#independent-expectations The policy comes from the documented crash-budget contract: each announced close returns the supplied restart result and never reaches the fallback (fallback close counter stays 1 after the later unannounced close), while an unannounced close and any error return the fallback's own distinctly named results; the literal action strings and counters are authored in the test.
+ * @evidence contracts/testing.md#distinguishing-cases Six consecutive announced closes (so the marker must re-arm each time and be one-shot) are contrasted with an unannounced close, which delegates once and is not treated as a restart, and a connection error, which always delegates; an implementation that left the flag set after one close or sent errors to the restart path would change the counters or actions.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the pure expectedServerRestart controller with fake handler objects, round-tripping the observed results through JSON before asserting, and starts no editor host, language client or child process.
  */
 export async function test_vscode_expected_plugin_restarts_do_not_spend_crash_budget() {
   const actual = JSON.parse(JSON.stringify(await (async () => {

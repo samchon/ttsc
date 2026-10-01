@@ -28,10 +28,6 @@ jobs:
         with:
           repository: samchon/nestia
           path: experimental/nestia
-      - run: git -C experimental/nestia apply --directory=packages/core "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia.patch"
-      - run: git -C experimental/nestia apply "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia-typia-pin.patch"
-      - run: git -C experimental/nestia apply "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia-declared-catalogs.patch"
-      - run: git -C experimental/nestia apply "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia-owned-temporary-directories.patch"
       - run: >-
           node .github/workflows/scripts/consumer.cjs experimental/nestia
           --go=experimental/nestia/packages/core/native --go=experimental/nestia/packages/core/test

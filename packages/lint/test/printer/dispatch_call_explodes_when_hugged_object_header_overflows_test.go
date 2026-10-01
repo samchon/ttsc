@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification PrintNode must put leading arguments and the final object on separate lines when register exceeds width twenty-four.
 // @evidence contracts/testing.md#independent-expectations The literal expected call retains alphaArg, betaArg and key:value, changing only comma placement and indentation.
 // @evidence contracts/testing.md#distinguishing-cases An overflowing leading header complements a hugged object whose own members alone need breaking.
-// @evidence contracts/testing.md#execution-ownership TestDispatchCallExplodesWhenHuggedObjectHeaderOverflows is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchCallExplodesWhenHuggedObjectHeaderOverflows is a plain top-level Go unit test, selectable with go test -run, that calls PrintNode directly on a parsed call with two identifier arguments and an object literal at width twenty-four inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchCallExplodesWhenHuggedObjectHeaderOverflows(t *testing.T) {
   file := parseTS(t, "register(alphaArg, betaArg, { key: value });\n")
   node := firstNodeOfKind(t, file, shimast.KindCallExpression)

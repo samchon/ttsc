@@ -11,10 +11,10 @@ import { assertPrepareSnapshotSkipsNonexistentRoot } from "../../internal/metro-
  * 1. Point snapshot preparation at a path that does not exist.
  * 2. Assert the path still does not exist afterwards.
  *
- * @evidence contracts/testing.md#behavioral-verification prepareSnapshot on a nonexistent project path leaves that path absent.
- * @evidence contracts/testing.md#independent-expectations The operation requires an existing project; creating a directory for an invalid input would be an observable side effect.
- * @evidence contracts/testing.md#distinguishing-cases Nonexistent root is the negative boundary for successful preparation, not a committed-file presence check.
- * @evidence contracts/testing.md#execution-ownership This named src/features/cache entry runs authored Metro fingerprint and transformer operations through the serial source-unit loader. Real fixture files and upstream input modules exercise resolution; no consumer installation, native compilation or product host is started.
+ * @evidence contracts/testing.md#behavioral-verification prepareSnapshot called with a path whose parent exists but which does not exist itself returns without creating that path.
+ * @evidence contracts/testing.md#independent-expectations The contract that preparation must not create directory trees for a missing project root is checked as a literal fs.existsSync(path) === false.
+ * @evidence contracts/testing.md#distinguishing-cases Only the nonexistent-root negative boundary is run here; successful preparation on an existing root is covered by the other cache entries.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls fingerprint.prepareSnapshot in-process on a temp path and checks the filesystem; no native compile, consumer install, transformer or Metro host.
  */
 export const test_prepare_snapshot_creates_nothing_for_a_nonexistent_root =
   async () => {

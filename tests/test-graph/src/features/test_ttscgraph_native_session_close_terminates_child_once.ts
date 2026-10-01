@@ -2,18 +2,23 @@ import assert from "node:assert/strict";
 import { admitted, assertRetired, pendingCount, sessionState } from "./internal/sessionState";
 
 /**
- * Verifies close settles active and queued requests once.
+ * Verifies closing a session twice settles its active and queued requests once and retires the peer once.
  *
- * Idempotent terminal state must settle both ownership positions, remove pending entries and forbid a future opener call.
+ * Close is terminal and idempotent: it must reject the request in flight and the
+ * one queued behind it, leave no pending entry, close the host once, and refuse
+ * any later request without opening another peer.
  *
- * 1. Admit the original request state through the authored state owner.
- * 2. Supply explicit typed envelopes or transport events and check the original rejection, settlement or model assertions.
- * 3. Check retirement, recovery or reuse and close the owned state in finally.
+ * 1. Issue two graph requests (one active on the recorded port, one queued),
+ *    counting each settlement.
+ * 2. Call close twice, then require the active and queued rejections, one
+ *    settlement each, one retirement of the port and no pending entries.
+ * 3. Require a later graph() to reject as closed, no second port, and one host
+ *    close call.
  *
- * @evidence contracts/testing.md#behavioral-verification Double close rejects active and queued requests exactly once, retires the port once, empties pending entries and rejects future graph calls without another opener.
- * @evidence contracts/testing.md#independent-expectations Independent settlement counters, literal active/queued/post-close errors and exact pending/retirement/opener counts establish terminal idempotence. Actual process death remains in the real adapter boundary.
- * @evidence contracts/testing.md#distinguishing-cases Idempotent terminal state must settle both ownership positions, remove pending entries and forbid a future opener call.
- * @evidence contracts/testing.md#execution-ownership The matching src/features export imports authored state and decoder source. Declared line-port recordings generate no reply; this executes in the source-unit Node process without a native executable. Actual kernel retirement and generated schema integration remain in the minimal E2E boundary.
+ * @evidence contracts/testing.md#behavioral-verification Calling session.close() twice must reject the active request with "native session closed" and the queued one with "native session is closed", retire the port as close(false) then close(true), run each request's finally exactly once, leave zero pending entries, reject a later graph() and call the host close once.
+ * @evidence contracts/testing.md#independent-expectations The settlement counters, the expected error patterns, the retirement sequence [false, true], the pending count 0, the port count 1 and the host close count 1 are literals authored in the test, not derived from the state's own bookkeeping.
+ * @evidence contracts/testing.md#distinguishing-cases The active and queued requests fail with different messages (peer closed versus session closed), and the doubled close and the post-close request contrast the first close; reopening after close and a close while idle are not exercised.
+ * @evidence contracts/testing.md#execution-ownership Runs TtscGraphSessionState directly in the test process against the recorded line ports of internal/sessionState. No line is decoded and no native process or kernel termination is involved.
  */
 export async function test_ttscgraph_native_session_close_terminates_child_once(): Promise<void> {
   const fixture = sessionState();

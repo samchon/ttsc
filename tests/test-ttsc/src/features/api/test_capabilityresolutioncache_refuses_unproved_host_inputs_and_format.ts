@@ -47,10 +47,10 @@ interface IEntry extends Omit<IAnswer, "pluginSources"> {
  *    recorded inputs, requiring the cache to decline each time.
  * 3. Read the entry under another ttsc version and require a miss.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual source reader/writer retain a reachable positive cache hit and refuse changed config/manifest, deleted input or binary, malformed JSON, empty proofs and another product version.
- * @evidence contracts/testing.md#independent-expectations Authored bytes, explicit file removals, corrupted JSON and literal versions independently define accepted and refused answers; every mutation starts from an asserted valid entry.
- * @evidence contracts/testing.md#distinguishing-cases Content changes, deletion, unprovable empty input, corruption and version changes retain their individual original assertions; plugin source/build-environment and metadata proofs remain in the two actual environment E2E entries.
- * @evidence contracts/testing.md#execution-ownership The named src/features/api entry calls authored read/write and host-input proof sources directly over private files. An answer without plugin sources owns no Go environment observation, process or native build, while actual source-bearing answers remain E2E-owned.
+ * @evidence contracts/testing.md#behavioral-verification writeCapabilityResolution then readCapabilityResolution run over real files in a temp cache: an unchanged entry hits and returns the recorded graphNodes declaration, while a changed tsconfig, a changed manifest, a deleted manifest, a deleted plugin binary, unparseable JSON and an entry rewritten with empty hostInputs/hashes/realpaths each make the reader return null.
+ * @evidence contracts/testing.md#independent-expectations The expected outcomes follow from the cache's fail-closed rule rather than from its code: every authored mutation (rewritten file bytes, rmSync, a literal '{not json', a hand-emptied entry, version 1.2.3 versus 1.2.4) must produce null, and verifyWalksAgain first asserts the re-recorded entry is non-null so each null is attributable to that one change.
+ * @evidence contracts/testing.md#distinguishing-cases The positive case is the unchanged entry (a hit with graphNodes true, and again before every mutation); the negatives differ by property: input content, input presence, binary presence, entry syntax, an empty input proof and the product version. Entries that record pluginSources are not exercised here because pluginSources is always {}.
+ * @evidence contracts/testing.md#execution-ownership A unit test: it calls the TypeScript reader, writer and host-input hashing helpers directly over files in a private temp directory with TTSC_CACHE_DIR pointing at it; it starts no process, Go build or ttsc host.
  */
 export function test_capabilityresolutioncache_refuses_unproved_host_inputs_and_format() {
     const cwd = TestProject.tmpdir("ttsc-capability-resolution-inputs-");

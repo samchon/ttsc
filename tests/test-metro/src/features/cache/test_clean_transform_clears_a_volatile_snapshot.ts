@@ -13,10 +13,10 @@ import { assertCleanTransformClearsVolatileSnapshot } from "../../internal/metro
  * 2. Record another worker's all-in-walk transform, then compact again.
  * 3. Assert the volatile bit clears and two fresh cache keys are equal.
  *
- * @evidence contracts/testing.md#behavioral-verification A source recorder marks a snapshot volatile, then a clean all-in-walk observation clears volatility and restores equal fresh keys.
- * @evidence contracts/testing.md#independent-expectations Only current worker observations determine the next volatility verdict; authored true-to-false state and restored equality establish recovery independently.
- * @evidence contracts/testing.md#distinguishing-cases Volatile-to-clean transition contrasts persistent volatile nonreuse without invoking a compiler to simulate recorder semantics.
- * @evidence contracts/testing.md#execution-ownership This named src/features/cache entry runs authored Metro fingerprint and transformer operations through the serial source-unit loader. Real fixture files and upstream input modules exercise resolution; no consumer installation, native compilation or product host is started.
+ * @evidence contracts/testing.md#behavioral-verification A recorder's recordVolatile followed by prepareSnapshot sets the main snapshot's volatile to true; a second recorder then records src/app.ts and after another prepareSnapshot volatile is false and two getCacheKey calls are equal.
+ * @evidence contracts/testing.md#independent-expectations The expected true-then-false volatile values and the restored key equality are authored from the contract that only the latest worker observations decide volatility, not computed from the implementation.
+ * @evidence contracts/testing.md#distinguishing-cases Volatile-to-clean is the single transition covered. Key nonreuse while volatile is not asserted in this body (only the persisted volatile flag is checked after the first compaction).
+ * @evidence contracts/testing.md#execution-ownership Unit layer: drives createSnapshotRecorder, prepareSnapshot and getCacheKey in-process, modelling two workers at the recorder boundary; no native compile, consumer install or Metro host.
  */
 export const test_clean_transform_clears_a_volatile_snapshot = async () => {
   await assertCleanTransformClearsVolatileSnapshot();

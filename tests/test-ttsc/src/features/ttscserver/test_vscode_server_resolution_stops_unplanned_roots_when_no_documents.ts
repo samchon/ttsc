@@ -16,9 +16,9 @@ import path from "node:path";
  * 4. Assert every unplanned running root is stopped.
  *
  * @evidence contracts/testing.md#behavioral-verification rootsToStopForPlan stops all current clients when planning is empty.
- * @evidence contracts/testing.md#independent-expectations closing the last supported document leaves no planned language client.
- * @evidence contracts/testing.md#distinguishing-cases an empty plan stops both nested and unrelated clients; a replacement parent plan also stops both unplanned clients.
- * @evidence contracts/testing.md#execution-ownership The named test_vscode_server_resolution_stops_unplanned_roots_when_no_documents function runs under src/features/ttscserver and calls authored serverResolution functions directly; fixture manifests are resolver input, and no language client or product process starts.
+ * @evidence contracts/testing.md#independent-expectations The expected lists are authored literals from the contract that a running client absent from the plan must stop: with an empty plan every running root is returned, in input order.
+ * @evidence contracts/testing.md#distinguishing-cases An empty plan returns both the nested and the unrelated running root; a plan holding only the parent root also returns both, because neither running root has the parent's identity (exact identity, not containment, keeps a client). No case here keeps a running client, which is covered by the sibling non-overlapping-roots test.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls rootsToStopForPlan with the default identity context over path strings that are never created on disk, with no fixture files, language client or child process.
  */
 export function test_vscode_server_resolution_stops_unplanned_roots_when_no_documents() {
   const repo = TestProject.WORKSPACE_ROOT;

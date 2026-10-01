@@ -15,10 +15,10 @@ import { assertAutoDetectInitFailureDoesNotFallThrough } from "../../internal/me
  * 3. Assert it throws the Expo failure with cause, not the legacy candidate or the
  *    terminal "install one of these" message.
  *
- * @evidence contracts/testing.md#behavioral-verification A throwing Expo candidate preserves its original cause and named diagnostic without falling through to legacy React Native.
- * @evidence contracts/testing.md#independent-expectations The authored expo transformer boom sentinel and independently literal Expo/legacy identities distinguish a load failure from complete absence.
- * @evidence contracts/testing.md#distinguishing-cases First-candidate initialization failure contrasts genuine resolution absence and successful later-candidate selection.
- * @evidence contracts/testing.md#execution-ownership This named src/features export executes authored Metro decisions in the source-unit Node process; fixture callbacks supply resolver results and no compiled package, native build, install or host starts.
+ * @evidence contracts/testing.md#behavioral-verification With an injected loader that throws Error("expo transformer boom") for @expo/metro-config/babel-transformer and returns stubs for the other candidates, resolveUpstreamTransformer throws an error naming the Expo specifier whose cause is that Error, not the terminal not-found message and not the legacy specifier.
+ * @evidence contracts/testing.md#independent-expectations The authored boom sentinel and the literal Expo and legacy specifiers identify the failure; the later candidates deliberately load successfully, so a fall-through would return one of them instead of throwing.
+ * @evidence contracts/testing.md#distinguishing-cases Only an initialization failure of the first candidate is run; genuine absence and priority-order fall-through are asserted by other entries.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls resolveUpstreamTransformer from packages/metro/src/core/upstream.ts in-process with an injected loader callback; no module is required from disk, and no compile, install or Metro host is involved.
  */
 export const test_upstream_auto_detect_init_failure_does_not_fall_through =
   async () => {

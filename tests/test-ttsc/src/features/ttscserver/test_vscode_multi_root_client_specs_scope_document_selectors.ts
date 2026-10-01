@@ -15,14 +15,16 @@ import path from "node:path";
  * metacharacters.
  *
  * 1. Create two workspace roots with independent tsconfig files.
- * 2. Import the VS Code resolution helper through Node's TypeScript loader.
- * 3. Deduplicate candidates the same way the extension does.
+ * 2. Call createResolutionCandidates with the second root as the active file's
+ *    workspace and both roots as workspace roots.
+ * 3. Build one selector per distinct candidate cwd with a fake RelativePattern
+ *    constructor passed to createDocumentSelectorPattern.
  * 4. Assert both roots remain distinct and selectors are root-scoped.
  *
- * @evidence contracts/testing.md#behavioral-verification createResolutionCandidates and createDocumentSelectorPattern keep both independent project clients and instantiate literal-root selectors.
- * @evidence contracts/testing.md#independent-expectations recursive selectors must be anchored to each actual root even when a root name contains glob metacharacters.
- * @evidence contracts/testing.md#distinguishing-cases two configured roots including pkg[one] retain their own tsconfig and pattern base; the injected constructor instance and its complete own fields are checked.
- * @evidence contracts/testing.md#execution-ownership The named test_vscode_multi_root_client_specs_scope_document_selectors function runs under src/features/ttscserver and calls the authored resolution or launch-planning operations directly; no extension host or child process starts, and real shim spawn remains in E2E.
+ * @evidence contracts/testing.md#behavioral-verification Calls createResolutionCandidates and createDocumentSelectorPattern from the real serverResolution module over two temp workspace roots on disk and asserts the resulting cwd, tsconfig and selector objects.
+ * @evidence contracts/testing.md#independent-expectations The expected cwd set is the two authored roots, the expected tsconfig is each root's own tsconfig.json, and the expected selector is a constructor instance with the literal base equal to that root and the pattern "**/*", so a root containing glob metacharacters (pkg[one]) must not be folded into the glob string.
+ * @evidence contracts/testing.md#distinguishing-cases Two roots, one named pkg[one] and one plain `right` (also the active file's root), must both survive as separate candidates, each with its own tsconfig and its own selector base; the fake constructor is checked with instanceof and its own fields are compared completely.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the pure resolution helpers over files written to a TestProject.tmpdir, with a fake RelativePattern class, and starts no VS Code extension host, language client or child process.
  */
 export function test_vscode_multi_root_client_specs_scope_document_selectors() {
     const repo = TestProject.WORKSPACE_ROOT;

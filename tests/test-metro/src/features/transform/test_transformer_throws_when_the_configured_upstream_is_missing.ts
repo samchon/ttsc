@@ -11,10 +11,10 @@ import { assertMissingUpstreamThrows } from "../../internal/metro-transform";
  * 2. Run the transformer.
  * 3. Assert it rejects with a "could not load the configured upstream" message.
  *
- * @evidence contracts/testing.md#behavioral-verification The authored transformer rejects a missing configured upstream before passing a JavaScript file through.
- * @evidence contracts/testing.md#independent-expectations The literal absent module and configured-upstream error contract distinguish resolver failure from silently dropping the file.
- * @evidence contracts/testing.md#distinguishing-cases Missing upstream on a compiler-excluded input proves loading precedes source gating.
- * @evidence contracts/testing.md#execution-ownership This matching src/features export calls authored Metro operations through the source-unit loader. Input filesystem/module fixtures and declared upstream callbacks remain test-local; no installed consumer, native compiler or product host is launched.
+ * @evidence contracts/testing.md#behavioral-verification transform of a .js file with upstreamTransformer "@@ttsc-metro-nonexistent-upstream@@" rejects with a message matching /Could not load the configured upstream transformer/.
+ * @evidence contracts/testing.md#independent-expectations The authored nonexistent module name and the documented configured-upstream error message distinguish a surfaced configuration error from silently passing the file through.
+ * @evidence contracts/testing.md#distinguishing-cases A JavaScript file, which the filter would pass through anyway, still raises the error, showing upstream loading happens before source gating; no case with a resolvable upstream is run here.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls the transformer module's transform in-process with a worker environment naming a nonexistent upstream; no native compile, consumer install or Metro host.
  */
 export const test_transformer_throws_when_the_configured_upstream_is_missing =
   async () => {

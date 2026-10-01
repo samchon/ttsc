@@ -26,7 +26,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification PrintNode must retain the blank line separating setup from teardown and report complete coverage.
 // @evidence contracts/testing.md#independent-expectations The full expected block fixes both statement order and the intentional empty line independently of the printer.
 // @evidence contracts/testing.md#distinguishing-cases A two-break statement gap complements the ordinary consecutive-statements block and predicate one-break negative.
-// @evidence contracts/testing.md#execution-ownership TestDispatchBlockPreservesBlankLineBetweenStatements is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchBlockPreservesBlankLineBetweenStatements is a plain top-level Go unit test, selectable with go test -run, that calls PrintNode directly on a parsed callback body block with a blank line between two statements inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchBlockPreservesBlankLineBetweenStatements(t *testing.T) {
   file := parseTS(t, "register(() => {\n  setup();\n\n  teardown();\n});\n")
   node := firstNodeOfKind(t, file, shimast.KindBlock)

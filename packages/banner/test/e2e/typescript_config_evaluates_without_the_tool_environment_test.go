@@ -3,6 +3,8 @@ package banner_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestTypeScriptConfigEvaluatesWithoutTheToolEnvironment verifies the whole
@@ -30,13 +32,13 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary The loader-to-project-launcher argv and payload connection is observed. The evaluates filename does not establish execution of config source; a real compiler/ttsx owner is separately required.
 // @evidence contracts/e2e.md#shared-execution One fixture launcher invocation observes arguments. No Go producer or compiler build occurs; the compiler-shaped file is only transported.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.Setenv restores tool variables, t.TempDir owns install fixtures and the loader removes its temporary directory. Cached output cannot replace this argument observation.
-// @evidence contracts/e2e.md#preserved-coverage The original success and exact compiler-path assertion remain. This case alone leaves actual TypeScript export evaluation unverified.
+// @evidence contracts/e2e.md#preserved-coverage The body asserts load success, an object result, and equality of the value the fake launcher echoes for --binary with the seeded project compiler path (L59); real TypeScript evaluation is not asserted.
 func TestTypeScriptConfigEvaluatesWithoutTheToolEnvironment(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := bannerRealpathIfPossible(t.TempDir())
-  compiler := seedProjectTypeScript(t, root)
-  launcher := seedProjectTtscWithoutLauncher(t, root)
-  writeFile(t, launcher, `const args = process.argv.slice(2);
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.BannerRealpathIfPossible(t.TempDir())
+  compiler := shared.SeedProjectTypeScript(t, root)
+  launcher := shared.SeedProjectTtscWithoutLauncher(t, root)
+  shared.WriteFile(t, launcher, `const args = process.argv.slice(2);
 const index = args.indexOf("--binary");
 if (index < 0 || index + 1 >= args.length) {
   process.stderr.write("the loader spawned this launcher without --binary\n");
@@ -46,7 +48,7 @@ process.stdout.write(JSON.stringify({ complete: true, inputs: [], hashes: {}, re
 `)
 
   config := filepath.Join(root, "banner.config.ts")
-  writeFile(t, config, "export default { text: \"never read, the launcher is fake\" };\n")
+  shared.WriteFile(t, config, "export default { text: \"never read, the launcher is fake\" };\n")
 
   raw, err := bannerLoadBannerTypeScriptConfigFile(config, root)
   if err != nil {

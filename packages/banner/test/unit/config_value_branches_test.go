@@ -4,6 +4,8 @@ import (
   "path/filepath"
   "strings"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestConfigValueBranches verifies banner config value coercion, key validation, and JSDoc escaping.
@@ -72,9 +74,9 @@ func TestConfigValueBranches(t *testing.T) {
   // parseBanner via explicit configFile: Windows newlines, JSDoc escaping, trailing blank.
   root := t.TempDir()
   tsconfig := filepath.Join(root, "tsconfig.json")
-  writeFile(t, tsconfig, "{}")
+  shared.WriteFile(t, tsconfig, "{}")
   configFile := filepath.Join(root, "banner.config.json")
-  writeFile(t, configFile, `{"text":"one\r\ntwo */\n\n"}`)
+  shared.WriteFile(t, configFile, `{"text":"one\r\ntwo */\n\n"}`)
 
   rendered, err := bannerParseBanner(map[string]any{"configFile": configFile}, root, tsconfig)
   if err != nil {
@@ -90,7 +92,7 @@ func TestConfigValueBranches(t *testing.T) {
 
   // parseBanner: empty "text" from config file produces an error.
   emptyConfigFile := filepath.Join(root, "empty", "banner.config.json")
-  writeFile(t, emptyConfigFile, `{"text":""}`)
+  shared.WriteFile(t, emptyConfigFile, `{"text":""}`)
   if _, err := bannerParseBanner(map[string]any{"configFile": emptyConfigFile}, root, tsconfig); err == nil || !strings.Contains(err.Error(), "must be a non-empty string") {
     t.Fatalf("expected parse error, got %v", err)
   }

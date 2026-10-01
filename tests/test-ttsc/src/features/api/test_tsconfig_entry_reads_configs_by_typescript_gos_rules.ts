@@ -31,7 +31,7 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification Parses authored JSONC and resolves real relative, extensionless, linked and package-config fixtures; checks missing candidates and relative versus bare plugin spelling.
  * @evidence contracts/testing.md#independent-expectations Literal parsed data and authored config paths determine expectations; the preset package explicitly declares its tsconfig and missing paths are deliberately absent.
  * @evidence contracts/testing.md#distinguishing-cases BOM/comments/trailing commas, slash variants, extension omission, logical symlink spelling, package entry, missing extension candidates and relative/bare specifiers retain distinct checks.
- * @evidence contracts/testing.md#execution-ownership This named src/features/api function calls authored parsers/resolvers directly on TestProject-owned filesystem fixtures; it installs no consumer, builds no native producer and starts no product host.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling parseJsonc, resolveTsconfigExtends, tsconfigExtendsFileCandidates and isRelativePluginSpecifier directly over small config files, a junction and a fake node_modules preset in a private temp directory; no compiler process or ttsc host.
  */
 export const test_tsconfig_entry_reads_configs_by_typescript_gos_rules =
   (): void => {

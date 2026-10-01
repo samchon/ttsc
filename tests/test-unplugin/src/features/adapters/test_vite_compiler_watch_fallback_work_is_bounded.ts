@@ -24,7 +24,7 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/
  * @evidence contracts/testing.md#behavioral-verification
  *   Injects native watcher failure into createViteServeInputWatch; asserts immediate handle release, one scheduler, 64 then 65 invalidations and scheduler stop without a second close.
  * @evidence contracts/testing.md#independent-expectations
- *   The supported scheduler budget is 64 inputs per tick. A 65-input fixture independently distinguishes bounded fair progress from a full scan or a starved final input.
+ *   The scheduler budget of 64 inputs per tick is a literal in the test. With 65 changed inputs, the first tick must invalidate exactly 64 (a full scan would invalidate 65) and the second the last one (a scheduler that never reaches the final input would stop at 64). Because a changed input leaves the poll set, the counts do not prove the order in which inputs are visited.
  * @evidence contracts/testing.md#distinguishing-cases
  *   Includes native open failure, one input beyond the budget, exhausted work and final disposal; captures both callback count and handle-close count.
  * @evidence contracts/testing.md#execution-ownership

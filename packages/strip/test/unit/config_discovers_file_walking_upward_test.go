@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestConfigDiscoversFileWalkingUpward verifies that the strip driver discovers
@@ -23,7 +25,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns successful multi-level upward discovery; environment override and same-directory ambiguity are separate cases.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestConfigDiscoversFileWalkingUpward is selected from test/unit by the utility runner unit overlay. Runs stripLoadStripConfigMap, shared discovery and native JSON loading in the Go process over ordinary fixture files; no tsconfig Program is loaded.
 func TestConfigDiscoversFileWalkingUpward(t *testing.T) {
-  root := seedProject(t, map[string]string{
+  root := shared.SeedProject(t, map[string]string{
     "strip.config.json":        `{"calls":["console.warn"],"statements":[]}`,
     "nested/src/tsconfig.json": `{"compilerOptions":{"target":"ES2022"}}`,
   })

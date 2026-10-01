@@ -6,18 +6,23 @@ import (
   "testing"
 )
 
-// TestNoRestrictedImportsMatchesSourceNamesAndReportsExactSpecifierRanges verifies Restricted named imports match exported source names despite local aliases, and namespace/star imports expose the restricted set.
+// TestNoRestrictedImportsMatchesSourceNamesAndReportsExactSpecifierRanges
+// verifies importNames restrictions match the exported source name rather than
+// the local alias, and that namespace and star forms expose the restricted set.
 //
-// Pins the distinct option, syntax or failure branch represented by this fixture.
+// The path "pkg" restricts importNames "default" and "source". The source has a
+// default import, an aliased `source`, an allowed named import, a namespace
+// import, named and default reexports, `export *`, `export * as`, and a bare
+// side-effect import.
 //
-// 1. Supply the authored source and configuration inputs.
-// 2. Run the owning engine or command operation in this process.
-// 3. Compare the literal findings, messages or failure state below.
+// 1. Run the rule with the importNames path.
+// 2. Compare the seven reported ranges with the literal list.
+// 3. Check the message of the default and source specifiers and of each star-like finding.
 //
-// @evidence contracts/testing.md#behavioral-verification Restricted named imports match exported source names despite local aliases, and namespace/star imports expose the restricted set.
-// @evidence contracts/testing.md#independent-expectations The literal default and source option names identify seven authored source substrings; message fragments require source names rather than local alias spelling.
-// @evidence contracts/testing.md#distinguishing-cases Default/named aliases, named reexports, namespaces and export-all report; allowed named bindings and a bare side effect stay clean.
-// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot for this entry's authored source/options and validates rule, ranges and absence of edits. assertNoRestrictedImportsTargets compares the displayed literal target list; this Test owns every invocation and message assertion in the Go process.
+// @evidence contracts/testing.md#behavioral-verification The default binding, `source as alias`, the namespace import, `source as renamed`, `default as exportedDefault`, `export *` and `export * as` are reported at their specifier ranges (the star findings cover only the asterisk); `allowed` specifiers and the bare `import "pkg"` are not. Messages name the source names default and source, not the local aliases, and the three star-like findings use the namespace message.
+// @evidence contracts/testing.md#independent-expectations importNames restricts exported names, so a renamed local binding stays restricted. The seven literal ranges and the message fragments "'default' import from 'pkg' is restricted", "'source' import from 'pkg' is restricted" and "* import is invalid because 'default' and 'source' from 'pkg' are restricted" are authored literals.
+// @evidence contracts/testing.md#distinguishing-cases Default and aliased named imports, named and default reexports, a namespace import and two star reexports report; the allowed named bindings and a bare side-effect import of the same module stay clean.
+// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot, which binds the rule at error severity, parses the source in a temporary project and runs Engine.Run in the Go test process, then rejects other rules, edits and invalid ranges. assertNoRestrictedImportsTargets compares the seven literal ranges and the Test body checks the message of findings 0, 1, 2, 5 and 6.
 func TestNoRestrictedImportsMatchesSourceNamesAndReportsExactSpecifierRanges(t *testing.T) {
   source := `import Default, { source as alias, allowed } from "pkg";
 import * as namespace from "pkg";

@@ -5,18 +5,20 @@ import (
   "testing"
 )
 
-// TestNoRestrictedImportsAllowedNamePatternCoversImportsAndReexports verifies The allowed-name regex exempts publicValue/publicType and reports privateValue/privateType across import and reexport.
+// TestNoRestrictedImportsAllowedNamePatternCoversImportsAndReexports verifies
+// allowImportNamePattern "^public" exempts publicValue and publicType and
+// reports privateValue and privateType, in an import and a reexport.
 //
-// Pins the distinct option, syntax or failure branch represented by this fixture.
+// The pattern entry is a regex "^pkg/" restriction applied to one import and one
+// `export { … } from` declaration of "pkg/names".
 //
-// 1. Supply the authored source and configuration inputs.
-// 2. Run the owning engine or command operation in this process.
-// 3. Compare the literal findings, messages or failure state below.
+// 1. Run the rule with the regex and allowImportNamePattern options.
+// 2. Compare the reported specifier ranges with the literal list.
 //
-// @evidence contracts/testing.md#behavioral-verification The allowed-name regex exempts publicValue/publicType and reports privateValue/privateType across import and reexport.
-// @evidence contracts/testing.md#independent-expectations The literal ^public prefix independently determines which authored source names are allowed; the private targets are supplied directly.
-// @evidence contracts/testing.md#distinguishing-cases Both declaration kinds contain allowed and forbidden adjacent names, detecting a gate applied only to imports or to every name.
-// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot for this entry's authored source/options and validates rule, ranges and absence of edits. assertNoRestrictedImportsTargets compares the displayed literal target list; this Test owns every invocation and message assertion in the Go process.
+// @evidence contracts/testing.md#behavioral-verification The rule reports privateValue in the import and privateType in the reexport, and does not report publicValue or publicType, so the allowed-name regex is applied to both declaration kinds.
+// @evidence contracts/testing.md#independent-expectations The literal ^public prefix decides which authored names are allowed; the two expected targets are the names that do not start with public. The test does not assert message text.
+// @evidence contracts/testing.md#distinguishing-cases Each declaration holds one allowed and one forbidden adjacent name, so a gate applied only to imports, only to reexports or to every name produces a different target list.
+// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot, which binds the rule at error severity, parses the source in a temporary project and runs Engine.Run in the Go test process, then rejects other rules, edits and invalid ranges. assertNoRestrictedImportsTargets compares the two literal target ranges.
 func TestNoRestrictedImportsAllowedNamePatternCoversImportsAndReexports(t *testing.T) {
   source := `import { publicValue, privateValue } from "pkg/names";
 export { publicType, privateType } from "pkg/names";

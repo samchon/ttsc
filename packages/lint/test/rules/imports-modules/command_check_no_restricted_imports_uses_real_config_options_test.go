@@ -5,13 +5,15 @@ import (
   "testing"
 )
 
-// TestCommandCheckNoRestrictedImportsUsesRealConfigOptions verifies The in-process check command reads a real JSON rule tuple, reports unsafe once, leaves safe clean and returns status 2 with empty stdout.
+// TestCommandCheckNoRestrictedImportsUsesRealConfigOptions verifies that the
+// in-process check command carries a lint.config.json no-restricted-imports
+// tuple (patterns group, importNames, message) through to the rule.
 //
-// Pins the distinct option, syntax or failure branch represented by this fixture.
-//
-// 1. Supply the authored source and configuration inputs.
-// 2. Run the owning engine or command operation in this process.
-// 3. Compare the literal findings, messages or failure state below.
+// 1. Seed a project importing `unsafe` and `safe` from "pkg/private".
+// 2. Write a lint.config.json restricting only the name `unsafe` for "pkg/*"
+//    with a custom message, then run `check` in this process.
+// 3. Assert status 2, empty stdout, exactly one diagnostic for `unsafe`
+//    carrying the custom message and none for `safe`.
 //
 // @evidence contracts/testing.md#behavioral-verification The in-process check command reads a real JSON rule tuple, reports unsafe once, leaves safe clean and returns status 2 with empty stdout.
 // @evidence contracts/testing.md#independent-expectations The fixture policy forbids only unsafe in pkg/* and supplies an independently authored custom message; the literal exit and stream expectations follow check command behavior.

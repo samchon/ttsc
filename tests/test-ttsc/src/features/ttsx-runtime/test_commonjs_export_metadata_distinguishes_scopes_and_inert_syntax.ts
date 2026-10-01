@@ -14,9 +14,9 @@ import { parseCommonJsExports } from "../../../../../packages/ttsc/src/launcher/
  * 3. Assert exact exports and ordered unique re-export edges, including empty and malformed inputs.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the authored parseCommonJsExports on actual CommonJS program inputs and asserts exact exported names and re-export edges; inert text must never become metadata and nested executable helper calls must remain discoverable.
- * @evidence contracts/testing.md#independent-expectations Explicit literal require targets define supported star edges; comments, regex and strings are data, while default property assignments define exported names independently of parser output.
+ * @evidence contracts/testing.md#independent-expectations Each source is authored with a known literal require target, so the expected re-export list (for example ["./actual"], ["./a", "./b"] in first-call order, or [] for text that only looks like a call) and the expected export names (`exports.text`, `exports.actual` assignments) follow from the source text rather than from the parser's output.
  * @evidence contracts/testing.md#distinguishing-cases Both inline and member helper spellings cover top/block/IIFE/static scopes, false unbraced condition, regex backtick and division; quoted/template/comment lookalikes, wrong helper/nested target, native top-level coarse metadata, optional calls, dynamic arguments, duplicates, empty and malformed inputs distinguish adjacent rejection cases.
- * @evidence contracts/testing.md#execution-ownership This matching named source unit directly invokes maintained metadata parsing after public lexer initialization; it installs no consumer, builds no native artifact and starts no product host. Actual decorator emit and ESM/CommonJS facade linking retain surviving E2E ownership.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttsx-runtime; it initializes cjs-module-lexer synchronously and calls parseCommonJsExports on in-memory source strings, collecting every failing case into one AggregateError. No file is written, no consumer installed, no native artifact built and no host started.
  */
 export function test_commonjs_export_metadata_distinguishes_scopes_and_inert_syntax(): void {
   const { initSync } = createRequire(

@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification PrintNode must keep save({ id: value }) flat at width thirty and report it covered.
 // @evidence contracts/testing.md#independent-expectations The literal object call fits the budget and preserves its key/value pair, braces and parentheses.
 // @evidence contracts/testing.md#distinguishing-cases The fitting hugged object complements the same layout family whose members or leading header overflow.
-// @evidence contracts/testing.md#execution-ownership TestDispatchCallKeepsHuggedObjectFlatWhenItFits is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchCallKeepsHuggedObjectFlatWhenItFits is a plain top-level Go unit test, selectable with go test -run, that calls PrintNode directly on a parsed call with an object-literal argument at width thirty inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchCallKeepsHuggedObjectFlatWhenItFits(t *testing.T) {
   file := parseTS(t, "save({ id: value });\n")
   node := firstNodeOfKind(t, file, shimast.KindCallExpression)

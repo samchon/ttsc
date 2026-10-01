@@ -12,14 +12,15 @@ import { assert, path, waitForPluginBinary } from "../../internal/source-build-u
  * immediately — not report abandonment, not fabricate an Infinity age, and not
  * burn the wait budget polling a lock that no longer exists.
  *
- * 1. Call the wait loop with a lock path and binary path that both do not exist.
- * 2. Assert it returns `{ outcome: "released" }` without consuming the generous
- *    timeout.
+ * 1. Call the wait loop with a lock path and binary path that both do not exist
+ *    under a fresh temporary directory, with a 600-second timeout.
+ * 2. Assert it returns exactly `{ outcome: "released" }`; the call returning at
+ *    all (rather than polling for the 600-second budget) is part of the check.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls the actual wait loop with absent binary and lock paths and observes released.
- * @evidence contracts/testing.md#independent-expectations The authored absence of both fixture paths means free but unpublished; literal released is independent of the loop implementation.
- * @evidence contracts/testing.md#distinguishing-cases Contrasts the published-file and live-owner zero-budget twins; a generous wait budget must not cause polling on an absent lock.
- * @evidence contracts/testing.md#execution-ownership test_waitforpluginbinary_returns_released_when_lock_is_gone is discovered once under src/features/source-plugin and directly invokes the authored lock/cache operation over test-owned paths. This case installs no consumer, builds no artifact and starts no product host; the temporary-directory owner and its explicit lease finally blocks release its state.
+ * @evidence contracts/testing.md#behavioral-verification Calls waitForPluginBinary with a nonexistent binary path and nonexistent lock directory and asserts the returned outcome object with deepEqual.
+ * @evidence contracts/testing.md#independent-expectations The fixture is authored so that neither the binary nor the lock exists, which by the lock contract means a free key with nothing published; the literal `{ outcome: "released" }` follows from that and is not computed by the loop.
+ * @evidence contracts/testing.md#distinguishing-cases Contributes only the no-lock, no-binary case; a loop that returned "published", returned "abandoned", threw a timeout, or polled until the 600-second budget would fail or hang. The published-binary case is owned by test_waitforpluginbinary_prefers_published_binary_over_released_lock and the live-owner case by test_waitforpluginbinary_times_out_on_live_owner_with_finite_duration.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/source-plugin; it calls waitForPluginBinary over a TestProject.tmpdir directory, which TestProject removes at process exit, and acquires no lock, so no lease needs releasing. It installs no consumer, builds no native artifact and starts no host.
  */
 export const test_waitforpluginbinary_returns_released_when_lock_is_gone =
   () => {

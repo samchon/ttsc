@@ -15,7 +15,7 @@ import { assertOptionsDefaultWhenEnvAbsent } from "../../internal/metro-options"
  * @evidence contracts/testing.md#behavioral-verification resolveOptionsFromEnv returns undefined project, plugins and upstream plus empty include/exclude when its environment key is absent.
  * @evidence contracts/testing.md#independent-expectations Omitted options leave project and plugin discovery to the compiler; exact undefined fields and empty filters follow that contract.
  * @evidence contracts/testing.md#distinguishing-cases Absent payload contrasts populated options and explicit plugins:false in neighboring entries.
- * @evidence contracts/testing.md#execution-ownership This named src/features/options export calls authored options source in the serial source-unit runner; the helper restores the environment after each call and starts no installed artifact, native build or child process.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls resolveOptionsFromEnv from packages/metro/src/core/options.ts in-process after deleting TTSC_METRO_OPTIONS, restoring it afterwards; no child process, native build or installed package.
  */
 export const test_options_default_to_tsconfig_discovery_when_env_is_absent =
   async () => {

@@ -19,7 +19,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification fitsFirstLine must stop at actual first breaks while rejecting prefixes already wider than the budget.
 // @evidence contracts/testing.md#independent-expectations Literal prefix lengths and the first-line contract define the verdicts, including multiline Text and broken IfBreak.
 // @evidence contracts/testing.md#distinguishing-cases Negative remaining, overflowing prefix, each break kind, transparent wrappers, nested alternatives and zero-width operands have separate assertions.
-// @evidence contracts/testing.md#execution-ownership TestEngineFitsFirstLineStopsAtFirstBreak is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineFitsFirstLineStopsAtFirstBreak is one Go unit entry that calls the unexported fitsFirstLine directly on twelve literal Doc trees in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineFitsFirstLineStopsAtFirstBreak(t *testing.T) {
   if fitsFirstLine(Text("x"), -1) {
     t.Fatal("negative remaining: want false")

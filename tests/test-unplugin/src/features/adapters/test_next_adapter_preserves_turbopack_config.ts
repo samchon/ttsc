@@ -24,8 +24,10 @@ import { loadersOf } from "../internal/adapter-next/loadersOf";
  * 1. Wrap configs carrying unrelated Turbopack settings, the README's manual
  *    rules, and other loaders on the same glob in object, array, empty,
  *    conditional, and mixed forms.
- * 2. Assert unrelated settings and rules survive, and ttsc runs last in every
- *    shared chain, where it sees the original source.
+ * 2. Assert unrelated settings and rules survive, ttsc is appended last to a
+ *    shared loader list or array (where it sees the original source), and a
+ *    conditional or mixed rule collection keeps every caller item behind a new
+ *    unconditional ttsc rule.
  * 3. Assert a spelling of ttsc's own loader (package name, path, file URL, or case
  *    variant) suppresses a second registration only while the filesystem proves
  *    the path is this package's regular loader file.
@@ -36,7 +38,7 @@ import { loadersOf } from "../internal/adapter-next/loadersOf";
  * @evidence contracts/testing.md#distinguishing-cases
  *   Covers empty and mixed rule lists, conditions, options, physical paths and file URLs, foreign packages, missing and directory loaders, ownership transitions and filesystem case sensitivity; adjacent negatives must append the actual loader.
  * @evidence contracts/testing.md#execution-ownership
- *   test_next_adapter_preserves_turbopack_config calls next through loadNext for every rule/loader shape and actual temporary manifest/link-retarget fixture; it preserves all per-loader failure identities without a Turbopack consumer build.
+ *   one sequential test function, test_next_adapter_preserves_turbopack_config, calls the real next() through loadNext for each rule or loader shape listed above and builds its own temporary manifest, symlink or junction, and file fixtures. Nothing is shared with another test and no Turbopack build or consumer install runs; individual assertions carry their own messages.
  */
 export async function test_next_adapter_preserves_turbopack_config(): Promise<void> {
   const next = await loadNext();

@@ -2,21 +2,18 @@ import assert from "node:assert/strict";
 import { parseTtscGraphNodeId } from "../../../../packages/graph/src/model/TtscGraphNodeId";
 
 /**
- * Verifies node identity parsing: an id with an empty symbol component is not a
- * readable graph identity.
+ * Verifies the graph node-id reader rejects an id whose symbol name is empty.
  *
- * The Go producer rejects `path#:kind`; accepting it in the TypeScript reader
- * would make malformed stale handles silently enter the symbol lookup path.
- * Both codec endpoints must fail closed for the same invalid component shape.
+ * An id of the form path#:kind has no symbol name. The TypeScript reader must
+ * return undefined for it so a malformed stale handle cannot enter symbol lookup.
  *
- * 1. Load the authored graph node-id reader.
- * 2. Decode an id whose name component is empty.
- * 3. Assert the reader rejects it.
+ * 1. Call parseTtscGraphNodeId with "src/example.ts#:variable".
+ * 2. Require undefined.
  *
- * @evidence contracts/testing.md#behavioral-verification parseTtscGraphNodeId rejects an id with an empty symbol component.
- * @evidence contracts/testing.md#independent-expectations The graph identity grammar requires a nonempty symbol between the hash separator and kind.
- * @evidence contracts/testing.md#distinguishing-cases This malformed empty component pins rejection; escaped private-member and valid identity forms are covered by resolver units.
- * @evidence contracts/testing.md#execution-ownership The named exported src/features entry calls authored operations through the unit loader; fixtures are in-memory and no installed artifact, native build or product process is needed.
+ * @evidence contracts/testing.md#behavioral-verification parseTtscGraphNodeId("src/example.ts#:variable") must return undefined.
+ * @evidence contracts/testing.md#independent-expectations The id string and the expected undefined are literals; the rule that the symbol between the hash separator and the kind must be non-empty comes from the documented path#name:kind grammar, not from the reader's code.
+ * @evidence contracts/testing.md#distinguishing-cases Only the empty-name case is covered. An empty kind, a missing hash, escaped separators and a valid id as a positive control are not exercised here, and only the reader is tested, not the writer.
+ * @evidence contracts/testing.md#execution-ownership Calls the pure parseTtscGraphNodeId function in the test process with an in-memory string; no file, process or native artifact is involved.
  */
 export function test_ttscgraph_node_id_rejects_empty_symbol_components(): void {
     assert.strictEqual(

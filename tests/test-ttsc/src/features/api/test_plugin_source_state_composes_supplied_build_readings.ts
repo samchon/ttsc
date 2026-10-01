@@ -18,8 +18,8 @@ import { pluginSourceState } from "../../../../../packages/ttsc/src/plugin/inter
  *
  * @evidence contracts/testing.md#behavioral-verification The actual source composer hashes the declared source/environment serialization from supplied readings without reading a nonexistent source directory or launching Go; changing either reading changes the literal expected state.
  * @evidence contracts/testing.md#independent-expectations Literal SHA-256 reference values of the explicitly stated source=<reading> newline environment=<reading> newline serialization establish the expectations independently of the product composer.
- * @evidence contracts/testing.md#distinguishing-cases Source-only and environment-only changes, unchanged readings across directory spellings, and supplied empty readings distinguish both input authorities and nullish rather than truthy fallback. Actual native environment freshness remains in the source-state E2E owner.
- * @evidence contracts/testing.md#execution-ownership This named src/features/api entry directly calls authored pluginSourceState with both proven readings supplied; no fixture installation, source traversal, toolchain process, native build or product host is needed.
+ * @evidence contracts/testing.md#distinguishing-cases Source-only change (source-b), environment-only change (environment-b) and the empty-string pair each give a distinct literal digest, and two different nonexistent directory spellings give the same digest, proving the supplied readings are used even when empty ('' is not replaced by a computed fallback). Reading the real source tree or build environment is not exercised.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling pluginSourceState with both readings supplied, so no directory is read and no Go process runs.
  */
 export function test_plugin_source_state_composes_supplied_build_readings() {
   for (const [sourceDigest, environment, expected] of [

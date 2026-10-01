@@ -2,19 +2,20 @@ package linthost
 
 import "testing"
 
-// TestJsxA11yAriaRoleRejectsUnknownRole verifies role names are checked.
+// TestJsxA11yAriaRoleRejectsUnknownRole verifies jsx-a11y/aria-role reports an
+// unknown role token and accepts a supported role.
 //
-// Role validation is independent of JSX tag semantics, so this case ensures the
-// native rule reads the role attribute and validates its token list directly.
+// Role validation does not depend on the JSX tag, so the rule reads the role
+// attribute and validates its token list directly.
 //
-// 1. Parse a div with an unknown role token.
-// 2. Enable only `jsx-a11y/aria-role`.
-// 3. Assert one diagnostic is reported.
+// 1. Run only `jsx-a11y/aria-role` over `<div role="banana" />` and expect one
+//    finding whose message contains "valid ARIA role".
+// 2. Run it over `<div role="button" />` and expect none.
 //
-// @evidence contracts/testing.md#behavioral-verification Actual TSX parsing and NewEngine.Run verify banana is an unknown role; reported variants require one ordinary SeverityError finding from the named rule with the authored message fragment, and clean variants require zero findings.
-// @evidence contracts/testing.md#independent-expectations button is a supported ARIA role token. The source inputs and literal expected findings follow this supported accessibility policy without sampling implementation output.
-// @evidence contracts/testing.md#distinguishing-cases The unknown banana role reports; button is clean for role vocabulary validation, independently of other focus rules.
-// @evidence contracts/testing.md#execution-ownership TestJsxA11yAriaRoleRejectsUnknownRole owns these explicit AST variants as a named Go unit entry; the owning engine executes in the shared test process without a browser, accessibility runtime installation or product child host.
+// @evidence contracts/testing.md#behavioral-verification assertJsxA11yRuleFinds parses the TSX source and runs NewEngine.Run with only jsx-a11y/aria-role enabled. role="banana" yields exactly one ordinary SeverityError finding from that rule whose message contains "valid ARIA role"; assertJsxA11yRuleSkips requires zero findings for role="button".
+// @evidence contracts/testing.md#independent-expectations button is a defined ARIA role and banana is not. The two literal sources and the "valid ARIA role" fragment are authored from the ARIA role vocabulary.
+// @evidence contracts/testing.md#distinguishing-cases The two divs differ only in the role token. Empty roles and multi-token role lists are not exercised by this Test.
+// @evidence contracts/testing.md#execution-ownership The Test is one Go unit with one assertJsxA11yRuleFinds and one assertJsxA11yRuleSkips call, executing the rule engine on parsed virtual TSX files in the test process with no browser, accessibility runtime or product host.
 func TestJsxA11yAriaRoleRejectsUnknownRole(t *testing.T) {
   assertJsxA11yRuleFinds(t, "jsx-a11y/aria-role", `const Component = () => <div role="banana" />;`, "valid ARIA role")
   assertJsxA11yRuleSkips(t, "jsx-a11y/aria-role", "declare const props: object; const Component = () => <div role=\"button\" />;")

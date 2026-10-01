@@ -2,19 +2,19 @@ package linthost
 
 import "testing"
 
-// TestRuleJSDocRejectFunctionType verifies jsdoc/reject-function-type rejects Function.
+// TestRuleJSDocRejectFunctionType verifies jsdoc/reject-function-type reports
+// the `Function` identifier in a JSDoc type, including inside a generic, and
+// accepts explicit callable types and other spellings.
 //
-// The unsafe Function type is equally weak in JSDoc and TypeScript syntax.
-// The rule therefore scans the JSDoc type payload directly and reports it.
+// 1. Run the rule over `@param {Function}` and expect a finding on line 3.
+// 2. Run a subtest with the Closure signature `function(): void` and expect none.
+// 3. Run three subtests that place `FUNCTION`, `Array<Function>` and
+//    `() => void` in the type brace and expect a finding only for the middle one.
 //
-// 1. Parse a TypeScript file with @param {Function}.
-// 2. Enable jsdoc/reject-function-type.
-// 3. Assert the @param line is reported.
-//
-// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines calls the actual engine and verifies @param {Function} is reported on line 3; exact rule, error severity and line checks detect missing, extra or misplaced findings.
-// @evidence contracts/testing.md#independent-expectations The unrestricted Function doc type lacks a call signature; an explicit callable type is the accepted alternative. The literal comment and expected line establish this supported policy independently of the parser or rule result.
-// @evidence contracts/testing.md#distinguishing-cases The deficient tag in the first source is the reported case, and a second independently authored block using @param {function(): void} handler description must produce zero findings. Named case variants additionally distinguish exact forbidden type spelling from independently authored user type names and nested generic occurrences.
-// @evidence contracts/testing.md#execution-ownership TestRuleJSDocRejectFunctionType is a named Go unit entry running real comment parsing and the owning engine over virtual TypeScript in the shared test process, without an installed documentation consumer or host.
+// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/reject-function-type rule through NewEngine.Run over a parsed virtual TypeScript file. `{Function}` and `{Array<Function>}` each yield one finding on line 3 with that rule at error severity; `{function(): void}`, `{FUNCTION}` and `{() => void}` yield none.
+// @evidence contracts/testing.md#independent-expectations The unrestricted Function type has no call signature, while an explicit callable type is the accepted alternative. The literal sources and expected line 3 follow from that policy; the message text is not asserted.
+// @evidence contracts/testing.md#distinguishing-cases `Function` versus the Closure signature and the arrow signature isolates the bare identifier; `FUNCTION` isolates exact spelling; `Array<Function>` isolates a nested occurrence.
+// @evidence contracts/testing.md#execution-ownership The Test body makes one direct helper call, one named subtest and a loop of three more t.Run subtests from one literal table, each calling assertJSDocRuleLines once with its own source; the subtests run in the same test process as the parent with no installed consumer, native build or host.
 func TestRuleJSDocRejectFunctionType(t *testing.T) {
   assertJSDocRuleLines(t, "jsdoc/reject-function-type", `/**
  * Registers a callback.

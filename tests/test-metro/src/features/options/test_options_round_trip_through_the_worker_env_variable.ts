@@ -16,7 +16,7 @@ import { assertOptionsRoundTripThroughEnv } from "../../internal/metro-options";
  * @evidence contracts/testing.md#behavioral-verification serializeOptions and resolveOptionsFromEnv retain project, strict compiler options, plugin descriptors, include/exclude arrays and custom upstream through JSON in the actual environment.
  * @evidence contracts/testing.md#independent-expectations The authored overlay values are exact literals required by the Metro config-to-worker JSON contract; each resolved field is compared to its corresponding input.
  * @evidence contracts/testing.md#distinguishing-cases Populated options contrast defaults and plugins:false in neighboring source entries; this entry owns every supplied overlay field.
- * @evidence contracts/testing.md#execution-ownership This named src/features/options export calls authored options source in the serial source-unit runner; the helper restores the environment after each call and starts no installed artifact, native build or child process.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls serializeOptions and resolveOptionsFromEnv from packages/metro/src/core/options.ts in-process with TTSC_METRO_OPTIONS set and restored by the helper; no child process, native build or installed package.
  */
 export const test_options_round_trip_through_the_worker_env_variable =
   async () => {

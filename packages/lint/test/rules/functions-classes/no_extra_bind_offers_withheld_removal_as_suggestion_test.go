@@ -12,7 +12,7 @@ import "testing"
 // deleting the bind deletes a call the program performs. Only the first may
 // reach the suggestion channel, so both arms are pinned together.
 //
-//  1. Report on `(function () {})./**/bind(receiver)` and assert no autofix.
+//  1. Report on `(function () { return 4; })./**/bind(receiver)` and assert no autofix.
 //  2. Assert the single suggestion strips the bind syntax and the comment.
 //  3. Assert an effectful receiver offers neither a fix nor a suggestion.
 //  4. Assert the comment-free twin is still autofixed without asking.

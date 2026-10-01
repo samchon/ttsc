@@ -20,7 +20,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Print must retain both payloads and emit LF for an empty EndOfLine option.
 // @evidence contracts/testing.md#independent-expectations The documented omitted-option default gives the literal a\nb separator.
 // @evidence contracts/testing.md#distinguishing-cases The empty option complements the explicit crlf separator case.
-// @evidence contracts/testing.md#execution-ownership TestEngineEndOfLineDefaultsToLFWhenEmpty is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineEndOfLineDefaultsToLFWhenEmpty is one Go unit entry that renders a Hardline-bearing Concat with Print and an empty EndOfLine in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineEndOfLineDefaultsToLFWhenEmpty(t *testing.T) {
   doc := Concat(Text("a"), Hardline(), Text("b"))
   opts := PrintOptions{PrintWidth: 80, TabWidth: 2} // EndOfLine intentionally empty

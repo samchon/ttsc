@@ -3,30 +3,23 @@ import { reduce } from "../../../../packages/graph/src/reduce";
 import assert from "node:assert/strict";
 
 /**
- * Verifies the `view` reducer drops git-ignored generated code, as the guide
- * and the producer both promise.
+ * Verifies the view reducer drops git-ignored generated code and external leaves by default and keeps ignored code on request.
  *
- * `packages/ttsc/internal/graph/gitignore.go` says "the full-graph dump drops
- * them from the viewer payload entirely" and the shipped viewer guide lists
- * "Git-ignored generated code is dropped" under what is left out. Both sibling
- * copies of this pure transform applied the filter; this one declared no
- * `ignored` field at all, so `ttsc-graph view` rendered a project's Prisma
- * client while the same dump uploaded to the website did not.
+ * The viewer shows the authored graph, so a node flagged ignored (generated
+ * code) or external is dropped with its edges, and counted, unless the
+ * keepIgnored option asks otherwise.
  *
- * The node cap makes the omission worse rather than containing it: the payload
- * is capped by degree, and generated clients are large and densely connected,
- * so they outrank authored code for the surviving slots.
+ * 1. Reduce a dump holding an authored node, a git-ignored generated node and an
+ *    external leaf, with the authored node calling both.
+ * 2. Require no surviving node (the authored node loses both of its edges) and the
+ *    ignored and external drop counts of one each.
+ * 3. Reduce with keepIgnored and require the authored and generated nodes to
+ *    survive and no ignored drop.
  *
- * 1. Reduce a dump holding an authored node, a git-ignored generated node, and an
- *    external leaf.
- * 2. Assert only the authored node survives and the counts attribute each drop.
- * 3. Assert `keepIgnored` brings the generated node back, so the filter is a
- *    policy rather than a hard exclusion.
- *
- * @evidence contracts/testing.md#behavioral-verification reduce drops ignored and external nodes, accounts for both, and restores the generated edge with keepIgnored.
- * @evidence contracts/testing.md#independent-expectations The viewer contract projects authored connected code by default and permits an explicit ignored-code policy override.
- * @evidence contracts/testing.md#distinguishing-cases Authored, ignored and external nodes plus keepIgnored false/true distinguish separate drop policies and disconnected-node removal.
- * @evidence contracts/testing.md#execution-ownership The named exported src/features entry calls authored operations through the unit loader; fixtures are in-memory and no installed artifact, native build or product process is needed.
+ * @evidence contracts/testing.md#behavioral-verification reduce of the three-node dump must return no nodes, with counts.droppedIgnored 1 and counts.droppedExternal 1; reduce with keepIgnored: true must return node ids ["a", "g"] (which requires the a-to-g edge to survive) and counts.droppedIgnored 0.
+ * @evidence contracts/testing.md#independent-expectations The node ids, the ignored and external flags, the edge list and the expected counts and surviving ids are literals written in the test from the stated contract that the viewer shows authored connected code by default.
+ * @evidence contracts/testing.md#distinguishing-cases The ignored and external nodes are separate drops with separate counters, the authored node is itself removed because it becomes isolated, and keepIgnored false versus true contrasts the two policies. keepExternal and the degree cap are not exercised, and only the package reducer is run in this test.
+ * @evidence contracts/testing.md#execution-ownership Calls the pure reduce function from packages/graph in the test process with an in-memory dump; no installed artifact, native build or product process is involved.
  */
 export function test_ttscgraph_view_payload_drops_git_ignored_generated_code(): void {
     const raw = {

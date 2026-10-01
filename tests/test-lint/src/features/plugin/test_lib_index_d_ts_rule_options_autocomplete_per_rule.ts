@@ -2,8 +2,8 @@ import type { ITtscLintConfig } from "../../../../../packages/lint/src/structure
 import assert from "node:assert/strict";
 
 /**
- * Verifies lib/index.d.ts surfaces per-rule option autocomplete and rejects
- * malformed shapes at compile time.
+ * Verifies the ITtscLintConfig types in packages/lint/src/structures surface
+ * per-rule option checking and reject malformed shapes at compile time.
  *
  * `ITtscLintRules` exposes each built-in rule as a concrete kebab/slash
  * property and picks each options-bearing rule's second tuple slot from
@@ -52,19 +52,19 @@ import assert from "node:assert/strict";
  *   is rejected.
  *
  * The function runs at runtime as a sanity check that `satisfies
- * ITtscLintConfig` does not regress; the real assertion happens during `pnpm
- * run test:typecheck`.
+ * ITtscLintConfig` does not regress; the real assertion is the compiler run
+ * `tsc --noEmit -p tests/test-lint/tsconfig.json`.
  *
  * 1. Construct configs exercising each tuple shape, both valid and broken.
  * 2. Verify the runtime objects exist (the happy paths must compile).
- * 3. Lean on `pnpm run test:typecheck` to catch type-level regressions — a missing
+ * 3. Lean on `tsc --noEmit -p tests/test-lint/tsconfig.json` to catch type-level regressions — a missing
  *    `@ts-expect-error` directive will surface as a test failure because TS
  *    reports the unused directive itself as an error.
  *
  * @evidence contracts/testing.md#behavioral-verification The authored ITtscLintConfig assignments exercise accepted severity and per-rule tuple types and rejected rule-name, option-key and option-value shapes through load-bearing ts-expect-error directives.
  * @evidence contracts/testing.md#independent-expectations Supported rule names and documented ESLint option schemas supply the literal allowed and forbidden examples, not values derived from the implementation type map.
- * @evidence contracts/testing.md#distinguishing-cases Bare severities, singleton tuples, namespaced contributors and valid positional/object options are accepted; each malformed example is separately assigned so one diagnostic cannot hide another.
- * @evidence contracts/testing.md#execution-ownership This named source unit imports authored types and is statically verified by the existing suite typecheck; executing its values alone does not verify typings. No installed declaration, compiler child or native host is built by this case.
+ * @evidence contracts/testing.md#distinguishing-cases Accepted: bare severities, singleton tuples, the `off` string, and positional or object options for many built-in rules (all typed namespaced built-in names such as cypress/..., unicorn/...; no contributor-registered rule is used). Rejected: each malformed example is assigned to its own const so one diagnostic cannot hide another's @ts-expect-error. The checks are compile-time only.
+ * @evidence contracts/testing.md#execution-ownership This named source unit imports authored types and is statically verified only by running `tsc --noEmit -p tests/test-lint/tsconfig.json` (no workflow runs it automatically); executing its values alone does not verify typings. No installed declaration, compiler child or native host is built by this case.
  */
 export function test_lib_index_d_ts_rule_options_autocomplete_per_rule(): void {
   const config: ITtscLintConfig = {

@@ -21,10 +21,10 @@ import {
  * 2. Call the wait loop with a zero timeout budget.
  * 3. Assert it throws a finite timeout without changing the held generation.
  *
- * @evidence contracts/testing.md#behavioral-verification Acquires a current-process lease, expires a zero admission budget, then inspects its unchanged active fence.
- * @evidence contracts/testing.md#independent-expectations Elapsed time cannot retire a live owner; finite-duration diagnostic and the acquired generation are independent expectations.
- * @evidence contracts/testing.md#distinguishing-cases Checks timeout and generation preservation against released/published paths and releases the lease in finally.
- * @evidence contracts/testing.md#execution-ownership test_waitforpluginbinary_times_out_on_live_owner_with_finite_duration is discovered once under src/features/source-plugin and directly invokes the authored lock/cache operation over test-owned paths. This case installs no consumer, builds no artifact and starts no product host; the temporary-directory owner and its explicit lease finally blocks release its state.
+ * @evidence contracts/testing.md#behavioral-verification Acquires a real v3 lease with acquirePluginBuildLock, calls waitForPluginBinary with timeoutMs 0 and expects a throw matching the timed-out message, then calls inspectPluginBuildLock and asserts the state is still "active" with the lease's protocol and generation as its fence.
+ * @evidence contracts/testing.md#independent-expectations The expectations come from the lock contract: an owner that is this live process cannot be retired by elapsed time, so the wait must throw rather than return released or abandoned; the error format (a finite `Nms`/`Ns`/`Nm Ns` duration naming the label and plugin) and the generation returned by acquirePluginBuildLock are authored, not computed by the wait loop.
+ * @evidence contracts/testing.md#distinguishing-cases Covers only the live-owner timeout: the thrown error distinguishes it from released/published/abandoned returns, and the post-throw inspection distinguishes a loop that quietly retired or replaced the generation. Released and published outcomes are owned by the sibling waitForPluginBinary tests.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/source-plugin; it calls the lock acquire, wait, inspect and release functions over a TestProject.tmpdir directory and releases the lease in a finally block. It installs no consumer, builds no native artifact and starts no host.
  */
 export const test_waitforpluginbinary_times_out_on_live_owner_with_finite_duration =
   () => {

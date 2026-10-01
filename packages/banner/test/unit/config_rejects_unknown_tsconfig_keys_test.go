@@ -4,6 +4,8 @@ import (
   "path/filepath"
   "strings"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestConfigRejectsUnknownTsconfigKeys verifies that unknown tsconfig plugin entry keys are rejected.
@@ -26,7 +28,7 @@ import (
 func TestConfigRejectsUnknownTsconfigKeys(t *testing.T) {
   root := t.TempDir()
   tsconfig := filepath.Join(root, "tsconfig.json")
-  writeFile(t, tsconfig, "{}")
+  shared.WriteFile(t, tsconfig, "{}")
 
   // Formerly-accepted keys that are now banned.
   for _, key := range []string{"text", "config", "banner", "after", "before", "phase"} {
@@ -65,10 +67,10 @@ func TestConfigRejectsUnknownTsconfigKeys(t *testing.T) {
   }
 
   // resolveBannerText surfaces the same error when called with a banned key.
-  if _, err := bannerResolveBannerText(map[string]any{"text": "hello"}, root, tsconfig); err == nil || !strings.Contains(err.Error(), `unsupported key "text"`) {
+  if _, err := shared.BannerResolveBannerText(map[string]any{"text": "hello"}, root, tsconfig); err == nil || !strings.Contains(err.Error(), `unsupported key "text"`) {
     t.Fatalf("resolveBannerText should reject 'text' key, got %v", err)
   }
-  if _, err := bannerResolveBannerText(map[string]any{"config": "banner.config.cjs"}, root, tsconfig); err == nil || !strings.Contains(err.Error(), `unsupported key "config"`) {
+  if _, err := shared.BannerResolveBannerText(map[string]any{"config": "banner.config.cjs"}, root, tsconfig); err == nil || !strings.Contains(err.Error(), `unsupported key "config"`) {
     t.Fatalf("resolveBannerText should reject 'config' key, got %v", err)
   }
 }

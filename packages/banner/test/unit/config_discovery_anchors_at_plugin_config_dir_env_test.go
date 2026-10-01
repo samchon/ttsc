@@ -3,6 +3,8 @@ package banner_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestConfigDiscoveryAnchorsAtPluginConfigDirEnv verifies that banner config
@@ -30,9 +32,9 @@ import (
 func TestConfigDiscoveryAnchorsAtPluginConfigDirEnv(t *testing.T) {
   project := t.TempDir()
   wrapper := t.TempDir()
-  writeFile(t, filepath.Join(project, "banner.config.json"), `{"text":"project"}`)
-  writeFile(t, filepath.Join(wrapper, "tsconfig.json"), "{}")
-  writeFile(t, filepath.Join(wrapper, "banner.config.json"), `{"text":"decoy"}`)
+  shared.WriteFile(t, filepath.Join(project, "banner.config.json"), `{"text":"project"}`)
+  shared.WriteFile(t, filepath.Join(wrapper, "tsconfig.json"), "{}")
+  shared.WriteFile(t, filepath.Join(wrapper, "banner.config.json"), `{"text":"decoy"}`)
 
   t.Setenv("TTSC_PLUGIN_CONFIG_DIR", project)
   location, _, err := bannerFindBannerConfigFile(project, filepath.Join(wrapper, "tsconfig.json"))

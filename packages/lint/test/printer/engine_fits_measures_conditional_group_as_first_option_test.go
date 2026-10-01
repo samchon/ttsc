@@ -18,7 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification fits must charge the nested first alternative ab after prefix x, not the eight-character fallback.
 // @evidence contracts/testing.md#independent-expectations The flat alternative contract gives a three-column projection, independently of fits.
 // @evidence contracts/testing.md#distinguishing-cases Budgets five and two distinguish admission from rejection of that same doc.
-// @evidence contracts/testing.md#execution-ownership TestEngineFitsMeasuresConditionalGroupAsFirstOption is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineFitsMeasuresConditionalGroupAsFirstOption is one Go unit entry that calls the unexported fits directly on a literal Doc tree in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineFitsMeasuresConditionalGroupAsFirstOption(t *testing.T) {
   doc := Concat(Text("x"), ConditionalGroup(Text("ab"), Text("zzzzzzzz")))
   if !fits(doc, 5, 0) {

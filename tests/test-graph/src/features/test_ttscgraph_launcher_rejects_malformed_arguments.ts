@@ -5,20 +5,24 @@ import { TtscGraphLauncherArguments } from "../../../../packages/graph/src/TtscG
 import { GraphArgumentError } from "../../../../packages/graph/src/launcherArgs";
 
 /**
- * Verifies every original malformed vector and exact dump-forwarding contract.
+ * Verifies the launcher parsers reject twenty-eight malformed argument vectors and forward valid dump argv unchanged.
  *
- * Portable grammar and argv/status mapping do not need an executable sentinel.
- * These owning operations are consumed by the actual launcher before its native
- * work; the minimal real CLI batch retains status-two and native connections.
+ * The view, dump and project-level parsers must throw GraphArgumentError on
+ * missing, empty, unknown and out-of-domain values, while valid dump arguments
+ * must pass validation and be forwarded as written.
  *
- * 1. Reject all twenty-eight original malformed vectors with GraphArgumentError.
- * 2. Accept the three original dump spellings and preserve their complete native argv.
- * 3. Preserve literal native status23 and distinguish null status and actual spawn error.
+ * 1. Run each of the twenty-eight malformed vectors through the matching parser
+ *    (view, dump or project) and require GraphArgumentError.
+ * 2. Accept three valid dump vectors (separate flags, equals flags with
+ *    --pretty=false, and --help) and require dumpVector to return them unchanged.
+ * 3. Require dumpCompletion to map status 23 to code 23, a null status to code 1
+ *    and a spawn error to code 1 with an owned diagnostic, and require dumpVector
+ *    to append an artifacts path containing a space as one element.
  *
- * @evidence contracts/testing.md#behavioral-verification Authored launcher grammar rejects all twenty-eight malformed vectors; dump validation and vector construction accept all three original spellings unchanged, and the actual completion owner preserves status23 while mapping missing status/error to failure one.
- * @evidence contracts/testing.md#independent-expectations Literal malformed inputs, complete argv arrays, GraphArgumentError and native status23 define independent grammar/vector/completion witnesses. No executable or product serializer creates these expectations.
- * @evidence contracts/testing.md#distinguishing-cases Missing/empty/unknown options, unsafe/noninteger/out-of-range numbers and flag values contrast valid pretty/help aliases. Numeric native status contrasts absent status and spawn error; installed CLI status-two and real-native status-zero remain in E2E.
- * @evidence contracts/testing.md#execution-ownership This src/features entry imports the authored namespace and error type consumed by runGraph/view. Each literal vector/result is an input to its real pure operation; no child, native artifact, installed consumer or fabricated CLI output is used.
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphLauncherArguments.view, dump and project must each throw GraphArgumentError for the twenty-eight listed vectors; dump must accept and dumpVector must echo the three valid dump vectors; dumpCompletion must map status 23 to { code: 23 }, a null status to { code: 1 } and a spawn error to { code: 1, diagnostic: "@ttsc/graph: native write failure\n" }; dumpVector must append ["--artifacts", "artifact file.json"] after --pretty.
+ * @evidence contracts/testing.md#independent-expectations The malformed vectors, the complete expected argv arrays, the status 23 and the diagnostic text are literals written in the test; no executable or product serializer produces them. The status-23 completion is asserted once per valid vector, so it is repeated rather than varied.
+ * @evidence contracts/testing.md#distinguishing-cases Malformed inputs span missing values, empty equals values, unknown flags, non-numeric, negative, fractional, zero, unsafe and out-of-range numbers, and a value on a bare flag, contrasted with valid separate, equals and help spellings. Numeric status contrasts null status and a spawn error. Port 0, port 65535 and a valid maxNodes are not exercised.
+ * @evidence contracts/testing.md#execution-ownership Calls the pure TtscGraphLauncherArguments operations and the GraphArgumentError type in the test process; no child process, native artifact or installed consumer is involved.
  */
 export async function test_ttscgraph_launcher_rejects_malformed_arguments(): Promise<void> {
   const root = path.resolve("launcher-coordinate");

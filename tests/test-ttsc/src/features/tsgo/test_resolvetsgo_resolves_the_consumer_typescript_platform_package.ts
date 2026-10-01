@@ -20,11 +20,13 @@ import { resolveTsgo } from "../../../../../packages/ttsc/src/compiler/internal/
  * 2. Call `resolveTsgo` with `cwd` pointing at the temp directory.
  * 3. Assert `binary`, `version`, and `gitHead` all match the fake package
  *    metadata.
+ * 4. Delete the binary and assert resolveTsgo throws "TypeScript executable not
+ *    found", then restore it and assert resolution succeeds again.
  *
- * @evidence contracts/testing.md#behavioral-verification resolveTsgo returns the consumer platform binary, version and gitHead and reports a missing binary without inventing a fallback.
- * @evidence contracts/testing.md#independent-expectations the independently authored fixture package graph and literal metadata define the supported consumer compiler identity.
- * @evidence contracts/testing.md#distinguishing-cases a complete fixture installation contrasts with a deleted executable and successful restoration.
- * @evidence contracts/testing.md#execution-ownership The named test_resolvetsgo_resolves_the_consumer_typescript_platform_package function runs under src/features/tsgo and calls the authored resolver directly; manifests and empty binary files are filesystem inputs, not an installed or launched compiler.
+ * @evidence contracts/testing.md#behavioral-verification Calls resolveTsgo with an empty env and a fixture cwd, asserts the returned version, gitHead and binary path, then deletes the executable and asserts the "TypeScript executable not found" error instead of a fallback, and restores it and asserts the binary is resolved again.
+ * @evidence contracts/testing.md#independent-expectations The fixture package graph (typescript 7.0.1-rc.consumer with gitHead abc123 and a platform package with lib/tsc or lib/tsc.exe) is authored in the test and the expected values are those literals and the authored binary path, not values read back from the resolver.
+ * @evidence contracts/testing.md#distinguishing-cases A complete installation is contrasted with the same installation after its executable is deleted (throws) and after it is restored (resolves); a missing typescript package, a missing platform package and the resolveFrom fallback are not covered here.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/tsgo; it calls resolveTsgo directly over package.json files and an empty binary written into a TestProject.tmpdir tree, which is never executed. No real typescript package is installed and no compiler is launched.
  */
 export function test_resolvetsgo_resolves_the_consumer_typescript_platform_package() {
     const root = TestProject.physicalPath(

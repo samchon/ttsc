@@ -6,18 +6,23 @@ import (
   "testing"
 )
 
-// TestNoRestrictedImportsValidatorRejectsMalformedConfigurationAtTheBoundary verifies ConfigError rejects malformed restrictions with their specific reason and excludes the invalid rule from dispatch.
+// TestNoRestrictedImportsValidatorRejectsMalformedConfigurationAtTheBoundary
+// verifies engine construction rejects 22 malformed no-restricted-imports
+// option values with a specific reason and keeps the rule out of dispatch.
 //
-// Pins the distinct option, syntax or failure branch represented by this fixture.
+// Each case pairs an option value (null, truncated JSON, unknown fields, wrong
+// types, missing or empty required values, duplicate entries, conflicting
+// selectors, an invalid regex and mutually exclusive name policies) with a
+// fragment that the configuration error must contain.
 //
-// 1. Supply the authored source and configuration inputs.
-// 2. Run the owning engine or command operation in this process.
-// 3. Compare the literal findings, messages or failure state below.
+// 1. Build an engine through noRestrictedImportsValidationEngine for each case.
+// 2. Require a ConfigError containing the case fragment.
+// 3. Require no-restricted-imports to be absent from EnabledRules.
 //
-// @evidence contracts/testing.md#behavioral-verification ConfigError rejects malformed restrictions with their specific reason and excludes the invalid rule from dispatch.
-// @evidence contracts/testing.md#independent-expectations The authored schema violation/error-fragment pairs are independent of decoding output and require nonactivation as well as an error.
-// @evidence contracts/testing.md#distinguishing-cases Null, truncated JSON, unknown fields, wrong types, missing/empty values, duplicates, conflicting selectors, invalid regex and mutually exclusive name policies cover failure branches.
-// @evidence contracts/testing.md#execution-ownership Each authored malformed option/error pair is passed to noRestrictedImportsValidationEngine and its ConfigError/EnabledRules operations. This Test owns every rejection reason and dispatch nonactivation result in the same Go process.
+// @evidence contracts/testing.md#behavioral-verification For each of the 22 malformed option values NewEngineWithResolver reports a ConfigError containing the authored reason fragment, and no-restricted-imports is not in the enabled rule table.
+// @evidence contracts/testing.md#independent-expectations Each option value and its error fragment are authored literals taken from the option schema, independent of the decoder, and the Test also requires the rule to be inactive rather than accepting any error.
+// @evidence contracts/testing.md#distinguishing-cases The table covers null, truncated JSON, an unknown field, a non-array paths, a wrong-typed name, a missing name, an empty message, a null allowTypeImports, conflicting importNames and allowImportNames, duplicate paths, mixed string and object patterns, a pattern without group or regex, both group and regex, empty and duplicate groups, an invalid regex, an empty importNames, conflicting allow options, unknown pattern keys, a null caseSensitive, an empty pattern message and duplicate pattern objects. Accepted shapes belong to the sibling validator Test.
+// @evidence contracts/testing.md#execution-ownership noRestrictedImportsValidationEngine calls NewEngineWithResolver with an InlineRuleResolver in the Go test process; the Test body asserts ConfigError text and EnabledRules for each case in a loop. No source file is parsed.
 func TestNoRestrictedImportsValidatorRejectsMalformedConfigurationAtTheBoundary(t *testing.T) {
   cases := []struct {
     options json.RawMessage

@@ -25,7 +25,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification PrintNode must mark a callback with a comment between a() and b() uncovered.
 // @evidence contracts/testing.md#independent-expectations The authored inter-statement note has no slot in freshly joined statements, so preserving it requires abstention.
 // @evidence contracts/testing.md#distinguishing-cases A comment between two statements complements the comment-only body and the covered comment-free block.
-// @evidence contracts/testing.md#execution-ownership TestDispatchBlockReportsUncoveredForInterStatementComment is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchBlockReportsUncoveredForInterStatementComment is a plain top-level Go unit test, selectable with go test -run, that calls PrintNode directly on a parsed call whose callback body has a line comment between two statements inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchBlockReportsUncoveredForInterStatementComment(t *testing.T) {
   file := parseTS(t, "run(() => {\n  a();\n  // note\n  b();\n});\n")
   node := firstNodeOfKind(t, file, shimast.KindCallExpression)

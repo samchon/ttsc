@@ -19,7 +19,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printObjectLiteral must render no object for an absent node.
 // @evidence contracts/testing.md#independent-expectations No node supplies properties or source braces, giving the empty-layout identity.
 // @evidence contracts/testing.md#distinguishing-cases Nil object complements intact singleton/multiple-property layouts and malformed Properties fallback.
-// @evidence contracts/testing.md#execution-ownership TestDispatchObjectLiteralReturnsEmptyForNilNode is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchObjectLiteralReturnsEmptyForNilNode is a plain top-level Go unit test, selectable with go test -run, that calls printObjectLiteral directly on a nil node with a PrintContext built from a trivial parsed file inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchObjectLiteralReturnsEmptyForNilNode(t *testing.T) {
   file := parseTS(t, "const x = 1;\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

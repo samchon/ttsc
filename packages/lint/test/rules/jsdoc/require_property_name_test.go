@@ -2,19 +2,17 @@ package linthost
 
 import "testing"
 
-// TestRuleJSDocRequirePropertyName verifies jsdoc/require-property-name.
+// TestRuleJSDocRequirePropertyName verifies jsdoc/require-property-name reports
+// a @property that has only a type and accepts one that names the property.
 //
-// A @property tag with only a type cannot be matched to generated docs. The
-// native rule therefore treats it as a malformed tag line.
+// 1. Run the rule over a block whose third line is `@property {string}` and
+//    expect one finding on line 3.
+// 2. Run the rule over a block with `@property {string} name description` and expect none.
 //
-// 1. Parse a TypeScript file with @property {string}.
-// 2. Enable jsdoc/require-property-name.
-// 3. Assert the @property line is reported.
-//
-// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines calls the actual engine and verifies @property {string} without a name is reported on line 3; exact rule, error severity and line checks detect missing, extra or misplaced findings.
-// @evidence contracts/testing.md#independent-expectations A type alone cannot identify the documented property. The literal comment and expected line establish this supported policy independently of the parser or rule result.
-// @evidence contracts/testing.md#distinguishing-cases The deficient tag in the first source is the reported case, and a second independently authored block using @property {string} name description must produce zero findings.
-// @evidence contracts/testing.md#execution-ownership TestRuleJSDocRequirePropertyName is a named Go unit entry running real comment parsing and the owning engine over virtual TypeScript in the shared test process, without an installed documentation consumer or host.
+// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/require-property-name rule through NewEngine.Run over a parsed virtual TypeScript file. `@property {string}` yields exactly one finding, with that rule at error severity, on line 3; `@property {string} name description` yields none.
+// @evidence contracts/testing.md#independent-expectations A type alone cannot identify the documented property. The literal sources and expected line 3 follow from that policy; the message text is not asserted.
+// @evidence contracts/testing.md#distinguishing-cases The two sources differ only in the property name and description after the {string} type, so the missing-name report is isolated from type-brace parsing.
+// @evidence contracts/testing.md#execution-ownership The Test is a single Go unit with two direct helper calls; assertJSDocRuleLines parses the source with parseTSFile and runs the rule engine in the test process, with no installed consumer, native build or host.
 func TestRuleJSDocRequirePropertyName(t *testing.T) {
   assertJSDocRuleLines(t, "jsdoc/require-property-name", `/**
  * Options bag.

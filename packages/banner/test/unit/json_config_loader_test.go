@@ -4,6 +4,8 @@ import (
   "path/filepath"
   "strings"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestJSONConfigLoader verifies banner.config.json loading success and failures.
@@ -27,7 +29,7 @@ func TestJSONConfigLoader(t *testing.T) {
 
   // Object export.
   objectConfig := filepath.Join(root, "banner.config.json")
-  writeFile(t, objectConfig, `{"text":"object text"}`)
+  shared.WriteFile(t, objectConfig, `{"text":"object text"}`)
   raw, err := bannerLoadBannerJSONConfigFile(objectConfig)
   if err != nil {
     t.Fatal(err)
@@ -38,7 +40,7 @@ func TestJSONConfigLoader(t *testing.T) {
   }
 
   // Dispatcher routes .json to the JSON loader.
-  raw, err = bannerLoadBannerConfigFile(objectConfig, root)
+  raw, err = shared.BannerLoadBannerConfigFile(objectConfig, root)
   if err != nil {
     t.Fatal(err)
   }
@@ -49,7 +51,7 @@ func TestJSONConfigLoader(t *testing.T) {
 
   // Invalid JSON.
   badJSON := filepath.Join(root, "bad", "banner.config.json")
-  writeFile(t, badJSON, `not valid json`)
+  shared.WriteFile(t, badJSON, `not valid json`)
   if _, err := bannerLoadBannerJSONConfigFile(badJSON); err == nil || !strings.Contains(err.Error(), "parse config file") {
     t.Fatalf("expected JSON parse error, got %v", err)
   }
@@ -61,7 +63,7 @@ func TestJSONConfigLoader(t *testing.T) {
 
   // BOM-prefixed JSON.
   bomConfig := filepath.Join(root, "bom", "banner.config.json")
-  writeFile(t, bomConfig, "\xEF\xBB\xBF{\"text\":\"bom banner\"}")
+  shared.WriteFile(t, bomConfig, "\xEF\xBB\xBF{\"text\":\"bom banner\"}")
   raw, err = bannerLoadBannerJSONConfigFile(bomConfig)
   if err != nil {
     t.Fatalf("BOM-prefixed JSON should be accepted: %v", err)
@@ -73,7 +75,7 @@ func TestJSONConfigLoader(t *testing.T) {
 
   // Auto-discovery picks up banner.config.json.
   jsonRoot := filepath.Join(root, "json-discovery")
-  writeFile(t, filepath.Join(jsonRoot, "banner.config.json"), `{"text":"discovered json banner"}`)
+  shared.WriteFile(t, filepath.Join(jsonRoot, "banner.config.json"), `{"text":"discovered json banner"}`)
   location, _, err := bannerFindBannerConfigFile(jsonRoot, "")
   if err != nil {
     t.Fatal(err)

@@ -16,7 +16,7 @@ import { resolveNativeSource } from "../../../../../packages/ttsc/src/plugin/int
  * 3. Compare every actual ownership result with the independently parsed Go names.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the authored resolveNativeSource for eighteen actual module/file layouts and checks complete ordered ownership results, including every failure rather than stopping at the first mismatch.
- * @evidence contracts/testing.md#independent-expectations Literal Go package tokens establish the expected main-versus-library kind; the same eighteen valid inputs were independently accepted and named by Go list, and Go scanner letter/digit rules require the full Unicode identifier.
+ * @evidence contracts/testing.md#independent-expectations Each case's expected kind is a literal derived from the Go package clause the file actually declares (comments and BOM skipped, Unicode letters and digits kept in the identifier), authored beside the source text; the Go toolchain is not run to confirm them.
  * @evidence contracts/testing.md#distinguishing-cases Owns plain main/library, fake package lines in comments in both directions, line/adjacent/inline/inter-token comments, leading BOM, underscore and Unicode letter/digit controls; test-only and missing-package rejection belong to the neighboring original classification unit.
  * @evidence contracts/testing.md#execution-ownership The matching named source-unit export imports the actual classifier directly and creates bounded source filesystem fixtures; it does not build native producers, evaluate descriptors or spawn Go during unit execution.
  */

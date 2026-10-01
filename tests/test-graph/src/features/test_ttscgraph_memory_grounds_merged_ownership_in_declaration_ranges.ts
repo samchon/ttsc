@@ -6,17 +6,21 @@ import { createSyntheticGraph, type ResolverGraphNode } from "../internal/resolv
 /**
  * Verifies merged declaration ownership and abstract-class member bodies.
  *
- * A shared qualified name cannot choose between class and interface owners;
- * an abstract class also does not make its concrete methods bodyless.
+ * A shared qualified name cannot choose between class and interface owners on
+ * its own; declaration ranges decide. An abstract class also does not make its
+ * concrete methods bodyless.
  *
- * 1. Synthesize members of merged declarations in both orders and on one line.
- * 2. Contrast abstract, ambient, unique and ambiguous owner facts.
- * 3. Collect every owner and body assertion through the authored functions.
+ * 1. Synthesize members of a merged class and interface in both declaration
+ *    orders and with both declarations on one line.
+ * 2. Contrast abstract and declare class containers, a unique owner whose member
+ *    lies outside its range, and an ambiguous owner whose nodes have no ranges.
+ * 3. Collect every contains-edge owner and hasDeclarationBody assertion and fail
+ *    with all mismatches.
  *
- * @evidence contracts/testing.md#behavioral-verification Authored memory synthesis selects each member's enclosing declaration; the shared trace body predicate distinguishes concrete members from abstract, interface and ambient declarations.
- * @evidence contracts/testing.md#independent-expectations Literal declaration ranges and explicit modifiers determine expected owner identities and body flags independently of synthesized contains edges.
- * @evidence contracts/testing.md#distinguishing-cases Both declaration orders, same-line disjoint ranges, abstract and declare containers, ambiguous missing ranges, and the unique merged namespace owner exercise distinct ownership and body decisions.
- * @evidence contracts/testing.md#execution-ownership This direct source-unit entry invokes memory and trace functions over typed facts without a native producer, generated validator or installed package.
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphMemory.from over synthetic nodes must give each member the contains owner expected from the enclosing declaration range (a class method under the class and an interface member under the interface, in either declaration order and on a single line), and hasDeclarationBody must be true for concrete members and false for interface members, abstract methods and members of a declare class; with no ranges and two candidate owners the member must be contained by the file.
+ * @evidence contracts/testing.md#independent-expectations The declaration ranges, modifiers, expected owner ids and expected body flags are literals authored in each case, not read from the synthesized contains edges.
+ * @evidence contracts/testing.md#distinguishing-cases Both declaration orders, same-line disjoint ranges, abstract versus declare containers (the concrete member's body flag differs), a unique owner handle whose member lies outside the owner's range (still owned), and an ambiguous handle without ranges (file-owned) each change the expected owner or body decision.
+ * @evidence contracts/testing.md#execution-ownership Calls TtscGraphMemory.from through createSyntheticGraph and the exported hasDeclarationBody of runTrace in the test process with typed in-memory nodes; no native producer, generated validator or installed package is involved.
  */
 export function test_ttscgraph_memory_grounds_merged_ownership_in_declaration_ranges(): void {
   const failures: unknown[] = [];

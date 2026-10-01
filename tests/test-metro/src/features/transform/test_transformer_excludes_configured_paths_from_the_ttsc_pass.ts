@@ -10,10 +10,10 @@ import { assertExcludedPathPassesThrough } from "../../internal/metro-transform"
  * 1. Run the transformer on a `.ts` file whose path matches an `exclude` pattern.
  * 2. Assert the upstream received the original source (no ttsc transform).
  *
- * @evidence contracts/testing.md#behavioral-verification A TypeScript path matching generated exclusion passes its exact source to upstream without compilation.
- * @evidence contracts/testing.md#independent-expectations Documented exclusion precedence requires the original typed source to remain exact.
- * @evidence contracts/testing.md#distinguishing-cases An excluded TypeScript source contrasts admitted TypeScript native execution and include filtering.
- * @evidence contracts/testing.md#execution-ownership This matching src/features export calls authored Metro operations through the source-unit loader. Input filesystem/module fixtures and declared upstream callbacks remain test-local; no installed consumer, native compiler or product host is launched.
+ * @evidence contracts/testing.md#behavioral-verification transform on /workspace/app/src/generated/api.ts with exclude ["generated"] hands the fake upstream the original typed source unchanged.
+ * @evidence contracts/testing.md#independent-expectations Exclude is a substring filter applied before compilation, and the authored source text must reach the upstream byte-for-byte. Oracle limit: equality of the received source cannot by itself prove that no compile was attempted.
+ * @evidence contracts/testing.md#distinguishing-cases Only an excluded .ts path is run; the admitted-TypeScript compile path and the include filter are not exercised in this body.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls the transformer module's transform in-process against a fake CommonJS upstream that echoes its params; the file does not exist on disk and no native compile, consumer install or Metro host is involved.
  */
 export const test_transformer_excludes_configured_paths_from_the_ttsc_pass =
   async () => {

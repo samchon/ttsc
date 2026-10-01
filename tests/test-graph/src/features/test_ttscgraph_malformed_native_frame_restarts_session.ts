@@ -2,18 +2,21 @@ import assert from "node:assert/strict";
 import { admitted, assertRetired, emptyResponse, sessionState } from "./internal/sessionState";
 
 /**
- * Verifies invalid JSON retires state before recovery.
+ * Verifies a non-JSON line from the native peer rejects the request and retires the peer before recovery.
  *
- * Actual source JSON parsing rejects the malformed line before generated schema code is reached; typed inputs cover the later recovered state.
+ * The state hands each received line to its host decoder; an unparseable line
+ * must fail the active request and retire the peer rather than being ignored.
  *
- * 1. Admit the original request state through the authored state owner.
- * 2. Supply explicit typed envelopes or transport events and check the original rejection, settlement or model assertions.
- * 3. Check retirement, recovery or reuse and close the owned state in finally.
+ * 1. Start a graph request on a recorded line port and emit the line "not-json".
+ * 2. Require the request to reject with the invalid-JSON error and the port to be
+ *    retired (reader detached, then stdio joined).
+ * 3. Request again, answer the second port with an empty full-dump response, and
+ *    require an empty node list and exactly two opened ports.
  *
- * @evidence contracts/testing.md#behavioral-verification The actual source JSON parser rejects not-json, state retires its port and a matching typed response on one replacement returns empty nodes.
- * @evidence contracts/testing.md#independent-expectations Literal non-JSON bytes and invalid-JSON error are independent inputs/oracles; direct typed recovery does not claim full generated shape validation.
- * @evidence contracts/testing.md#distinguishing-cases Actual source JSON parsing rejects the malformed line before generated schema code is reached; typed inputs cover the later recovered state.
- * @evidence contracts/testing.md#execution-ownership The matching src/features export imports authored state and decoder source. Declared line-port recordings generate no reply; this executes in the source-unit Node process without a native executable. Actual kernel retirement and generated schema integration remain in the minimal E2E boundary.
+ * @evidence contracts/testing.md#behavioral-verification Emitting the line "not-json" through the port's events runs the real TtscGraphProtocol.decode, which must make graph() reject with "returned invalid JSON", retire the first port as close(false) then close(true), and a second graph() must open a second port and resolve to a model with no nodes.
+ * @evidence contracts/testing.md#independent-expectations The non-JSON line, the expected error pattern, the retirement sequence [false, true], the empty node list and the port count of two are literals; the recovery reply is an empty dump built by emptyResponse. Only the JSON.parse failure is reached, so protocol-version and envelope-shape validation are not exercised.
+ * @evidence contracts/testing.md#distinguishing-cases A single malformed frame (not a protocol-version mismatch or a schema violation) fails the whole session, contrasted with the valid reply accepted from the replacement port.
+ * @evidence contracts/testing.md#execution-ownership Runs TtscGraphSessionState with TtscGraphProtocol.decode in the test process against the recorded line ports of internal/sessionState; no native process is started and the typia envelope validation is not reached.
  */
 export async function test_ttscgraph_malformed_native_frame_restarts_session(): Promise<void> {
   const fixture = sessionState();

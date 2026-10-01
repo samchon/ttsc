@@ -11,13 +11,14 @@ import * as mod from "../../../../../packages/vscode/src/commandEdits";
  *
  * 1. Call the authored command edit helper directly.
  * 2. Convert a `changes`-map result with valid and invalid edits.
- * 3. Check null/non-object results are ignored.
- * 4. Assert dirty command arguments and dirty edit targets are detected.
+ * 3. Check a null result and a result whose `changes` is an array are ignored.
+ * 4. Assert dirty command arguments, dirty edit targets and command-prefix
+ *    authorization (matching, foreign and empty prefix) are decided correctly.
  *
- * @evidence contracts/testing.md#behavioral-verification The edit helpers retain four valid edits, reject malformed ranges/maps and distinguish dirty arguments, dirty targets and command prefixes.
- * @evidence contracts/testing.md#independent-expectations Authored edit records and literal restart/fallback results and counters independently define the supported policy.
- * @evidence contracts/testing.md#distinguishing-cases Same-line, insertion and multiline edits contrast with malformed, negative and reversed positions; null and invalid maps, clean/dirty URIs and foreign/empty command prefixes remain covered.
- * @evidence contracts/testing.md#execution-ownership The named src/features/ttscserver entry calls the authored pure module directly, retaining the original serialized result view and every behavioral assertion without an editor host or child process.
+ * @evidence contracts/testing.md#behavioral-verification Calls collectWorkspaceEditChanges, commandArgumentsContainDirtyURI, workspaceEditChangesTouchDirtyURI and shouldApplyCommandWorkspaceEdit and asserts the four collected edits (same-line, insertion, multiline, dirty-file) plus the boolean decisions.
+ * @evidence contracts/testing.md#independent-expectations The input WorkspaceEdit is authored LSP JSON and the expected edit list, the undefined results and the booleans are literal values derived from the LSP range ordering rules and the dirty-set/prefix semantics, not computed by the helpers.
+ * @evidence contracts/testing.md#distinguishing-cases Valid same-line, zero-width insertion and multiline edits are kept, while a range missing `character`, a negative line, a reversed multi-line range, a reversed same-line range and a non-array entry are dropped; null and `{changes: []}` give undefined; a nested dirty URI versus a clean URI, a changes list with and without the dirty file, and matching, foreign and empty command prefixes each give opposite answers.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the pure commandEdits functions directly on authored data, round-tripping the result through JSON before asserting, with no editor host, language client or child process.
  */
 export async function test_vscode_command_edit_helpers_apply_clean_changes_map() {
   const cleanUri = "file:///clean.ts";

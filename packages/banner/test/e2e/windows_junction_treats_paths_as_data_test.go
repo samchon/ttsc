@@ -17,7 +17,7 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary Actual Windows command argument transport and junction traversal require the OS boundary. Banner and strip contain identical inputs against the same shared creator, so duplicate package copies do not provide unique integration coverage.
 // @evidence contracts/e2e.md#shared-execution Only a temporary target, link and one short junction command are prepared. There is no native producer or install; the duplicate banner/strip case remains a consolidation candidate.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.Setenv restores the variable and t.TempDir releases target, link and sentinel. No cache or resident process is retained.
-// @evidence contracts/e2e.md#preserved-coverage The original sentinel and absent-expanded-link assertions remain unchanged. A Linux-only population does not execute this meaningful Windows behavior.
+// @evidence contracts/e2e.md#preserved-coverage The body asserts the sentinel content read through the junction (L43) and the absence of the percent-expanded spelling (L47); it skips on non-Windows so nothing is asserted there. The test drives packages/ttsc/driver/windowsjunction.Create and no banner code.
 func TestWindowsJunctionTreatsPathsAsData(t *testing.T) {
   if runtime.GOOS != "windows" {
     t.Skip("Windows junction boundary")

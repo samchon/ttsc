@@ -13,8 +13,8 @@ import { assertEmptyStringEnvFallsBackToDefaults } from "../../internal/metro-op
  *
  * @evidence contracts/testing.md#behavioral-verification resolveOptionsFromEnv treats the present empty environment string as defaults with undefined project and empty filters.
  * @evidence contracts/testing.md#independent-expectations An empty payload has the documented omitted-options behavior; exact undefined and empty-array assertions form the oracle.
- * @evidence contracts/testing.md#distinguishing-cases A present zero-length string distinguishes the length guard from absent-variable and malformed-JSON guards.
- * @evidence contracts/testing.md#execution-ownership This named src/features/options export calls authored options source in the serial source-unit runner; the helper restores the environment after each call and starts no installed artifact, native build or child process.
+ * @evidence contracts/testing.md#distinguishing-cases A present zero-length string is the boundary between the absent variable and malformed JSON. The observable result cannot show which internal guard produced the defaults, since JSON.parse of an empty string would also fall back; the entry only pins the resulting defaults.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls resolveOptionsFromEnv from packages/metro/src/core/options.ts in-process with TTSC_METRO_OPTIONS set to an empty string and restored afterwards; no child process, native build or installed package.
  */
 export const test_options_fall_back_to_defaults_on_empty_string_env =
   async () => {

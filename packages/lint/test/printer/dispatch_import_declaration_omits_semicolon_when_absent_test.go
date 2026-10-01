@@ -19,12 +19,12 @@ import (
 //
 // 1. Parse `import { a } from "x"` followed only by a newline (no `;`).
 // 2. Dispatch the ImportDeclaration node through printImportDeclaration.
-// 3. Assert the output does not end with `;`.
+// 3. Assert the output equals the source text, still without a `;`.
 //
 // @evidence contracts/testing.md#behavioral-verification printImportDeclaration must retain the author-written import without inventing a final semicolon.
 // @evidence contracts/testing.md#independent-expectations The literal source ends after the quoted module; its exact output is independent of terminator detection.
 // @evidence contracts/testing.md#distinguishing-cases Absent terminator contrasts with the same ordinary named import that includes a semicolon.
-// @evidence contracts/testing.md#execution-ownership TestDispatchImportDeclarationOmitsSemicolonWhenAbsent is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchImportDeclarationOmitsSemicolonWhenAbsent is a plain top-level Go unit test, selectable with go test -run, that calls printImportDeclaration directly on a parsed named import written without a semicolon inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchImportDeclarationOmitsSemicolonWhenAbsent(t *testing.T) {
   src := "import { a } from \"x\"\n"
   file := parseTS(t, src)

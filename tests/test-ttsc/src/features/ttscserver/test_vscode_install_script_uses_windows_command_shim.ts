@@ -14,12 +14,14 @@ import path from "node:path";
  * 1. Require the packaged install helper without running its CLI entrypoint.
  * 2. Build POSIX and Windows command shapes, including metacharacters.
  * 3. Assert Windows carries quoted argv fragments through its environment.
- * 4. Compare the preferred installation and lookup fallback selections.
+ * 4. With no installed `code.cmd` the command falls back to the bare `code.cmd`;
+ *    with an installed `code.cmd` under LOCALAPPDATA it is chosen even though
+ *    `where.exe` reports a different (nonexistent) path.
  *
- * @evidence contracts/testing.md#behavioral-verification The installer constructs direct POSIX and quoted Windows commands with exact environment slot values and selects the discovered Code command.
- * @evidence contracts/testing.md#independent-expectations Authored spaces and shell metacharacters establish the exact literal argv; literal argument and environment expectations distinguish quoting decisions; actual cmd interpretation is covered separately in the OS batch.
- * @evidence contracts/testing.md#distinguishing-cases The POSIX direct command versus the Windows cmd.exe shim, arguments with spaces and shell metacharacters carried through environment slots, and the preferred Code installation versus the lookup fallback.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/ttscserver function calls createCodeCommand and findWindowsCodeCommand directly with supplied existence and lookup operations; actual child argv runs in os-boundaries/ttscserver.
+ * @evidence contracts/testing.md#behavioral-verification Requires the real packages/vscode/bin/install.js and calls createCodeCommand for linux and for win32 (with injected existsSync/spawnSync), and findWindowsCodeCommand, asserting the full returned command objects including the TTSC_VSCODE_COMMAND_SHIM_ARG_n environment slots and windowsVerbatimArguments.
+ * @evidence contracts/testing.md#independent-expectations The expected objects are literal: the argument `C:\tmp & 100%\ttsc.vsix` contains a space, an ampersand and a percent sign and must appear quoted inside its own environment slot, while the cmd payload only holds %slot% placeholders. cmd.exe itself never interprets these strings in this test, so the quoting is checked as data, not as shell behavior.
+ * @evidence contracts/testing.md#distinguishing-cases The linux platform returns a direct `code` command with unmodified args; win32 returns the cmd shim. For lookup, an absent installation yields the default `code.cmd` and a present LOCALAPPDATA installation is chosen while the differing path `where.exe` reports does not exist. The ProgramFiles candidates and a where.exe result that does exist are not covered.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it loads install.js without running its CLI main and calls the two exported functions with injected filesystem and process doubles, so no VS Code, cmd.exe or child process runs.
  */
 export const test_vscode_install_script_uses_windows_command_shim = () => {
   const repo = TestProject.WORKSPACE_ROOT;

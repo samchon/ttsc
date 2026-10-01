@@ -24,7 +24,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Print must indent x beneath column four after foo(, rather than using a fixed indent increment.
 // @evidence contracts/testing.md#independent-expectations The literal foo( followed by four spaces and x) follows Align capturing the emitted prefix column.
 // @evidence contracts/testing.md#distinguishing-cases This continuation alignment differs from the fixed two-column Indent case.
-// @evidence contracts/testing.md#execution-ownership TestEngineAlignUsesCurrentColumn is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineAlignUsesCurrentColumn is one Go unit entry that builds a literal Doc tree with Align and renders it with Print in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineAlignUsesCurrentColumn(t *testing.T) {
   doc := Concat(Text("foo("), Align(Hardline(), Text("x")), Text(")"))
   got := Print(doc, DefaultPrintOptions())

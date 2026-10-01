@@ -25,7 +25,7 @@ import { brokeredTrackerSink } from "../../../../packages/unplugin/src/core/tran
  *
  * @evidence contracts/testing.md#behavioral-verification brokeredTrackerSink records plain events, classifier verdicts, membership changes and failure/gap flags without treating status as content.
  * @evidence contracts/testing.md#independent-expectations Authored path arrays and booleans distinguish mutation, content-only change and ignored event; the empty tracker fixture contains no implementation output.
- * @evidence contracts/testing.md#distinguishing-cases Unnamed and placeless events, gap recovery, failure, a declaration change, candidate rename and ignored bundle.js cover the plain/classified/filter decisions.
+ * @evidence contracts/testing.md#distinguishing-cases Unnamed and placeless events, the gap flag, failure, the unproven set being replaced and then cleared, a classifier-ruled change and mutation, a ruled-out cache.bin, a rename and a change of a new .ts file, a change of an existing .ts file, and ignored bundle.js renames and changes cover the plain, classified and filtered decisions.
  * @evidence contracts/testing.md#execution-ownership Calls brokeredTrackerSink directly on in-memory trackers; this entry owns every event row and its eventType/filename failure label, with no watch process.
  */
 export async function test_brokered_tracker_sink_records_what_its_filters_admit(): Promise<void> {

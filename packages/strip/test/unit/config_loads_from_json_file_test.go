@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestConfigLoadsFromJSONFile verifies that the strip driver reads configuration
@@ -23,7 +25,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns explicit relative JSON loading and both option arrays; automatic discovery, ambiguity and unsupported entry keys have separate cases.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestConfigLoadsFromJSONFile is selected from test/unit by the utility runner unit overlay. Runs stripLoadStripConfigMap, native path resolution and JSON loading in the Go process; no native plugin executable or Node child is used.
 func TestConfigLoadsFromJSONFile(t *testing.T) {
-  root := seedProject(t, map[string]string{
+  root := shared.SeedProject(t, map[string]string{
     "tsconfig.json":     `{"compilerOptions":{"target":"ES2022"}}`,
     "strip.config.json": `{"calls":["trace"],"statements":["debugger"]}`,
   })

@@ -25,7 +25,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Print must break the following Line after the already multiline a\nb payload.
 // @evidence contracts/testing.md#independent-expectations A multiline Text cannot have a single-line flat projection; the literal a\nb\nc retains payload order.
 // @evidence contracts/testing.md#distinguishing-cases A wide budget ensures the newline, rather than text length, forces the break.
-// @evidence contracts/testing.md#execution-ownership TestEngineTextWithEmbeddedNewlineForcesBreak is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineTextWithEmbeddedNewlineForcesBreak is one Go unit entry that renders a literal Group holding a multiline Text and a Line with Print under default options in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineTextWithEmbeddedNewlineForcesBreak(t *testing.T) {
   doc := Group(Text("a\nb"), Line(), Text("c"))
   got := Print(doc, DefaultPrintOptions())

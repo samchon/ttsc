@@ -16,7 +16,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification fits must reject a forced-broken group despite an eighty-column budget.
 // @evidence contracts/testing.md#independent-expectations Break explicitly prohibits flat layout, independently of the text width.
 // @evidence contracts/testing.md#distinguishing-cases This forced-break negative complements ordinary group collapse within a generous budget.
-// @evidence contracts/testing.md#execution-ownership TestEngineFitsRejectsForcedBreakGroup is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineFitsRejectsForcedBreakGroup is one Go unit entry that calls the unexported fits directly on a literal Doc tree in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineFitsRejectsForcedBreakGroup(t *testing.T) {
   forced := Group(Text("ab"))
   forced.Break = true

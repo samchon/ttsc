@@ -16,10 +16,10 @@ import "testing"
 // 2. Run the native Engine with only no-unused-expressions enabled.
 // 3. Assert zero findings.
 //
-// @evidence contracts/testing.md#behavioral-verification Engine requires zero findings for every original supported productive or delegated-syntax form.
+// @evidence contracts/testing.md#behavioral-verification assertRuleSkipsSource runs only no-unused-expressions over a module whose statements are calls, optional calls, new, assignments (plain, +=, ||=), ++/--, delete, void, dynamic import(), as/angle/non-null wrapped calls, satisfies expressions, a generic call, await and yield/yield*; it requires zero findings.
 // @evidence contracts/testing.md#independent-expectations Authored call/new/assignment/update/delete/void/import/await/yield operations satisfy the supported statement policy. The retained satisfies expressions are syntax-policy exclusions, not a proof of runtime effects for a pure value.
-// @evidence contracts/testing.md#distinguishing-cases Optional/generic calls, modifying forms, TS-wrapped calls, dynamic import and suspension forms stay clean; SideEffectFreeKinds owns default reports and TsWrappersInheritClassification owns wrapped value negatives.
-// @evidence contracts/testing.md#execution-ownership TestNoUnusedExpressionsAllowsProductiveKinds is selected in the shared Go unit population. It calls assertRuleSkipsSource for the complete original no-unused-expressions source through the AST Engine. No installed consumer, native artifact build or real product host runs.
+// @evidence contracts/testing.md#distinguishing-cases Productive forms (call, optional call, new, assignment, update, delete, void, import(), await, yield, wrapped call, satisfies) stay clean. The default reporting counterparts are owned by the corpus fixture no-unused-expressions-side-effect-free-kinds.ts, and TsWrappersInheritClassification owns wrapped value negatives.
+// @evidence contracts/testing.md#execution-ownership TestNoUnusedExpressionsAllowsProductiveKinds is an in-process Go unit test: assertRuleSkipsSource calls runRuleFindingsSnapshot, which writes the source to a temp project and runs the rule engine over the parsed file. No installed consumer, native artifact build or real product host runs.
 func TestNoUnusedExpressionsAllowsProductiveKinds(t *testing.T) {
   assertRuleSkipsSource(t, "no-unused-expressions", `declare function run(): number;
 declare function generic<T>(value: T): T;

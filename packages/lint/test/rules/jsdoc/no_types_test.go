@@ -2,19 +2,20 @@ package linthost
 
 import "testing"
 
-// TestRuleJSDocNoTypes verifies jsdoc/no-types rejects duplicate TS types.
+// TestRuleJSDocNoTypes verifies jsdoc/no-types reports a type brace on a
+// @param tag and accepts the untyped tag.
 //
-// @ttsc/lint only targets TypeScript sources here; parameter and return types
-// already belong in syntax, so JSDoc type braces are redundant and can drift.
+// Parameter and return types already belong in TypeScript syntax, so a JSDoc
+// type brace duplicates them and can drift.
 //
-// 1. Parse a TypeScript file with a typed @param tag.
-// 2. Enable jsdoc/no-types.
-// 3. Assert the typed tag line is reported.
+// 1. Run the rule over a block whose third line is `@param {string} name
+//    description` and expect one finding on line 3.
+// 2. Run the rule over a block with `@param name description` and expect none.
 //
-// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines calls the actual engine and verifies typed @param is reported on line 3; exact rule, error severity and line checks detect missing, extra or misplaced findings.
-// @evidence contracts/testing.md#independent-expectations TypeScript annotations already own parameter types; untyped JSDoc prose avoids duplicate type declarations. The literal comment and expected line establish this supported policy independently of the parser or rule result.
-// @evidence contracts/testing.md#distinguishing-cases The deficient tag in the first source is the reported case, and a second independently authored block using @param name description must produce zero findings.
-// @evidence contracts/testing.md#execution-ownership TestRuleJSDocNoTypes is a named Go unit entry running real comment parsing and the owning engine over virtual TypeScript in the shared test process, without an installed documentation consumer or host.
+// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/no-types rule through NewEngine.Run over a parsed virtual TypeScript file. The typed @param yields exactly one finding, with that rule at error severity, on line 3; the untyped @param yields none.
+// @evidence contracts/testing.md#independent-expectations TypeScript annotations own the types of TypeScript sources, so a JSDoc type brace is redundant. The literal sources and expected line 3 follow from that policy; the message text is not asserted.
+// @evidence contracts/testing.md#distinguishing-cases The two sources differ only in the {string} type payload on the @param tag. Other typed tags in the rule's table (@returns, @property, ...) are not exercised by this Test.
+// @evidence contracts/testing.md#execution-ownership The Test is a single Go unit with two direct helper calls; assertJSDocRuleLines parses the source with parseTSFile and runs the rule engine in the test process, with no installed consumer, native build or host.
 func TestRuleJSDocNoTypes(t *testing.T) {
   assertJSDocRuleLines(t, "jsdoc/no-types", `/**
  * Handles a name.

@@ -12,7 +12,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Print must preserve x\ny before the following Hardline and retain the subsequent b.
 // @evidence contracts/testing.md#independent-expectations The independently authored ax\ny\nb requires suffix order and verbatim payload. Hardline resets column state, so the assertion does not isolate the preceding tracker.
 // @evidence contracts/testing.md#distinguishing-cases Multiline payload with a following break complements multiline final draining and ordinary single-line suffix flushing.
-// @evidence contracts/testing.md#execution-ownership TestEngineLineSuffixFlushPreservesEmbeddedNewline is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineLineSuffixFlushPreservesEmbeddedNewline is one Go unit entry that renders a literal Concat holding a multiline LineSuffix before a Hardline with Print in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineLineSuffixFlushPreservesEmbeddedNewline(t *testing.T) {
   doc := Concat(
     Text("a"),

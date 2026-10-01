@@ -12,10 +12,10 @@ import { assertCacheKeyChangesWhenSupersedingCandidateAppears } from "../../inte
  * 2. Compact the worker observation, then create only that candidate.
  * 3. Assert the second run's fingerprint differs from the first one.
  *
- * @evidence contracts/testing.md#behavioral-verification The recorder persists an absent generated.ts candidate; after compaction, creating that path changes the cache key.
- * @evidence contracts/testing.md#independent-expectations A higher-priority candidate can change resolution before the project walk can hash it; the authored path and key inequality independently pin retention.
- * @evidence contracts/testing.md#distinguishing-cases Absent-to-present candidate crosses membership while neighboring entries exercise ordinary content edits.
- * @evidence contracts/testing.md#execution-ownership This named src/features/cache entry runs authored Metro fingerprint and transformer operations through the serial source-unit loader. Real fixture files and upstream input modules exercise resolution; no consumer installation, native compilation or product host is started.
+ * @evidence contracts/testing.md#behavioral-verification A recorder records the absent in-project path src/generated.ts, the worker snapshot files equal exactly [that path], and after compaction writing that file makes getCacheKey differ from the key computed before it existed.
+ * @evidence contracts/testing.md#independent-expectations The authored candidate path is compared literally against the persisted worker file list, and the later key must differ. Oracle limit: src is inside the include root, so the project walk alone also re-keys when the file appears; only the literal worker-file assertion proves the recorder retained the absent path.
+ * @evidence contracts/testing.md#distinguishing-cases One absent-to-present transition of a single path is exercised; no unchanged-key control or content-edit case is in this body (those belong to the stable and project-source-change tests).
+ * @evidence contracts/testing.md#execution-ownership Unit layer: drives createSnapshotRecorder, resolveProjectView, prepareSnapshot and the transformer's getCacheKey in-process on a temp project; no native compile, consumer install or Metro host is involved.
  */
 export const test_cache_key_changes_when_a_superseding_candidate_appears =
   async () => {

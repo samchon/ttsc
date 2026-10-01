@@ -16,10 +16,10 @@ import (
 //  2. Enable `cypress/no-async-before`.
 //  3. Assert the async hook callback is reported once.
 //
-// @evidence contracts/testing.md#behavioral-verification The actual NewEngine.Run verifies an async function beforeEach callback produces one finding for cypress/no-async-before; findingRules asserts the complete count and rule identity, so this does not check repository metadata.
-// @evidence contracts/testing.md#independent-expectations Cypress hooks use the command queue, not an async promise lifecycle. The expected rule and count are independently authored for that policy rather than read from engine output.
-// @evidence contracts/testing.md#distinguishing-cases A synchronous function callback queues the same get without mixing async lifecycles. Both the original reported source and an independently authored zero-finding control execute.
-// @evidence contracts/testing.md#execution-ownership TestCypressNoAsyncBeforeReportsAsyncBeforeEach is a public Go unit entry parsing Cypress-shaped TypeScript and running the owning engine in-process; it does not install Cypress, start a browser or run a product host.
+// @evidence contracts/testing.md#behavioral-verification NewEngine with only cypress/no-async-before enabled runs over `beforeEach(async function () { await cy.get("button"); });`; the test requires exactly one finding whose rule is cypress/no-async-before at error severity (assertCypressOrdinaryRuleErrors rejects engine-failure or other-severity findings) and registers it as an engine behavioral witness.
+// @evidence contracts/testing.md#independent-expectations Cypress hooks queue commands and must not mix in an async promise lifecycle, so an async function callback to beforeEach is wrong. The expected count of one and the zero-finding control are literals authored from that rule contract, not computed by the rule.
+// @evidence contracts/testing.md#distinguishing-cases Positive: `beforeEach(async function () { await cy.get("button"); });` yields one finding. Negative control: `beforeEach(function () { cy.get("button"); });` is run through assertRuleSkipsSource and must yield zero findings; the same hook with a synchronous function callback is accepted.
+// @evidence contracts/testing.md#execution-ownership TestCypressNoAsyncBeforeReportsAsyncBeforeEach is an in-process Go unit test: parseTS plus NewEngine(...).Run for the positive case and runRuleFindingsSnapshot (via assertRuleSkipsSource) for the control. It installs no Cypress, starts no browser and no product host.
 func TestCypressNoAsyncBeforeReportsAsyncBeforeEach(t *testing.T) {
   file := parseTS(t, `
     beforeEach(async function () {

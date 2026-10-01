@@ -12,7 +12,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Print must preserve the multiline suffix payload in ax\ny when draining at end-of-output.
 // @evidence contracts/testing.md#independent-expectations Literal concatenation of a with x\ny establishes the full output independently. Internal final column state is not observable here.
 // @evidence contracts/testing.md#distinguishing-cases The multiline final suffix complements the single-line drain and following-break flush.
-// @evidence contracts/testing.md#execution-ownership TestEngineLineSuffixDrainPreservesEmbeddedNewline is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineLineSuffixDrainPreservesEmbeddedNewline is one Go unit entry that renders a literal Concat ending in a multiline LineSuffix with Print in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineLineSuffixDrainPreservesEmbeddedNewline(t *testing.T) {
   doc := Concat(Text("a"), LineSuffix(Text("x\ny")))
   got := Print(doc, DefaultPrintOptions())

@@ -8,7 +8,7 @@ import { ResidentCheckWatchSession } from "../../../../../packages/ttsc/src/comp
  *
  * Every run is interrupted before its first await resumes, so these cases own
  * session admission without constructing a project or spawning a native host.
- * Actual EOF, IPC, failed transport and OS close belong to watch E2E tests.
+ * Actual EOF, IPC, failed transport and OS close are not exercised here.
  *
  * 1. Close and dispose a fresh session repeatedly and require one shared close
  *    result and a closed rejection for later runs.

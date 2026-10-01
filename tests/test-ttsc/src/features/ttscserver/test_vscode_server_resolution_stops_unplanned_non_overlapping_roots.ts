@@ -17,9 +17,9 @@ import path from "node:path";
  * 4. Assert the second root is selected for shutdown.
  *
  * @evidence contracts/testing.md#behavioral-verification rootsToStopForPlan removes stale clients even when their paths do not overlap current roots.
- * @evidence contracts/testing.md#independent-expectations the planned client set owns which sessions remain, not just an overlap predicate.
- * @evidence contracts/testing.md#distinguishing-cases planned and stale independent roots produce the literal stale-client set.
- * @evidence contracts/testing.md#execution-ownership The named test_vscode_server_resolution_stops_unplanned_non_overlapping_roots function runs under src/features/ttscserver and calls authored serverResolution functions directly; fixture manifests are resolver input, and no language client or product process starts.
+ * @evidence contracts/testing.md#independent-expectations The expected stopped list is the authored second root: by the stated contract every running client missing from the plan must stop even when it does not overlap a planned root, so an overlap-only implementation would return an empty list.
+ * @evidence contracts/testing.md#distinguishing-cases One running root that is in the plan is kept and one unrelated running root that is not in the plan is returned for shutdown. An empty plan, alias spellings and nested roots are covered by sibling tests or not at all.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls rootsToStopForPlan with the default identity context over two path strings that are never created on disk, with no fixture files, language client or child process.
  */
 export function test_vscode_server_resolution_stops_unplanned_non_overlapping_roots() {
   const repo = TestProject.WORKSPACE_ROOT;

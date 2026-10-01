@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestConfigDiscoveryEnvIgnoresConfigNextToWrapperTsconfig verifies that a
@@ -25,10 +27,10 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns the populated wrapper decoy; environment discovery without a wrapper candidate and ordinary upward discovery have separate owners.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestConfigDiscoveryEnvIgnoresConfigNextToWrapperTsconfig is selected from test/unit by the utility runner unit overlay. Runs stripLoadStripConfigMap, PluginConfigBaseDir, DiscoverConfigFile and JSON decoding in the Go process; neither config invokes Node or a compiler.
 func TestConfigDiscoveryEnvIgnoresConfigNextToWrapperTsconfig(t *testing.T) {
-  project := seedProject(t, map[string]string{
+  project := shared.SeedProject(t, map[string]string{
     "strip.config.json": `{"calls":["logger.trace"],"statements":[]}`,
   })
-  wrapper := seedProject(t, map[string]string{
+  wrapper := shared.SeedProject(t, map[string]string{
     "tsconfig.json":     `{"compilerOptions":{"target":"ES2022"}}`,
     "strip.config.json": `{"calls":["console.info"],"statements":[]}`,
   })

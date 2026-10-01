@@ -10,16 +10,14 @@ import { parseFlags } from "../../../../../packages/ttsc/src/flags/parseFlags";
  * fractional forms. These exact previous CLI inputs exercise the authored
  * flag parser before any project or compiler is needed.
  *
- * 1. Reject zero, scientific, hexadecimal, fractional, negative and empty checker
- *    counts in both flag spellings with the exact message.
- * 2. Reject a dash-leading separate value and a missing value.
- * 3. Accept signed, zero-padded and plain digits in both spellings and require the
- *    number two with no passthrough or positional leftovers.
+ * 1. Reject 0, 1e3, 0x10, 2.0, -1 and the empty string in the --checkers=<raw> spelling, and 0, 1e3, 0x10 and 2.0 in the separate-value spelling, with the exact message.
+ * 2. Reject a separate dash-leading value (-1) and a missing value with their own messages.
+ * 3. Accept +2, 02 and 2 in both spellings and require getNumber to return 2 with no passthrough or positional leftovers.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls production parseFlags and getNumber for the checker option, asserting exact rejected diagnostics and numeric values passed to compiler options.
  * @evidence contracts/testing.md#independent-expectations Literal invalid strings and literal expected numbers define the oracle, with complete JSON-quoted diagnostics rather than recomputing validity through another parser.
- * @evidence contracts/testing.md#distinguishing-cases Preserves zero, scientific, hexadecimal, fractional, signed and zero-padded inputs from the original CLI cases and adds negative, empty and missing operands.
- * @evidence contracts/testing.md#execution-ownership The named unit/compiler export invokes authored flag functions directly without fixtures, product subprocesses, native builds or duplicated compile work.
+ * @evidence contracts/testing.md#distinguishing-cases Rejected: zero, scientific, hexadecimal, fractional, negative and empty counts in the attached spelling (all but the negative and empty ones also in the separate spelling), plus a separate dash-leading value and a missing value; accepted: a signed, a zero-padded and a plain decimal in both spellings, all yielding 2.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling parseFlags and getNumber directly with argv arrays; it needs no project, process or compiler.
  */
 export function test_checkers_parser_preserves_decimal_spellings_and_rejects_other_numeric_forms(): void {
   for (const raw of ["0", "1e3", "0x10", "2.0", "-1", ""]) {

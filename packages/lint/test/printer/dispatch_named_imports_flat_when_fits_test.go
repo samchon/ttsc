@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printNamedImports must retain { a, b } on one line with the supported brace spacing.
 // @evidence contracts/testing.md#independent-expectations The literal expected clause is independent of the renderer and retains both binding names and their order.
 // @evidence contracts/testing.md#distinguishing-cases A fitting two-entry clause complements overflowing five-entry imports and malformed public Elements lists.
-// @evidence contracts/testing.md#execution-ownership TestDispatchNamedImportsFlatWhenFits is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchNamedImportsFlatWhenFits is a plain top-level Go unit test, selectable with go test -run, that calls printNamedImports directly on a parsed two-specifier import clause at the default width inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchNamedImportsFlatWhenFits(t *testing.T) {
   file := parseTS(t, "import { a, b } from \"x\";\n")
   node := firstNodeOfKind(t, file, shimast.KindNamedImports)

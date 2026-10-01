@@ -22,13 +22,14 @@ import { materializeLSPPluginManifest } from "../../../../../packages/ttsc/src/l
  * 2. Where link creation is permitted, retarget an exact-file symlink and a
  *    same-topology reload-directory link and prove lexical and physical identity
  *    invalidate the selection.
- * 3. On POSIX, where the filesystem stores them, prove backslash names and raw
- *    non-UTF-8 target bytes are digested with the framing of the Go validator.
+ * 3. Where the filesystem stores them, prove a raw non-UTF-8 file-symlink target
+ *    and (on POSIX only) a backslash directory name and a raw non-UTF-8
+ *    directory-link target digest to independently framed sha256 values.
  * 4. Materialize a manifest larger than a Windows environment block, prove it
  *    travels by private file and dispose it idempotently.
  *
  * @evidence contracts/testing.md#behavioral-verification Snapshot operations distinguish child-content edits from reload-file, immediate-topology and link-identity drift and preserve framed raw identities; manifest transport carries 8192 inputs and disposes its directory twice safely.
- * @evidence contracts/testing.md#independent-expectations Authored file/tree mutations define currency independently, and explicit Go-compatible digest framing plus literal input count establish transport expectations.
+ * @evidence contracts/testing.md#independent-expectations Authored file and directory mutations define whether each snapshot must stay current or become stale; the raw-symlink and POSIX directory digests are re-derived in the test with sha256 over the documented framing (`symlink\0`/`directory\0`, target or path bytes, NUL, `missing\0` or the empty-topology hash), so a change to that framing fails. The test cannot prove agreement with the Go validator itself, only with this written framing; the manifest expectation is the literal count 8192 and a size above 64 KiB.
  * @evidence contracts/testing.md#distinguishing-cases A child-content edit leaves the captured topology current while an exact-file edit and an added directory entry each make it stale; an exact-file symlink retarget and a reload-directory link retarget are covered where link creation is permitted and reported as SKIPPED otherwise; on POSIX, backslash names and raw non-UTF-8 target bytes are digested with the Go validator's framing where the filesystem stores them; an 8192-input manifest larger than a Windows environment block travels by private file and is disposed twice.
  * @evidence contracts/testing.md#execution-ownership This matching src/features/ttscserver entry exercises the owning operations directly on isolated fixture inputs; no product host, native artifact build or consumer installation executes.
  */

@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification PrintNode must retain {} for an empty parsed block and report it covered.
 // @evidence contracts/testing.md#independent-expectations The empty-block layout identity preserves both braces without introducing content or a line break.
 // @evidence contracts/testing.md#distinguishing-cases The zero-statement block complements nonempty block reindentation and comment-only blocks that must remain uncovered.
-// @evidence contracts/testing.md#execution-ownership TestDispatchBlockCollapsesEmptyBodyToBraces is a selected public Go printer unit under TestSelectedLintUnits. The case calls its owning dispatcher or node printer on a local parsed or factory AST fixture in the same Go process, without installation, native product builds or product-host execution.
+// @evidence contracts/testing.md#execution-ownership TestDispatchBlockCollapsesEmptyBodyToBraces is a plain top-level Go unit test, selectable with go test -run, that calls PrintNode directly on a parsed empty block inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchBlockCollapsesEmptyBodyToBraces(t *testing.T) {
   file := parseTS(t, "const f = () => {};\n")
   node := firstNodeOfKind(t, file, shimast.KindBlock)

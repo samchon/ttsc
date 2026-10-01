@@ -13,11 +13,11 @@ import { warnMissingFseventsBinding } from "../../../../packages/unplugin/src/co
  * slowness.
  *
  * 1. Listen for Node process warnings, and warn twice.
- * 2. Assert exactly one warning, with its code, naming the binding and how to
- *    restore it.
+ * 2. Assert exactly one warning with its code, whose message names the
+ *    `fsevents` binding and the word `optional`.
  *
- * @evidence contracts/testing.md#behavioral-verification warnMissingFseventsBinding emits exactly one process warning naming fsevents and optional-dependency remediation after two calls.
- * @evidence contracts/testing.md#independent-expectations The literal TTSC_FSEVENTS_MISSING code and one-message requirement identify the documented capability warning; message concepts independently require its cause and remedy.
+ * @evidence contracts/testing.md#behavioral-verification warnMissingFseventsBinding emits exactly one process warning, with the TTSC_FSEVENTS_MISSING code, whose message contains `fsevents` and the word optional, after two calls.
+ * @evidence contracts/testing.md#independent-expectations The literal TTSC_FSEVENTS_MISSING code and the one-message requirement identify the documented capability warning; the message is checked only for the substrings `fsevents` (with backticks) and `optional`, so the remedy wording is not pinned.
  * @evidence contracts/testing.md#distinguishing-cases First and repeated call distinguish warning creation from suppression, and next-tick dispatch is observed before removing the listener.
  * @evidence contracts/testing.md#execution-ownership This entry calls the warning function directly, owns its temporary warning listener and later-tick completion, and performs no actual macOS binding lookup or watcher startup.
  */

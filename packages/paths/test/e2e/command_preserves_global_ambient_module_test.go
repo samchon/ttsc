@@ -5,6 +5,8 @@ import (
   "path/filepath"
   "strings"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/paths/test/internal/shared"
 )
 
 // TestCommandPreservesGlobalAmbientModule verifies paths does not make a global ambient module relative.
@@ -21,11 +23,11 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases A global script declaration must remain unchanged, unlike the external-module augmentation in the supported-forms entry. The second check disables the plugin so it cannot undo its own bad output.
 // @evidence contracts/testing.md#execution-ownership The discoverable TestCommandPreservesGlobalAmbientModule entry runs in the paths E2E population and calls the real compiled package sidecar; runPlugin captures its native exit and separate streams. This classification does not move its portable assertions into units.
 // @evidence contracts/e2e.md#necessary-boundary Native transform output is fed into a separate real compiler validation. Direct visitor tests cannot establish acceptance of the serialized, published source by the compiler.
-// @evidence contracts/e2e.md#shared-execution All paths command entries use resolvePluginBinary once per test process, or the suite-supplied immutable producer. This case starts independent command consumers with the exact arguments above; only binary bytes are shared, not a loaded project or process session.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity For TestCommandPreservesGlobalAmbientModule, command exits release each process; t.TempDir owns any fixture and output tree until case cleanup. TestMain owns only a fallback producer directory, while a supplied binary is runner-owned. No cold/invalidation transition is asserted here.
-// @evidence contracts/e2e.md#preserved-coverage The existing TestCommandPreservesGlobalAmbientModule inputs, statuses, stream checks and any output assertions remain executable in this entry unchanged. No portable owner is inferred merely from another unit suite, and further reduction requires an exact assertion transfer.
+// @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts two processes (transform with the paths manifest, then check with --plugins-json=[]) from that binary and shares no loaded project or running session with any other entry.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity seedPathsProject (shared.SeedProject) writes the fixture project under t.TempDir, which the test framework removes at cleanup; the body overwrites src/global.ts with the transformed text between the transform and check processes, and each process exits before the next starts, so the check sees exactly the written text. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
+// @evidence contracts/e2e.md#preserved-coverage The transform status/stderr check (L37), JSON decode (L41), ambient-name retention checks (L45) and the plugin-free check status/streams (L51) are all made in this body; nothing is delegated elsewhere.
 func TestCommandPreservesGlobalAmbientModule(t *testing.T) {
-  root := seedProject(t, map[string]string{
+  root := shared.SeedProject(t, map[string]string{
     "tsconfig.json":      `{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true,"paths":{"@lib/*":["./src/lib/*"]},"outDir":"dist","rootDir":"src"},"include":["src"]}`,
     "src/global.ts":      `declare module "@lib/ambient" { export const value: "global"; }` + "\n",
     "src/lib/ambient.ts": `export const value = "global";` + "\n",

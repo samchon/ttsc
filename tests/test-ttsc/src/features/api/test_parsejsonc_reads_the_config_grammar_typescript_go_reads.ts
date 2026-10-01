@@ -19,10 +19,10 @@ import assert from "node:assert/strict";
  * 2. Parse text using each form the compiler reports.
  * 3. Assert the accepted values and a positioned failure for each rejection.
  *
- * @evidence contracts/testing.md#behavioral-verification parseJsonc returns literal lexical values and positioned SyntaxErrors across the full original matrix.
- * @evidence contracts/testing.md#independent-expectations each accepted and rejected row was previously verified against the pinned compiler grammar; expected values do not come from this parser.
- * @evidence contracts/testing.md#distinguishing-cases comments, Unicode whitespace, numbers, escapes, trailing commas, duplicate and __proto__ keys contrast with malformed and unterminated input.
- * @evidence contracts/testing.md#execution-ownership The named test_parsejsonc_reads_the_config_grammar_typescript_go_reads export is discovered under src/features/api and calls the owning authored operation without installation, native compilation or a product host.
+ * @evidence contracts/testing.md#behavioral-verification parseJsonc is called on 15 accepted texts (CR-only and U+2028 comments, no-break and ideographic spaces, a mid-file BOM, hex/octal/binary/fractional/separated numbers, escapes, trailing commas, duplicate keys, empty and comment-only text), compared by deepEqual with literal values; 16 rejected texts must throw a SyntaxError ending in '(line N column M)', and a CRLF case must report line 4 column 8.
+ * @evidence contracts/testing.md#independent-expectations Expected values are authored literals taken from the grammar the TypeScript-Go compiler reads (per the doc comment, rows were checked against that compiler, which this test does not run); the TS diagnostic codes next to rejected rows appear only in assertion messages, so the test checks that each rejection throws a positioned SyntaxError, not which diagnostic applies.
+ * @evidence contracts/testing.md#distinguishing-cases Accepted rows contrast with rejected rows by lexical form: line terminators in comments, Unicode whitespace, number radices/separators/fractions, escapes, trailing commas, duplicate and __proto__ keys versus single-quoted strings, bare identifiers, signs, legacy octals, bad separators, missing commas, trailing text, an unterminated comment and an unterminated string; position counting is checked for one CRLF input.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling parseJsonc directly with strings; no files, compiler process or ttsc host.
  */
 export function test_parsejsonc_reads_the_config_grammar_typescript_go_reads(): void {
     const B = "\\";

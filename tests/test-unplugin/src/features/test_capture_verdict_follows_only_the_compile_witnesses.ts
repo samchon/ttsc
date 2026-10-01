@@ -27,7 +27,7 @@ import type { TtscProjectMutationTracker } from "../../../../packages/unplugin/s
  * @evidence contracts/testing.md#behavioral-verification projectWalkStable and recordProjectSnapshotFailures accept unchanged capture evidence and distinguish changed declared inputs, relevant membership and incomplete or overflowing proof.
  * @evidence contracts/testing.md#independent-expectations Authored stable/unstable booleans and literal failure domain/kind/path arrays derive from the compile-read boundary rather than replaying either implementation.
  * @evidence contracts/testing.md#distinguishing-cases One-field variations cover hashes, signatures, undeclared logs, absent tracker, incomplete walk, configuration, relevant versus irrelevant directories, queued event and omitted witnesses.
- * @evidence contracts/testing.md#execution-ownership The exported entry owns stable and witnesses fixture calls in memory; each assertion names the changed evidence, with no actual compile or native watcher.
+ * @evidence contracts/testing.md#execution-ownership The exported entry owns the in-memory stable() and witnesses() fixture calls; most assertions carry a message naming the changed evidence (a few rely on the row's position), and no actual compile or native watcher runs.
  */
 export async function test_capture_verdict_follows_only_the_compile_witnesses(): Promise<void> {
   const root = path.resolve("/project");

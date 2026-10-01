@@ -20,7 +20,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Print must indent inner by two spaces after the requested hard break.
 // @evidence contracts/testing.md#independent-expectations Indent two applies precisely two literal columns to a continuation line while retaining inner.
 // @evidence contracts/testing.md#distinguishing-cases This broken indentation case complements flat Indent neutrality and dynamic Align.
-// @evidence contracts/testing.md#execution-ownership TestEngineIndentCompoundsInsideGroup is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineIndentCompoundsInsideGroup is one Go unit entry that renders a literal Group holding one Indent and a Hardline with Print under default options in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineIndentCompoundsInsideGroup(t *testing.T) {
   doc := Group(Indent(2, Hardline(), Text("inner")))
   got := Print(doc, DefaultPrintOptions())

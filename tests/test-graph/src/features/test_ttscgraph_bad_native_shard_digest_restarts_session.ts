@@ -3,18 +3,23 @@ import { admitted, assertRetired, emptyResponse, sessionState } from "./internal
 import { sessionTransaction } from "./internal/sessionTransactions";
 
 /**
- * Verifies a false shard digest retires state before recovery.
+ * Verifies a transaction with a wrong shard digest retires the peer before recovery.
  *
- * An explicit wrong digest must fail content validation, not become a reusable partially accepted generation.
+ * A shard whose declared digest does not match its content must be rejected
+ * rather than committed as a partially accepted generation, and the next request
+ * must be served from a fresh peer.
  *
- * 1. Admit the original request state through the authored state owner.
- * 2. Supply explicit typed envelopes or transport events and check the original rejection, settlement or model assertions.
- * 3. Check retirement, recovery or reuse and close the owned state in finally.
+ * 1. Start a graph request on a recorded line port, then deliver a typed initial
+ *    transaction whose first upsert digest is "wrong-digest".
+ * 2. Require the rejection to name that digest and the port to be retired
+ *    (reader detached, then stdio joined).
+ * 3. Request again, answer the second port with an empty full-dump response, and
+ *    require an empty node list and exactly two opened ports.
  *
- * @evidence contracts/testing.md#behavioral-verification State refresh rejects the wrong-digest upsert, retires exactly one port and returns empty nodes on exactly one replacement.
- * @evidence contracts/testing.md#independent-expectations The explicit wrong-digest value violates the pinned content witness; expected error, empty nodes and opener/retirement counts do not come from product serialization.
- * @evidence contracts/testing.md#distinguishing-cases An explicit wrong digest must fail content validation, not become a reusable partially accepted generation.
- * @evidence contracts/testing.md#execution-ownership The matching src/features export imports authored state and decoder source. Declared line-port recordings generate no reply; this executes in the source-unit Node process without a native executable. Actual kernel retirement and generated schema integration remain in the minimal E2E boundary.
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphSessionState.receive of a transaction whose upserts[0].digest is "wrong-digest" must reject graph() with "digest wrong-digest does not match", retire the first port as close(false) then close(true) with live false, and a second graph() must open a second port and resolve to a model with no nodes.
+ * @evidence contracts/testing.md#independent-expectations The wrong digest string, the expected error pattern, the retirement sequence [false, true], the empty node list and the port count of two are literals; the remaining shard digests and the generation in the fixture are pinned literals in sessionTransactions and the recovery reply is an empty dump built by emptyResponse.
+ * @evidence contracts/testing.md#distinguishing-cases Only the upsert digest is corrupted while the manifest and generation are pinned valid, so the per-shard content check is the one that fires; the accepted empty-dump reply on the second port contrasts the rejected transaction. A wrong generation and a stale base are covered by other tests.
+ * @evidence contracts/testing.md#execution-ownership Runs TtscGraphSessionState and TtscGraphShardStore directly in the test process against the recorded line ports of internal/sessionState. The test calls receive with typed envelopes, so TtscGraphProtocol.decode, generated schema validation and a native process are not executed.
  */
 export async function test_ttscgraph_bad_native_shard_digest_restarts_session(): Promise<void> {
   const fixture = sessionState();

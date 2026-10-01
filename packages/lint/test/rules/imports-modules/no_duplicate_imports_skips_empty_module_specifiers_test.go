@@ -16,7 +16,7 @@ import "testing"
 //  2. Run the rule with default options.
 //  3. Assert zero findings.
 //
-// @evidence contracts/testing.md#behavioral-verification runNoDuplicateImports exercises the actual no-duplicate-imports Engine operation. Empty and whitespace-only module specifiers produce no duplicate findings. The shared assertion also rejects unexpected rules and any offered autofix.
+// @evidence contracts/testing.md#behavioral-verification runNoDuplicateImports exercises the actual no-duplicate-imports Engine operation. Empty and whitespace-only module specifiers produce no duplicate findings. The shared runner also rejects unexpected rules and any offered autofix.
 // @evidence contracts/testing.md#independent-expectations The supported normalization ignores empty module keys; zero expectations are authored rather than inferred from scanner output. The helper only normalizes returned line/message pairs and compares them with literal expectations.
 // @evidence contracts/testing.md#distinguishing-cases Two empty strings and a whitespace-only specifier distinguish empty-key rejection from ordinary nonempty duplicate tracking.
 // @evidence contracts/testing.md#execution-ownership runNoDuplicateImports calls parseTSFile and NewEngineWithResolver.Run for this entry's authored source/options, then assertNoDuplicateImportsFindings performs the displayed literal result comparison. This Test owns that source and option combination in the Go process, without dynamic registration or a native host.

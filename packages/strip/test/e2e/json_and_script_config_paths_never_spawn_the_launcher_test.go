@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestJSONAndScriptConfigPathsNeverSpawnTheLauncher verifies the non-TypeScript
@@ -23,15 +25,15 @@ import (
 // @evidence contracts/testing.md#execution-ownership This named entry mixes direct JSON parsing with a real Node script child; no native utility producer or consumer compiler executes.
 // @evidence contracts/e2e.md#necessary-boundary Only the script import-to-returned-value connection needs Node. JSON parsing is a direct unit concern; the mixed E2E label does not make its filesystem read a necessary boundary.
 // @evidence contracts/e2e.md#shared-execution Two files share one root and only the script starts Node. No Go build or compiler preparation occurs.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.Setenv restores pinned tools, t.TempDir releases files and the script child finishes before load returns. No cached value bypasses the observation.
-// @evidence contracts/e2e.md#preserved-coverage Both original value assertions and unusable-tool inputs remain. They prove JSON/script dispatch without ttsx, not real TypeScript evaluation.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.Setenv restores the two pinned tool variables, t.TempDir releases the config files, and the Node child for the .js config has exited before the loader returns (exec Cmd.Output waits for it).
+// @evidence contracts/e2e.md#preserved-coverage The body asserts the exact statements and calls arrays for one JSON config and one .js config (assertStripsDebuggerOnly) with both tool variables pinned at nonexistent paths; no TypeScript config is loaded.
 func TestJSONAndScriptConfigPathsNeverSpawnTheLauncher(t *testing.T) {
-  root := stripRealpathIfPossible(t.TempDir())
+  root := shared.StripRealpathIfPossible(t.TempDir())
   t.Setenv("TTSC_TSGO_BINARY", filepath.Join(root, "absent", "tsc"))
   t.Setenv("TTSC_TTSX_BINARY", filepath.Join(root, "absent", "ttsx.js"))
 
   jsonConfig := filepath.Join(root, "strip.config.json")
-  writeFile(t, jsonConfig, `{"calls":[],"statements":["debugger"]}`)
+  shared.WriteFile(t, jsonConfig, `{"calls":[],"statements":["debugger"]}`)
   raw, err := stripLoadStripConfigFile(jsonConfig, root)
   if err != nil {
     t.Fatalf("json config load failed with an unspawnable launcher pinned: %v", err)
@@ -39,7 +41,7 @@ func TestJSONAndScriptConfigPathsNeverSpawnTheLauncher(t *testing.T) {
   assertStripsDebuggerOnly(t, "json", raw)
 
   scriptConfig := filepath.Join(root, "script", "strip.config.js")
-  writeFile(t, scriptConfig, "module.exports = { calls: [], statements: [\"debugger\"] };\n")
+  shared.WriteFile(t, scriptConfig, "module.exports = { calls: [], statements: [\"debugger\"] };\n")
   raw, err = stripLoadStripConfigFile(scriptConfig, root)
   if err != nil {
     t.Fatalf("js config load failed with an unspawnable launcher pinned: %v", err)

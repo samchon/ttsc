@@ -14,9 +14,9 @@ import { TtscGraphLauncherArguments as Arguments } from "../../../../packages/gr
  *    publication path.
  * 3. Require a missing operand and an unknown option to throw.
  *
- * @evidence contracts/testing.md#behavioral-verification The actual launcher parser and dump vector owner process separate, equals, aliases, repeated, empty and dash-valued tokens.
- * @evidence contracts/testing.md#independent-expectations Literal original argv must be forwarded unchanged and explicit artifacts must suppress a separately authored automatic publication path.
- * @evidence contracts/testing.md#distinguishing-cases All option spellings, last-value precedence, empty strings, a dash-valued filename, missing argument and unknown option distinguish string grammar from generic path grammar.
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphLauncherArguments.dump must accept, and dumpVector must echo, each of ten artifact-flag argument lists (separate, equals, one- and two-dash, repeated, empty and dash-leading values); dumpVector([]) must add the automatic path, and dump must throw for a bare --artifacts and for --unknown.
+ * @evidence contracts/testing.md#independent-expectations Each expected vector is the literal row prefixed with "dump", written by the test rather than computed by the launcher; the absence of the "automatic.json" literal from every explicit-artifact vector shows the automatic path is suppressed.
+ * @evidence contracts/testing.md#distinguishing-cases Rows differ by flag spelling and value shape (empty string, equals-empty, a value beginning with a dash that a generic value option would reject) and are contrasted with the no-flag list and with the two throwing inputs. The repeated-flag rows assert only that both occurrences are forwarded; which occurrence wins is not asserted, and only the artifact option is exercised, not cwd or tsconfig.
  * @evidence contracts/testing.md#execution-ownership This exported src/features entry executes the owning source operations in this test process, without installing a consumer, building a native producer or fabricating process protocol replies.
  */
 export function test_dump_artifacts_preserve_native_string_grammar_and_precedence(): void {

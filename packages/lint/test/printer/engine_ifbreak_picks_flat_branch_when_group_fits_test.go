@@ -18,7 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Print must render a b~ and omit the broken-arm ! when the Group fits.
 // @evidence contracts/testing.md#independent-expectations Three columns plus the flat ~ arm fit the default budget; the Doc contract specifies the second operand.
 // @evidence contracts/testing.md#distinguishing-cases This flat-arm positive complements the narrow-budget broken-arm case.
-// @evidence contracts/testing.md#execution-ownership TestEngineIfBreakPicksFlatBranchWhenGroupFits is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineIfBreakPicksFlatBranchWhenGroupFits is one Go unit entry that renders a literal Group containing an IfBreak with Print under default options in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineIfBreakPicksFlatBranchWhenGroupFits(t *testing.T) {
   doc := Group(Text("a"), Line(), Text("b"), IfBreak(Text("!"), Text("~")))
   got := Print(doc, DefaultPrintOptions())

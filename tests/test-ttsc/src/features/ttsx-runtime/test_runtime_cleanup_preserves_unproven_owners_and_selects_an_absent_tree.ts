@@ -18,8 +18,8 @@ import { resolveRuntimeCleanTargets } from "../../../../../packages/ttsc/src/lau
  *
  * @evidence contracts/testing.md#behavioral-verification Actual resolveRuntimeCleanTargets selects an absent or empty runtime tree for removal, then preserves both a legacy unowned run and a malformed owner record with no deletion targets.
  * @evidence contracts/testing.md#independent-expectations Cleanup may remove a runtime tree with no runs, but cannot infer process death from a missing or unparsable owner record; literal independently authored run paths define the expected protected set.
- * @evidence contracts/testing.md#distinguishing-cases Missing index and empty index select the whole tree; one legacy run and the adjacent malformed owner run both block whole-tree deletion. Genuine child death and concurrent claim/clean behavior remain in real process-protocol E2E tests.
- * @evidence contracts/testing.md#execution-ownership This named source unit calls the authored cleanup planner directly on its isolated fixture filesystem. It starts no product host or compiler and builds no artifact; CLI reporting and actual explicit deletion remain in the shared public-clean E2E batch.
+ * @evidence contracts/testing.md#distinguishing-cases Missing index and empty index select the whole tree; one legacy run and the adjacent malformed owner run both block whole-tree deletion. No run with a provably dead owner (the removable case) and no live-owner run is created, so removal of abandoned runs is not covered here.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttsx-runtime; it calls resolveRuntimeCleanTargets (a planner that deletes nothing) over directories created in a TestProject.tmpdir. It starts no host or compiler and builds no artifact.
  */
 export function test_runtime_cleanup_preserves_unproven_owners_and_selects_an_absent_tree(): void {
   const cache = TestProject.tmpdir("runtime-clean-plan-");

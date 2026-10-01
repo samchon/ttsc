@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestResolveConfigTsgoResolvesTheProjectCompilerWithoutTheEnvironment verifies
@@ -27,13 +29,13 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns successful project discovery without overrides; absent TypeScript, platform package and executable each have dedicated negative cases.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoResolvesTheProjectCompilerWithoutTheEnvironment is selected from test/unit by the utility runner unit overlay. Runs stripResolveConfigTsgo through linkname and native manifest/stat lookup in the Go process; the empty compiler fixture is never spawned.
 func TestResolveConfigTsgoResolvesTheProjectCompilerWithoutTheEnvironment(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := stripRealpathIfPossible(t.TempDir())
-  want := seedProjectTypeScript(t, root)
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.StripRealpathIfPossible(t.TempDir())
+  want := shared.SeedProjectTypeScript(t, root)
   config := filepath.Join(root, "strip.config.ts")
-  writeFile(t, config, "export default {};\n")
+  shared.WriteFile(t, config, "export default {};\n")
 
-  if got := stripResolveConfigTsgo(stripConfigToolAnchors(config, root)); got != want {
+  if got := shared.StripResolveConfigTsgo(shared.StripConfigToolAnchors(config, root)); got != want {
     t.Fatalf("stripResolveConfigTsgo = %q, want the project compiler %q", got, want)
   }
 }

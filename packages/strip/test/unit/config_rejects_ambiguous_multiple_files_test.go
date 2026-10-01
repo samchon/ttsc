@@ -3,6 +3,8 @@ package strip_test
 import (
   "strings"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestConfigRejectsAmbiguousMultipleFiles verifies that the strip driver errors
@@ -22,7 +24,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns same-directory ambiguity across JSON/JS. The assertion checks error category, not individual candidate names or remedy wording; single explicit/upward configs have separate owners.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestConfigRejectsAmbiguousMultipleFiles is selected from test/unit by the utility runner unit overlay. Runs stripLoadStripConfigMap and DiscoverConfigFile in the Go process; ambiguity returns before either candidate is evaluated, so JS does not start Node.
 func TestConfigRejectsAmbiguousMultipleFiles(t *testing.T) {
-  root := seedProject(t, map[string]string{
+  root := shared.SeedProject(t, map[string]string{
     "strip.config.json": `{"calls":["a"]}`,
     "strip.config.js":   `module.exports = { calls: ["b"] };`,
     "tsconfig.json":     `{"compilerOptions":{"target":"ES2022"}}`,

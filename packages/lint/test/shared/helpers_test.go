@@ -896,3 +896,19 @@ func newRuleSnapshotEngine(ruleName string, options json.RawMessage) (*Engine, e
   }
   return engine, nil
 }
+
+func recordExpectedBehavioralWitnesses(
+  t *testing.T,
+  expected []ruleExpectation,
+  kind behavioralWitnessKind,
+) {
+  t.Helper()
+  recorded := map[string]struct{}{}
+  for _, expectation := range expected {
+    if _, ok := recorded[expectation.Rule]; ok {
+      continue
+    }
+    recorded[expectation.Rule] = struct{}{}
+    recordBehavioralWitness(t, expectation.Rule, kind)
+  }
+}

@@ -16,10 +16,10 @@ import (
 //  2. Enable `cypress/assertion-before-screenshot`.
 //  3. Assert no finding is emitted.
 //
-// @evidence contracts/testing.md#behavioral-verification The actual NewEngine.Run verifies a should assertion directly before screenshot produces zero findings for cypress/assertion-before-screenshot; findingRules asserts the complete count and rule identity, so this does not check repository metadata.
-// @evidence contracts/testing.md#independent-expectations The screenshot has a preceding checked DOM state with no intervening command. The expected rule and count are independently authored for that policy rather than read from engine output.
-// @evidence contracts/testing.md#distinguishing-cases The separate-statement success differs from the same-chain success and intervening-command rejection cases.
-// @evidence contracts/testing.md#execution-ownership TestCypressAssertionBeforeScreenshotAllowsImmediatelyPriorAssertion is a public Go unit entry parsing Cypress-shaped TypeScript and running the owning engine in-process; it does not install Cypress, start a browser or run a product host.
+// @evidence contracts/testing.md#behavioral-verification NewEngine with only cypress/assertion-before-screenshot enabled runs over `cy.get("[data-cy=dialog]").should("be.visible");` followed by the separate statement `cy.screenshot();`; the test requires zero findings (findingRules is empty).
+// @evidence contracts/testing.md#independent-expectations A screenshot whose immediately preceding statement ends in a should assertion has a checked DOM state; the zero count is a literal authored from that policy.
+// @evidence contracts/testing.md#distinguishing-cases Negative-for-the-rule case: the assertion sits in the previous statement, not in the screenshot chain. The same-chain test owns the other accepted shape, and the unchecked and unrelated-prior tests own the reported shapes.
+// @evidence contracts/testing.md#execution-ownership TestCypressAssertionBeforeScreenshotAllowsImmediatelyPriorAssertion is an in-process Go unit test: parseTS plus NewEngine(...).Run over the source. It installs no Cypress, starts no browser and no product host.
 func TestCypressAssertionBeforeScreenshotAllowsImmediatelyPriorAssertion(t *testing.T) {
   file := parseTS(t, `
     cy.get("[data-cy=dialog]").should("be.visible");

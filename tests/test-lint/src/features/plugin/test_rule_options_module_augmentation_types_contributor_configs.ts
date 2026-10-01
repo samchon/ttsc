@@ -16,10 +16,10 @@ import type {} from "../../../../../packages/lint/test/lint-contributor-demo/src
  * 3. Accept severity-only forms and reject a payload for the optionless rule.
  * 4. Confirm an unregistered contributor namespace keeps unknown options.
  *
- * @evidence contracts/testing.md#behavioral-verification The lint unit-module typecheck checks satisfies ITtscLintConfig assignments and requires each @ts-expect-error rejection to exist; the exported function is a compile-time fixture, not a runtime assertion.
+ * @evidence contracts/testing.md#behavioral-verification The test-lint tsc run checks satisfies ITtscLintConfig assignments and requires each @ts-expect-error rejection to exist; the exported function is a compile-time fixture, not a runtime assertion.
  * @evidence contracts/testing.md#independent-expectations The declared markers string-array option and severity-only augmentation independently define the accepted assignments; misspelled keys, scalar markers and optionless payloads must be rejected.
- * @evidence contracts/testing.md#distinguishing-cases Valid registered options, invalid key and value, severity-only acceptance, payload rejection and unknown-namespace acceptance retain every original type distinction.
- * @evidence contracts/testing.md#execution-ownership The test-lint typecheck invokes tsc over its src include, selecting this features/unit fixture and its imported augmentation. Compiler diagnostics and unused @ts-expect-error directives own failure; DynamicExecutor does not claim execution of these compile-time cases.
+ * @evidence contracts/testing.md#distinguishing-cases Accepted: a valid `markers` array, severity-only `demo/capitalize-exports`, and an unregistered `unregistered/opaque-options` rule with arbitrary options. Rejected: the option key typo `marker`, the scalar `markers: "TODO"`, and an options payload on the severity-only rule.
+ * @evidence contracts/testing.md#execution-ownership The unit runner only transpiles and calls this function, whose body asserts nothing at runtime, so it cannot fail on a typing regression. The assertions are enforced only by running `tsc --noEmit -p tests/test-lint/tsconfig.json` (not wired into a workflow), which compiles this file under the src include together with the imported lint-contributor-demo augmentation; unused @ts-expect-error directives are compiler errors.
  */
 export function test_rule_options_module_augmentation_types_contributor_configs(): void {
     const valid = {

@@ -19,7 +19,7 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification planNonOverlappingClientRoots returns identical literal root sets in both input orders.
  * @evidence contracts/testing.md#independent-expectations one owner per path requires nested roots without preference and the preferred parent when active.
  * @evidence contracts/testing.md#distinguishing-cases both parent-first and nested-first orderings are repeated with and without active preference.
- * @evidence contracts/testing.md#execution-ownership The named test_vscode_server_resolution_plans_open_document_roots_deterministically function runs under src/features/ttscserver and calls authored serverResolution functions directly; fixture manifests are resolver input, and no language client or product process starts.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls planNonOverlappingClientRoots with the default identity context over two path strings that are never created on disk (so identity falls back to lexical containment), and uses no fixture files, language client or child process.
  */
 export function test_vscode_server_resolution_plans_open_document_roots_deterministically() {
   const repo = TestProject.WORKSPACE_ROOT;

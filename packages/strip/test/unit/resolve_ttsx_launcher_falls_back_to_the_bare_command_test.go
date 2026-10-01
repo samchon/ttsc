@@ -3,6 +3,8 @@ package strip_test
 import (
   "path/filepath"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
 // TestResolveTtsxLauncherFallsBackToTheBareCommand verifies an unresolvable
@@ -23,14 +25,14 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns absent-install fallback; requireNoAmbientInstall may skip ambient ttsc ancestry. An installed manifest missing its launcher is covered separately.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestResolveTtsxLauncherFallsBackToTheBareCommand is selected from test/unit by the utility runner unit overlay. Runs stripResolveTtsxLauncher and the manifest walk in the Go process; the returned command is not executed.
 func TestResolveTtsxLauncherFallsBackToTheBareCommand(t *testing.T) {
-  shedConfigToolEnvironment(t)
-  root := stripRealpathIfPossible(t.TempDir())
+  shared.ShedConfigToolEnvironment(t)
+  root := shared.StripRealpathIfPossible(t.TempDir())
   requireNoAmbientInstall(t, root, "ttsc")
   project := filepath.Join(root, "project")
   config := filepath.Join(project, "strip.config.ts")
-  writeFile(t, config, "export default {};\n")
+  shared.WriteFile(t, config, "export default {};\n")
 
-  if got := stripResolveTtsxLauncher(stripConfigToolAnchors(config, project)); got != "ttsx" {
+  if got := stripResolveTtsxLauncher(shared.StripConfigToolAnchors(config, project)); got != "ttsx" {
     t.Fatalf("stripResolveTtsxLauncher = %q, want the bare ttsx fallback", got)
   }
 }

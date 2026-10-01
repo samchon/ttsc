@@ -18,7 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Print must collapse the separator to a space and retain foo then bar under the default wide budget.
 // @evidence contracts/testing.md#independent-expectations The literal seven-column foo bar follows the flat Group and Line contract.
 // @evidence contracts/testing.md#distinguishing-cases This fitting branch complements the width-four broken rendering.
-// @evidence contracts/testing.md#execution-ownership TestEngineGroupCollapsesWhenFitsWidth is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineGroupCollapsesWhenFitsWidth is one Go unit entry that renders a literal Group with Print under default options in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineGroupCollapsesWhenFitsWidth(t *testing.T) {
   doc := Group(Text("foo"), Line(), Text("bar"))
   got := Print(doc, DefaultPrintOptions())

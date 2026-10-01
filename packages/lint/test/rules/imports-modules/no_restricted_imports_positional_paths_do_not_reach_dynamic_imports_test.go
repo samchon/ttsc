@@ -5,18 +5,18 @@ import (
   "testing"
 )
 
-// TestNoRestrictedImportsPositionalPathsDoNotReachDynamicImports verifies A positional blocked path reports a static import but not import() or ordinary require().
+// TestNoRestrictedImportsPositionalPathsDoNotReachDynamicImports verifies a
+// positional restricted path reports a static import but not `import()` or
+// `require()` of the same module.
 //
-// Pins the distinct option, syntax or failure branch represented by this fixture.
+// 1. Run the rule with the positional path "blocked" over a source that loads
+//    "blocked" statically, dynamically and through require().
+// 2. Compare the reported ranges with the single literal target.
 //
-// 1. Supply the authored source and configuration inputs.
-// 2. Run the owning engine or command operation in this process.
-// 3. Compare the literal findings, messages or failure state below.
-//
-// @evidence contracts/testing.md#behavioral-verification A positional blocked path reports a static import but not import() or ordinary require().
-// @evidence contracts/testing.md#independent-expectations The supported no-restricted-imports operation concerns static import/export syntax; one authored static target is expected despite identical module strings elsewhere.
-// @evidence contracts/testing.md#distinguishing-cases Static, dynamic and CommonJS forms share blocked, so treating every string or module operation as static fails.
-// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot for this entry's authored source/options and validates rule, ranges and absence of edits. assertNoRestrictedImportsTargets compares the displayed literal target list; this Test owns every invocation and message assertion in the Go process.
+// @evidence contracts/testing.md#behavioral-verification Exactly one finding is reported, at the specifier of the static `import direct from "blocked"`; the dynamic import() call and the CommonJS require() call on the following lines are not reported.
+// @evidence contracts/testing.md#independent-expectations no-restricted-imports concerns static import and export syntax, so one literal static target is expected although the same module string is loaded elsewhere in the source.
+// @evidence contracts/testing.md#distinguishing-cases Static, dynamic and CommonJS loads of the same blocked module share one source, so a rule that treated every string or module operation as an import would report three findings.
+// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot, which binds the rule at error severity, parses the source in a temporary project and runs Engine.Run in the Go test process, then rejects other rules, edits and invalid ranges. assertNoRestrictedImportsTargets compares the one literal range; the Test asserts no messages.
 func TestNoRestrictedImportsPositionalPathsDoNotReachDynamicImports(t *testing.T) {
   source := `import direct from "blocked";
 const dynamic = import("blocked");

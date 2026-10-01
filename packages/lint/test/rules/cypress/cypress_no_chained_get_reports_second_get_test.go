@@ -15,10 +15,10 @@ import (
 //  2. Enable `cypress/no-chained-get`.
 //  3. Assert the second get is reported once.
 //
-// @evidence contracts/testing.md#behavioral-verification The actual NewEngine.Run verifies get after another get produces one finding for cypress/no-chained-get; findingRules asserts the complete count and rule identity, so this does not check repository metadata.
-// @evidence contracts/testing.md#independent-expectations The second get restarts from the root instead of searching the previous subject. The expected rule and count are independently authored for that policy rather than read from engine output.
-// @evidence contracts/testing.md#distinguishing-cases find searches the existing form subject and must be accepted. Both the original reported source and an independently authored zero-finding control execute.
-// @evidence contracts/testing.md#execution-ownership TestCypressNoChainedGetReportsSecondGet is a public Go unit entry parsing Cypress-shaped TypeScript and running the owning engine in-process; it does not install Cypress, start a browser or run a product host.
+// @evidence contracts/testing.md#behavioral-verification NewEngine with only cypress/no-chained-get enabled runs over `cy.get("form").get("button");`; the test requires exactly one finding whose rule is cypress/no-chained-get at error severity (assertCypressOrdinaryRuleErrors rejects engine-failure or other-severity findings) and registers it as an engine behavioral witness.
+// @evidence contracts/testing.md#independent-expectations A second get in a chain restarts from the document root instead of searching inside the previous subject. The expected count of one and the zero-finding control are literals authored from that rule contract, not computed by the rule.
+// @evidence contracts/testing.md#distinguishing-cases Positive: `cy.get("form").get("button");` yields one finding. Negative control: `cy.get("form").find("button");` is run through assertRuleSkipsSource and must yield zero findings; find on the same subject is accepted.
+// @evidence contracts/testing.md#execution-ownership TestCypressNoChainedGetReportsSecondGet is an in-process Go unit test: parseTS plus NewEngine(...).Run for the positive case and runRuleFindingsSnapshot (via assertRuleSkipsSource) for the control. It installs no Cypress, starts no browser and no product host.
 func TestCypressNoChainedGetReportsSecondGet(t *testing.T) {
   file := parseTS(t, `
     cy.get("form").get("button");

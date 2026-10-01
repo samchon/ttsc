@@ -18,7 +18,7 @@ import { TtscCompiler } from "../../../../../packages/ttsc/src/TtscCompiler";
  *
  * @evidence contracts/testing.md#behavioral-verification The authored TtscCompiler.clean API resolves and removes a dangling runtime link; lstat proves the initial link exists despite existsSync missing its target, and cleanup returns its path before lstat reports ENOENT.
  * @evidence contracts/testing.md#independent-expectations Node native lstat observes the link itself whereas existsSync follows its target; default cleanup must remove an owned dangling cache entry rather than treating it as absent.
- * @evidence contracts/testing.md#distinguishing-cases A directory link is first valid, then made dangling by removing only its target; the returned cleanup path and absent terminal link independently detect skipping the dangling entry. Other live/legacy runtime owner cases remain in the resolver unit and minimal public clean batch.
+ * @evidence contracts/testing.md#distinguishing-cases A directory link is first valid, then made dangling by removing only its target; the returned cleanup path and absent terminal link independently detect skipping the dangling entry. A live link, a link with owned runs and a non-link runtime directory are not covered.
  * @evidence contracts/testing.md#execution-ownership This named source-unit entry imports the authored compiler API and invokes only cleanup over a temporary fixture. No compiler build, consumer install or product host runs; native directory-link input exercises the resolver's filesystem semantics directly.
  */
 export function test_ttsccompiler_clean_removes_a_dangling_runtime_link(): void {

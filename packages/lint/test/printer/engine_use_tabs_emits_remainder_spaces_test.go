@@ -24,7 +24,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Print must emit one tab and one space for a three-column indent with TabWidth two.
 // @evidence contracts/testing.md#independent-expectations Independent division gives one complete two-column tab plus one remainder column, retaining x.
 // @evidence contracts/testing.md#distinguishing-cases Nonmultiple indentation complements the whole-tab indentation case.
-// @evidence contracts/testing.md#execution-ownership TestEngineUseTabsEmitsRemainderSpaces is a public Go unit entry selected with printer cases by TestSelectedLintUnits. It calls the Doc operation in the same Go test process, without a consumer install, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestEngineUseTabsEmitsRemainderSpaces is one Go unit entry that renders a literal Indent of width 3 with Print under UseTabs and TabWidth 2 in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineUseTabsEmitsRemainderSpaces(t *testing.T) {
   doc := Indent(3, Hardline(), Text("x"))
   opts := DefaultPrintOptions()

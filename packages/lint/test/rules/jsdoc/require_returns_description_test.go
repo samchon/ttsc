@@ -2,19 +2,20 @@ package linthost
 
 import "testing"
 
-// TestRuleJSDocRequireReturnsDescription verifies jsdoc/require-returns-description.
+// TestRuleJSDocRequireReturnsDescription verifies
+// jsdoc/require-returns-description reports a @returns that has only a type and
+// accepts one with a description.
 //
-// Return docs without prose add little signal for readers or AI-generated
-// harnesses. The rule validates the tag payload directly from the comment line.
+// The rule reads the tag payload straight from the comment line.
 //
-// 1. Parse a TypeScript file with a bare @returns tag.
-// 2. Enable jsdoc/require-returns-description.
-// 3. Assert the @returns line is reported.
+// 1. Run the rule over a block whose third line is `@returns {number}` and
+//    expect one finding on line 3.
+// 2. Run the rule over a block with `@returns {number} Rounded total.` and expect none.
 //
-// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines calls the actual engine and verifies @returns {number} without prose is reported on line 3; exact rule, error severity and line checks detect missing, extra or misplaced findings.
-// @evidence contracts/testing.md#independent-expectations A result type does not explain the returned value. The literal comment and expected line establish this supported policy independently of the parser or rule result.
-// @evidence contracts/testing.md#distinguishing-cases The deficient tag in the first source is the reported case, and a second independently authored block using @returns {number} Rounded total. must produce zero findings.
-// @evidence contracts/testing.md#execution-ownership TestRuleJSDocRequireReturnsDescription is a named Go unit entry running real comment parsing and the owning engine over virtual TypeScript in the shared test process, without an installed documentation consumer or host.
+// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/require-returns-description rule through NewEngine.Run over a parsed virtual TypeScript file. `@returns {number}` yields exactly one finding, with that rule at error severity, on line 3; `@returns {number} Rounded total.` yields none.
+// @evidence contracts/testing.md#independent-expectations A result type does not explain the returned value, so a description is required after the type. The literal sources and expected line 3 follow from that policy; the message text is not asserted.
+// @evidence contracts/testing.md#distinguishing-cases The two sources differ only in the description after the {number} type. The wrapped-description case is owned by the multiline-continuation Test.
+// @evidence contracts/testing.md#execution-ownership The Test is a single Go unit with two direct helper calls; assertJSDocRuleLines parses the source with parseTSFile and runs the rule engine in the test process, with no installed consumer, native build or host.
 func TestRuleJSDocRequireReturnsDescription(t *testing.T) {
   assertJSDocRuleLines(t, "jsdoc/require-returns-description", `/**
  * Computes a value.

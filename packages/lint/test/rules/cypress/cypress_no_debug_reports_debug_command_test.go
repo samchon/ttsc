@@ -15,10 +15,10 @@ import (
 //  2. Enable `cypress/no-debug`.
 //  3. Assert the debug command is reported once.
 //
-// @evidence contracts/testing.md#behavioral-verification The actual NewEngine.Run verifies a chained debug command produces one finding for cypress/no-debug; findingRules asserts the complete count and rule identity, so this does not check repository metadata.
-// @evidence contracts/testing.md#independent-expectations debug is an interactive debugging command rather than a test action. The expected rule and count are independently authored for that policy rather than read from engine output.
-// @evidence contracts/testing.md#distinguishing-cases The same selector followed by a normal click has no debugging command. Both the original reported source and an independently authored zero-finding control execute.
-// @evidence contracts/testing.md#execution-ownership TestCypressNoDebugReportsDebugCommand is a public Go unit entry parsing Cypress-shaped TypeScript and running the owning engine in-process; it does not install Cypress, start a browser or run a product host.
+// @evidence contracts/testing.md#behavioral-verification NewEngine with only cypress/no-debug enabled runs over `cy.get("button").debug();`; the test requires exactly one finding whose rule is cypress/no-debug at error severity (assertCypressOrdinaryRuleErrors rejects engine-failure or other-severity findings) and registers it as an engine behavioral witness.
+// @evidence contracts/testing.md#independent-expectations debug is an interactive debugging leftover, not a test action, and here it is chained after a selector. The expected count of one and the zero-finding control are literals authored from that rule contract, not computed by the rule.
+// @evidence contracts/testing.md#distinguishing-cases Positive: `cy.get("button").debug();` yields one finding. Negative control: `cy.get("button").click();` is run through assertRuleSkipsSource and must yield zero findings; the same selector followed by an ordinary click is accepted.
+// @evidence contracts/testing.md#execution-ownership TestCypressNoDebugReportsDebugCommand is an in-process Go unit test: parseTS plus NewEngine(...).Run for the positive case and runRuleFindingsSnapshot (via assertRuleSkipsSource) for the control. It installs no Cypress, starts no browser and no product host.
 func TestCypressNoDebugReportsDebugCommand(t *testing.T) {
   file := parseTS(t, `
     cy.get("button").debug();

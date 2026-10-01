@@ -2,19 +2,22 @@ package linthost
 
 import "testing"
 
-// TestRuleJSDocRejectAnyType verifies jsdoc/reject-any-type rejects any.
+// TestRuleJSDocRejectAnyType verifies jsdoc/reject-any-type reports the `any`
+// identifier and the `*` wildcard in a JSDoc type and accepts `unknown`, `Any`
+// and `ANY`.
 //
-// This is a content check over JSDoc type braces. It catches weak doc types even
-// when jsdoc/no-types is not enabled in a project.
+// The rule inspects the JSDoc type payload and so applies even when
+// jsdoc/no-types is not enabled.
 //
-// 1. Parse a TypeScript file with @param {any}.
-// 2. Enable jsdoc/reject-any-type.
-// 3. Assert the @param line is reported.
+// 1. Run the rule over `@param {any}` and expect a finding on line 3, then
+//    over `@param {unknown}` and expect none.
+// 2. Run four subtests that place `Any`, `ANY`, `Array<any>` and `*` in the
+//    type brace and expect findings only for the last two.
 //
-// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines calls the actual engine and verifies @param {any} is reported on line 3; exact rule, error severity and line checks detect missing, extra or misplaced findings.
-// @evidence contracts/testing.md#independent-expectations The rule rejects unconstrained any while accepting unknown. The literal comment and expected line establish this supported policy independently of the parser or rule result.
-// @evidence contracts/testing.md#distinguishing-cases The deficient tag in the first source is the reported case, and a second independently authored block using @param {unknown} value description must produce zero findings. Named case variants additionally distinguish exact forbidden type spelling from independently authored user type names and nested generic occurrences.
-// @evidence contracts/testing.md#execution-ownership TestRuleJSDocRejectAnyType is a named Go unit entry running real comment parsing and the owning engine over virtual TypeScript in the shared test process, without an installed documentation consumer or host.
+// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/reject-any-type rule through NewEngine.Run over a parsed virtual TypeScript file. `{any}`, the nested `Array<any>` and the wildcard `*` each yield one finding on line 3 with that rule at error severity; `{unknown}`, `{Any}` and `{ANY}` yield none.
+// @evidence contracts/testing.md#independent-expectations The rule forbids the unconstrained type any (spelled exactly any, or the * wildcard) while unknown is the accepted alternative. The literal sources and expected line 3 follow from that policy; the message text is not asserted.
+// @evidence contracts/testing.md#distinguishing-cases `any` versus `unknown` isolates the keyword; `Any` and `ANY` isolate exact lowercase spelling from user type names; `Array<any>` isolates a nested occurrence; `*` isolates the wildcard spelling.
+// @evidence contracts/testing.md#execution-ownership The Test body makes two direct helper calls and then registers four in-process t.Run subtests from one literal table, each calling assertJSDocRuleLines once with its own source; the subtests share the parent Test's entry and run in the test process with no installed consumer, native build or host.
 func TestRuleJSDocRejectAnyType(t *testing.T) {
   assertJSDocRuleLines(t, "jsdoc/reject-any-type", `/**
  * Handles an input.

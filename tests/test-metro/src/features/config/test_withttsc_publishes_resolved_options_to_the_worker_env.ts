@@ -9,14 +9,15 @@ import { assertWithTtscPublishesWorkerEnv } from "../../internal/metro-config";
  * withTtsc failed to publish them, worker-side overrides (project, plugins,
  * include/exclude) would be silently lost.
  *
- * 1. Call withTtsc with explicit options and assert the env var holds their JSON.
- * 2. Call withTtsc with no options.
- * 3. Assert the env var is the explicit empty payload `"{}"`, never undefined.
+ * 1. Call withTtsc with `project` and `exclude` options and assert the env
+ *    JSON carries them plus a 32-hex `__snapshotRunId` that resolveOptionsFromEnv reads back.
+ * 2. Call withTtsc again with no options.
+ * 3. Assert the env JSON then has exactly one key, `__snapshotRunId`, holding a 32-hex id.
  *
- * @evidence contracts/testing.md#behavioral-verification withTtsc publishes project/exclude options plus a valid private run identity, then replaces them with only that identity when options are absent.
- * @evidence contracts/testing.md#independent-expectations JSON worker transport preserves authored values and documented 32-hex run IDs; the options resolver must see the same published handshake.
- * @evidence contracts/testing.md#distinguishing-cases Explicit options contrast a subsequent default call, detecting stale environment overlay retention.
- * @evidence contracts/testing.md#execution-ownership This matching src/features export calls authored Metro operations through the source-unit loader. Input filesystem/module fixtures and declared upstream callbacks remain test-local; no installed consumer, native compiler or product host is launched.
+ * @evidence contracts/testing.md#behavioral-verification withTtsc with project and exclude options leaves TTSC_METRO_OPTIONS holding those values and a 32-hex __snapshotRunId that resolveOptionsFromEnv returns as snapshotRunId; a following call with no options replaces it with a payload whose only key is __snapshotRunId.
+ * @evidence contracts/testing.md#independent-expectations The authored option values are compared literally against the parsed JSON, the run id against the documented 32-hex pattern, and the default payload against the exact key list ["__snapshotRunId"]; resolveOptionsFromEnv is used only to confirm the worker side reads the same id.
+ * @evidence contracts/testing.md#distinguishing-cases A call with explicit options is contrasted with a subsequent default call in the same process, so options left over from the first call would fail the exact-keys check.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls withTtsc and resolveOptionsFromEnv from packages/metro source in-process on a temp projectRoot, restoring TTSC_METRO_OPTIONS and the transform-session variables afterwards; no native compile, consumer install or Metro host.
  */
 export const test_withttsc_publishes_resolved_options_to_the_worker_env =
   async () => {

@@ -16,9 +16,9 @@ import path from "node:path";
  * 4. Assert the descendant is selected and the sibling is preserved.
  *
  * @evidence contracts/testing.md#behavioral-verification rootsInsideRemovedWorkspace returns clients below the removed workspace only.
- * @evidence contracts/testing.md#independent-expectations removing a workspace stops its descendant clients while independent workspaces retain ownership.
- * @evidence contracts/testing.md#distinguishing-cases a nested client below the removed root contrasts with an unrelated sibling client.
- * @evidence contracts/testing.md#execution-ownership The named test_vscode_server_resolution_removes_descendant_workspace_roots function runs under src/features/ttscserver and calls authored serverResolution functions directly; fixture manifests are resolver input, and no language client or product process starts.
+ * @evidence contracts/testing.md#independent-expectations The expected list is the single authored nested path: a client rooted below the removed workspace must stop and a client in another workspace must remain, which follows from the removal contract rather than from the helper's containment code.
+ * @evidence contracts/testing.md#distinguishing-cases A nested client below the removed root is selected and an unrelated sibling directory (tmp/other next to tmp/repo) is not. The removed root itself in the list and an alias or case-variant spelling are not covered.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls rootsInsideRemovedWorkspace with the default identity context over three path strings that are never created on disk (identity falls back to lexical containment), with no fixture files, language client or child process.
  */
 export function test_vscode_server_resolution_removes_descendant_workspace_roots() {
   const repo = TestProject.WORKSPACE_ROOT;

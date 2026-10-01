@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification printNamedImports must retain { a, b } instead of losing the bindings when Elements is nil.
 // @evidence contracts/testing.md#independent-expectations The independently supplied import source determines the exact binding clause; empty synthetic range remains an empty-output boundary.
 // @evidence contracts/testing.md#distinguishing-cases The absent list complements malformed specifier and valid flat/broken named imports.
-// @evidence contracts/testing.md#execution-ownership TestDispatchNamedImportsFallsBackWhenElementsNil is a selected public Go unit under TestSelectedLintUnits. It parses or constructs an AST and calls its owning printer directly in the shared Go process; no consumer installation, native product build or product host executes.
+// @evidence contracts/testing.md#execution-ownership TestDispatchNamedImportsFallsBackWhenElementsNil is a plain top-level Go unit test, selectable with go test -run, that calls printNamedImports directly on a factory-built NamedImports with no Elements and a parsed clause whose Elements are cleared inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestDispatchNamedImportsFallsBackWhenElementsNil(t *testing.T) {
   file := parseTS(t, "\n")
   ctx := NewPrintContext(file, DefaultPrintOptions())

@@ -4,6 +4,8 @@ import (
   "path/filepath"
   "strings"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/banner/test/internal/shared"
 )
 
 // TestConfigPathDiscovery verifies banner config path resolution and upward search.
@@ -24,8 +26,8 @@ func TestConfigPathDiscovery(t *testing.T) {
   root := t.TempDir()
   project := filepath.Join(root, "packages", "demo")
   tsconfig := filepath.Join(project, "tsconfig.json")
-  writeFile(t, tsconfig, "{}")
-  writeFile(t, filepath.Join(root, "banner.config.js"), `export default { text: "root" };`)
+  shared.WriteFile(t, tsconfig, "{}")
+  shared.WriteFile(t, filepath.Join(root, "banner.config.js"), `export default { text: "root" };`)
 
   if got := bannerTsconfigBaseDir(root, "packages/demo/tsconfig.json"); got != project {
     t.Fatalf("relative tsconfig base mismatch: %q", got)
@@ -48,7 +50,7 @@ func TestConfigPathDiscovery(t *testing.T) {
   if location != filepath.Join(root, "banner.config.js") {
     t.Fatalf("discovered parent config mismatch: %q", location)
   }
-  writeFile(t, filepath.Join(project, "banner.config.cjs"), `module.exports = { text: "project" };`)
+  shared.WriteFile(t, filepath.Join(project, "banner.config.cjs"), `module.exports = { text: "project" };`)
   location, _, err = bannerFindBannerConfigFile(root, "packages/demo/tsconfig.json")
   if err != nil {
     t.Fatal(err)
@@ -56,7 +58,7 @@ func TestConfigPathDiscovery(t *testing.T) {
   if location != filepath.Join(project, "banner.config.cjs") {
     t.Fatalf("discovered project config mismatch: %q", location)
   }
-  writeFile(t, filepath.Join(project, "banner.config.mjs"), `export default { text: "duplicate" };`)
+  shared.WriteFile(t, filepath.Join(project, "banner.config.mjs"), `export default { text: "duplicate" };`)
   if _, _, err := bannerFindBannerConfigFile(root, "packages/demo/tsconfig.json"); err == nil ||
     !strings.Contains(err.Error(), "multiple banner config files") ||
     !strings.Contains(err.Error(), "configFile") {

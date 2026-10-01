@@ -14,10 +14,10 @@ import { resolveSingleFileOutput } from "../../../../../packages/ttsc/src/launch
  *    the ordinary js path.
  * 3. Resolve it for a separate jsx and preserve pair and require the jsx path.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls the authored positional output resolver with inline and separate JSX preserve spellings, retaining exact .js versus .jsx path assertions from the compiler boundary matrix.
- * @evidence contracts/testing.md#independent-expectations The independently authored source/config and pinned separate-value grammar determine dist/view.js and dist/view.jsx; no compiler result computes the expectation.
+ * @evidence contracts/testing.md#behavioral-verification resolveSingleFileOutput is called for src/view.tsx in a temp commonjs project (outDir dist, rootDir src) with passthrough [--jsx=preserve], which must yield dist/view.js, and with [--jsx, preserve], which must yield dist/view.jsx.
+ * @evidence contracts/testing.md#independent-expectations The expected paths are literals derived from the fixture's tsconfig layout (src to dist) and the rule that only a separate '--jsx preserve' pair selects preserve output, since an attached '=' spelling is not read as the option value; neither value is obtained from a compiler run.
  * @evidence contracts/testing.md#distinguishing-cases Inline equals spelling differs from a separate option/value pair on the same source and configuration.
- * @evidence contracts/testing.md#execution-ownership This named source unit directly calls the authored resolver on a registered filesystem fixture; no installed consumer, native build or product process is created.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling resolveSingleFileOutput directly against a temp project directory; no compiler, install or native build runs.
  */
 export const test_resolvesinglefileoutput_distinguishes_inline_and_separate_jsx_values = () => {
   const root = TestProject.physicalPath(TestProject.commonJsProject({

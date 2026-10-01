@@ -9,15 +9,15 @@ import { assertCacheKeyForwardsAndFoldsUpstreamKey } from "../../internal/metro-
  * `babel.config.js`/projectRoot change still busts the cache, and must still
  * produce a valid key when the upstream exposes no getCacheKey.
  *
- * 1. Compute getCacheKey with two different forwarded projectRoots; assert they
- *    differ.
+ * 1. Compute getCacheKey for one prepared project with `enableBabelRCLookup`
+ *    true and false against an upstream whose key echoes its arguments; assert they differ.
  * 2. Compute getCacheKey against an upstream that has no getCacheKey.
- * 3. Assert that still yields a valid 64-char hex digest.
+ * 3. Assert that still yields a 64-character string key.
  *
- * @evidence contracts/testing.md#behavioral-verification Different enableBabelRCLookup values reach the upstream key and change the composed key; an upstream without getCacheKey still yields a 64-character key.
- * @evidence contracts/testing.md#independent-expectations The upstream fixture independently echoes its input, so the authored boolean difference must contribute to key inequality; an optional callback may be omitted.
- * @evidence contracts/testing.md#distinguishing-cases Forwarded true/false contrasts absence of the optional upstream callback under one project snapshot.
- * @evidence contracts/testing.md#execution-ownership This matching src/features export calls authored Metro operations through the source-unit loader. Input filesystem/module fixtures and declared upstream callbacks remain test-local; no installed consumer, native compiler or product host is launched.
+ * @evidence contracts/testing.md#behavioral-verification getCacheKey for one prepared project returns different keys for enableBabelRCLookup true versus false when the fake upstream's getCacheKey echoes its arguments, and returns a 64-character string when the upstream exports no getCacheKey.
+ * @evidence contracts/testing.md#independent-expectations The fake upstream key is a JSON echo of its first argument, so the authored true/false difference can only reach the result through forwarding; the second expectation is a literal type and width for a key built without an upstream contribution.
+ * @evidence contracts/testing.md#distinguishing-cases A forwarded-argument change (inequality) and an upstream without getCacheKey (valid key) are separate checks; the third key uses a different upstream module and is not compared against the first two.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls prepareSnapshot and getCacheKey from freshly loaded transformer modules in-process, with fake CommonJS upstreams written to a temp directory; no native compile, consumer install or Metro host.
  */
 export const test_cache_key_forwards_and_folds_the_upstream_key = async () => {
   await assertCacheKeyForwardsAndFoldsUpstreamKey();

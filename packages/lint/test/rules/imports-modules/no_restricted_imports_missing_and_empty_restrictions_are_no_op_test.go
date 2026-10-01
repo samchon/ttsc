@@ -5,18 +5,20 @@ import (
   "testing"
 )
 
-// TestNoRestrictedImportsMissingAndEmptyRestrictionsAreNoOp verifies Engine restricts no module when options are missing or empty, instead of inferring policy from ordinary import names.
+// TestNoRestrictedImportsMissingAndEmptyRestrictionsAreNoOp verifies the rule
+// reports nothing when its options are absent or restrict nothing.
 //
-// Pins the distinct option, syntax or failure branch represented by this fixture.
+// The Test runs one source that imports lodash, re-exports from underscore and
+// imports node:fs once for each of six option values: no options, `{}`, `[]`,
+// `{"paths":[]}`, `{"patterns":[]}` and `{"paths":[],"patterns":[]}`.
 //
-// 1. Supply the authored source and configuration inputs.
-// 2. Run the owning engine or command operation in this process.
-// 3. Compare the literal findings, messages or failure state below.
+// 1. Run the rule with each option value over the source.
+// 2. Require zero findings for every value.
 //
-// @evidence contracts/testing.md#behavioral-verification Engine restricts no module when options are missing or empty, instead of inferring policy from ordinary import names.
-// @evidence contracts/testing.md#independent-expectations The supported absence of a restriction permits every authored lodash, underscore and node:fs operation; six literal empty representations establish the zero oracle.
-// @evidence contracts/testing.md#distinguishing-cases Missing options, empty object/array, empty paths, empty patterns and both empty populations retain distinct decoding inputs.
-// @evidence contracts/testing.md#execution-ownership Each of the six authored empty option values is passed to runNoRestrictedImports, which calls runRuleFindingsSnapshot and validates returned ranges and absence of edits. This Test entry owns every direct zero-finding comparison in its loop; no consumer installation or product-host process runs.
+// @evidence contracts/testing.md#behavioral-verification For each of the six option values the rule produces no finding for the lodash import, the underscore reexport and the node:fs import, so the rule has no built-in policy of its own.
+// @evidence contracts/testing.md#independent-expectations With nothing configured nothing is restricted, so every authored import is allowed; the zero expectation is a literal that follows from that contract, and the six option values are authored literals.
+// @evidence contracts/testing.md#distinguishing-cases The six option values cover missing options, an empty object, an empty array, empty paths, empty patterns and both empty. They are all negative cases; the reporting counterparts live in the sibling no-restricted-imports Tests.
+// @evidence contracts/testing.md#execution-ownership A loop over the six option values calls runNoRestrictedImports, which calls runRuleFindingsSnapshot (binding the rule at error severity, so an invalid option would fail the Test) and runs Engine.Run in the Go test process. The Test asserts the zero-length result for each iteration.
 func TestNoRestrictedImportsMissingAndEmptyRestrictionsAreNoOp(t *testing.T) {
   source := `import lodash from "lodash";
 export { map } from "underscore";

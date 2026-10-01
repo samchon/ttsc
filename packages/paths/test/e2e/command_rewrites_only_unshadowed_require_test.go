@@ -5,6 +5,8 @@ import (
   "path/filepath"
   "strings"
   "testing"
+
+  shared "github.com/samchon/ttsc/packages/paths/test/internal/shared"
 )
 
 // TestCommandRewritesOnlyUnshadowedRequire verifies paths rewrites only the CommonJS loader.
@@ -21,11 +23,11 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Ambient declaration and unbound identifiers change; parameter, local and imported require bindings must not. The emitted Node execution checks both loader results and shadowed values.
 // @evidence contracts/testing.md#execution-ownership The discoverable TestCommandRewritesOnlyUnshadowedRequire entry runs in the paths E2E population and calls the real compiled package sidecar; runPlugin captures its native exit and separate streams. This classification does not move its portable assertions into units.
 // @evidence contracts/e2e.md#necessary-boundary The native compiler rewrite, emit and actual Node module loader connect here. Direct AST assertions cannot prove that the published program still executes the intended shadowed bindings.
-// @evidence contracts/e2e.md#shared-execution All paths command entries use resolvePluginBinary once per test process, or the suite-supplied immutable producer. This case starts independent command consumers with the exact arguments above; only binary bytes are shared, not a loaded project or process session.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity For TestCommandRewritesOnlyUnshadowedRequire, command exits release each process; t.TempDir owns any fixture and output tree until case cleanup. TestMain owns only a fallback producer directory, while a supplied binary is runner-owned. No cold/invalidation transition is asserted here.
-// @evidence contracts/e2e.md#preserved-coverage The existing TestCommandRewritesOnlyUnshadowedRequire inputs, statuses, stream checks and any output assertions remain executable in this entry unchanged. No portable owner is inferred merely from another unit suite, and further reduction requires an exact assertion transfer.
+// @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts one build process, followed by one node child that runs the emitted modules, from that binary and shares no loaded project or running session with any other entry.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity shared.SeedProject writes the fixture under t.TempDir, removed at cleanup; the build exits before the body writes dist/runner.mjs into the emitted output tree and starts the node child there. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
+// @evidence contracts/e2e.md#preserved-coverage The build status/stream check (L55), loader/unbound rewrite checks (L60, L64), shadowed-output retention checks (L69) and the Node-executed result array (L95) are all made in this body.
 func TestCommandRewritesOnlyUnshadowedRequire(t *testing.T) {
-  root := seedProject(t, map[string]string{
+  root := shared.SeedProject(t, map[string]string{
     "package.json":        `{"type":"module"}` + "\n",
     "tsconfig.json":       `{"compilerOptions":{"target":"ES2022","module":"nodenext","moduleResolution":"nodenext","strict":true,"paths":{"@lib/*":["./src/lib/*"]},"outDir":"dist","rootDir":"src"},"include":["src"]}`,
     "src/lib/message.cts": `export const message = "ok";` + "\n",

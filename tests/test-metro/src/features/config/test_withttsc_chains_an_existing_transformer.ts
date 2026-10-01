@@ -11,10 +11,10 @@ import { assertWithTtscChainsAnExistingTransformer } from "../../internal/metro-
  * 2. Configure each spelling, explicit override and double wrapping.
  * 3. Assert every published upstream adoption and refusal from the worker payload.
  *
- * @evidence contracts/testing.md#behavioral-verification withTtsc resolves absolute, relative and package upstreams, retains unresolved spellings, honors explicit override and rejects self-delegation while accepting a lookalike foreign transformer.
- * @evidence contracts/testing.md#independent-expectations Each authored fixture path/package name independently identifies its owner; the explicit override and self-reference contracts determine every published upstream.
- * @evidence contracts/testing.md#distinguishing-cases All original adoption spellings, unresolved path, explicit precedence, missing config, double wrapping, duplicate package copy, self package specifier and foreign same-filename controls remain.
- * @evidence contracts/testing.md#execution-ownership This matching src/features export calls authored Metro operations through the source-unit loader. Input filesystem/module fixtures and declared upstream callbacks remain test-local; no installed consumer, native compiler or product host is launched.
+ * @evidence contracts/testing.md#behavioral-verification withTtsc publishes an absolute, project-relative or bare-package babelTransformerPath as the worker upstream (resolved from the project), passes an unresolvable spelling through as written, lets an explicit upstreamTransformer win, publishes none for a bare config, a doubly wrapped config, a duplicate @ttsc/metro copy and an @ttsc/metro specifier, and still chains a foreign module named transformer.js.
+ * @evidence contracts/testing.md#independent-expectations Each fixture module path and package name is authored in the test, so the expected published upstream (the exact path, the literal spelling, or undefined) follows from the explicit-override and self-delegation rules rather than from the resolver's output.
+ * @evidence contracts/testing.md#distinguishing-cases Adoption spellings (absolute, relative, bare), the unresolved spelling, explicit precedence, no declared transformer, double wrapping, a second installed copy, the package specifier and a foreign lookalike transformer.js are separate asserted cases in this body.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: calls withTtsc in-process against temp project roots with fake node_modules packages and reads the result back from TTSC_METRO_OPTIONS (restored afterwards); no native compile, consumer install or Metro host is started.
  */
 export const test_withttsc_chains_an_existing_transformer = async () => {
   await assertWithTtscChainsAnExistingTransformer();

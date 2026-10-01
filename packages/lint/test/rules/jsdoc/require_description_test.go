@@ -2,19 +2,21 @@ package linthost
 
 import "testing"
 
-// TestRuleJSDocRequireDescription verifies jsdoc/require-description rejects tag-only blocks.
+// TestRuleJSDocRequireDescription verifies jsdoc/require-description reports a
+// doc block that holds only tags and accepts the same block with prose.
 //
-// The rule is intentionally comment-local: a doc block with only tags does not
-// explain the declaration, regardless of which AST node the comment precedes.
+// The rule is comment-local: a block with only tags does not explain the
+// declaration regardless of which node the comment precedes.
 //
-// 1. Parse a TypeScript file with a tag-only JSDoc block.
-// 2. Enable jsdoc/require-description.
-// 3. Assert the block start is reported.
+// 1. Run the rule over a block whose only content is `@param name description`
+//    and expect one finding on line 1, the opening line of the block.
+// 2. Run the rule over a block that adds the prose line `Explains the
+//    declaration.` before the same tag and expect none.
 //
-// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines calls the actual engine and verifies a tag-only block is reported at its opening line; exact rule, error severity and line checks detect missing, extra or misplaced findings.
-// @evidence contracts/testing.md#independent-expectations Tag payload is not a declaration description; a prose line supplies the missing description. The literal comment and expected line establish this supported policy independently of the parser or rule result.
-// @evidence contracts/testing.md#distinguishing-cases The deficient tag in the first source is the reported case, and a second independently authored block using @param name description must produce zero findings.
-// @evidence contracts/testing.md#execution-ownership TestRuleJSDocRequireDescription is a named Go unit entry running real comment parsing and the owning engine over virtual TypeScript in the shared test process, without an installed documentation consumer or host.
+// @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines runs the registered jsdoc/require-description rule through NewEngine.Run over a parsed virtual TypeScript file. The tag-only block yields exactly one finding, with that rule at error severity, on line 1 (the `/**` opener); the block with a prose line yields none.
+// @evidence contracts/testing.md#independent-expectations A tag payload is not a description of the declaration, so only a prose line satisfies the rule. The literal sources and the expected opening line 1 follow from that policy; the message text is not asserted.
+// @evidence contracts/testing.md#distinguishing-cases The two sources carry the same @param tag; only the added prose line separates a violation from a pass.
+// @evidence contracts/testing.md#execution-ownership The Test is a single Go unit with two direct helper calls; assertJSDocRuleLines parses the source with parseTSFile and runs the rule engine in the test process, with no installed consumer, native build or host.
 func TestRuleJSDocRequireDescription(t *testing.T) {
   assertJSDocRuleLines(t, "jsdoc/require-description", `/**
  * @param name description

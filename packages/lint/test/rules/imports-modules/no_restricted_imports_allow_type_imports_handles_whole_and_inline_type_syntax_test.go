@@ -5,18 +5,23 @@ import (
   "testing"
 )
 
-// TestNoRestrictedImportsAllowTypeImportsHandlesWholeAndInlineTypeSyntax verifies Type import exemptions distinguish whole declarations and inline specifiers from remaining value imports and reexports.
+// TestNoRestrictedImportsAllowTypeImportsHandlesWholeAndInlineTypeSyntax
+// verifies allowTypeImports exempts whole type-only declarations and inline
+// type specifiers while value imports and reexports of the same modules are
+// still reported.
 //
-// Pins the distinct option, syntax or failure branch represented by this fixture.
+// The "types" path is restricted outright with allowTypeImports; the "names"
+// path restricts importNames Foo and Bar with allowTypeImports. The source mixes
+// `import type`, inline `type` specifiers, `export type`, `export type *`,
+// `import type … = require` and plain value forms.
 //
-// 1. Supply the authored source and configuration inputs.
-// 2. Run the owning engine or command operation in this process.
-// 3. Compare the literal findings, messages or failure state below.
+// 1. Run the rule with the two path entries.
+// 2. Compare the reported ranges with the literal list.
 //
-// @evidence contracts/testing.md#behavioral-verification Type import exemptions distinguish whole declarations and inline specifiers from remaining value imports and reexports.
-// @evidence contracts/testing.md#independent-expectations allowTypeImports exempts type-only names while the authored options still forbid value exposure. The literal target list requires two whole-module types targets and two Bar specifiers.
-// @evidence contracts/testing.md#distinguishing-cases Clause and inline type imports, mixed clauses, type reexports, export-type-star and import-equals controls coexist with named Bar and default Value violations.
-// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot for this entry's authored source/options and validates rule, ranges and absence of edits. assertNoRestrictedImportsTargets compares the displayed literal target list; this Test owns every invocation and message assertion in the Go process.
+// @evidence contracts/testing.md#behavioral-verification For the "types" path the clause-level type forms (import type, mixed inline-type-only import, export type, inline export type, export type *, import type = require) are skipped and the lines 3 and 10 declarations are reported at their module specifiers; for the "names" path the inline type Foo specifiers are skipped and the value Bar specifiers of the import and the reexport are reported.
+// @evidence contracts/testing.md#independent-expectations allowTypeImports exempts only type-only usage, so a declaration that still carries a value name remains restricted. The expected list is four literals in source order: the line 3 and line 10 "types" specifiers and the two Bar specifiers.
+// @evidence contracts/testing.md#distinguishing-cases Whole-declaration type forms, inline type specifiers, a mixed clause with a value specifier (line 3), a plain default import (line 10) and the "names" path with a value name Bar all appear in one source, so exempting every declaration of the module or ignoring inline type syntax changes the result.
+// @evidence contracts/testing.md#execution-ownership runNoRestrictedImports calls runRuleFindingsSnapshot, which binds the rule at error severity, parses the source in a temporary project and runs Engine.Run in the Go test process, then rejects other rules, edits and invalid ranges. assertNoRestrictedImportsTargets compares the four literal ranges; the Test asserts no messages.
 func TestNoRestrictedImportsAllowTypeImportsHandlesWholeAndInlineTypeSyntax(t *testing.T) {
   source := `import type { Foo } from "types";
 import { type Foo } from "types";
