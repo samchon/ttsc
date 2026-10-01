@@ -1,14 +1,13 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { pluginSourceDigest } from "ttsc/plugin-source";
 
-import { refreshFilesystemClockReference } from "../../../../../../packages/unplugin/lib/core/transform/clock/refreshFilesystemClockReference.mjs";
-import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../../packages/unplugin/lib/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS.mjs";
-import type { TtscTransformFilesystemOperations } from "../../../../../../packages/unplugin/lib/core/transform/filesystem/TtscTransformFilesystemOperations.mjs";
-import { pluginSourceFilesDigest } from "../../../../../../packages/unplugin/lib/core/transform/inputs/pluginSourceFilesDigest.mjs";
+import { refreshFilesystemClockReference } from "../../../../../packages/unplugin/src/core/transform/clock/refreshFilesystemClockReference";
+import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
+import type { TtscTransformFilesystemOperations } from "../../../../../packages/unplugin/src/core/transform/filesystem/TtscTransformFilesystemOperations";
+import { pluginSourceFilesDigest } from "../../../../../packages/unplugin/src/core/transform/inputs/pluginSourceFilesDigest";
 
 /**
  * Verifies a plugin source's files are read again only when their metadata
@@ -45,11 +44,7 @@ import { pluginSourceFilesDigest } from "../../../../../../packages/unplugin/lib
  * @evidence contracts/testing.md#behavioral-verification Calls pluginSourceFilesDigest against controlled lstat and compares current digests with ttsc pluginSourceDigest; checks retained old bytes, rereads after edits, nonseparable stamps, refreshed clock, file addition/removal and absent clock reference.
  * @evidence contracts/testing.md#independent-expectations ttsc pluginSourceDigest reads current file content independently of the adapter metadata memo; changed bytes must disagree with a retained old digest. Shared upstream source discovery remains an oracle limitation for omissions common to both digest providers.
  * @evidence contracts/testing.md#distinguishing-cases Owns old/separable versus current/nonseparable stamps, metadata-held byte changes, a newer reference, changed file set and reference removal. Explicit old/new digest disagreement distinguishes reread from accidental identical content.
- * @evidence contracts/testing.md#execution-ownership E2E entry invokes the built adapter and ttsc plugin-source API over a real source tree; the reference digest discovers the actual Go environment. No plugin binary is built and no product host starts.
- * @evidence contracts/e2e.md#necessary-boundary The adapter digest must agree with the real source provider whose Go identity contributes to state. Portable metadata reuse is exercised through the seam, but the independent current-content oracle presently requires that provider connection.
- * @evidence contracts/e2e.md#shared-execution One source fixture and one clock directory serve all five phases. Built artifacts and toolchain installation are shared; repeated unchanged environment probes may reuse provider metadata, while byte/stamp/file-set mutations require fresh digest decisions.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Held metadata is released between phases and each remint deliberately establishes a new separability frontier. Fixture directories are TestProject-owned until worker exit; the filesystem-specific digest/reference state remains associated with its case object.
- * @evidence contracts/e2e.md#preserved-coverage Every existing digest equality/inequality and file-set/reference transition stays in this entry. It remains a mixed content-provider integration and metadata-semantics case; no pure-unit transfer or native compile coverage is claimed.
+ * @evidence contracts/testing.md#execution-ownership The test-unplugin feature runner calls authored pluginSourceFilesDigest and refreshFilesystemClockReference directly. Native fixture enumeration and byte hashing are portable filesystem operations; neither pluginSourceDigest nor its selector starts Go, compiles a binary, installs a consumer or starts a product host.
  */
 export async function test_plugin_source_files_are_read_again_only_when_their_metadata_moves(): Promise<void> {
   const root = fs.realpathSync.native(
@@ -58,7 +53,13 @@ export async function test_plugin_source_files_are_read_again_only_when_their_me
   const source = path.join(root, "plugin");
   const reference = path.join(root, "clock");
   fs.mkdirSync(reference);
-  TestProject.writeFiles(source, FixtureFiles.read("plugin_source_files_are_read_again_only_when_their_metadata_moves/inputs-1", "unplugin"));
+  TestProject.copyDirectory(
+    path.join(
+      TestProject.WORKSPACE_ROOT,
+      "packages/unplugin/test/fixtures/unit/plugin-source-metadata",
+    ),
+    source,
+  );
   const main = path.join(source, "main.go");
   const files = () =>
     fs
