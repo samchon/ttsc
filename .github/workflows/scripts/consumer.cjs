@@ -9,6 +9,13 @@ const producerRoot = path.resolve(__dirname, "../../..");
 const YAML = createRequire(path.join(producerRoot, "packages/evidence/package.json"))("yaml");
 const [consumerArgument, ...rest] = process.argv.slice(2);
 const goModules = rest.filter((argument) => argument.startsWith("--go=")).map((argument) => argument.slice(5));
+const patches = rest.filter((argument) => argument.startsWith("--patch=")).map((argument) => path.resolve(argument.slice(8)));
+const packagePatches = rest.filter((argument) => argument.startsWith("--package-patch=")).map((argument) => {
+  const pair = argument.slice(16);
+  const separator = pair.indexOf("=");
+  if (separator < 1) throw new Error("Expected --package-patch=<package@version>=<patch path>");
+  return [pair.slice(0, separator), path.resolve(pair.slice(separator + 1))];
+});
 const consumer = path.resolve(consumerArgument);
 const tarballs = path.join(producerRoot, "experimental", "tarballs");
 const platform = `${process.platform}-${process.arch}`;
@@ -19,8 +26,20 @@ const artifacts = {
 };
 const relative = (to) => path.relative(consumer, to).split(path.sep).join("/");
 
+// Apply reviewed compatibility sources before installation or compilation.
+// A changed upstream context fails instead of claiming an unsupported protocol.
+for (const patch of patches) {
+  cp.execFileSync("git", ["apply", "--check", patch], { cwd: consumer, stdio: "inherit" });
+  cp.execFileSync("git", ["apply", patch], { cwd: consumer, stdio: "inherit" });
+}
+
 const workspaceFile = path.join(consumer, "pnpm-workspace.yaml");
 const workspace = YAML.parse(fs.readFileSync(workspaceFile, "utf8"));
+if (packagePatches.length)
+  workspace.patchedDependencies = {
+    ...workspace.patchedDependencies,
+    ...Object.fromEntries(packagePatches.map(([name, file]) => [name, relative(file)])),
+  };
 workspace.overrides = {
   ...workspace.overrides,
   ...Object.fromEntries(

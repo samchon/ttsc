@@ -60,6 +60,11 @@ overrides:
   next@16.3.4: 16.3.6
   '@xmldom/xmldom': 0.9.12
 
+patchedDependencies:
+  typia@15.0.0:
+    hash: e40b89a5e32ef6c2e8c72cc534be8f756544faf5c03affb4f5320f8fce866ebc
+    path: .github/workflows/patches/typia-15.0.0-emit-provenance.patch
+
 importers:
 
   .:
@@ -108,7 +113,7 @@ importers:
         version: 7.0.2
       typia:
         specifier: catalog:samchon
-        version: 15.0.0(ttsc@packages+ttsc)
+        version: 15.0.0(patch_hash=e40b89a5e32ef6c2e8c72cc534be8f756544faf5c03affb4f5320f8fce866ebc)(ttsc@packages+ttsc)
       yaml:
         specifier: catalog:utils
         version: 2.9.0
@@ -220,7 +225,7 @@ importers:
         version: 15.0.0(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))
       typia:
         specifier: catalog:samchon
-        version: 15.0.0(ttsc@packages+ttsc)
+        version: 15.0.0(patch_hash=e40b89a5e32ef6c2e8c72cc534be8f756544faf5c03affb4f5320f8fce866ebc)(ttsc@packages+ttsc)
     devDependencies:
       '@types/node':
         specifier: catalog:utils
@@ -949,7 +954,7 @@ importers:
         version: 5.9.3
       typia:
         specifier: catalog:samchon
-        version: 15.0.0(ttsc@packages+ttsc)
+        version: 15.0.0(patch_hash=e40b89a5e32ef6c2e8c72cc534be8f756544faf5c03affb4f5320f8fce866ebc)(ttsc@packages+ttsc)
     devDependencies:
       '@marp-team/marp-cli':
         specifier: ^4.5.0
@@ -13130,7 +13135,7 @@ snapshots:
     optionalDependencies:
       ttsc: 0.30.4
 
-  typia@15.0.0(ttsc@packages+ttsc):
+  typia@15.0.0(patch_hash=e40b89a5e32ef6c2e8c72cc534be8f756544faf5c03affb4f5320f8fce866ebc)(ttsc@packages+ttsc):
     dependencies:
       '@typia/interface': 15.0.0
       '@typia/utils': 15.0.0

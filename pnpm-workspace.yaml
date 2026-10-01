@@ -5,6 +5,8 @@ packages:
   - "packages/lint/test/lint-contributor-demo"
   - "tests/*"
   - "website"
+patchedDependencies:
+  typia@15.0.0: .github/workflows/patches/typia-15.0.0-emit-provenance.patch
 overrides:
   # Patch releases retain each installed major's API while clearing the
   # severe advisories reported by the locked dependency graph.
