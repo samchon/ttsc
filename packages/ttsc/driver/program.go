@@ -430,7 +430,12 @@ func parseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.Compil
     cliOptions = &core.CompilerOptions{}
   }
   parsed, diags := tsoptions.GetParsedCommandLineOfConfigFile(resolved, cliOptions, tsoptions.CommandLineRawOptions(commandLine), host, nil)
-  allDiags := append(diags, parsed.Errors...)
+  allDiags := diags
+  if parsed != nil {
+    // Read failures are returned separately; recoverable JSON syntax errors
+    // belong to the parsed source before its option-conversion diagnostics.
+    allDiags = append(allDiags, parsed.GetConfigFileParsingDiagnostics()...)
+  }
   if len(allDiags) > 0 {
     return nil, convertDiagnostics(allDiags), nil
   }
