@@ -667,6 +667,8 @@ function runWatch(
     if (closed) return;
     running = true;
     const change = pendingChanges.take();
+    if (process.env.TTSC_WATCH_DEBUG_INPUTS)
+      debugWatchInputs(`cycle ${JSON.stringify(change)}`);
     let completed = false;
     try {
       if (!options.preserveWatchOutput) {

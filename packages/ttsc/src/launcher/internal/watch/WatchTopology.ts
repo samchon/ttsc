@@ -45,6 +45,10 @@ import { watchDirectory } from "./watchDirectory";
  * source trees of selected native plugins supplement that list, while compiler
  * outputs are filtered before any watcher is installed.
  *
+ * `TTSC_WATCH_DEBUG_INPUTS` reports the named event, observed population deltas
+ * and reload decision. These diagnostics reuse the decision's existing inputs;
+ * they perform no extra filesystem observations.
+ *
  * @evidence contracts/common.md#principled-implementation Compiler-provided membership, published rule inputs and actual content fingerprints qualify notifications; post-registration reconciliation closes observation handoff gaps without treating matching territory as changed content. Explicit observer operations preserve native defaults without replacing global filesystem methods; compiler membership remains compiler-owned.
  * @evidence contracts/common.md#clear-and-simple-design Compiler, plugin and project-input watch populations keep their own baselines and callbacks under one topology owner; small classifiers separate membership, selection and handle replacement. Three distinct operations own directory subscriptions, file subscriptions and immediate reload-directory reads; existing callers need no new argument.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported native backends and explicit gap/replacement ownership replace foreign watcher patching; failed observation is reported rather than represented as complete coverage. The constructor manufactures no observations and bypasses no input or content proof; supplied operations retain the existing callback and result contracts.
@@ -278,13 +282,19 @@ export class WatchTopology {
       changed,
       population.globs,
     );
-    const reload = projectInputReloadEventShouldNotify({
+    const reloadInput = {
       causedBy,
       changed: causedBy.length === 1 ? causedBy[0] : undefined,
       changedInputs,
       globs: population.globs,
       reloadDirectories: population.reloadDirectories,
       reloadFiles: population.reloadFiles ?? [],
+    };
+    const reload = projectInputReloadEventShouldNotify(reloadInput);
+    reportProjectInputDecision({
+      source: "compiler-membership",
+      ...reloadInput,
+      reload,
     });
     // The callback below consumes the complete population observed by this
     // scan. Crucially, reload classification runs against the old baseline
@@ -1283,13 +1293,14 @@ export class WatchTopology {
       // link pointed at when the snapshot was published, so after a retarget it
       // names the wrong one; only the declared form resolves to what the link
       // points at now, which is the selection this lane exists to protect.
-      const reload = projectInputReloadEventShouldNotify({
+      const reloadInput = {
         changed: reconciledChange,
         changedInputs,
         globs: population.globs,
         reloadDirectories: population.reloadDirectories ?? [],
         reloadFiles: population.reloadFiles ?? [],
-      });
+      };
+      const reload = projectInputReloadEventShouldNotify(reloadInput);
       const invalidate = projectInputMembershipInvalidatesProgram({
         changed: reconciledChange,
         changedInputs,
@@ -1307,7 +1318,7 @@ export class WatchTopology {
       if (invalidate) {
         this.refreshCompilerInputs(false, skipUnobservedProjectInputWatchRoots);
       }
-      if (
+      const notify =
         projectInputEventShouldNotify({
           contentChanged,
           directlyMatched,
@@ -1315,8 +1326,21 @@ export class WatchTopology {
         }) &&
         (reconciledChange === undefined ||
           this.isProjectInputCompilerOutput(reconciledChange, identities) ===
-            false)
-      ) {
+            false);
+      reportProjectInputDecision({
+        source: "project-input",
+        location,
+        namedChange: changed ?? null,
+        ...reloadInput,
+        directlyMatched,
+        topologyMatched,
+        membershipChanged,
+        contentChanged,
+        reload,
+        invalidate,
+        notify,
+      });
+      if (notify) {
         this.callbacks.onInputChange(
           reload
             ? { kind: "config", path: reconciledChange }
@@ -2643,4 +2667,12 @@ function watcherRegistrationPath(location: string): string {
     // its declared spelling than not watched at all.
     return location;
   }
+}
+
+/** Report the actual decision inputs, without additional filesystem observations. */
+function reportProjectInputDecision(decision: Record<string, unknown>): void {
+  if (!process.env.TTSC_WATCH_DEBUG_INPUTS) return;
+  process.stdout.write(
+    `[ttsc:debug] project-input decision ${JSON.stringify(decision)}\n`,
+  );
 }

@@ -31,6 +31,8 @@ import { takeResidentCheckEntryRequest } from "./takeResidentCheckEntryRequest";
  * The watch launcher must serialize cycles and use reload when invocation
  * selection or startup environment changes. A session does not independently
  * compare every option/environment field before reusing its cached context.
+ * `TTSC_WATCH_DEBUG_INPUTS` reports why selection is reset and how many
+ * sidecars it releases, and distinguishes a failed resident transport.
  *
  * @evidence contracts/common.md#principled-implementation Stable invocation selection and serialized cycles let compatible analysis-only checks retain their Program; explicit reload and observed input-topology changes reset selection before another cycle.
  * @evidence contracts/common.md#clear-and-simple-design The session owns selected execution, dependency snapshot, process identities and per-entry delivery buffers while shared BuildExecution owns one-shot phase and failure policy.
@@ -79,12 +81,12 @@ export class ResidentCheckWatchSession {
     options: RunBuildOptions,
     change: ResidentCheckWatchChange = {},
   ): Promise<TtscBuildResult> {
-    if (change.reload === true) this.reset();
+    if (change.reload === true) this.reset("watch-reload");
 
     const timing = BuildTiming.createBuildTiming(options);
     const projectFree = BuildExecution.runProjectFreeTerminalFlag(options);
     if (projectFree !== null) {
-      this.reset();
+      this.reset("terminal-flag");
       return BuildTiming.appendTimingOutput(projectFree, timing);
     }
 
@@ -103,11 +105,11 @@ export class ResidentCheckWatchSession {
       );
       buildOptions = prepared.buildOptions;
       if (prepared.result !== undefined) {
-        this.reset();
+        this.reset("preparation-result");
         return BuildTiming.appendTimingOutput(prepared.result, timing);
       }
       if (!residentCheckExecutionIsCompatible(buildOptions, execution)) {
-        this.reset();
+        this.reset("incompatible-execution");
         return BuildTiming.appendTimingOutput(
           BuildExecution.runPreparedBuild(
             options,
@@ -128,7 +130,7 @@ export class ResidentCheckWatchSession {
       if (
         execution.nativePlugins.some((plugin) => !fs.existsSync(plugin.binary))
       ) {
-        this.reset();
+        this.reset("missing-plugin-binary");
         return this.run(options);
       }
       for (const plugin of execution.nativePlugins)
@@ -139,7 +141,7 @@ export class ResidentCheckWatchSession {
       reusedExecution &&
       this.refreshProjectInputTopology(options, execution)
     ) {
-      this.reset();
+      this.reset("project-input-topology");
       return this.run(options);
     }
 
@@ -190,11 +192,20 @@ export class ResidentCheckWatchSession {
    * @evidence contracts/performance.md#bound-retention-and-release-resources Every retained process receives dispose before map ownership is cleared, and buffer/snapshot/context references are released; actual native termination guarantees remain with the child owner.
    */
   public dispose(): void {
-    this.reset();
+    this.reset("dispose");
   }
 
   /** Release the selected invocation and every sidecar/buffer acquired for it. */
-  private reset(): void {
+  private reset(reason: string): void {
+    if (process.env.TTSC_WATCH_DEBUG_INPUTS) {
+      process.stdout.write(
+        `[ttsc:debug] resident reset ${JSON.stringify({
+          reason,
+          selectedExecution: this.execution !== undefined,
+          processes: this.processes.size,
+        })}\n`,
+      );
+    }
     for (const process of this.processes.values()) process.dispose();
     this.processes.clear();
     this.pendingChanges.clear();
@@ -307,6 +318,14 @@ export class ResidentCheckWatchSession {
             execution.projectRoot,
           );
         } catch {
+          if (process.env.TTSC_WATCH_DEBUG_INPUTS) {
+            process.stdout.write(
+              `[ttsc:debug] resident transport failed ${JSON.stringify({
+                entryIndex,
+                plugin: plugin.name,
+              })}\n`,
+            );
+          }
           resident.dispose();
           this.processes.delete(key);
           // The one-shot fallback observes the complete current filesystem,
