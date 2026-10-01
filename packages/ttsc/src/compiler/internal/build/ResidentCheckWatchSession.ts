@@ -56,6 +56,10 @@ export class ResidentCheckWatchSession {
 
   /** Sidecars acquired for the stable invocation; reset releases every key. */
   private readonly processes = new Map<string, ResidentCheckProcess>();
+  private readonly retiringProcesses = new Set<ResidentCheckProcess>();
+  private retirement: Promise<void> = Promise.resolve();
+  private closed = false;
+  private generation = 0;
 
   /**
    * Run one serialized watch cycle through the shared build/check policies.
@@ -81,12 +85,16 @@ export class ResidentCheckWatchSession {
     options: RunBuildOptions,
     change: ResidentCheckWatchChange = {},
   ): Promise<TtscBuildResult> {
-    if (change.reload === true) this.reset("watch-reload");
+    let generation = this.generation;
+    await this.retirement;
+    this.assertOpen(generation);
+    if (change.reload === true)
+      generation = await this.resetForRun("watch-reload");
 
     const timing = BuildTiming.createBuildTiming(options);
     const projectFree = BuildExecution.runProjectFreeTerminalFlag(options);
     if (projectFree !== null) {
-      this.reset("terminal-flag");
+      await this.resetForRun("terminal-flag");
       return BuildTiming.appendTimingOutput(projectFree, timing);
     }
 
@@ -105,11 +113,11 @@ export class ResidentCheckWatchSession {
       );
       buildOptions = prepared.buildOptions;
       if (prepared.result !== undefined) {
-        this.reset("preparation-result");
+        await this.resetForRun("preparation-result");
         return BuildTiming.appendTimingOutput(prepared.result, timing);
       }
       if (!residentCheckExecutionIsCompatible(buildOptions, execution)) {
-        this.reset("incompatible-execution");
+        await this.resetForRun("incompatible-execution");
         return BuildTiming.appendTimingOutput(
           BuildExecution.runPreparedBuild(
             options,
@@ -130,7 +138,7 @@ export class ResidentCheckWatchSession {
       if (
         execution.nativePlugins.some((plugin) => !fs.existsSync(plugin.binary))
       ) {
-        this.reset("missing-plugin-binary");
+        await this.resetForRun("missing-plugin-binary");
         return this.run(options);
       }
       for (const plugin of execution.nativePlugins)
@@ -141,7 +149,7 @@ export class ResidentCheckWatchSession {
       reusedExecution &&
       this.refreshProjectInputTopology(options, execution)
     ) {
-      this.reset("project-input-topology");
+      await this.resetForRun("project-input-topology");
       return this.run(options);
     }
 
@@ -150,7 +158,9 @@ export class ResidentCheckWatchSession {
       execution,
       timing,
       change,
+      generation,
     );
+    this.assertOpen(generation);
     let result: TtscBuildResult;
     if (checked.status !== 0) {
       result = BuildExecution.appendTypeScriptDiagnosticsAfterPluginFailure(
@@ -175,28 +185,64 @@ export class ResidentCheckWatchSession {
 
   /**
    * Request termination of every retained sidecar and discard session state.
-   * This is synchronous release initiation, not an awaitable guarantee of OS
-   * process exit; child termination and queued-request rejection belong to the
-   * ResidentCheckProcess owner. A later run can start a fresh session
-   * selection.
+   * This initiates release synchronously; a later run awaits actual child exit
+   * before selecting a fresh session. Use close for terminal, awaitable release.
+   * Child termination and queued-request rejection belong to the process owner.
    *
    * @evidence contracts/common.md#principled-implementation Reset visits each owned process before clearing its map and discards pending changes, dependency snapshot and selected execution together.
    * @evidence contracts/common.md#clear-and-simple-design Disposal uses the same reset boundary as topology transitions, keeping resource and cached-selection release in one place.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Release calls the supported child disposal API rather than replacing process methods or marking still-owned resources as successful check results.
-   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes termination initiation from awaited OS exit and describes fresh reuse after disposal.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes synchronous initiation, joined reuse and terminal close.
    * @evidence contracts/portability.md#os-neutral-implementation Platform-specific child termination is delegated to ResidentCheckProcess; this coordinator does not assume a POSIX signal guarantees process-tree exit on every OS.
    * @evidence contracts/performance.md#efficient-algorithms Reset traverses the retained process population once and clears maps without scanning individual pending paths.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Disposal invalidates shared execution ownership rather than establishing reusable computation.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Every retained process receives dispose before map ownership is cleared, and buffer/snapshot/context references are released; actual native termination guarantees remain with the child owner.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Every retained process receives retirement before map ownership is cleared; known failed exits can be replaced only after actual close, while unknown joins reject. Buffers and selected state release immediately and the generation rejects late work.
    */
   public dispose(): void {
-    this.reset("dispose");
+    if (this.closed) return;
+    void this.reset("dispose");
   }
 
-  /** Release the selected invocation and every sidecar/buffer acquired for it. */
-  private reset(reason: string): void {
+  /**
+   * Terminally close this session and await every retained or retiring child.
+   * Unlike dispose, later runs are rejected and cannot start a fallback.
+   *
+   * @evidence contracts/common.md#principled-implementation Terminal admission closes before owned processes are retired, and completion awaits their actual child-close outcomes.
+   * @evidence contracts/common.md#clear-and-simple-design The same reset boundary owns reusable disposal and terminal closure, with a separate admission flag for their different public contracts.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Closing forbids subsequent process acquisition or fallback and retains failed or unknown retirement as rejection.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes terminal closure from the compatible reusable dispose operation.
+   * @evidence contracts/portability.md#os-neutral-implementation Native EOF and close validation belong to each process owner; the session joins outcomes without assuming POSIX signal behavior on Windows.
+   * @evidence contracts/performance.md#efficient-algorithms Terminal reset traverses the configured process population once and settles all retained joins before collecting failures.
+   * @evidence contracts/performance.md#reuse-equivalent-work Repeated terminal closes share the retirement promise, while subsequent computation is forbidden by terminal admission.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Closing releases maps and selected state immediately but retains join promises until every actual child outcome settles; failed or unknown ownership remains rejection.
+   */
+  public close(): Promise<void> {
+    if (!this.closed) {
+      this.closed = true;
+      void this.reset("close");
+    }
+    return this.retirement;
+  }
+
+  private assertOpen(generation = this.generation): void {
+    if (this.closed) throw new Error("ttsc: resident check watch session closed");
+    if (generation !== this.generation)
+      throw new Error("ttsc: resident check watch cycle retired");
+  }
+
+  private async resetForRun(reason: string): Promise<number> {
+    const retirement = this.reset(reason);
+    const generation = this.generation;
+    await retirement;
+    this.assertOpen(generation);
+    return generation;
+  }
+
+  /** Release selection immediately and join its children before replacement. */
+  private reset(reason: string): Promise<void> {
+    ++this.generation;
     if (process.env.TTSC_WATCH_DEBUG_INPUTS) {
       process.stdout.write(
         `[ttsc:debug] resident reset ${JSON.stringify({
@@ -206,11 +252,38 @@ export class ResidentCheckWatchSession {
         })}\n`,
       );
     }
-    for (const process of this.processes.values()) process.dispose();
+    const previous = this.retirement;
+    const children = new Set([
+      ...this.processes.values(), ...this.retiringProcesses,
+    ]);
+    const retiring = [...children].map((child) => {
+      const joined = this.trackRetirement(child);
+      return this.closed ? child.close() : joined;
+    });
+    this.retirement = Promise.allSettled([previous, ...retiring]).then((results) => {
+      const errors = results.flatMap((result) =>
+        result.status === "rejected" ? [result.reason] : [],
+      );
+      if (errors.length !== 0)
+        throw new AggregateError(errors, "ttsc: resident check retirement failed");
+    });
+    void this.retirement.catch(() => {});
     this.processes.clear();
     this.pendingChanges.clear();
     this.execution = undefined;
     this.projectInputs = undefined;
+    return this.retirement;
+  }
+
+  private trackRetirement(child: ResidentCheckProcess): Promise<void> {
+    this.retiringProcesses.add(child);
+    child.dispose();
+    const joined = child.waitForExit();
+    void joined.then(
+      () => this.retiringProcesses.delete(child),
+      () => {}, // Unknown ownership stays retained and prevents replacement.
+    );
+    return joined;
   }
 
   /** Capture discoveries only when the caller actually subscribes to them. */
@@ -255,6 +328,7 @@ export class ResidentCheckWatchSession {
     execution: ReturnType<typeof BuildExecution.resolveExecutionContext>,
     timing: BuildTiming.BuildTiming,
     change: ResidentCheckWatchChange,
+    generation: number,
   ): Promise<TtscBuildResult> {
     let out: TtscBuildResult = {
       diagnostics: [],
@@ -276,6 +350,7 @@ export class ResidentCheckWatchSession {
     bufferResidentCheckEntryRequests(this.pendingChanges, checks, request);
 
     for (const { args, entryIndex, key, plugin } of checks) {
+      this.assertOpen(generation);
       let result: TtscBuildResult;
       if (key === undefined) {
         result = BuildExecution.runNativePluginCommand(
@@ -328,6 +403,16 @@ export class ResidentCheckWatchSession {
           }
           resident.dispose();
           this.processes.delete(key);
+          const previousRetirement = this.retirement;
+          this.retirement = Promise.allSettled([
+            previousRetirement, this.trackRetirement(resident),
+          ]).then((results) => {
+            const failed = results.find((result) => result.status === "rejected");
+            if (failed?.status === "rejected") throw failed.reason;
+          });
+          void this.retirement.catch(() => {});
+          await this.retirement;
+          this.assertOpen(generation);
           // The one-shot fallback observes the complete current filesystem,
           // and a later sidecar starts cold, so neither needs old deltas.
           // A capability-aware host may still disappear or violate framing.

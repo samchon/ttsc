@@ -41,7 +41,8 @@ import { WatchTopology } from "./watch/WatchTopology";
  * so the process can exit cleanly.
  *
  * Watch setup returns before its asynchronous first build finishes. Signal
- * shutdown uses the latest completed build status; topology failure closes the
+ * shutdown and supported Node IPC stop requests drain actual sidecar exits
+ * before using the latest completed build status; topology failure closes the
  * owned watchers and resident host. Cache cleanup validates its full target set
  * and preserves the caller's Go cache, including overlapping explicit targets.
  *
@@ -654,6 +655,8 @@ function runWatch(
   );
   let running = false;
   let closed = false;
+  let active: Promise<void> | undefined;
+  let closing: Promise<void> | undefined;
   let rerun = false;
   let timer: NodeJS.Timeout | null = null;
   const resident =
@@ -662,6 +665,7 @@ function runWatch(
   // Tracks the most recent build's exit code so the watch session can exit
   // non-zero when its latest rebuild failed, instead of always reporting 0.
   let lastStatus = 0;
+  let completedBuild = false;
 
   const runOnce = async () => {
     if (closed) return;
@@ -705,17 +709,21 @@ function runWatch(
             if (result.stderr) process.stdout.write(result.stderr);
             return result.status;
           })());
+      if (closed) return;
       lastStatus = status;
+      completedBuild = true;
       completed = true;
       process.stdout.write(
         `[ttsc] ${status === 0 ? "watch build complete" : "watch build failed"}\n`,
       );
     } catch (error) {
+      if (closed) return;
       // Same ordered-stream rule as the build path: the failure text goes on
       // the stream the marker below uses, so a merged reader sees them in order
       // rather than racing two pipes.
       process.stdout.write(`${formatError(error)}\n`);
       lastStatus = lastStatus === 0 ? 2 : lastStatus;
+      completedBuild = true;
       process.stdout.write(`[ttsc] watch build failed\n`);
     } finally {
       running = false;
@@ -749,32 +757,76 @@ function runWatch(
     timer = setTimeout(startRun, 60);
   };
 
-  const close = () => {
-    if (closed) return;
+  const close = (): Promise<void> => {
+    if (closing !== undefined) return closing;
     closed = true;
     if (timer) clearTimeout(timer);
     timer = null;
     process.off("SIGINT", onInterrupt);
     process.off("SIGTERM", onTerminate);
+    process.off("message", onMessage);
+    process.off("disconnect", onDisconnect);
+    let topologyError: unknown;
     try {
       topology?.close();
-    } finally {
-      resident?.dispose();
+    } catch (error) {
+      topologyError = error;
     }
+    closing = Promise.allSettled([
+      resident?.close() ?? Promise.resolve(),
+      active ?? Promise.resolve(),
+    ]).then((results) => {
+      const errors = results.flatMap((result) =>
+        result.status === "rejected" ? [result.reason] : [],
+      );
+      if (topologyError !== undefined) errors.push(topologyError);
+      if (errors.length !== 0)
+        throw new AggregateError(errors, `ttsc: watch shutdown failed: ${errors.map(formatError).join("; ")}`);
+    });
+    void closing.catch(() => {});
+    return closing;
   };
-  const onInterrupt = () => {
-    close();
-    process.exit(toExitCode(lastStatus));
-  };
-  const onTerminate = () => {
-    close();
-    process.exit(toExitCode(lastStatus));
-  };
-  const startRun = () => {
-    void runOnce().catch((error: unknown) => {
-      close();
+  const finish = async (id?: string): Promise<void> => {
+    try {
+      await close();
+      process.exitCode = toExitCode(lastStatus);
+      if (id !== undefined && process.connected && process.send !== undefined) {
+        await new Promise<void>((resolve, reject) => {
+          process.send!(
+            { type: "ttsc.watch.stopped", id, status: completedBuild ? lastStatus : null },
+            (error: Error | null) => (error === null ? resolve() : reject(error)),
+          );
+        });
+      }
+    } catch (error) {
       process.stderr.write(`${formatError(error)}\n`);
       process.exitCode = toExitCode(lastStatus === 0 ? 2 : lastStatus);
+    } finally {
+      if (process.connected) {
+        try { process.disconnect?.(); }
+        catch (error) {
+          process.stderr.write(`${formatError(error)}\n`);
+          process.exitCode = toExitCode(lastStatus === 0 ? 2 : lastStatus);
+        }
+      }
+    }
+  };
+  const onInterrupt = () => { void finish(); };
+  const onTerminate = () => { void finish(); };
+  const onDisconnect = () => { void finish(); };
+  const onMessage = (message: unknown) => {
+    if (
+      typeof message === "object" && message !== null &&
+      "type" in message && message.type === "ttsc.watch.stop" &&
+      "id" in message && typeof message.id === "string" && message.id.length !== 0
+    ) void finish(message.id);
+  };
+  const startRun = () => {
+    active = runOnce();
+    void active.catch((error: unknown) => {
+      process.stderr.write(`${formatError(error)}\n`);
+      lastStatus = lastStatus === 0 ? 2 : lastStatus;
+      void finish();
     });
   };
 
@@ -812,14 +864,19 @@ function runWatch(
     topology.refresh(false);
     process.on("SIGINT", onInterrupt);
     process.on("SIGTERM", onTerminate);
+    if (process.connected) {
+      process.on("message", onMessage);
+      process.on("disconnect", onDisconnect);
+    }
     process.stdout.write(`[ttsc] watching ${watchMessagePath(cwd, root)}\n`);
     startRun();
   } catch (error) {
     // Refresh may fail after acquiring only part of the watch set. Release that
     // partial ownership as well as setup's signal listeners before returning.
-    close();
+    lastStatus = lastStatus === 0 ? 2 : lastStatus;
     process.stderr.write(`${formatError(error)}\n`);
-    return toExitCode(lastStatus === 0 ? 2 : lastStatus);
+    void finish();
+    return toExitCode(lastStatus);
   }
   return toExitCode(lastStatus);
 }
