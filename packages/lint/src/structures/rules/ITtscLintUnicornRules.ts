@@ -596,8 +596,10 @@ export interface ITtscLintUnicornRules {
   "unicorn/no-useless-promise-resolve-reject"?: TtscLintRuleSetting;
 
   /**
-   * Reject spreading a single iterable into a new collection of the same kind
-   * (`[...arr]`, `{...obj}`) when the original would suffice.
+   * Reject a single spread of a literal inside another literal of the same
+   * kind (`[...[1, 2]]`, `{...{ a: 1 }}`). Spreads of variables such as
+   * `[...arr]` or `{...obj}` are not inspected; this AST-only rule offers no
+   * automatic edit.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-spread.md
    */

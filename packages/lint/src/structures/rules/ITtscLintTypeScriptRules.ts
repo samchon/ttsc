@@ -93,10 +93,11 @@ export interface ITtscLintTypeScriptRules {
   "typescript/ban-tslint-comment"?: TtscLintRuleSetting;
 
   /**
-   * Prefer a `static readonly` field over a `get` accessor whose body is a
+   * Prefer a `readonly` field over a `get` accessor whose body is a
    * single `return <literal>;`. The getter form re-runs the body on every read
    * and obscures that the value is fixed; a readonly field is shorter, narrows
    * to the literal type, and signals "this is a constant" at the call site.
+   * Retain the getter's instance or static ownership when choosing the field.
    * Skipped when the class also declares a `set` accessor for the same member
    * name — the setter's side effects cannot be reproduced by a field.
    *

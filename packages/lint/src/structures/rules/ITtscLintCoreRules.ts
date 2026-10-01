@@ -403,7 +403,7 @@ export interface ITtscLintCoreRules {
 
   /**
    * Reject ASCII control characters (`\x00`–`\x1F`) inside regular expression
-   * literals and `RegExp` strings.
+   * literals. Constructor strings passed to `RegExp` are not inspected.
    *
    * They render invisibly in source and almost always indicate an accidental
    * paste or a missed `\t` / `\n` escape.
@@ -1412,8 +1412,9 @@ export interface ITtscLintCoreRules {
   "sort-keys"?: TtscLintRuleSetting;
 
   /**
-   * Require `Number.isNaN` / `isNaN` for `NaN` checks; restrict `typeof`
-   * comparisons to the documented strings.
+   * Reject direct equality or ordering comparisons against the identifier
+   * `NaN`; use `Number.isNaN` / `isNaN` instead. `valid-typeof` separately
+   * checks the string vocabulary of `typeof` comparisons.
    *
    * @reference https://eslint.org/docs/latest/rules/use-isnan
    */

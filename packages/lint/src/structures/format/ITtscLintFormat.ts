@@ -14,13 +14,13 @@ import type { ITtscLintFormatSortImports } from "./ITtscLintFormatSortImports";
  * Once present, the block configures a curated set of format rules at
  * Prettier-aligned defaults. `ttsc format` uses these rules to rewrite source.
  * `ttsc check` does not report format findings unless `severity` is set to a
- * non-off value. Individual rules can be overridden or disabled through the
- * `rules` map (the `rules` entry wins on conflict).
+ * non-off value. Formatter options belong exclusively to this block;
+ * `format/*` entries in the `rules` map are ignored.
  *
  * @evidence contracts/common.md#principled-implementation Optional formatter fields encode presence-based activation and constrained public values; nested import and JSDoc settings preserve their distinct semantics.
  * @evidence contracts/common.md#clear-and-simple-design A flat record handles ordinary options and delegates the two structured options to dedicated types.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Defaults and overrides use documented configuration fields rather than hidden fixture-dependent formatting paths.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains opt-in activation, check severity, override precedence and member defaults; separated paragraphs and members follow documentation guidance.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Defaults and customizations use this documented format block rather than hidden fixture-dependent formatting paths or rules-map overrides.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains opt-in activation, check severity, the exclusive format configuration surface and member defaults; separated paragraphs and members follow documentation guidance.
  */
 export interface ITtscLintFormat {
   /**
