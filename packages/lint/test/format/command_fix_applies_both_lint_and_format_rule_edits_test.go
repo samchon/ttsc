@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project with one lint-class violation (noVar) and one format-class violation (formatSemi). The asserted decision is: Assert both kinds of edits land and the final exit code is zero. Other fixture shapes remain in their separately named hosts.
 // @evidence contracts/testing.md#execution-ownership TestCommandFixAppliesBothLintAndFormatRuleEdits owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestCommandFixAppliesBothLintAndFormatRuleEdits(t *testing.T) {
-  root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\n")
+  root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\nexport {}\n")
   // format/semi via the format block (the only formatting surface); no-var
   // is a genuine lint rule.
   seedLintConfig(t, root, map[string]any{
@@ -46,7 +46,7 @@ func TestCommandFixAppliesBothLintAndFormatRuleEdits(t *testing.T) {
     t.Fatalf("ReadFile: %v", err)
   }
   // `var` → `let` (noVar) and `;` appended (formatSemi) in one pass.
-  want := "let legacy = 1;\nJSON.stringify(legacy);\n"
+  want := "let legacy = 1;\nJSON.stringify(legacy);\nexport {};\n"
   if string(got) != want {
     t.Fatalf("fixed source mismatch:\nwant %q\ngot  %q", want, string(got))
   }

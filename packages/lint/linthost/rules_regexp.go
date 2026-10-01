@@ -491,11 +491,6 @@ func regexpHasPreferW(parts regexpLiteralParts) bool {
 // regexpHasDuplicateClassCharacter compares decoded simple-class characters.
 // Unicode modes use code points; legacy classes use UTF-16 code units. Ranges
 // and v-mode set expressions remain outside this diagnostic-only subset.
-//
-// @evidence contracts/common.md#principled-implementation The compiler validates syntax, the existing regex AST decodes escapes, and UTF-16 splitting preserves legacy character-class semantics for astral literals.
-// @evidence contracts/common.md#clear-and-simple-design One AST walk checks each simple class with its own character set, preventing byte prefixes or escape spelling digits from becoming members.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts No UTF-8 byte heuristic, regex runtime mutation or spelling-specific workaround supplies character identity; unsupported range/set reasoning remains explicitly outside the subset.
-// @evidence contracts/common.md#meaningful-documentation Native prose states Unicode versus legacy units and excluded syntax, matching the regexp schema and guide without promising an automatic fix.
 func regexpHasDuplicateClassCharacter(parts regexpLiteralParts) bool {
   if !shimscanner.IsValidRegularExpressionLiteral(parts.raw) {
     return false

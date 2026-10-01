@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Var-to-let exposes a later prefer-const pass while a separate existing let and typeof equality exercise additional fixes; full byte equality prevents collateral text loss and half-completed cascades.
 // @evidence contracts/testing.md#execution-ownership Real command, supported in-process compiler, Engine and disk writes execute on a temporary fixture in one Go process; native here describes built-in rules, not a separately compiled plugin or installed CLI.
 func TestCommandFixAppliesNativeAutofixes(t *testing.T) {
-  root := seedLintProject(t, "var legacy = 1;\nlet stable = legacy;\nif (typeof stable == \"number\") { JSON.stringify(stable); }\n")
+  root := seedLintProject(t, "var legacy = 1;\nlet stable = legacy;\nif (typeof stable == \"number\") { JSON.stringify(stable); }\nexport {};\n")
   seedLintRules(t, root, map[string]string{
     "eqeqeq":       "error",
     "no-var":       "error",
@@ -41,7 +41,7 @@ func TestCommandFixAppliesNativeAutofixes(t *testing.T) {
   if err != nil {
     t.Fatalf("ReadFile: %v", err)
   }
-  want := "const legacy = 1;\nconst stable = legacy;\nif (typeof stable === \"number\") { JSON.stringify(stable); }\n"
+  want := "const legacy = 1;\nconst stable = legacy;\nif (typeof stable === \"number\") { JSON.stringify(stable); }\nexport {};\n"
   if string(got) != want {
     t.Fatalf("fixed source mismatch:\nwant %q\ngot  %q", want, string(got))
   }

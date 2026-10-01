@@ -33,7 +33,7 @@ import (
 // @evidence contracts/e2e.md#preserved-coverage This moved entry retains the authored WorkspaceEdit result and source-preservation assertions at the Windows boundary. Portable command/class selection and UTF-16 edit assertions remain in the lint units.
 func TestLSPExecuteCommandMaterializesJunctionedDirectoryWithoutMutatingOriginal(t *testing.T) {
   root := t.TempDir()
-  source := "var legacy = 1;\nJSON.stringify(legacy);\n"
+  source := "var legacy = 1;\nJSON.stringify(legacy);\nexport {};\n"
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": {
     "target": "ES2022",
@@ -55,7 +55,7 @@ func TestLSPExecuteCommandMaterializesJunctionedDirectoryWithoutMutatingOriginal
   uri := lintTestFileURI(t, linkFile)
 
   got := executeLSPCommandAppliedTextForTest(t, root, uri, commandLintFixAll, source)
-  want := "let legacy = 1;\nJSON.stringify(legacy);\n"
+  want := "let legacy = 1;\nJSON.stringify(legacy);\nexport {};\n"
   if got != want {
     t.Fatalf("junctioned directory LSP fix text mismatch:\nwant %q\ngot  %q", want, got)
   }

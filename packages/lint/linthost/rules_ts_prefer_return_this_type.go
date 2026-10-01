@@ -32,11 +32,6 @@ import (
 // preferReturnThisType narrows explicit fluent annotations only when no normal
 // completion falls through or returns a value other than this. The bound
 // compiler owns reachability; nested functions retain their own return scope.
-//
-// @evidence contracts/common.md#principled-implementation The real bound method's implicit-return flag rejects fallthrough, and a scope-aware return walk rejects undefined and non-this returns.
-// @evidence contracts/common.md#clear-and-simple-design Existing method eligibility gates feed one completion check and one body-return analysis without an independent control-flow implementation.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Finding a value return is not treated as proof of all-path completion; no automatic annotation rewrite or forced checker result is introduced.
-// @evidence contracts/common.md#meaningful-documentation Native comments describe normal completion and nested scope boundaries; the owning TypeScript schema and guide name bare and implicit returns.
 type preferReturnThisType struct{}
 
 func (preferReturnThisType) Name() string { return "typescript/prefer-return-this-type" }

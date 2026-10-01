@@ -18,6 +18,7 @@ replace (
 	github.com/microsoft/typescript-go/shim/parser => ../ttsc/shim/parser
 	github.com/microsoft/typescript-go/shim/printer => ../ttsc/shim/printer
 	github.com/microsoft/typescript-go/shim/scanner => ../ttsc/shim/scanner
+	github.com/microsoft/typescript-go/shim/stringutil => ../ttsc/shim/stringutil
 	github.com/microsoft/typescript-go/shim/tsoptions => ../ttsc/shim/tsoptions
 	github.com/microsoft/typescript-go/shim/tspath => ../ttsc/shim/tspath
 	github.com/microsoft/typescript-go/shim/vfs => ../ttsc/shim/vfs
@@ -44,6 +45,7 @@ require (
 	github.com/microsoft/typescript-go/shim/diagnosticwriter v0.0.0 // indirect
 	github.com/microsoft/typescript-go/shim/parser v0.0.0 // indirect
 	github.com/microsoft/typescript-go/shim/printer v0.0.0 // indirect
+	github.com/microsoft/typescript-go/shim/stringutil v0.0.0 // indirect
 	github.com/microsoft/typescript-go/shim/tsoptions v0.0.0 // indirect
 	github.com/microsoft/typescript-go/shim/tspath v0.0.0 // indirect
 	github.com/microsoft/typescript-go/shim/vfs v0.0.0 // indirect

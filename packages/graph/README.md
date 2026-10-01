@@ -72,8 +72,9 @@ The interactive charts, every model, and the method are on the benchmark page: h
  * type relations. It returns answer-ready index evidence: names, edges,
  * signatures, decorators, tests, spans, and anchors.
  *
- * Returned graph facts are sacred, infallible compiler truth for the snapshot
- * synchronized by that call. Never verify them with files or more graph calls.
+ * Every returned declaration fact is compiler-resolved and verified for the
+ * snapshot that call synchronized, so trust it without re-checking against
+ * files.
  */
 export interface ITtscGraphApplication {
   /**
@@ -93,9 +94,10 @@ export interface ITtscGraphApplication {
    * - `entrypoints`: where execution starts, when the entry is unknown
    * - `overview`: the project's layers and folder structure
    *
-   * Every result is the checker's own resolution, audited before it is returned,
-   * so nothing in it needs verifying. Read a file for what the graph does not
-   * carry: a function's body, the text inside a span.
+   * Every declaration fact in a result is the checker's own resolution, and
+   * `audit` names what is not, so nothing the compiler resolved needs verifying.
+   * Read a file for what the graph does not carry: a function's body, the text
+   * inside a span.
    *
    * @param props Reasoning plus one graph request
    * @returns Matching `result` union member
@@ -188,7 +190,7 @@ The review is allowed to overturn the draft, and that matters more than the plan
 
 Nothing is forbidden. The tool description says when the graph applies and when to stop. Grep and file reads stay available, and the agent still uses them when they are the right move.
 
-What keeps the agent on the graph is precision. Answers carry names, signatures, edges, and spans resolved by the TypeScript compiler, so the agent accepts them as final instead of re-verifying with its own reads. And since no file body is ever included, a large repository cannot inflate the response.
+What keeps the agent on the graph is precision. Answers carry names, signatures, edges, and spans resolved by the TypeScript compiler, so the agent accepts them as final instead of re-verifying with its own reads. The exception is a node a lint plugin publishes for a document, a data model, or an API operation: the plugin parsed it, not the compiler, and `audit` says so. And since no file body is ever included, a large repository cannot inflate the response.
 
 Declaration signatures come from the native compiler's declaration heads. When a producer omits a head, the response omits `signature` instead of guessing from a source line that may contain an implementation body. Consumers can use the returned source span when they need the missing text.
 

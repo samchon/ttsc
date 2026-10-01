@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership TestLSPExecuteCommandMaterializesSymlinkTargetWithoutMutatingOriginal owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPExecuteCommandMaterializesSymlinkTargetWithoutMutatingOriginal(t *testing.T) {
   root := t.TempDir()
-  source := "var legacy = 1;\nJSON.stringify(legacy);\n"
+  source := "var legacy = 1;\nJSON.stringify(legacy);\nexport {};\n"
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": {
     "target": "ES2022",
@@ -46,7 +46,7 @@ func TestLSPExecuteCommandMaterializesSymlinkTargetWithoutMutatingOriginal(t *te
 
   uri := lintTestFileURI(t, linkFile)
   got := executeLSPCommandAppliedTextForTest(t, root, uri, commandLintFixAll, source)
-  if got != "let legacy = 1;\nJSON.stringify(legacy);\n" {
+  if got != "let legacy = 1;\nJSON.stringify(legacy);\nexport {};\n" {
     t.Fatalf("symlink LSP fix text mismatch: %q", got)
   }
   assertFileText(t, realFile, source)

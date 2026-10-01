@@ -29,6 +29,7 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/microsoft/typescript-go v0.0.0-20260610182825-7fc57c005063 // indirect
 	github.com/microsoft/typescript-go/shim/checker v0.0.0 // indirect
+	github.com/microsoft/typescript-go/shim/stringutil v0.0.0 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
@@ -43,6 +44,7 @@ replace (
 	github.com/microsoft/typescript-go/shim/diagnosticwriter => ../ttsc/shim/diagnosticwriter
 	github.com/microsoft/typescript-go/shim/parser => ../ttsc/shim/parser
 	github.com/microsoft/typescript-go/shim/scanner => ../ttsc/shim/scanner
+	github.com/microsoft/typescript-go/shim/stringutil => ../ttsc/shim/stringutil
 	github.com/microsoft/typescript-go/shim/tsoptions => ../ttsc/shim/tsoptions
 	github.com/microsoft/typescript-go/shim/tspath => ../ttsc/shim/tspath
 	github.com/microsoft/typescript-go/shim/vfs => ../ttsc/shim/vfs

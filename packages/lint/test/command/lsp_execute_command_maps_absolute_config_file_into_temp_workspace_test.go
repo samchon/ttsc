@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases A non-discovered absolute config with a files glob distinguishes correct remapping from default config discovery and matching against the original directory.
 // @evidence contracts/testing.md#execution-ownership The native Go loader, checker and private temp copy execute in process with JSON config; no executable config evaluator or installed compiler runs.
 func TestLSPExecuteCommandMapsAbsoluteConfigFileIntoTempWorkspace(t *testing.T) {
-  source := "var legacy = 1;\nJSON.stringify(legacy);\n"
+  source := "var legacy = 1;\nJSON.stringify(legacy);\nexport {};\n"
   root := seedLintProject(t, source)
   configFile := filepath.Join(root, "custom-lint.config.json")
   writeFile(t, configFile, `{"files":["src/**/*.ts"],"rules":{"no-var":"error"}}`)
@@ -31,7 +31,7 @@ func TestLSPExecuteCommandMapsAbsoluteConfigFileIntoTempWorkspace(t *testing.T) 
   pluginsJSON := lintManifestWithConfig(t, map[string]any{"configFile": configFile})
 
   got := executeLSPCommandAppliedTextWithManifestForTest(t, root, uri, commandLintFixAll, source, pluginsJSON)
-  want := "let legacy = 1;\nJSON.stringify(legacy);\n"
+  want := "let legacy = 1;\nJSON.stringify(legacy);\nexport {};\n"
   if got != want {
     t.Fatalf("absolute configFile LSP fix text mismatch:\nwant %q\ngot  %q", want, got)
   }

@@ -26,7 +26,7 @@ func TestLSPExecuteCommandCopiesReadOnlyFileAsWritable(t *testing.T) {
   if runtime.GOOS == "windows" {
     t.Skip("chmod read-only semantics differ on Windows")
   }
-  source := "var legacy = 1;\nJSON.stringify(legacy);\n"
+  source := "var legacy = 1;\nJSON.stringify(legacy);\nexport {};\n"
   root := seedLintProject(t, source)
   seedLintRules(t, root, map[string]string{"no-var": "error"})
   file := filepath.Join(root, "src", "main.ts")
@@ -37,7 +37,7 @@ func TestLSPExecuteCommandCopiesReadOnlyFileAsWritable(t *testing.T) {
   uri := lintTestFileURI(t, file)
 
   got := executeLSPCommandAppliedTextForTest(t, root, uri, commandLintFixAll, source)
-  want := "let legacy = 1;\nJSON.stringify(legacy);\n"
+  want := "let legacy = 1;\nJSON.stringify(legacy);\nexport {};\n"
   if got != want {
     t.Fatalf("read-only LSP fix text mismatch:\nwant %q\ngot  %q", want, got)
   }

@@ -28,11 +28,15 @@
  * `withTtsc` compacts worker files into the main file before its workers exist,
  * under a process-shared lock for builds using the same project cache. Readers
  * take the union of every file, reading the worker files strictly before the
- * main file: the compactor renames the merged main into place strictly before
- * deleting a worker file, so a worker file that disappears mid-read is always
- * already merged into the main the reader loads afterwards. A worker file the
- * compactor could not delete stays, and the main names it as compacted, so no
- * reader or later compaction merges it twice.
+ * main file. The compactor renames each worker file to a claimed name first,
+ * renames the merged main into place next, and deletes the claimed files last.
+ * A name that vanishes between a reader's listing and its read may therefore be
+ * a claim whose merge is not published yet, so the reader lists again until a
+ * pass reads every name it saw, and degrades to a nonce when the directory does
+ * not settle. A claimed file deleted after the merge is already inside the main
+ * the reader loads afterwards. A worker file the compactor could not delete
+ * stays, and the main names it as compacted, so no reader or later compaction
+ * merges it twice.
  *
  * Sound degradations, by design:
  *
@@ -94,6 +98,14 @@ const WORKER_SNAPSHOT_PREFIX = "graph-inputs.worker-";
 
 /** Prefix used after a compactor atomically claims an immutable worker file. */
 const CLAIMED_WORKER_SNAPSHOT_PREFIX = "graph-inputs.worker-claimed-";
+
+/**
+ * Listing passes a reader repeats while a listed snapshot name keeps vanishing
+ * before it can be read. Each repeat needs another compactor to rename or
+ * remove a file, so exhausting the bound means the directory is not settling
+ * and the state cannot be proven.
+ */
+const SNAPSHOT_LISTING_ATTEMPTS = 8;
 
 /** Directory lock serializing the one mutable main-snapshot rewrite. */
 const SNAPSHOT_COMPACTION_LOCK = "snapshot-compaction.lock";
@@ -1147,9 +1159,8 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
       return `${NON_REUSABLE_RUN_PREFIX}${runId}`;
     }
     // Read the worker files strictly before the main file (see the module doc
-    // comment): a concurrent compactor deletes a worker file only after the
-    // merged main is renamed into place, so whatever this enumeration misses
-    // is already inside the main read below.
+    // comment). The lock keeps another compactor from claiming or deleting a
+    // file during these reads, and a vanished name still forces a fresh listing.
     claimWorkerFiles(directory);
     const recovery = readUnhealthySnapshots(base);
     const workers = readWorkerFiles(directory);
@@ -1422,8 +1433,9 @@ function listExpiredKeyBaselines(directory: string): string[] {
 
 /**
  * Read the unioned snapshot state, or `undefined` when the main snapshot is
- * missing or any snapshot file is corrupt (a torn or foreign write means the
- * recorded set cannot be trusted, so the caller degrades to a nonce).
+ * missing, any snapshot file is corrupt (a torn or foreign write means the
+ * recorded set cannot be trusted, so the caller degrades to a nonce), or a
+ * concurrent compaction keeps renaming worker files so the listing never settles.
  *
  * The result contains sorted absolute file and tree paths, the epoch identity,
  * and tainted/volatile flags. It reads persisted evidence without revalidating
@@ -2001,9 +2013,11 @@ function uncompactedWorkerEntries(
 
 /**
  * Read every worker snapshot file in `directory`. A file that disappears
- * mid-read was compacted (merged into the main snapshot first) and is skipped;
- * a file that exists but does not parse is reported in `corruptPaths` so
- * readers can degrade to a nonce and the compactor can sweep it.
+ * mid-read was renamed by a compactor, so the directory is listed again and the
+ * claimed copy is read under its new name; `readable` is false when the
+ * listing never settles. A file that exists but does not parse is reported in
+ * `corruptPaths` so readers can degrade to a nonce and the compactor can sweep
+ * it.
  */
 function readWorkerFiles(directory: string): {
   corruptPaths: string[];
@@ -2018,6 +2032,27 @@ function readSnapshotFiles(
   directory: string,
   prefix: string,
 ): SnapshotDocuments {
+  // A name that vanishes between the listing and the read was renamed, not
+  // necessarily merged: compaction claims a worker file under a new name well
+  // before the merged main replaces the old one, so skipping the vanished name
+  // would leave its inputs in neither place the reader looks. List again until
+  // one pass reads every name it listed. The claimed copy then appears under
+  // its own name, and once the merged main is published and the claimed copy
+  // removed the main read that follows holds its content.
+  for (let attempt = 0; attempt < SNAPSHOT_LISTING_ATTEMPTS; ++attempt) {
+    const documents = readSnapshotListing(directory, prefix);
+    if (documents !== undefined) {
+      return documents;
+    }
+  }
+  return { corruptPaths: [], entries: [], paths: [], readable: false };
+}
+
+/** One listing pass, or `undefined` when a listed name vanished before its read. */
+function readSnapshotListing(
+  directory: string,
+  prefix: string,
+): SnapshotDocuments | undefined {
   let names: string[];
   try {
     names = fs.readdirSync(directory);
@@ -2041,9 +2076,10 @@ function readSnapshotFiles(
     try {
       text = fs.readFileSync(file, "utf8");
     } catch (error) {
-      if (!isMissingFileError(error)) {
-        corruptPaths.push(file);
+      if (isMissingFileError(error)) {
+        return undefined;
       }
+      corruptPaths.push(file);
       continue;
     }
     const parsed = parseSnapshotDocument(text);

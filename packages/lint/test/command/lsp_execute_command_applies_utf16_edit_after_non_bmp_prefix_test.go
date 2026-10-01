@@ -21,13 +21,13 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases The non-BMP prefix separates UTF-16 units from scalar and byte offsets, unlike ASCII-only fix fixtures.
 // @evidence contracts/testing.md#execution-ownership The Go LSP host, checker and test-side UTF-16 edit application run in the one unit process; this proves returned edit coordinates without an editor subprocess.
 func TestLSPExecuteCommandAppliesUTF16EditAfterNonBMPPrefix(t *testing.T) {
-  source := "const face = \"😀\"; var legacy = 1;\nJSON.stringify(face, legacy);\n"
+  source := "const face = \"😀\"; var legacy = 1;\nJSON.stringify(face, legacy);\nexport {};\n"
   root := seedLintProject(t, source)
   seedLintRules(t, root, map[string]string{"no-var": "error"})
   uri := lintTestFileURI(t, filepath.Join(root, "src", "main.ts"))
 
   got := executeLSPCommandAppliedTextForTest(t, root, uri, commandLintFixAll, source)
-  want := "const face = \"😀\"; let legacy = 1;\nJSON.stringify(face, legacy);\n"
+  want := "const face = \"😀\"; let legacy = 1;\nJSON.stringify(face, legacy);\nexport {};\n"
   if got != want {
     t.Fatalf("UTF-16 LSP edit text mismatch:\nwant %q\ngot  %q", want, got)
   }

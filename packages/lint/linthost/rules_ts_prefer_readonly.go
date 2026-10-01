@@ -6,11 +6,6 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 // resolved writes in their source file. The Checker distinguishes aliases and
 // equally named members of other classes; reflective or any-typed writes are
 // outside this source analysis. No automatic edit is offered.
-//
-// @evidence contracts/common.md#principled-implementation Checker member declarations identify written fields, so an initializer alone never establishes absence of reassignment.
-// @evidence contracts/common.md#clear-and-simple-design Candidate selection reads one file-scoped write census; assignment target traversal owns destructuring and member identity.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Unresolved runtime mutation is not claimed absent; the diagnostic states the actual resolved source-file boundary without a safe-edit guarantee.
-// @evidence contracts/common.md#meaningful-documentation Native prose describes Checker ownership, reflective limitations and diagnostic-only behavior; the TypeScript rule map and guide describe the same boundary.
 type preferReadonly struct{}
 
 func (preferReadonly) Name() string { return "typescript/prefer-readonly" }
@@ -51,11 +46,6 @@ type preferReadonlyWritesKey struct{}
 // preferReadonlyWrittenFields computes one census per file walk. The Engine's
 // memo ends with that walk, so changed files and later Checker instances never
 // inherit old declaration identities. Nested scopes still contribute writes.
-//
-// @evidence contracts/common.md#principled-implementation Assignment, update, deletion and loop targets resolve to declaration nodes through the same Checker used for this source file.
-// @evidence contracts/common.md#clear-and-simple-design One operation enumerates writes and delegates target interpretation; declaration identity avoids textual field-name matching.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts The owned Engine memo shares only a fixed file/Checker census, without modifying foreign AST nodes or assuming constructor initialization is immutable.
-// @evidence contracts/common.md#meaningful-documentation The comment states census lifetime and nested-scope behavior; dynamic targets conservatively retain their receiver's members.
 func preferReadonlyWrittenFields(ctx *Context) map[*shimast.Node]bool {
   if cached, ok := ctx.fileValue(preferReadonlyWritesKey{}); ok {
     return cached.(map[*shimast.Node]bool)
@@ -92,11 +82,6 @@ func preferReadonlyWrittenFields(ctx *Context) map[*shimast.Node]bool {
 // computed names. Thus replacing this.value writes the field, but assigning
 // this.value.n only writes n. Dynamic indexed writes conservatively retain all
 // resolved receiver properties instead of guessing which key will be used.
-//
-// @evidence contracts/common.md#principled-implementation Assignment-pattern values and defaults' left sides are write positions; member symbols supply defining declarations across aliases and instantiated types.
-// @evidence contracts/common.md#clear-and-simple-design The target-kind switch mirrors assignment syntax and stops at a member, keeping object mutation separate from field replacement.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Dynamic receiver properties are conservatively marked rather than treating an unknown key as proof of no mutation.
-// @evidence contracts/common.md#meaningful-documentation Native prose explains computed keys, deep object mutation and the deliberately conservative dynamic-index boundary.
 func preferReadonlyRecordTarget(ctx *Context, target *shimast.Node, written map[*shimast.Node]bool) {
   if target == nil {
     return

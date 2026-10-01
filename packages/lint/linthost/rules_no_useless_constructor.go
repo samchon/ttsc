@@ -26,11 +26,6 @@ import shimast "github.com/microsoft/typescript-go/shim/ast"
 // noUselessConstructor detects empty base construction and unchanged derived
 // rest forwarding. Fixed argument lists have meaning even when each declared
 // parameter is passed through, because they filter additional caller arguments.
-//
-// @evidence contracts/common.md#principled-implementation The implicit derived constructor forwards every caller argument, so only a single rest parameter spread unchanged matches that forwarding behavior.
-// @evidence contracts/common.md#clear-and-simple-design Empty base and derived rest forwarding are distinct shapes; parameter properties, visibility and decorators preserve their existing purpose.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts A zero-argument or positional call is not declared equivalent from one matching invocation, and no automatic constructor removal is added.
-// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes filtering from all-argument forwarding and describes modifiers that prevent a redundancy finding.
 type noUselessConstructor struct{}
 
 func (noUselessConstructor) Name() string           { return "no-useless-constructor" }

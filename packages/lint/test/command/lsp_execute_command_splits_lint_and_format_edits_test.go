@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases The same source contains both a lint defect and a formatting defect so either command applying both classes fails instead of passing a single-defect fixture.
 // @evidence contracts/testing.md#execution-ownership Both LSP commands dispatch directly through the Go host and native rules in one unit process; the helper also requires exactly the requested URI with nonempty edits.
 func TestLSPExecuteCommandSplitsLintAndFormatEdits(t *testing.T) {
-  source := "var legacy = 1\nJSON.stringify(legacy)\n"
+  source := "var legacy = 1\nJSON.stringify(legacy)\nexport {}\n"
   root := seedLintProject(t, source)
   // no-var is a lint rule; the format block enables format/semi (formatting
   // is configured only through the format block).
@@ -32,11 +32,11 @@ func TestLSPExecuteCommandSplitsLintAndFormatEdits(t *testing.T) {
   })
   uri := lintTestFileURI(t, filepath.Join(root, "src", "main.ts"))
   fixed := executeLSPCommandAppliedTextForTest(t, root, uri, commandLintFixAll, source)
-  if fixed != "let legacy = 1\nJSON.stringify(legacy)\n" {
+  if fixed != "let legacy = 1\nJSON.stringify(legacy)\nexport {}\n" {
     t.Fatalf("fix-all applied text = %q", fixed)
   }
   formatted := executeLSPCommandAppliedTextForTest(t, root, uri, commandFormatDocument, source)
-  if formatted != "var legacy = 1;\nJSON.stringify(legacy);\n" {
+  if formatted != "var legacy = 1;\nJSON.stringify(legacy);\nexport {};\n" {
     t.Fatalf("format applied text = %q", formatted)
   }
 }

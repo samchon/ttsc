@@ -184,9 +184,11 @@ func scanMarkdownInventory(
   hostAtLine := make([]string, len(lines))
   hostIDAtLine := make([]string, len(lines))
   fencedAtLine := make([]bool, len(lines))
-  // commentAtLine marks the lines a citation or a review can live on, so the
-  // content digest can leave them out. A fenced block is not marked: an
-  // `<!-- -->` inside one hosts no tag, and its text is content of the section.
+  // commentAtLine marks the lines that open or sit inside a line-leading HTML
+  // comment, which only the unreadable-tag report reads. The content digest
+  // does not: it cuts the exact spans the declaration scan matches, because a
+  // comment may open after prose or close before it. A fenced block is not
+  // marked: an `<!-- -->` inside one hosts no tag.
   commentAtLine := make([]bool, len(lines))
   // The nearest heading *unit* enclosing each line, which is not the same as its
   // host: a heading may open a region without materializing a unit. Kept apart
@@ -375,7 +377,7 @@ func scanMarkdownInventory(
       })
     }
   }
-  assignMarkdownDigests(inventory, lines, digestHostIDAtLine, commentAtLine)
+  assignMarkdownDigests(inventory, content, lines, digestHostIDAtLine, fencedAtLine)
   return inventory, problems
 }
 
@@ -395,34 +397,58 @@ func scanMarkdownInventory(
 // `evidenceUnit.Digest` records the consequence; do not carry the Markdown
 // intuition across.
 //
-// HTML comment lines are dropped because that is where a Markdown citation and
-// its review live. Leaving them in would make writing the review change the
-// digest the review's own fingerprint is checked against.
+// The text cut out of every digest is exactly what the declaration scan reads
+// as a tag position: each `<!-- ... -->` span that opens outside a fence. That
+// scan is a regular expression over the whole document, so a span may open
+// after prose, close before prose, or run across lines, and it may not be a
+// whole line. Cutting spans rather than lines keeps the prose beside a comment
+// in the digest, so a content change there still expires a review, while writing
+// the review changes nothing it is checked against. A `<!--` that never closes
+// matches no span, is read as no tag, and so stays content.
 func assignMarkdownDigests(
   inventory *artifactInventory,
+  content string,
   lines []string,
   digestHostIDAtLine []string,
-  commentAtLine []bool,
+  fencedAtLine []bool,
 ) {
+  spans := [][2]int{}
+  for _, match := range markdownCommentPattern.FindAllStringIndex(content, -1) {
+    line := lineAt(content, match[0])
+    if line > 0 && line <= len(fencedAtLine) && fencedAtLine[line-1] {
+      continue
+    }
+    spans = append(spans, [2]int{match[0], match[1]})
+  }
   owned := map[string][]string{}
-  for index := range lines {
+  next := 0
+  lineStart := 0
+  for index, rawLine := range lines {
+    lineEnd := lineStart + len(rawLine)
     id := digestHostIDAtLine[index]
-    if index < len(commentAtLine) && commentAtLine[index] {
+    for next < len(spans) && spans[next][1] <= lineStart {
+      next++
+    }
+    remainder := strings.Builder{}
+    cursor := lineStart
+    cut := false
+    for k := next; k < len(spans) && spans[k][0] < lineEnd; k++ {
+      cut = true
+      if spans[k][0] > cursor {
+        remainder.WriteString(content[cursor:spans[k][0]])
+      }
+      cursor = max(cursor, min(spans[k][1], lineEnd))
+    }
+    if cursor < lineEnd {
+      remainder.WriteString(content[cursor:lineEnd])
+    }
+    lineStart = lineEnd + 1
+    text := strings.TrimSuffix(remainder.String(), "\r")
+    // A line holding nothing but comment spans is a tag position, not content.
+    if id == "" || (cut && strings.TrimSpace(text) == "") {
       continue
     }
-    if id == "" {
-      continue
-    }
-    // A comment opening after prose on the same line is still a tag position:
-    // the declaration scan runs over the whole document, so it finds a citation
-    // or a review there. Only the comment span comes out, never the line, or the
-    // prose beside it would vanish from the digest and a real content change
-    // would stop expiring anything.
-    content := markdownCommentPattern.ReplaceAllString(
-      strings.TrimSuffix(lines[index], "\r"),
-      "",
-    )
-    owned[id] = append(owned[id], content)
+    owned[id] = append(owned[id], text)
   }
   for _, unit := range inventory.Units {
     unit.Digest = contentDigest(strings.Join(owned[unit.ID], "\n"))

@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#execution-ownership TestLSPExecuteCommandMaterializesDuplicateSymlinkedDirectories owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPExecuteCommandMaterializesDuplicateSymlinkedDirectories(t *testing.T) {
   root := t.TempDir()
-  source := "var legacy = 1;\nJSON.stringify(legacy);\n"
+  source := "var legacy = 1;\nJSON.stringify(legacy);\nexport {};\n"
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{
   "compilerOptions": {
     "target": "ES2022",
@@ -47,7 +47,7 @@ func TestLSPExecuteCommandMaterializesDuplicateSymlinkedDirectories(t *testing.T
   uri := lintTestFileURI(t, linkFile)
 
   got := executeLSPCommandAppliedTextForTest(t, root, uri, commandLintFixAll, source)
-  want := "let legacy = 1;\nJSON.stringify(legacy);\n"
+  want := "let legacy = 1;\nJSON.stringify(legacy);\nexport {};\n"
   if got != want {
     t.Fatalf("duplicate symlink dir LSP fix text mismatch:\nwant %q\ngot  %q", want, got)
   }

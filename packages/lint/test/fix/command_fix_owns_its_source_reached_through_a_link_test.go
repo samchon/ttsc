@@ -41,7 +41,7 @@ func TestCommandFixOwnsItsSourceReachedThroughALink(t *testing.T) {
   writeFile(
     t,
     filepath.Join(backing, "main.ts"),
-    "var legacy = 1;\nJSON.stringify(legacy);\n",
+    "var legacy = 1;\nJSON.stringify(legacy);\nexport {};\n",
   )
   if err := os.Symlink(backing, filepath.Join(root, "src")); err != nil {
     t.Skipf("directory link unavailable: %v", err)
@@ -61,6 +61,6 @@ func TestCommandFixOwnsItsSourceReachedThroughALink(t *testing.T) {
   assertFileText(
     t,
     filepath.Join(backing, "main.ts"),
-    "let legacy = 1;\nJSON.stringify(legacy);\n",
+    "let legacy = 1;\nJSON.stringify(legacy);\nexport {};\n",
   )
 }

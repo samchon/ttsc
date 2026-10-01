@@ -4,8 +4,11 @@ import { TtscGraphEdgeKind } from "./TtscGraphEdgeKind";
 /**
  * A directed relationship between two {@link ITtscGraphNode}s, both named by
  * `id`. The triple `(from, to, kind)` is unique; a repeat keeps the first
- * source-order evidence. Every edge is compiler-resolved, so there is no
- * per-edge trust flag: the whole graph is checker-resolved fact.
+ * source-order evidence. Every edge between declarations is compiler-resolved,
+ * apart from the `contains` ownership the memory layer derives and the
+ * trace-only `dispatches` hop, and an artifact node's `contains` parent is the
+ * one its publishing plugin named. There is no per-edge trust flag: `kind` says
+ * which of these an edge is.
  *
  * @evidence contracts/common.md#principled-implementation Directed endpoint identities and a relation kind express a resolved edge; optional evidence supplies coordinates without changing identity.
  * @evidence contracts/common.md#clear-and-simple-design One record separates relation identity from its source span, with no duplicated node payload.

@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project with one lint fix and one format fix. The asserted decision is: Assert each response advertises only its matching command. Other fixture shapes remain in their separately named hosts.
 // @evidence contracts/testing.md#execution-ownership TestLSPCodeActionsSplitLintAndFormatCommands owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPCodeActionsSplitLintAndFormatCommands(t *testing.T) {
-  root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\n")
+  root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\nexport {}\n")
   // no-var is a lint rule; the format block enables format/semi (formatting
   // is configured only through the format block).
   seedLintConfig(t, root, map[string]any{

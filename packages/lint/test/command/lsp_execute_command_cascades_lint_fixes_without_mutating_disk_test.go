@@ -22,8 +22,8 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project whose lint fixes require multiple passes. The asserted decision is: Assert the source file on disk was not modified by the sidecar. Other fixture shapes remain in their separately named hosts.
 // @evidence contracts/testing.md#execution-ownership TestLSPExecuteCommandCascadesLintFixesWithoutMutatingDisk owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPExecuteCommandCascadesLintFixesWithoutMutatingDisk(t *testing.T) {
-  source := "var legacy = 1;\nlet stable = legacy;\nif (typeof stable == \"number\") { JSON.stringify(stable); }\n"
-  want := "const legacy = 1;\nconst stable = legacy;\nif (typeof stable === \"number\") { JSON.stringify(stable); }\n"
+  source := "var legacy = 1;\nlet stable = legacy;\nif (typeof stable == \"number\") { JSON.stringify(stable); }\nexport {};\n"
+  want := "const legacy = 1;\nconst stable = legacy;\nif (typeof stable === \"number\") { JSON.stringify(stable); }\nexport {};\n"
   root := seedLintProject(t, source)
   seedLintRules(t, root, map[string]string{
     "eqeqeq":       "error",

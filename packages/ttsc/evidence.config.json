@@ -880,6 +880,7 @@
         "!shim/core/enums_gen.go",
         "!shim/parser/shim.go",
         "!shim/scanner/shim.go",
+        "!shim/stringutil/shim.go",
         "!shim/tsoptions/shim.go",
         "!shim/tspath/shim.go",
         "!shim/vfs/cachedvfs/shim.go",

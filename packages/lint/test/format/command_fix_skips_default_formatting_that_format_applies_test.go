@@ -29,7 +29,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed two copies of one source — a `no-var` lint violation plus two missing semicolons — with only a lint rule configured and no `format` block. The asserted decision is: Assert fix applied the lint fix but added no semicolons, while format added the default semicolons but left the `var` lint violation untouched. Other fixture shapes remain in their separately named hosts.
 // @evidence contracts/testing.md#execution-ownership TestCommandFixSkipsDefaultFormattingThatFormatApplies owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestCommandFixSkipsDefaultFormattingThatFormatApplies(t *testing.T) {
-  const source = "var legacy = 1\nJSON.stringify(legacy)\n"
+  const source = "var legacy = 1\nJSON.stringify(legacy)\nexport {}\n"
 
   fixRoot := seedLintProject(t, source)
   seedLintRules(t, fixRoot, map[string]string{"no-var": "error"})
@@ -48,7 +48,7 @@ func TestCommandFixSkipsDefaultFormattingThatFormatApplies(t *testing.T) {
   assertFileText(
     t,
     filepath.Join(fixRoot, "src", "main.ts"),
-    "let legacy = 1\nJSON.stringify(legacy)\n",
+    "let legacy = 1\nJSON.stringify(legacy)\nexport {}\n",
   )
 
   formatRoot := seedLintProject(t, source)

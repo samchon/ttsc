@@ -19,7 +19,7 @@ type formatApplicabilityFile struct {
 //
 //  1. Exercise the authored command format respects resolved entry applicability fixtures through the Go format dispatcher.
 //  2. Require the exact authored output or rejection result for each fixture.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises respects resolved entry applicability and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite.
+// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises respects resolved entry applicability and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The LSP buffer format applies the same text to formatted files and returns no edit for ignored or out-of-scope ones.
 // @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
 // @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: ignore_only_keeps_defaults_for_unignored_files, scoped_base_ignore_keeps_global_child_format, overlapping_extends_entries_keep_each_others_match. Each keeps its own assertions under this one discoverable entry.
 // @evidence contracts/testing.md#execution-ownership TestCommandFormatRespectsResolvedEntryApplicability owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
@@ -192,10 +192,20 @@ func assertLSPFormatApplicability(t *testing.T, root string, files []formatAppli
   t.Helper()
   for _, file := range files {
     target := filepath.Join(root, filepath.FromSlash(file.name))
+    uri := lintTestFileURI(t, target)
+    if file.want == file.source {
+      // An ignored or out-of-scope document owes no edit: the command answers
+      // with an empty WorkspaceEdit instead of rewriting it.
+      if edit := executeLSPFormatBufferEditForTest(t, root, uri, file.source); len(edit.Changes) != 0 {
+        t.Fatalf("LSP format edited %s although its entry applies no formatting: %#v", file.name, edit)
+      }
+      assertFileText(t, target, file.want)
+      continue
+    }
     got := executeLSPFormatBufferAppliedTextForTest(
       t,
       root,
-      lintTestFileURI(t, target),
+      uri,
       file.source,
       file.source,
     )

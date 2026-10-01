@@ -22,8 +22,8 @@ func TestFixSnapshotHarnessKeepsASTOnlyRuleOnParserPath(t *testing.T) {
     t,
     "no-var",
     "component.tsx",
-    "var legacy = 1;\nconst view = <div />;\nJSON.stringify([legacy, view]);\n",
-    "let legacy = 1;\nconst view = <div />;\nJSON.stringify([legacy, view]);\n",
+    "var legacy = 1;\nconst view = <div />;\nJSON.stringify([legacy, view]);\nexport {};\n",
+    "let legacy = 1;\nconst view = <div />;\nJSON.stringify([legacy, view]);\nexport {};\n",
   )
   if after := programLifecycleSequence.Load(); after != before {
     t.Fatalf("AST-only fixer snapshot created a Program: before=%d after=%d", before, after)

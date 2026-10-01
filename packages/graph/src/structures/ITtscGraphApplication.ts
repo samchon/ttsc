@@ -17,7 +17,7 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * type relations. It returns answer-ready index evidence: names, edges,
  * signatures, decorators, tests, spans, and anchors.
  *
- * Every returned fact — each name, edge, signature, and span — is
+ * Every returned declaration fact — each name, edge, signature, and span — is
  * compiler-resolved and verified for the snapshot that call synchronized, so
  * trust it without re-checking against files. Where an operation ranks a
  * shortlist against your question (`lookup`, `entrypoints`, `tour`), the facts
@@ -62,8 +62,9 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *
  * ## What to trust
  *
- * Before source edits, every returned fact is compiler-resolved and verified.
- * Never use extra graph calls, repository search, or file reads to doubt,
+ * Before source edits, every returned declaration fact is compiler-resolved and
+ * verified. A document, data-model, or API-operation node is the exception: a
+ * lint plugin parsed it, and `audit` says so. Never use extra graph calls, repository search, or file reads to doubt,
  * fact-check, re-derive, re-narrate, or re-confirm a returned node, span, edge,
  * signature, decorator, test, reference, step, or anchor. The server resolved
  * each one to the type-checked program for the snapshot the call synced to, and
