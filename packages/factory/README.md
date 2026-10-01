@@ -97,7 +97,7 @@ factory.createCallExpression(id("foo"), undefined, [a, b]); // foo(a, b)
 
 `printWidth` picks a layout, never a meaning. The break-time trailing comma is dropped where it would change the program (after the rest element of a destructuring assignment target, or after an argument-list hole), and it is written in both layouts where it is a value (the hole in `["a", "b", ,]`). JSX children stay on one line whenever a break would delete a whitespace-only child or trim the significant edge space off a text child, so the same tree renders the same text at every width.
 
-String literal nodes carry cooked values. In quoted JSX attributes, the printer uses entities to preserve quotes, ampersands, control characters and line endings; backslashes remain literal. Inside a JSX expression, the same node uses JavaScript string escapes. Both forms preserve the supplied value when the generated source is encoded as UTF-8.
+String literal nodes carry cooked values. In quoted JSX attributes, the printer uses entities to preserve quotes, ampersands, control characters and line endings; backslashes remain literal. A value containing an unpaired UTF-16 surrogate prints as a JSX expression with JavaScript string escapes, because native JSX entity decoding cannot preserve that code unit. Explicit JSX expressions use the same JavaScript escapes. These forms preserve the supplied value when the generated source is encoded as UTF-8.
 
 ### Comments
 

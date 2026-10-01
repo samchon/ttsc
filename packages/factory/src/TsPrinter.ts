@@ -44,8 +44,10 @@ import { NodeFlags, SyntaxKind } from "./syntax";
  * validate lexical spellings, legal assignment targets or complete TypeScript
  * grammar; callers remain responsible for those input constraints. Width counts
  * JavaScript string units, rather than terminal display columns.
- * Quoted JSX attributes encode their cooked string values with entities;
- * JavaScript string and JSX expression literals use JavaScript escapes.
+ * Quoted JSX attributes encode their cooked string values with entities. A value
+ * containing an unpaired UTF-16 surrogate uses a JSX expression instead, because
+ * native entity decoding cannot represent that code unit. JavaScript string
+ * and JSX expression literals use JavaScript escapes.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @example
@@ -1600,13 +1602,15 @@ export class TsPrinter {
               this.emit(node.name),
               "=",
               node.initializer.kind === "StringLiteral"
-                ? this.withComments(
-                    node.initializer,
-                    escapeJsxAttribute(
-                      node.initializer.text,
-                      node.initializer.singleQuote,
-                    ),
-                  )
+                ? hasLoneSurrogate(node.initializer.text)
+                  ? concat(["{", this.emit(node.initializer), "}"])
+                  : this.withComments(
+                      node.initializer,
+                      escapeJsxAttribute(
+                        node.initializer.text,
+                        node.initializer.singleQuote,
+                      ),
+                    )
                 : this.emit(node.initializer),
             ]);
       case "JsxAttributes":
@@ -2784,8 +2788,9 @@ const isBreakSafeJsxText = (text: string): boolean =>
  * than JavaScript escapes, so backslashes remain literal and an ampersand or
  * delimiter must be an entity. Numeric entities keep control characters and
  * line endings out of source layout without normalizing their cooked values.
- * Lone UTF-16 surrogates are encoded before UTF-8 transport can replace them;
- * well-formed pairs pass through as one code point.
+ * The caller routes unpaired surrogates through a JavaScript expression because
+ * the pinned native JSX decoder replaces numeric surrogate entities with U+FFFD.
+ * Well-formed pairs pass through as one code point.
  */
 const escapeJsxAttribute = (text: string, singleQuote?: boolean): string => {
   const quote = singleQuote === true ? "'" : '"';
@@ -2795,17 +2800,20 @@ const escapeJsxAttribute = (text: string, singleQuote?: boolean): string => {
     if (ch === "&") escaped += "&amp;";
     else if (ch === quote) escaped += quote === '"' ? "&quot;" : "&apos;";
     else if (ch === "<") escaped += "&lt;";
-    else if (
-      code < 0x20 ||
-      code === 0x7f ||
-      code === 0x2028 ||
-      code === 0x2029 ||
-      (code >= 0xd800 && code <= 0xdfff)
-    )
+    else if (code < 0x20 || code === 0x7f || code === 0x2028 || code === 0x2029)
       escaped += `&#${code};`;
     else escaped += ch;
   }
   return quote + escaped + quote;
+};
+
+/** Code-point iteration joins valid pairs and leaves only unpaired units here. */
+const hasLoneSurrogate = (text: string): boolean => {
+  for (const ch of text) {
+    const code = ch.codePointAt(0)!;
+    if (code >= 0xd800 && code <= 0xdfff) return true;
+  }
+  return false;
 };
 
 /**
