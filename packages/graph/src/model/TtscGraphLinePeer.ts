@@ -144,7 +144,7 @@ export namespace TtscGraphLinePeer {
    * @evidence contracts/common.md#meaningful-documentation Prose explains EOF completion and unknown/forced failure and connection comments describe bounded stderr and retirement.
    * @evidence contracts/performance.md#efficient-algorithms One spawn/reader setup is constant-count; writes and line decoding process frame bytes once, while captured diagnostics retain a tail of at most 65,536 UTF-16 code units and draining avoids pipe backpressure.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This effectful opener creates one native peer; resident state determines when that peer remains reusable or must be replaced.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The returned close owns one reader and child, detaches once and terminates at most once; one finite escalation timer and join deadline are cleared on close, while streams remain drained through authoritative completion.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The returned close owns one reader and child, detaches once and terminates at most once; escalation starts after stdin finishes delivering EOF, and its finite timer and join deadline are cleared on close while streams remain drained through authoritative completion.
    * @evidence contracts/portability.md#os-neutral-implementation Node spawn receives an executable and argv vector directly with windowsHide; Node stream/process APIs own native signals and optional cwd, without a shell or manual path normalization.
    */
   export function open(
@@ -202,17 +202,22 @@ export namespace TtscGraphLinePeer {
         // Keep output drained until Node's close event joins both the process
         // and inherited stdio. EOF permits the real resident loop to finish.
         child.stdout.resume();
-        child.stdin.end();
-        force = setTimeout(() => {
+        // The child cannot act on EOF until the pipe finishes. Starting its
+        // grace period before that callback charged a blocked parent event
+        // loop against a shutdown request it had not yet delivered.
+        child.stdin.end(() => {
           if (joined) return;
-          if (child.exitCode === null && child.signalCode === null) {
-            forced = true;
-            try { child.kill("SIGKILL"); } catch (error) { failure = error instanceof Error ? error : new Error(String(error)); }
-          }
-          deadline = setTimeout(() => {
-            if (!joined) reject(new Error("@ttsc/graph: peer shutdown could not be joined"));
+          force = setTimeout(() => {
+            if (joined) return;
+            if (child.exitCode === null && child.signalCode === null) {
+              forced = true;
+              try { child.kill("SIGKILL"); } catch (error) { failure = error instanceof Error ? error : new Error(String(error)); }
+            }
+            deadline = setTimeout(() => {
+              if (!joined) reject(new Error("@ttsc/graph: peer shutdown could not be joined"));
+            }, TERMINATION_GRACE_MS);
           }, TERMINATION_GRACE_MS);
-        }, TERMINATION_GRACE_MS);
+        });
         return completion;
       },
     };
