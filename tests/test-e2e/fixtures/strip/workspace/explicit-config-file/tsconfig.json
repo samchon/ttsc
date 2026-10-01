@@ -1,0 +1,1 @@
+{"extends":"../tsconfig.base.json","compilerOptions":{"declaration":true,"outDir":"dist","rootDir":"../shared","plugins":[{"transform":"@ttsc/strip","configFile":"config/my-strip.json"}]},"include":["../shared"]}

@@ -237,7 +237,7 @@
       "files": [
         "tests/test-e2e/src/internal/evidence/internal/startWatch.ts",
         "tests/test-e2e/src/internal/evidence/internal/createProject.ts",
-        "tests/test-e2e/src/internal/banner/internal/banner-map-boundary.ts"
+        "tests/test-e2e/src/internal/UtilityWorkspace.ts"
       ],
       "symbol": "function",
       "reference": {

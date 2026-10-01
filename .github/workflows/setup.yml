@@ -45,7 +45,7 @@ jobs:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: "**/go.sum"
       - name: Install build dependencies
-        run: pnpm --filter @ttsc/station --filter @ttsc/config --filter ttsc... install --frozen-lockfile --ignore-scripts
+        run: pnpm --filter @ttsc/station --filter @ttsc/config --filter ttsc... --filter @ttsc/test-e2e --filter @ttsc/testing... install --frozen-lockfile --ignore-scripts
       - name: Build the current platform CLI
         run: pnpm run build:current
         env:

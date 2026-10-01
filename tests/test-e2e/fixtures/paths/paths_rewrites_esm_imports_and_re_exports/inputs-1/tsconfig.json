@@ -1,1 +1,0 @@
-{"compilerOptions":{"target":"ES2022","module":"ES2022","declaration":true,"strict":true,"paths":{"@pkg":["./src/pkg"],"@lib/exact":["./src/modules/exact.ts"],"@lib/*":["./src/missing/*","./src/modules/*"]},"outDir":"dist","rootDir":"src","plugins":[{"transform":"@ttsc/paths"}]},"include":["src"]}

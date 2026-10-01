@@ -1,1 +1,0 @@
-{"compilerOptions":{"module":"NodeNext","moduleResolution":"NodeNext","target":"ES2022","declaration":true,"resolveJsonModule":true,"strict":true,"rootDir":"src","outDir":"dist","paths":{"@data":["./src/data.json"]},"plugins":[{"transform":"@ttsc/paths"}]},"include":["src"]}

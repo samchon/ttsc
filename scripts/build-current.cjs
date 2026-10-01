@@ -231,6 +231,12 @@ function buildDependencies(plan) {
       const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
       manifests.set(manifest.name, manifest);
     }
+  // The contributor demo is a workspace member outside the two scanned roots.
+  const contributorManifest = JSON.parse(fs.readFileSync(
+    path.join(root, "packages", "lint", "test", "lint-contributor-demo", "package.json"),
+    "utf8",
+  ));
+  manifests.set(contributorManifest.name, contributorManifest);
   const dependencies = new Map();
   for (const target of plan) {
     if (target === PLATFORM) {

@@ -26,7 +26,7 @@ const LANES = [
   },
   {
     "id": "package-defenses",
-    "run": `node --test ${discoverNodeTests(path.resolve(__dirname, '../..'), 'package-defenses').join(' ')} && pnpm --filter @ttsc/test-e2e start --package=banner && pnpm --filter @ttsc/test-e2e start --package=paths && pnpm --filter @ttsc/test-e2e start --package=strip && pnpm --filter @ttsc/test-e2e start --package=playground && pnpm --filter @ttsc/test-e2e start --package=wasm`
+    "run": `node --test ${discoverNodeTests(path.resolve(__dirname, '../..'), 'package-defenses').join(' ')} && pnpm --filter @ttsc/test-e2e start --package=banner,paths,strip,playground,wasm`
   },
   {
     "id": "ttsc-core",
