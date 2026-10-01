@@ -16,19 +16,19 @@ import {
  * content fingerprint of the `go` executable so upgrading the toolchain
  * produces a fresh binary slot in the global plugin cache.
  *
- * 1. Create one source plugin and two fake Go executables with different content.
- * 2. Compute the cache key with each executable as `goBinary`.
+ * 1. Create one source plugin and compiler files with changed and equal bytes.
+ * 2. Compare different content and equal content at distinct installation paths.
  * 3. On POSIX, contrast an empty leading PATH entry with PATH-only lookup.
  * 4. Assert each effective compiler identity receives a distinct key.
  *
- * @evidence contracts/testing.md#behavioral-verification computeCacheKey separates changed compiler bytes, same-size same-mtime replacement, and POSIX cwd-first versus PATH-only tool selection.
- * @evidence contracts/testing.md#independent-expectations The two authored tools and replacement comment differ in bytes, while explicit stat checks prove the replacement preserves size and mtime.
- * @evidence contracts/testing.md#distinguishing-cases Different path tools, same-path replacement and empty leading PATH segment retain three identity distinctions; Windows omits the POSIX PATH branch.
+ * @evidence contracts/testing.md#behavioral-verification computeCacheKey separates changed compiler bytes, same-size same-mtime replacement, and POSIX cwd-first versus PATH-only tool selection; relocating equal compiler bytes preserves the key.
+ * @evidence contracts/testing.md#independent-expectations Handwritten compiler-a bytes match at two distinct paths while compiler-b bytes differ; explicit stat checks prove the changed replacement comment preserves size and mtime.
+ * @evidence contracts/testing.md#distinguishing-cases Equal relocated bytes are the positive twin to different compiler bytes. Same-path replacement and an empty leading PATH segment retain their original distinctions; Windows omits only the POSIX PATH branch after the other assertions execute.
  * @evidence contracts/testing.md#execution-ownership The exported test_computecachekey_changes_when_go_compiler_identity_changes entry is discovered by TestExecutor from features/source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary The cache identity owner resolves actual tool paths and consumes the Go metadata process result when goBinary is supplied. The handwritten fake producer or intentionally unusable compiler files constrain that connection; these assertions establish identity selection, not native binary compatibility by execution.
- * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. The same source and version inputs remain fixed while the named identity axis changes; each key observes that state through the existing metadata owner, without installing a consumer or compiling a native artifact.
+ * @evidence contracts/e2e.md#shared-execution Changed and relocated-equal compiler assertions share one source module and the first observed key, replacing two previous source roots with one and four key calls with three for this byte/path matrix. Replacement and POSIX lookup retain their separate original calls; no consumer is installed or native artifact compiled.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns temporary directories through process exit. Any ambient environment writes are restored by the case's finally block; explicit environments remain call-local. Case-local toolchain/source identities keep memoized readings and publication paths separate from other cases.
- * @evidence contracts/e2e.md#preserved-coverage computeCacheKey separates changed compiler bytes, same-size same-mtime replacement, and POSIX cwd-first versus PATH-only tool selection. These assertions stay in test_computecachekey_changes_when_go_compiler_identity_changes with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
+ * @evidence contracts/e2e.md#preserved-coverage The former install-path test's equal-byte relocation assertion now shares this actual metadata owner with changed-byte, same-size same-mtime replacement and POSIX lookup assertions. Equal authored bytes remain equal at different paths, differing bytes remain different, and every original replacement stat and lookup assertion remains.
  */
 export const test_computecachekey_changes_when_go_compiler_identity_changes =
   () => {
@@ -62,6 +62,18 @@ export const test_computecachekey_changes_when_go_compiler_identity_changes =
     });
 
     assert.notEqual(first, second);
+
+    const relocatedGo = path.join(root, "relocated", "go-a");
+    fs.mkdirSync(path.dirname(relocatedGo), { recursive: true });
+    fs.writeFileSync(relocatedGo, "go compiler a\n", "utf8");
+    const relocated = computeCacheKey({
+      dir: plugin,
+      entry: ".",
+      goBinary: relocatedGo,
+      ttscVersion: "1.0.0",
+      tsgoVersion: "7.0.0-dev",
+    });
+    assert.equal(relocated, first);
 
     const replacedGo = createFakeGoBinary(root);
     fs.appendFileSync(
