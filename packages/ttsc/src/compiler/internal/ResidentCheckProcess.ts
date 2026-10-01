@@ -15,8 +15,10 @@ import type { ResidentCheckResult } from "./ResidentCheckResult";
  *
  * The caller owns disposal. Requests have no deadline, and outstanding request
  * count and reply-line size are not capped; a slow live check remains pending.
- * Retirement sends EOF and waits for actual close. A one-second grace period
- * precedes forced termination, followed by a one-second join deadline. A forced
+ * Retirement ends stdin and waits for actual close. A one-second grace period
+ * starts after stdin finishes, followed by forced termination and a one-second
+ * join deadline. Pending stdin writes have a one-second flush deadline once
+ * the retiring call stack yields. A forced
  * or unjoined process is not a graceful shutdown.
  *
  * @evidence contracts/common.md#principled-implementation One positional reply consumes one queued cycle; invalid framing or shape retires the stream so a delayed reply cannot answer a different cycle.
@@ -39,6 +41,7 @@ export class ResidentCheckProcess {
   private closing = false;
   private didClose = false;
   private forced = false;
+  private flushDeadline: NodeJS.Timeout | undefined;
   private terminationTimer: NodeJS.Timeout | undefined;
   private terminationDeadline: NodeJS.Timeout | undefined;
 
@@ -51,6 +54,7 @@ export class ResidentCheckProcess {
     this.exited = new Promise<void>((resolve, reject) => {
       this.child.once("close", () => {
         this.didClose = true;
+        clearTimeout(this.flushDeadline);
         clearTimeout(this.terminationTimer);
         clearTimeout(this.terminationDeadline);
         this.reader?.close();
@@ -247,26 +251,54 @@ export class ResidentCheckProcess {
     this.closing = true;
     const stdin = this.child.stdin;
     if (stdin !== null && !stdin.destroyed) {
-      try { stdin.end(); } catch { stdin.destroy(); }
+      try {
+        // EOF cannot reach the child until the owned writable pipe finishes.
+        // A blocked parent event loop must not spend the child's shutdown grace
+        // before that delivery can happen.
+        stdin.end(() => this.startTerminationGrace());
+        // Start delivery's own deadline after the caller gives Node control.
+        // This bounds an unread full pipe without charging synchronous caller
+        // work against either delivery or the child's later EOF grace.
+        queueMicrotask(() => {
+          if (this.didClose || this.terminationTimer !== undefined) return;
+          this.flushDeadline = setTimeout(
+            () => this.forceTerminationAndJoin(),
+            TERMINATION_GRACE_MS,
+          );
+        });
+        return;
+      } catch {
+        stdin.destroy();
+      }
     }
+    this.startTerminationGrace();
+  }
+
+  private startTerminationGrace(): void {
+    clearTimeout(this.flushDeadline);
     // Keep output pipes readable until close: destroying them would discard the
     // last reply and confuse a requested EOF with transport truncation.
-    if (this.didClose) return;
-    this.terminationTimer = setTimeout(() => {
-      if (this.didClose) return;
-      if (this.child.exitCode === null && this.child.signalCode === null) {
-        this.forced = true;
-        try {
-          this.child.kill("SIGKILL");
-        } catch {
-          // The deadline still requires actual close, even if kill fails.
-        }
+    if (this.didClose || this.terminationTimer !== undefined || this.terminationDeadline !== undefined) return;
+    this.terminationTimer = setTimeout(
+      () => this.forceTerminationAndJoin(),
+      TERMINATION_GRACE_MS,
+    );
+  }
+
+  private forceTerminationAndJoin(): void {
+    if (this.didClose || this.terminationDeadline !== undefined) return;
+    if (this.child.exitCode === null && this.child.signalCode === null) {
+      this.forced = true;
+      try {
+        this.child.kill("SIGKILL");
+      } catch {
+        // The deadline still requires actual close, even if kill fails.
       }
-      this.terminationDeadline = setTimeout(() => {
-        this.rejectExit?.(
-          new Error("ttsc: resident check host did not close after termination"),
-        );
-      }, TERMINATION_GRACE_MS);
+    }
+    this.terminationDeadline = setTimeout(() => {
+      this.rejectExit?.(
+        new Error("ttsc: resident check host did not close after termination"),
+      );
     }, TERMINATION_GRACE_MS);
   }
 
