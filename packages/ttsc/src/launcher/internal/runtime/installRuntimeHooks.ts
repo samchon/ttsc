@@ -46,6 +46,7 @@ import { projectModuleOptions } from "./projectModuleOptions";
 import { readDependencyCache } from "./readDependencyCache";
 import { realPath } from "./realPath";
 import { restoreStrippedNodeBuiltinScheme } from "./restoreStrippedNodeBuiltinScheme";
+import { selectRuntimePluginPolicy } from "./selectRuntimePluginPolicy";
 
 /**
  * Install the source-loading hooks on the current (main) thread. Idempotent:
@@ -94,7 +95,7 @@ import { restoreStrippedNodeBuiltinScheme } from "./restoreStrippedNodeBuiltinSc
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe the three serving lanes, compile gates, source identity, capability-based local adaptation and extension-registry ownership; helper comments state ownership and failure effects with descriptive prose separated from tags.
  * @evidence contracts/portability.md#os-neutral-implementation Node URL conversion, native filesystem paths and physical resolution preserve OS spelling boundaries. Actual public-hook probes select runtime capabilities, native emit uses executable arguments without shell interpolation, and unresolved filesystem observation refuses reusable descriptor proof.
  * @evidence contracts/performance.md#efficient-algorithms Source ownership indexes avoid a complete emit scan on each load; export discovery visits each graph node once per traversal, and config-chain validation scans its discovered inputs. Compiler identity validation streams B executable bytes per lookup because metadata cannot certify unchanged bytes. Native compilation is required for a new project or orphan; recursive graphs remain subject to the JavaScript stack limit.
- * @evidence contracts/performance.md#reuse-equivalent-work Entry emits and dependency generations are shared within the current run; root keys include source bytes and orphan keys include source bytes, format, lowering policy and content-proven compiler identity. Nearest-config selection revalidates candidate existence. Project and failed-build memos still use a per-process module-evaluation snapshot and do not certify arbitrary mid-run config or dependency edits.
+ * @evidence contracts/performance.md#reuse-equivalent-work Entry emits and dependency generations are shared within the current run; project/root keys include the same captured plugin policy compilation consumes, root keys also include source bytes, and orphan keys include source bytes, format, lowering policy and content-proven compiler identity. Nearest-config selection revalidates candidate existence. Project and failed-build memos still use a per-process module-evaluation snapshot and do not certify arbitrary mid-run config or dependency edits.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Hooks and memoized module roles/builds live for this process, growing with distinct loaded projects, roots and export scans without a fixed historical cap. Isolated output directories and publication staging belong to synchronous operations and are reclaimed on failure; WeakMap ownership indexes do not extend their build lifetime. Cross-process generations follow their cache owner's retention policy.
  */
 export function installRuntimeHooks(options: RuntimeHookOptions = {}): void {
@@ -1859,7 +1860,7 @@ function ensureRootBuilt(
   source: string,
 ): DependencyBuildGeneration.BuiltProject {
   const identity = `${source}\0${contentDigest(source)}`;
-  const { cacheDir, lockDir, metaPath, root, compilerProof } =
+  const { cacheDir, lockDir, metaPath, root, compilerProof, plugins } =
     dependencyCachePaths(tsconfig, identity);
   const memo = cacheDir;
   const cached = builtRoots.get(memo);
@@ -1879,7 +1880,7 @@ function ensureRootBuilt(
   let built: DependencyBuildGeneration.BuiltProject;
   try {
     built = DependencyBuildAdmission.run(cacheDir, metaPath, lockDir, () =>
-      buildRoot(tsconfig, source, cacheDir, metaPath, compilerProof),
+      buildRoot(tsconfig, source, cacheDir, metaPath, compilerProof, plugins),
     );
   } catch (error) {
     // The same content fails the same way, so a second reach of this root in
@@ -1922,6 +1923,7 @@ function buildRoot(
   cacheDir: string,
   metaPath: string,
   compilerProof?: string,
+  plugins?: false,
 ): DependencyBuildGeneration.BuiltProject {
   // Read through the descriptor-input recorder, so a plugin descriptor that
   // reaches this root reports the config chain it was compiled under.
@@ -1937,7 +1939,7 @@ function buildRoot(
       checked: rootIsChecked(source),
       emitDir,
       key: `${process.pid}-${generation}`,
-      options: { plugins: rootPluginPolicy() },
+      options: { plugins },
       projectRoot: project.root,
       role: "root",
       source,
@@ -1978,17 +1980,15 @@ function buildRoot(
 }
 
 /**
- * The plugin policy a root compiled at run time inherits: none while a plugin
+ * The plugin policy a project or root compiled at run time inherits: none while a plugin
  * descriptor is being loaded, because its own transform would re-enter plugin
  * loading, and none when the run itself disabled them (`ttsx --no-plugins`).
  */
-function rootPluginPolicy(): false | undefined {
-  if (process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1") return false;
-  return RuntimeManifestRegistry.runtimeManifests().some(
-    (manifest) => manifest.plugins === false,
-  )
-    ? false
-    : undefined;
+function runtimePluginPolicy(): false | undefined {
+  return selectRuntimePluginPolicy(
+    RuntimeManifestRegistry.runtimeManifests(),
+    process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1",
+  );
 }
 
 /**
@@ -2038,7 +2038,7 @@ function isInstalledPackageSource(real: string): boolean {
 function ensureProjectBuilt(
   tsconfig: string,
 ): DependencyBuildGeneration.BuiltProject {
-  const { cacheDir, lockDir, metaPath, root, compilerProof } =
+  const { cacheDir, lockDir, metaPath, root, compilerProof, plugins } =
     dependencyCachePaths(tsconfig);
   const cached = builtProjects.get(cacheDir);
   if (cached !== undefined) {
@@ -2059,7 +2059,7 @@ function ensureProjectBuilt(
   let built: DependencyBuildGeneration.BuiltProject;
   try {
     built = DependencyBuildAdmission.run(cacheDir, metaPath, lockDir, () =>
-      buildDependency(tsconfig, cacheDir, metaPath, compilerProof),
+      buildDependency(tsconfig, cacheDir, metaPath, compilerProof, plugins),
     );
   } catch (error) {
     // Every file the project owns asks for this build before its own root
@@ -2091,6 +2091,9 @@ interface DependencyCachePaths {
   /** Executable content proof whose key must still hold before publication. */
   compilerProof?: string;
 
+  /** Plugin policy captured once for both cache addressing and compilation. */
+  plugins?: false;
+
   root: string;
 }
 
@@ -2106,9 +2109,11 @@ function dependencyCachePaths(
   } catch {
     // An unobservable executable gets a unique, non-reusable generation key.
   }
+  const plugins = runtimePluginPolicy();
   const key = dependencyCacheKey(tsconfig, {
     root: rootSource,
     compilerIdentity: compilerProof ?? crypto.randomUUID(),
+    plugins,
   });
   const root = dependencyCacheRoot();
   return {
@@ -2116,6 +2121,7 @@ function dependencyCachePaths(
     lockDir: path.join(root, `${key}.lock`),
     metaPath: path.join(root, `${key}.json`),
     compilerProof,
+    plugins,
     root,
   };
 }
@@ -2149,6 +2155,7 @@ function buildDependency(
   cacheDir: string,
   metaPath: string,
   compilerProof?: string,
+  plugins?: false,
 ): DependencyBuildGeneration.BuiltProject {
   const project = readPluginDescriptorProjectConfig(tsconfig);
   const generation = DependencyBuildGeneration.newDependencyGeneration();
@@ -2196,12 +2203,12 @@ function buildDependency(
       // can itself depend on a transform (e.g. a fixture whose values are built
       // with `typia.createRandom`), and its runtime behaviour is wrong without it.
       // `runBuild` runs on this main thread, so its plugin resolution works the
-      // same as the entry build's. The exception is loading a plugin descriptor
-      // (`TTSC_PLUGIN_DESCRIPTOR_LOAD`): there the descriptor's own — possibly
+      // same as the entry build's. A run started with `--no-plugins` keeps that
+      // disabled policy across dependency projects. Loading a plugin descriptor
+      // (`TTSC_PLUGIN_DESCRIPTOR_LOAD`) also disables plugins: its own — possibly
       // self-hosting — transform must NOT run, or it re-enters plugin loading and
       // deadlocks, so every dependency in that graph builds with plugins off.
-      plugins:
-        process.env.TTSC_PLUGIN_DESCRIPTOR_LOAD === "1" ? false : undefined,
+      plugins,
       quiet: true,
       resolvedProject: project,
       // Emit only: the entry project's up-front check is the type gate. A

@@ -10,12 +10,12 @@ import crypto from "node:crypto";
  * Compiler identity is supplied by the build coordinator after inspecting the
  * actual executable; an unavailable proof uses a fresh identity there.
  *
- * @evidence contracts/common.md#principled-implementation SHA-256 separates project, isolated-root content, emit policy, compiler proof and descriptor process identity with explicit delimiters, so distinct supported build contexts do not intentionally share an address.
+ * @evidence contracts/common.md#principled-implementation SHA-256 separates project, isolated-root content, plugin loading policy, emit policy, compiler proof and descriptor process identity with explicit delimiters, so distinct supported build contexts do not intentionally share an address.
  * @evidence contracts/common.md#clear-and-simple-design One key function combines caller-established identity inputs; executable observation and build memo validity remain with the coordinator that knows when a build is requested.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Descriptor evaluation uses a random process nonce rather than recycled pids or shared path-only emit that would pair another evaluator's bytes with current input observations.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish project and isolated-root builds, describe compiler proof ownership and explain why descriptor processes cannot reuse each other's generations.
  * @evidence contracts/performance.md#efficient-algorithms Hashing costs O(B) input bytes with constant digest state; the returned 16-hex address is a 64-bit truncation, so it is not a collision-free or security identity.
- * @evidence contracts/performance.md#reuse-equivalent-work Run/process containers scope ordinary module snapshots; the coordinator supplies current compiler proof and isolated-root content, while a process nonce forbids cross-evaluator reuse. A key alone does not validate edited project dependencies.
+ * @evidence contracts/performance.md#reuse-equivalent-work Run/process containers scope ordinary module snapshots; the coordinator supplies the selected plugin policy, current compiler proof and isolated-root content, while a process nonce forbids cross-evaluator reuse. A key alone does not validate edited project dependencies.
  * @evidence contracts/performance.md#bound-retention-and-release-resources One random descriptor nonce is retained for the process lifetime; hash objects are call-local and generated directory storage remains with the cache owner.
  */
 export function dependencyCacheKey(
@@ -29,6 +29,9 @@ export function dependencyCacheKey(
 
     /** Evaluator identity; absent selects this process's random nonce. */
     descriptorNonce?: string;
+
+    /** Effective false-only plugin loading policy captured for this build. */
+    plugins?: false;
 
     /**
      * The single root a root build compiles, with the digest of its content;
@@ -45,6 +48,7 @@ export function dependencyCacheKey(
       .update(tsconfig)
       .update("\0runtime-es2025")
       .update(`\0compiler:${options.compilerIdentity ?? ""}`)
+      .update(options.plugins === false ? "\0plugins:disabled" : "\0plugins:discover")
       .update(options.root === undefined ? "" : `\0root:${options.root}`)
       // Descriptor evaluation promises a result bound to this process's exact
       // input observations. Reusing an emit another evaluator built can pair
