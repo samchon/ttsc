@@ -1,4 +1,3 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -6,9 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import type { TtscSharedCompilePublication } from "../../../../../../packages/unplugin/lib/core/transform/session/TtscSharedCompilePublication.mjs";
-import { adoptedExternalInputMismatch } from "../../../../../../packages/unplugin/lib/core/transform/session/adoptedExternalInputMismatch.mjs";
 import { claimSharedCompile } from "../../../../../../packages/unplugin/lib/core/transform/session/claimSharedCompile.mjs";
-import { sharedCompileIdentity } from "../../../../../../packages/unplugin/lib/core/transform/session/sharedCompileIdentity.mjs";
 
 /**
  * Verifies how the workers of one pooled session decide between adopting a
@@ -30,18 +27,15 @@ import { sharedCompileIdentity } from "../../../../../../packages/unplugin/lib/c
  *    and that the displaced holder's release leaves the new owner's lock
  *    alone.
  * 3. Point a claim at a store that cannot be used and assert it answers nothing.
- * 4. Decide identities and external-input mismatches for each changed field, a
- *    project resolving another TypeScript-Go among them, since a compile is
- *    adopted across processes and versions (samchon/ttsc#1483).
  *
- * @evidence contracts/testing.md#behavioral-verification Calls claimSharedCompile on real store files and a dead child PID; checks publication adoption, refused/malformed adoption, dead-lock takeover, displaced release fencing, unusable-store fallback, identity changes and external-input mismatches.
- * @evidence contracts/testing.md#independent-expectations Exclusive locks and valid matching publication state define adoption; authored payloads, independent dead-process creation and literal mismatched input names distinguish incorrect reuse. Hash identity shape alone does not prove collision resistance.
- * @evidence contracts/testing.md#distinguishing-cases Owns empty/published/malformed/unusable stores, waiting adoption, dead owner, displaced token, all compile identity fields and missing/extra/changed external inputs.
- * @evidence contracts/testing.md#execution-ownership E2E entry executes real Node child lifetime plus filesystem lock/store ownership through built claim APIs. The child creates a genuinely terminated PID; portable identity/mismatch decisions currently remain in the same entry.
- * @evidence contracts/e2e.md#necessary-boundary The OS liveness check must distinguish a terminated process from this live holder while retaining lock fencing. A fake liveness answer cannot prove that process connection; the other portable assertions are still mixed and need a future direct transfer.
+ * @evidence contracts/testing.md#behavioral-verification Calls claimSharedCompile on real store files and a dead child PID; checks publication adoption, refused/malformed adoption, dead-lock takeover, displaced release fencing, unusable-store fallback.
+ * @evidence contracts/testing.md#independent-expectations Exclusive locks and valid matching publication state define adoption; authored payloads, an independently terminated child and the successor's actual owner token distinguish incorrect publication reuse or displaced-holder release.
+ * @evidence contracts/testing.md#distinguishing-cases Owns empty/published/malformed/unusable stores, waiting adoption, dead owner, displaced token.
+ * @evidence contracts/testing.md#execution-ownership E2E entry executes real Node child lifetime plus filesystem lock/store ownership through built claim APIs. The child creates a genuinely terminated PID; portable identity/mismatch decisions execute in test-unplugin source units.
+ * @evidence contracts/e2e.md#necessary-boundary The OS liveness check must distinguish a terminated process from this live holder while retaining lock fencing. A fake liveness answer cannot prove that process connection. Configuration identity and external-input comparison execute separately as source units.
  * @evidence contracts/e2e.md#shared-execution One short-lived child supplies the dead PID and one store batches all lock/publication states. No native producer or host is built; separate claims are necessary for ownership transitions, while shared packages are prepared once.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Every claim uses an explicit identity/state in a unique store; malformed and unusable states have separate paths. Normal claims release locks/timers, the child is synchronous and exited, and TestProject removes the store at worker exit; assertion failures may leave timers until that exit.
- * @evidence contracts/e2e.md#preserved-coverage All prior lock, adoption, identity and mismatch assertions remain unchanged. This minimal liveness connection survives, but identity/mismatch semantics have not yet gained separate pure-unit owners in this change.
+ * @evidence contracts/e2e.md#preserved-coverage All prior lock, adoption and takeover assertions remain here. Seven configuration-identity and five external-input comparison assertions execute in test_shared_compile_identity_and_external_input_adoption through source APIs; its literal resolver inputs replace the two former E2E fixture files.
  */
 export async function test_shared_compile_claims_adopt_lock_and_take_over(): Promise<void> {
   const store = TestProject.tmpdir("ttsc-unplugin-shared-claims-");
@@ -135,57 +129,4 @@ export async function test_shared_compile_claims_adopt_lock_and_take_over(): Pro
     undefined,
     "a store that cannot be used leaves the worker to compile for itself",
   );
-
-  const compile = {
-    aliasPaths: { "@/*": ["/project/src/*"] },
-    compilerOptions: { removeComments: true },
-    plugins: [{ transform: "typia/lib/transform" }],
-    projectRoot: process.cwd(),
-    tsconfig: path.resolve("/project/tsconfig.json"),
-  };
-  // A project that resolves a TypeScript-Go of another version.
-  const otherCompiler = TestProject.tmpdir("ttsc-unplugin-shared-compiler-");
-  TestProject.writeFiles(otherCompiler, FixtureFiles.read("unplugin/shared_compile_claims_adopt_lock_and_take_over/inputs-1"));
-  const id = sharedCompileIdentity(compile);
-  assert.match(id, /^[0-9a-f]{32}$/);
-  assert.equal(sharedCompileIdentity({ ...compile }), id);
-  for (const changed of [
-    { aliasPaths: {} },
-    { compilerOptions: {} },
-    { plugins: undefined },
-    { projectRoot: otherCompiler },
-    { tsconfig: path.resolve("/project/tsconfig.app.json") },
-  ]) {
-    assert.notEqual(
-      sharedCompileIdentity({ ...compile, ...changed }),
-      id,
-      JSON.stringify(changed),
-    );
-  }
-
-  const helper = path.resolve("/outside/helper.ts");
-  const other = path.resolve("/outside/other.ts");
-  const current = {
-    hashes: { ...publication.externalInputHashes },
-    realpaths: { ...publication.externalInputRealpaths },
-  };
-  assert.equal(adoptedExternalInputMismatch(publication, current), undefined);
-  for (const [label, changed] of [
-    ["content", { ...current, hashes: { [helper]: "edited" } }],
-    [
-      "physical identity",
-      { ...current, realpaths: { [helper]: path.resolve("/moved/helper.ts") } },
-    ],
-    ["a missing input", { ...current, hashes: {} }],
-    [
-      "an input the publisher never recorded",
-      { ...current, hashes: { ...current.hashes, [other]: "hash" } },
-    ],
-  ] as const) {
-    assert.equal(
-      adoptedExternalInputMismatch(publication, changed),
-      label === "an input the publisher never recorded" ? other : helper,
-      label,
-    );
-  }
 }
