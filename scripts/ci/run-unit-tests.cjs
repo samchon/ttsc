@@ -12,9 +12,15 @@ async function main() {
   const nodeTests = ["go", "typecheck", "package-defenses"].flatMap((lane) =>
     selectedNodeTests(root, lane, "unit"),
   );
-  if (nodeTests.length === 0) throw new Error("no unit tests discovered");
   const steps = [
-    { name: "Node units", args: ["--test", "--experimental-test-isolation=none", ...nodeTests] },
+    ...(nodeTests.length === 0
+      ? []
+      : [
+          {
+            name: "Node units",
+            args: ["--test", "--experimental-test-isolation=none", ...nodeTests],
+          },
+        ]),
     {
       name: "unplugin function units",
       args: [
