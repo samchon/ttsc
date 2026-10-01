@@ -52,7 +52,7 @@ export function runGraph(
 function runDump(argv: readonly string[]): number {
   // Resolve the native binary from the target project the caller named with
   // `--cwd`, not from wherever the launcher process happened to start.
-  const { cwd, tsconfig } = TtscGraphLauncherArguments.dump(argv);
+  const { cwd, tsconfig, artifactsSpecified } = TtscGraphLauncherArguments.dump(argv);
   const binary = resolveGraphBinary(process.env, cwd);
   if (binary === null) {
     // `ttscgraph` owns the flag contract, so a resolvable binary always answers
@@ -69,7 +69,7 @@ function runDump(argv: readonly string[]): number {
   // The same artifacts `loadGraph` and the resident session ask for, so the
   // three ways to reach a dump answer a citation the same way. A caller that
   // named `--artifacts` itself owns the answer and is not overridden.
-  const published = argv.includes("--artifacts")
+  const published = artifactsSpecified
     ? null
     : publishArtifacts({ cwd, tsconfig });
   const result = spawnSync(

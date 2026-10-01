@@ -169,7 +169,7 @@ function resolveGoCompilerIdentity(
   cwd: string = process.cwd(),
   witness?: PluginBuildEnvironmentWitness.Record,
 ): string {
-  const selected = GoToolResolution.resolveGoToolForBuild(goBinary, env, cwd);
+  const selected = GoToolResolution.resolveGoToolForBuild(goBinary, env, cwd, witness);
   const resolved =
     process.platform === "win32"
       ? resolveRealPath(selected)
@@ -262,8 +262,9 @@ function resolveExecutableIdentityPath(
   binary: string,
   env: NodeJS.ProcessEnv = process.env,
   cwd: string = process.cwd(),
+  witness?: PluginBuildEnvironmentWitness.Record,
 ): string {
-  const resolved = findExecutablePath(binary, env, cwd);
+  const resolved = findExecutablePath(binary, env, cwd, witness);
   return resolved === null ? binary : resolveRealPath(resolved);
 }
 
@@ -271,11 +272,13 @@ function findExecutablePath(
   binary: string,
   env: NodeJS.ProcessEnv,
   cwd: string,
+  witness?: PluginBuildEnvironmentWitness.Record,
 ): string | null {
   for (const candidate of GoToolResolution.executableSearchBases(
     binary,
     env,
     cwd,
+    witness,
   )) {
     const resolved = findExecutableCandidate(candidate, env);
     if (resolved !== null) return resolved;
@@ -499,7 +502,7 @@ function resolveCommandCacheIdentity(
   if (executable === undefined) {
     return "command:empty";
   }
-  const resolved = resolveExecutableIdentityPath(executable, env);
+  const resolved = resolveExecutableIdentityPath(executable, env, process.cwd(), witness);
   PluginBuildEnvironmentWitness.add(witness, resolved);
   if (!fs.existsSync(resolved)) {
     return `command:missing:${executable}`;
@@ -511,7 +514,7 @@ function resolveCommandCacheIdentity(
     return `command:unreadable:${resolved}`;
   }
   args.forEach((arg, index) => {
-    const operand = resolveExecutableIdentityPath(arg, env);
+    const operand = resolveExecutableIdentityPath(arg, env, process.cwd(), witness);
     if (!GoToolResolution.isExecutableFile(operand)) return;
     PluginBuildEnvironmentWitness.add(witness, operand);
     try {

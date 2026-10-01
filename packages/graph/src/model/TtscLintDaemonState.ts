@@ -19,6 +19,7 @@ export class TtscLintDaemonState {
   private readonly pending: ((reply: IReply | null) => void)[] = [];
   private queue: Promise<unknown> = Promise.resolve();
   private failed = false;
+  private closing: Promise<void> | undefined;
 
   public constructor(private readonly open: (events: TtscGraphLinePeer.Events) => TtscGraphLinePeer.Connection) {}
 
@@ -60,22 +61,24 @@ export class TtscLintDaemonState {
    * @evidence contracts/common.md#meaningful-documentation Native prose states idempotence, failure safety and the meaning of settled null replies.
    * @evidence contracts/performance.md#efficient-algorithms Closing visits outstanding reply callbacks once and clears the reader/child references.
    * @evidence contracts/performance.md#reuse-equivalent-work Closure retires this target's reusable process permanently; later calls return the supported direct-fallback indication.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Both normal and failed shutdown settle pending callbacks, close readline and end/kill the owned process; already absent children require no further release.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Both normal and failed shutdown settle pending callbacks, close readline and end/kill the owned process; the returned completion still joins stdio after process exit and rejects unknown or forced termination.
    */
-  public close(): void {
+  public close(): Promise<void> {
+    if (this.closing !== undefined) return this.closing;
     this.failed = true;
     for (const settle of this.pending.splice(0)) settle(null);
     const child = this.child;
     this.child = undefined;
-    if (child === undefined) return;
-    child.close(true);
+    this.closing = Promise.resolve(child?.close(true));
+    void this.closing.catch(() => undefined);
+    return this.closing;
   }
 
   private async send(
     verb: string,
     invalidate: boolean,
   ): Promise<string | null> {
-    if (this.failed) return null;
+    if (this.failed) { await this.closing; return null; }
     const child = this.start();
     if (child === undefined) return null;
     const reply = await new Promise<IReply | null>((resolve) => {
@@ -93,7 +96,7 @@ export class TtscLintDaemonState {
       // "unknown verb" from "the rule failed". Closing rather than retrying
       // through the daemon is what makes the caller fall back to the direct
       // command, where a real failure surfaces the same way it always did.
-      this.close();
+      await this.close();
       return null;
     }
     return reply.result;

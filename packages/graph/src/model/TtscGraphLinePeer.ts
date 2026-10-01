@@ -1,4 +1,4 @@
-import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import readline from "node:readline";
 
 const TERMINATION_GRACE_MS = 1_000;
@@ -7,7 +7,7 @@ const TERMINATION_GRACE_MS = 1_000;
  * Native line transport shared by graph and lint resident owners.
  *
  * @evidence contracts/common.md#principled-implementation Node stdout line framing and explicit process events preserve the native protocols while request correlation remains with their state owners.
- * @evidence contracts/common.md#clear-and-simple-design A connection exposes only liveness, diagnostics, writes and retirement; two existing shutdown policies serve graph cancellation and daemon fallback.
+ * @evidence contracts/common.md#clear-and-simple-design A connection exposes only liveness, diagnostics, writes and retirement; EOF retirement and authoritative process/stdio joining serve both state owners.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The default adapter invokes the actual binary and argv without a shell, synthetic responses or replaced foreign methods.
  * @evidence contracts/common.md#meaningful-documentation Connection comments state line/event ownership, bounded diagnostic capture and the difference between reader retirement and process termination.
  * @evidenceExclude contracts/performance.md#efficient-algorithms open owns process and line setup; the namespace groups its connection protocol.
@@ -117,9 +117,9 @@ export namespace TtscGraphLinePeer {
     write(line: string, done: (error?: Error | null) => void): void;
 
     /**
-     * Detach the reader and optionally terminate the owned process.
+     * Detach the reader, or end stdin and await the owned process and stdio.
      *
-     * @evidence contracts/common.md#principled-implementation Reader retirement is distinct from process termination; repeated retirement cannot send a second termination request.
+     * @evidence contracts/common.md#principled-implementation Reader retirement is distinct from joined shutdown; repeated close(true) returns the same completion, which rejects unknown or forced termination.
      * @evidence contracts/common.md#clear-and-simple-design The signature transfers only its stated process operation or event; resident state owns protocol decisions.
      * @evidence contracts/common.md#prohibited-implementation-shortcuts Node-native representations remain explicit rather than shell strings, process stand-ins or replaced foreign methods.
      * @evidence contracts/common.md#meaningful-documentation Native member prose states event, liveness or retirement meaning needed by the state owner.
@@ -128,30 +128,30 @@ export namespace TtscGraphLinePeer {
      * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature acquires no handle itself; open and the returned close implementation own actual lifetime.
      * @evidence contracts/portability.md#os-neutral-implementation Node numeric exit status, signal names, stdin callbacks and decoded line strings preserve native process semantics without assuming shell quoting or platform path spelling.
      */
-    close(terminate: boolean): void;
+    close(terminate: boolean): void | Promise<void>;
   }
 
   /**
    * Open the actual Node child and attach its reader and diagnostic drain.
    *
-   * Graph cancellation destroys stdin and allows a finite kill grace; daemon
-   * fallback ends stdin and kills immediately. Both retain the existing argv
-   * and native process semantics.
+   * EOF permits the resident loop to finish. close(true) resolves only after
+   * Node joins the process and all stdio with exit zero; a transport failure,
+   * nonzero exit, signal, forced kill or unjoined deadline rejects instead.
    *
    * @evidence contracts/common.md#principled-implementation Node spawn and readline map executable, argv and complete lines to the declared transport operations without interpreting graph facts.
-   * @evidence contracts/common.md#clear-and-simple-design One adapter implements actual process I/O; resident state owners choose their existing diagnostic and shutdown policies.
+   * @evidence contracts/common.md#clear-and-simple-design One adapter implements actual process I/O; resident state owners choose diagnostic capture while this adapter owns joined EOF shutdown.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Real process APIs retain their defaults and explicit argv; no test-only executable or response path is supplied.
-   * @evidence contracts/common.md#meaningful-documentation Prose explains the existing two shutdown policies and connection comments describe bounded stderr and retirement.
+   * @evidence contracts/common.md#meaningful-documentation Prose explains EOF completion and unknown/forced failure and connection comments describe bounded stderr and retirement.
    * @evidence contracts/performance.md#efficient-algorithms One spawn/reader setup is constant-count; writes and line decoding process frame bytes once, while captured diagnostics retain a tail of at most 65,536 UTF-16 code units and draining avoids pipe backpressure.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This effectful opener creates one native peer; resident state determines when that peer remains reusable or must be replaced.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The returned close owns one reader and child, detaches once and terminates at most once; graph grace escalation has one unreferenced finite timer cleared on exit, while stream/event references remain attached until native exit.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The returned close owns one reader and child, detaches once and terminates at most once; one finite escalation timer and join deadline are cleared on close, while streams remain drained through authoritative completion.
    * @evidence contracts/portability.md#os-neutral-implementation Node spawn receives an executable and argv vector directly with windowsHide; Node stream/process APIs own native signals and optional cwd, without a shell or manual path normalization.
    */
   export function open(
     binary: string,
     args: string[],
     events: Events,
-    options: { cwd?: string; stderr: "capture" | "drain"; termination: "grace" | "end" },
+    options: { cwd?: string; stderr: "capture" | "drain" },
   ): Connection {
     const child = spawn(binary, args, {
       ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
@@ -161,6 +161,28 @@ export namespace TtscGraphLinePeer {
     let stderr = "";
     let readerClosed = false;
     let terminated = false;
+    let joined = false;
+    let forced = false;
+    let failure: Error | undefined;
+    let force: ReturnType<typeof setTimeout> | undefined;
+    let deadline: ReturnType<typeof setTimeout> | undefined;
+    let resolve!: () => void;
+    let reject!: (error: Error) => void;
+    const completion = new Promise<void>((res, rej) => { resolve = res; reject = rej; });
+    // Existing fire-and-forget disposal remains safe; awaiting the original
+    // promise still exposes failure instead of turning it into joined success.
+    void completion.catch(() => undefined);
+    child.on("error", (error) => { failure = error; });
+    for (const stream of [child.stdin, child.stdout, child.stderr])
+      stream.on("error", (error) => { failure = error; events.error(error); });
+    child.once("close", (code, signal) => {
+      joined = true;
+      if (force !== undefined) clearTimeout(force);
+      if (deadline !== undefined) clearTimeout(deadline);
+      if (failure !== undefined || forced || code !== 0 || signal !== null)
+        reject(failure ?? new Error(`@ttsc/graph: peer shutdown failed (code=${String(code)}, signal=${String(signal)}, forced=${forced})`));
+      else resolve();
+    });
     if (options.stderr === "capture") {
       child.stderr.setEncoding("utf8");
       child.stderr.on("data", (chunk: string) => { stderr = (stderr + chunk).slice(-64 * 1024); });
@@ -174,23 +196,26 @@ export namespace TtscGraphLinePeer {
       write: (line, done) => { child.stdin.write(line, done); },
       close: (terminate) => {
         if (!readerClosed) { readerClosed = true; lines.close(); }
-        if (!terminate || terminated) return;
+        if (!terminate) return;
+        if (terminated || joined) return completion;
         terminated = true;
-        if (options.termination === "grace") terminateChild(child);
-        else { child.stdin.end(); child.kill(); }
+        // Keep output drained until Node's close event joins both the process
+        // and inherited stdio. EOF permits the real resident loop to finish.
+        child.stdout.resume();
+        child.stdin.end();
+        force = setTimeout(() => {
+          if (joined) return;
+          if (child.exitCode === null && child.signalCode === null) {
+            forced = true;
+            try { child.kill("SIGKILL"); } catch (error) { failure = error instanceof Error ? error : new Error(String(error)); }
+          }
+          deadline = setTimeout(() => {
+            if (!joined) reject(new Error("@ttsc/graph: peer shutdown could not be joined"));
+          }, TERMINATION_GRACE_MS);
+        }, TERMINATION_GRACE_MS);
+        return completion;
       },
     };
   }
 }
 
-function terminateChild(child: ChildProcessWithoutNullStreams): void {
-  if (!child.stdin.destroyed) child.stdin.destroy();
-  if (child.exitCode !== null || child.signalCode !== null) return;
-  try { child.kill(); } catch { return; }
-  const force = setTimeout(() => {
-    if (child.exitCode !== null || child.signalCode !== null) return;
-    try { child.kill("SIGKILL"); } catch { /* Exited between check and signal. */ }
-  }, TERMINATION_GRACE_MS);
-  force.unref();
-  child.once("exit", () => clearTimeout(force));
-}

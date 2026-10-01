@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { PluginBuildEnvironmentWitness } from "./PluginBuildEnvironmentWitness";
 
 /**
  * Which `go` executable a source-plugin build runs, resolved once per build.
@@ -45,6 +46,7 @@ export namespace GoToolResolution {
     binary: string,
     env: NodeJS.ProcessEnv,
     cwd: string,
+    witness?: PluginBuildEnvironmentWitness.Record,
   ): string {
     if (process.platform !== "win32") {
       for (const candidate of executableSearchBases(binary, env, cwd)) {
@@ -60,7 +62,7 @@ export namespace GoToolResolution {
         ? binary
         : path.resolve(cwd, binary);
     }
-    return resolveWindowsGoTool(binary, env, cwd).location ?? binary;
+    return resolveWindowsGoTool(binary, env, cwd, witness).location ?? binary;
   }
 
   interface IWindowsGoToolResolution {
@@ -85,8 +87,9 @@ export namespace GoToolResolution {
     binary: string,
     env: NodeJS.ProcessEnv,
     cwd: string,
+    witness?: PluginBuildEnvironmentWitness.Record,
   ): IWindowsGoToolResolution {
-    const candidates = executableSearchBases(binary, env, cwd);
+    const candidates = executableSearchBases(binary, env, cwd, witness);
     if (isWindowsCommandWrapper(binary)) {
       return {
         location: candidates.find(isExecutableFile) ?? null,
@@ -141,6 +144,7 @@ export namespace GoToolResolution {
     binary: string,
     env: NodeJS.ProcessEnv,
     cwd: string,
+    witness?: PluginBuildEnvironmentWitness.Record,
   ): string[] {
     if (path.isAbsolute(binary)) return [binary];
     if (hasPathQualifier(binary)) return [path.resolve(cwd, binary)];
@@ -160,6 +164,7 @@ export namespace GoToolResolution {
             "NoDefaultCurrentDirectoryInExePath",
           )
         : undefined;
+    if (process.platform === "win32") PluginBuildEnvironmentWitness.addEnvironment(witness, "NoDefaultCurrentDirectoryInExePath", noDefaultCurrentDirectory);
     if (
       process.platform === "win32" &&
       noDefaultCurrentDirectory === undefined

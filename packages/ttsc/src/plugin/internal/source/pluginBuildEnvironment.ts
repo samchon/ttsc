@@ -44,6 +44,7 @@ export function pluginBuildEnvironment(
     resolveGoCompiler(env).binary,
     env,
     directory,
+    witness,
   );
   const hash = crypto.createHash("sha256");
   hashPluginBuildEnvironment(

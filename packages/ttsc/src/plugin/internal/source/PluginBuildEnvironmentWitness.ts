@@ -1,8 +1,8 @@
 import fs from "node:fs";
 
 /**
- * The paths a reading of a plugin build environment depended on that no
- * variable carries, each with its metadata at the moment it was read.
+ * Native path metadata and ambient lookup variables actually observed while
+ * reading a plugin build environment.
  *
  * The environment digest reads the Go tool, the file `go env -w` writes, the
  * executables the C toolchain commands name, and GOROOT
@@ -16,7 +16,9 @@ import fs from "node:fs";
  * comparison. Its change detection assumes the filesystem distinguishes
  * contributing edits in the captured identity and timestamps; an edit that
  * reproduces the entire metadata signature is outside the proof this record
- * supplies.
+ * supplies. Native executable lookup variables are recorded at the lookup,
+ * because a shared worker can observe a transient parent value between the
+ * request and final snapshots.
  *
  * @evidence contracts/common.md#principled-implementation Pre-read identity and write metadata witness external dependencies not carried by variables under the documented metadata-distinguishability premise; a refused dependency makes the complete reading unusable.
  * @evidence contracts/common.md#clear-and-simple-design Record construction, refusal and validation share one metadata representation; the caller owns the reading and its lifetime.
@@ -90,6 +92,28 @@ export namespace PluginBuildEnvironmentWitness {
   }
 
   /**
+   * Retain an ambient native lookup variable at the exact lookup that used it.
+   * A different repeated observation refuses the reading, including an ABA
+   * interval that the request's initial and final snapshots cannot reveal.
+   *
+   * @evidence contracts/common.md#principled-implementation First observed native lookup inputs remain paired with the digest and are compared with current host inputs before publication and reuse.
+   * @evidence contracts/common.md#clear-and-simple-design Disjoint environment keys share the existing caller-owned witness and validation boundary.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual observed variables qualify native selection without writing the parent's shared environment or inventing a tool identity.
+   * @evidence contracts/common.md#meaningful-documentation The prose distinguishes lookup-time authority from request and final snapshots.
+   * @evidence contracts/portability.md#os-neutral-implementation Native executable selection supplies the exact variable it used; holds compares host environment names with Windows case-insensitive lookup semantics.
+   * @evidence contracts/performance.md#efficient-algorithms A map lookup and one serialized optional string capture each distinct native lookup variable.
+   * @evidence contracts/performance.md#reuse-equivalent-work Repeated equal observations reuse the first signature; a different observation refuses the complete reading.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns and releases the record; this operation retains no process or environment handle.
+   */
+  export function addEnvironment(witness: Record | undefined, name: string, value: string | undefined): void {
+    if (witness === undefined) return;
+    const key = ENVIRONMENT_PREFIX + name;
+    const recorded = JSON.stringify([value ?? null]);
+    if (witness.has(key) && witness.get(key) !== recorded) witness.set(key, UNWITNESSABLE);
+    else if (!witness.has(key)) witness.set(key, recorded);
+  }
+
+  /**
    * Record `file` as a path whose state could not be witnessed, so the record
    * never holds and nothing kept under it is reused.
    *
@@ -108,14 +132,14 @@ export namespace PluginBuildEnvironmentWitness {
   }
 
   /**
-   * Whether every witnessed path still has the metadata it was read with.
+   * Whether every native path and ambient variable still matches its observation.
    *
    * @evidence contracts/common.md#principled-implementation Universal comparison requires every dependency to match its pre-read signature and immediately rejects a refused or changed path.
    * @evidence contracts/common.md#clear-and-simple-design Validation uses the same signature helper as capture, keeping identity and timestamp policy in one place.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts All dependencies are inspected; a quiet parent or unchanged VERSION cannot stand in for nested SDK inputs.
    * @evidence contracts/common.md#meaningful-documentation Native prose states the universal unchanged-metadata condition and tags remain separated from it.
    * @evidence contracts/portability.md#os-neutral-implementation Validation reads actual Node metadata using the same link-following semantics as capture.
-   * @evidence contracts/performance.md#efficient-algorithms Validation performs O(P) native metadata probes for P dependencies, additionally reading each witnessed link's target spelling, and stops on the first mismatch; file contents are not read.
+   * @evidence contracts/performance.md#efficient-algorithms Validation performs O(P) path or environment observations probes for P dependencies, additionally reading each witnessed link's target spelling, and stops on the first mismatch; file contents are not read.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call must establish current validity; caching that answer would conceal external changes.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Validation retains no handles or additional historical state.
@@ -123,7 +147,9 @@ export namespace PluginBuildEnvironmentWitness {
   export function holds(witness: Record): boolean {
     for (const [file, recorded] of witness)
       if (
-        (file.startsWith(LINK_PREFIX)
+        (file.startsWith(ENVIRONMENT_PREFIX)
+          ? environmentSignature(file.slice(ENVIRONMENT_PREFIX.length))
+          : file.startsWith(LINK_PREFIX)
           ? linkSignature(file.slice(LINK_PREFIX.length))
           : signature(file)) !== recorded
       )
@@ -135,6 +161,14 @@ export namespace PluginBuildEnvironmentWitness {
   const UNWITNESSABLE = "unwitnessable";
   /** NUL cannot occur in a native pathname, so this qualification is disjoint. */
   const LINK_PREFIX = "\0link:";
+  const ENVIRONMENT_PREFIX = "\0environment:";
+
+  function environmentSignature(name: string): string {
+    const actualName = process.platform === "win32"
+      ? Object.keys(process.env).find((key) => key.toLowerCase() === name.toLowerCase())
+      : name;
+    return JSON.stringify([actualName === undefined ? null : process.env[actualName] ?? null]);
+  }
 
   /** Observe the link before its target, under the same metadata premise. */
   function linkSignature(file: string): string {

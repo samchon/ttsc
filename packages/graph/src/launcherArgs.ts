@@ -16,7 +16,7 @@ export class GraphArgumentError extends Error {
   }
 }
 
-type OptionKind = "value" | "flag" | "boolean";
+type OptionKind = "value" | "string" | "flag" | "boolean";
 
 /**
  * One recognized launcher option and its accepted flag aliases.
@@ -34,7 +34,7 @@ export interface ILauncherOption {
   /** Accepted complete option tokens, including their leading hyphens. */
   flags: readonly string[];
 
-  /** Value requires text, flag accepts no value, boolean also accepts =value. */
+  /** Value requires nonempty text; string preserves native empty/dash values. */
   kind: OptionKind;
 }
 
@@ -97,12 +97,12 @@ export function parseLauncherOptions(
     const arg = argv[i]!;
     const exact = flags.get(arg);
     if (exact !== undefined) {
-      if (exact.kind === "value") {
+      if (exact.kind === "value" || exact.kind === "string") {
         const value = argv[++i];
-        if (value === undefined || value.startsWith("-")) {
+        if (value === undefined || (exact.kind === "value" && value.startsWith("-"))) {
           throw new GraphArgumentError(`${arg} requires a non-empty value`);
         }
-        parsed.set(exact.key, requireValue(arg, value));
+        parsed.set(exact.key, exact.kind === "string" ? value : requireValue(arg, value));
       } else {
         parsed.set(exact.key, true);
       }
@@ -120,7 +120,7 @@ export function parseLauncherOptions(
     if (definition.kind === "boolean") {
       parsed.set(definition.key, parseBoolean(flag, value));
     } else {
-      parsed.set(definition.key, requireValue(flag, value));
+      parsed.set(definition.key, definition.kind === "string" ? value : requireValue(flag, value));
     }
   }
   return parsed;

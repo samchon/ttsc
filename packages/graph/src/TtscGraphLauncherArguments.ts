@@ -34,13 +34,14 @@ export namespace TtscGraphLauncherArguments {
    * Parse dump project coordinates without altering forwarded tokens.
    *
    * @evidence contracts/common.md#principled-implementation The original dump grammar accepts its cwd/config aliases, pretty booleans and help flags, rejecting incomplete or unknown options before resolution.
-   * @evidence contracts/common.md#clear-and-simple-design Dump validation returns coordinates; dumpVector separately preserves the caller tokens actually sent to the producer.
+   * @evidence contracts/common.md#clear-and-simple-design Dump validation returns coordinates and explicit artifact presence; dumpVector separately preserves the caller tokens actually sent to the producer.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Existing public flag and result contracts are used by actual facades without fixture branches or a synthetic producer.
    * @evidence contracts/common.md#meaningful-documentation The native headline states this operation's input/result ownership and relevant absence/default meaning.
    * @evidence contracts/portability.md#os-neutral-implementation Project normalization delegates to Node path.resolve; selected config spelling remains intact, with no shell or separator rewriting.
    */
-  export function dump(argv: readonly string[]): IProjectOptions {
-    return projectOptions(parseLauncherOptions(argv, DUMP_OPTIONS));
+  export function dump(argv: readonly string[]): IProjectOptions & { artifactsSpecified: boolean } {
+    const values = parseLauncherOptions(argv, DUMP_OPTIONS);
+    return { ...projectOptions(values), artifactsSpecified: values.has("artifacts") };
   }
 
   /**
@@ -78,7 +79,8 @@ export namespace TtscGraphLauncherArguments {
    * @evidence contracts/portability.md#os-neutral-implementation Separate argv elements preserve path and equals-form spelling exactly for Node spawn, without shell quoting.
    */
   export function dumpVector(argv: readonly string[], artifacts: string | null): string[] {
-    return ["dump", ...argv, ...(artifacts === null ? [] : ["--artifacts", artifacts])];
+    const values = parseLauncherOptions(argv, DUMP_OPTIONS);
+    return ["dump", ...argv, ...(artifacts === null || values.has("artifacts") ? [] : ["--artifacts", artifacts])];
   }
 
   /**
@@ -126,6 +128,7 @@ interface IViewOptions extends IProjectOptions {
 }
 
 const DUMP_OPTIONS = [
+  { key: "artifacts", flags: ["--artifacts", "-artifacts"], kind: "string" },
   { key: "cwd", flags: ["--cwd", "-cwd"], kind: "value" },
   { key: "tsconfig", flags: ["--tsconfig", "-tsconfig"], kind: "value" },
   { key: "pretty", flags: ["--pretty", "-pretty"], kind: "boolean" },

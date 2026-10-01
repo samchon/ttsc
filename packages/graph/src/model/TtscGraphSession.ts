@@ -98,6 +98,8 @@ export class TtscGraphSession {
   private readonly daemons = new Map<string, TtscLintDaemon>();
   private readonly daemonIdentities = new Map<string, string>();
   private readonly state: TtscGraphSessionState;
+  private readonly shutdown = new AbortController();
+  private readonly retiredDaemons = new Set<Promise<void>>();
 
   public constructor(options: TtscGraphSessionOptions) {
     // Resolve the platform binary from the project this session serves, so the
@@ -121,10 +123,13 @@ export class TtscGraphSession {
       decode: TtscGraphProtocol.decode,
       beforeRequest: (signal) => this.republishArtifacts(signal),
       artifacts: () => this.artifacts === undefined ? undefined : (this.artifacts.file ?? ""),
-      close: () => {
-        for (const daemon of this.daemons.values()) daemon.close();
+      close: async () => {
+        for (const daemon of this.daemons.values()) this.retireDaemon(daemon);
         this.daemons.clear();
         this.daemonIdentities.clear();
+        const results = await Promise.allSettled(this.retiredDaemons);
+        const failures = results.filter((result): result is PromiseRejectedResult => result.status === "rejected").map((result) => result.reason);
+        if (failures.length > 0) throw new AggregateError(failures, "@ttsc/graph: sidecar shutdown failed");
       },
     });
   }
@@ -163,8 +168,9 @@ export class TtscGraphSession {
    * @evidence contracts/performance.md#reuse-equivalent-work Closure ends this owner's permission to reuse native Program, model and sidecars; subsequent graph calls reject.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Sidecars are cleared, native readers and reply listeners are removed, current model/shards are released with child retirement, and termination owns its finite grace timer.
    */
-  public close(): void {
-    this.state.close();
+  public close(): Promise<void> {
+    this.shutdown.abort(new Error("@ttsc/graph: native session closed"));
+    return this.state.close();
   }
 
   /**
@@ -195,7 +201,7 @@ export class TtscGraphSession {
     if (!artifactsAreStale(this.artifacts)) return;
     const publishers = new Set<string>();
     const next = await publishArtifactsResident(
-      { cwd: this.cwd, tsconfig: this.tsconfig },
+      { cwd: this.cwd, tsconfig: this.tsconfig, signal: this.shutdown.signal },
       (plugin) => {
         publishers.add(plugin.binary);
         return this.daemon(plugin);
@@ -203,7 +209,8 @@ export class TtscGraphSession {
     );
     for (const [binary, daemon] of this.daemons) {
       if (publishers.has(binary)) continue;
-      daemon.close();
+      const closing = this.retireDaemon(daemon);
+      await closing;
       this.daemons.delete(binary);
       this.daemonIdentities.delete(binary);
     }
@@ -217,11 +224,12 @@ export class TtscGraphSession {
   }
 
   /** The open sidecar for one plugin, opened on first use. */
-  private daemon(plugin: {
+  private async daemon(plugin: {
     binary: string;
     manifest: string;
     projectContext?: string;
-  }): TtscLintDaemon {
+  }): Promise<TtscLintDaemon> {
+    this.shutdown.signal.throwIfAborted();
     const open = this.daemons.get(plugin.binary);
     const identity = JSON.stringify([plugin.manifest, plugin.projectContext]);
     if (
@@ -229,17 +237,29 @@ export class TtscGraphSession {
       this.daemonIdentities.get(plugin.binary) === identity
     )
       return open;
-    open?.close();
+    if (open !== undefined) {
+      const closing = this.retireDaemon(open);
+      await closing;
+    }
+    this.shutdown.signal.throwIfAborted();
     const created = new TtscLintDaemon(plugin, this.cwd, this.tsconfig);
     this.daemons.set(plugin.binary, created);
     this.daemonIdentities.set(plugin.binary, identity);
     return created;
   }
 
+  /** Keep failures visible to shutdown, releasing fulfilled historical owners. */
+  private retireDaemon(daemon: TtscLintDaemon): Promise<void> {
+    const closing = daemon.close();
+    this.retiredDaemons.add(closing);
+    void closing.then(() => this.retiredDaemons.delete(closing), () => undefined);
+    return closing;
+  }
+
   private open(events: TtscGraphLinePeer.Events): TtscGraphLinePeer.Connection {
     const artifacts = publishArtifacts({ cwd: this.cwd, tsconfig: this.tsconfig });
     this.artifacts = artifacts;
     return TtscGraphLinePeer.open(this.binary,
-      TtscGraphNativeArguments.serve(this.cwd, this.tsconfig, artifacts.file), events, { stderr: "capture", termination: "grace" });
+      TtscGraphNativeArguments.serve(this.cwd, this.tsconfig, artifacts.file), events, { stderr: "capture" });
   }
 }

@@ -61,7 +61,7 @@ export class TtscLintDaemon {
   ) {
     this.state = new TtscLintDaemonState((events) => TtscGraphLinePeer.open(
       this.target.binary,
-      TtscGraphNativeArguments.lint(this.cwd, this.tsconfig, this.target.manifest, this.target.projectContext), events, { cwd: this.cwd, stderr: "drain", termination: "end" },
+      TtscGraphNativeArguments.lint(this.cwd, this.tsconfig, this.target.manifest, this.target.projectContext), events, { cwd: this.cwd, stderr: "drain" },
     ));
   }
 
@@ -102,8 +102,8 @@ export class TtscLintDaemon {
    * @evidence contracts/common.md#meaningful-documentation Native prose states idempotence, failure safety and the meaning of settled null replies.
    * @evidence contracts/performance.md#efficient-algorithms Closing visits outstanding reply callbacks once and clears the reader/child references.
    * @evidence contracts/performance.md#reuse-equivalent-work Closure retires this target's reusable process permanently; later calls return the supported direct-fallback indication.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Both normal and failed shutdown settle pending callbacks, close readline and end/kill the owned process; already absent children require no further release.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Both normal and failed shutdown settle pending callbacks, close readline and end/kill the owned process; the returned completion still joins stdio after process exit and rejects unknown or forced termination.
    * @evidence contracts/portability.md#os-neutral-implementation Node stream closure and child.kill own native termination rather than platform shell commands.
    */
-  public close(): void { this.state.close(); }
+  public close(): Promise<void> { return this.state.close(); }
 }

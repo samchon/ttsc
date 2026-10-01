@@ -38,6 +38,8 @@ export class TtscGraphSessionState {
   private current: TtscGraphMemory | undefined;
   private shardStore = new TtscGraphShardStore();
   private closed = false;
+  private closing: Promise<void> | undefined;
+  private readonly retirements = new Set<Promise<void>>();
 
   public constructor(private readonly host: TtscGraphSessionState.Host) {}
 
@@ -124,19 +126,32 @@ export class TtscGraphSessionState {
    * @evidence contracts/performance.md#reuse-equivalent-work Closure ends this owner's permission to reuse native Program, model and sidecars; subsequent graph calls reject.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The host retires artifact sidecars, pending listeners are removed, current model/shards are cleared and peer.close transfers reader/process disposal to its actual adapter.
    */
-  public close(): void {
-    if (this.closed) return;
+  public close(): Promise<void> {
+    if (this.closing !== undefined) return this.closing;
     this.closed = true;
-    this.host.close();
+    const hostClose = Promise.resolve().then(() => this.host.close());
+    void hostClose.catch(() => undefined);
     const error = new Error("@ttsc/graph: native session closed");
     if (this.child !== undefined) this.failChild(this.child, error);
     else this.failPending(error);
+    this.closing = (async () => {
+      await this.queue;
+      const results = await Promise.allSettled([hostClose, ...this.retirements]);
+      const failures = results.filter((result): result is PromiseRejectedResult => result.status === "rejected").map((result) => result.reason);
+      if (failures.length > 0) throw new AggregateError(failures, "@ttsc/graph: session shutdown failed");
+    })();
+    void this.closing.catch(() => undefined);
+    return this.closing;
   }
 
   private async refresh(signal?: AbortSignal): Promise<TtscGraphMemory> {
+    if (this.closed) throw new Error("@ttsc/graph: native session is closed");
+    await Promise.all(this.retirements);
+    if (this.closed) throw new Error("@ttsc/graph: native session is closed");
     // The protocol version and envelope shape were settled by the host decoder,
     // before this frame was ever routed here.
     await this.host.beforeRequest(signal);
+    if (this.closed) throw new Error("@ttsc/graph: native session is closed");
     const response = await this.request(signal);
     this.assertResponseSemantics(response);
     if (response.error !== undefined) {
@@ -256,7 +271,7 @@ export class TtscGraphSessionState {
       error: (error) => this.failChild(child, new Error(`@ttsc/graph: native session failed: ${error.message}`)),
       exit: (code, signal) => this.failChild(child, new Error(
         `@ttsc/graph: native session exited (code=${String(code)}, signal=${String(signal)})${stderrSuffix(child)}`,
-      ), false),
+      )),
     });
     this.child = child;
     return child;
@@ -314,14 +329,17 @@ export class TtscGraphSessionState {
     this.settlePending(response.id, pending, response);
   }
 
-  private failChild(child: TtscGraphLinePeer.Connection, error: Error, terminate = true): void {
+  private failChild(child: TtscGraphLinePeer.Connection, error: Error): void {
     if (this.child !== child) return;
     this.child = undefined;
     this.current = undefined;
     this.shardStore = new TtscGraphShardStore();
     child.close(false);
     this.failPending(error, child);
-    if (terminate) child.close(true);
+    // Even an exited process must join its stdio before release is known.
+    const retirement = Promise.resolve(child.close(true));
+    this.retirements.add(retirement);
+    void retirement.then(() => this.retirements.delete(retirement), () => undefined);
   }
 
   private failPending(error: Error, child?: TtscGraphLinePeer.Connection): void {
@@ -424,7 +442,7 @@ export namespace TtscGraphSessionState {
      * @evidenceExclude contracts/performance.md#reuse-equivalent-work The signature describes a dependency; graph and actual artifact owner establish whether previous work may be reused.
      * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature acquires no resource itself; its actual implementation and state close control lifetime.
      */
-    close(): void;
+    close(): void | Promise<void>;
   }
 }
 function cancelledError(signal?: AbortSignal, child?: TtscGraphLinePeer.Connection): Error {

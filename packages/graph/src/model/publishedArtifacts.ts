@@ -207,8 +207,8 @@ export function publishArtifacts(options: {
  * @evidence contracts/portability.md#os-neutral-implementation The fallback preserves native argument-vector invocation and Node path resolution; daemon ownership uses the same cross-platform process boundary.
  */
 export async function publishArtifactsResident(
-  options: { cwd: string; tsconfig: string },
-  daemon: (plugin: ITtscCapabilityPlugin) => TtscLintDaemon | undefined,
+  options: { cwd: string; tsconfig: string; signal?: AbortSignal },
+  daemon: (plugin: ITtscCapabilityPlugin) => TtscLintDaemon | undefined | Promise<TtscLintDaemon | undefined>,
 ): Promise<IPublishedArtifacts> {
   const discovery = resolveCapabilityPluginResolution({
     capability: "graphNodes",
@@ -227,8 +227,8 @@ export async function publishArtifactsResident(
   // evaluation, which is most of the cost.
   const inputs = readInputs(
     await Promise.all(
-      plugins.map((plugin) =>
-        askVerb(plugin, "project-inputs", options, daemon(plugin), true),
+      plugins.map(async (plugin) =>
+        askVerb(plugin, "project-inputs", options, await daemon(plugin), true),
       ),
     ),
     options,
@@ -239,8 +239,8 @@ export async function publishArtifactsResident(
     inputs,
     fingerprint,
     await Promise.all(
-      plugins.map((plugin) =>
-        askVerb(plugin, "graph-nodes", options, daemon(plugin), false),
+      plugins.map(async (plugin) =>
+        askVerb(plugin, "graph-nodes", options, await daemon(plugin), false),
       ),
     ),
     discovery,
@@ -291,11 +291,13 @@ function runVerb(
 async function askVerb(
   plugin: ITtscCapabilityPlugin,
   verb: string,
-  options: { cwd: string; tsconfig: string },
+  options: { cwd: string; tsconfig: string; signal?: AbortSignal },
   daemon: TtscLintDaemon | undefined,
   invalidate: boolean,
 ): Promise<string | null> {
+  options.signal?.throwIfAborted();
   const served = await daemon?.ask(verb, invalidate);
+  options.signal?.throwIfAborted();
   return served ?? runVerb(plugin, verb, options);
 }
 
@@ -638,7 +640,7 @@ function globRoot(pattern: string, cwd: string): string {
   const magic = pattern.search(GLOB_MAGIC);
   const head = magic < 0 ? pattern : pattern.slice(0, magic);
   const slash = Math.max(head.lastIndexOf("/"), head.lastIndexOf("\\"));
-  const root = slash < 0 ? "" : head.slice(0, slash);
+  const root = slash < 0 ? "" : head.slice(0, Math.max(slash, path.parse(head).root.length));
   return root === "" ? cwd : absolute(root, cwd);
 }
 
