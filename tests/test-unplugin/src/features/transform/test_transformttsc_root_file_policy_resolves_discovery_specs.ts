@@ -18,9 +18,10 @@ import path from "node:path";
  * 1. Materialize a tree and base/leaf configs with contrasting specifications.
  * 2. Collect authored-source snapshots and compare exact keys for each configuration.
  * 3. Require out-of-walk classification and compiler-option overlays to agree.
+ *
  * @evidence contracts/testing.md#behavioral-verification Authored policy, overlay, walk snapshot and path classification select exact source keys across discovery specs, inheritance, links and explicit compiler case policies.
- * @evidence contracts/testing.md#independent-expectations Literal source populations define glob/files/empty/configDir and Unicode outcomes; independently supplied sensitive/insensitive compiler policies require [] or sigma.ts on the same Linux execution.
- * @evidence contracts/testing.md#distinguishing-cases Original discovery/root-alias/link mutation/special-name controls remain; both Unicode case meanings are exercised instead of selecting one expectation from the OS name.
+ * @evidence contracts/testing.md#independent-expectations Literal expected key lists define the glob, files, empty and configDir outcomes; the Unicode rows set useCaseSensitiveFileNames explicitly to true or false and expect [] or unicode/\u03c3.ts regardless of the host OS's own case behaviour.
+ * @evidence contracts/testing.md#distinguishing-cases Scenario table of include/files specs (glob, parent-relative, directory, files-only, hidden file named by files, empty include, trailing **, bracketed name, configDir with backslashes), base and leaf configs through extends, the project read through a directory link with a file added and removed, a name containing a line break or Unicode line separator, and sigma/final sigma folding under both explicit case policies, each against literal expected key lists.
  * @evidence contracts/testing.md#execution-ownership The named source unit imports actual authored policy/snapshot/path owners and creates only resolver fixture files/links. No native artifact, process session or compiler runs to produce policy facts.
  */
 export async function test_transformttsc_root_file_policy_resolves_discovery_specs(): Promise<void> {

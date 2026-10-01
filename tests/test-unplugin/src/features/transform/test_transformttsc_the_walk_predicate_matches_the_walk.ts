@@ -24,11 +24,17 @@ import { createSourcePolicyProject } from "../../internal/source-policy/createSo
  *    directories, owner directories, and `node_modules` cover every exclusion
  *    origin.
  * 2. Walk it, and ask the predicate about every file in each location.
- * 3. Assert the predicate answers yes exactly for the files the walk hashed.
+ * 3. Assert the predicate claims the inherited output and declaration directories
+ *    only once an overlay replaces them, refuses overlay outputs, JavaScript and
+ *    dependency files, and that
+ *    the walk's own hashes agree for those files; then pin the overlay and
+ *    inheritance rules (empty, null, `${configDir}`, explicit `exclude`) the
+ *    policy applies.
+ *
  * @evidence contracts/testing.md#behavioral-verification Authored policy/overlay/walk operations apply output-option provenance and preserve exact admission distinctions when overlays replace inherited paths.
  * @evidence contracts/testing.md#independent-expectations Literal inherited/overlay output locations, empty/null/path-template values and explicit excluded/admitted file expectations independently specify each result; exact collected hashes corroborate predicates.
- * @evidence contracts/testing.md#distinguishing-cases Inherited versus replaced output paths, empty/null child/overlay options, configDir anchors, explicit/empty exclusions, provenance-free public policy and ordinary source retain every original assertion.
- * @evidence contracts/testing.md#execution-ownership The named source unit invokes the authored reader, overlay, walk predicate and collector on cheap literal config/source files. Unused synthetic Go fixture materialization and built public API imports are removed; no native compile cost moves into this unit.
+ * @evidence contracts/testing.md#distinguishing-cases Inherited versus overlay-replaced output and declaration directories, empty and null values in a child config and in an overlay, ${configDir} anchors for inherited and overlay values, an explicit exclude equal to the old outDir and an empty exclude list, a public policy without provenance, and an ordinary source the walk does hash, each asserted against a literal expectation.
+ * @evidence contracts/testing.md#execution-ownership Unit test: calls the real readProjectMembershipPolicy, mergeMembershipPolicyOverlay, isProjectWalkPath and collectProjectInputHashes on config and source files written into a temporary project (createSourcePolicyProject). No compiler runs.
  */
 export async function test_transformttsc_the_walk_predicate_matches_the_walk(): Promise<void> {
   const api = { readProjectMembershipPolicy, mergeMembershipPolicyOverlay, isProjectWalkPath, collectProjectInputHashes };

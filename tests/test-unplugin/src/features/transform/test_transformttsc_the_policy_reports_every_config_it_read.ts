@@ -24,10 +24,11 @@ import { createSourcePolicyProject } from "../../internal/source-policy/createSo
  *    differently cased specifiers.
  * 3. Create the base with an `exclude` and assert the policy applies it and still
  *    reports the base.
+ *
  * @evidence contracts/testing.md#behavioral-verification The authored membership reader reports leaf and unresolved inheritance candidates, then applies a created base exclusion without dropping its provenance.
  * @evidence contracts/testing.md#independent-expectations Literal leaf/base/.JSON.json candidate names and the generated exclusion path define expected source provenance independently of the product enumeration.
- * @evidence contracts/testing.md#distinguishing-cases Missing explicit base, extensionless probe, case-sensitive suffix probe, later base appearance and inherited exclusion retain all original assertions.
- * @evidence contracts/testing.md#execution-ownership This named source unit calls the actual authored reader with a source-only JSON/project fixture; it replaces built API loading and unused synthetic Go source preparation without adding a compiler surrogate.
+ * @evidence contracts/testing.md#distinguishing-cases Six assertions on policy.sources and excludedDirectories: a missing explicit base is reported, an extensionless extends reports the .json candidate, an uppercase .JSON extends reports the base.JSON.json candidate, and after the base is created its exclude reaches excludedDirectories while the base is still reported.
+ * @evidence contracts/testing.md#execution-ownership Unit test: calls the real readProjectMembershipPolicy on tsconfig files in a temporary project (createSourcePolicyProject) that it rewrites between reads. No compiler, built package or Go source is involved.
  */
 export async function test_transformttsc_the_policy_reports_every_config_it_read(): Promise<void> {
   const api = { readProjectMembershipPolicy };
