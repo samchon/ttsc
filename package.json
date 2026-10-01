@@ -7,7 +7,7 @@
     "build": "pnpm --filter \"./packages/*\" --filter lint-contributor-demo -r --workspace-concurrency=1 build",
     "evidence": "pnpm --filter \"./packages/*\" --filter \"./tests/*\" -r --no-bail --workspace-concurrency=1 run evidence",
     "test": "pnpm run test:go && pnpm run test:units",
-    "test:go": "go -C packages/banner test -count=1 ./... && go -C packages/evidence test -count=1 ./... && go -C packages/lint test -count=1 ./... && go -C packages/paths test -count=1 ./... && go -C packages/strip test -count=1 ./... && go -C packages/ttsc test -count=1 ./...",
+    "test:go": "go test -count=1 ./packages/banner/... ./packages/evidence/... ./packages/lint/... ./packages/paths/... ./packages/strip/... ./packages/ttsc/...",
     "test:units": "pnpm --filter \"./tests/*\" --filter \"!@ttsc/test-e2e\" -r --no-bail --workspace-concurrency=1 start",
     "test:e2e": "pnpm --filter @ttsc/test-e2e start",
     "format": "pnpm run gen:flags && prettier --write \"**/*.ts\" \"**/*.md\" \"**/*.mdx\" && pnpm run format:go",
