@@ -17,6 +17,7 @@ const commonjsSources = [
   "paths",
   "strip",
   "lint",
+  "evidence",
 ]
   .map((owner) => new URL(`../packages/${owner}/src/`, import.meta.url).href)
   .concat(
