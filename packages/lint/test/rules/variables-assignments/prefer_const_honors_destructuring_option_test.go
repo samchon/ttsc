@@ -18,7 +18,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The command preserves default five and all-policy two findings and compares their exact identifier sites, exposing missing or swapped stable leaves.
 // @evidence contracts/testing.md#independent-expectations Authored sites identify second, stableFirst, stableSecond, assignedSecond and mixedAssigned under any; only both stable declaration leaves remain under all. Cross-scope var and parameter siblings prevent declaration conversion.
 // @evidence contracts/testing.md#distinguishing-cases Partial declaration and assignment patterns differ from wholly stable patterns; initialized mutable, hoisted var and parameter siblings preserve the original excluded controls.
-// @evidence contracts/testing.md#execution-ownership TestPreferConstHonorsDestructuringOption owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes the owning operation with a real Program and Checker and isolated fixture files, without a consumer install, native artifact build or product host.
+// @evidence contracts/testing.md#execution-ownership TestPreferConstHonorsDestructuringOption two temp projects are seeded with the same source and the in-process run(check) command is executed once under the default prefer-const setting and once with seedLintConfig destructuring all, each with a real Program and Checker; the finding counts (five, two) and every line:column site are compared with assertBindingDiagnosticSites. No consumer install, native build or product host runs.
 func TestPreferConstHonorsDestructuringOption(t *testing.T) {
   source := `const input = { first: 1, second: 2 };
 let { first, second } = input;

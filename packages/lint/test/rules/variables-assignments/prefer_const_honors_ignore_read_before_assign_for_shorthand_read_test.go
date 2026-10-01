@@ -15,7 +15,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification The real Checker-backed Engine emits no finding when an object shorthand reads a declaration-only binding before its sole assignment with the option enabled.
 // @evidence contracts/testing.md#independent-expectations Shorthand property value resolution denotes the variable binding; the read-before-assignment policy supplies the independent clean expectation.
 // @evidence contracts/testing.md#distinguishing-cases This owns shorthand value-symbol lookup under the enabled option; TestPreferConstHonorsIgnoreReadBeforeAssign owns default and ordinary closure-read comparisons.
-// @evidence contracts/testing.md#execution-ownership TestPreferConstHonorsIgnoreReadBeforeAssignForShorthandRead owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes the owning operation with a real Program and Checker and isolated fixture files, without a consumer install, native artifact build or product host.
+// @evidence contracts/testing.md#execution-ownership TestPreferConstHonorsIgnoreReadBeforeAssignForShorthandRead assertRuleSkipsSourceWithOptions runs the prefer-const engine with the ignoreReadBeforeAssign option payload through runRuleFindingsSnapshotFile, which loads a temp tsconfig project with a real Program and Checker, and requires zero findings. No consumer install, native build or product host runs.
 func TestPreferConstHonorsIgnoreReadBeforeAssignForShorthandRead(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,

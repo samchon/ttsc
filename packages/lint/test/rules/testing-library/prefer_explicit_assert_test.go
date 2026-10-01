@@ -17,7 +17,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify a standalone getBy query is reported; exact normalized findings reject extra or missing results.
 // @evidence contracts/testing.md#independent-expectations With explicit assertions configured, getBy throwing is not the desired assertion form.
 // @evidence contracts/testing.md#distinguishing-cases Wrapping the same query in a document assertion is accepted. The original violations remain intact and the authored adjacent source is asserted clean.
-// @evidence contracts/testing.md#execution-ownership TestPreferExplicitAssert owns these variants as a named Go unit entry; actual parsing/engine or registry operations execute in the shared Go process, without a DOM runtime, installed consumer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestPreferExplicitAssert assertTestingLibraryFindings parses the source as TSX under a virtual component.test.tsx path and runs NewEngineWithResolver over it with only prefer-explicit-assert enabled: the standalone getByText source must yield one exact triple and the expect-wrapped source must yield none. No DOM runtime, installed consumer, native build or product child host runs.
 func TestPreferExplicitAssert(t *testing.T) {
   source := `
 import { screen } from "@testing-library/react";

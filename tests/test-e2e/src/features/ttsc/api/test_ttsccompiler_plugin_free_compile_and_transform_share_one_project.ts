@@ -51,11 +51,11 @@ export async function test_ttsccompiler_plugin_free_compile_and_transform_share_
       ["baseline_compile_and_transform", () => {
         CompilerApiWorkspace.enter(workspace, "baseline");
         const compiled = compiler.compile();
-        assert.equal(compiled.type, "success");
+        assert.equal(compiled.type, "success", describe(compiled));
         assert.match(expectRecordValue(compiled.output, "dist/main.js"), /api-ok/);
         assert.match(
           expectRecordValue(compiled.output, "dist/main.js"),
-          /console.log(s*messages*)/,
+          /console\.log\(\s*message\s*\)/,
         );
         assert.match(expectRecordValue(compiled.output, "dist/main.d.ts"), /upper: string/);
         assert.match(expectRecordValue(compiled.output, "dist/main.js.map"), /"version":3/);
@@ -63,16 +63,16 @@ export async function test_ttsccompiler_plugin_free_compile_and_transform_share_
         assert.equal(fs.existsSync(dist), false);
 
         const transformed = compiler.transform();
-        assert.equal(transformed.type, "success");
+        assert.equal(transformed.type, "success", describe(transformed));
         const main = expectRecordValue(transformed.typescript, "src/main.ts");
         assert.match(main, /const message: string = "api-ok"/);
-        assert.match(main, /console.log(s*messages*)/);
+        assert.match(main, /console\.log\(\s*message\s*\)/);
         assert.match(main, /helper(message)/);
         assert.match(expectRecordValue(transformed.typescript, "src/helpers.ts"), /toUpperCase/);
         assert.match(expectRecordValue(transformed.typescript, "src/nested/model.ts"), /interface Model/);
         for (const key of Object.keys(transformed.typescript)) {
           assert.equal(key.startsWith("dist/"), false, key);
-          assert.equal(/.(?:js|cjs|mjs|d.ts|map)$/.test(key), false, key);
+          assert.equal(/\.(?:js|cjs|mjs|d\.ts|map)$/.test(key), false, key);
         }
         assert.deepEqual(transformed.dependenciesComplete, [
           "src/helpers.ts",
@@ -98,7 +98,7 @@ export async function test_ttsccompiler_plugin_free_compile_and_transform_share_
             cwd: other,
             plugins: [{ transform: "./missing-plugin.cjs" }],
           });
-          assert.equal(forged.type, "success");
+          assert.equal(forged.type, "success", describe(forged));
           assert.match(expectRecordValue(forged.output, "dist/main.js"), /api-ok/);
           assert.equal(fs.existsSync(dist), false);
           assert.equal(fs.existsSync(path.join(other, "dist")), false);
@@ -109,7 +109,7 @@ export async function test_ttsccompiler_plugin_free_compile_and_transform_share_
       ["type_error_reports_structured_diagnostics", () => {
         CompilerApiWorkspace.enter(workspace, "type-error");
         const failed = compiler.compile();
-        assert.equal(failed.type, "failure");
+        assert.equal(failed.type, "failure", describe(failed));
         assert.equal(failed.diagnostics.length, 1);
         const diagnostic = expectArrayValue(failed.diagnostics, 0);
         assert.ok(diagnostic.file);
@@ -124,7 +124,7 @@ export async function test_ttsccompiler_plugin_free_compile_and_transform_share_
         assert.equal(typeof failed.output, "object");
         assert.equal(fs.existsSync(dist), false);
         const failedSource = compiler.transform();
-        assert.equal(failedSource.type, "failure");
+        assert.equal(failedSource.type, "failure", describe(failedSource));
         assert.equal(expectArrayValue(failedSource.diagnostics, 0).code, 2322);
         assert.match(expectRecordValue(failedSource.typescript, "src/main.ts"), /not-a-number/);
         assert.equal(fs.existsSync(dist), false);
@@ -132,21 +132,21 @@ export async function test_ttsccompiler_plugin_free_compile_and_transform_share_
       ["failure_carries_the_reference_graph", () => {
         CompilerApiWorkspace.enter(workspace, "graph-failure");
         const result = compiler.transform();
-        assert.equal(result.type, "failure");
+        assert.equal(result.type, "failure", describe(result));
         assert.ok(result.graph, "failure result must carry the reference graph");
         assert.deepEqual(result.graph.edges["src/main.ts"], ["src/mytype.ts"]);
       }],
       ["decorator_metadata_keeps_completeness", () => {
         CompilerApiWorkspace.enter(workspace, "decorated");
         const decorated = compiler.transform();
-        assert.equal(decorated.type, "success");
+        assert.equal(decorated.type, "success", describe(decorated));
         assert.equal(decorated.typescript["src/main.ts"]?.includes("design:type"), false);
         assert.deepEqual(decorated.dependenciesComplete, ["src/main.ts", "src/types.ts"]);
       }],
       ["dotted_output_directory_keeps_relative_keys", () => {
         CompilerApiWorkspace.enter(workspace, "dotted-output");
         const dottedOutput = compiler.compile();
-        assert.equal(dottedOutput.type, "success");
+        assert.equal(dottedOutput.type, "success", describe(dottedOutput));
         assert.match(expectRecordValue(dottedOutput.output, "..dist/main.js"), /api-ok/);
         assert.equal(Object.keys(dottedOutput.output).some((key) => path.isAbsolute(key)), false);
         assert.equal(fs.existsSync(path.join(root, "..dist")), false);
@@ -154,7 +154,7 @@ export async function test_ttsccompiler_plugin_free_compile_and_transform_share_
       ["dotted_source_directory_keeps_relative_keys", () => {
         CompilerApiWorkspace.enter(workspace, "dotted-source");
         const dottedSource = compiler.transform();
-        assert.equal(dottedSource.type, "success");
+        assert.equal(dottedSource.type, "success", describe(dottedSource));
         assert.match(expectRecordValue(dottedSource.typescript, "..src/main.ts"), /dotted-source/);
         assert.equal(Object.keys(dottedSource.typescript).some((key) => path.isAbsolute(key)), false);
       }],
@@ -170,4 +170,9 @@ export async function test_ttsccompiler_plugin_free_compile_and_transform_share_
   }
   if (failures.length === 1) throw failures[0];
   if (failures.length > 1) throw new AggregateError(failures, "Compiler API states and cleanup failed.");
+}
+
+/** Names a native exception in a failed type assertion so its cause is not lost. */
+function describe(result: { type: string; error?: unknown }): string {
+  return result.type === "exception" ? String((result.error as Error | undefined)?.stack ?? result.error) : "";
 }

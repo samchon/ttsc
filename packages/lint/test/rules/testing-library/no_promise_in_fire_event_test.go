@@ -17,7 +17,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify fireEvent with an awaited findBy target is reported; exact normalized findings reject extra or missing results.
 // @evidence contracts/testing.md#independent-expectations The supported rule disallows async-query expressions nested in event-helper arguments.
 // @evidence contracts/testing.md#distinguishing-cases A synchronous getBy target removes the nested async-query shape. The original violations remain intact and the authored adjacent source is asserted clean.
-// @evidence contracts/testing.md#execution-ownership TestNoPromiseInFireEvent owns these variants as a named Go unit entry; actual parsing/engine or registry operations execute in the shared Go process, without a DOM runtime, installed consumer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestNoPromiseInFireEvent assertTestingLibraryFindings parses the source as TSX under a virtual component.test.tsx path and runs NewEngineWithResolver over it with only no-promise-in-fire-event enabled: the awaited-findBy source must yield one exact triple and the getBy-target source in the second call must yield none. No DOM runtime, installed consumer, native build or product child host runs.
 func TestNoPromiseInFireEvent(t *testing.T) {
   source := `
 import { fireEvent, screen } from "@testing-library/react";

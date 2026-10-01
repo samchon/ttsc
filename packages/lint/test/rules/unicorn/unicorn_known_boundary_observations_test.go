@@ -2,6 +2,7 @@ package linthost
 
 import (
   "fmt"
+  "strings"
   "testing"
 )
 
@@ -17,7 +18,7 @@ import (
 // 2. Compare exact rule/severity/source-line triples or zero findings.
 // 3. Execute every independent row even when another row fails.
 //
-// @evidence contracts/testing.md#behavioral-verification Each subtest calls the real Engine.Run through shared corpus or finding helpers for captureStackTrace, relative URL, string slice and regexp replacement recommendations; no subprocess producer is used.
+// @evidence contracts/testing.md#behavioral-verification Each subtest calls the real Engine.Run through the shared snapshot finding helper for captureStackTrace, relative URL, string slice and regexp replacement recommendations; no subprocess producer is used.
 // @evidence contracts/testing.md#independent-expectations Literal expectations follow independent Node stack-filter and URL rows, JavaScript UTF16 slice units, and literal versus flagged-regexp replacement results; no expected finding or length is computed from the lint implementation.
 // @evidence contracts/testing.md#distinguishing-cases Own-constructor versus external frame filtering, directory versus file URL bases, ASCII/BMP/astral/combining/lone-surrogate lengths, and global plain versus insensitive/sticky regexp flags own adjacent positive and negative boundaries.
 // @evidence contracts/testing.md#execution-ownership This single discoverable rules Go entry runs all named rows in one process with the real parser/Engine helpers and the helpers' checker lane when selected; each t.Run preserves independent failure identity without installation, native host or canned frames.
@@ -25,7 +26,12 @@ func TestUnicornKnownBoundaryObservations(t *testing.T) {
   check := func(name, rule, prefix, expression string, report bool) {
     t.Run(name, func(t *testing.T) {
       if report {
-        assertRuleCorpusCase(t, rule+".ts", prefix+"\n// expect: "+rule+" error\n"+expression+"\n")
+        source := prefix + "\n" + expression + "\n"
+        _, _, findings := runRuleFindingsSnapshot(t, rule, source, nil)
+        if len(findings) != 1 || findings[0].Rule != rule || findings[0].Severity != SeverityError ||
+          strings.Count(source[:findings[0].Pos], "\n")+1 != 2 {
+          t.Fatalf("%s: want one error on line 2 of %q, got %+v", rule, source, findings)
+        }
       } else {
         assertRuleSkipsSource(t, rule, prefix+"\n"+expression+"\n")
       }

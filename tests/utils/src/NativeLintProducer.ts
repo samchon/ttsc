@@ -171,7 +171,10 @@ function readPackage(root: string, omitted: ReadonlySet<string> = new Set()): IF
   const files: IFileReading[] = [];
   const visit = (directory: string): void => {
     for (const name of fs.readdirSync(directory).sort()) {
-      if (directory === root && ["node_modules", ".git", ".cache", ".ttsc"].includes(name)) continue;
+      // Installation, repository and cache boundaries are not package source. A
+      // nested workspace member (the lint contributor demo) carries its own
+      // node_modules link, which is installation too, so it is skipped at any depth.
+      if (name === "node_modules" || (directory === root && [".git", ".cache", ".ttsc"].includes(name))) continue;
       const file = path.join(directory, name);
       const stat = fs.lstatSync(file);
       if (stat.isSymbolicLink())

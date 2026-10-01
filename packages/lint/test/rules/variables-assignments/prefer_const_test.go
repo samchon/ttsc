@@ -18,7 +18,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The real command must report stable at 1:5 and the fresh for-of item at 9:10, preserving exact count, error status and empty stdout checks.
 // @evidence contracts/testing.md#independent-expectations The literal sites identify immutable bindings from the authored source; changing, numeric-loop, swap and reassigned picked bindings each visibly receive additional writes.
 // @evidence contracts/testing.md#distinguishing-cases Initialized stable and fresh per-iteration binding report; assignment, increment and array/object destructuring controls stay mutable. The lexical-identity companion owns same-spelled scopes.
-// @evidence contracts/testing.md#execution-ownership TestRuleCorpusPreferConst owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes the owning operation with a real Program and Checker and isolated fixture files, without a consumer install, native artifact build or product host.
+// @evidence contracts/testing.md#execution-ownership TestRuleCorpusPreferConst seedLintProject writes a temp tsconfig project and the in-process run(check) command loads a real Program and Checker with only prefer-const enabled; the test requires exit code 2, empty stdout and two rendered [prefer-const] errors, and compares their line:column sites with assertBindingDiagnosticSites. No consumer install, native build or product host runs.
 func TestRuleCorpusPreferConst(t *testing.T) {
   root := seedLintProject(t, `let stable = 1;
 let changing = 1;

@@ -17,7 +17,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify destructured and member queries from render results both report; exact normalized findings reject extra or missing results.
 // @evidence contracts/testing.md#independent-expectations screen owns the shared query API rather than each render result.
 // @evidence contracts/testing.md#distinguishing-cases Both reported binding forms differ from a direct screen query. The original violations remain intact and the authored adjacent source is asserted clean.
-// @evidence contracts/testing.md#execution-ownership TestPreferScreenQueries owns these variants as a named Go unit entry; actual parsing/engine or registry operations execute in the shared Go process, without a DOM runtime, installed consumer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestPreferScreenQueries assertTestingLibraryFindings parses the source as TSX under a virtual component.test.tsx path and runs NewEngineWithResolver over it with only prefer-screen-queries enabled: the destructured-query and render-result-member source must yield two exact triples and the screen-query source must yield none. No DOM runtime, installed consumer, native build or product child host runs.
 func TestPreferScreenQueries(t *testing.T) {
   source := `
 import { render } from "@testing-library/react";

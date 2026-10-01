@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Engine stays silent for declaration SourceFiles with explicit and implicit ambient var forms; the identical implicit source reports once when its declaration-file flag is absent.
 // @evidence contracts/testing.md#independent-expectations The declaration-file classification is a legitimate parser/engine input describing ambient globals, not a repository file-presence assertion.
 // @evidence contracts/testing.md#distinguishing-cases The original declare-var fixture is retained; an otherwise identical var source with and without the declaration-file flag isolates that guard from the ambient modifier. TestNoVarSkipsAmbientDeclareVar separately owns modifier inheritance.
-// @evidence contracts/testing.md#execution-ownership TestNoVarSkipsDeclarationFileVars owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes parsed-source Engine operations and direct edit application, with disposable fixture files where needed; no installed consumer, native build or product host runs.
+// @evidence contracts/testing.md#execution-ownership TestNoVarSkipsDeclarationFileVars three in-memory parseTS sources are run through NewEngine(no-var).Run: the declare-var and implicit-var sources with IsDeclarationFile set must yield zero findings and the identical implicit source without the flag must yield one no-var finding. No temp project, consumer install or product host is involved.
 func TestNoVarSkipsDeclarationFileVars(t *testing.T) {
   file := parseTS(t, "declare var value: string;\n")
   file.IsDeclarationFile = true

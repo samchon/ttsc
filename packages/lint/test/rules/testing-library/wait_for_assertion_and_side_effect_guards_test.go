@@ -17,7 +17,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify one waitFor callback produces four exact reports for repeated assertions, snapshot, side effect and getBy waiting; exact normalized findings reject extra or missing results.
 // @evidence contracts/testing.md#independent-expectations A retry callback must avoid side effects and snapshots, limit assertions, and use the supported async-query pattern.
 // @evidence contracts/testing.md#distinguishing-cases A single callback intentionally triggers all four independent policies; their exact rule/line assertions preserve each failure identity. One queryBy assertion without a snapshot or event is accepted under the same four rules.
-// @evidence contracts/testing.md#execution-ownership TestWaitForAssertionAndSideEffectGuards owns these variants as a named Go unit entry; actual parsing/engine or registry operations execute in the shared Go process, without a DOM runtime, installed consumer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestWaitForAssertionAndSideEffectGuards assertTestingLibraryFindings parses the source as TSX under a virtual component.test.tsx path and runs NewEngineWithResolver over it with the four waitFor rules enabled: the one-callback source must yield four exact triples on the same source line and the queryBy-only source in the second call must yield none. No DOM runtime, installed consumer, native build or product child host runs.
 func TestWaitForAssertionAndSideEffectGuards(t *testing.T) {
   source := `
 import { fireEvent, screen, waitFor } from "@testing-library/react";

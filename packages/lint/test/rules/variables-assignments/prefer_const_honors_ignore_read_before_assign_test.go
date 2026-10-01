@@ -18,7 +18,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The command retains default two and configured one findings and checks precise binding sites, exposing a wrong surviving binding or location.
 // @evidence contracts/testing.md#independent-expectations The unread assignedLater reports its assignment at 2:1; default readBeforeAssign reports its declaration at 4:5 because its read precedes assignment. The enabled option suppresses only the latter.
 // @evidence contracts/testing.md#distinguishing-cases The same source runs with and without ignoreReadBeforeAssign; the unread sibling must remain reportable under both settings, preserving option locality.
-// @evidence contracts/testing.md#execution-ownership TestPreferConstHonorsIgnoreReadBeforeAssign owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes the owning operation with a real Program and Checker and isolated fixture files, without a consumer install, native artifact build or product host.
+// @evidence contracts/testing.md#execution-ownership TestPreferConstHonorsIgnoreReadBeforeAssign two temp projects are seeded with the same source and the in-process run(check) command is executed once under the default prefer-const setting and once with seedLintConfig ignoreReadBeforeAssign true, each with a real Program and Checker; the counts (two, one) and line:column sites are compared with assertBindingDiagnosticSites. No consumer install, native build or product host runs.
 func TestPreferConstHonorsIgnoreReadBeforeAssign(t *testing.T) {
   source := `let assignedLater: number;
 assignedLater = 1;

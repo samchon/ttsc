@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Engine emits exactly one redeclaration finding with exactly one related first-definition location; both complete statement ranges and the related message expose a missing, substituted or misplaced first definition.
 // @evidence contracts/testing.md#independent-expectations The two authored var statement spellings and intervening newline establish exact byte ranges independently of Engine output, alongside declaration order and the editor relation contract.
 // @evidence contracts/testing.md#distinguishing-cases Same-scope duplicate var owns related information; TestRuleCorpusNoRedeclare supplies nested-shadowing and function-redeclaration controls.
-// @evidence contracts/testing.md#execution-ownership TestNoRedeclareRelatesFirstDefinition owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes parsed-source Engine operations and direct edit application, with disposable fixture files where needed; no installed consumer, native build or product host runs.
+// @evidence contracts/testing.md#execution-ownership TestNoRedeclareRelatesFirstDefinition parseTS parses the two-var source in memory and NewEngineWithResolver runs the no-redeclare rule directly over it; the test reads the finding's RelatedInformation and compares the finding and related byte ranges to authored offsets. No temp project, fix application, consumer install or product host is involved.
 func TestNoRedeclareRelatesFirstDefinition(t *testing.T) {
   file := parseTS(t, "var sample = 1;\nvar sample = 2;\nvoid sample;\n")
   findings := NewEngineWithResolver(InlineRuleResolver{

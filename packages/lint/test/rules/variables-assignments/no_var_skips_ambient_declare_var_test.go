@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Engine emits zero no-var findings for a declare var statement in a regular TypeScript source file.
 // @evidence contracts/testing.md#independent-expectations Ambient declarations describe existing globals rather than create runtime var bindings; that distinction establishes the independent clean expectation.
 // @evidence contracts/testing.md#distinguishing-cases Regular-file declare var owns modifier inheritance; TestRuleCorpusNoVar owns ordinary runtime var, and the declaration-file case owns file classification.
-// @evidence contracts/testing.md#execution-ownership TestNoVarSkipsAmbientDeclareVar owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes parsed-source Engine operations and direct edit application, with disposable fixture files where needed; no installed consumer, native build or product host runs.
+// @evidence contracts/testing.md#execution-ownership TestNoVarSkipsAmbientDeclareVar parseTS parses the declare-var source in memory and NewEngine(no-var).Run executes the rule directly over it; the test compares the finding count with zero. No temp project, consumer install or product host is involved.
 func TestNoVarSkipsAmbientDeclareVar(t *testing.T) {
   file := parseTS(t, "declare var ambient: string;\nJSON.stringify(typeof ambient);\n")
   findings := NewEngine(RuleConfig{"no-var": SeverityError}).Run([]*shimast.SourceFile{file}, nil)

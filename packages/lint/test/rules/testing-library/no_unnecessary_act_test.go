@@ -17,7 +17,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify act wrapping fireEvent is reported; exact normalized findings reject extra or missing results.
 // @evidence contracts/testing.md#independent-expectations Testing Library event updates already own their act boundary.
 // @evidence contracts/testing.md#distinguishing-cases Calling the event without the redundant wrapper is accepted. The original violations remain intact and the authored adjacent source is asserted clean.
-// @evidence contracts/testing.md#execution-ownership TestNoUnnecessaryAct owns these variants as a named Go unit entry; actual parsing/engine or registry operations execute in the shared Go process, without a DOM runtime, installed consumer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestNoUnnecessaryAct assertTestingLibraryFindings parses the source as TSX under a virtual component.test.tsx path and runs NewEngineWithResolver over it with only no-unnecessary-act enabled: the act-wrapped fireEvent source must yield one exact triple and the unwrapped fireEvent source must yield none. No DOM runtime, installed consumer, native build or product child host runs.
 func TestNoUnnecessaryAct(t *testing.T) {
   source := `
 import { act, fireEvent, screen } from "@testing-library/react";

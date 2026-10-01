@@ -22,7 +22,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification The actual automatic fix pass leaves the commented redundant import alias byte-identical, while the comment-free twin collapses to an unaliased import.
 // @evidence contracts/testing.md#independent-expectations Original unchanged text and authored import { a } output independently establish comment preservation and the permitted rewrite.
 // @evidence contracts/testing.md#distinguishing-cases The between-name comment blocks imposed deletion; its absence permits the rewrite. The suggestion test owns author-approved comment removal.
-// @evidence contracts/testing.md#execution-ownership TestNoUselessRenameDeclinesFixWhenCommentBetweenNames owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes parsed-source Engine operations and direct edit application, with disposable fixture files where needed; no installed consumer, native build or product host runs.
+// @evidence contracts/testing.md#execution-ownership TestNoUselessRenameDeclinesFixWhenCommentBetweenNames assertNoFixSnapshot and assertFixSnapshot write each source to a temp project file, run the no-useless-rename engine over it through runRuleFindingsSnapshotFile, apply the findings to disk with applyFindingFixes and compare the resulting file text with the authored source or output. No consumer install, native build or product host runs.
 func TestNoUselessRenameDeclinesFixWhenCommentBetweenNames(t *testing.T) {
   assertNoFixSnapshot(
     t,

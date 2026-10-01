@@ -18,7 +18,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The owning command with a real Checker reports exactly the computed and defaulted target identifier sites, retaining status and empty stdout assertions.
 // @evidence contracts/testing.md#independent-expectations Authored sites 5:20 and 8:12 identify sole writes to declaration-only let bindings; member reads in key/default expressions do not mutate those targets.
 // @evidence contracts/testing.md#distinguishing-cases Computed keys and default expressions both contain member reads but permit conversion. The write-forms test owns actual destructuring reassignments.
-// @evidence contracts/testing.md#execution-ownership TestPreferConstAllowsReadsInDestructuringPattern owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes the owning operation with a real Program and Checker and isolated fixture files, without a consumer install, native artifact build or product host.
+// @evidence contracts/testing.md#execution-ownership TestPreferConstAllowsReadsInDestructuringPattern seedLintProject writes a temp tsconfig project and the in-process run(check) command loads a real Program and Checker with only prefer-const enabled; the test requires exit code 2, empty stdout, two rendered [prefer-const] errors, and compares their line:column sites with assertBindingDiagnosticSites. No consumer install, native build or product host runs.
 func TestPreferConstAllowsReadsInDestructuringPattern(t *testing.T) {
   root := seedLintProject(t, `const input = { first: 1, second: 2 };
 const keys = { current: "first" as const };

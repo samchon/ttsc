@@ -25,13 +25,15 @@ export namespace Scenarios {
       try {
         await run();
       } catch (error) {
-        failures.push(new Error(name, { cause: error }));
+        failures.push(
+          new Error(`${name}: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}`, { cause: error }),
+        );
       }
     }
     if (failures.length)
       throw new AggregateError(
         failures,
-        `${label} scenarios failed: ${failures.map((failure) => failure.message).join(", ")}`,
+        `${label} scenarios failed: ${failures.map((failure) => failure.message).join("; ")}`,
       );
   }
 }

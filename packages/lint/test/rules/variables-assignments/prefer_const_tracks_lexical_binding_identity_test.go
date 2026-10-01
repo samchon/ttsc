@@ -18,7 +18,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The command reports exactly the two stable value declarations at 2:7 and 13:7, preserving original status and count while detecting wrong-scope substitutions.
 // @evidence contracts/testing.md#independent-expectations Literal authored declaration locations identify the stable sibling and outer shadow independently; sibling, inner-shadow and closure writes mutate different symbols.
 // @evidence contracts/testing.md#distinguishing-cases Same-spelled stable and mutable siblings plus nested shadows distinguish lexical identity; the closure write remains a separate mutable control.
-// @evidence contracts/testing.md#execution-ownership TestPreferConstTracksLexicalBindingIdentity owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes the owning operation with a real Program and Checker and isolated fixture files, without a consumer install, native artifact build or product host.
+// @evidence contracts/testing.md#execution-ownership TestPreferConstTracksLexicalBindingIdentity seedLintProject writes a temp tsconfig project and the in-process run(check) command loads a real Program and Checker with only prefer-const enabled; the test requires exit code 2, empty stdout and two rendered [prefer-const] errors, and compares their line:column sites with assertBindingDiagnosticSites. No consumer install, native build or product host runs.
 func TestPreferConstTracksLexicalBindingIdentity(t *testing.T) {
   root := seedLintProject(t, `function stableSibling(): number {
   let value = 1;

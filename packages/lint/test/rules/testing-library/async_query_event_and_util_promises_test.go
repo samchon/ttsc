@@ -18,7 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify five exact findings distinguish unhandled findBy/waitFor/userEvent promises from incorrectly awaited synchronous getBy/fireEvent calls; exact normalized findings reject extra or missing results.
 // @evidence contracts/testing.md#independent-expectations The imported API families define whether a result is asynchronous; literal rule/severity/line triples pin each distinct misuse.
 // @evidence contracts/testing.md#distinguishing-cases Positive violations cover async and sync inversions independently. The original violations remain intact and the authored adjacent source is asserted clean.
-// @evidence contracts/testing.md#execution-ownership TestAsyncQueryEventAndUtilPromises owns these variants as a named Go unit entry; actual parsing/engine or registry operations execute in the shared Go process, without a DOM runtime, installed consumer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestAsyncQueryEventAndUtilPromises assertTestingLibraryFindings parses the source as TSX under a virtual component.test.tsx path and runs NewEngineWithResolver over it with the five await-async and no-await-sync rules enabled, compares the first source's five rule/severity/line triples exactly, then runs a second authored source through the same five rules and requires zero findings. No DOM runtime, installed consumer, native build or product child host runs.
 func TestAsyncQueryEventAndUtilPromises(t *testing.T) {
   source := `
 import { fireEvent, screen, waitFor } from "@testing-library/react";

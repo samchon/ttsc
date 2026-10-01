@@ -17,7 +17,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify empty expect arguments produce no matcher-preference findings or swallowed panic diagnostics; exact normalized findings reject extra or missing results.
 // @evidence contracts/testing.md#independent-expectations With no actual argument, none of these query-specific preferences has a qualifying query to report.
 // @evidence contracts/testing.md#distinguishing-cases Three original matcher shapes exercise absent arguments; named scalar, object-member and nested-expect controls reject non-query AST casts. The presence/query/disappearance tests own matching actual-query positives.
-// @evidence contracts/testing.md#execution-ownership TestExpectMatchersWithoutArgumentDoNotPanic owns these variants as a named Go unit entry; actual parsing/engine or registry operations execute in the shared Go process, without a DOM runtime, installed consumer or product child host.
+// @evidence contracts/testing.md#execution-ownership TestExpectMatchersWithoutArgumentDoNotPanic assertTestingLibraryFindings parses the source as TSX under a virtual component.test.tsx path and runs NewEngineWithResolver over it with prefer-presence-queries, prefer-query-by-disappearance and prefer-query-matchers enabled; the top-level source (three argument-less expect calls) and the non-query-argument subtest (scalar, object member and nested expect) both require zero findings, and the helper fails if the engine recorded a recovered rule panic. No DOM runtime, installed consumer, native build or product child host runs.
 func TestExpectMatchersWithoutArgumentDoNotPanic(t *testing.T) {
   source := `
 import { waitFor } from "@testing-library/react";

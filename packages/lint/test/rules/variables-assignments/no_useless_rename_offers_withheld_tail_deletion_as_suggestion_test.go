@@ -19,7 +19,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Exactly one titled suggestion removes the commented redundant alias while the automatic pass changes nothing; the no-comment twin still auto-fixes.
 // @evidence contracts/testing.md#independent-expectations The literal warning title identifies comment loss and the authored import { a } target independently defines the opted-in result.
 // @evidence contracts/testing.md#distinguishing-cases Commented alias is suggestion-only; the same alias without the comment remains automatically fixable.
-// @evidence contracts/testing.md#execution-ownership TestNoUselessRenameOffersWithheldTailDeletionAsSuggestion owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes parsed-source Engine operations and direct edit application, with disposable fixture files where needed; no installed consumer, native build or product host runs.
+// @evidence contracts/testing.md#execution-ownership TestNoUselessRenameOffersWithheldTailDeletionAsSuggestion assertSuggestionSnapshot runs the no-useless-rename engine over the commented source, requires one finding with no automatic fix and one titled suggestion, applies only that suggestion's edits with applyFindingFixesToText and compares the text; assertFixSnapshot applies the comment-free source's fix on disk and compares it. No consumer install, native build or product host runs.
 func TestNoUselessRenameOffersWithheldTailDeletionAsSuggestion(t *testing.T) {
   assertSuggestionSnapshot(
     t,

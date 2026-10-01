@@ -18,7 +18,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The command must report only stable at 1:5, retaining existing count, status and stdout assertions while rejecting findings substituted onto mutable siblings.
 // @evidence contracts/testing.md#independent-expectations The literal stable identifier site is authored from the fixture: every other initialized candidate is visibly reassigned by compound, update, destructuring, loop or closure writes.
 // @evidence contracts/testing.md#distinguishing-cases Five write surfaces remain mutable beside the stable binding; the exact identifier oracle distinguishes a missed write from over-suppression with the same finding count.
-// @evidence contracts/testing.md#execution-ownership TestPreferConstCountsWriteFormsBySymbol owns the original fixture, its assertions and any added control in the unit population. The shared Go unit runner invokes the owning operation with a real Program and Checker and isolated fixture files, without a consumer install, native artifact build or product host.
+// @evidence contracts/testing.md#execution-ownership TestPreferConstCountsWriteFormsBySymbol seedLintProject writes a temp tsconfig project and the in-process run(check) command loads a real Program and Checker with only prefer-const enabled; the test requires exit code 2, empty stdout and one rendered [prefer-const] error, and compares its line:column site with assertBindingDiagnosticSites. No consumer install, native build or product host runs.
 func TestPreferConstCountsWriteFormsBySymbol(t *testing.T) {
   root := seedLintProject(t, `let stable = 1;
 
