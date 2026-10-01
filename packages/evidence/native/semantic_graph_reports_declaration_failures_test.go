@@ -15,7 +15,7 @@ import (
  *
  * @evidence contracts/testing.md#behavioral-verification graphRule.Check distinguishes a missing reason, absent target, evidence/exclusion conflict and an out-of-scope interface host.
  * @evidence contracts/testing.md#independent-expectations Independently spelled required/absent targets and malformed/conflict/out-of-scope diagnostic fragments specify separate failures and their claim/reference context.
- * @evidence contracts/testing.md#distinguishing-cases Four invalid tag/host relations coexist with a valid first citation; all original cause-specific and scope repair assertions remain active.
+ * @evidence contracts/testing.md#distinguishing-cases One fixture holds four failing declarations (a tag with no reason, a tag naming an absent heading, an exclusion of a target another host cites, an @evidence on an interface outside the function selection); the test checks that each cause-specific message text appears somewhere in the joined output. It does not tie a message to its declaration, count findings, or include a clean control host.
  * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticGraphReportsDeclarationFailures owns these assertions. runIndexRule parses every declaration in citations.ts and calls graphRule.Check once; this test owns the complete multi-cause diagnostic population.
  */
 func TestEvidenceSemanticGraphReportsDeclarationFailures(t *testing.T) {

@@ -13,10 +13,10 @@ import "testing"
 //
 //  1. Exercise the authored command format return typed arrow hug fixtures through the Go format dispatcher.
 //  2. Require the exact authored output or rejection result for each fixture.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises return typed arrow hug and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Require the exact authored output or rejection result for each fixture.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: return_typed_object_arrow_explodes, return_typed_object_arrow_trailing_explodes, untyped_object_arrow_hugs, return_typed_block_arrow_hugs, return_typed_block_arrow_first_arg_hugs. Each keeps its own assertions under this one discoverable entry.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatReturnTypedArrowHug owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Five subcases run the in-process `format` command on authored call layouts and require each file unchanged: a return-typed expression-bodied object arrow exploded (as sole and trailing argument), the same arrow without a return type hugged, and block-bodied return-typed arrows hugged as last and first argument.
+// @evidence contracts/testing.md#independent-expectations Sources are authored literals described as Prettier-canonical at width 80 and serve as their own expected output; they are not derived from the formatter.
+// @evidence contracts/testing.md#distinguishing-cases Pairs the two exploding shapes with three hugging counterparts that differ by return annotation or body kind. All are fixed points, so none shows a flat input being rewritten.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatReturnTypedArrowHug(t *testing.T) {
   // Return-typed arrow over a parenthesized object: explode (the core case).
   t.Run("return_typed_object_arrow_explodes", func(t *testing.T) {

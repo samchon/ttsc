@@ -22,10 +22,10 @@ import "testing"
 //     statement.
 //  2. Run formatPrintWidth.
 //  3. Assert the rule reports zero findings — no edit, no diagnostic.
-// @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule runs on the abstains when callback body holds uncovered statement fixture and must report no findings, rejecting an unnecessary or unsafe edit rather than only comparing two formatter outputs. The owned result is: Assert the rule reports zero findings — no edit, no diagnostic.
-// @evidence contracts/testing.md#independent-expectations The literal unchanged input and zero-finding expectation follow the preservation boundary described above, independently of printer output. This host proves abstention, while changing fixtures in sibling rule tests prove formatting correctness.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Feed a `new` expression whose callback body holds a multi-line `do` statement. The asserted decision is: Assert the rule reports zero findings — no edit, no diagnostic. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthAbstainsWhenCallbackBodyHoldsUncoveredStatement is one Go unit entry through the fixture parser and rule engine; its zero-findings assertion uses no installed consumer, formatter subprocess or native build.
+// @evidence contracts/testing.md#behavioral-verification Runs format/print-width (default options) on a `new Singleton(...)` whose arrow callback body holds a multi-line `do { ... } while (ready);` statement indented eight columns, and requires zero findings.
+// @evidence contracts/testing.md#independent-expectations The expected zero findings follows from the contract that the rule must abstain when a body holds a multi-line statement the printer would emit verbatim; it is an authored absence oracle, and the reflow of ordinary targets is verified by sibling tests.
+// @evidence contracts/testing.md#distinguishing-cases One abstention case where the enclosing call would otherwise be re-indented around a frozen multi-line `do` statement; no counterpart with a printable statement body is included here.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls assertRuleSkipsSource, which runs the engine with the single rule on a temp-dir file; no child process, built binary or installed consumer.
 func TestFormatPrintWidthAbstainsWhenCallbackBodyHoldsUncoveredStatement(t *testing.T) {
   assertRuleSkipsSource(
     t,

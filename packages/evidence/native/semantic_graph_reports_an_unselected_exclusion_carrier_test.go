@@ -15,7 +15,7 @@ import (
  *
  * @evidence contracts/testing.md#behavioral-verification graphRule.Check rejects vendor/LEDGER.ts as an exclusion carrier outside the declared src file population.
  * @evidence contracts/testing.md#independent-expectations Literal vendor path versus src glob independently establishes configuration invalidity, and the diagnostic must name evidenceExcludeCarriers and that exact path.
- * @evidence contracts/testing.md#distinguishing-cases The implemented obligation is properly cited, so the unselected carrier configuration is the relevant failure rather than missing acknowledgment.
+ * @evidence contracts/testing.md#distinguishing-cases A single negative case: the configured carrier lies outside the claim's src TypeScript files while the one obligation is cited from a selected file. The test asserts only that some finding names evidenceExcludeCarriers and 'vendor/LEDGER.ts'; it has no positive control with a selected carrier and does not assert that no other finding is reported.
  * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticGraphReportsAnUnselectedExclusionCarrier owns these assertions. runIndexRule calls graphRule.Check with the preserved src service, document and vendor carrier option in process.
  */
 func TestEvidenceSemanticGraphReportsAnUnselectedExclusionCarrier(t *testing.T) {

@@ -40,7 +40,7 @@ func (commandProjectInputRule) ProjectInputs(ctx *publicrule.ProjectInputContext
 //  3. Decode stdout and assert config, exact file, glob, and root identity.
 // @evidence contracts/testing.md#behavioral-verification project-inputs publishes config, exact file, glob and root identities from a registered publisher without any project Program.
 // @evidence contracts/testing.md#independent-expectations Authored fixture paths and glob values establish the literal JSON identity expectations; absence of a tsconfig rules out accidental compiler loading.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Register one input-publishing rule and write only a lint config. The asserted decision is: Decode stdout and assert config, exact file, glob, and root identity. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#distinguishing-cases The directory holds only lint.config.json and no tsconfig, so any Program load would fail; the decoded snapshot must list the missing exact file and the config file as watched files, only the config as the reload file, one glob, and the physical root, each compared with an exact literal list. One publishing rule is used, so ordering across several rules is not covered.
 // @evidence contracts/testing.md#execution-ownership TestProjectInputsCommandPublishesConfiguredSnapshotWithoutProgram owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestProjectInputsCommandPublishesConfiguredSnapshotWithoutProgram(t *testing.T) {
   root := t.TempDir()

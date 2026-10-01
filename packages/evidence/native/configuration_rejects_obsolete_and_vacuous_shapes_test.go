@@ -23,7 +23,7 @@ import (
  *
  * @evidence contracts/testing.md#distinguishing-cases Invalid nested severity and empty reference arrays contrast an independently empty claims array.
  *
- * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticConfigurationRejectsObsoleteAndVacuousShapes is the selectable unit entry in packages/evidence/native, compiled beside its owning implementation in the shared Go unit process. It invokes decodeGraphConfig and its decoder/assertion helpers in process; its JSON artifact/package names are input strings and trigger no installation, artifact loader, native plugin build, or child process. Its local table variants remain owned by this entry.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticConfigurationRejectsObsoleteAndVacuousShapes is a Go unit entry in the native test process; it calls decodeGraphConfig on two in-memory JSON strings with no filesystem, package installation, artifact build or product host, and has no table of variants.
  */
 func TestEvidenceSemanticConfigurationRejectsObsoleteAndVacuousShapes(t *testing.T) {
   _, problems := decodeGraphConfig(json.RawMessage(`{

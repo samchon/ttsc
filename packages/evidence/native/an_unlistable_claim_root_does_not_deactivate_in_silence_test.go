@@ -19,10 +19,10 @@ import (
  *     with a segment-leading glob, which is the shape that produced the silence.
  *  2. Run the rule.
  *  3. Assert the root is named rather than the claim vanishing.
- * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn is exercised with the scenario below; the assertions require the root is named rather than the claim vanishing.
- * @evidence contracts/testing.md#independent-expectations The claim side is the worse half. A reference at least prints something misleading, while a claim whose population came back healthy and empty deactivates without a word and takes its whole obligation with it, so the build goes green over code nobody is answering for.
- * @evidence contracts/testing.md#distinguishing-cases Root a Markdown claim at a directory the process may not list, selecting with a segment-leading glob, which is the shape that produced the silence. Run the rule. Assert the root is named rather than the claim vanishing.
- * @evidence contracts/testing.md#execution-ownership TestAnUnlistableClaimRootDoesNotDeactivateInSilence is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification The test makes the temp `documents` directory unreadable (skipping where permissions cannot be dropped) and runRootedGraphIn runs the graph rule with a Markdown claim rooted at `../documents` selecting requirements/**\/*.md; exactly one message must contain `could not walk Markdown root '../documents':`.
+ * @evidence contracts/testing.md#independent-expectations The expected count of one is authored: an unlistable claim base must be named rather than deactivating the claim silently, and the two walks of a claim base (activation and after) must collapse into one reported failure.
+ * @evidence contracts/testing.md#distinguishing-cases A segment-leading glob over an unlistable claim root, the shape that previously produced a healthy empty population; zero messages (silence) and two messages (duplicate) would each fail the equality-to-one check.
+ * @evidence contracts/testing.md#execution-ownership TestAnUnlistableClaimRootDoesNotDeactivateInSilence is a Go unit entry in the native test process; runRootedGraphIn drives the graph rule over a real temp workspace with a permission-dropped directory, with no consumer install or product host, and the test skips where permissions cannot be dropped.
  */
 func TestAnUnlistableClaimRootDoesNotDeactivateInSilence(t *testing.T) {
   workspace := t.TempDir()

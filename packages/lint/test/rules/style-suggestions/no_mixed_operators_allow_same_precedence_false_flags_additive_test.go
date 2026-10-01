@@ -20,7 +20,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Reports a+b nested under subtraction when same-precedence allowance is false, with exact inner span.
 // @evidence contracts/testing.md#independent-expectations The explicit false option changes the default group policy; literal a+b source marker independently defines the one expected range.
-// @evidence contracts/testing.md#distinguishing-cases Same-precedence +/? positive complements default same-precedence allowances.
+// @evidence contracts/testing.md#distinguishing-cases Same-precedence +/- positive complements default same-precedence allowances.
 // @evidence contracts/testing.md#execution-ownership runRuleFindingsSnapshot executes this entry's exact custom option/source pair. The Test directly checks one finding and compares its Pos/End to the independently authored inner-expression marker. Execution stays in the lint Go process without consumer installation or native product-host builds/launches.
 func TestNoMixedOperatorsAllowSamePrecedenceFalseFlagsAdditive(t *testing.T) {
   const source = "const x = a + b - c;\n"

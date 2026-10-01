@@ -19,7 +19,7 @@ const b = () => id("b");
  * @evidence contracts/testing.md#behavioral-verification All binary, prefix and postfix convenience aliases emit the operator assigned to that alias while retaining a/b operands.
  * @evidence contracts/testing.md#independent-expectations The explicit alias-to-source table specifies operator tokens independently; no expected text is obtained by printing a generic binary node.
  * @evidence contracts/testing.md#distinguishing-cases Arithmetic, equality, logical, bitwise, shift, assignment, prefix and postfix rows distinguish wrong alias wiring; comma spacing has a separate case.
- * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_all_operator_aliases. Calls each listed factory alias and print, with each alias name retained in the assertion label.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_all_operator_aliases. Calls each of the 24 binary, 6 prefix and 2 postfix factory aliases on fresh identifiers a and b and prints the result; each row is its own TestValidator.equals whose title is the expected source text, so a failing row is identified by that text.
  */
 export const test_all_operator_aliases = (): void => {
   const binary: [(l: Expression, r: Expression) => Expression, string][] = [

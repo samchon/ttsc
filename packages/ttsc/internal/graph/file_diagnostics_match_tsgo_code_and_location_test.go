@@ -19,9 +19,9 @@ import (
 //     unrelated path yields none.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that FileDiagnostics surfaces the same semantic error code and line tsgo emits, scoped to one file. This is validation gate 4 from issue #259: a deliberate type error must yield the exact tsc code/location from the graph's shared Program, proving the diagnostics path is the real checker and not a re-implementation.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish a TS2322 (not assignable) diagnostic on line 1, and that an unrelated path yields none.
+// @evidence contracts/testing.md#independent-expectations The oracle is the compiler's own diagnostic for assigning a string to a number binding: FileDiagnostics must return a TS2322 on line 1 whose file is the queried file, and a path with no source file (src/absent.ts) must return none.
 // @evidence contracts/testing.md#distinguishing-cases Compile a fixture whose only file assigns a string to a number binding; Ask FileDiagnostics for that file; Assert a TS2322 (not assignable) diagnostic on line 1, and that an unrelated path yields none.
-// @evidence contracts/testing.md#execution-ownership TestFileDiagnosticsMatchTsgoCodeAndLocation is a source-unit entry. writeFile, driver.LoadProgram, prog.Close, sourceFile, FileName, FileDiagnostics run directly over the supplied fixture/input values without installing a consumer, building a native artifact or starting a product host.
+// @evidence contracts/testing.md#execution-ownership TestFileDiagnosticsMatchTsgoCodeAndLocation is a Go source-unit entry. It loads a one-file project with driver.LoadProgram in the test process and calls FileDiagnostics on the resident Program; no consumer is installed and no native binary is built or launched.
 func TestFileDiagnosticsMatchTsgoCodeAndLocation(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

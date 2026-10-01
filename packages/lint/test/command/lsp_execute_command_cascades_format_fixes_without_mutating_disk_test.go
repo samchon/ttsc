@@ -19,7 +19,7 @@ import (
 // 4. Assert the source file on disk was not modified by the sidecar.
 // @evidence contracts/testing.md#behavioral-verification ttsc.format.document returns the complete authored multiline import/object result after interacting width, semi, quotes and comma passes, without changing source disk bytes.
 // @evidence contracts/testing.md#independent-expectations The literal multiline result and original source bytes are independent answer keys for edit content and non-mutation, not outputs of another formatter path.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project with interacting print-width, semi, quotes, and trailing-comma rules. The asserted decision is: Assert the source file on disk was not modified by the sidecar. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#distinguishing-cases The source needs single-to-double quote conversion, a missing semicolon, a width-20 reflow of an import and an object, and trailing commas that only exist after the reflow, so the literal result is reachable only if the passes cascade; the file read back from disk must still be the original single-quote source, proving the edit was computed in a copy.
 // @evidence contracts/testing.md#execution-ownership TestLSPExecuteCommandCascadesFormatFixesWithoutMutatingDisk owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPExecuteCommandCascadesFormatFixesWithoutMutatingDisk(t *testing.T) {
   source := "import { alpha, bravo, charlie } from 'long-module'\n" +

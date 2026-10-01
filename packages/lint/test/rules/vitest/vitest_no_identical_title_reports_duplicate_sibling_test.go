@@ -13,9 +13,9 @@ import (
 //
 // 1. Parse two sibling tests with the same static title.
 // 2. Enable vitest/no-identical-title.
-// 3. Assert one diagnostic is emitted for the duplicate.
+// 3. Assert exactly one diagnostic is emitted for the pair.
 //
-// @evidence contracts/testing.md#behavioral-verification NewEngine.Run verifies the second duplicate sibling title is reported for vitest/no-identical-title; the count and exact rule identity distinguish the intended diagnostic from an unrelated report.
+// @evidence contracts/testing.md#behavioral-verification NewEngine.Run verifies two sibling tests sharing one title produce a single vitest/no-identical-title finding; the count and exact rule identity distinguish the intended diagnostic from an unrelated report.
 // @evidence contracts/testing.md#independent-expectations Sibling titles must distinguish filtered runs and failure identities. The expected single finding and independently authored accepted control follow that supported policy, not engine-generated snapshots.
 // @evidence contracts/testing.md#distinguishing-cases The original violation is paired with the adjacent accepted source: describe("math", () => { test("adds", () => expect(add()).toBe(1)); test("subtracts", () => expect(subtract()).toBe(2)); }); Both execute, preserving the original input and adding a zero-finding boundary.
 // @evidence contracts/testing.md#execution-ownership TestVitestNoIdenticalTitleReportsDuplicateSibling owns these virtual TypeScript inputs as a Go unit entry; actual lint operations execute in-process without a Vitest installation or product child host.

@@ -16,13 +16,10 @@ import (
  * 2. Verify repeated graph cycles use that snapshot.
  * 3. Replace the Program source and assert the citation becomes unresolved.
  *
- * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies an active Program snapshot wins over stale disk content in a root.
- *
- * @evidence contracts/testing.md#independent-expectations The Program exports value while disk exports stale, then the replacement snapshot exports renamed. Clean repeated and linked-root checks followed by missing-export failure distinguish snapshot precedence.
- *
- * @evidence contracts/testing.md#distinguishing-cases Supply a Program export that differs from the file on disk. Verify repeated graph cycles use that snapshot. Replace the Program source and assert the citation becomes unresolved.
- *
- * @evidence contracts/testing.md#execution-ownership TestFileLinksPreferProgramSnapshots is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes. Its linked-directory fixture invokes the shared symbolic-link operation on real fixture paths. The separate Windows boundary cases own junction production; this entry does not substitute a process-backed producer when symbolic-link privileges are missing.
+ * @evidence contracts/testing.md#behavioral-verification newFileLinkFixture writes api/value.ts as `export const stale = 1;` but supplies the Program source `export const value = 1;`; graphRule.Check must be clean twice, clean again through a `linked` root (a directory symlink to api), and after the Program source is replaced by `export const renamed = 2;` must report `Missing TypeScript evidence export`.
+ * @evidence contracts/testing.md#independent-expectations The expectations are authored from the snapshot contract: the editor's parsed source wins over the saved bytes and over any cached older parse, so `value` resolves while the disk says `stale`, and the replacement snapshot makes the link unresolved.
+ * @evidence contracts/testing.md#distinguishing-cases Repeated cycles guard cache reuse, the linked root guards alias resolution, and the final replacement proves the snapshot (not disk, which still says `stale`) drives the result.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksPreferProgramSnapshots is a Go unit entry in the native test process; it drives graphRule.Check through newFileLinkFixture over real temp files, a real directory symbolic link and in-memory source snapshots, with no consumer install or product host, and fails (not skips) if the link cannot be created.
  */
 func TestFileLinksPreferProgramSnapshots(t *testing.T) {
   fixture := newFileLinkFixture(t, map[string]string{"api/value.ts": "export const stale = 1;", "review.md": "## Review\n<!-- @link api/value.ts#value Reads the value. -->\n"}, `{"claims":[{"type":"markdown","files":["review.md"],"symbol":"h2","reference":{"type":"typescript","root":"api","files":["*.ts"],"symbol":"property"}}]}`)

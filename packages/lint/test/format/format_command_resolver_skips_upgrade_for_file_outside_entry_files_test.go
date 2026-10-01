@@ -27,7 +27,7 @@ import (
 //     in-scope path receives the standard warn-severity upgrade.
 // @evidence contracts/testing.md#behavioral-verification ResolveRules upgrades the in-scope path to format/semi warn and marks the outside-files path OutOfScope with the rule off.
 // @evidence contracts/testing.md#independent-expectations The authored files restriction and literal off/warn expectations establish admission independently of resolver matching output.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Build a `*ConfigStore` whose single non-IgnoreOnly entry restricts `files` to `src/**/*.ts` and declares a `format/*` option tuple. The asserted decision is: Assert the out-of-scope path receives no format-rule upgrade and the in-scope path receives the standard warn-severity upgrade. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#distinguishing-cases One ConfigStore entry restricted to src/**/*.ts is resolved for an in-scope path (format/semi upgraded to warn) and for a .json path outside the entry's files (must be OutOfScope with format/semi off), the symmetric twin of the ignores case; an entry with ignores instead of files is owned by the sibling test.
 // @evidence contracts/testing.md#execution-ownership TestFormatCommandResolverSkipsUpgradeForFileOutsideEntryFiles owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestFormatCommandResolverSkipsUpgradeForFileOutsideEntryFiles(t *testing.T) {
   store := &ConfigStore{

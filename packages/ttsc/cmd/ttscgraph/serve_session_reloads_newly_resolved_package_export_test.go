@@ -13,8 +13,8 @@ import (
 // 2. Create the mapped dist/feature.ts declaration.
 // 3. Require a changed reload dump.
 //
-// @evidence contracts/testing.md#behavioral-verification Require a changed reload dump.
-// @evidence contracts/testing.md#independent-expectations The literal fixture and supported graph contract establish these expectations: Require a changed reload dump.
+// @evidence contracts/testing.md#behavioral-verification Creating the dist/feature.ts file that an existing package exports map points at (through a .js name that TypeScript maps to .ts) turns a previously unresolved import into a resolved one and reloads a resident session.
+// @evidence contracts/testing.md#independent-expectations The expectation is literal: the exports map targets ./dist/feature.js, which does not exist, and creating dist/feature.ts must yield mode reload, changed, with a dump. The new declaration's node is not asserted.
 // @evidence contracts/testing.md#distinguishing-cases Load fixture-package/feature with an existing exports map and missing target. Create the mapped dist/feature.ts declaration. Require a changed reload dump.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsNewlyResolvedPackageExport is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsNewlyResolvedPackageExport(t *testing.T) {

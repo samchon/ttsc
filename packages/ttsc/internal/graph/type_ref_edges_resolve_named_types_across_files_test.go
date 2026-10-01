@@ -19,7 +19,7 @@ import (
 //  3. Assert a use -> Config type-ref edge exists and is not a value-call.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that a type-position reference to a named type in another file is recorded as a type-ref edge to that type's real declaration, and is kept distinct from a value-call. Treating type references as first-class edges lets an impact query separate "uses this at runtime" from "depends on this type", which fits the ttsc thesis.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish a use -> Config type-ref edge exists and is not a value-call.
+// @evidence contracts/testing.md#independent-expectations The expectation is literal: for use(c: Config) in main.ts with Config declared in types.ts, a type-ref edge must run from the use function to the Config interface node of types.ts and no value-call edge may run between the same two nodes.
 // @evidence contracts/testing.md#distinguishing-cases Compile a fixture where use(c: Config) annotates a parameter with an interface declared in another file; Build the graph; Assert a use -> Config type-ref edge exists and is not a value-call.
 // @evidence contracts/testing.md#execution-ownership TestTypeRefEdgesResolveNamedTypesAcrossFiles is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestTypeRefEdgesResolveNamedTypesAcrossFiles(t *testing.T) {

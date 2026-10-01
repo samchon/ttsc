@@ -13,10 +13,10 @@ import (
  *  1. Select a function with no documentation comment beside a two-item checklist.
  *  2. Run the graph.
  *  3. Assert one diagnostic names the host and both unanswered items.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies a host carrying no tag owes the whole checklist. The original assertions check assert one diagnostic names the host and both unanswered items.
- * @evidence contracts/testing.md#independent-expectations Counting only the hosts that wrote something would let a file join the claim and answer nothing, which is the silent hole the per-host denominator exists to close. The report must also stay one diagnostic naming both items rather than one per pair. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Select a function with no documentation comment beside a two-item checklist. Run the graph. Assert one diagnostic names the host and both unanswered items. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestChecklistCountsASilentHostAsOwingEveryItem is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over `export function silent(): void {}` with no documentation against a two-item Markdown checklist; the test requires exactly one `checklist item(s)` diagnostic naming `TypeScript function 'silent'`, `has not acknowledged 2 of 2 checklist item(s)` with both item targets, and the repair sentence `Do what each item requires and cite it with @evidence on this host`.
+ * @evidence contracts/testing.md#independent-expectations The expected text is authored from the checklist contract that a host that writes nothing still owes every item, in one diagnostic rather than one per host-item pair.
+ * @evidence contracts/testing.md#distinguishing-cases A silent host with two items distinguishes a per-host denominator that counts only hosts that wrote a tag (no diagnostic) and a per-pair report (two diagnostics) from the required single report.
+ * @evidence contracts/testing.md#execution-ownership TestChecklistCountsASilentHostAsOwingEveryItem is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestChecklistCountsASilentHostAsOwingEveryItem(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

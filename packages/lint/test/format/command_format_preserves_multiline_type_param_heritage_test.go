@@ -10,10 +10,10 @@ import "testing"
 //
 //  1. Exercise the authored command format preserves multiline type param heritage fixtures through the Go format dispatcher.
 //  2. Require the exact authored output or rejection result for each fixture.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises preserves multiline type param heritage and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases This case owns the supplied fixtures for an interface whose type-parameter list breaks across lines while its `extends` clause stays on the `>` line. The members sit at the body depth and the closing `>`/heritage line must be preserved; format must not de-indent the body or disturb the heritage line. Neighboring hosts retain their separately named complementary inputs.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatPreservesMultilineTypeParamHeritage owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on an interface whose type-parameter list is broken one per line and whose `> extends IBase {` stays on the closing line, and requires the file byte-identical.
+// @evidence contracts/testing.md#independent-expectations The source is an authored literal in the Prettier layout (bare-identifier heritage inline after `>`) and is its own expected output.
+// @evidence contracts/testing.md#distinguishing-cases One fixed-point case guarding the body depth and the heritage line against de-indentation; the qualified-heritage variant that moves to its own line is owned by a separate test.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatPreservesMultilineTypeParamHeritage(t *testing.T) {
   assertFormatUnchanged(t, `interface IBase {
   id: string;

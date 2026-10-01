@@ -13,7 +13,7 @@ import (
 //  3. Require NewDump to surface the root error before JSON serialization.
 //
 // @evidence contracts/testing.md#behavioral-verification TestDumpPathMapperRejectsUnportableRootsAndCollisions pins both fail-closed boundaries of the mapping contract.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish NewDump to surface the root error before JSON serialization.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over synthetic paths: a file on drive D under a project on drive C, and one on a different UNC share, must record an error containing 'different filesystem roots'; two physical sources claimed at one wire path must record an error containing 'collide at wire identity'; and NewDump over a graph with a cross-drive node must return the root error instead of a document.
 // @evidence contracts/testing.md#distinguishing-cases Reject a different Windows drive and a different UNC share precisely; Force two physical sources through one coordinate and require a collision; Require NewDump to surface the root error before JSON serialization.
 // @evidence contracts/testing.md#execution-ownership TestDumpPathMapperRejectsUnportableRootsAndCollisions is a Go source-unit entry. NewDump, newDumpPathMapper, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestDumpPathMapperRejectsUnportableRootsAndCollisions(t *testing.T) {

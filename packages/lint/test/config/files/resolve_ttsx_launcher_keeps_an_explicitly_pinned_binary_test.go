@@ -9,7 +9,7 @@ import (
 // TTSC_TTSX_BINARY still wins over the project's own install.
 //
 // The launcher twin of the compiler's pinning guarantee, and the reason the
-// repository's own Go lint suite keeps working: scripts/test-go-lint.cjs points
+// repository's own Go lint suite keeps working: `go test` points
 // the variable at the freshly built launcher, which must outrank whatever
 // `ttsc` a fixture happens to install.
 //

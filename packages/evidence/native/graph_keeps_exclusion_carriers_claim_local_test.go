@@ -13,10 +13,10 @@ import "testing"
  *  1. Point function and type claims at the same carrier file.
  *  2. Give the claims distinct Markdown populations and exclude both targets.
  *  3. Assert each declaration participates only in the obligation it resolves.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies a carrier ignores host kind without crossing claim-reference boundaries in one overlapping file population. The original assertions check assert each declaration participates only in the obligation it resolves.
- * @evidence contracts/testing.md#independent-expectations Two claims may read the same ledger, but each exclusion must still resolve into a reference owned by that claim. Host relaxation must not turn one declaration into a package-wide exemption. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Point function and type claims at the same carrier file. Give the claims distinct Markdown populations and exclude both targets. Assert each declaration participates only in the obligation it resolves. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestGraphKeepsExclusionCarriersClaimLocal is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim `operations` (reference docs/api.md) and a type claim `shapes` (reference docs/dto.md) over the same src/** population, where one EVIDENCE_EXCLUDE.ts carrier excludes `docs/api.md#operation` and `docs/dto.md#shape` beside a selected function and a selected interface; assertNoProblems requires an empty list.
+ * @evidence contracts/testing.md#independent-expectations The expectation is authored from the carrier contract: each exclusion must resolve into a reference owned by its own claim, so both headings are acknowledged without the carrier becoming a package-wide exemption.
+ * @evidence contracts/testing.md#distinguishing-cases Two claims reading the same ledger with different Markdown populations; an exclusion applied to the wrong claim would leave one heading owed or report an unresolved target. Silence alone does not show claim isolation beyond that.
+ * @evidence contracts/testing.md#execution-ownership TestGraphKeepsExclusionCarriersClaimLocal is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestGraphKeepsExclusionCarriersClaimLocal(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

@@ -32,7 +32,7 @@ export const test_testproject_exit_removes_joined_temporary_roots = () => {
       "src", "TestProject.ts")).href;
     const child = spawnSync(process.execPath, ["--experimental-strip-types",
       "--import", pathToFileURL(path.join(TestProject.WORKSPACE_ROOT,
-        "scripts", "register-typescript-loader.mjs")).href,
+        "config", "register-typescript-loader.mjs")).href,
       "--input-type=module", "-e", [
         "import fs from 'node:fs'; import path from 'node:path';",
         `const { TestProject } = await import(${JSON.stringify(helper)});`,

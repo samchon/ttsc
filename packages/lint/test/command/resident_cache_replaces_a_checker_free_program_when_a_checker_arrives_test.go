@@ -18,7 +18,7 @@ import (
 //  3. Assert a checker-bearing Program is returned and only it remains cached.
 // @evidence contracts/testing.md#behavioral-verification The resident cache replaces its checker-free Program when a later acquisition requires a checker and keeps only the checker-bearing entry.
 // @evidence contracts/testing.md#independent-expectations Authored acquisition flags require distinct Program identity and checker presence; the expected single cached entry follows replacement ownership rather than another cache query.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Warm a Program through a verb that needs no checker. The asserted decision is: Assert a checker-bearing Program is returned and only it remains cached. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#distinguishing-cases The acquisition order is checker-free first, checker-bearing second, then checker-free again: the cache must hold exactly one entry keyed as the checker-bearing Program, and the third acquisition must return that same Program. The opposite arrival order is owned by the checker-program-serves-checker-free test.
 // @evidence contracts/testing.md#execution-ownership TestResidentCacheReplacesACheckerFreeProgramWhenACheckerArrives owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestResidentCacheReplacesACheckerFreeProgramWhenACheckerArrives(t *testing.T) {
   root := seedLintProject(t, "export const value = 1;\n")

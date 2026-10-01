@@ -16,9 +16,9 @@ import (
  *  1. Scan the same merged identity forty times.
  *  2. Collect every line the unit reported.
  *  3. Assert exactly one line was ever produced.
- * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert exactly one line was ever produced.
- * @evidence contracts/testing.md#independent-expectations The association between an identity and its declarations lives in maps, and a diagnostic whose line drifts between runs is worse than one that is consistently wrong: it makes a failure irreproducible and a baseline unwritable. Repetition is the only way to catch an ordering that happens to be stable in one run. The authored scenario requires this outcome: Assert exactly one line was ever produced.
- * @evidence contracts/testing.md#distinguishing-cases Scan the same merged identity forty times. Collect every line the unit reported. Assert exactly one line was ever produced.
+ * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory is called forty times on an interface merged with a same-named namespace, and the set of lines reported for the unit targeted ISale must contain exactly one value, line 2.
+ * @evidence contracts/testing.md#independent-expectations The literal line 2 is read off the authored fixture, where the interface is the first declaration after the leading newline; the expectation is the stated first-declaration line, not a value taken from a previous run of the implementation.
+ * @evidence contracts/testing.md#distinguishing-cases A repetition case: forty independent scans of one merged-identity fixture detect a map-iteration-order dependence that a single scan could miss. It runs one fixture only, so merge order and non-merged identities are owned by sibling tests.
  * @evidence contracts/testing.md#execution-ownership TestMergedIdentityLineIsStableAcrossScans runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestMergedIdentityLineIsStableAcrossScans(t *testing.T) {

@@ -12,10 +12,10 @@ import "testing"
 //  1. Put an empty block in callback, object-member, function, and array slots.
 //  2. Run `ttsc format`.
 //  3. Require every source to survive byte-identical.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises keeps empty expression nested block and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Require every source to survive byte-identical.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Put an empty block in callback, object-member, function, and array slots. The asserted decision is: Require every source to survive byte-identical. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatKeepsEmptyExpressionNestedBlock owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on four one-line sources with an empty block in expression position (arrow callback, object method, function expression, array-element arrow) and requires each unchanged.
+// @evidence contracts/testing.md#independent-expectations The four sources are authored literals that serve as their own expected output, following from the Prettier rule that an empty block stays on one line.
+// @evidence contracts/testing.md#distinguishing-cases Four negative cases, the empty twins of the expansion test; a formatter that expanded every expression-position block would break them. Fixed points only, so they cannot show the non-empty expansion.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: each source calls run with the format subcommand on a temp-dir project via assertFormatUnchanged (a loop without subtests); no child process, built binary or installed consumer.
 func TestCommandFormatKeepsEmptyExpressionNestedBlock(t *testing.T) {
   for _, source := range []string{
     "run(() => {});\n",

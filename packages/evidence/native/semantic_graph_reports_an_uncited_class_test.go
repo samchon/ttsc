@@ -15,7 +15,7 @@ import (
  *
  * @evidence contracts/testing.md#behavioral-verification graphRule.Check reports the Sale reference heading when the selected class has descriptive JSDoc but no evidence citation.
  * @evidence contracts/testing.md#independent-expectations Literal docs/subject.md#sale is an independently authored obligation; ordinary prose cannot count as an acknowledgment.
- * @evidence contracts/testing.md#distinguishing-cases The class exists and is documented, distinguishing missing evidence from a missing host or documentation failure; its price field is outside type selection.
+ * @evidence contracts/testing.md#distinguishing-cases The class exists and has descriptive JSDoc, so the required Missing acknowledgement finding is distinguished from a missing host or missing documentation; there is no cited twin in this entry, and the total finding count (including any finding on the price field) is not asserted.
  * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticGraphReportsAnUncitedClass owns these assertions. runIndexRule parses Sale.ts and calls graphRule.Check with the type-only host selector and h2 Markdown reference.
  */
 func TestEvidenceSemanticGraphReportsAnUncitedClass(t *testing.T) {

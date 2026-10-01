@@ -12,10 +12,10 @@ import "testing"
  *  1. Publish a package with two areas, both reachable from its entry.
  *  2. Narrow the reference to one of them with a package-relative glob.
  *  3. Assert only that area is demanded, under the address the entry gives it.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies globs inside a package resolve against the package root. The original assertions check assert only that area is demanded, under the address the entry gives it.
- * @evidence contracts/testing.md#independent-expectations Narrowing a large SDK to one area is the difference between an obligation a team can adopt and one they switch off. Resolving those globs against the project root instead would match nothing and read as a satisfied population. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Publish a package with two areas, both reachable from its entry. Narrow the reference to one of them with a package-relative glob. Assert only that area is demanded, under the address the entry gives it. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestGraphResolvesPackageGlobsAgainstThePackageRoot is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/views/** and a package reference `@org/api` narrowed to `lib/questions/**`, where the package entry re-exports `questions` and `reviews` namespaces; the diagnostics must contain `Missing acknowledgement for 'questions.get'` and none for `'reviews.erase'`.
+ * @evidence contracts/testing.md#independent-expectations The expectations are authored from the glob contract: package globs are relative to the package root, so the selected area is demanded under the address the entry gives it, and the other reachable area is not owed.
+ * @evidence contracts/testing.md#distinguishing-cases Two areas both reachable from the entry with a package-relative glob selecting one; a glob resolved against the project root would match nothing, leaving no owed units.
+ * @evidence contracts/testing.md#execution-ownership TestGraphResolvesPackageGlobsAgainstThePackageRoot is a Go unit entry in the native test process; runIndexRule writes the fixtures (including a node_modules package) to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestGraphResolvesPackageGlobsAgainstThePackageRoot(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

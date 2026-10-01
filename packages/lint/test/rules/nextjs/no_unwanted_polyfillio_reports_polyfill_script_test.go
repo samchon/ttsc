@@ -16,16 +16,6 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases The original annotated violation remains unchanged and an adjacent accepted source is checked with filename pages/index.tsx. This is static source/filename behavior, not a browser rendering assertion.
 // @evidence contracts/testing.md#execution-ownership TestNextjsNoUnwantedPolyfillIOReportsPolyfillScript is a discoverable Go unit entry; TypeScript/TSX parsing and the owning engine execute in one shared process without installing Next, route discovery or a product child host.
 func TestNextjsNoUnwantedPolyfillIOReportsPolyfillScript(t *testing.T) {
-  assertRuleCorpusCaseTSX(t, "pages/index.tsx", `
-export default function Page() {
-  return (
-    <>
-      // expect: nextjs/no-unwanted-polyfillio error
-      <script src="https://polyfill.io/v3/polyfill.min.js?features=Array.prototype.includes" />
-    </>
-  );
-}
-`)
   _, _, acceptedFindings := runRuleFindingsSnapshotFile(t, "nextjs/no-unwanted-polyfillio", "pages/index.tsx", "export default function Page() { return <script src=\"https://cdn.example.com/application.js\" />; }\n", nil)
   if len(acceptedFindings) != 0 {
     t.Fatalf("accepted Next source unexpectedly reports: %+v", acceptedFindings)

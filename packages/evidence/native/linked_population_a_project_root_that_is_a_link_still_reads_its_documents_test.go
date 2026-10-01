@@ -22,7 +22,7 @@ import (
  *
  * @evidence contracts/testing.md#behavioral-verification runIndexRuleAtRoot reads Markdown through a linked project root and names its missing Discounts target at docs/pricing.md line one.
  * @evidence contracts/testing.md#independent-expectations Literal missing target and project-relative line one verify materialization and display.
- * @evidence contracts/testing.md#distinguishing-cases A linked project invocation differs from a linked reference root without changing the reference identity.
+ * @evidence contracts/testing.md#distinguishing-cases One positive case: the project root is a link to a real directory and the selected Markdown section is uncited, so the reported target and its line-one location prove the documents were read and addressed by plain project-relative paths; no linked reference root, broken link or empty-population case runs here.
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestAProjectRootThatIsALinkStillReadsItsDocuments(t *testing.T) {

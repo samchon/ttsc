@@ -11,22 +11,22 @@ import (
 )
 
 // TestDriverEmitSkipsBarrelOutputsWhenOnlyUnrelatedSourcesHaveRewrites
-// verifies barrel files whose source carries no rewrites are emitted unchanged
-// even when other sources share their basename.
+// verifies a sibling barrel output whose source has no registered rewrite is
+// emitted unchanged while the rewritten source in the same directory is patched.
 //
-// shopping-backend hit this: nestia-generated barrel `index.ts` files only
-// `export * from ...` neighbouring modules, while sibling `index.ts` files
-// (e.g. `customers/sales/index.ts`) hold real `typia.random` calls. The
-// rewriter formerly suffix-matched the barrel output to one of those rewriting
-// sources and failed with `driver: could not locate typia.random(…) call`.
-// The fix anchors the source→output mapping on the registered sources' shared
-// directory so a basename-only suffix collision no longer wins.
+// The motivating report (nestia-generated barrel `index.ts` files next to
+// modules holding `typia.random` calls) involved a basename-only suffix match
+// between a barrel output and a rewriting source's output. This fixture has one
+// `index.ts` and one rewritten `target.ts` in the same directory, so it covers
+// the barrel-beside-rewritten-source layout but does not build a second source
+// sharing the barrel's basename; the cross-directory collision is not
+// exercised here.
 //
 //  1. Compile a project with `target.ts` (has the plugin call) and a sibling
 //     barrel `index.ts` that re-exports it.
 //  2. Register a single rewrite on `target.ts`.
 //  3. Assert the emit succeeds, `target.js` gets the replacement, and the
-//     barrel `index.js` is emitted as-is without a `could not locate` error.
+//     barrel `index.js` is emitted without the replacement or the sentinel.
 func TestDriverEmitSkipsBarrelOutputsWhenOnlyUnrelatedSourcesHaveRewrites(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

@@ -28,8 +28,8 @@ import (
  *     property.
  *
  * @evidence contracts/testing.md#behavioral-verification runIndexRuleAtRoot reports the overlong project-root chain and asks to change the invocation without naming a root property.
- * @evidence contracts/testing.md#independent-expectations Original literal root-refusal and invocation-repair messages plus absence of Correct the root property specify the independent oracle.
- * @evidence contracts/testing.md#distinguishing-cases A project root has no configured root property; the default TypeScript-only counterpart keeps its usable Program base.
+ * @evidence contracts/testing.md#independent-expectations The literal sentences "found no directory at the end of the ttsc project root" and "Run ttsc against the directory those links end at." come from the diagnostic's authored contract, and the literal absence of "Correct the 'root' property" encodes that a base with no declared root has no property to correct.
+ * @evidence contracts/testing.md#distinguishing-cases A single negative-boundary case: a 34-link chain, longer than the resolver follows, as the default project root with a Markdown reference; the body asserts both the required invocation sentence and the forbidden property sentence, and runs no declared-root or TypeScript-only counterpart.
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestAProjectRootPastTheResolverIsNotToldToCorrectARoot(t *testing.T) {

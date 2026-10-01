@@ -25,7 +25,10 @@ export const out = plugin.make(/\)/, "ok");
     Replacement:   `"replacement"`,
     ConsumeParens: true,
   })
-  if !strings.Contains(js, `"replacement"`) || strings.Contains(js, "plugin.make") {
+  // The whole statement is asserted: a scanner that closed the call at the
+  // regex's `)` would leave `/, "ok")` behind the replacement while still
+  // containing "replacement" and no `plugin.make`.
+  if !strings.Contains(js, `exports.out = "replacement";`) {
     t.Fatalf("regex literal rewrite mismatch:\n%s", js)
   }
 }

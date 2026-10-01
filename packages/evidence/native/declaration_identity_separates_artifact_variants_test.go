@@ -13,10 +13,10 @@ import "testing"
  *  1. Scan a Markdown and TypeScript declaration at the same path and line.
  *  2. Compare their internal declaration identities.
  *  3. Assert the artifact-specific identities remain distinct.
- * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises this case: Verifies declaration identity includes the artifact discriminator. The original assertions check assert the artifact-specific identities remain distinct.
- * @evidence contracts/testing.md#independent-expectations One project path may deliberately be interpreted by separate configured artifact variants. A path, line, and sequence alone would let a Markdown declaration overwrite a TypeScript declaration when graph evaluation deduplicates declarations globally. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Scan a Markdown and TypeScript declaration at the same path and line. Compare their internal declaration identities. Assert the artifact-specific identities remain distinct. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestDeclarationIdentitySeparatesArtifactVariants is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls parseTypeScriptInventory within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification scanProjectMarkdown scans one `<!-- @evidence ... -->` declaration and parseTypeScriptInventory scans one `/** @evidence ... *\/` declaration, both registered at the same path `src/mixed.ts` and the same line; each inventory must hold exactly one declaration and the two declaration IDs must differ.
+ * @evidence contracts/testing.md#independent-expectations The expectation is authored from the identity contract that the artifact kind is part of a declaration's identity: the path and line are made identical on purpose, so equal IDs would show the discriminator is missing.
+ * @evidence contracts/testing.md#distinguishing-cases One Markdown and one TypeScript declaration at the same location are the only pair compared; the same-artifact duplicate and different-line cases are owned by other entries, and the ID's exact format is not asserted.
+ * @evidence contracts/testing.md#execution-ownership TestDeclarationIdentitySeparatesArtifactVariants is a Go unit entry in the native test process; it scans in-memory Markdown and parses in-memory TypeScript with no filesystem, consumer install or product host.
  */
 func TestDeclarationIdentitySeparatesArtifactVariants(t *testing.T) {
   markdown, problems := scanProjectMarkdown(

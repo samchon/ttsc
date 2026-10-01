@@ -13,10 +13,10 @@ import "testing"
 //  1. Put an inter-statement comment in a switch inside a callback.
 //  2. Run `ttsc format`.
 //  3. Require the source to survive byte-identical.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises keeps commented statement body whole and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Require the source to survive byte-identical.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Put an inter-statement comment in a switch inside a callback. The asserted decision is: Require the source to survive byte-identical. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatKeepsCommentedStatementBodyWhole owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on a callback containing a one-line `switch` whose clause has an inter-statement comment (`f(); /* keep */ break;`) and requires the whole file byte-identical, so the comment is neither dropped nor moved.
+// @evidence contracts/testing.md#independent-expectations The source is an authored literal that serves as its own expected output; the property that comment-bearing bodies are left whole comes from the print-width abstention contract, not from formatter output.
+// @evidence contracts/testing.md#distinguishing-cases One abstention case; the uncommented twin that would be expanded is not asserted in this test, so only the unchanged outcome with the comment present is checked.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatKeepsCommentedStatementBodyWhole(t *testing.T) {
   assertFormatUnchanged(t, "run(() => {\n  switch (n) { case 1: f(); /* keep */ break; }\n});\n")
 }

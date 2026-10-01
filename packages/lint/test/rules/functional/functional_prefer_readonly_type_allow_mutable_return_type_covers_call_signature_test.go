@@ -15,7 +15,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification runFunctionalRuleWithOptions executes the actual engine and verifies mutable call-signature return is accepted with allowMutableReturnType; an exact zero-finding comparison rejects both unwanted reports and recovered engine failures.
 // @evidence contracts/testing.md#independent-expectations Return-position exemptions also apply to interface call signatures. The literal source and configured option express the supported policy independently of rule output.
-// @evidence contracts/testing.md#distinguishing-cases AllowMutableReturnTypeKeepsParameterAnnotation owns the unaffected parameter position. This case owns its explicit source/option distinction rather than certifying the whole family.
+// @evidence contracts/testing.md#distinguishing-cases AllowMutableReturnTypeKeepsParameterAnnotation owns the unaffected parameter position.
 // @evidence contracts/testing.md#execution-ownership TestFunctionalPreferReadonlyTypeAllowMutableReturnTypeCoversCallSignature is a named Go unit entry running actual TypeScript AST policy operations in the shared engine process; no consumer install, native build or real product host is used.
 func TestFunctionalPreferReadonlyTypeAllowMutableReturnTypeCoversCallSignature(t *testing.T) {
   const ruleName = "functional/prefer-readonly-type"

@@ -20,10 +20,10 @@ import (
  *  2. Read the root diagnostic.
  *  3. Assert it names the declared spelling and neither restates nor
  *     mis-explains a resolution that never happened.
- * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn is exercised with the scenario below; the assertions require it names the declared spelling and neither restates nor mis-explains a resolution that never happened.
- * @evidence contracts/testing.md#independent-expectations The base was resolved and then re-spelled project-relative, so an author who declared `C:/contracts` was handed back an ascending path and told to correct a 'root' property their configuration does not contain. Naming the base at all exists to make a population repairable from the diagnostic alone, and a spelling absent from the file being repaired defeats exactly that.
- * @evidence contracts/testing.md#distinguishing-cases Declare a TypeScript claim rooted at an absolute directory that is absent. Read the root diagnostic. Assert it names the declared spelling and neither restates nor mis-explains a resolution that never happened.
- * @evidence contracts/testing.md#execution-ownership TestAnAbsoluteRootIsNamedAsTheAuthorWroteIt is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn runs the graph rule with a TypeScript claim whose root is the absolute, slash-normalized temp `contracts` directory, which is absent; the test requires a message containing `found no directory at the typescript root '<that path>'. Correct the 'root' property` and none containing `which resolves to` or `it resolves against the ttsc project root`.
+ * @evidence contracts/testing.md#independent-expectations The expected root text is the path string the test allocated and wrote into the configuration, so the author's spelling is the oracle; the absent clauses follow from the contract that an absolute root lands on itself and has nothing to restate.
+ * @evidence contracts/testing.md#distinguishing-cases The absolute-root counterpart of the relative-root case that must keep the resolution clauses; here both resolution sentences must be absent. A root occupied by a file is owned by a sibling entry.
+ * @evidence contracts/testing.md#execution-ownership TestAnAbsoluteRootIsNamedAsTheAuthorWroteIt is a Go unit entry in the native test process; runRootedGraphIn writes the workspace to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestAnAbsoluteRootIsNamedAsTheAuthorWroteIt(t *testing.T) {
   workspace := t.TempDir()

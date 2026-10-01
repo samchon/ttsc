@@ -15,10 +15,10 @@ import (
  * 1. Select the same uncited requirement twice at different levels.
  * 2. Add an off reference naming a missing root.
  * 3. Assert one warning and one error with the original reference indexes.
- * @evidence contracts/testing.md#behavioral-verification runIndexRuleAtSeverity exercises this case: Verifies overlapping references retain independent diagnostic levels. The original assertions check assert one warning and one error with the original reference indexes.
- * @evidence contracts/testing.md#independent-expectations Identical populations must not pool their severities or coverage. An off reference must also avoid loading a nonexistent source. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Select the same uncited requirement twice at different levels. Add an off reference naming a missing root. Assert one warning and one error with the original reference indexes. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestGraphSeverityKeepsReferencesIndependent is the selectable Go test entry; its local loops and closures remain owned by this entry. It exercises runIndexRuleAtSeverity within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRuleAtSeverity runs the graph rule under an error severity over a warning-level typescript claim whose three references are the same uncited Markdown requirement (inherited warning), an `off` reference with the nonexistent root `missing`, and the same requirement at `error`; exactly two findings must result, the one naming `reference 3` at error and the other at warning, and none mentioning `missing`.
+ * @evidence contracts/testing.md#independent-expectations The expected levels are authored from the severity contract: identical populations must not pool their severities or coverage, and an off reference must not load its source.
+ * @evidence contracts/testing.md#distinguishing-cases Two references over one requirement with different levels plus an off reference with a bad root: pooling would give one finding, and loading the off reference would add a root failure.
+ * @evidence contracts/testing.md#execution-ownership TestGraphSeverityKeepsReferencesIndependent is a Go unit entry in the native test process; runIndexRuleAtSeverity writes the fixtures to a temp directory and calls the graph rule with a captured reporter, with no consumer install or product host.
  */
 func TestGraphSeverityKeepsReferencesIndependent(t *testing.T) {
   reporter := runIndexRuleAtSeverity(t, t.TempDir(), map[string]string{

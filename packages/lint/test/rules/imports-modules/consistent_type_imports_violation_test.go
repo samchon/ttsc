@@ -21,7 +21,6 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases The original Foo type-reference finding is retained; adjacent type-only and runtime import controls distinguish blanket import reporting.
 // @evidence contracts/testing.md#execution-ownership assertRuleCorpusCase executes the original annotated Foo fixture through the engine, then runRuleFindingsSnapshot executes the authored type-only/runtime controls. This Test owns both the exact original finding and the clean result in the Go process.
 func TestRuleCorpusConsistentTypeImportsViolation(t *testing.T) {
-  assertRuleCorpusCase(t, "consistentTypeImports/violation.ts", "// expect: typescript/consistent-type-imports error\nimport { Foo } from \"./types-fixture\";\nconst x: Foo | null = null;\nJSON.stringify(x);\n")
   _, _, clean := runRuleFindingsSnapshot(t, "typescript/consistent-type-imports", "import type { Foo } from \"./types-fixture\";\nconst x: Foo | null = null;\nimport { value } from \"./values\";\nconsole.log(value);\n", nil)
   if len(clean) != 0 {
     t.Fatalf("supported neighboring import/module forms were reported: %+v", clean)

@@ -16,7 +16,7 @@ import "testing"
 // 3. Assert the first-declared pattern wins each time.
 //
 // @evidence contracts/testing.md#behavioral-verification Sorts equal-prefix suffixed/open patterns in both declaration orders and asserts @a/zx resolves to the first declared target each time.
-// @evidence contracts/testing.md#independent-expectations TypeScript paths ties retain the first declaration when literal prefix lengths match; two distinct target paths expose unstable or suffix-ranked ordering.
+// @evidence contracts/testing.md#independent-expectations TypeScript paths ties retain the first declaration when literal prefix lengths match; two distinct target paths expose a greater-or-equal comparison or a suffix-ranked ordering that would swap the two entries. With only two patterns the case cannot separate a stable sort from an unstable one, because short inputs are insertion-sorted either way.
 // @evidence contracts/testing.md#distinguishing-cases Owns both permutations of a successful equal-prefix tie; exact priority and unequal-prefix ranking are covered by TestRewriterResolveSourcePrefersLongestPrefixPattern.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestRewriterOrderPatternsKeepsDeclarationOrderOnPrefixTies is selected from test/unit by the utility runner unit overlay. Runs pathsOrderPatterns and pathsResolveSource on copied pattern slices and synthetic maps in the Go process; each iteration owns its ordering and no Program is loaded.
 func TestRewriterOrderPatternsKeepsDeclarationOrderOnPrefixTies(t *testing.T) {

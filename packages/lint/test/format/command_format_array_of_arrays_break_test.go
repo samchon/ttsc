@@ -13,10 +13,10 @@ import "testing"
 //
 //  1. Exercise the authored command format array of arrays break fixtures through the Go format dispatcher.
 //  2. Require the exact authored output or rejection result for each fixture.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises array of arrays break and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Require the exact authored output or rejection result for each fixture.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: array_of_pair_arrays_breaks, map_entries_break, array_of_objects_breaks, single_child_inners_stay_flat, mixed_kinds_stay_flat, single_element_stays_flat. Each keeps its own assertions under this one discoverable entry.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatArrayOfArraysBreak owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Seeds six authored array literals (pair arrays, `new Map([...])` entries, two-property objects, single-child inners, mixed kinds, a lone element), runs the in-process `format` command and requires each file unchanged.
+// @evidence contracts/testing.md#independent-expectations Sources are authored literals in the Prettier-canonical layout the test names (multi-child same-kind elements broken one per line; others flat); expectations equal the inputs and are not derived from the implementation.
+// @evidence contracts/testing.md#distinguishing-cases Three breaking positives (array of arrays, Map entries, array of objects) are contrasted with three flat negatives (single-child inners, mixed array and object, single element). All are fixed points, so the test cannot show the formatter performs the break from a flat input.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatArrayOfArraysBreak(t *testing.T) {
   // Array of two-element arrays: force break (the onEnter brackets shape).
   t.Run("array_of_pair_arrays_breaks", func(t *testing.T) {

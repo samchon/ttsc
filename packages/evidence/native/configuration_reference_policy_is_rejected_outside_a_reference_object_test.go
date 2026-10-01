@@ -20,7 +20,7 @@ import (
  *
  * @evidence contracts/testing.md#distinguishing-cases Claim-level policy and retired nested acknowledgement configuration are both rejected at their distinct literal paths.
  *
- * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticReferencePolicyIsRejectedOutsideAReferenceObject is the selectable unit entry in packages/evidence/native, compiled beside its owning implementation in the shared Go unit process. It invokes decodeGraphConfig and its decoder/assertion helpers in process; its JSON artifact/package names are input strings and trigger no installation, artifact loader, native plugin build, or child process. Its local table variants remain owned by this entry.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticReferencePolicyIsRejectedOutsideAReferenceObject is a Go unit entry in the native test process; it calls decodeGraphConfig twice on in-memory JSON strings with no filesystem, package installation, artifact build or product host, and has no table of variants.
  */
 func TestEvidenceSemanticReferencePolicyIsRejectedOutsideAReferenceObject(t *testing.T) {
   _, claimLevel := decodeGraphConfig(json.RawMessage(`{"claims":[{

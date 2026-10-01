@@ -12,8 +12,8 @@ import (
 // configs cannot leave an orphaned project problem in the editor.
 //
 // The proxy must clear the prior URI before publishing the replacement set at
-// the new logical config URI. Both publications are unversioned because config
-// files are not the requested source document.
+// the new logical config URI. (Whether the publications carry a version is
+// not examined here; TestLSPProxyClearsCleanProjectPublication checks it.)
 //
 //  1. Publish a project finding at the first config URI.
 //  2. Re-evaluate with a second config URI.

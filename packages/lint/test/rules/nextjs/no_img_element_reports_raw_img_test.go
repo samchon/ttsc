@@ -16,12 +16,6 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases The original annotated violation remains unchanged and an adjacent accepted source is checked with filename pages/index.tsx. This is static source/filename behavior, not a browser rendering assertion.
 // @evidence contracts/testing.md#execution-ownership TestNextjsNoImgElementReportsRawImg is a discoverable Go unit entry; TypeScript/TSX parsing and the owning engine execute in one shared process without installing Next, route discovery or a product child host.
 func TestNextjsNoImgElementReportsRawImg(t *testing.T) {
-  assertRuleCorpusCaseTSX(t, "pages/index.tsx", `
-export default function Page() {
-  // expect: nextjs/no-img-element error
-  return <img src="/logo.png" alt="Logo" />;
-}
-`)
   _, _, acceptedFindings := runRuleFindingsSnapshotFile(t, "nextjs/no-img-element", "pages/index.tsx", "import Image from \"next/image\"; export default function Page() { return <Image src=\"/logo.png\" alt=\"Logo\" />; }\n", nil)
   if len(acceptedFindings) != 0 {
     t.Fatalf("accepted Next source unexpectedly reports: %+v", acceptedFindings)

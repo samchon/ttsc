@@ -2,13 +2,10 @@ package linthost
 
 import (
   "bytes"
-  "encoding/json"
   "fmt"
   "os"
   "path/filepath"
   "reflect"
-  "regexp"
-  "strconv"
   "strings"
   "testing"
 
@@ -22,45 +19,30 @@ import (
 // rendered diagnostic order and failure semantics while sharing one Go process.
 // Unexpected findings on companion files are failures.
 //
-// 1. Read the projects prepared by scripts/test-go-lint.cjs.
+// 1. Load and classify test/testdata/corpus, then materialize each positive entry
+//    as its own temporary project.
 // 2. Resolve the real config and evaluate rules with their required checker.
 // 3. Compare every finding's source file, rule, severity and line.
 //
-// @evidence contracts/testing.md#behavioral-verification The prepared corpus reaches loadRules, production engine cycles, the required real checker and the production diagnostic renderer; every case compares the complete ordered source/rule/severity/line sequence, rejecting extra companion findings, and warning-only cases retain the real check failure assertion.
-// @evidence contracts/testing.md#independent-expectations Expected findings come from the original authored fixture annotations, with their source paths and order preserved by materialization; neither Engine nor its renderer generates the expected diagnostic sequence.
+// @evidence contracts/testing.md#behavioral-verification Each materialized project reaches loadRules, the production engine cycle, the real checker when a rule needs one, and the production diagnostic renderer; every case compares the complete ordered source/rule/severity/line sequence, rejecting extra companion findings, and warning-only cases retain the real check failure assertion.
+// @evidence contracts/testing.md#independent-expectations Expected findings come from the authored `// expect:` annotations of each fixture, resolved by the corpus loader's annotation parser; neither Engine nor its renderer generates the expected diagnostic sequence, and the loader's parsing is separately verified by its own cases.
 // @evidence contracts/testing.md#distinguishing-cases Owns the classified non-skipped corpus, including options, renamed source files, TSX, companion inputs, checker-required rules and warning fixtures whose TypeScript errors must still fail check. The separate four-case command entry owns clean and warning-only success controls.
-// @evidence contracts/testing.md#execution-ownership TestLintFixtureCorpus is the discoverable Go entry; dynamically named fixture subcases share one selected Go process and are not separately addressable Evidence declarations. The runner supplies the required manifest; real config/program/renderer operations run in-process without per-fixture native compilation or child hosts, while absent standalone manifest remains an explicit skip rather than a coverage claim.
+// @evidence contracts/testing.md#execution-ownership TestLintFixtureCorpus is the discoverable Go entry; dynamically named fixture subcases share one selected Go process and are not separately addressable Evidence declarations. Real config, program and renderer operations run in-process over disposable t.TempDir projects without per-fixture native compilation or child hosts; a corpus that cannot be loaded or classified fails the entry.
 func TestLintFixtureCorpus(t *testing.T) {
-  manifest := os.Getenv("TTSC_LINT_CORPUS_MANIFEST")
-  if manifest == "" {
-    t.Skip("the full fixture corpus is prepared by scripts/test-go-lint.cjs")
-  }
-  data, err := os.ReadFile(manifest)
+  cases, err := loadLintCorpus(lintCorpusRoot)
   if err != nil {
-    t.Fatal(err)
-  }
-  var cases []struct {
-    RelativeFile string
-    ProjectRoot  string
-    SourcePath   string
-    SourcePaths  []string
-    Rules        map[string]any
-    Expected     []struct {
-      Rule, Severity string
-      Line           int
-    }
-  }
-  if err := json.Unmarshal(data, &cases); err != nil {
     t.Fatal(err)
   }
   if len(cases) == 0 {
     t.Fatal("empty lint fixture corpus")
   }
-  ansi := regexp.MustCompile("\\x1b\\[[0-9;]*[A-Za-z]")
-  banner := regexp.MustCompile("^(.+):([0-9]+):[0-9]+[[:space:]]+-[[:space:]]+(error|warning)[[:space:]]+TS[0-9]+:[[:space:]]*\\[([^\\]]+)\\][[:space:]]*.*$")
   for _, fixture := range cases {
     t.Run(fixture.RelativeFile, func(t *testing.T) {
-      resolver, err := loadRules(lintManifest(t), fixture.ProjectRoot, "tsconfig.json")
+      projectRoot := t.TempDir()
+      if err := materializeCorpusProject(projectRoot, fixture); err != nil {
+        t.Fatal(err)
+      }
+      resolver, err := loadRules(lintManifest(t), projectRoot, "tsconfig.json")
       if err != nil {
         t.Fatal(err)
       }
@@ -71,10 +53,10 @@ func TestLintFixtureCorpus(t *testing.T) {
       if unknown := engine.UnknownRules(); len(unknown) != 0 {
         t.Fatalf("unknown corpus rule identities: %v", unknown)
       }
-      engine.SetCurrentDirectory(fixture.ProjectRoot)
+      engine.SetCurrentDirectory(projectRoot)
       var findings []*Finding
-      if !engine.NeedsTypeChecker() && len(fixture.SourcePaths) == 1 {
-        location := filepath.Join(fixture.ProjectRoot, fixture.SourcePath)
+      if !engine.NeedsTypeChecker() && len(fixture.Companions) == 0 {
+        location := filepath.Join(projectRoot, filepath.FromSlash(fixture.SourcePath))
         source, err := os.ReadFile(location)
         if err != nil {
           t.Fatal(err)
@@ -85,11 +67,11 @@ func TestLintFixtureCorpus(t *testing.T) {
         } else {
           file = parseTSFile(t, location, string(source))
         }
-        project := &program{cwd: fixture.ProjectRoot}
-        project.identity = normalizeProjectIdentity(project.identity, fixture.ProjectRoot, filepath.Join(fixture.ProjectRoot, "tsconfig.json"))
+        project := &program{cwd: projectRoot}
+        project.identity = normalizeProjectIdentity(project.identity, projectRoot, filepath.Join(projectRoot, "tsconfig.json"))
         findings = project.runCycleOver(engine, []*shimast.SourceFile{file})
       } else {
-        project, _, err := loadProgram(fixture.ProjectRoot, "tsconfig.json", loadProgramOptions{
+        project, _, err := loadProgram(projectRoot, "tsconfig.json", loadProgramOptions{
           forceNoEmit: true, needsRuleChecker: engine.NeedsTypeChecker(),
         })
         if project != nil {
@@ -107,8 +89,12 @@ func TestLintFixtureCorpus(t *testing.T) {
         findings = project.runLintCycle(engine)
       }
       expectedRules := RuleConfig{}
-      for _, expectation := range fixture.Expected {
-        expectedRules[expectation.Rule] = parseExpectedSeverity(t, expectation.Severity)
+      for rule, entry := range fixture.Rules {
+        severity := entry
+        if tuple, ok := entry.([]any); ok {
+          severity = tuple[0]
+        }
+        expectedRules[rule] = parseExpectedSeverity(t, severity.(string))
       }
       if err := validateSemanticRuleFindings(expectedRules, findings); err != nil {
         t.Fatalf("invalid semantic corpus findings: %v", err)
@@ -130,14 +116,14 @@ func TestLintFixtureCorpus(t *testing.T) {
           category, fmt.Sprintf("[%s] %s", finding.Rule, finding.Message),
         ))
       }
-      errors := shimdw.FormatMixedDiagnostics(&rendered, nil, diagnostics, fixture.ProjectRoot)
-      if errors == 0 {
+      errors := shimdw.FormatMixedDiagnostics(&rendered, nil, diagnostics, projectRoot)
+      if len(findings) != 0 && errors == 0 {
         // Warning-only fixtures formerly failed because of TypeScript errors.
         // Preserve that exact command assertion, rather than treating warnings
         // as errors or relying on their count to predict the process status.
         var stdout, stderr bytes.Buffer
         status := RunCheckWithIO([]string{
-          "--cwd", fixture.ProjectRoot,
+          "--cwd", projectRoot,
           "--plugins-json", lintManifest(t), "--noEmit",
         }, &stdout, &stderr)
         if status == 0 {
@@ -145,34 +131,32 @@ func TestLintFixtureCorpus(t *testing.T) {
         }
         rendered = stderr
       }
-      type diagnostic struct {
-        File, Rule, Severity string
-        Line                 int
+      actual, err := parseCorpusDiagnostics(rendered.String())
+      if err != nil {
+        t.Fatal(err)
       }
-      actual := []diagnostic{}
-      expected := []diagnostic{}
-      output := ansi.ReplaceAllString(rendered.String(), "")
-      for _, line := range strings.Split(output, "\n") {
-        matched := banner.FindStringSubmatch(line)
-        if matched == nil {
-          continue
-        }
-        severity := "error"
-        if matched[3] == "warning" {
-          severity = "warn"
-        }
-        lineNumber, err := strconv.Atoi(matched[2])
-        if err != nil {
-          t.Fatal(err)
-        }
-        file := strings.ToLower(filepath.ToSlash(filepath.Clean(matched[1])))
-        actual = append(actual, diagnostic{file, matched[4], severity, lineNumber})
-      }
-      for _, finding := range fixture.Expected {
-        expected = append(expected, diagnostic{strings.ToLower(fixture.SourcePath), finding.Rule, finding.Severity, finding.Line})
-      }
+      expected := expectedCorpusDiagnostics(fixture)
       if !reflect.DeepEqual(actual, expected) {
         t.Errorf("findings: got %+v; want %+v", actual, expected)
+      }
+      if t.Failed() {
+        return
+      }
+      // Only a fixture whose complete expected sequence was observed witnesses
+      // its rules, under the prerequisite its own directives require.
+      recorded := map[string]bool{}
+      for _, expectation := range fixture.Expected {
+        if recorded[expectation.Rule] {
+          continue
+        }
+        recorded[expectation.Rule] = true
+        kind := behavioralWitnessKindForRule(expectation.Rule)
+        if fixture.Options[expectation.Rule] {
+          kind = behavioralWitnessOptions
+        } else if fixture.Renamed {
+          kind = behavioralWitnessFilename
+        }
+        recordBehavioralWitness(t, expectation.Rule, kind)
       }
     })
   }

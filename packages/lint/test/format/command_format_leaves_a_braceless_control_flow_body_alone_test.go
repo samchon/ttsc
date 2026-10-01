@@ -13,10 +13,10 @@ import "testing"
 //  1. Put braceless loop and if bodies inside a callback.
 //  2. Run `ttsc format`.
 //  3. Require the source to survive byte-identical.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises leaves a braceless control flow body alone and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Require the source to survive byte-identical.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Put braceless loop and if bodies inside a callback. The asserted decision is: Require the source to survive byte-identical. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatLeavesABracelessControlFlowBodyAlone owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on three callbacks whose bodies are braceless `for-of`, braceless `if`, and `if` with a braced consequent plus braceless `else`, and requires each unchanged.
+// @evidence contracts/testing.md#independent-expectations The three sources are authored literals in the layout Prettier keeps for braceless bodies and serve as their own expected output; nothing is derived from formatter output.
+// @evidence contracts/testing.md#distinguishing-cases Three negative (fixed-point) cases: a rule that expanded braceless bodies or re-indented them to the block-depth model would change them. No input that must change is included, so a formatter that never touches control flow also passes.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: each source calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatLeavesABracelessControlFlowBodyAlone(t *testing.T) {
   for _, source := range []string{
     "run(() => {\n  for (const x of xs) f(x);\n});\n",

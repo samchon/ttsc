@@ -21,7 +21,7 @@ import (
  *
  * @evidence contracts/testing.md#distinguishing-cases A local TypeScript reference cannot omit its explicit files selector.
  *
- * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticConfigurationRejectsALocalReferenceWithNoSelector is the selectable unit entry in packages/evidence/native, compiled beside its owning implementation in the shared Go unit process. It invokes decodeGraphConfig and its decoder/assertion helpers in process; its JSON artifact/package names are input strings and trigger no installation, artifact loader, native plugin build, or child process. Its local table variants remain owned by this entry.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticConfigurationRejectsALocalReferenceWithNoSelector is a Go unit entry in the native test process; it decodes one in-memory JSON reference through the decodeReferenceProblems helper and decodeGraphConfig with no filesystem, package installation, artifact build or product host, and has a single case with no table.
  */
 func TestEvidenceSemanticConfigurationRejectsALocalReferenceWithNoSelector(t *testing.T) {
   assertProblemContains(

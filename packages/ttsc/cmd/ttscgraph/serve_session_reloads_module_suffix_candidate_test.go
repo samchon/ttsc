@@ -12,8 +12,8 @@ import (
 // 2. Create value.native.ts.
 // 3. Require a reload containing nativeWinner.
 //
-// @evidence contracts/testing.md#behavioral-verification Require a reload containing nativeWinner.
-// @evidence contracts/testing.md#independent-expectations The literal fixture and the supported graph contract establish these expectations: Require a reload containing nativeWinner.
+// @evidence contracts/testing.md#behavioral-verification With moduleSuffixes [.native, ''], creating value.native.ts beside the resolved value.js reloads a resident session and the new dump contains nativeWinner.
+// @evidence contracts/testing.md#independent-expectations The expected outcome follows from TypeScript's moduleSuffixes ordering, in which the .native suffix is probed before the empty suffix: creating src/value.native.ts must be mode reload, changed, with a node named nativeWinner.
 // @evidence contracts/testing.md#distinguishing-cases Load a value.js fallback with moduleSuffixes selecting .native before the empty suffix. Create value.native.ts. Require a reload containing nativeWinner.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsModuleSuffixCandidate is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsModuleSuffixCandidate(t *testing.T) {

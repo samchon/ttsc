@@ -21,7 +21,7 @@ import (
 //     codeDescription, while a built-in rule still resolves one.
 // @evidence contracts/testing.md#behavioral-verification The contributor adapter reports its retired-name finding without codeDescription while the built-in no-alert mapping remains present.
 // @evidence contracts/testing.md#independent-expectations A contributor does not own the retired built-in documentation; nil description and the positive built-in URL follow this distinction independently of ledger lookup.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Register a contributor under a retired name still present in the ledger. The asserted decision is: Assert the converted LSP diagnostic keeps its rule id but no codeDescription, while a built-in rule still resolves one. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#distinguishing-cases A contributor adapter registered under the retired built-in name solid/jsx-uses-vars is run through the Engine; its converted diagnostic must keep that name as its code and have a nil codeDescription, and ruleDocumentationURL for no-alert must stay non-empty so a globally dead field cannot satisfy the test. The built-in href value itself is asserted elsewhere.
 // @evidence contracts/testing.md#execution-ownership TestLSPDiagnosticOmitsCodeDescriptionForContributorRule owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPDiagnosticOmitsCodeDescriptionForContributorRule(t *testing.T) {
   file := parseTSFile(t, "/virtual/contributor.ts", "export const value = 1;\n")

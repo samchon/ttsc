@@ -23,9 +23,10 @@ import (
  *     in one source file.
  *  2. Acknowledge only the four type identities from a TypeScript claim.
  *  3. Assert the omitted source selector creates no additional obligation.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the omitted source selector creates no additional obligation.
- * @evidence contracts/testing.md#independent-expectations The default is intentionally narrower than the claim default. A test that merely inspects decoded options would miss a materializer that ignored the selector and indexed every discovered declaration anyway. The authored scenario requires this outcome: Assert the omitted source selector creates no additional obligation.
- * @evidence contracts/testing.md#distinguishing-cases Put types, a class with members, a namespace, properties, and callables in one source file. Acknowledge only the four type identities from a TypeScript claim. Assert the omitted source selector creates no additional obligation.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs graphRule.Check with a TypeScript reference that omits symbol; the ledger cites Shape, Options, Sale and Api only, and the graph must be clean. The four links must resolve, and the uncited top-level functions draw and render must not be demanded.
+ * @evidence contracts/testing.md#independent-expectations The expectation is authored from the contract that the omitted source selector means types, classes and namespaces. Uncited top-level callables would be reported unmet if the default included them. Members of cited Sale/Api and properties of Shape are discharged by their cited ancestor, so this case cannot show they are outside the default.
+ * @evidence contracts/testing.md#distinguishing-cases The adjacent inputs draw and render are exported callables left uncited and must stay silent; the four cited kinds must stay resolvable. No case here selects callables explicitly to contrast the default.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptSourceDefaultMaterializesOnlyTypes is a Go unit entry; runIndexRule writes the fixtures to a temp root, parses them and calls graphRule.Check in-process without a consumer install or product host.
  * @evidence contracts/testing.md#execution-ownership TestTypeScriptSourceDefaultMaterializesOnlyTypes runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptSourceDefaultMaterializesOnlyTypes(t *testing.T) {

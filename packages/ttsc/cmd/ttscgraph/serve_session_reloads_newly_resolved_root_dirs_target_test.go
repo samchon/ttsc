@@ -13,8 +13,8 @@ import (
 // 2. Create generated/views/template.ts.
 // 3. Require a changed reload dump containing template.
 //
-// @evidence contracts/testing.md#behavioral-verification Require a changed reload dump containing template.
-// @evidence contracts/testing.md#independent-expectations The literal fixture and supported graph contract establish these expectations: Require a changed reload dump containing template.
+// @evidence contracts/testing.md#behavioral-verification Creating generated/views/template.ts, the rootDirs peer of an unresolved ./template import in src/views, reloads a resident session and the new dump contains template.
+// @evidence contracts/testing.md#independent-expectations The expectation is literal: with rootDirs [src, generated] the virtual path views/template resolves to generated/views/template.ts, so creating it must yield mode reload, changed, with a node named template.
 // @evidence contracts/testing.md#distinguishing-cases Load a virtual ./template import under src/views with src and generated roots. Create generated/views/template.ts. Require a changed reload dump containing template.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsNewlyResolvedRootDirsTarget is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsNewlyResolvedRootDirsTarget(t *testing.T) {

@@ -13,7 +13,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines calls the actual engine and verifies @param {Function} is reported on line 3; exact rule, error severity and line checks detect missing, extra or misplaced findings.
 // @evidence contracts/testing.md#independent-expectations The unrestricted Function doc type lacks a call signature; an explicit callable type is the accepted alternative. The literal comment and expected line establish this supported policy independently of the parser or rule result.
-// @evidence contracts/testing.md#distinguishing-cases The original malformed or incomplete tag remains intact; an independently authored documented block using @param {function(): void} handler description must produce zero findings. Named case variants additionally distinguish exact forbidden type spelling from independently authored user type names and nested generic occurrences.
+// @evidence contracts/testing.md#distinguishing-cases The deficient tag in the first source is the reported case, and a second independently authored block using @param {function(): void} handler description must produce zero findings. Named case variants additionally distinguish exact forbidden type spelling from independently authored user type names and nested generic occurrences.
 // @evidence contracts/testing.md#execution-ownership TestRuleJSDocRejectFunctionType is a named Go unit entry running real comment parsing and the owning engine over virtual TypeScript in the shared test process, without an installed documentation consumer or host.
 func TestRuleJSDocRejectFunctionType(t *testing.T) {
   assertJSDocRuleLines(t, "jsdoc/reject-function-type", `/**

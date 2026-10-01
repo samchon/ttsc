@@ -14,10 +14,10 @@ import (
 // a CI job that ran `format` then `check` stayed green on a malformed tree.
 // Now that a rule owns the brace, the same input is a finding.
 //
-// @evidence contracts/testing.md#behavioral-verification The check command with format error severity must return a failure and name format/indent for stranded shared-line braces.
-// @evidence contracts/testing.md#independent-expectations The literal malformed tree has two closing braces stranded after returns; check must report the same noncanonical state that format repairs.
-// @evidence contracts/testing.md#distinguishing-cases A malformed nested if/else differs from canonical else/catch/finally fixtures in the negative-twins case. Exact diagnostic count and position are not asserted here.
-// @evidence contracts/testing.md#execution-ownership TestCommandCheckReportsTheMalformedBraceItUsedToBless is a public format unit selected by TestSelectedLintUnits. The isolated fixture filesystem feeds the actual Go command entry in the shared process. This verifies command semantics without compiling or launching a native artifact or installing a consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `check` command over a project whose source has two closing braces stranded after `return` statements, with format.severity set to error, and asserts a non-zero exit code and a stderr report that names format/indent.
+// @evidence contracts/testing.md#independent-expectations The malformed source is an authored literal and the expectation (failure naming format/indent) comes from the stated contract that check must not call clean a tree format would repair; no output is derived from the implementation.
+// @evidence contracts/testing.md#distinguishing-cases Covers only the positive case, a tree with stranded braces that must be reported; the exact diagnostic count and position are not asserted, and canonical else/catch/finally layouts that must stay clean are owned by the negative-twins test.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the check subcommand against a temp-dir project and lint.config.json; no child process, built binary or installed consumer is involved.
 func TestCommandCheckReportsTheMalformedBraceItUsedToBless(t *testing.T) {
   root := seedLintProject(t, "export function go(n: number) {\n  if (n > 0) {\n    return 1; } else {\n    return 2; }\n}\n")
   seedLintConfig(t, root, map[string]any{

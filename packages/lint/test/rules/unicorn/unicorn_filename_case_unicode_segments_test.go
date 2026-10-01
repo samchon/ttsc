@@ -19,7 +19,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Actual filename checking evaluates the retained Unicode path segments and requires their authored normalized alternatives or silence.
 // @evidence contracts/testing.md#independent-expectations Literal Unicode case/separator expectations are independent inputs to the supported case policy, not output captured from Go.
-// @evidence contracts/testing.md#distinguishing-cases Unicode segment spellings exercise non-ASCII case conversion beside accepted counterparts.
+// @evidence contracts/testing.md#distinguishing-cases An accented lowercase stem is clean, its capitalized twin is invalid with the accented characters kept verbatim in the rename sample (no non-ASCII case conversion is exercised), and a stem made only of ignored characters is clean.
 // @evidence contracts/testing.md#execution-ownership TestUnicornFilenameCaseUnicodeSegments owns its retained literal paths/options as a discoverable Go unit entry; engine/configuration operations run in the shared process using virtual or isolated fixture paths, without installing a consumer, native build or product host.
 func TestUnicornFilenameCaseUnicodeSegments(t *testing.T) {
   assertUnicornFilenameCaseValid(t, "src/résumé.js", "")

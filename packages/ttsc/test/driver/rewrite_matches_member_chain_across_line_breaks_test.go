@@ -36,13 +36,13 @@ func TestDriverRewriteMatchesMemberChainAcrossLineBreaks(t *testing.T) {
   "files": ["index.ts", "plugin.ts"]
 }
 `)
-  writeProjectFile(t, root, "plugin.ts", `export const plugin = {
+  writeProjectFile(t, root, "plugin.ts", `export default {
   namespace: {
     method(): number { return 1; }
   }
 };
 `)
-  writeProjectFile(t, root, "index.ts", `import { plugin } from "./plugin";
+  writeProjectFile(t, root, "index.ts", `import plugin from "./plugin";
 
 export const value = plugin.namespace
   .method();
@@ -82,10 +82,7 @@ export const value = plugin.namespace
     t.Fatalf("unexpected emit diagnostics: %#v", emitDiags)
   }
   js := emitted["index.js"]
-  if !strings.Contains(js, `"replaced"`) {
-    t.Fatalf("namespace.method rewrite not applied:\n%s", js)
-  }
-  if strings.Contains(js, ".namespace") && strings.Contains(js, ".method(") {
-    t.Fatalf("rewriter left the original namespaced call behind:\n%s", js)
+  if !strings.Contains(js, `exports.value = "replaced";`) {
+    t.Fatalf("namespace.method rewrite not applied to the whole call:\n%s", js)
   }
 }

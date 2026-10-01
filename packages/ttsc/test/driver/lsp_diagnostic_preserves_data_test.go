@@ -16,11 +16,12 @@ import (
 // can recover what it computed. The proxy decodes each sidecar diagnostic and
 // re-encodes it, so a field absent from LSPDiagnostic is silently dropped — the
 // same truncation codeDescription and tags each had to be rescued from. Because
-// data is arbitrary JSON, the test also pins that a nested object survives byte
-// for byte rather than being flattened or reordered into meaninglessness.
+// data is arbitrary JSON, the test also pins that its members survive the
+// round trip rather than being dropped (it checks the two members' fragments,
+// not byte equality of the whole object).
 //
-//  1. Decode a diagnostic whose data is a nested object.
-//  2. Assert the object round-trips intact.
+//  1. Decode a diagnostic whose data is an object with two members.
+//  2. Assert Data is non-empty and the re-encoded form contains both members.
 func TestLSPDiagnosticPreservesData(t *testing.T) {
   input := []byte(`{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":4}},"code":"no-x","message":"m","data":{"ruleKey":"abc","hasQuickFix":true}}`)
 

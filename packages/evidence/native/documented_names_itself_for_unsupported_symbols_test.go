@@ -13,10 +13,10 @@ import "testing"
  *  1. Configure a Markdown symbol on a TypeScript rule.
  *  2. Run the rule.
  *  3. Assert the message names `evidence/documented`.
- * @evidence contracts/testing.md#behavioral-verification runDocumentedRule exercises this case: Verifies an unsupported symbol value also names the owning rule. The original assertions check assert the message names `evidence/documented`.
- * @evidence contracts/testing.md#independent-expectations The symbol decoder is the second shared entry point, and it reports through a different branch than TestDocumentedNamesItselfInConfigurationDiagnostics. Fixing one and leaving the other would misattribute exactly the configuration a reader is most likely to get wrong, since the Markdown vocabulary decodes cleanly as a string. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Configure a Markdown symbol on a TypeScript rule. Run the rule. Assert the message names `evidence/documented`. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestDocumentedNamesItselfForUnsupportedSymbols is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runDocumentedRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule over an exported `parse` function with the options `{"symbol":"h2"}`; assertReported is called twice and requires exactly one diagnostic that contains both `Invalid evidence/documented configuration` and `symbol 'h2' is not supported`.
+ * @evidence contracts/testing.md#independent-expectations The expected wording is authored from the diagnostic contract: an unsupported symbol value (the Markdown vocabulary decodes as a valid string) must be rejected with the owning rule's name in the message.
+ * @evidence contracts/testing.md#distinguishing-cases This covers the symbol-decoder branch of the shared option decoding; the unknown-key branch is covered by the sibling TestDocumentedNamesItselfInConfigurationDiagnostics, so fixing only one would leave the other failing.
+ * @evidence contracts/testing.md#execution-ownership TestDocumentedNamesItselfForUnsupportedSymbols is a Go unit entry in the native test process; runDocumentedRule parses the source with the TypeScript parser and calls the documented rule directly, with no consumer install or product host.
  */
 func TestDocumentedNamesItselfForUnsupportedSymbols(t *testing.T) {
   messages := runDocumentedRule(t, "src/parse.ts", `

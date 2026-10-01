@@ -29,7 +29,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Actual scan, analyze and runFix operations write and reread an owned temporary shim; exported constant names and repeated output bytes detect destructive replacement rather than merely checking an exit status.
 // @evidence contracts/testing.md#independent-expectations Literal upstream declarations establish Alpha, Beta, Delta and the later Gamma; expected public names are authored independently of analyzer findings and generated text.
 // @evidence contracts/testing.md#distinguishing-cases A public Alpha contrasts with private Delta and a foreign shim's Beta alias; first, repeated and expanded generation distinguish missing members and lost siblings. Zero authored constants retain the already public family; complete authored handoff removes duplicate generated output and remains idempotent.
-// @evidence contracts/testing.md#execution-ownership This direct source unit runs in tools/shim_audit through shim-audit-test.cjs; Go's type checker and filesystem APIs execute in the owning process without a native compiler producer or subprocess.
+// @evidence contracts/testing.md#execution-ownership This direct source unit runs in the tools/shim_audit module through go test (the shim:audit:test package script); Go's parser, type checker and filesystem APIs execute in the owning process over temporary shim files without a native compiler producer or subprocess.
 func TestEnumGenerationPreservesExistingFamilyMembers(t *testing.T) {
   root := t.TempDir()
   write := func(relative, text string) {

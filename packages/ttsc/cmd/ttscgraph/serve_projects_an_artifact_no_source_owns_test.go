@@ -27,9 +27,9 @@ import (
 //  3. Assert it succeeded and that the artifact is in it.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that a session carrying published artifacts can produce a shard snapshot at all.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish it succeeded and that the artifact is in it.
+// @evidence contracts/testing.md#independent-expectations The expected facts are literal: the two supplied artifact addresses (docs/sale.md#pricing and POST:/orders, the second with no file at all) must each appear as a node in some upserted shard, and any shard that names a source must own only nodes from that file. The session must also declare the artifactNodes capability and name a second producer; the earlier ownership guard that rejected fileless artifacts fails the projection call.
 // @evidence contracts/testing.md#distinguishing-cases Build a session over a one-file project, carrying one artifact; Take a full shard snapshot; Assert it succeeded and that the artifact is in it.
-// @evidence contracts/testing.md#execution-ownership TestServeProjectsAnArtifactNoSourceOwns is a source-unit entry. writeGraphFile, newGraphSessionWithArtifacts, session.Close, projectFullGraphShards, session.capabilities, session.artifactProducer run directly over actual resident/command state. Prepared projection consumes explicit empty ignore membership; real Git acquisition remains in the separate worktree boundary.
+// @evidence contracts/testing.md#execution-ownership TestServeProjectsAnArtifactNoSourceOwns is a Go source-unit entry. It builds a resident session with newGraphSessionWithArtifacts and projects a full shard snapshot through projectFullGraphShards with explicit empty ignore membership; the compiler session is real and in-process, with no installed consumer, native build or Git acquisition.
 func TestServeProjectsAnArtifactNoSourceOwns(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{

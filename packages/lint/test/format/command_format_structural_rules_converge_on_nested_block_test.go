@@ -18,10 +18,10 @@ import (
 //  1. Seed a project with two statements crammed inside a nested block.
 //  2. Run `ttsc format`.
 //  3. Assert each statement lands on its own line at the depth-2 indent.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises structural rules converge on nested block and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert each statement lands on its own line at the depth-2 indent.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project with two statements crammed inside a nested block. The asserted decision is: Assert each statement lands on its own line at the depth-2 indent. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatStructuralRulesConvergeOnNestedBlock owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on a function with an `if` block whose body crams `const a = 1; const b = 2;` on one line, and requires exit 0, empty output and the exact file with each statement on its own line at four spaces.
+// @evidence contracts/testing.md#independent-expectations The expected text is an authored literal with depth-2 indentation; it is not derived from the formatter.
+// @evidence contracts/testing.md#distinguishing-cases One input that must change at nesting depth 2, distinguishing a split that places both statements correctly from one that leaves them at the wrong depth or on one line; the top-level case is owned by the headline test.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatStructuralRulesConvergeOnNestedBlock(t *testing.T) {
   source := "function f() {\n  if (x) {\n    const a = 1; const b = 2;\n  }\n}\n"
   want := "function f() {\n" +

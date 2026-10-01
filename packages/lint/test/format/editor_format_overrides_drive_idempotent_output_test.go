@@ -18,10 +18,10 @@ import (
 // 1. Configure four-space combined indentation and two-space TypeScript indentation.
 // 2. Format a four-space-indented TypeScript statement to convergence.
 // 3. Assert exact two-space output and a zero-edit second run.
-// @evidence contracts/testing.md#behavioral-verification editorFormatOverrides reads the disposable settings fixture and resolves drive idempotent output; assertions check the specified effective values rather than repository settings text.
-// @evidence contracts/testing.md#independent-expectations The authored editor setting values and precedence described above determine the literal expected option map independently of resolver traversal or its map iteration order.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Configure four-space combined indentation and two-space TypeScript indentation. The asserted decision is: Assert exact two-space output and a zero-edit second run. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestEditorFormatOverridesDriveIdempotentOutput is a Go unit entry exercising the settings resolver in process; native fixture files provide resolver input, without invoking VS Code or an installed product host.
+// @evidence contracts/testing.md#behavioral-verification Writes a settings.json with `[javascript][typescript]` tabSize 4 and `[typescript]` tabSize 2, builds the default format resolver for typescript, formats a four-space-indented function through up to ten engine passes, and requires the exact two-space output, then formats that output again and requires zero applied edits.
+// @evidence contracts/testing.md#independent-expectations The expected `function f() {\n  const value = 1;\n}\n` is an authored literal following from the exact section winning with tabSize 2; the zero-edit second run is a fixed-point check, not an independent oracle.
+// @evidence contracts/testing.md#distinguishing-cases The input is indented to the losing combined value (4) so a resolver that preferred the combined scope would leave it unchanged; the second run distinguishes a converged result from one still being rewritten.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls newFormatCommandResolver and the engine with applyFindingFixesToText on a parsed in-memory file and a temp-dir settings file; no command front door, VS Code, child process or installed consumer.
 func TestEditorFormatOverridesDriveIdempotentOutput(t *testing.T) {
   root := t.TempDir()
   settings := `{

@@ -20,10 +20,10 @@ import (
  *  1. Digest a single-declarator statement carrying a block.
  *  2. Reword the block, then change the initializer.
  *  3. Assert the first did not move it and the second did.
- * @evidence contracts/testing.md#behavioral-verification variableDigestOf exercises the authored fixture. Assert the first did not move it and the second did.
- * @evidence contracts/testing.md#independent-expectations The ordinary shape is the one every existing fingerprint assertion is written against, and it is the one where the statement wrapper and the declarator differ by only the `export const` prefix. Without this, the two complementary cases would keep passing if the repair had quietly changed which edits an ordinary variable responds to. The authored scenario requires this outcome: Assert the first did not move it and the second did.
- * @evidence contracts/testing.md#distinguishing-cases Digest a single-declarator statement carrying a block. Reword the block, then change the initializer. Assert the first did not move it and the second did.
- * @evidence contracts/testing.md#execution-ownership TestASingleDeclaratorStatementAnswersTheSameWay runs as a Go unit entry in the native package. variableDigestOf executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification variableDigestOf returns the `limit` unit digest for `/** First wording. *\/ export const limit = 1;`; the test requires it to equal the digest after the block is reworded and to differ after the initializer changes to 2.
+ * @evidence contracts/testing.md#independent-expectations The expected relation follows from the review-expiry contract rather than from the digest code: documentation written on a variable is excluded from its digest, while its initializer is content; the digest value itself is deliberately not asserted.
+ * @evidence contracts/testing.md#distinguishing-cases One negative case (reworded block, equality required) and one positive case (changed initializer, inequality required) on the ordinary single-declarator shape, complementing the multi-declarator entries.
+ * @evidence contracts/testing.md#execution-ownership TestASingleDeclaratorStatementAnswersTheSameWay is a Go unit entry in the native test process; variableDigestOf parses each source with the TypeScript parser and reads the inventory digest, with no consumer install or product host.
  */
 func TestASingleDeclaratorStatementAnswersTheSameWay(t *testing.T) {
   first := variableDigestOf(t, "limit", `/** First wording. */

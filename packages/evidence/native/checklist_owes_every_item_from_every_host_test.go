@@ -13,10 +13,10 @@ import (
  *  1. Select two functions and a two-item Markdown checklist.
  *  2. Cite both items from one host and only the first from the other.
  *  3. Assert the complete host passes and the partial host is reported with just its missing item.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies a checklist owes every item from every selected host. The original assertions check assert the complete host passes and the partial host is reported with just its missing item.
- * @evidence contracts/testing.md#independent-expectations Ordinary coverage is satisfied once per reference, so a thorough host answers for every other host in the claim and a host that answered nothing is invisible. The checklist reference must instead judge each host against the whole population and report only the hosts that fell short. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Select two functions and a two-item Markdown checklist. Cite both items from one host and only the first from the other. Assert the complete host passes and the partial host is reported with just its missing item. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestChecklistOwesEveryItemFromEveryHost is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule over a function checklist with a `complete` host citing both items and a `partial` host citing only `no-hardcoding`; exactly one `checklist item(s)` diagnostic must appear, naming `TypeScript function 'partial'` and `has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'`, and none naming `'complete'`.
+ * @evidence contracts/testing.md#independent-expectations The expected single report is authored from the checklist contract that every host is judged against the whole item population, so a thorough host does not answer for another host.
+ * @evidence contracts/testing.md#distinguishing-cases One complete and one partial host in the same claim: an ordinary once-per-reference coverage would pass both, and a checklist that reported every host would also report `complete`.
+ * @evidence contracts/testing.md#execution-ownership TestChecklistOwesEveryItemFromEveryHost is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestChecklistOwesEveryItemFromEveryHost(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

@@ -17,7 +17,7 @@ import (
  * @evidence contracts/testing.md#behavioral-verification rememberSwaggerDocument does not populate the local digest cache for remote source.
  * @evidence contracts/testing.md#independent-expectations Literal HTTPS source and supplied digest cannot establish reusable remote bytes.
  * @evidence contracts/testing.md#distinguishing-cases Assertions inspect swaggerDocuments only; they do not forbid the address-keyed remote cache.
- * @evidence contracts/testing.md#execution-ownership TestSwaggerNeverRemembersARemoteDocument is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerNeverRemembersARemoteDocument is a selectable native Go unit entry. It calls rememberSwaggerDocument with an HTTPS source and inspects the isolated local swaggerDocuments cache in-process; no consumer, Node process, native build or product host is started.
  */
 func TestSwaggerNeverRemembersARemoteDocument(t *testing.T) {
   isolateSwaggerCache(t)

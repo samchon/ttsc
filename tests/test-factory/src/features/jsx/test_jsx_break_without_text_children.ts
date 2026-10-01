@@ -40,7 +40,7 @@ const expression = (name: string) =>
  * @evidence contracts/testing.md#behavioral-verification JSX expression-only children may break without added space children; raw JSX trailing space survives while normal code trims line-end whitespace.
  * @evidence contracts/testing.md#independent-expectations An independent literal JSX fixture is transpiled by ts-legacy for expected children, and explicit raw text/code whitespace assertions pin their different policies.
  * @evidence contracts/testing.md#distinguishing-cases Expression-only positive layout, raw JsxText boundary and call/object/binary code negatives prevent a blanket no-break or no-trim policy.
- * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_jsx_break_without_text_children. Calls TsPrinter.print/printNodes, jsxChildren and the independent TSX transpiler; the code forms are labeled in the owned loop.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_jsx_break_without_text_children. Calls TsPrinter.print/printNodes, jsxChildren and the independent TSX transpiler; the three plain-code forms (call, parenthesized object literal, binary) are checked in one loop that shares a single assertion title.
  */
 export const test_jsx_break_without_text_children = (): void => {
   const printed: string = tiny.print(

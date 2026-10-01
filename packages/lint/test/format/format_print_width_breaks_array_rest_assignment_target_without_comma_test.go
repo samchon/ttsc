@@ -15,10 +15,10 @@ import "testing"
 // 1. Configure printWidth=20 and feed a single-line array rest target that overflows.
 // 2. Run formatPrintWidth so the array breaks one element per line.
 // 3. Assert the broken output has no trailing comma after the rest element.
-// @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule parses the breaks array rest assignment target without comma fixture and applies its edit; complete authored output equality rejects lost source content or punctuation alongside incorrect line layout. The owned result is: Assert the broken output has no trailing comma after the rest element.
-// @evidence contracts/testing.md#independent-expectations The source operands and literal expected layout are authored independently of the rule printer. The fixture fixes printWidth and indentation, so expected line placement does not come from rendering the implementation under test.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Configure printWidth=20 and feed a single-line array rest target that overflows. The asserted decision is: Assert the broken output has no trailing comma after the rest element. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthBreaksArrayRestAssignmentTargetWithoutComma is one Go unit entry through the registered rule engine, parser and fix applier; it uses no installed consumer or child product host.
+// @evidence contracts/testing.md#behavioral-verification Applies format/print-width at printWidth 20 to `[alpha, ...restItems] = sourceArray;` and requires the exact output `[\n  alpha,\n  ...restItems\n] = sourceArray;\n` with no comma after the rest element.
+// @evidence contracts/testing.md#independent-expectations The expected text is an authored literal; a trailing comma after a rest element in an assignment target is a syntax error, so omitting it is required rather than derived from the printer.
+// @evidence contracts/testing.md#distinguishing-cases One changing case where a width-driven break would normally add a trailing comma; the rest-target guard distinguishes the valid output from `...restItems,`. Object-pattern rest targets are owned by a separate test.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls assertFixSnapshotWithOptions, applying the rule's edits to a temp-dir file; no child process, built binary or installed consumer.
 func TestFormatPrintWidthBreaksArrayRestAssignmentTargetWithoutComma(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

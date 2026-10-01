@@ -22,8 +22,8 @@ import (
 //  1. Parse a two-statement source where the second statement starts
 //     with `[`.
 //  2. Run formatSemi configured `prefer: "never"`.
-//  3. Assert zero findings — the hazard guard kept the first `;` in
-//     place.
+//  3. Assert exactly one finding, a single-byte removal of the final
+//     end-of-file `;` — the hazard guard kept the first `;` in place.
 //
 // @evidence contracts/testing.md#behavioral-verification format/semi must preserve the terminator before an array-start expression while offering exactly the safe EOF-semicolon removal under never.
 // @evidence contracts/testing.md#independent-expectations The independently authored two-statement source makes removal of the first semicolon re-associate the array with one; its final terminator alone has no following hazard, fixing the expected exact edit range.

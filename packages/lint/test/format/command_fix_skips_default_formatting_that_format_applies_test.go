@@ -24,10 +24,10 @@ import (
 //  2. Run `ttsc fix` on one copy and `ttsc format` on the other.
 //  3. Assert fix applied the lint fix but added no semicolons, while format added
 //     the default semicolons but left the `var` lint violation untouched.
-// @evidence contracts/testing.md#behavioral-verification The fix dispatcher changes only the configured lint violation, whereas format adds default terminators and retains var; separate disposable projects distinguish the two command populations.
-// @evidence contracts/testing.md#independent-expectations The literal lint-only file and expected semicolon-bearing lines express each command contract independently; the explicit no-let assertion rejects a formatting path that also performs lint edits.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed two copies of one source — a `no-var` lint violation plus two missing semicolons — with only a lint rule configured and no `format` block. The asserted decision is: Assert fix applied the lint fix but added no semicolons, while format added the default semicolons but left the `var` lint violation untouched. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFixSkipsDefaultFormattingThatFormatApplies owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `fix` command and then the `format` command on separate copies of one source with only no-var configured and no format block; fix must yield `let` with both semicolons still missing, format must add semicolons while keeping `var`.
+// @evidence contracts/testing.md#independent-expectations The fix result is compared exactly against an authored literal; the format result is checked with Contains for the two terminated lines and a not-contains check for `let `, so it is a partial rather than whole-file oracle.
+// @evidence contracts/testing.md#distinguishing-cases Contrasts two commands over identical input: fix applies lint edits but no default formatting, format applies default semicolons but no lint edit. Both exit 0 with empty output; configured-format-block fix is owned by the sibling fix test.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run twice (fix, format) against two temp-dir projects; no child process, built binary or installed consumer.
 func TestCommandFixSkipsDefaultFormattingThatFormatApplies(t *testing.T) {
   const source = "var legacy = 1\nJSON.stringify(legacy)\nexport {}\n"
 

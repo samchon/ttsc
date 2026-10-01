@@ -20,7 +20,7 @@ import (
  *
  * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn reports a dangling Markdown root and requests replacement with a directory.
  * @evidence contracts/testing.md#independent-expectations The fixture removes the target and the literal not-directory and replacement messages are authored failure expectations.
- * @evidence contracts/testing.md#distinguishing-cases A previously valid root becomes dangling, contrasting with a healthy linked root.
+ * @evidence contracts/testing.md#distinguishing-cases One negative case: a link that existed with a real target is left dangling by removing the target, and the "not a directory"/replace wording is asserted; the absent-path "create that directory" wording and a healthy linked root are not exercised in this body.
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestARootLinkWithNoTargetAsksToBeReplaced(t *testing.T) {

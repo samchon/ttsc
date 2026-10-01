@@ -18,12 +18,11 @@ import (
  *
  * @evidence contracts/testing.md#behavioral-verification lookupSwaggerDocument misses local path without digest and hits it with digest.
  * @evidence contracts/testing.md#independent-expectations Literal source and digest keys establish local identity separately.
- * @evidence contracts/testing.md#distinguishing-cases Local content-keyed lookup remains distinct from remote address-keyed lookup.
- * @evidence contracts/testing.md#execution-ownership TestSwaggerLocalDocumentStillKeysOnContent is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#distinguishing-cases A local entry remembered under a content digest misses when looked up with an empty digest and hits when looked up with that digest, so path alone is not a key. No remote source is looked up here.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerLocalDocumentStillKeysOnContent is a selectable native Go unit entry. It calls rememberSwaggerDocument and lookupSwaggerDocument against isolated in-memory caches in-process; no consumer, Node process, native build or product host is started.
  */
 func TestSwaggerLocalDocumentStillKeysOnContent(t *testing.T) {
-  swaggerDocuments = newSwaggerCache()
-  swaggerRemoteDocuments = newSwaggerCache()
+  isolateSwaggerCache(t)
   rememberSwaggerDocument("api/openapi.json", "digest", swaggerDocumentOutcome{
     Operations: []swaggerOperation{{Method: "GET", Path: "/members"}},
   })

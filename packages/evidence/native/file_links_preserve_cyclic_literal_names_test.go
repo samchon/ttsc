@@ -12,13 +12,10 @@ import "testing"
  * 2. Resolve existing inline spellings through each namespace alias.
  * 3. Introduce a qualified-name collision and require precise file accessors.
  *
- * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies cyclic paths preserve literal export names and their ambiguity.
- *
- * @evidence contracts/testing.md#independent-expectations The authored A.B literal and nested A.B declarations collide only in legacy dotted syntax. Bracket accessors independently distinguish both required properties.
- *
- * @evidence contracts/testing.md#distinguishing-cases Export a class with a literal dotted alias and cyclic namespace aliases. Resolve existing inline spellings through each namespace alias. Introduce a qualified-name collision and require precise file accessors.
- *
- * @evidence contracts/testing.md#execution-ownership TestFileLinksPreserveCyclicLiteralNames is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#behavioral-verification newFileLinkFixture builds an api/index.ts exporting `Target as "A.B"`, `* as self` and `* as "N.S"` over itself; inline `{@link api.<path>}` citations of `A.B.value`, `self.self.A.B.value` and `N.S.self.A.B.value` (three t.Run rows) must be clean; after adding `namespace A { namespace B { value } }` the citation `api.self.A.B.value` must report `Ambiguous evidence target` and `Missing acknowledgement`, and file links `#self["A.B"].value` and `#self.A.B.value` must then be clean.
+ * @evidence contracts/testing.md#independent-expectations The expectations are authored from the addressing contract: legacy dotted inline links join literal dots and qualification, so the literal export `A.B` and a nested `A.B` collide only in dotted syntax, while bracket accessors in file links tell them apart.
+ * @evidence contracts/testing.md#distinguishing-cases Three cyclic-namespace spellings of the literal export (clean), the introduced collision (ambiguous), and the bracket-versus-dotted file links that resolve it (clean); each stage has its own literal expectation.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksPreserveCyclicLiteralNames is a Go unit entry in the native test process with three t.Run rows plus direct stages; it drives graphRule.Check through newFileLinkFixture over real temp files and in-memory snapshots, with no consumer install or product host.
  */
 func TestFileLinksPreserveCyclicLiteralNames(t *testing.T) {
   module := `class Target { static value = 1; }

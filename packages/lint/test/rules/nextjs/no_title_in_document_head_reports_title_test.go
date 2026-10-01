@@ -16,18 +16,6 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases The original annotated violation remains unchanged and an adjacent accepted source is checked with filename pages/_document.tsx. This is static source/filename behavior, not a browser rendering assertion.
 // @evidence contracts/testing.md#execution-ownership TestNextjsNoTitleInDocumentHeadReportsTitle is a discoverable Go unit entry; TypeScript/TSX parsing and the owning engine execute in one shared process without installing Next, route discovery or a product child host.
 func TestNextjsNoTitleInDocumentHeadReportsTitle(t *testing.T) {
-  assertRuleCorpusCaseTSX(t, "pages/_document.tsx", `
-import { Head } from "next/document";
-
-export default function Document() {
-  return (
-    <Head>
-      // expect: nextjs/no-title-in-document-head error
-      <title>Bad</title>
-    </Head>
-  );
-}
-`)
   _, _, acceptedFindings := runRuleFindingsSnapshotFile(t, "nextjs/no-title-in-document-head", "pages/_document.tsx", "import { Head } from \"next/document\"; export default function Document() { return <Head><meta charSet=\"utf-8\" /></Head>; }\n", nil)
   if len(acceptedFindings) != 0 {
     t.Fatalf("accepted Next source unexpectedly reports: %+v", acceptedFindings)

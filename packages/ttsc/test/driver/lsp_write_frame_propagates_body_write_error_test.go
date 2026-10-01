@@ -16,9 +16,9 @@ import (
 // 2. Assert WriteFrame returns a wrapped body-write error.
 func TestLSPWriteFramePropagatesBodyWriteError(t *testing.T) {
   sentinel := errors.New("body broken")
-  // Content-Length: 4\r\n\r\n is 22 bytes; fail after them so only the
+  // "Content-Length: 4\r\n\r\n" is 21 bytes; fail after them so only the
   // body Write call sees the sentinel error.
-  w := newFlakyWriter(22, sentinel)
+  w := newFlakyWriter(21, sentinel)
 
   err := driver.WriteFrame(w, []byte("data"))
   if err == nil {

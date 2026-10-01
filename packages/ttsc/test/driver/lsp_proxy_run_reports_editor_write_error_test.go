@@ -10,10 +10,11 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyRunReportsEditorWriteError covers two error branches with
-// one scenario: pumpUpstreamToEditor's malformed-envelope forward path
-// and its augmented-frame forward path. Both must surface a write error
-// when the editor closes its read end mid-session.
+// TestLSPProxyRunReportsEditorWriteError covers pumpUpstreamToEditor's
+// malformed-envelope forward path: a non-JSON upstream frame must surface a
+// write error when the editor closes its read end mid-session. The
+// augmented-frame forward path is covered by
+// TestLSPProxyRunReportsEditorAugmentedWriteError.
 //
 //  1. Build a proxy with EditorOut closed on the editor side.
 //  2. Send a malformed upstream frame so the pump takes the parse-error

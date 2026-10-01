@@ -22,7 +22,7 @@ const construct = (target: Expression): Expression =>
  *
  * 1. Print `new` expressions whose targets are `f().bar` (call at the chain head),
  *    `a.b().c` (call mid-chain), and `f()[0]` (element access over a call).
- * 2. Assert every target is parenthesized, matching the legacy `ts.Printer`.
+ * 2. Assert every target is printed parenthesized, against literal expected text.
  * 3. Re-parse each output with the legacy compiler and assert the top-level
  *    expression is still a `NewExpression` (the bug shape re-parses as a
  *    top-level `CallExpression` instead).

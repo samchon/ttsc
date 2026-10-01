@@ -12,13 +12,10 @@ import "testing"
  * 2. Evaluate each against the same public class population.
  * 3. Assert its diagnostic and the still-missing acknowledgement.
  *
- * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies file-link failures name their repair and never satisfy coverage.
- *
- * @evidence contracts/testing.md#independent-expectations The independently authored table distinguishes malformed, missing, unselected, private, accessor, and out-of-population targets; each failure leaves the real property still owed.
- *
- * @evidence contracts/testing.md#distinguishing-cases Cite malformed, missing, unselected, and inaccessible targets. Evaluate each against the same public class population. Assert its diagnostic and the still-missing acknowledgement.
- *
- * @evidence contracts/testing.md#execution-ownership TestFileLinksReportResolutionCauses is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#behavioral-verification Nine t.Run rows link targets in a docs/review.md against a property reference over src/example.ts (a class with a public field, a private field and an accessor, plus a function) and src/other.ts, and each must contain its own cause diagnostic (`Malformed file-qualified` for a missing fragment and for a trailing dot, `Missing TypeScript evidence file`, `Missing TypeScript evidence export`, `Missing TypeScript evidence member`, `private or protected`, `accessors are not evidence units`, `Unselected TypeScript evidence target` and `Out-of-population TypeScript evidence target`) together with `Missing acknowledgement`.
+ * @evidence contracts/testing.md#independent-expectations The expected cause per row is an authored table from the resolution contract: each kind of failed link has its own repair message and none of them acknowledges the real property, which stays owed.
+ * @evidence contracts/testing.md#distinguishing-cases Each failure class is its own named row against the same population, so a resolver that collapsed two causes into one message would fail the row of the other; only containment of the two fragments is asserted.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksReportResolutionCauses is a Go unit entry in the native test process that owns nine t.Run rows; runIndexRule writes each fixture to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestFileLinksReportResolutionCauses(t *testing.T) {
   for _, test := range []struct{ target, diagnostic string }{

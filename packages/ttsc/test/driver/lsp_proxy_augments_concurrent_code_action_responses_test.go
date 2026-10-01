@@ -14,10 +14,9 @@ import (
 // activity; pendingActions must key on the id alone and survive the
 // upstream returning responses in reverse order from the requests.
 //
-// Locks the per-id keying in pendingActions and the lock contract in
-// rememberCodeActionRequest / augmentUpstream. A future refactor that
-// moved the delete outside the critical section would silently swap
-// the uri/range/ctx of two interleaved requests without this test.
+// Locks the per-id keying in pendingActions: a keying that confused the two
+// in-flight requests would tag a response with the other request's uri. (The
+// locking itself is observable only under `go test -race`.)
 //
 // 1. Configure a source whose CodeActions returns a uri-tagged action.
 // 2. Send codeAction requests id=1 (/a.ts) and id=2 (/b.ts).

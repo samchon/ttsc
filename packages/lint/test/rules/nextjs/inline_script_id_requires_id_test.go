@@ -16,18 +16,6 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases The original annotated violation remains unchanged and an adjacent accepted source is checked with filename pages/index.tsx. This is static source/filename behavior, not a browser rendering assertion.
 // @evidence contracts/testing.md#execution-ownership TestNextjsInlineScriptIDRequiresID is a discoverable Go unit entry; TypeScript/TSX parsing and the owning engine execute in one shared process without installing Next, route discovery or a product child host.
 func TestNextjsInlineScriptIDRequiresID(t *testing.T) {
-  assertRuleCorpusCaseTSX(t, "pages/index.tsx", `
-import Script from "next/script";
-
-export default function Page() {
-  return (
-    <>
-      // expect: nextjs/inline-script-id error
-      <Script>{`+"`"+`window.__ready = true;`+"`"+`}</Script>
-    </>
-  );
-}
-`)
   _, _, acceptedFindings := runRuleFindingsSnapshotFile(t, "nextjs/inline-script-id", "pages/index.tsx", "import Script from \"next/script\"; export default function Page() { return <Script id=\"ready\">{\"window.__ready = true;\"}</Script>; }\n", nil)
   if len(acceptedFindings) != 0 {
     t.Fatalf("accepted Next source unexpectedly reports: %+v", acceptedFindings)

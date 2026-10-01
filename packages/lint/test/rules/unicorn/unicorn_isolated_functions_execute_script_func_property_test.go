@@ -12,8 +12,9 @@ import "testing"
 // on the first argument's object literal, so accessors, computed identifier
 // keys, later arguments, and computed executeScript access must stay silent.
 //
-//  1. Assert arrow, function-expression, method-shorthand, and
-//     computed-string-key `func` members report for both scripting objects.
+//  1. Assert an arrow `func`, a method-shorthand `func`, and a function
+//     expression under the computed string key `["func"]` report, spread
+//     across the chrome and browser scripting objects.
 //  2. Assert accessors, identifier-computed keys, identifier values, second
 //     arguments, and computed executeScript member access are clean.
 //

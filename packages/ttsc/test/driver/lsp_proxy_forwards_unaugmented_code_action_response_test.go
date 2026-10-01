@@ -5,17 +5,18 @@ import (
   "testing"
 )
 
-// TestLSPProxyForwardsUnaugmentedCodeActionResponse covers two negative
-// branches in one scenario: the source contributes no actions, and the
-// codeAction request was a notification (no id), so the proxy never
-// remembered it. Both paths must yield byte-identical forwarding so
-// editors that special-case the wire shape stay correct.
+// TestLSPProxyForwardsUnaugmentedCodeActionResponse covers the negative branch
+// where no codeAction request was remembered: a codeAction notification (no id)
+// is never recorded, so an upstream response for an unknown id must be
+// forwarded byte-identically. The proxy runs with the default null source; the
+// "source contributes nothing" branch for a remembered id is covered by
+// TestLSPProxyForwardsUnaugmentedResponseWhenSourceIsSilent.
 //
-// 1. Use NullPluginSource (zero contributions).
-// 2. Send a notification-shaped codeAction (no id).
-// 3. Forward it upstream.
-// 4. Send an upstream response with id=99 (not remembered).
-// 5. Assert the editor sees the original bytes for both.
+// 1. Use the default null PluginSource (zero contributions).
+// 2. Send a notification-shaped codeAction (no id) and assert it reaches
+//    upstream byte-equal.
+// 3. Send an upstream response with id=99 (not remembered).
+// 4. Assert the editor sees the response bytes unchanged.
 func TestLSPProxyForwardsUnaugmentedCodeActionResponse(t *testing.T) {
   h := newProxyHarness(t, nil)
 

@@ -19,7 +19,7 @@ import (
 //  3. Assert each one reports unchanged with no replacement dump.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies a permanently absent `files` entry does not churn the session.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "unchanged"; each one reports unchanged with no replacement dump.
+// @evidence contracts/testing.md#independent-expectations The expectation is literal: a files entry (src/generated.ts) that never exists must not flap, so two further snapshots after the initial one must each be mode unchanged with no dump and changed false. A session whose stored root set disagreed with its reloaded one would report reload.
 // @evidence contracts/testing.md#distinguishing-cases Open a session whose tsconfig lists absent `src/generated.ts` in files; Take repeated snapshots without touching the project; Assert each one reports unchanged with no replacement dump.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionKeepsMissingLiteralRootUnchanged is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionKeepsMissingLiteralRootUnchanged(t *testing.T) {

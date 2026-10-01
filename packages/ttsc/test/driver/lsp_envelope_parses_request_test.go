@@ -7,10 +7,10 @@ import (
 )
 
 // TestLSPEnvelopeParsesRequest covers the request shape the proxy
-// dispatches against: id + method + params. IDKey routes the id
-// through json.Decoder.UseNumber() before formatting, so peers that
-// pad their JSON with whitespace or use a different integer encoding
-// (e.g. 42 vs 42.0) still produce the same correlator key.
+// dispatches against: id + method + params. The id here is padded with
+// whitespace (`"id":  42 `), which must still yield the canonical key; other
+// encodings of the same number (42.0, exponent forms) are covered by
+// TestLSPEnvelopeIDKeyNormalizesEquivalentNumerics.
 //
 // 1. Decode a request envelope.
 // 2. Assert IsRequest is true and IsResponse / IsNotification are false.

@@ -27,12 +27,17 @@ func (p *linkedPluginProbe) ApplyProgram(_ *driver.Program, ctx driver.PluginCon
 // package hooks receive their paired manifest entry.
 //
 // Locks the generic linked-host contract introduced for non-main transform
-// packages. Registration order, not package name, pairs a linked Go package
-// with the manifest entry ttsc forwards through TTSC_LINKED_PLUGINS_JSON.
+// packages: a registered package is paired with the manifest entry ttsc forwards
+// through TTSC_LINKED_PLUGINS_JSON even though the entry's name ("whatever")
+// has no relation to the package. A single registration and a single entry are
+// used, so the case does not distinguish pairing by order from any other
+// one-to-one pairing.
 //
 // 1. Register a probe that implements both linked plugin hooks.
 // 2. Load a real Program with one linked plugin manifest entry.
-// 3. Assert source preamble and Program hooks see the same config.
+// 3. Assert the source preamble was returned, ApplyProgram ran once, and both
+//    hooks received the Program's cwd, the tsconfig name and that entry's name
+//    and config.
 func TestDriverLinkedPluginsRegistersAndAppliesProgram(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"whatever","stage":"transform","config":{"answer":42}}]`)

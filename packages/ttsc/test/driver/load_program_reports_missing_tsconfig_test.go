@@ -10,8 +10,8 @@ import (
 // TestDriverLoadProgramReportsMissingTSConfig verifies missing project files
 // stay an error path instead of becoming diagnostics.
 //
-// The driver resolves project paths through the same VFS guard used by the
-// command, so this covers the path-existence branch before tsgo parses JSON.
+// A tsconfig path that does not exist must fail before any Program is built,
+// so this covers the path-existence branch ahead of JSON parsing.
 //
 // 1. Create an empty temporary project directory.
 // 2. Load a tsconfig path that does not exist.

@@ -18,10 +18,10 @@ import (
  *  1. Make a directory inside the configured globs unreadable.
  *  2. Run the rule.
  *  3. Assert the path the rule prints is project-relative.
- * @evidence contracts/testing.md#behavioral-verification runIndexRuleAtRoot is exercised with the scenario below; the assertions require the path the rule prints is project-relative.
- * @evidence contracts/testing.md#independent-expectations The unit cases above compose the message from a base a test built. This runs the actual rule against a directory the process may not list, so the value the walker hands the callback is the real one and the relevance guard above the report is actually traversed.
- * @evidence contracts/testing.md#distinguishing-cases Make a directory inside the configured globs unreadable. Run the rule. Assert the path the rule prints is project-relative.
- * @evidence contracts/testing.md#execution-ownership TestARealMarkdownWalkFailureNamesTheProjectRelativePath is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification The test makes docs/private unreadable (skipping where the platform or a root user cannot deny a listing), then runIndexRuleAtRoot runs the graph rule with a Markdown reference over docs/**\/*.md; it requires a diagnostic containing `could not inspect 'docs/private':`, no `matched no markdown files` diagnostic, and no diagnostic quoting the absolute private path.
+ * @evidence contracts/testing.md#independent-expectations The expected spelling is the authored project-relative `docs/private`; the absolute path of the temp directory is known to the test from its own allocation, so its absence in the rule-authored quoted segment is checked against a value the rule did not produce. The operating-system cause after the quote may legitimately carry an absolute path and is not asserted.
+ * @evidence contracts/testing.md#distinguishing-cases One failing directory beside a readable docs/public.md; the second assertion separates a walk failure that fails its population from an empty population, and the third separates a project-relative path from an absolute one. A declared root above the project is covered by a sibling entry.
+ * @evidence contracts/testing.md#execution-ownership TestARealMarkdownWalkFailureNamesTheProjectRelativePath is a Go unit entry in the native test process; it drives the real graph rule over a real temp directory with permissions dropped, with no consumer install or product host, and skips where permissions cannot be dropped.
  */
 func TestARealMarkdownWalkFailureNamesTheProjectRelativePath(t *testing.T) {
   root := t.TempDir()

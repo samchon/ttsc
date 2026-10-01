@@ -17,13 +17,13 @@ func (linkedPreambleErrorPlugin) SourcePreamble(driver.PluginContext) (string, e
 // TestDriverLinkedPluginsSurfaceSourcePreambleErrors verifies that source
 // preamble hook errors abort Program load.
 //
-// Source preambles are applied before TypeScript-Go parses source text. A
-// failing hook must stop the load immediately so the parser never sees a
-// partial synthetic prefix.
+// Source preambles are collected while the Program loads. A failing hook must
+// fail the load rather than yield a Program built without its preamble.
 //
 // 1. Register a source-preamble plugin that returns an error.
 // 2. Load a Program with one linked manifest entry.
-// 3. Assert the error is surfaced to the caller.
+// 3. Assert LoadProgram returns an error containing the hook's message (what
+//    the parser saw is not observed).
 func TestDriverLinkedPluginsSurfaceSourcePreambleErrors(t *testing.T) {
   resetLinkedPluginRegistry()
   driver.RegisterPlugin(linkedPreambleErrorPlugin{})

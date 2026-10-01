@@ -24,7 +24,7 @@ import (
  *
  * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn keeps a TypeScript population whose linked ancestor precedes the declared root leaf.
  * @evidence contracts/testing.md#independent-expectations Literal missing Discounts reference and ../mirror/project/src/sale.ts pin coverage and authored host spelling.
- * @evidence contracts/testing.md#distinguishing-cases The linked ancestor differs from a link directly on the configured population root.
+ * @evidence contracts/testing.md#distinguishing-cases One positive case: the link sits on an ancestor of the declared root (../mirror/project), not on the root leaf, and the claim must still be active; the body runs no leaf-link or unlinked counterpart.
  * @evidence contracts/testing.md#execution-ownership This named Go unit calls authored rule/resolver operations in one Go test process with native filesystem fixtures, without installing a consumer, compiling a native artifact or launching a product host. Symbolic-link creation uses os.Symlink; unsupported local privileges fail instead of skipping.
  */
 func TestATypeScriptClaimRootedInsideALinkKeepsItsHosts(t *testing.T) {

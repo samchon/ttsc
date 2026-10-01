@@ -16,10 +16,10 @@ import (
  *  1. Scan one parsed source twice and assert the second scan is the first.
  *  2. Reparse the same path with different content.
  *  3. Assert the new source is scanned afresh and materializes the new unit.
- * @evidence contracts/testing.md#behavioral-verification typeScriptInventoryCache.scan is exercised with the scenario below; the assertions require the new source is scanned afresh and materializes the new unit.
- * @evidence contracts/testing.md#independent-expectations The cache exists because a watch cycle rescans thousands of files the edit never touched, and it is safe only because the compiler hands back a new source object for a file it reparsed. Serving a scan for content the host no longer holds would report the previous edit's graph; a stale answer that reads exactly like a correct one.
- * @evidence contracts/testing.md#distinguishing-cases Scan one parsed source twice and assert the second scan is the first. Reparse the same path with different content. Assert the new source is scanned afresh and materializes the new unit.
- * @evidence contracts/testing.md#execution-ownership TestInventoryCacheFollowsTheParsedSource is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification newTypeScriptInventoryCache().scan is called with one parsed source of `export interface IBefore {}`, which must return an inventory with one unit `IBefore` and the identical pointer on a second scan of the same source; scanning a newly parsed source of the same path with `export interface IAfter {}` must return a different inventory holding the single unit `IAfter`.
+ * @evidence contracts/testing.md#independent-expectations The expectations are authored from the cache contract: a scan is bound to the exact parsed source object, so the same object is reused while a reparsed source (a new object, as the compiler returns after an edit) is scanned afresh and shows the new content.
+ * @evidence contracts/testing.md#distinguishing-cases Same source scanned twice (pointer equality required) against an edited source of the same path (pointer inequality and new target required); a content-keyed or path-keyed cache would serve the stale unit.
+ * @evidence contracts/testing.md#execution-ownership TestInventoryCacheFollowsTheParsedSource is a Go unit entry in the native test process; it parses in-memory TypeScript through the shim parser and calls the cache directly, with no filesystem, consumer install or product host.
  */
 func TestInventoryCacheFollowsTheParsedSource(t *testing.T) {
   cache := newTypeScriptInventoryCache()

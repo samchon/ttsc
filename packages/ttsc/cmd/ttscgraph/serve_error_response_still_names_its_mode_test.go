@@ -25,9 +25,9 @@ import (
 //     all.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies a failed snapshot answers with a mode and a protocol version rather than dropping them.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the protocol version still rides it, so the client can read it at all.
+// @evidence contracts/testing.md#independent-expectations The expected id (7), mode error, protocol version and the three wire keys (mode, protocolVersion, capabilities) come from the serve envelope contract and are asserted both on the typed value and on the raw JSON keys, so an omitempty regression on mode fails even though the Go field is set. The invalid tsconfig text is a literal fixture.
 // @evidence contracts/testing.md#distinguishing-cases Serve a project whose tsconfig is invalid, so the session cannot be built; Assert the response carries the error, and mode is the error mode; Assert the protocol version still rides it, so the client can read it at all.
-// @evidence contracts/testing.md#execution-ownership TestServeErrorResponseStillNamesItsMode is a source-unit entry. graphSessionFixture, serveSnapshots, output.Bytes run directly over the supplied fixture/input values without installing a consumer, building a native artifact or starting a product host.
+// @evidence contracts/testing.md#execution-ownership TestServeErrorResponseStillNamesItsMode is a Go source-unit entry. It calls serveSnapshots in-process over a fixture whose tsconfig.json is invalid, so session creation fails before projection or Git acquisition; nothing is installed, built or launched.
 func TestServeErrorResponseStillNamesItsMode(t *testing.T) {
   root := graphSessionFixture(t)
   if err := os.WriteFile(filepath.Join(root, "tsconfig.json"), []byte("{ invalid"), 0o644); err != nil {

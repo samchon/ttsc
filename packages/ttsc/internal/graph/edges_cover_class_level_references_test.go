@@ -29,7 +29,7 @@ import (
 // 3. Require Payload and Constraint type references, Base heritage and Injectable metadata, without a spurious decorator factory value-call edge.
 //
 // @evidence contracts/testing.md#behavioral-verification Require Payload and Constraint type references, Base heritage and Injectable metadata, without a spurious decorator factory value-call edge.
-// @evidence contracts/testing.md#independent-expectations The literal fixture and supported graph contract establish these expectations: Require Payload and Constraint type references, Base heritage and Injectable metadata, without a spurious decorator factory value-call edge.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over the Service class: type-ref edges to Payload (heritage type argument) and Constraint (type parameter constraint), a heritage edge to Base, a recorded Injectable decorator on Service, and no value-call edge from Service to Injectable. The checks are by presence or absence of edges and do not assert spans.
 // @evidence contracts/testing.md#distinguishing-cases Load decorated Service with generic Constraint, Base heritage and Payload arguments. Build its class-level type, heritage and decorator facts. Require Payload and Constraint type references, Base heritage and Injectable metadata, without a spurious decorator factory value-call edge.
 // @evidence contracts/testing.md#execution-ownership TestEdgesCoverClassLevelReferences is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestEdgesCoverClassLevelReferences(t *testing.T) {

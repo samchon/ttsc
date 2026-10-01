@@ -17,9 +17,11 @@ import (
 // support, then appends plugin actions to that response.
 //
 // 1. Configure one plugin action.
-// 2. Send a normal codeAction request and wait longer than the old fallback.
+// 2. Send a normal codeAction request and drain it upstream; the proxy holds the
+//    request open until upstream replies (no wall-clock delay is injected).
 // 3. Reply from upstream with a TypeScript action.
-// 4. Assert both upstream and plugin actions are present.
+// 4. Assert the single editor response holds both the upstream and plugin
+//    actions (two entries).
 func TestLSPProxyPreservesSlowUpstreamCodeActions(t *testing.T) {
   h := newProxyHarness(t, &stubSource{
     actions: []driver.LSPCodeAction{{Title: "ttsc fix", Kind: "source.fixAll.ttsc"}},

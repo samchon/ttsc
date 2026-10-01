@@ -13,7 +13,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification assertJSDocRuleLines calls the actual engine and verifies a tag-only block is reported at its opening line; exact rule, error severity and line checks detect missing, extra or misplaced findings.
 // @evidence contracts/testing.md#independent-expectations Tag payload is not a declaration description; a prose line supplies the missing description. The literal comment and expected line establish this supported policy independently of the parser or rule result.
-// @evidence contracts/testing.md#distinguishing-cases The original malformed or incomplete tag remains intact; an independently authored documented block using @param name description must produce zero findings.
+// @evidence contracts/testing.md#distinguishing-cases The deficient tag in the first source is the reported case, and a second independently authored block using @param name description must produce zero findings.
 // @evidence contracts/testing.md#execution-ownership TestRuleJSDocRequireDescription is a named Go unit entry running real comment parsing and the owning engine over virtual TypeScript in the shared test process, without an installed documentation consumer or host.
 func TestRuleJSDocRequireDescription(t *testing.T) {
   assertJSDocRuleLines(t, "jsdoc/require-description", `/**

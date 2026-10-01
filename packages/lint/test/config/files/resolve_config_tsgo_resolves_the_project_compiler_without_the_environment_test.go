@@ -12,7 +12,7 @@ import (
 // only by inheritance from a `ttsx`-launched host: the shipped `ttscserver`
 // binary invoked with `--tsgo <path>` exports nothing, and evaluation aborted
 // with `ttsc: typescript is required` before a line of the config was read.
-// The case sheds both variables first, because scripts/test-go-lint.cjs exports
+// The case sheds both variables first, because `go test` exports
 // them into `go test` and that is exactly what masked the defect.
 //
 //  1. Seed a project holding `typescript` and its platform package.

@@ -15,7 +15,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification runFunctionalRuleWithOptions executes the actual engine and verifies constructor bare return stays accepted despite an annotated outer function; an exact zero-finding comparison rejects both unwanted reports and recovered engine failures.
 // @evidence contracts/testing.md#independent-expectations A constructor cannot declare a return annotation; nearest function ownership prevents attributing the outer annotation. The literal source and configured option express the supported policy independently of rule output.
-// @evidence contracts/testing.md#distinguishing-cases The annotated getter case checks the other function-like boundary. This case owns its explicit source/option distinction rather than certifying the whole family.
+// @evidence contracts/testing.md#distinguishing-cases The annotated getter case checks the other function-like boundary.
 // @evidence contracts/testing.md#execution-ownership TestFunctionalNoReturnVoidIgnoreInferredTypesStopsAtTheNearestFunction is a named Go unit entry running actual TypeScript AST policy operations in the shared engine process; no consumer install, native build or real product host is used.
 func TestFunctionalNoReturnVoidIgnoreInferredTypesStopsAtTheNearestFunction(t *testing.T) {
   const ruleName = "functional/no-return-void"

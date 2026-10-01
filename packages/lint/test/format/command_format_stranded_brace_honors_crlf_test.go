@@ -18,10 +18,10 @@ import (
 //  2. Run `ttsc format`.
 //  3. Assert every inserted break is `\r\n` and no lone `\n` survives.
 //
-// @evidence contracts/testing.md#behavioral-verification The format command must expand a single-line function into an indented CRLF block and converge without a lone LF.
-// @evidence contracts/testing.md#independent-expectations The independently authored expected function preserves its signature and return expression and specifies every CRLF separator; the separate LF check detects mixed endings.
-// @evidence contracts/testing.md#distinguishing-cases A changed single-line body complements canonical unchanged brace fixtures. This case specifically selects endOfLine crlf.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatStrandedBraceHonorsCRLF is a public format unit selected by TestSelectedLintUnits. The isolated fixture filesystem feeds the actual Go command entry in the shared process. This verifies command semantics without compiling or launching a native artifact or installing a consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command with endOfLine crlf on `export function f(n: number) { return n; }` (CRLF terminated), requires exit 0 without a did-not-converge message and the exact file `...{\r\n  return n;\r\n}\r\n`, then checks no lone LF remains.
+// @evidence contracts/testing.md#independent-expectations The expected text is an authored literal with explicit CRLF separators; the lone-LF check is a second assertion following from the endOfLine contract.
+// @evidence contracts/testing.md#distinguishing-cases One changing case where a break is inserted before the closing brace of a function body; it selects crlf specifically, while LF forms and unchanged canonical braces are covered by sibling tests.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: seeds a temp-dir project and calls run with the format subcommand; no child process, built binary or installed consumer.
 func TestCommandFormatStrandedBraceHonorsCRLF(t *testing.T) {
   source := "export function f(n: number) { return n; }\r\n"
   want := "export function f(n: number) {\r\n  return n;\r\n}\r\n"

@@ -25,10 +25,10 @@ import (
 //  1. Parse the oscillating `.tsx` repro under ScriptKindTSX.
 //  2. Run format/print-width at printWidth=40 with the engine resolver.
 //  3. Assert the rule emits zero findings — the JSX expressions stay intact.
-// @evidence contracts/testing.md#behavioral-verification The engine parses the oscillating TSX repro and format/print-width must emit zero findings for its JSX expressions at width 40.
-// @evidence contracts/testing.md#independent-expectations The authored JSX fixture and unsupported-expression preservation contract independently require abstention; the result is not compared with another printer pass.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: `KindJsxExpression` wraps both the attribute `{…}` and the child `{…}`, so a single `hasJsxExpressionAncestor` abstain (the JSX analogue of `hasTemplateSubstitutionAncestor`) covers both and breaks the oscillation. The case parses the repro as TSX, runs at a width that would otherwise break those nodes, and asserts zero findings. . The asserted decision is: Assert the rule emits zero findings — the JSX expressions stay intact. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthAbstainsInsideJsxExpression owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
+// @evidence contracts/testing.md#behavioral-verification Parses a one-line TSX component with a conditional in a JSX attribute `{...}` and an `items.map(...)` call in a JSX child `{...}`, runs format/print-width at printWidth 40 through the engine, and requires zero findings.
+// @evidence contracts/testing.md#independent-expectations The expectation (no finding, so the JSX expressions stay as written) follows from the stated contract that nodes inside a JSX expression container must not be reflowed; it is an authored absence oracle, not compared with another printer pass.
+// @evidence contracts/testing.md#distinguishing-cases One abstention case covering both JSX expression positions (attribute initializer and child) at a width that would otherwise break them. Without the abstention the cascade oscillates; the fitting-width case where nothing would break is not included.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: writes a temp-dir .tsx file, parses it as TSX and runs the engine with an inline resolver; no child process, built binary or installed consumer.
 func TestFormatPrintWidthAbstainsInsideJsxExpression(t *testing.T) {
   source := "const E = () => <div className={cond ? \"a\" : \"b\"}>{items.map((i) => <span>{i.name}</span>)}</div>;\n"
   root := t.TempDir()

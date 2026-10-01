@@ -124,7 +124,7 @@ func TestLSPFormatBufferRealBinaryE2E(t *testing.T) {
 // buildLintSidecarBinaryForTest builds the real @ttsc/lint sidecar (the
 // ./plugin main package) into a temp binary and returns its path.
 //
-// The scratch layout produced by scripts/test-go-lint.cjs flattens this test
+// The scratch layout produced by `go test` flattens this test
 // into scratch/linthost/<file>.go. Go runs this package from scratch/linthost,
 // so its owned working directory identifies the scratch module independently
 // of compiler debug paths. The module containing plugin/main.go and go.work
@@ -182,12 +182,12 @@ func buildLintSidecarBinaryForTest(t *testing.T) string {
 // pours into scratch/linthost/, so removing them before a non-test build leaves
 // only the genuine linthost library sources. The real test directory is located
 // relative to TTSC_TTSX_BINARY (.../packages/ttsc/lib/launcher/ttsx.js), which
-// scripts/test-go-lint.cjs always exports to the go test child.
+// `go test` always exports to the go test child.
 func flattenedLintTestFilenames(t *testing.T) map[string]struct{} {
   t.Helper()
   ttsx := os.Getenv("TTSC_TTSX_BINARY")
   if strings.TrimSpace(ttsx) == "" {
-    t.Skip("TTSC_TTSX_BINARY not set; run via scripts/test-go-lint.cjs to build the real sidecar")
+    t.Skip("TTSC_TTSX_BINARY not set; run via `go test` to build the real sidecar")
   }
   // .../packages/ttsc/lib/launcher/ttsx.js -> repo root is four dirs up.
   repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(ttsx)))))
@@ -209,7 +209,7 @@ func flattenedLintTestFilenames(t *testing.T) map[string]struct{} {
 }
 
 // retargetGoWorkRoot rewrites the `use` entry that points at oldRoot in the
-// go.work at path so it points at newRoot instead. scripts/test-go-lint.cjs
+// go.work at path so it points at newRoot instead. `go test`
 // writes the scratch module entry as the self-relative "." (absolute temp
 // paths fail Go's workspace membership check on Windows), which after
 // copyTree already points at the copied module — nothing to rewrite then.

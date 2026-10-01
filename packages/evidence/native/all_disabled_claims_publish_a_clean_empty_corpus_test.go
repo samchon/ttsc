@@ -17,10 +17,10 @@ import (
  *  1. Configure one disabled claim under unreadable roots.
  *  2. Run the project rule with no source population.
  *  3. Assert it passes and publishes an empty corpus and no hints.
- * @evidence contracts/testing.md#behavioral-verification graphRule.Check and graphRule.Hints is exercised with the scenario below; the assertions require it passes and publishes an empty corpus and no hints.
- * @evidence contracts/testing.md#independent-expectations Staged authoring begins with every claim disabled. Treating that state like an empty `claims` array would reject the workflow, while resolving roots before the gate would still produce loader failures.
- * @evidence contracts/testing.md#distinguishing-cases Configure one disabled claim under unreadable roots. Run the project rule with no source population. Assert it passes and publishes an empty corpus and no hints.
- * @evidence contracts/testing.md#execution-ownership TestAllDisabledClaimsPublishACleanEmptyCorpus is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification graphRule.Check is run through rule.NewProjectContext with no sources and one disabled TypeScript claim whose root and reference root name directories that do not exist; the capturing reporter must record no failure or message, the published graphCycleState must hold zero claims and empty Markdown, Prisma and Swagger corpora, and graphRule.Hints on that state must return no hint.
+ * @evidence contracts/testing.md#independent-expectations The expectation is the staged-authoring contract that a configuration whose claims are all disabled passes silently with an empty published corpus; the roots are deliberately nonexistent, so any attempt to resolve them before the disabled gate would surface as a loader message.
+ * @evidence contracts/testing.md#distinguishing-cases A single disabled claim with missing roots against an enabled-claim case that would report a root failure; mixed enabled and disabled claims are owned by sibling configuration entries.
+ * @evidence contracts/testing.md#execution-ownership TestAllDisabledClaimsPublishACleanEmptyCorpus is a Go unit entry in the native test process; it builds the project context in memory with no source files or filesystem fixtures, and starts no consumer install or product host.
  */
 func TestAllDisabledClaimsPublishACleanEmptyCorpus(t *testing.T) {
   reporter := &capturedProjectReporter{}

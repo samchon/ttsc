@@ -15,10 +15,10 @@ import (
  *  1. Select only `type` hosts.
  *  2. Cite from each half in turn.
  *  3. Assert neither is reported as an out-of-scope host.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert neither is reported as an out-of-scope host.
- * @evidence contracts/testing.md#independent-expectations A claim selecting only `type` hosts must accept a citation from either declaration, since both an interface and a namespace are type hosts. If the halves offered different host kinds, the same citation would be in or out of scope depending on where it was written. The authored scenario requires this outcome: Assert neither is reported as an out-of-scope host.
- * @evidence contracts/testing.md#distinguishing-cases Select only `type` hosts. Cite from each half in turn. Assert neither is reported as an out-of-scope host.
- * @evidence contracts/testing.md#execution-ownership TestHostEligibilityIsIdenticalAcrossMergedDeclarations runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification For two sources (the `@evidence docs/spec.md#sale-price` block on `interface ISale`, and the same kind of block on the merged `namespace ISale`), runIndexRule runs the graph rule with a claim selecting only `type` hosts; the diagnostics must contain no message with `Out-of-scope` in either run.
+ * @evidence contracts/testing.md#independent-expectations The expectation is authored from the host contract: both an interface and a namespace are type hosts, so the same citation must be in scope whichever half carries it, not in or out depending on where it was written.
+ * @evidence contracts/testing.md#distinguishing-cases The two placements are iterated over a map with the name in the failure message (plain iterations, not named subtests); only the absence of an out-of-scope diagnostic is asserted, not full silence.
+ * @evidence contracts/testing.md#execution-ownership TestHostEligibilityIsIdenticalAcrossMergedDeclarations is a Go unit entry in the native test process that loops over two inline fixtures; runIndexRule writes each to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestHostEligibilityIsIdenticalAcrossMergedDeclarations(t *testing.T) {
   for name, source := range map[string]string{

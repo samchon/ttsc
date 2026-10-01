@@ -21,13 +21,18 @@ import (
 //  1. Hand-encode one generated line: a 4-field real segment then a 1-field
 //     generated-column-only segment.
 //  2. Run AdjustSourceMapForPreamble (dropLines 3).
-//  3. Decode and assert the real segment shifted to source line 2 and the
-//     column-only segment is still present at absolute generated column 4 with no
+//  3. Decode and assert the real segment (genCol 2) shifted to source line 2 and the
+//     column-only segment is still present at absolute generated column 6 with no
 //     source position.
+//
+// The real segment starts at genCol 2, so the delta (4) and the absolute column
+// (6) of the column-only segment differ and a delta/absolute mix-up is detected.
 func TestAdjustSourceMapForPreamblePreservesGeneratedColumnOnlySegment(t *testing.T) {
   const dropLines = 3
-  realSeg := encodeVLQField(0) + encodeVLQField(0) + encodeVLQField(5) + encodeVLQField(0) // genCol 0, src 0, line 5, col 0
-  colOnly := encodeVLQField(4)                                                             // +4 genCol, no source
+  // The real segment sits at genCol 2 so a column-only segment re-encoded as an
+  // absolute column (6) instead of a delta (4) would decode to 8, not 6.
+  realSeg := encodeVLQField(2) + encodeVLQField(0) + encodeVLQField(5) + encodeVLQField(0) // genCol 2, src 0, line 5, col 0
+  colOnly := encodeVLQField(4)                                                             // +4 genCol (absolute 6), no source
   input := makeMapJSON([]string{"src/a.ts"}, realSeg+","+colOnly)
 
   out, ok := driver.AdjustSourceMapForPreamble(input, dropLines)
@@ -43,11 +48,11 @@ func TestAdjustSourceMapForPreamblePreservesGeneratedColumnOnlySegment(t *testin
   if len(line) != 2 {
     t.Fatalf("expected two segments on the line (real + column-only), got %#v", line)
   }
-  if !line[0].hasSource || line[0].srcLine != 2 || line[0].genCol != 0 {
-    t.Fatalf("real segment: want genCol 0 srcLine 2 hasSource, got %#v", line[0])
+  if !line[0].hasSource || line[0].srcLine != 2 || line[0].genCol != 2 {
+    t.Fatalf("real segment: want genCol 2 srcLine 2 hasSource, got %#v", line[0])
   }
-  if line[1].hasSource || line[1].genCol != 4 {
-    t.Fatalf("column-only segment: want genCol 4 and no source, got %#v", line[1])
+  if line[1].hasSource || line[1].genCol != 6 {
+    t.Fatalf("column-only segment: want genCol 6 and no source, got %#v", line[1])
   }
 }
 

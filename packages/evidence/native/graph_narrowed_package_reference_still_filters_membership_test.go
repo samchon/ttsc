@@ -14,10 +14,10 @@ import "testing"
  *  2. Cite neither operation.
  *  3. Assert the selected area is owed under its entry address and the other
  *     area is not owed at all.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies the narrowing still narrows. The original assertions check assert the selected area is owed under its entry address and the other area is not owed at all.
- * @evidence contracts/testing.md#independent-expectations Publishing every address from the entry would be equally silent if the glob had quietly stopped filtering, and that is worse than the defect it replaces: the whole package surface would owe acknowledgement while the configuration still read as adoptable. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Narrow the same package to one of its two areas. Cite neither operation. Assert the selected area is owed under its entry address and the other area is not owed at all. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestGraphNarrowedPackageReferenceStillFiltersMembership is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification With the nested-accessor package fixture and a source file citing nothing, runIndexRule over a package reference narrowed by `files: lib/functional/health/**` must report `Missing acknowledgement for 'functional.health.get'` and exactly one `Missing acknowledgement` in total.
+ * @evidence contracts/testing.md#independent-expectations The expected single message is authored from the narrowing contract: only the selected area owes an acknowledgement, under its entry address, and the other area (`reviews.erase`) is not owed at all.
+ * @evidence contracts/testing.md#distinguishing-cases The complement of the entry-addresses entry: with no citations, a glob that had stopped filtering would also demand `functional.reviews.erase`, making the count two.
+ * @evidence contracts/testing.md#execution-ownership TestGraphNarrowedPackageReferenceStillFiltersMembership is a Go unit entry in the native test process; runIndexRule writes the fixtures (including a node_modules package) to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestGraphNarrowedPackageReferenceStillFiltersMembership(t *testing.T) {
   files := nestedAccessorPackage()

@@ -20,7 +20,7 @@ import (
 // 4. Assert both the symlink path and backing file still contain source text.
 // @evidence contracts/testing.md#behavioral-verification Fix-all stages a symlinked source directory and returns the literal source rewrite while both linked and backing reads retain the original.
 // @evidence contracts/testing.md#independent-expectations The original/fixed fixture texts independently define edit correctness and non-mutation across the supplied directory alias.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project whose `src` directory is a symlink to another directory. The asserted decision is: Assert both the symlink path and backing file still contain source text. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#distinguishing-cases The whole src directory is a symlink to real-src, so a staging copy that preserved the link would either miss the file or write through to the backing directory; the literal let rewrite must be returned and both the link path and backing file must still read the original var text. The test skips where symlinks cannot be created.
 // @evidence contracts/testing.md#execution-ownership TestLSPExecuteCommandMaterializesSymlinkedDirectoryWithoutMutatingOriginal owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPExecuteCommandMaterializesSymlinkedDirectoryWithoutMutatingOriginal(t *testing.T) {
   root := t.TempDir()

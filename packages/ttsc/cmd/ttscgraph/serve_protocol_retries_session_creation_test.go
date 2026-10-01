@@ -43,7 +43,7 @@ func (r *stepReader) Read(p []byte) (int, error) {
 //  3. Assert the second response is a normal initial snapshot.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies a project that is invalid at startup answers with an error and recovers on a later request.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "initial"; the second response is a normal initial snapshot.
+// @evidence contracts/testing.md#independent-expectations The expected outcome is literal: request 1 over an invalid tsconfig returns an error for id 1 with no dump and not changed, and after the test rewrites the config from a stepped reader between requests, request 2 returns mode initial, changed, with a dump containing the Recovered class from the fixture source. A loop that cached the failure or exited would fail.
 // @evidence contracts/testing.md#distinguishing-cases Request a snapshot while tsconfig.json is invalid; assert an error; Fix the config between requests, request again; Assert the second response is a normal initial snapshot.
 // @evidence contracts/testing.md#execution-ownership TestServeProtocolRetriesSessionCreation is a Go source-unit entry. serveSnapshotRequests performs actual NDJSON decoding and resident lifecycle through the source publisher; prepared projection consumes explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeProtocolRetriesSessionCreation(t *testing.T) {

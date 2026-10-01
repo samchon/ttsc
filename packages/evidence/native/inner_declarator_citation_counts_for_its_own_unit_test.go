@@ -20,10 +20,10 @@ import (
  *  1. Cite a section from the second declarator of a two-declarator statement.
  *  2. Evaluate a `singleEvidencePerSymbol` reference over it.
  *  3. Assert only the untagged sibling is reported.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert only the untagged sibling is reported.
- * @evidence contracts/testing.md#independent-expectations `singleEvidencePerSymbol` counts distinct units per semantic host, and a citation whose position belongs to no unit resolves to no host, so both identities of the statement were reported as citing zero while the same run reported the obligation satisfied. Recording the declarator is what gives the tag a host to be counted against. The authored scenario requires this outcome: Assert only the untagged sibling is reported.
- * @evidence contracts/testing.md#distinguishing-cases Cite a section from the second declarator of a two-declarator statement. Evaluate a `singleEvidencePerSymbol` reference over it. Assert only the untagged sibling is reported.
- * @evidence contracts/testing.md#execution-ownership TestInnerDeclaratorCitationCountsForItsOwnUnit runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a property claim over src/** and a Markdown reference with `singleEvidencePerSymbol`, where `export const alpha = 1, /** @evidence docs/spec.md#pricing ... *\/ beta = 2;` cites on the second declarator only; assertReported requires exactly one diagnostic, containing `'alpha' at src/contracts.ts:2`.
+ * @evidence contracts/testing.md#independent-expectations The expected single report is authored from the host contract: a citation on an inner declarator belongs to that declarator's own unit, so `beta` counts as citing one unit and only the untagged `alpha` is reported as citing none.
+ * @evidence contracts/testing.md#distinguishing-cases The untagged sibling is the control: if the policy had stopped counting hosts, neither would be reported, and if the citation resolved to no host both would be, so the exactly-one result names `alpha` alone at its own line 2.
+ * @evidence contracts/testing.md#execution-ownership TestInnerDeclaratorCitationCountsForItsOwnUnit is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestInnerDeclaratorCitationCountsForItsOwnUnit(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

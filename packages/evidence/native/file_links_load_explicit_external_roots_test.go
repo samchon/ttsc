@@ -18,13 +18,10 @@ import (
  * 2. Resolve its file link through root/files with an empty Program.
  * 3. Delete and restore the target and assert failure then recovery.
  *
- * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies a rooted TypeScript reference reads a sibling outside the Program.
- *
- * @evidence contracts/testing.md#independent-expectations An explicit ../api root authorizes a Program-absent sibling; malformed source, deletion, and restoration independently require syntax error, missing file, and clean recovery.
- *
- * @evidence contracts/testing.md#distinguishing-cases Create a Markdown-only project and a sibling code population. Resolve its file link through root/files with an empty Program. Delete and restore the target and assert failure then recovery.
- *
- * @evidence contracts/testing.md#execution-ownership TestFileLinksLoadExplicitExternalRoots is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#behavioral-verification With a docs project holding review.md and a sibling ../api/example.ts, graphRule.Check over an empty Program and a TypeScript reference with root `../api` must give no diagnostics; after the target is made `export const value = ;` it must report `TypeScript syntax error`, after the target is deleted `Missing TypeScript evidence file`, and after it is restored no diagnostics.
+ * @evidence contracts/testing.md#independent-expectations The expectations are authored from the root contract: an explicit root authorizes a sibling that no Program source imports, and edits, deletion and restoration of that file must be reflected by fresh graph runs.
+ * @evidence contracts/testing.md#distinguishing-cases One file moved through valid, malformed, absent and restored states within one test; each state has its own literal expectation, and the reporter is rebuilt on each check.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksLoadExplicitExternalRoots is a Go unit entry in the native test process; local write and check closures create real temp files and call graphRule.Check directly with an empty Program, with no consumer install or product host.
  */
 func TestFileLinksLoadExplicitExternalRoots(t *testing.T) {
   workspace := t.TempDir()

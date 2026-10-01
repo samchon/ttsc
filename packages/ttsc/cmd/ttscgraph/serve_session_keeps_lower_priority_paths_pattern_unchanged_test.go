@@ -16,8 +16,8 @@ import (
 // 2. Create the broad candidate, then the selected specific candidate.
 // 3. Require the broad candidate to remain unchanged and the specific candidate to reload with specificPathsWinner.
 //
-// @evidence contracts/testing.md#behavioral-verification Require the broad candidate to remain unchanged and the specific candidate to reload with specificPathsWinner.
-// @evidence contracts/testing.md#independent-expectations The literal fixture and the supported graph contract establish these expectations: Require the broad candidate to remain unchanged and the specific candidate to reload with specificPathsWinner.
+// @evidence contracts/testing.md#behavioral-verification With overlapping paths patterns where @/special/* outranks @/*, creating the broad-pattern candidate leaves a resident session unchanged, while creating the missing .ts sibling of the selected specific substitution reloads it with the new specificPathsWinner node.
+// @evidence contracts/testing.md#independent-expectations The expected outcomes follow from the TypeScript rule that the longest matching paths pattern wins and the broad pattern is never tried: creating broad/special/value.ts must be unchanged with no dump, and creating specific/value.ts must be mode reload, changed, with a node named specificPathsWinner.
 // @evidence contracts/testing.md#distinguishing-cases Load overlapping broad and specific paths patterns for a special import. Create the broad candidate, then the selected specific candidate. Require the broad candidate to remain unchanged and the specific candidate to reload with specificPathsWinner.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionKeepsLowerPriorityPathsPatternUnchanged is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionKeepsLowerPriorityPathsPatternUnchanged(t *testing.T) {

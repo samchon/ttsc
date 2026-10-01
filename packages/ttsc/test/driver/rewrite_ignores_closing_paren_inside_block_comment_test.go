@@ -25,7 +25,10 @@ export const out = plugin.make(1 /* ) */, 2);
     Replacement:   `"replacement"`,
     ConsumeParens: true,
   })
-  if !strings.Contains(js, `"replacement"`) || strings.Contains(js, "plugin.make") {
+  // The whole statement is asserted: closing the call at the comment's `)`
+  // would leave ` */, 2);` behind the replacement while still containing
+  // "replacement" and no `plugin.make`.
+  if !strings.Contains(js, `exports.out = "replacement";`) {
     t.Fatalf("block comment rewrite mismatch:\n%s", js)
   }
 }

@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Banner helpers find nearest node_modules, compose NODE_PATH, replace/append environment keys, create a real symlink and reject a conflicting node_modules file.
 // @evidence contracts/testing.md#independent-expectations Authored directory topology and literal environment entries define expectations; os.Readlink independently observes the created target.
 // @evidence contracts/testing.md#distinguishing-cases Existing/empty NODE_PATH, replacement/append, valid/conflicting link and conditional absent ancestry differ. Windows skips the symlink tail; ambient ancestors can bypass no-modules assertions.
-// @evidence contracts/testing.md#execution-ownership TestNodeEnvironmentHelpers invokes owning environment/filesystem operations in-process; it executes no product host, evaluator or native producer. Its discoverable Go unit entry now resides in test/unit.
+// @evidence contracts/testing.md#execution-ownership TestNodeEnvironmentHelpers invokes owning environment/filesystem operations in-process; it executes no product host, evaluator or native producer. Its discoverable Go unit entry resides in test/unit.
 func TestNodeEnvironmentHelpers(t *testing.T) {
   root := t.TempDir()
   project := filepath.Join(root, "project")

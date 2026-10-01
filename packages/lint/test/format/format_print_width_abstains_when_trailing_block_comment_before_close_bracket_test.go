@@ -20,10 +20,10 @@ import "testing"
 //     before `)`.
 //  3. Assert the rule emits zero findings — comment preserved by
 //     abstention.
-// @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule runs on the abstains when trailing block comment before close bracket fixture and must report no findings, rejecting an unnecessary or unsafe edit rather than only comparing two formatter outputs. The owned result is: Assert the rule emits zero findings — comment preserved by abstention.
-// @evidence contracts/testing.md#independent-expectations The literal unchanged input and zero-finding expectation follow the preservation boundary described above, independently of printer output. This host proves abstention, while changing fixtures in sibling rule tests prove formatting correctness.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Configure printWidth=10 so any reflow attempt would fire. The asserted decision is: Assert the rule emits zero findings — comment preserved by abstention. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthAbstainsWhenTrailingBlockCommentBeforeCloseBracket is one Go unit entry through the fixture parser and rule engine; its zero-findings assertion uses no installed consumer, formatter subprocess or native build.
+// @evidence contracts/testing.md#behavioral-verification Runs format/print-width at printWidth 10 on `foo(a, b /* tail */);` and requires zero findings so the trailing comment before `)` is preserved.
+// @evidence contracts/testing.md#independent-expectations The expected zero findings follows from the contract that reflow must not drop a comment; the authored input exceeds the width so a reflow would otherwise fire.
+// @evidence contracts/testing.md#distinguishing-cases One abstention case with the comment after the last argument and before the closing bracket, the edge position that a between-members check could miss; a comment between members is owned by the inter-member test.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls assertRuleSkipsSourceWithOptions, which runs the engine with the single rule on a temp-dir file; no child process, built binary or installed consumer.
 func TestFormatPrintWidthAbstainsWhenTrailingBlockCommentBeforeCloseBracket(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,

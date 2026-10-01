@@ -20,7 +20,7 @@ import (
 //  3. Assert literal whitespace and the complete template delimiter survive.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that compact display text never rewrites whitespace owned by a lexical value.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "src/main.ts#shape:variable"; literal whitespace and the complete template delimiter survive.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal source strings: the dumped signatures of the four members must be exactly double: "a  b", single: 'c  d', regexp: /e  f/ and the two-line template literal with its interior newline and spaces and closing backtick, so whitespace owned by a lexical value is not collapsed.
 // @evidence contracts/testing.md#distinguishing-cases Compile object members with spaced strings, a regexp, and a template; Dump the graph from the Program-owned source snapshot; Assert literal whitespace and the complete template delimiter survive.
 // @evidence contracts/testing.md#execution-ownership TestObjectMemberSignaturesPreserveLiteralWhitespace is a Go source-unit entry. Build, NewDump, SourceTexts execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestObjectMemberSignaturesPreserveLiteralWhitespace(t *testing.T) {

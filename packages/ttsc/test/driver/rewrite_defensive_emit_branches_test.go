@@ -33,7 +33,10 @@ func TestRewriteDefensiveEmitBranches(t *testing.T) {
   "files": ["index.ts"]
 }
 `)
-  writeProjectFile(t, root, "index.ts", `// `+strings.TrimPrefix(driver.RewriteSentinel, "// ")+`
+  // The sentinel is a string literal because a leading comment on an erased
+  // `declare` statement would not survive emit and so would never reach the
+  // already-patched check.
+  writeProjectFile(t, root, "index.ts", `export const marker = "`+driver.RewriteSentinel+`";
 declare const plugin: { make(input: string): string };
 export const value = plugin.make("input");
 `)
@@ -45,8 +48,26 @@ export const value = plugin.make("input");
     t.Fatalf("unexpected config diagnostics: %#v", diags)
   }
   defer prog.Close()
-  if _, emitDiags, err := prog.EmitAll(driver.NewRewriteSet(), nil); err != nil || len(emitDiags) != 0 {
+  // A rewrite is registered for the call, so an emit that ignored the sentinel
+  // would replace it; an output that keeps the call proves the already-patched
+  // pass-through branch ran.
+  sentinelRewrites := driver.NewRewriteSet()
+  sentinelRewrites.Add(driver.Rewrite{
+    File:          prog.SourceFile(filepath.Join(root, "index.ts")),
+    RootName:      "plugin",
+    Method:        "make",
+    Replacement:   `"must-not-apply"`,
+    ConsumeParens: true,
+  })
+  if _, emitDiags, err := prog.EmitAll(sentinelRewrites, nil); err != nil || len(emitDiags) != 0 {
     t.Fatalf("sentinel emit mismatch: diags=%#v err=%v", emitDiags, err)
+  }
+  sentinelJS, err := os.ReadFile(filepath.Join(root, "bin", "index.js"))
+  if err != nil {
+    t.Fatal(err)
+  }
+  if strings.Contains(string(sentinelJS), "must-not-apply") || !strings.Contains(string(sentinelJS), `plugin.make("input")`) {
+    t.Fatalf("an already-patched output must pass through unchanged:\n%s", sentinelJS)
   }
 
   root = t.TempDir()

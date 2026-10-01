@@ -72,7 +72,7 @@ export const value = plugin.make("input");
     t.Fatalf("unexpected emit diagnostics: %#v", emitDiags)
   }
   js := emitted["index.js"]
-  if !strings.Contains(js, `"alias"`) || strings.Contains(js, ".default.make") {
+  if !strings.Contains(js, `exports.value = "alias";`) {
     t.Fatalf("default import alias rewrite mismatch:\n%s", js)
   }
 }

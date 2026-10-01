@@ -11,9 +11,9 @@ import (
 // 1. Execute the retained logical source variants through the owning Go rule.
 // 2. Compare the diagnostic/edit or unchanged result at each stated boundary.
 //
-// @evidence contracts/testing.md#behavioral-verification NewEngine.Run compares retained boolean-context and value-producing uses, rejecting reports in contexts where reordering can alter the returned value.
-// @evidence contracts/testing.md#independent-expectations JavaScript short-circuit operators return operand values outside boolean contexts; the supported rule scope independently requires those value uses to remain unchanged.
-// @evidence contracts/testing.md#distinguishing-cases Retained boolean conditions report while nonboolean value contexts stay clean.
+// @evidence contracts/testing.md#behavioral-verification The checker-backed rule runs over one source holding value-producing uses (assignment, call argument, array element, optional and asserted Boolean casts, return) that must yield zero findings, then over eight boolean-context sources (if, while, do-while, for, ternary test, negation, nested logical, global Boolean call) that must each yield exactly one error finding, then over a shadowed Boolean parameter that must stay silent.
+// @evidence contracts/testing.md#independent-expectations JavaScript short-circuit operators return operand values outside boolean contexts, so reordering there could change the result; the authored source matrix and its per-context counts of zero or one come from that language rule rather than from the rule's output.
+// @evidence contracts/testing.md#distinguishing-cases The same `check() && ready` operands are silent in value contexts and reported in boolean contexts; a locally shadowed Boolean parameter must not count as the global Boolean coercion.
 // @evidence contracts/testing.md#execution-ownership TestUnicornPreferSimpleConditionFirstRestrictsReportsToBooleanContexts owns the literal logical-expression variants as a discoverable Go unit entry; actual parser/engine/fix operations run in the shared process without a consumer installation, native producer or product child host.
 func TestUnicornPreferSimpleConditionFirstRestrictsReportsToBooleanContexts(t *testing.T) {
   ignored := `declare const ready: boolean;

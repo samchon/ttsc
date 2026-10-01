@@ -22,7 +22,7 @@ export namespace TtscBenchmarkConstant {
    */
   export const TYPESCRIPT_LOADER = path.join(
     REPOSITORY_ROOT,
-    "scripts",
+    "config",
     "register-typescript-loader.mjs",
   );
 }

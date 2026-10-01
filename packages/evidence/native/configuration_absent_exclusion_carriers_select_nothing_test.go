@@ -14,13 +14,10 @@ import (
  *  2. Inspect the native carrier selection of each.
  *  3. Assert every one of them carries no pattern at all.
  *
- * @evidence contracts/testing.md#behavioral-verification The actual decodeGraphConfig and decoded native model are evaluated; this case asserts each of the three supported claim kinds keeps an empty carrier selection when the option is omitted.
- *
- * @evidence contracts/testing.md#independent-expectations Carrier selection is opt-in on the shared claim base. Omission must retain zero patterns for all three supported claim kinds; the helper prints raw patterns only when that assertion fails.
- *
- * @evidence contracts/testing.md#distinguishing-cases Each of the three supported claim kinds keeps an empty carrier selection when the option is omitted.
- *
- * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticAbsentExclusionCarriersSelectNothing is the selectable unit entry in packages/evidence/native, compiled beside its owning implementation in the shared Go unit process. It invokes decodeGraphConfig and its decoder/assertion helpers in process; its JSON artifact/package names are input strings and trigger no installation, artifact loader, native plugin build, or child process. Its local table variants remain owned by this entry.
+ * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig decodes three claims (Markdown, Prisma and TypeScript claim kinds, none with `evidenceExcludeCarriers`) without problems, and the test requires every decoded claim to have zero ExclusionCarriers patterns.
+ * @evidence contracts/testing.md#independent-expectations The expectation is authored from the opt-in contract: omitting the carrier selection must decode to an empty selection for every claim kind, so exclusions stay eligible wherever they were before the option existed; the failure message prints the patterns the decoder invented.
+ * @evidence contracts/testing.md#distinguishing-cases One omitted-property case per supported claim kind; configurations that do declare carriers, malformed shapes and confinement rules are owned by sibling configuration entries.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticAbsentExclusionCarriersSelectNothing is a Go unit entry in the native test process; it calls decodeGraphConfig on an in-memory JSON string with no filesystem, consumer install, artifact build or product host.
  */
 func TestEvidenceSemanticAbsentExclusionCarriersSelectNothing(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[

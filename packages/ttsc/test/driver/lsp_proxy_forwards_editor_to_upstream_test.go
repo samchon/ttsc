@@ -10,9 +10,9 @@ import (
 // intercept must reach upstream byte-for-byte. Without this, ttsc would
 // silently drop initialize/initialized handshakes.
 //
-// The same pump branch handles handler-untouched requests, notifications,
-// and responses; exercising it with an initialize request covers the
-// "fall through to upstream" path.
+// Only one message kind is exercised here: a handler-untouched request
+// (initialize) falling through to upstream. Notifications and responses on the
+// same pump are covered by other tests, not this one.
 //
 // 1. Send an initialize request from the editor side.
 // 2. Read what arrived at upstream.

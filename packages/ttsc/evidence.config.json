@@ -1888,6 +1888,25 @@
       }
     },
     {
+      "name": "Go shim audit enum and coverage units",
+      "type": "go",
+      "files": [
+        "tools/shim_audit/enum_generation_preserves_existing_family_members_test.go",
+        "tools/shim_audit/enum_generation_refuses_removed_public_members_test.go",
+        "tools/shim_audit/shim_dir_coverage_rejects_unregistered_shims_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
       "name": "Go VFS source decoding units",
       "type": "go",
       "files": [

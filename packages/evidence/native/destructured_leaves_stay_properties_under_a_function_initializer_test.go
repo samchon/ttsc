@@ -25,10 +25,10 @@ import (
  *  1. Destructure a function into an object pattern and into an array pattern.
  *  2. Collect the inventory.
  *  3. Assert every leaf is a property.
- * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert every leaf is a property.
- * @evidence contracts/testing.md#independent-expectations The complementary cases destructure records and arrays of data, so the leaf rule is pinned only where nothing could have made a leaf callable. A `const` initialized with a function is the one shape that reaches the callable branch, and the binding-pattern guard is what stops the whole pattern's initializer from being attributed to each leaf. The authored scenario requires this outcome: Assert every leaf is a property.
- * @evidence contracts/testing.md#distinguishing-cases Destructure a function into an object pattern and into an array pattern. Collect the inventory. Assert every leaf is a property.
- * @evidence contracts/testing.md#execution-ownership TestDestructuredLeavesStayPropertiesUnderAFunctionInitializer runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory parses `export const { length: named, name: labelled } = function target() {};` and `export const [firstLeaf, ...restLeaves] = (): void => {};`, and the sorted `symbol:target` list must equal exactly property:firstLeaf, property:labelled, property:named and property:restLeaves.
+ * @evidence contracts/testing.md#independent-expectations The expected list is authored from the leaf-classification contract: each leaf of a binding pattern is a property because the pattern's function initializer is not the leaf's own value, so no leaf becomes a function; the array row is not type-correct but exercises the same guard.
+ * @evidence contracts/testing.md#distinguishing-cases An object pattern and an array pattern (with a rest element) initialized by a function expression and an arrow function, the only shapes that could route a leaf to the callable branch; the exact set also fails if a leaf is missing or the statement itself becomes a unit.
+ * @evidence contracts/testing.md#execution-ownership TestDestructuredLeavesStayPropertiesUnderAFunctionInitializer is a Go unit entry in the native test process; parseTypeScriptInventory parses the source with the TypeScript parser and scans its inventory, with no consumer install or product host.
  */
 func TestDestructuredLeavesStayPropertiesUnderAFunctionInitializer(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/contracts.ts", `

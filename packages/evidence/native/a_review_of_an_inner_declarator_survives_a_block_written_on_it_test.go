@@ -20,10 +20,10 @@ import (
  *  1. Take the fingerprint the graph asks for, for each cited declarator.
  *  2. Add a documentation block on the inner one.
  *  3. Assert the graph stays clean.
- * @evidence contracts/testing.md#behavioral-verification everyExpectedFingerprint, runIndexRule exercises the authored fixture. Assert the graph stays clean.
- * @evidence contracts/testing.md#independent-expectations The unit-level cases state the rule; this states what an author experiences, through the packaged policy rather than through the collector. Writing a block on the cited declarator is where a review of it belongs, and it expiring that very review is the non-terminating repair loop `requireReview` exists to avoid. The setup obtains fingerprint text from the graph itself, so this checks invalidation and acceptance, not the digest algorithm or an independently known hash. The authored scenario requires this outcome: Assert the graph stays clean.
- * @evidence contracts/testing.md#distinguishing-cases Take the fingerprint the graph asks for, for each cited declarator. Add a documentation block on the inner one. Assert the graph stays clean.
- * @evidence contracts/testing.md#execution-ownership TestAReviewOfAnInnerDeclaratorSurvivesABlockWrittenOnIt runs as a Go unit entry in the native package. everyExpectedFingerprint, runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification everyExpectedFingerprint runs the graph rule over a two-declarator spec file (`alpha = 1, beta = 2`) with both declarators cited and unreviewed and collects the fingerprints it asks for; the test then writes those fingerprints as reviews, adds a documentation block on `beta`, and runIndexRule must report no diagnostic.
+ * @evidence contracts/testing.md#independent-expectations The fingerprints come from the graph's own message for the undocumented spec, so the test does not know the hash algorithm: it establishes only that adding a block on the cited declarator does not invalidate a review recorded before it; a wrong or missing fingerprint would fail the clean assertion rather than pass vacuously.
+ * @evidence contracts/testing.md#distinguishing-cases Both declarators of one statement are cited and reviewed, so the single clean outcome covers alpha and beta together; the block is added on the inner declarator only. Content edits that must expire a review are owned by sibling digest entries.
+ * @evidence contracts/testing.md#execution-ownership TestAReviewOfAnInnerDeclaratorSurvivesABlockWrittenOnIt is a Go unit entry in the native test process; it calls the graph rule twice through runIndexRule over temp fixture files, with no consumer install or product host.
  */
 func TestAReviewOfAnInnerDeclaratorSurvivesABlockWrittenOnIt(t *testing.T) {
   expected := everyExpectedFingerprint(t, map[string]string{

@@ -61,7 +61,7 @@ function main() {
 }
 
 function prepareCurrentTarballs() {
-  run("pnpm run build:current", root, { TTSC_BUILD_SCOPE: "experimental" });
+  run("pnpm run build", root);
 
   fs.mkdirSync(tarballs, { recursive: true });
   for (const name of ["ttsc", platformTarball]) {

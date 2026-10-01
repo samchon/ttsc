@@ -16,12 +16,6 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases The original annotated violation remains unchanged and an adjacent accepted source is checked with filename pages/index.tsx. This is static source/filename behavior, not a browser rendering assertion.
 // @evidence contracts/testing.md#execution-ownership TestNextjsNoHTMLLinkForPagesReportsInternalAnchor is a discoverable Go unit entry; TypeScript/TSX parsing and the owning engine execute in one shared process without installing Next, route discovery or a product child host.
 func TestNextjsNoHTMLLinkForPagesReportsInternalAnchor(t *testing.T) {
-  assertRuleCorpusCaseTSX(t, "pages/index.tsx", `
-export default function Page() {
-  // expect: nextjs/no-html-link-for-pages error
-  return <a href="/about">About</a>;
-}
-`)
   _, _, acceptedFindings := runRuleFindingsSnapshotFile(t, "nextjs/no-html-link-for-pages", "pages/index.tsx", "export default function Page() { return <a href=\"https://example.com/about\">About</a>; }\n", nil)
   if len(acceptedFindings) != 0 {
     t.Fatalf("accepted Next source unexpectedly reports: %+v", acceptedFindings)

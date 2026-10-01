@@ -22,7 +22,7 @@ import (
 //  3. Assert the sibling's violation reports and its file is never rewritten.
 // @evidence contracts/testing.md#behavioral-verification The Go loader resolves an imported linked sibling to its TypeScript source, reports its configured violation and never rewrites that sibling file.
 // @evidence contracts/testing.md#independent-expectations The authored sibling package entry, literal violation and original source bytes establish resolver and non-mutation expectations independently of resolved Program paths.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Write a sibling package whose entry points at its own TypeScript source. The asserted decision is: Assert the sibling's violation reports and its file is never rewritten. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#distinguishing-cases The sibling is reachable only through a node_modules symlink and a package.json main/types pointing at src/index.ts, not through a relative import. The fix command must exit two with the no-var diagnostic for it, and the sibling bytes must be unchanged because fix writes only inside the project selection. The test skips where symlinks cannot be created.
 // @evidence contracts/testing.md#execution-ownership TestWorkspaceLinkResolvesASiblingPackageToItsSource owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestWorkspaceLinkResolvesASiblingPackageToItsSource(t *testing.T) {
   workspace := t.TempDir()

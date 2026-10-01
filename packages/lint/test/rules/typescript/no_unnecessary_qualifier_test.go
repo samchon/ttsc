@@ -16,8 +16,9 @@ import "testing"
 // reaches. These cases pin both the positive fire and each shadowing arm
 // that must stay silent, with expectations taken from the upstream rule.
 //
-//  1. Report `Foo.Bar` inside `namespace Foo` and `Color.Red` inside
-//     `enum Color`, each at its exact byte range.
+//  1. Report `Foo.Bar` inside `namespace Foo`, `Color.Red` inside
+//     `enum Color`, and the type qualifier `NS.Item` inside `namespace NS`,
+//     each at its exact byte range.
 //  2. Skip both shadowing arms (local `bar` hiding `Foo.bar`; local `Foo`
 //     object hiding the namespace) where dropping the qualifier would
 //     change behavior.

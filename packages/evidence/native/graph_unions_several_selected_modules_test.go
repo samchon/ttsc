@@ -13,10 +13,10 @@ import "testing"
  *  1. Match both a barrel and the module it forwards.
  *  2. Cite the declaration through the barrel, then through the declaring module.
  *  3. Assert each citation alone resolves and completes the obligation.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies several selected modules union into one population. The original assertions check assert each citation alone resolves and completes the obligation.
- * @evidence contracts/testing.md#independent-expectations A glob usually matches a barrel and the modules beneath it at once. Each is a module a consumer may import, so the symbol is citable through either — and the two ways of reaching one declaration must still leave one obligation, or selecting a directory would demand a second citation for every re-export. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Match both a barrel and the module it forwards. Cite the declaration through the barrel, then through the declaring module. Assert each citation alone resolves and completes the obligation. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestGraphUnionsSeveralSelectedModules is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/views/** and a function reference over src/api/** (which matches both a barrel `export * from "./questions.js"` and the declaring module); a view citing `{@link api.get}` through the barrel and then a view citing `{@link questions.get}` through the declaring module must each give no diagnostics.
+ * @evidence contracts/testing.md#independent-expectations The expectation is authored from the population contract: a glob that matches a barrel and the modules beneath it makes the symbol citable through either, and the two paths to one declaration must leave one obligation, so each citation alone must complete it.
+ * @evidence contracts/testing.md#distinguishing-cases The same files cited through each of the two reachable modules; if the two paths created two obligations, either single citation would leave one owed.
+ * @evidence contracts/testing.md#execution-ownership TestGraphUnionsSeveralSelectedModules is a Go unit entry in the native test process; it calls the graph rule twice through runIndexRule over temp fixture files, with no consumer install or product host.
  */
 func TestGraphUnionsSeveralSelectedModules(t *testing.T) {
   const config = `{"claims":[{

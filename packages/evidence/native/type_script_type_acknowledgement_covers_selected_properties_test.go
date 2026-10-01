@@ -18,7 +18,7 @@ import (
  *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule imports Shape into a ledger, selects only its width/height properties, and requires a clean graph after citing Shape.
  * @evidence contracts/testing.md#independent-expectations An unselected type remains an aggregate address for its selected public properties.
- * @evidence contracts/testing.md#distinguishing-cases The property-only selector challenges ancestor removal; silence does not independently assert how many property units were materialized.
+ * @evidence contracts/testing.md#distinguishing-cases With only the type Shape cited and the selector restricted to property, the width and height obligations must be discharged and Shape itself must resolve despite being unselected. There is no negative counterpart where an uncited property is reported, so silence does not show how many property units were materialized.
  * @evidence contracts/testing.md#execution-ownership TestTypeScriptTypeAcknowledgementCoversSelectedProperties is a selectable native Go unit entry. Its graph helper parses fixture TypeScript and calls graphRule.Check in the same Go process; temporary Markdown/TypeScript files are resolver inputs, without an installed consumer or product host.
  */
 func TestTypeScriptTypeAcknowledgementCoversSelectedProperties(t *testing.T) {

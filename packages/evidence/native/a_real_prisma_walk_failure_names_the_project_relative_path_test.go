@@ -18,10 +18,10 @@ import (
  *  1. Make a directory inside a Prisma population unreadable.
  *  2. Collect the configured addresses and their health.
  *  3. Assert the failure is project-relative and the base is recorded failed.
- * @evidence contracts/testing.md#behavioral-verification configuredPrismaAddressesWithHealth is exercised with the scenario below; the assertions require the failure is project-relative and the base is recorded failed.
- * @evidence contracts/testing.md#independent-expectations The two walkers were the same decision written twice, and repairing one while leaving the other reinstates by artifact kind the branch asymmetry #1236 removed. The Prisma half is exercised through its address collector rather than the whole rule, because the Prisma bridge needs a linked feature suite that this question does not depend on.
- * @evidence contracts/testing.md#distinguishing-cases Make a directory inside a Prisma population unreadable. Collect the configured addresses and their health. Assert the failure is project-relative and the base is recorded failed.
- * @evidence contracts/testing.md#execution-ownership TestARealPrismaWalkFailureNamesTheProjectRelativePath is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification The test makes prisma/private unreadable (skipping where permissions cannot be dropped), decodes a TypeScript claim with a Prisma reference over prisma/**\/*.prisma, and calls configuredPrismaAddressesWithHealth; it requires problems containing `could not inspect 'prisma/private':` and `configured Prisma sources can be indexed`, and exactly one failed base.
+ * @evidence contracts/testing.md#independent-expectations The expected path spelling and the repair clause are authored literals, and the failed-base count of one follows from the single declared population whose walk failed; none is taken from the walker's own output.
+ * @evidence contracts/testing.md#distinguishing-cases One unreadable directory under one declared Prisma population, so the walk failure must be recorded as a failed base rather than an empty population. The Prisma bridge and a root above the project are not exercised here; the latter belongs to a sibling entry.
+ * @evidence contracts/testing.md#execution-ownership TestARealPrismaWalkFailureNamesTheProjectRelativePath is a Go unit entry in the native test process; it calls the Prisma address collector directly over a real temp directory without launching the Prisma bridge, a consumer install or a product host, and skips where permissions cannot be dropped.
  */
 func TestARealPrismaWalkFailureNamesTheProjectRelativePath(t *testing.T) {
   root := t.TempDir()

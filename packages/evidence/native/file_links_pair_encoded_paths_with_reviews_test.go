@@ -12,13 +12,10 @@ import "testing"
  * 2. Review it with equivalent encoded and canonical spellings.
  * 3. Verify both annotations pair on the same declaration.
  *
- * @evidence contracts/testing.md#behavioral-verification reviewRule.Check through runReviewRule exercises this case. Verifies percent-encoded paths use one citation/review identity.
- *
- * @evidence contracts/testing.md#independent-expectations Percent-decoded target.ts spellings denote the same review identity. The review rule must accept each pairing; this case does not load the referenced file.
- *
- * @evidence contracts/testing.md#distinguishing-cases Cite target.ts with an encoded extension. Review it with equivalent encoded and canonical spellings. Verify both annotations pair on the same declaration.
- *
- * @evidence contracts/testing.md#execution-ownership TestFileLinksPairEncodedPathsWithReviews is the selectable Go entry and owns its fixture variants and local closures. It invokes reviewRule.Check through runReviewRule in the native Go process. It consumes authored strings or parsed source nodes directly; no installed consumer, compiled host, or loader process participates.
+ * @evidence contracts/testing.md#behavioral-verification For three review spellings (`./target%2Ets#value`, `target.ts#value` and `%74arget.%74s#value`), runReviewRule is run over a block with `@link target%2Ets#value` followed by `@evidenceReview <spelling>`; each run must give no diagnostics.
+ * @evidence contracts/testing.md#independent-expectations The expectation is authored from the shared grammar contract: percent-decoded spellings of the same path are one identity, so a review written in an equivalent encoded or canonical form must pair with the link; the referenced file is not loaded here.
+ * @evidence contracts/testing.md#distinguishing-cases Three spellings (dot-slash prefix, canonical, and fully percent-encoded name) of one target, looped as plain iterations; only absence of review-pairing diagnostics is asserted.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksPairEncodedPathsWithReviews is a Go unit entry in the native test process that loops over three spellings; runReviewRule parses each source and calls the review rule directly, with no filesystem, consumer install or product host.
  */
 func TestFileLinksPairEncodedPathsWithReviews(t *testing.T) {
   for _, review := range []string{"./target%2Ets#value", "target.ts#value", "%74arget.%74s#value"} {

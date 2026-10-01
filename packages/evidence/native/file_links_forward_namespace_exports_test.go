@@ -15,13 +15,10 @@ import (
  * 2. Cite both legitimate paths and verify they still reach one unit.
  * 3. Forward an empty namespace beside it and verify no false missing-export error.
  *
- * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies named re-exports preserve the complete namespace accessor path.
- *
- * @evidence contracts/testing.md#independent-expectations Public.a.value and Public.b.value end at the same value across forwarding, while an empty namespace contributes no missing-export error.
- *
- * @evidence contracts/testing.md#distinguishing-cases Re-export one value through two namespace aliases and a named forwarding hop. Cite both legitimate paths and verify they still reach one unit. Forward an empty namespace beside it and verify no false missing-export error.
- *
- * @evidence contracts/testing.md#execution-ownership TestFileLinksForwardNamespaceExports is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#behavioral-verification newFileLinkFixture builds a value re-exported through `export * as a` and `export * as b`, a named forwarding hop `export { ns as Public }`, and an empty namespace `export { empty }`; the graph must be clean for a Markdown link `#Public.a.value`, then (with a review.ts citing `{@link Public.a.value}` and the Markdown link switched to `#Public.b.value`) clean again, and clean under a TypeScript claim over review.ts.
+ * @evidence contracts/testing.md#independent-expectations The expectation is authored from the addressing contract: both namespace aliases end at the same value, the complete accessor path is preserved across the named forwarding hop, and an empty forwarded namespace contributes no member and so must cause no missing-export error.
+ * @evidence contracts/testing.md#distinguishing-cases Two alias paths to one unit, an empty namespace beside them, and the same paths cited from Markdown and from inline TypeScript; flattening a namespace to one segment would lose `a` or `b`, and treating the empty namespace as a failure would add a diagnostic.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksForwardNamespaceExports is a Go unit entry in the native test process; it drives graphRule.Check through newFileLinkFixture over real temp files with in-process rewrites, with no consumer install or product host.
  */
 func TestFileLinksForwardNamespaceExports(t *testing.T) {
   fixture := newFileLinkFixture(t, map[string]string{

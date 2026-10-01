@@ -15,10 +15,10 @@ import (
  *  1. Exercise file-level ownership and each invalid comment form.
  *  2. Scan every case through the native Prisma declaration locator.
  *  3. Assert every case names its exact invalid boundary.
- * @evidence contracts/testing.md#behavioral-verification prismaClaimOf and its native comment scanner exercises this case: Verifies file-level Prisma carriers accept exclusions only and retain the existing placement and resolution failures. The original assertions check assert every case names its exact invalid boundary.
- * @evidence contracts/testing.md#independent-expectations A detached `@evidence` would claim schema ownership without a model, while double-slash, block, and buried forms are not the file carrier syntax. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Exercise file-level ownership and each invalid comment form. Scan every case through the native Prisma declaration locator. Assert every case names its exact invalid boundary. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestGraphRejectsInvalidFileLevelPrismaCarrierTags is the selectable Go test entry; its local loops and closures remain owned by this entry. It exercises prismaClaimOf and its native comment scanner within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification Four t.Run rows call prismaClaimOf on a one-line schema fragment and each joined problem list must contain its fragment: a file-level `/// @evidence` gives `only @evidenceExclude may be unattached at file level`, a `//` exclusion gives `'//' line comment`, a `/* *\/` exclusion gives `documents no declaration`, and a `////` exclusion gives `buried behind an extra slash`.
+ * @evidence contracts/testing.md#independent-expectations The expected fragments are authored from the carrier contract: only a triple-slash file-level `@evidenceExclude` is a carrier, a detached positive tag would claim schema ownership without a model, and the other comment forms are not the carrier syntax.
+ * @evidence contracts/testing.md#distinguishing-cases One valid-syntax-but-wrong-tag row and three wrong-syntax rows, each its own subtest with its own diagnostic; the accepted carrier form is owned by TestGraphAcceptsFileLevelPrismaExclusionCarrier.
+ * @evidence contracts/testing.md#execution-ownership TestGraphRejectsInvalidFileLevelPrismaCarrierTags is a Go unit entry in the native test process that owns four t.Run rows; each calls prismaClaimOf on an in-memory string with no Prisma bridge, filesystem, consumer install or product host.
  */
 func TestGraphRejectsInvalidFileLevelPrismaCarrierTags(t *testing.T) {
   cases := []struct {

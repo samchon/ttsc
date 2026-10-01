@@ -14,11 +14,12 @@ import (
 // resolves nothing on every Windows or x64 host while every fixture built from
 // the same function keeps agreeing with itself. Expectations come from Node's
 // documented values and the platform package names in
-// scripts/platform-target.cjs, not from this function's own output.
+// packages/ttsc/build/platform-package.cjs, not from this function's own output.
 //
 //  1. Map every target the workspace publishes a platform package for.
 //  2. Assert the divergent members are translated and the rest pass through.
-//  3. Assert the host's own pair is a legal npm pair, so fixtures stay honest.
+//  3. Assert the host's own pair no longer carries the Go spellings windows,
+//     amd64 or 386, so fixtures built from it stay honest.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls stripNodePlatformPairFor for explicit OS/architecture pairs and checks literal npm names, then excludes untranslated windows, amd64 and 386 in the runtime wrapper result.
 // @evidence contracts/testing.md#independent-expectations The independent table uses npm win32, sunos, x64, ia32 and ppc64 spellings and preserves other names. It does not derive answers from platform fixture helpers.

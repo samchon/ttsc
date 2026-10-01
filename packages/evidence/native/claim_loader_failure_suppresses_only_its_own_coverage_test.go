@@ -16,10 +16,10 @@ import (
  *  1. Materialize one failed and one healthy TypeScript claim inventory.
  *  2. Give each claim its own healthy Markdown reference.
  *  3. Assert only the healthy claim derives a missing acknowledgement.
- * @evidence contracts/testing.md#behavioral-verification evaluateEvidenceGraph, materializeClaimStates is exercised with the scenario below; the assertions require only the healthy claim derives a missing acknowledgement.
- * @evidence contracts/testing.md#independent-expectations Coverage requires the complete set of declarations in a claim population. If one selected file cannot be read, reporting every reference unit as missing is unsupported, but a separate healthy claim still has a complete numerator and denominator and must continue to fail normally.
- * @evidence contracts/testing.md#distinguishing-cases Materialize one failed and one healthy TypeScript claim inventory. Give each claim its own healthy Markdown reference. Assert only the healthy claim derives a missing acknowledgement.
- * @evidence contracts/testing.md#execution-ownership TestClaimLoaderFailureSuppressesOnlyItsOwnCoverage is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification Two named TypeScript claims, `failed` (src/failed.ts marked LoadFailed) and `healthy` (src/healthy.ts, `export interface Healthy {}`), each with its own Markdown reference, are passed through materializeClaimStates and evaluateEvidenceGraph; the test requires the first claim state unhealthy and the second healthy, exactly one `Missing acknowledgement` diagnostic, and one naming `Claim 2 ('healthy')`.
+ * @evidence contracts/testing.md#independent-expectations The expected count and claim label are authored from the coverage contract: a claim with an unreadable selected file has no complete denominator and must not derive coverage, while an independent healthy claim must still fail normally; the failed inventory is constructed by the test.
+ * @evidence contracts/testing.md#distinguishing-cases One failed and one healthy claim run together: reporting coverage for both would give two missing acknowledgements, and suppressing both would give none.
+ * @evidence contracts/testing.md#execution-ownership TestClaimLoaderFailureSuppressesOnlyItsOwnCoverage is a Go unit entry in the native test process; it builds the inventories in memory and calls materializeClaimStates and evaluateEvidenceGraph directly, with no consumer install or product host.
  */
 func TestClaimLoaderFailureSuppressesOnlyItsOwnCoverage(t *testing.T) {
   root := t.TempDir()

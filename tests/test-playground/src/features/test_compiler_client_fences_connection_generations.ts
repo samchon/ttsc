@@ -36,10 +36,13 @@ interface IRecord {
  *    orderings while resets overlap both attempts.
  * 2. Assert each invalidated connector closes exactly once and B remains the
  *    shared cached connection until its own reset.
- * @evidence contracts/testing.md#behavioral-verification createCompilerClient.connect/reset fences stale resolution and rejection, shares current promises, closes each of seven allocated connectors once and allows retry despite a close failure.
- * @evidence contracts/testing.md#independent-expectations Controlled connector IDs2/4/7, independent close counters and promise identity specify generation ownership; no client-owned cache statistic supplies expected results.
- * @evidence contracts/testing.md#distinguishing-cases B-before-A resolve, A rejection after B, concurrent reset, empty reset, current boot failure/retry and throwing close retain distinct controlled orderings and final seven-one counts.
- * @evidence contracts/testing.md#execution-ownership This entry patches the actual CJS tgrid connector prototype only at its connect/getDriver/close transport seam and restores it in finally; no Worker is started, and each gate/ID belongs to this unit.
+ * 3. Reset twice concurrently on a settled connection, fail a current boot and
+ *    retry it, then reset a connector whose close throws.
+ *
+ * @evidence contracts/testing.md#behavioral-verification createCompilerClient connect/reset run against a patched tgrid WorkerConnector: the replacement connection stays the cached promise after the stale one settles or rejects, and after all four scenarios exactly seven allocated connectors were each closed once.
+ * @evidence contracts/testing.md#independent-expectations Connector ids 2, 4 and 7 for the surviving drivers, the per-connector close counters [1,1,1,1,1,1,1] and strictEqual promise identity are authored from the generation-ownership contract (allocation order of the scripted connects), not read from client state.
+ * @evidence contracts/testing.md#distinguishing-cases Four scripted orderings: replacement resolves before the stale connect, stale connect rejects after the replacement resolved, two concurrent resets over one connection, and a failed current boot followed by a retry. A fresh-client reset and a close that throws on the final reset are included; a throwing close is only exercised at the last reset and is not shown to block a later retry.
+ * @evidence contracts/testing.md#execution-ownership Unit-layer entry that patches connect, getDriver and close on the real CommonJS tgrid WorkerConnector prototype (restored in finally); gates and ids are local to this call and no Worker or wasm host starts.
  */
 export const test_compiler_client_fences_connection_generations = async () => {
   // `createCompilerClient` compiles to CommonJS, so load tgrid through the same

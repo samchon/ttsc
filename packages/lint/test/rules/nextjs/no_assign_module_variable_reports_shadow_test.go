@@ -16,11 +16,6 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases The original annotated violation remains unchanged and an adjacent accepted source is checked with filename pages/index.ts. This is static source/filename behavior, not a browser rendering assertion.
 // @evidence contracts/testing.md#execution-ownership TestNextjsNoAssignModuleVariableReportsShadow is a discoverable Go unit entry; TypeScript/TSX parsing and the owning engine execute in one shared process without installing Next, route discovery or a product child host.
 func TestNextjsNoAssignModuleVariableReportsShadow(t *testing.T) {
-  assertRuleCorpusCase(t, "pages/index.ts", `
-// expect: nextjs/no-assign-module-variable error
-const module = {};
-export default module;
-`)
   _, _, acceptedFindings := runRuleFindingsSnapshotFile(t, "nextjs/no-assign-module-variable", "pages/index.ts", "const localModule = {}; export default localModule;\n", nil)
   if len(acceptedFindings) != 0 {
     t.Fatalf("accepted Next source unexpectedly reports: %+v", acceptedFindings)

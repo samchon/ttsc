@@ -26,7 +26,7 @@ func writeFile(t *testing.T, location, text string) {
 // shedConfigToolEnvironment removes the compiler and launcher variables from
 // the test's environment for the duration of one case.
 //
-// scripts/test-go-lint.cjs exports TTSC_TSGO_BINARY and TTSC_TTSX_BINARY into
+// `go test` exports TTSC_TSGO_BINARY and TTSC_TTSX_BINARY into
 // the `go test` child, which is exactly what hid the config evaluator resolving
 // both tools from the environment alone. A case that means to exercise the
 // project-anchored resolution has to shed them first, or it proves only that

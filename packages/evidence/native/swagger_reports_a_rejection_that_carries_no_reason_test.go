@@ -20,10 +20,10 @@ import (
  *  2. Load with an unusable normalizer so the entry is what answers.
  *  3. Assert a diagnostic is still reported and no unit materializes.
  *
- * @evidence contracts/testing.md#behavioral-verification loadSwaggerInventories supplies the asserted fallback diagnostic for seeded rejection with empty reason.
- * @evidence contracts/testing.md#independent-expectations Deliberately empty problem and literal fallback message specify required behavior.
- * @evidence contracts/testing.md#distinguishing-cases Malformed cached reason cannot become silent success.
- * @evidence contracts/testing.md#execution-ownership TestSwaggerReportsARejectionThatCarriesNoReason is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host. The warmed entry returns before process startup; the unavailable executable is a sentinel for an accidental cache miss, not a claimed real parser.
+ * @evidence contracts/testing.md#behavioral-verification loadSwaggerInventories replays a cache-seeded Rejected outcome with an empty Problem; the assertions require at least one problem, a message naming swagger.json, and zero units for that source.
+ * @evidence contracts/testing.md#independent-expectations The seed is an authored Rejected flag with an empty reason; the expectation that it still fails follows from the contract that rejection is a flag, not inferred from message emptiness. The exact fallback sentence is not asserted. A cache miss would yield a normalizer-unavailable message that does not name swagger.json, so the source-name assertion separates replay from fallback.
+ * @evidence contracts/testing.md#distinguishing-cases A reason-less rejection is distinguished from an empty successful document by requiring a problem while materializing no units. Replay of a rejection that does carry a reason is covered by TestSwaggerReusesARejectedDocumentWithoutSpawning.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerReportsARejectionThatCarriesNoReason is a selectable native Go unit entry. It seeds the swaggerDocuments cache and calls loadSwaggerInventories over a one-file temp fixture; TTSC_NODE_BINARY names an absent executable so an accidental cache miss cannot spawn Node; the test runs in-process and starts no consumer, Node process, native build or product host.
  */
 func TestSwaggerReportsARejectionThatCarriesNoReason(t *testing.T) {
   isolateSwaggerCache(t)

@@ -17,10 +17,10 @@ import "testing"
 //  2. Run `ttsc format`.
 //  3. Assert the file equals Prettier 3.8.3's output, every member
 //     terminated.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises terminates a split interface member and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert the file equals Prettier 3.8.3's output, every member terminated.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed one-member and two-member interfaces written on one line. The asserted decision is: Assert the file equals Prettier 3.8.3's output, every member terminated. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatTerminatesASplitInterfaceMember owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on two one-line interfaces (one member, and two members with the last unterminated) and requires the exact output with each body split over lines and every member, including the last, ending in `;`.
+// @evidence contracts/testing.md#independent-expectations The expected text is an authored literal that the test comment attributes to Prettier 3.8.3 (not re-verified here); the unterminated last member after the split is the defect it rejects.
+// @evidence contracts/testing.md#distinguishing-cases A one-member and a two-member body separate a last member with no separator from one whose interior terminator already exists; both must end uniformly terminated.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project via assertFormatResult; no child process, built binary or installed consumer.
 func TestCommandFormatTerminatesASplitInterfaceMember(t *testing.T) {
   assertFormatResult(
     t,

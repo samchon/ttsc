@@ -14,10 +14,10 @@ import "testing"
  *  1. Declare `get` in two modules and cite each from its own view.
  *  2. Evaluate the graph.
  *  3. Assert silence, and specifically no ambiguity diagnostic.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies the motivating defect is gone: one leaf name in two modules, cited from two files, resolves both times without ambiguity. The original assertions check assert silence, and specifically no ambiguity diagnostic.
- * @evidence contracts/testing.md#independent-expectations A nestia-shaped SDK puts `get` in every resource module, and the old global table reported every citation of either as ambiguous with no rename able to fix it, because the collision is the intended shape of the API. Import-scope resolution starts from a binding in one file, so the two never compete. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Declare `get` in two modules and cite each from its own view. Evaluate the graph. Assert silence, and specifically no ambiguity diagnostic. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestGraphResolvesSameLeafNameInTwoModules is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the import-scope configuration over two modules each declaring `get`, cited from two views through `questions.get` and `reviews.get`; assertNoProblems requires an empty list and the diagnostics must contain no `Ambiguous evidence target`.
+ * @evidence contracts/testing.md#independent-expectations The expectation is authored from the resolution contract: a generated SDK repeats leaf names in every resource module, and import-scope resolution starts from a binding in one file, so the two same-named units never compete.
+ * @evidence contracts/testing.md#distinguishing-cases Two units with one leaf name cited from separate files; a repository-wide name table would report both citations ambiguous, which the explicit no-ambiguity check isolates from other failures.
+ * @evidence contracts/testing.md#execution-ownership TestGraphResolvesSameLeafNameInTwoModules is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestGraphResolvesSameLeafNameInTwoModules(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

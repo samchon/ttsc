@@ -19,7 +19,7 @@ import (
 // 3. Require the call slice to equal helper and the access slice to contain this.value, rather than a nearby declaration name.
 //
 // @evidence contracts/testing.md#behavioral-verification Require the call slice to equal helper and the access slice to contain this.value, rather than a nearby declaration name.
-// @evidence contracts/testing.md#independent-expectations The literal fixture and supported graph contract establish these expectations: Require the call slice to equal helper and the access slice to contain this.value, rather than a nearby declaration name.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal slices of the fixture source: the value-call edge from caller to helper must span exactly the text helper (not the adjacent helperShadow), and the value-access edge from Box.read to Box.value must span text containing this.value.
 // @evidence contracts/testing.md#distinguishing-cases Load adjacent helper and helperShadow declarations plus Box.value and Box.read. Resolve the caller-to-helper call and the read-to-value access edges. Require the call slice to equal helper and the access slice to contain this.value, rather than a nearby declaration name.
 // @evidence contracts/testing.md#execution-ownership TestEdgeSpansPointToResolvedUsage is a Go source-unit entry. Build execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestEdgeSpansPointToResolvedUsage(t *testing.T) {

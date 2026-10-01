@@ -16,10 +16,10 @@ import (
  *  2. Parse the proposed two-token spelling beside it.
  *  3. Assert only the colon form belongs wholly to the target.
  *
- * @evidence contracts/testing.md#behavioral-verification splitSwaggerTarget separates POST:/members from its reason and retains legacy slash-prefixed reason prose.
+ * @evidence contracts/testing.md#behavioral-verification splitDeclarationBody splits 'POST:/members Creates a member.' into target 'POST:/members' and reason 'Creates a member.', and 'POST /members is slash-prefixed prose.' into target 'POST' and reason '/members is slash-prefixed prose.'.
  * @evidence contracts/testing.md#independent-expectations Explicit target/reason pairs independently specify token boundaries.
  * @evidence contracts/testing.md#distinguishing-cases Colon target and bare-method legacy token must not swallow reason text.
- * @evidence contracts/testing.md#execution-ownership TestSwaggerTargetUsesOneTokenWithoutReinterpretingReasons is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerTargetUsesOneTokenWithoutReinterpretingReasons is a selectable native Go unit entry. It calls splitDeclarationBody on two literal strings in-process; no consumer, Node process, native build or product host is started.
  */
 func TestSwaggerTargetUsesOneTokenWithoutReinterpretingReasons(t *testing.T) {
   target, reason := splitDeclarationBody("POST:/members Creates a member.")

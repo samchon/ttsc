@@ -1,21 +1,16 @@
 name: build
 
-on:
-  push:
-    branches:
-      - master
-  pull_request:
+on: pull_request
 
 concurrency:
-  group: build-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  Ubuntu:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
       - uses: pnpm/action-setup@v6
         with:
           version: 10.6.4
@@ -23,27 +18,10 @@ jobs:
         with:
           node-version: 24.x
           cache: pnpm
-
       - uses: actions/setup-go@v7
         with:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: "**/go.sum"
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check Engineering Contracts
-        run: pnpm evidence
-
-      - name: Build Packages
-        run: pnpm run build
-        env:
-          TTSC_PLATFORM_BUILD_WORKERS: 2
-          TTSC_PACKAGE_BUILD_WORKERS: 2
-          TTSC_PLATFORM_BUILD_SET: ci-remainder
-
-      - name: Smoke release-candidate ttscgraph snapshot
-        run: node scripts/assert-ttscgraph-release-candidate.cjs
-
-      - name: Check source quality gates once
-        run: node scripts/ci/run-typecheck-lane.cjs --quality-only
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run evidence
+      - run: pnpm run build

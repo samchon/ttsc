@@ -20,10 +20,10 @@ import (
 //  1. Give the consumer and the sibling the identical over-wide object literal.
 //  2. Run format with `printWidth: 20`, which reflows that literal.
 //  3. Assert the consumer was reflowed and the sibling is byte-identical.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises leaves imported sibling source untouched and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert the consumer was reflowed and the sibling is byte-identical.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Give the consumer and the sibling the identical over-wide object literal. The asserted decision is: Assert the consumer was reflowed and the sibling is byte-identical. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatLeavesImportedSiblingSourceUntouched owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command with printWidth 20 on a consumer project that imports a sibling package's TypeScript source, where both files hold an over-wide object literal; it requires exit 0 with empty output, the consumer reflowed, and the sibling file byte-identical.
+// @evidence contracts/testing.md#independent-expectations The sibling expectation is its original literal source; the consumer is checked only for containing the reflowed line `\n  aa: legacy,\n`, a partial rather than whole-file comparison.
+// @evidence contracts/testing.md#distinguishing-cases The two files are identical in shape, so the only property separating them is ownership: the consumer is inside the project file list and the sibling is only reached through an import. A formatter that rewrote files reachable through imports would change the sibling.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: seeds a two-directory temp workspace and calls run with the format subcommand; no child process, built binary or installed consumer.
 func TestCommandFormatLeavesImportedSiblingSourceUntouched(t *testing.T) {
   const siblingSource = "export const legacy = { aa: 1, bb: 2, cc: 3 };\n"
   consumer, sibling := seedLintSiblingSourceProject(

@@ -11,7 +11,9 @@ import { createPaxRecord, createTarball } from "../internal/tarball";
  *
  * PAX record lengths count UTF-8 bytes, not JavaScript string code units. A
  * multibyte path must therefore survive into all three mounted views instead of
- * acquiring a newline or corrupting the cursor before the next record.
+ * acquiring a newline or corrupting the cursor before the next record. The
+ * multibyte path is a TypeScript source, so it is mounted into the compiler view;
+ * declaration, runtime and manifest files cover the other two views.
  *
  * 1. Unpack a header with a multibyte non-path record followed by a multibyte
  *    `path` record, alongside an ASCII control.

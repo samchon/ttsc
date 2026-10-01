@@ -14,10 +14,10 @@ import { collectExternalPackageNames } from "../../../../packages/playground/src
  *    require only the active call.
  * 3. Require package discovery to report exactly the same active package.
  *
- * @evidence contracts/testing.md#behavioral-verification The real source collector runs all ten lexical rows and compares exact dependency names.
- * @evidence contracts/testing.md#independent-expectations An independent JavaScript Function executes every authored source and records the literal active require argument; inert comment text never supplies an expectation.
- * @evidence contracts/testing.md#distinguishing-cases LF, CR, CRLF, LS and PS distinguish newline policy in both scanner loops, with top-level and template-substitution contexts.
- * @evidence contracts/testing.md#execution-ownership This exported src/features entry executes the owning source operations in this test process, without installing a consumer, building a native producer or fabricating process protocol replies.
+ * @evidence contracts/testing.md#behavioral-verification collectExternalPackageNames is called on each of ten generated sources (five terminators at top level and inside a template substitution) and must return exactly ["active"]; any failing row is collected and rethrown in one AggregateError.
+ * @evidence contracts/testing.md#independent-expectations The JavaScript engine itself (new Function with a recording require) runs every source and must record only "active", so the expectation comes from real ECMAScript line-comment semantics rather than from the collector's tokenizer.
+ * @evidence contracts/testing.md#distinguishing-cases LF, CR, CRLF, U+2028 and U+2029 each end the line comment, so the real require after it must be found; the inert require inside the comment must not be. Top level and template-substitution rows cover the two scanner code paths that skip comments.
+ * @evidence contracts/testing.md#execution-ownership Unit-layer entry exported from src/features and run in the shared playground process; it calls only the in-memory collector and a local Function, with no installer, compiler, native build or host process.
  */
 export function test_package_discovery_stops_line_comments_at_every_ecma_newline(): void {
   const failures: unknown[] = [];

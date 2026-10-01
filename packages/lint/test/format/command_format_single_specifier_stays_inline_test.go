@@ -9,10 +9,10 @@ import "testing"
 // even past 80 (the fix), and multi-specifier / default-combined clauses that
 // stay broken (the negatives the fix must NOT collapse).
 //
-// @evidence contracts/testing.md#behavioral-verification The format command must preserve canonical single-specifier import/export clauses even when names or module tails exceed width, and retain canonical broken multi/default clauses.
-// @evidence contracts/testing.md#independent-expectations The twelve literal source fixtures encode measured canonical shapes independently; exact equality retains binding kinds, aliases and module paths.
-// @evidence contracts/testing.md#distinguishing-cases Named cases distinguish ordinary/type-only/aliased/sourceless singles, long module tails, two specifiers and default-plus-named forms. The multi-break sibling supplies changed inputs.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatSingleSpecifierStaysInline is a public format unit selected by TestSelectedLintUnits. The isolated fixture filesystem feeds the actual Go command entry in the shared process. This verifies command semantics without compiling or launching a native artifact or installing a consumer.
+// @evidence contracts/testing.md#behavioral-verification Twelve subcases run the in-process `format` command on authored import and export declarations over 80 columns and require each unchanged: nine single-specifier clauses (plain, type-only, aliased, with or without `from`, long name or long module tail) stay inline, and three already-broken multi-specifier and default-plus-named clauses stay broken.
+// @evidence contracts/testing.md#independent-expectations Sources are authored literals in the Prettier layout the test names and serve as their own expected output; nothing is derived from the formatter.
+// @evidence contracts/testing.md#distinguishing-cases Single-specifier inputs that a width-based formatter would break are contrasted with multi-specifier or default-combined clauses that must not be collapsed. All are fixed points; the changed-input twins live in TestCommandFormatSingleSpecifierAbstainDoesNotBlockMultiBreak.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatSingleSpecifierStaysInline(t *testing.T) {
   cases := []struct {
     name string

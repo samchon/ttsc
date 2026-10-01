@@ -16,7 +16,7 @@ import (
  *
  * @evidence contracts/testing.md#behavioral-verification evaluateEvidenceGraph receives a healthy host and an unhealthy reference retaining one selected unit with both cardinality policies; it must return no findings.
  * @evidence contracts/testing.md#independent-expectations Partial unavailable data cannot establish missing coverage or cardinality even when its retained subset has one unit.
- * @evidence contracts/testing.md#distinguishing-cases A healthy reference with this zero-evidence host would derive exactly-one cardinality and missing coverage; zero positive hosts do not violate uniqueEvidence. Healthy false suppresses those derivable findings and is supplied directly without a loader.
+ * @evidence contracts/testing.md#distinguishing-cases The only case is the unhealthy reference (Healthy false, supplied directly without a loader) with a zero-evidence host and both policies on, asserted to yield no findings; the healthy twin that would report is not executed here, so the test detects a regression that derives findings from an unhealthy reference but not one that stops deriving them for healthy ones.
  * @evidence contracts/testing.md#execution-ownership TestReferencePolicyDerivesNothingFromAnUnhealthyReference is a selectable native Go unit entry exercising the owning operations named in its behavioral answer in-process. Its direct fixture values and local comparisons require no installed artifact or product process.
  */
 func TestReferencePolicyDerivesNothingFromAnUnhealthyReference(t *testing.T) {

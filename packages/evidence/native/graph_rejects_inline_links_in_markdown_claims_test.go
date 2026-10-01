@@ -18,10 +18,10 @@ import "testing"
  *  1. Cite a Markdown section from a Markdown claim, braced.
  *  2. Evaluate the graph.
  *  3. Assert the explanatory rejection names the inline link itself.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies a Markdown claim is told why it cannot use an inline link. The original assertions check assert the explanatory rejection names the inline link itself.
- * @evidence contracts/testing.md#independent-expectations A braced target in Markdown would otherwise fall through to a resolver that has nothing to resolve against, and the author needs to hear the reason rather than a generic failure. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Cite a Markdown section from a Markdown claim, braced. Evaluate the graph. Assert the explanatory rejection names the inline link itself. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestGraphRejectsInlineLinksInMarkdownClaims is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a Markdown claim over docs/reader.md (symbol file), which cites `<!-- @evidence {@link pricing} ... -->`, against a Markdown reference over docs/spec.md; the diagnostics must contain `Inline link target '{@link pricing}'` and `a markdown comment has none`.
+ * @evidence contracts/testing.md#independent-expectations The expected wording is authored from the diagnostic contract: a braced target in a Markdown comment has no import scope to resolve against, so the author must be told why it cannot be used rather than given a generic failure.
+ * @evidence contracts/testing.md#distinguishing-cases A Markdown reference is used on purpose, because a TypeScript reference is refused to a Markdown claim at configuration decode with the same sentence and would leave the resolver untested; only containment of the two fragments is asserted.
+ * @evidence contracts/testing.md#execution-ownership TestGraphRejectsInlineLinksInMarkdownClaims is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestGraphRejectsInlineLinksInMarkdownClaims(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

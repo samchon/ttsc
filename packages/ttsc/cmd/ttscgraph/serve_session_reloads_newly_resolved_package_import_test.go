@@ -13,8 +13,8 @@ import (
 // 2. Create the substituted generated/value.ts declaration.
 // 3. Require a changed reload dump.
 //
-// @evidence contracts/testing.md#behavioral-verification Require a changed reload dump.
-// @evidence contracts/testing.md#independent-expectations The literal fixture and supported graph contract establish these expectations: Require a changed reload dump.
+// @evidence contracts/testing.md#behavioral-verification Creating generated/value.ts, the substitution of the wildcard #generated/* package imports mapping for #generated/value, reloads a resident session.
+// @evidence contracts/testing.md#independent-expectations The expectation is literal: the imports map #generated/* to ./generated/*.js, so creating generated/value.ts for the specifier #generated/value must yield mode reload, changed, with a dump. The new declaration's node is not asserted.
 // @evidence contracts/testing.md#distinguishing-cases Load the #generated/value import with a wildcard package imports mapping. Create the substituted generated/value.ts declaration. Require a changed reload dump.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsNewlyResolvedPackageImport is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsNewlyResolvedPackageImport(t *testing.T) {

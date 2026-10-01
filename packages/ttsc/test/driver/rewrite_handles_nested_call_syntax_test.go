@@ -74,7 +74,9 @@ func TestDriverRewriteHandlesNestedCallSyntax(t *testing.T) {
     t.Fatalf("unexpected emit diagnostics: %#v", emitDiags)
   }
   js := emitted["index.js"]
-  if !strings.Contains(js, `"nested"`) || strings.Contains(js, "plugin.ns.make") {
+  // The whole statement is asserted: a scanner that closed the call at any
+  // inner `)` would leave argument text behind the replacement.
+  if !strings.Contains(js, `exports.value = "nested";`) {
     t.Fatalf("nested call rewrite failed:\n%s", js)
   }
 }

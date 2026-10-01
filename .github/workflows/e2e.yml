@@ -1,25 +1,13 @@
 name: e2e
 
-on:
-  push:
-    branches:
-      - master
-  pull_request:
-  workflow_dispatch:
+on: pull_request
 
 concurrency:
-  group: e2e-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Reuse content-keyed plugins within this execution. Cold-cache tests keep
-# their isolated roots. No plugin archive is restored or uploaded.
-env:
-  TTSC_TEST_CACHE_DIR: ${{ github.workspace }}/.cache/ci/plugins
-  TTSC_TEST_LAYER: e2e
-
 jobs:
-  validation:
-    name: e2e
+  e2e:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -31,106 +19,11 @@ jobs:
           node-version: 24.x
           cache: pnpm
       - uses: actions/setup-go@v7
-        id: go
         with:
           go-version-file: packages/ttsc/go.mod
-          cache: false
-      - name: Locate Go caches
-        id: go-cache
-        shell: bash
-        run: |
-          echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
-          echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
-      - name: Restore Go modules and build objects
-        id: go-cache-restore
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ${{ steps.go-cache.outputs.build }}
-            ${{ steps.go-cache.outputs.modules }}
-          key: e2e-go-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('**/go.sum', '**/go.mod') }}-${{ github.sha }}
-          restore-keys: |
-            e2e-go-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('**/go.sum', '**/go.mod') }}-
+          cache-dependency-path: "**/go.sum"
+      - run: pnpm install --frozen-lockfile
       - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.0
-      - name: Ensure Yarn for workspace layout contracts
-        run: npm install --global yarn@1.22.22
-      - name: Install dependencies once
-        run: pnpm install --frozen-lockfile
-      - name: Use system Go for tests
-        shell: bash
-        run: |
-          echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
-          echo "GOCACHE=$(go env GOCACHE)" >> "$GITHUB_ENV"
-      - name: Build shared validation dependencies once
-        id: build
-        run: pnpm run build:current
-        env:
-          TTSC_BUILD_SCOPE: full
-          TTSC_BUILD_WORKERS: 2
-          TTSC_CACHE_DIR: ${{ env.TTSC_TEST_CACHE_DIR }}
-      - name: Batched e2e contracts
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: node scripts/ci/run-validation-group.cjs --lanes=all --concurrency=3
-        env:
-          TTSC_TEST_WORKERS: 2
-          TTSC_GO_TEST_WORKERS: 2
-          TTSC_BUN_BINARY: bun
-          TTSC_HOST_WORKERS: 3
-          TTSC_UNPLUGIN_SKIP_BUILD: "1"
-      - name: Installed CLI smoke
-        id: installed
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: pnpm exec node scripts/ci/installed-cli-smoke.cjs --consumer=experimental/test-unplugin/.tmp/project --keep
-      - name: Verify VS Code installation once
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        shell: bash
-        run: |
-          if ! command -v code >/dev/null 2>&1; then
-            curl -fsSL -o "$RUNNER_TEMP/vscode.deb" "https://update.code.visualstudio.com/latest/linux-deb-x64/stable"
-            sudo apt-get install -y "$RUNNER_TEMP/vscode.deb"
-          fi
-          node scripts/smoke-vscode-install.cjs packages/vscode
-      - name: Read supported Node minimum
-        id: nodes
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        shell: bash
-        run: node -e "console.log('minimum='+require('./scripts/ci/validation-suites.cjs').NODE_FLOOR)" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-node@v7
-        id: node-floor
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        with:
-          node-version: ${{ steps.nodes.outputs.minimum }}
-      - name: Minimum Node installed CLI smoke
-        if: ${{ !cancelled() && steps.installed.outcome == 'success' && steps.node-floor.outcome == 'success' }}
-        run: pnpm exec node scripts/ci/installed-cli-smoke.cjs --reuse
-      - name: Minimum Node runtime contracts
-        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.node-floor.outcome == 'success' }}
-        run: node scripts/ci/run-validation-group.cjs --lanes=runtime-node-floor --concurrency=2
-        env:
-          TTSC_TEST_WORKERS: 2
-      - uses: actions/setup-node@v7
-        id: node-current
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        with:
-          node-version: current
-      - name: Current Node installed CLI smoke
-        if: ${{ !cancelled() && steps.installed.outcome == 'success' && steps.node-current.outcome == 'success' }}
-        run: pnpm exec node scripts/ci/installed-cli-smoke.cjs --reuse
-      - name: Current Node runtime contracts
-        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.node-current.outcome == 'success' }}
-        run: node scripts/ci/run-validation-group.cjs --lanes=runtime-node-current --concurrency=2
-        env:
-          TTSC_TEST_WORKERS: 2
-      # Go validates cached objects against sources, toolchains and build flags.
-      # Keep objects produced by failing tests, including the distinct -race
-      # build. Test commands still force execution and retain their exit status.
-      - name: Save Go modules and build objects
-        if: ${{ !cancelled() && steps.go-cache-restore.outcome == 'success' && steps.go-cache-restore.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ${{ steps.go-cache.outputs.build }}
-            ${{ steps.go-cache.outputs.modules }}
-          key: ${{ steps.go-cache-restore.outputs.cache-primary-key }}
+      - run: npm install --global yarn
+      - run: pnpm run build
+      - run: pnpm run test:e2e

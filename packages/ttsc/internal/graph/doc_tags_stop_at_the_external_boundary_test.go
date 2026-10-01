@@ -26,7 +26,7 @@ import (
 //  3. Assert no tag is recorded from the dependency, under any target.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that a documentation tag written in a dependency contributes nothing.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish no tag is recorded from the dependency, under any target.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over a workspace source with one tag and a node_modules dependency with another: the workspace tag must be recorded on its declaration, and no recorded tag may have a target containing node_modules or text naming docs/vendor.md.
 // @evidence contracts/testing.md#distinguishing-cases Build a fixture whose `node_modules` dependency carries a tag and whose workspace source carries another; Assert the workspace tag is recorded; Assert no tag is recorded from the dependency, under any target.
 // @evidence contracts/testing.md#execution-ownership TestDocTagsStopAtTheExternalBoundary is a Go source-unit entry. Build execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestDocTagsStopAtTheExternalBoundary(t *testing.T) {

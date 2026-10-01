@@ -8,7 +8,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// formattingNoEditStubSource builds a stubSource that owns ttsc.format.document
+// formattingContentCapture builds a stubSource that owns ttsc.format.document
 // and records the content the formatting handler piped to the formatter, while
 // returning a nil WorkspaceEdit so the editor receives an empty TextEdit array.
 // The captured content is what the assertions below inspect.

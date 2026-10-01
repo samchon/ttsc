@@ -16,7 +16,7 @@ import (
 // `delete array[next()]`. Reported externally as #795.
 //
 //  1. Delete from a Record, an index-signature object, an array by literal, an
-//     array by identifier, and an array by call result.
+//     array by call result, and a tuple by literal.
 //  2. Run the rule.
 //  3. Assert only the three array deletes report.
 // @evidence contracts/testing.md#behavioral-verification Array deletion must report by receiver type rather than key spelling.

@@ -20,10 +20,6 @@
 // turns the option off for every project that emits through a plugin transform,
 // and anything `printSourceFile` does around the printer that this file omits
 // is missing from the plugin lane's output even when the option set matches.
-// `printer_options_field_set_matches_pinned_emitter_test.go` fails when the pin
-// changes the PrinterOptions field set,
-// `write_file_data_field_set_matches_pinned_emitter_test.go` fails when it
-// changes the WriteFileData field set, and
 // `emit_plugin_transform_matches_plain_emit_for_printer_options_test.go` fails
 // when a forwarded option stops matching the plain emit.
 package compiler

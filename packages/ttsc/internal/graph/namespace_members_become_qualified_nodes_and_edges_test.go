@@ -25,7 +25,7 @@ import (
 // 3. Require all four qualified nodes, run-to-helper and bootstrap-to-run calls, and process-to-Payload and WorkerRef-to-Worker type references.
 //
 // @evidence contracts/testing.md#behavioral-verification Require all four qualified nodes, run-to-helper and bootstrap-to-run calls, and process-to-Payload and WorkerRef-to-Worker type references.
-// @evidence contracts/testing.md#independent-expectations The literal fixture and supported graph contract establish these expectations: Require all four qualified nodes, run-to-helper and bootstrap-to-run calls, and process-to-Payload and WorkerRef-to-Worker type references.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: Service.helper, Service.run, Service.Worker and Service.Worker.process must be nodes; and value-call edges Service.run to Service.helper and bootstrap to Service.run, and type-ref edges Service.Worker.process to Payload and WorkerRef to Service.Worker, must exist.
 // @evidence contracts/testing.md#distinguishing-cases Load Service.helper, Service.run, Service.Worker and Service.Worker.process with Payload and WorkerRef. Build namespace declarations, value calls and type references. Require all four qualified nodes, run-to-helper and bootstrap-to-run calls, and process-to-Payload and WorkerRef-to-Worker type references.
 // @evidence contracts/testing.md#execution-ownership TestNamespaceMembersBecomeQualifiedNodesAndEdges is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestNamespaceMembersBecomeQualifiedNodesAndEdges(t *testing.T) {

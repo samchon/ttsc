@@ -17,10 +17,10 @@ import (
  *  1. Declare the same claim with an ascending relative root.
  *  2. Read the root diagnostic.
  *  3. Assert the resolved location and the resolution clause are both present.
- * @evidence contracts/testing.md#behavioral-verification runRootedGraph is exercised with the scenario below; the assertions require the resolved location and the resolution clause are both present.
- * @evidence contracts/testing.md#independent-expectations The negative twin of the complementary case, and the one the repair could most easily overrun. A relative root is the form where the derived spelling is the author's own and where the project root actually is composed into it, so every clause the absolute case drops has to survive here.
- * @evidence contracts/testing.md#distinguishing-cases Declare the same claim with an ascending relative root. Read the root diagnostic. Assert the resolved location and the resolution clause are both present.
- * @evidence contracts/testing.md#execution-ownership TestARelativeRootKeepsItsResolvedLocationAndClause is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraph runs the graph rule with a TypeScript claim whose root is the missing relative path `../contracts`; the test requires diagnostics containing `found no directory at the typescript root '../contracts', which resolves to '`, `it resolves against the ttsc project root` and `add that directory and make its sources part of the tsconfig Program`, and none containing `because that path is not a directory`.
+ * @evidence contracts/testing.md#independent-expectations The expected sentences are authored literals for a relative root that holds nothing: the author's spelling, the resolved location and the project-root clause must all appear, and the occupied-by-a-file wording must not.
+ * @evidence contracts/testing.md#distinguishing-cases The negative twin of the absolute-root and non-directory cases: a relative root that does not exist must keep both spellings and the resolution clause and must not use the file-in-the-way repair wording.
+ * @evidence contracts/testing.md#execution-ownership TestARelativeRootKeepsItsResolvedLocationAndClause is a Go unit entry in the native test process; runRootedGraph writes the fixture to a temp workspace and calls the graph rule directly, with no consumer install or product host.
  */
 func TestARelativeRootKeepsItsResolvedLocationAndClause(t *testing.T) {
   messages := runRootedGraph(t, map[string]string{

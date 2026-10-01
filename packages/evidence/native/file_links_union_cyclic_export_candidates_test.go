@@ -12,13 +12,10 @@ import "testing"
  * 2. Cite their shared address from Markdown and existing TypeScript inline tags.
  * 3. Reject distinct declarations and deduplicate paths to one declaration.
  *
- * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies finite and cyclic export paths participate in one ambiguity check.
- *
- * @evidence contracts/testing.md#independent-expectations Two different authored declarations at ns.value remain ambiguous; re-exporting the same declaration deduplicates it, for both file-qualified and inline citation forms.
- *
- * @evidence contracts/testing.md#distinguishing-cases Publish two namespace bindings through separate star re-exports. Cite their shared address from Markdown and existing TypeScript inline tags. Reject distinct declarations and deduplicate paths to one declaration.
- *
- * @evidence contracts/testing.md#execution-ownership TestFileLinksUnionCyclicExportCandidates is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#behavioral-verification Four t.Run rows (distinct or same declaration, Markdown file-link or inline TypeScript citation) build an index whose two star exports expose `ns` through modules a and b that lead back to the index and to other.ts; for the distinct rows the citation of `ns.value` must report `Ambiguous file-qualified evidence target` (file link) or `Ambiguous evidence target` (inline) plus `Missing acknowledgement`, and for the same-declaration rows the graph must be clean.
+ * @evidence contracts/testing.md#independent-expectations The expectations are authored from the ambiguity contract: two different declarations reachable at one address are ambiguous whether one path is finite and the other cyclic, while two paths to the same declaration deduplicate.
+ * @evidence contracts/testing.md#distinguishing-cases Two declarations versus one re-exported declaration, crossed with the two citation syntaxes; each combination is its own named row.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksUnionCyclicExportCandidates is a Go unit entry in the native test process that owns four t.Run rows; each drives graphRule.Check through newFileLinkFixture over real temp files and in-memory snapshots, with no consumer install or product host.
  */
 func TestFileLinksUnionCyclicExportCandidates(t *testing.T) {
   for _, same := range []bool{false, true} {

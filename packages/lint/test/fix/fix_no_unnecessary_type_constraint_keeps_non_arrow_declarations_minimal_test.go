@@ -6,9 +6,9 @@ import "testing"
 // TSX only receives a comma for arrow functions, not ordinary declarations.
 //
 // @evidence contracts/testing.md#behavioral-verification The TSX fix removes harmless constraints from interface, alias, class, method and function declarations without arrow commas.
-// @evidence contracts/testing.md#independent-expectations The five independently authored generic declarations retain their names, member/body syntax and ordinary <T>/<U> parameter forms.
+// @evidence contracts/testing.md#independent-expectations The four independently authored top-level declarations, carrying five constrained type parameters including the class method's U, retain their names, member/body syntax and ordinary <T>/<U> parameter forms.
 // @evidence contracts/testing.md#distinguishing-cases These non-arrow declaration kinds contrast with TSX arrow syntax; matching the file extension alone must not insert commas.
-// @evidence contracts/testing.md#execution-ownership TestFixNoUnnecessaryTypeConstraintKeepsNonArrowDeclarationsMinimal owns all five declarations in one assertFixSnapshotFile call on declarations.tsx.
+// @evidence contracts/testing.md#execution-ownership TestFixNoUnnecessaryTypeConstraintKeepsNonArrowDeclarationsMinimal owns all four declarations and their five constraints in one assertFixSnapshotFile call on declarations.tsx.
 func TestFixNoUnnecessaryTypeConstraintKeepsNonArrowDeclarationsMinimal(t *testing.T) {
   source := "interface Box<T extends unknown> { value: T }\n" +
     "type Alias<T extends any> = T;\n" +

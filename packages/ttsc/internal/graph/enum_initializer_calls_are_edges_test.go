@@ -17,7 +17,7 @@ import (
 // 3. Require the E node and its value-call edge to base.
 //
 // @evidence contracts/testing.md#behavioral-verification Require the E node and its value-call edge to base.
-// @evidence contracts/testing.md#independent-expectations The literal fixture and supported graph contract establish these expectations: Require the E node and its value-call edge to base.
+// @evidence contracts/testing.md#independent-expectations The expectation is literal: for export enum E { A = base() } the graph must hold the E enum node and a value-call edge from E to the base function; dropping the initializer walk fails the edge check.
 // @evidence contracts/testing.md#distinguishing-cases Load enum E whose A initializer calls base. Build the enum and initializer relations. Require the E node and its value-call edge to base.
 // @evidence contracts/testing.md#execution-ownership TestEnumInitializerCallsAreEdges is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestEnumInitializerCallsAreEdges(t *testing.T) {

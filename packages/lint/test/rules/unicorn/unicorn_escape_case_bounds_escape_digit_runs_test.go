@@ -18,7 +18,8 @@ import "testing"
 //  1. Lint canonical escapes trailed by literal `a-f` letters.
 //  2. Assert they stay silent while their lowercase twins report at the
 //     literal's exact range.
-//  3. Assert the braced code point escape reports on its digits alone.
+//  3. Assert the lowercase braced code point escape reports at its literal range
+//     and its canonical uppercase and digit-only twins stay silent.
 //
 // @evidence contracts/testing.md#behavioral-verification assertRuleFindingRanges verifies exact literal ranges or no findings, exposing overlong raw escape scanning.
 // @evidence contracts/testing.md#independent-expectations JavaScript fixed x/u digit widths and braced code-point termination independently establish the authored matching tokens under the uppercase escape policy.

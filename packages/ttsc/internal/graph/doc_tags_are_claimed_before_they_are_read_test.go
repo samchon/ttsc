@@ -24,8 +24,8 @@ import (
 // 2. Build and serialize both graphs with their declared doc-tag capability.
 // 3. Require one Cited doc tag, none on the untagged declaration, and identical structural dumps after removing doc tags.
 //
-// @evidence contracts/testing.md#behavioral-verification Build and MarshalDump distinguish the Cited declaration's doc tag from ordinary graph facts and require an explicit docTags capability.
-// @evidence contracts/testing.md#independent-expectations The literal docs/a.md#x annotation supplies the expected citation. Removing the doc-tag fields from separately built tagged and untagged dumps must leave the same structure; this control does not validate every structural graph fact.
+// @evidence contracts/testing.md#behavioral-verification Build and MarshalDump carry the tag of a declaration documented with an unrecognized @evidence tag onto the wire as one doc tag and carry none for an otherwise identical untagged declaration, and the two documents are equal once the tags are removed. The docTags capability is passed to the provenance but its presence is not asserted here; the commands' own tests assert it.
+// @evidence contracts/testing.md#independent-expectations The literal docs/a.md#x annotation supplies the expected citation text docs/a.md#x Cited., and the control is separately built tagged and untagged dumps that must be structurally equal after the tags are stripped. The control does not validate every structural graph fact.
 // @evidence contracts/testing.md#distinguishing-cases A tagged declaration and otherwise identical untagged declaration contrast one retained citation, no untagged citation and structural equality after omitting doc tags.
 // @evidence contracts/testing.md#execution-ownership This source-unit entry loads actual authored compiler inputs and directly calls Build and MarshalDump in the Go test process; it installs no consumer and starts no product host.
 func TestDocTagsAreClaimedBeforeTheyAreRead(t *testing.T) {

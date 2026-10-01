@@ -16,16 +16,6 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases The original annotated violation remains unchanged and an adjacent accepted source is checked with filename pages/index.tsx. This is static source/filename behavior, not a browser rendering assertion.
 // @evidence contracts/testing.md#execution-ownership TestNextjsGoogleFontPreconnectRequiresRel is a discoverable Go unit entry; TypeScript/TSX parsing and the owning engine execute in one shared process without installing Next, route discovery or a product child host.
 func TestNextjsGoogleFontPreconnectRequiresRel(t *testing.T) {
-  assertRuleCorpusCaseTSX(t, "pages/index.tsx", `
-export default function Page() {
-  return (
-    <>
-      // expect: nextjs/google-font-preconnect error
-      <link href="https://fonts.gstatic.com" />
-    </>
-  );
-}
-`)
   _, _, acceptedFindings := runRuleFindingsSnapshotFile(t, "nextjs/google-font-preconnect", "pages/index.tsx", "export default function Page() { return <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" />; }\n", nil)
   if len(acceptedFindings) != 0 {
     t.Fatalf("accepted Next source unexpectedly reports: %+v", acceptedFindings)

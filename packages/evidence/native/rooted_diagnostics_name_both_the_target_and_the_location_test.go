@@ -18,10 +18,10 @@ import (
  *  2. Read the missing-acknowledgement diagnostic.
  *  3. Assert it carries the root-relative target and the ascending location.
  *
- * @evidence contracts/testing.md#behavioral-verification runRootedGraph reports missing requirements/pricing.md#discounts and ../docs/requirements/pricing.md:1.
- * @evidence contracts/testing.md#independent-expectations The literal uncited heading establishes root-relative target and physical repair location.
- * @evidence contracts/testing.md#distinguishing-cases One diagnostic retains both address meanings.
- * @evidence contracts/testing.md#execution-ownership TestRootedDiagnosticsNameBothTheTargetAndTheLocation is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraph runs graphRule.Check twice over a workspace whose Markdown population has root ../docs; the fully uncited document must report "Missing acknowledgement for 'requirements/pricing.md#discounts'" at "../docs/requirements/pricing.md:1", and the document with only discounts cited must report the uncited refunds heading at "../docs/requirements/pricing.md:3".
+ * @evidence contracts/testing.md#independent-expectations The literal headings fix the expectations: the target is spelled relative to the declared root and the location ascends through the project to the physical file, with the heading's line number taken from the authored document, not from rule output.
+ * @evidence contracts/testing.md#distinguishing-cases Each message must carry both address spellings at once; the second scenario adds a cited sibling heading so the reported line (3 rather than 1) proves the location follows the uncited heading. Assertions use contains-matching and do not assert the total finding count.
+ * @evidence contracts/testing.md#execution-ownership TestRootedDiagnosticsNameBothTheTargetAndTheLocation is a selectable native Go unit entry. runRootedGraph writes the authored Markdown and TypeScript into a temp workspace, parses the TypeScript in-process and calls graphRule.Check; no consumer, build or product host is started.
  */
 func TestRootedDiagnosticsNameBothTheTargetAndTheLocation(t *testing.T) {
   messages := runRootedGraph(t, map[string]string{

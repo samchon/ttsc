@@ -20,7 +20,7 @@ import (
  *
  * @evidence contracts/testing.md#distinguishing-cases The enabled noEvidenceExclude spelling contrasts retired noExclude, whose rejection must offer the current name.
  *
- * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticReferenceExclusionPolicyAnswersToItsRenamedKey is the selectable unit entry in packages/evidence/native, compiled beside its owning implementation in the shared Go unit process. It invokes decodeGraphConfig and its decoder/assertion helpers in process; its JSON artifact/package names are input strings and trigger no installation, artifact loader, native plugin build, or child process. Its local table variants remain owned by this entry.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticReferenceExclusionPolicyAnswersToItsRenamedKey is a Go unit entry in the native test process; it calls decodeGraphConfig twice on in-memory JSON strings with no filesystem, package installation, artifact build or product host, and has no table of variants.
  */
 func TestEvidenceSemanticReferenceExclusionPolicyAnswersToItsRenamedKey(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{

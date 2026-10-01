@@ -12,10 +12,10 @@ import "testing"
  *  1. Parse an empty link and a two-word link.
  *  2. Read back each target.
  *  3. Assert neither becomes an inline link target.
- * @evidence contracts/testing.md#behavioral-verification parseDeclarations exercises this case: Verifies an empty or multi-word link interior is not a target. The original assertions check assert neither becomes an inline link target.
- * @evidence contracts/testing.md#independent-expectations `{@link }` names nothing and `{@link A B}` names two things, and a target identity that accepted either would resolve against a symbol name containing a space, which no declaration can have. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Parse an empty link and a two-word link. Read back each target. Assert neither becomes an inline link target. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestDeclarationRejectsEmptyAndMultiWordInlineLinks is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls parseDeclarations within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification parseDeclarations is called on `{@link }` and `{@link ISale IShoppingSale}` comments; for each, if exactly one declaration is returned its target must not be an inline link target.
+ * @evidence contracts/testing.md#independent-expectations The expectation is authored from the grammar contract: an empty interior names nothing and a two-word interior names two things, so neither may become a target that would be resolved as a symbol name containing a space.
+ * @evidence contracts/testing.md#distinguishing-cases An empty link and a two-word link, looped as plain iterations; the assertion is conditional on a single declaration being returned, so a parser that returns no declaration also passes, and the well-formed spellings are owned by a sibling entry.
+ * @evidence contracts/testing.md#execution-ownership TestDeclarationRejectsEmptyAndMultiWordInlineLinks is a Go unit entry in the native test process; it calls parseDeclarations on in-memory comment strings with no filesystem, consumer install or product host.
  */
 func TestDeclarationRejectsEmptyAndMultiWordInlineLinks(t *testing.T) {
   for _, comment := range []string{

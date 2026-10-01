@@ -12,7 +12,7 @@ import (
 // 2. Compare the diagnostic/edit or unchanged result at each stated boundary.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual engine execution requires one mixed-chain warning and no edit when a grouped OR operand precedes an AND condition.
-// @evidence contracts/testing.md#independent-expectations JavaScript logical precedence and explicit grouping establish the required retained operators and parentheses independently of the fixer.
+// @evidence contracts/testing.md#independent-expectations JavaScript precedence makes `(a || b) && c` an `&&` chain whose first operand is a grouped `||`; swapping it ahead of `c` is not claimed safe, so the literal review-only message and the empty fix list are authored in the test rather than derived from the rule.
 // @evidence contracts/testing.md#distinguishing-cases The grouped OR operand in an AND chain stays diagnostic-only; ReviewsEachHomogeneousMixedOperatorChain owns a permitted inner-chain edit and its full-source output.
 // @evidence contracts/testing.md#execution-ownership TestUnicornPreferSimpleConditionFirstPreservesMixedOperatorsAndParentheses owns the literal logical-expression variants as a discoverable Go unit entry; actual parser/engine/fix operations run in the shared process without a consumer installation, native producer or product child host.
 func TestUnicornPreferSimpleConditionFirstPreservesMixedOperatorsAndParentheses(t *testing.T) {

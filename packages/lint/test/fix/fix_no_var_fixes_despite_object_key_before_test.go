@@ -10,7 +10,7 @@ import "testing"
 // over-decline. The AST role check excludes property-assignment keys, leaving
 // the safe rewrite to `let` intact.
 //
-//  1. Parse `({ x: 1 });` (object key) before `var x = 2;`.
+//  1. Parse `JSON.stringify({ x: 1 });` (object key) before `var x = 2;`.
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
 //

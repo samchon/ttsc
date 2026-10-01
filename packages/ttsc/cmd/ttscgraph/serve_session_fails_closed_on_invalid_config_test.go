@@ -18,7 +18,7 @@ import (
 // 3. Restore a valid config and assert the next request reloads successfully.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies a broken project config never falls back to the last valid graph and recovers after the config is fixed.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "reload"; Restore a valid config and assert the next request reloads successfully.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: with tsconfig.json replaced by invalid JSON the snapshot must return an error with no dump and changed false (no stale graph), and after the valid config is restored the next snapshot must be mode reload, changed, with a dump that still contains the BeforeEdit class from the fixture source.
 // @evidence contracts/testing.md#distinguishing-cases Build a valid initial graph, then replace tsconfig.json with invalid JSON; Assert snapshot fails with no dump instead of serving the cached graph; Restore a valid config and assert the next request reloads successfully.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionFailsClosedOnInvalidConfig is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionFailsClosedOnInvalidConfig(t *testing.T) {

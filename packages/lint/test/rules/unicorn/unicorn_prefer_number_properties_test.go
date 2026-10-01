@@ -60,10 +60,7 @@ void negative;
 // 2. Run the rule through the checker-backed snapshot path.
 // 3. Assert the Engine reports exactly the annotated diagnostics.
 //
-// 1. Execute the retained source and option variants through the owning Go operation.
-// 2. Assert the concrete diagnostic or authored full-source result described here.
-//
-// @evidence contracts/testing.md#behavioral-verification Checker-backed NewEngine.Run compares the actual corpus diagnostics with annotated rule/severity/line triples, distinguishing global numeric references from relaxed or shadowed uses.
+// @evidence contracts/testing.md#behavioral-verification Checker-backed rule execution through runRuleFindingsSnapshot compares the actual corpus diagnostics with annotated rule/severity/line triples, distinguishing global numeric references from relaxed or shadowed uses.
 // @evidence contracts/testing.md#independent-expectations Authored error annotations independently require radix-2 parseInt and object value references to report while the documented default policy accepts decimal/no-radix, local bindings and default-off Infinity.
 // @evidence contracts/testing.md#distinguishing-cases The original mixed corpus retains base-10/no-radix calls, radix 2, property/shorthand references, lexical shadows and default-off negative Infinity.
 // @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornPreferNumberProperties owns these literal variants as a discoverable Go unit entry; checker and rule/fix operations execute in the shared process without installing a consumer, building a native producer or starting a product host.

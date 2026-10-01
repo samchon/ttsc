@@ -22,10 +22,10 @@ import (
 //  2. Run `ttsc format`.
 //  3. Assert it exits cleanly (converges), merges the guard, and is
 //     idempotent on a second run.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises converges on leading semi guard in callback and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert it exits cleanly (converges), merges the guard, and is idempotent on a second run.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed (semi:false) a `new Promise` callback whose body opens with a standalone `;` guard before a `(`-leading statement. The asserted decision is: Assert it exits cleanly (converges), merges the guard, and is idempotent on a second run. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatConvergesOnLeadingSemiGuardInCallback owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command (semi false) twice on a `new Promise` callback whose body is a standalone `;` line followed by `(x as Y).z = r`; the first run must exit 0 without a did-not-converge message and the file must contain `;(x as Y).z = r`, the second run must exit 0 and leave the file identical.
+// @evidence contracts/testing.md#independent-expectations The merged guard form is an authored substring expectation from the no-semi rule that a `(`-leading statement keeps a glued `;` guard; it is a Contains check, not a whole-file comparison, and the second-run equality is a self-consistency check, not an independent oracle.
+// @evidence contracts/testing.md#distinguishing-cases One input where the cascade used to ping-pong between orphan-semi and statement-split; the assertions distinguish non-convergence (non-zero exit), a missing merge, and second-pass drift. Surrounding text of the first-run output is not compared.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand twice against a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatConvergesOnLeadingSemiGuardInCallback(t *testing.T) {
   source := "const p = new Promise((r) => {\n" +
     "  ;\n" +

@@ -17,10 +17,10 @@ import (
  *  1. Root a Markdown reference at an absolute directory holding one document.
  *  2. Leave its selected section uncited.
  *  3. Assert the location ascends project-relatively and the target does not.
- * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn is exercised with the scenario below; the assertions require the location ascends project-relatively and the target does not.
- * @evidence contracts/testing.md#independent-expectations Only the name of the configuration property moved. A file's location is derived from `Display`, which this change deliberately leaves alone, so the repair must be invisible to a reader who is opening files rather than editing configuration; and the two spellings now legitimately differ in one message.
- * @evidence contracts/testing.md#distinguishing-cases Root a Markdown reference at an absolute directory holding one document. Leave its selected section uncited. Assert the location ascends project-relatively and the target does not.
- * @evidence contracts/testing.md#execution-ownership TestAnAbsoluteRootLeavesFileLocationsProjectRelative is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn runs the graph rule with a Markdown reference rooted at the absolute temp `docs` directory (a sibling of the project) over requirements/**, with the one section left uncited; the test requires `Missing acknowledgement for 'requirements/pricing.md#discounts'` and a message containing `at ../docs/requirements/pricing.md:1`.
+ * @evidence contracts/testing.md#independent-expectations Both strings are authored literals: the target is addressed relative to the declared root, while the file location ascends project-relatively so a reader can open it from the project directory.
+ * @evidence contracts/testing.md#distinguishing-cases The target spelling (root-relative) and the location spelling (project-relative) must differ in the same diagnostic; a resolver that used either spelling for both would fail one of the two assertions.
+ * @evidence contracts/testing.md#execution-ownership TestAnAbsoluteRootLeavesFileLocationsProjectRelative is a Go unit entry in the native test process; runRootedGraphIn writes the workspace to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestAnAbsoluteRootLeavesFileLocationsProjectRelative(t *testing.T) {
   workspace := t.TempDir()

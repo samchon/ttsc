@@ -3,20 +3,23 @@ package driver_test
 import (
   "bytes"
   "testing"
+  "time"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyForwardsPublishDiagnosticsForUnownedURI pins the
-// short-circuit in mergePublishDiagnostics: when the source has no
-// opinion on the URI, the merge returns `(_, false)` and the original
-// upstream bytes flow through unchanged. Re-encoding through the merge
-// path would perturb whitespace and key order — both invisible to
-// strict-parsing editors but noisy in tests that diff wire traffic.
+// TestLSPProxyForwardsPublishDiagnosticsForUnownedURI pins that an upstream
+// publishDiagnostics for a URI the plugin source has no opinion on reaches the
+// editor as the original upstream bytes, and that the proxy publishes no
+// additional merged frame for it afterwards. (The proxy forwards the upstream
+// frame verbatim before any asynchronous merge, so the byte comparison alone
+// cannot detect a re-encoding merge; the trailing no-frame check is what
+// detects a spurious second publication.)
 //
 // 1. Configure a source that contributes only for /a.ts.
 // 2. Send upstream publishDiagnostics for /b.ts.
 // 3. Assert the editor receives the original bytes.
+// 4. Assert no further editor frame arrives within a short window.
 func TestLSPProxyForwardsPublishDiagnosticsForUnownedURI(t *testing.T) {
   source := &stubSource{
     diagnostics: map[string][]driver.LSPDiagnostic{
@@ -30,4 +33,5 @@ func TestLSPProxyForwardsPublishDiagnosticsForUnownedURI(t *testing.T) {
   if got := h.recvEditor(); !bytes.Equal(got, upstream) {
     t.Fatalf("non-targeted URI was rewritten:\ngot:  %s\nwant: %s", got, upstream)
   }
+  h.expectNoEditorFrame(150 * time.Millisecond)
 }

@@ -38,7 +38,7 @@ func unicornConsistentExistenceIndexCheckMarkedRanges(t *testing.T, source strin
 // The rule is scope analysis, not syntax: upstream only ever reaches a
 // comparison through the references of a `const` initialized from `indexOf`,
 // `lastIndexOf`, `findIndex`, or `findLastIndex`. Pinning all three magnitude
-// spellings (`< 0`, `>= 0`, `> -1`) against all four methods, through a closure
+// spellings (`< 0`, `>= 0`, `> -1`) on `indexOf`, plus one comparison each on the other three methods, through a closure
 // capture, a twice-compared binding, a parenthesized reference, and an exported
 // binding (whose declaration is reached through the checker's export symbol),
 // locks both the binding resolution and the operator/value table — a name-only

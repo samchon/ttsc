@@ -17,10 +17,10 @@ import { mapDiagnostic } from "../../../../packages/playground/src/compiler/mapD
  * 3. Compare every result with the literal editor coordinates of its row and
  *    collect all mismatches before failing.
  *
- * @evidence contracts/testing.md#behavioral-verification All fifteen authored DTO rows call mapDiagnostic and compare complete normalized records.
- * @evidence contracts/testing.md#independent-expectations Literal one-based lines, UTF-16 columns and spans are authored independently of the mapper; the DTO supplies native UTF-8 byte offsets.
- * @evidence contracts/testing.md#distinguishing-cases ASCII, BMP, astral, combining, optional coordinates, every ECMAScript newline, and an unlocated project diagnostic preserve different boundaries.
- * @evidence contracts/testing.md#execution-ownership This exported src/features entry executes the owning source operations in this test process, without installing a consumer, building a native producer or fabricating process protocol replies.
+ * @evidence contracts/testing.md#behavioral-verification Each of the fifteen authored rows calls mapDiagnostic with one source string and one native diagnostic and deep-compares the complete normalized record (line, column, length, severity, message, code); mismatches are collected and thrown together.
+ * @evidence contracts/testing.md#independent-expectations The expected one-based line, UTF-16 column and span are hand-written literals for each row (for example an astral prefix of 4 UTF-8 bytes must shift the column by 2 units, and a 4-byte astral span must become length 2); the input byte offsets come from UTF-8 widths, not from the mapper.
+ * @evidence contracts/testing.md#distinguishing-cases Rows contrast ASCII, precomposed BMP, astral and combining-mark prefixes, BMP and astral spans, byte-offset-only and byte-offset-plus-line/column inputs, and LF, CR, CRLF, U+2028 and U+2029 line breaks. Every row that carries a line or character also carries a byte start, so the fallback that derives the start from line/character alone is only reached by the project-wide row with no file, which must yield line 1, column 1, length 1.
+ * @evidence contracts/testing.md#execution-ownership Unit-layer entry exported from src/features that calls only the pure mapDiagnostic function in the test process; no compiler, wasm host or consumer is involved.
  */
 export function test_map_diagnostic_converts_native_bytes_to_editor_units(): void {
   const failures: unknown[] = [];

@@ -18,7 +18,7 @@ import (
 // 3. Assert success with an empty action array.
 // @evidence contracts/testing.md#behavioral-verification The dispatcher returns exit 0, literal [] JSON and silent stderr for an unrelated context.only even when no tsconfig exists.
 // @evidence contracts/testing.md#independent-expectations The authored unowned action kind and missing disposable tsconfig establish the short-circuit boundary; literal status and JSON expectations do not depend on another command path.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Create a directory without a tsconfig. The asserted decision is: Assert success with an empty action array. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#distinguishing-cases The directory has a source file with a violation but no tsconfig and no lint config, so any attempt to load the project would fail with a nonzero status or stderr; success with exactly an empty array for context.only quickfix.other shows the project was never loaded. Owned kinds are covered by other code-action tests.
 // @evidence contracts/testing.md#execution-ownership TestLSPCodeActionsShortCircuitsUnownedContextOnly owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPCodeActionsShortCircuitsUnownedContextOnly(t *testing.T) {
   root := t.TempDir()

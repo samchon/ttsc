@@ -22,10 +22,10 @@ import "testing"
 //  2. Run `ttsc format`.
 //  3. Assert the line is trimmed and terminated, with no stranded padding
 //     between the type and the `;`.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises settles a member terminator on a padded line and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert the line is trimmed and terminated, with no stranded padding between the type and the `;`.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed an interface member padded with trailing spaces and missing its terminator. The asserted decision is: Assert the line is trimmed and terminated, with no stranded padding between the type and the `;`. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatSettlesAMemberTerminatorOnAPaddedLine owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on `interface Shape { value: string   }` where the member has trailing spaces and no terminator, and requires the exact file `value: string;` with the padding removed and the semicolon directly after the type.
+// @evidence contracts/testing.md#independent-expectations The expected `interface Shape {\n  value: string;\n}\n` is an authored literal that the test comment attributes to Prettier 3.8.3 (not re-verified here); it is not derived from formatter output.
+// @evidence contracts/testing.md#distinguishing-cases One changing case where two edits share a start offset (the zero-width semicolon insert and the trailing-whitespace trim), so dropping either edit or applying them in the wrong order leaves padding before the `;` or no `;`.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project via assertFormatResult; no child process, built binary or installed consumer.
 func TestCommandFormatSettlesAMemberTerminatorOnAPaddedLine(t *testing.T) {
   assertFormatResult(
     t,

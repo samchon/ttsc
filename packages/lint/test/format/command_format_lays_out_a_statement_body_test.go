@@ -21,10 +21,10 @@ import (
 //  1. Put each statement kind on one line inside a reflowed callback body.
 //  2. Run `ttsc format` and compare with the Prettier answer key.
 //  3. Run a second pass and require idempotence.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises lays out a statement body and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Run a second pass and require idempotence.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Put each statement kind on one line inside a reflowed callback body. The asserted decision is: Run a second pass and require idempotence. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatLaysOutAStatementBody owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Nine subcases (for-of, for-in, while, for, if-else, try-catch-finally, switch, variable with callback, throw) run the in-process `format` command on a callback whose body statement is on one line and require the exact expanded text, then a second run that must leave it unchanged.
+// @evidence contracts/testing.md#independent-expectations Each expected output is an authored literal that the test comments say was measured on Prettier 3.8.3 (not re-verified by this unit); the second pass is an additional idempotence check.
+// @evidence contracts/testing.md#distinguishing-cases Each statement kind is its own input that must change from half-frozen one-line form to fully laid-out form. All cases sit inside a callback body, so top-level placement and statements beyond the nine listed are not covered.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase seeds a temp-dir project and calls run with the format subcommand through formatOnceForBrace; no child process, built binary or installed consumer.
 func TestCommandFormatLaysOutAStatementBody(t *testing.T) {
   for _, tc := range []struct {
     name   string

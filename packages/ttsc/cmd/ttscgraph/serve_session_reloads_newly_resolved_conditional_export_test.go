@@ -19,7 +19,7 @@ import (
 //  3. Assert the next snapshot reports a full reload.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies conditional exports objects and array fallbacks contribute resolution candidates.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "reload"; the next snapshot reports a full reload.
+// @evidence contracts/testing.md#independent-expectations The expectation is literal: a package subpath whose exports condition object (types, default array) has no existing targets starts unresolved, and creating the types target dist/feature.d.ts must yield mode reload, changed, with a dump. The new declaration's node is not asserted.
 // @evidence contracts/testing.md#distinguishing-cases Import a package subpath whose exports leaf targets do not exist yet; Create the `types` condition's declaration target; Assert the next snapshot reports a full reload.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsNewlyResolvedConditionalExport is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsNewlyResolvedConditionalExport(t *testing.T) {

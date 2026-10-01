@@ -19,7 +19,7 @@ This package intentionally ships the prebuilt `linux-arm` artifacts for `ttsc`:
 - `bin/ttscgraph`: the native MCP code-graph server (used by `@ttsc/graph`).
 - `bin/go/`: a pruned Go SDK used to compile source plugins into cached plugin binaries.
 
-Source and build entrypoint: [`packages/ttsc`](https://github.com/samchon/ttsc/tree/master/packages/ttsc) and [`scripts/build-platform-package.cjs`](https://github.com/samchon/ttsc/blob/master/scripts/build-platform-package.cjs).
+Source and build entrypoint: [`packages/ttsc`](https://github.com/samchon/ttsc/tree/master/packages/ttsc) and [`packages/ttsc/build/platform-package.cjs`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/build/platform-package.cjs).
 
 There is no `postinstall` download step. Supply-chain scanners may report the native executables or bundled Go SDK as opaque or obfuscated because they are not readable JavaScript source. Review the npm package metadata when triaging that finding:
 

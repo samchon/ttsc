@@ -24,7 +24,7 @@ import (
 // 3. Require SettingsShape-to-settings, coerce-to-Target and config-to-Config type references.
 //
 // @evidence contracts/testing.md#behavioral-verification Require SettingsShape-to-settings, coerce-to-Target and config-to-Config type references.
-// @evidence contracts/testing.md#independent-expectations The literal fixture and supported graph contract establish these expectations: Require SettingsShape-to-settings, coerce-to-Target and config-to-Config type references.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over one fixture: type-ref edges must exist from SettingsShape to settings (typeof query), from coerce to Target (as assertion) and from config to Config (satisfies expression).
 // @evidence contracts/testing.md#distinguishing-cases Load typeof settings, an as Target assertion and a satisfies Config expression. Build the type-reference relations. Require SettingsShape-to-settings, coerce-to-Target and config-to-Config type references.
 // @evidence contracts/testing.md#execution-ownership TestTypeRefEdgesCoverTypeofAsSatisfies is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestTypeRefEdgesCoverTypeofAsSatisfies(t *testing.T) {

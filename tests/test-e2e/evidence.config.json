@@ -38,9 +38,7 @@
       "root": "../..",
       "files": [
         "experimental/test-unplugin/src/contracts/scenarios/test_host_*.mjs",
-        "experimental/test-unplugin/src/contracts/builds/test_packed_*.mjs",
-        "scripts/ci/installed-cli-smoke.cjs",
-        "tests/test-e2e/src/features/scripts/**/*.test.cjs"
+        "experimental/test-unplugin/src/contracts/builds/test_packed_*.mjs"
       ],
       "symbol": "function",
       "reference": [
@@ -191,27 +189,6 @@
       }
     },
     {
-      "name": "Validation preparation owners",
-      "type": "javascript",
-      "root": "../..",
-      "files": [
-        "scripts/ci/utility-test-overlay.cjs",
-        "scripts/ci/run-evidence.cjs"
-      ],
-      "symbol": "function",
-      "reference": {
-        "type": "markdown",
-        "root": "../../.agents/skills",
-        "files": [
-          "contracts/common.md",
-          "contracts/performance.md",
-          "contracts/portability.md"
-        ],
-        "symbol": "h2",
-        "checklist": true
-      }
-    },
-    {
       "name": "Evidence project release ownership",
       "type": "typescript",
       "root": "../..",
@@ -239,6 +216,7 @@
         "tests/test-e2e/src/internal/evidence/internal/createProject.ts",
         "tests/test-e2e/src/internal/UtilityWorkspace.ts",
         "tests/test-e2e/src/internal/Scenarios.ts",
+        "tests/test-e2e/src/internal/ttsc/internal/CompilerApiWorkspace.ts",
         "tests/test-e2e/src/internal/ttsc/internal/ProjectFixtures.ts",
         "tests/test-e2e/src/internal/metro/internal/MetroWorkspace.ts",
         "tests/test-e2e/src/internal/evidence/internal/TransitionProject.ts"

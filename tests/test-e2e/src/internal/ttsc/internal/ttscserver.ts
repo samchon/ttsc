@@ -117,7 +117,7 @@ export class TtscserverClient {
     const binary = resolveTtscserverBinary();
     assert.ok(
       binary,
-      "ttscserver binary not resolved — run pnpm build:current",
+      "ttscserver binary not resolved — run pnpm run build",
     );
     return new TtscserverClient(binary, cwd);
   }

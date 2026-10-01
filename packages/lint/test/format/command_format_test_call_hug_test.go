@@ -15,10 +15,10 @@ import "testing"
 //
 //  1. Exercise the authored command format test call hug fixtures through the Go format dispatcher.
 //  2. Require the exact authored output or rejection result for each fixture.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises test call hug and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: long_description_hugs_callback, member_only_chain_hugs, async_arrow_callback_hugs, multi_param_callback_hugs, non_test_callee_explodes, short_test_call_stays_flat, non_string_first_arg_not_test_call, test_fixme_member_hugs, non_pattern_member_callee_explodes. Each keeps its own assertions under this one discoverable entry.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatTestCallHug owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Nine subcases run the in-process `format` command on authored test-framework call layouts and require each unchanged: overflowing descriptions hugging the callback (plain, `.only`, async, three-parameter, `test.fixme`), a short call staying flat, and non-test shapes (`notATest`, a non-string first argument, `myRunner.todo`) behaving as ordinary calls.
+// @evidence contracts/testing.md#independent-expectations Sources are authored literals the test describes as Prettier-canonical at width 80 and serve as their own expected output; they are not derived from the formatter.
+// @evidence contracts/testing.md#distinguishing-cases Hugging cases are contrasted with three gates: callee name (notATest, myRunner.todo explode), first-argument kind (dynamicName stays an ordinary short call) and fitting width. All are fixed points, so none shows a flat input being rewritten.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatTestCallHug(t *testing.T) {
   // The core shape: an overflowing description still hugs the callback.
   t.Run("long_description_hugs_callback", func(t *testing.T) {

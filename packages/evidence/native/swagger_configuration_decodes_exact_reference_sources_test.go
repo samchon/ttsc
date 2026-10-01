@@ -21,7 +21,7 @@ import (
  * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig retains both exact sources,operation selection and empty glob selectors.
  * @evidence contracts/testing.md#independent-expectations Literal file/URL inputs and operation selector specify exact-reference semantics.
  * @evidence contracts/testing.md#distinguishing-cases Singular Swagger files do not become population globs.
- * @evidence contracts/testing.md#execution-ownership TestSwaggerConfigurationDecodesExactReferenceSources is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerConfigurationDecodesExactReferenceSources is a selectable native Go unit entry. It calls decodeGraphConfig on a literal JSON string without loading either source in-process; no consumer, Node process, native build or product host is started.
  */
 func TestSwaggerConfigurationDecodesExactReferenceSources(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{

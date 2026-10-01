@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The owning filename split helper evaluates ordinary and line-terminator-containing names and checks underscore extraction and retained word prefixes.
 // @evidence contracts/testing.md#independent-expectations The supported change-case-compatible name policy and literal expected alternatives establish these unusual separators independently.
 // @evidence contracts/testing.md#distinguishing-cases Line-terminator boundaries contrast with ordinary Unicode/path segments in complementary hosts.
-// @evidence contracts/testing.md#execution-ownership TestUnicornFilenameCaseSplitNameLineTerminatorEdge owns its retained literal paths/options as a discoverable Go unit entry; engine/configuration operations run in the shared process using virtual or isolated fixture paths, without installing a consumer, native build or product host.
+// @evidence contracts/testing.md#execution-ownership TestUnicornFilenameCaseSplitNameLineTerminatorEdge owns its retained literal paths/options as a discoverable Go unit entry; the owning unicornFilenameCaseSplitName helper runs directly in the shared process on literal names, without installing a consumer, native build or product host.
 func TestUnicornFilenameCaseSplitNameLineTerminatorEdge(t *testing.T) {
   leading, words := unicornFilenameCaseSplitName("__fooBar")
   if leading != "__" || len(words) != 1 || words[0].word != "fooBar" {

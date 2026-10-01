@@ -10,10 +10,10 @@ import "testing"
 //
 //  1. Exercise the authored command format display width fixtures through the Go format dispatcher.
 //  2. Require the exact authored output or rejection result for each fixture.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises display width and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: subscript_array_stays_flat, wide_hangul_identifier_overflows. Each keeps its own assertions under this one discoverable entry.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatDisplayWidth owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Two subcases run the in-process `format` command on authored fixed points: an array of ten quoted subscript digits that stays on one line, and a call with a five-character Hangul variable name whose arguments stay exploded, requiring each file unchanged.
+// @evidence contracts/testing.md#independent-expectations Expectations are authored literals reasoned from display columns: the subscript array is 72 columns but 92 bytes, and the Hangul call is 79 columns by rune count but 84 by display width at printWidth 80; the expected text equals the input.
+// @evidence contracts/testing.md#distinguishing-cases Subscript array distinguishes byte-length measurement (would explode) from column measurement; the Hangul call distinguishes per-rune counting (would join to one line) from width-aware counting. Both are fixed points, so each only catches the measurement error in one direction.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatDisplayWidth(t *testing.T) {
   // Ten quoted subscript digits: 93 bytes but ~70 columns, so the array stays
   // flat (a byte-length measure would wrongly explode it one per line).
@@ -21,10 +21,10 @@ func TestCommandFormatDisplayWidth(t *testing.T) {
     assertFormatUnchanged(t,
       "const smallNumbers = [\"₀\", \"₁\", \"₂\", \"₃\", \"₄\", \"₅\", \"₆\", \"₇\", \"₈\", \"₉\"];\n")
   })
-  // A wide Hangul identifier counts two columns per character, pushing the call
-  // past printWidth so its arguments explode (a narrow per-rune count would
-  // wrongly keep it inline).
+  // A wide Hangul identifier counts two columns per character. The flat call
+  // is 79 columns by rune count but 84 by display width, so only a width-aware
+  // measure explodes it (a narrow per-rune count would keep it inline).
   t.Run("wide_hangul_identifier_overflows", func(t *testing.T) {
-    assertFormatUnchanged(t, "const 한국어변수 = someFunctionCall(\n  firstArgumentHere,\n  secondArgumentValueHere,\n  third,\n);\n")
+    assertFormatUnchanged(t, "const 한국어변수 = someFunctionCall(\n  firstArgumentHere,\n  secondArgumentValueHere,\n  t3,\n);\n")
   })
 }

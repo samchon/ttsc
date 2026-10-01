@@ -13,7 +13,9 @@ import (
 // compiler options before program creation.
 //
 // The command path uses this option for check-only flows, where the driver must
-// still load and typecheck the project without writing JavaScript.
+// still load the project without writing JavaScript. The test observes that the
+// load succeeds with no diagnostics and that raw emit writes nothing; it does
+// not itself run a type check.
 //
 // 1. Load a project with ForceNoEmit enabled.
 // 2. Run raw emit through a recording WriteFile callback.

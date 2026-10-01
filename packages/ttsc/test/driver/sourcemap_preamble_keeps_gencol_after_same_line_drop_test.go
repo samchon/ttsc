@@ -20,10 +20,14 @@ import (
 //     preamble region (dropped), the second real code.
 //  2. Run AdjustSourceMapForPreamble with dropLines 3.
 //  3. Assert the survivor keeps genCol 10 and srcCol 8 and shifts to source line 2.
+//
+// The dropped segment sits at genCol 3, not 0, so a re-encoder that advanced its
+// output genCol cumulant over the drop would encode the survivor's genCol delta
+// as 7 instead of 10.
 func TestAdjustSourceMapForPreambleKeepsGenColAfterSameLineDrop(t *testing.T) {
   const dropLines = 3
   input := makeMapJSON([]string{"src/a.ts"}, buildMappings([]absSeg{
-    {genLine: 0, genCol: 0, srcIdx: 0, srcLine: 1, srcCol: 4},  // preamble region -> dropped
+    {genLine: 0, genCol: 3, srcIdx: 0, srcLine: 1, srcCol: 4},  // preamble region -> dropped
     {genLine: 0, genCol: 10, srcIdx: 0, srcLine: 5, srcCol: 8}, // real code -> kept, srcLine 2
   }))
 

@@ -10,7 +10,7 @@ Run `pnpm evidence` from the repository root to collect the production and enrol
 
 The JSON configuration avoids evaluating configuration through the compiler this repository is developing. This keeps the checker usable before that compiler has been built.
 
-Use the existing Evidence command and build-job gate in the [validation README](../../../scripts/ci/README.md). Enroll test claims in that same check; do not add a separate Evidence workflow, job or test-runner step. Acknowledgments remain a graph check, not behavioral assertions.
+Use the existing Evidence command and build-job gate in the [CI workflows](validation.md#ci-workflows). Enroll test claims in that same check; do not add a separate Evidence workflow, job or test-runner step. Acknowledgments remain a graph check, not behavioral assertions.
 
 During draft adoption, report all outstanding obligations and any incomplete analysis. Distinguish a functioning checker from completed enforcement of the selected code and tests. Include anonymous callbacks, dynamically registered cases and script bodies the adapter cannot address; do not report complete test enrollment from a selector that leaves those entries invisible.
 

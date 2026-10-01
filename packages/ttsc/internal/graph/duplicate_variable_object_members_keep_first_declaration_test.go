@@ -20,7 +20,7 @@ import (
 //  3. Dump the graph and assert the same member remains on the wire.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that a legal repeated var declaration cannot attach its initializer to the first node.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "first", "src/main.ts#duplicate:variable", "first: 1"; Dump the graph and assert the same member remains on the wire.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over two var declarations of one symbol ({ first: 1 } then { second: 2 }): the built node must carry exactly one object member named first, and the dump node src/main.ts#duplicate:variable must carry exactly that member with signature first: 1.
 // @evidence contracts/testing.md#distinguishing-cases Compile two var declarations with the same symbol and different objects; Assert the graph keeps the first declaration and its direct member; Dump the graph and assert the same member remains on the wire.
 // @evidence contracts/testing.md#execution-ownership TestDuplicateVariableObjectMembersKeepFirstDeclaration is a Go source-unit entry. Build, NewDump, SourceTexts, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestDuplicateVariableObjectMembersKeepFirstDeclaration(t *testing.T) {

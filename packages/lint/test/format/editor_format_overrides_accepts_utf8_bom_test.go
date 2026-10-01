@@ -18,10 +18,10 @@ import (
 //  1. Load BOM-prefixed JSONC and boundary cases through the real ancestor walk.
 //  2. Compare valid BOM and no-BOM settings while preserving an embedded BOM.
 //  3. Run the format command and assert the editor indentation reaches the file.
-// @evidence contracts/testing.md#behavioral-verification editorFormatOverrides reads the disposable settings fixture and resolves accepts utf8 bom; assertions check the specified effective values rather than repository settings text.
-// @evidence contracts/testing.md#independent-expectations The authored editor setting values and precedence described above determine the literal expected option map independently of resolver traversal or its map iteration order.
-// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: JSONC from nearest ancestor, minimal and no-BOM parity, embedded BOM remains data, malformed input still falls back, format command uses BOM settings. Each keeps its own assertions under this one discoverable entry.
-// @evidence contracts/testing.md#execution-ownership TestEditorFormatOverridesAcceptsUTF8BOM is a Go unit entry exercising the settings resolver in process; native fixture files provide resolver input, without invoking VS Code or an installed product host.
+// @evidence contracts/testing.md#behavioral-verification Writes `.vscode/settings.json` files (with and without a leading UTF-8 BOM) into temp directories and calls editorFormatOverrides and loadNearestVSCodeSettings: BOM-prefixed JSONC with comments and trailing commas resolves from an ancestor directory, a BOM `{}` parses empty, BOM and plain copies give equal overrides, an embedded BOM stays string data, a BOM-only or malformed file reports not-ok with no overrides, and the format command applies a BOM-prefixed tabSize 4.
+// @evidence contracts/testing.md#independent-expectations Expected values are authored literals from the editor-setting mapping (tabSize 4 to tabWidth 4, insertSpaces false to useTabs true, `\r\n` to crlf) and from the format command output `function f() {\n    return 1;\n}\n`; they are not derived from the resolver's traversal.
+// @evidence contracts/testing.md#distinguishing-cases Separate subcases distinguish a BOM from no BOM, a BOM at the start from one inside a string value, valid from malformed or empty-after-BOM input, nearest-ancestor discovery from a nested directory, and resolver output from the full format command.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls editorFormatOverrides, loadNearestVSCodeSettings and run (format subcommand) against temp-dir settings files; no VS Code, child process, built binary or installed consumer.
 func TestEditorFormatOverridesAcceptsUTF8BOM(t *testing.T) {
   bom := []byte{0xEF, 0xBB, 0xBF}
   writeSettings := func(t *testing.T, root string, body []byte) {

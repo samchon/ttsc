@@ -240,15 +240,15 @@ func writeDirectLauncher(t *testing.T, file, stdout, stderr string, exitCode int
 // shedConfigToolEnvironment removes the compiler and launcher variables from
 // the test's environment for the duration of one case.
 //
-// Neither runner for this package injects them: scripts/test-go-utility-plugins.cjs
-// and scripts/test-go-coverage.cjs both forward the ambient environment
+// Neither runner for this package injects them: `go test`
+// and `go test` both forward the ambient environment
 // wholesale. That is the point. `ttsx` exports TTSC_TSGO_BINARY and
 // TTSC_TTSX_BINARY to every descendant, so a suite launched anywhere below one
 // inherits both, and every existing loader case pins TTSC_TTSX_BINARY at a fake
 // launcher of its own — between them, an evaluator that read the environment
 // and nothing else looked correct. A case that means to exercise the
 // project-anchored resolution has to shed them first, or it proves only that
-// something upstream set them. (scripts/test-go-lint.cjs injects both outright,
+// something upstream set them. (`go test` injects both outright,
 // which is what kept the same defect invisible in @ttsc/lint.)
 func shedConfigToolEnvironment(t *testing.T) {
   t.Helper()

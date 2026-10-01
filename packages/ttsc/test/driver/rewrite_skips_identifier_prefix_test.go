@@ -24,10 +24,12 @@ export const value = plugin.make("target");
 `, driver.Rewrite{
     RootName:      "plugin",
     Method:        "make",
-    Replacement:   `"target"`,
+    Replacement:   `"replaced"`,
     ConsumeParens: true,
   })
-  if !strings.Contains(js, `notplugin.make("kept")`) || !strings.Contains(js, `"target"`) {
+  // The replacement differs from the call's own argument, so an unrewritten
+  // `plugin.make("target")` cannot satisfy the second check.
+  if !strings.Contains(js, `exports.kept = notplugin.make("kept");`) || !strings.Contains(js, `exports.value = "replaced";`) {
     t.Fatalf("identifier-prefix rewrite mismatch:\n%s", js)
   }
 }

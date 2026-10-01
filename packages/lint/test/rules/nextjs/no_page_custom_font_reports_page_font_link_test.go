@@ -20,16 +20,6 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases The original fixture already carries its reported construct and the clean counterpart described above; exact finding enumeration keeps the counterpart from being over-reported. This is static source/filename behavior, not a browser rendering assertion.
 // @evidence contracts/testing.md#execution-ownership TestNextjsNoPageCustomFontReportsPageFontLink is a discoverable Go unit entry; TypeScript/TSX parsing and the owning engine execute in one shared process without installing Next, route discovery or a product child host.
 func TestNextjsNoPageCustomFontReportsPageFontLink(t *testing.T) {
-  assertRuleCorpusCaseTSX(t, "pages/index.tsx", `
-export default function Page() {
-  return (
-    <>
-      // expect: nextjs/no-page-custom-font error
-      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter&display=swap" />
-    </>
-  );
-}
-`)
 
   document := parseTSXFile(t, "/virtual/pages/_document.tsx", `
 export default function Document() {

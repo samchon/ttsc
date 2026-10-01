@@ -13,8 +13,8 @@ import (
 // 2. Create the referenced Generated interface.
 // 3. Require a changed reload dump.
 //
-// @evidence contracts/testing.md#behavioral-verification Require a changed reload dump.
-// @evidence contracts/testing.md#independent-expectations The literal fixture and supported graph contract establish these expectations: Require a changed reload dump.
+// @evidence contracts/testing.md#behavioral-verification Creating the file named by a triple-slash path reference reloads a resident session even though the reference is not an AST statement.
+// @evidence contracts/testing.md#independent-expectations The expectation is literal: src/index.ts references ../generated/types.d.ts, which is absent, and creating it must yield mode reload, changed, with a dump. The new interface node is not asserted.
 // @evidence contracts/testing.md#distinguishing-cases Load a triple-slash path reference to missing generated/types.d.ts. Create the referenced Generated interface. Require a changed reload dump.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsNewlyResolvedReferencePath is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsNewlyResolvedReferencePath(t *testing.T) {

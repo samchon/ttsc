@@ -3,6 +3,7 @@ package evidence
 import (
   "github.com/samchon/ttsc/packages/lint/rule"
   "path/filepath"
+  "strings"
   "testing"
 )
 
@@ -16,10 +17,10 @@ import (
  * 2. Evaluate it at error and warning levels without editing the source.
  * 3. Assert each cached diagnostic uses the current level.
  *
- * @evidence contracts/testing.md#behavioral-verification loadSwaggerInventories replays one cached rejection at each configured severity.
+ * @evidence contracts/testing.md#behavioral-verification loadSwaggerInventories replays one cache-seeded rejection ('rejected source') with the reference severity set to error and then to warning; exactly one finding must carry the current severity and contain the seeded reason.
  * @evidence contracts/testing.md#independent-expectations A fixed seeded rejection and explicit warning/error levels establish independent expectations.
- * @evidence contracts/testing.md#distinguishing-cases Warm payload does not retain an old diagnostic level or start normalization.
- * @evidence contracts/testing.md#execution-ownership TestSwaggerCachedFailureUsesCurrentSeverity is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host. The warmed entry returns before process startup; the unavailable executable is a sentinel for an accidental cache miss, not a claimed real parser.
+ * @evidence contracts/testing.md#distinguishing-cases The configured severity is the property that changes the expected level over the same cached rejection. The replayed message must contain the seeded reason, which the normalizer-unavailable fallback message would not, so a cache miss fails the test. No success, empty or recovery case is exercised.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerCachedFailureUsesCurrentSeverity is a selectable native Go unit entry. It seeds the swaggerDocuments cache and calls loadSwaggerInventories over a one-file temp fixture; TTSC_NODE_BINARY names an absent executable so an accidental cache miss cannot spawn Node; the test runs in-process and starts no consumer, Node process, native build or product host.
  */
 func TestSwaggerCachedFailureUsesCurrentSeverity(t *testing.T) {
   isolateSwaggerCache(t)
@@ -33,6 +34,9 @@ func TestSwaggerCachedFailureUsesCurrentSeverity(t *testing.T) {
     _, findings := loadSwaggerInventories(root, config)
     if len(findings) != 1 || findings[0].Severity != severity {
       t.Fatalf("cached source retained a stale level: %#v", findings)
+    }
+    if !strings.Contains(findings[0].Message, "rejected source") {
+      t.Fatalf("the cached rejection was not replayed: %#v", findings)
     }
   }
 }

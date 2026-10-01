@@ -18,7 +18,7 @@ import (
 // 3. Assert no default options were loaded.
 // @evidence contracts/testing.md#behavioral-verification newFormatCommandResolver keeps configured format/semi prefer-never options authoritative by leaving fallback defaultOptions nil.
 // @evidence contracts/testing.md#independent-expectations The explicitly supplied format rule and prefer-never options require omission of fallback defaults under configuration precedence. This state assertion pins selection, while command format hosts own applied output.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Build a format resolver whose inner config already declares a format rule. The asserted decision is: Assert no default options were loaded. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#distinguishing-cases One negative case: an inner resolver that already declares format/semi with options means no default options may be loaded (defaultOptions nil). The complementary case, no format rule configured so defaults are built, is exercised by the editor override tests; applied output under a configured block is owned by the command format tests.
 // @evidence contracts/testing.md#execution-ownership TestFormatBlockWinsOverVSCodeSettings owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestFormatBlockWinsOverVSCodeSettings(t *testing.T) {
   inner := InlineRuleResolver{

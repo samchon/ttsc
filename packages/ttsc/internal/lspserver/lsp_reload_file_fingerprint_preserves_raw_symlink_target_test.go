@@ -25,14 +25,14 @@ func TestReloadFileFingerprintPreservesRawSymlinkTarget(t *testing.T) {
   target := string([]byte{0xff, 'x'})
   link := filepath.Join(t.TempDir(), "reload-link")
   if err := os.Symlink(target, link); err != nil {
-    return
+    t.Skipf("filesystem cannot create the raw-byte symlink: %v", err)
   }
   retained, err := os.Readlink(link)
   if err != nil {
     t.Fatal(err)
   }
   if !bytes.Equal([]byte(retained), []byte(target)) {
-    return
+    t.Skip("filesystem did not retain the raw non-UTF-8 link target")
   }
 
   digest := sha256.New()

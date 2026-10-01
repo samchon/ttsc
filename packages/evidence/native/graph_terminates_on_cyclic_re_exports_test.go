@@ -13,10 +13,10 @@ import "testing"
  *  1. Point two barrels at each other, one of them declaring a symbol.
  *  2. Cite that symbol through the entry.
  *  3. Assert the run completes and resolves.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies a cyclic barrel terminates. The original assertions check assert the run completes and resolves.
- * @evidence contracts/testing.md#independent-expectations Two modules re-exporting each other is a real shape in generated code, and an unguarded traversal would recurse until the process died. A rule that hangs is worse than one that reports nothing, because nothing else in the build gets to run either. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Point two barrels at each other, one of them declaring a symbol. Cite that symbol through the entry. Assert the run completes and resolves. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestGraphTerminatesOnCyclicReExports is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the shared entry claim over two barrels that star-export each other (one declaring `get`) and a view citing `{@link api.get}`; assertNoProblems requires an empty list, which requires the run to terminate.
+ * @evidence contracts/testing.md#independent-expectations The expectation is authored from the traversal contract: a cyclic barrel is a real shape in generated code, and an unguarded traversal would recurse without end, so the run must complete and still resolve and acknowledge `get`.
+ * @evidence contracts/testing.md#distinguishing-cases A two-module cycle where one module holds the declaration; self-referential namespace cycles are owned by the file-link cycle entries. A hang would surface as a test timeout rather than an assertion.
+ * @evidence contracts/testing.md#execution-ownership TestGraphTerminatesOnCyclicReExports is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestGraphTerminatesOnCyclicReExports(t *testing.T) {
   assertNoProblems(t, runIndexRule(t, map[string]string{

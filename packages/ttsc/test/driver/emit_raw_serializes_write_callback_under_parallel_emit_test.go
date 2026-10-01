@@ -26,7 +26,9 @@ import (
 //
 // 1. Load a multi-file project so the parallel emitter actually fans out.
 // 2. EmitAllRaw with a callback that reads and writes a shared unguarded map.
-// 3. Assert every source produced exactly one output with no lost writes.
+// 3. Assert the callback recorded one distinct output path per source (a lost
+//    write lowers the count; a doubled write is not detected here, and a
+//    missing mutex surfaces only under `go test -race` or a runtime map fault).
 func TestDriverEmitRawSerializesWriteCallbackUnderParallelEmit(t *testing.T) {
   root := t.TempDir()
 

@@ -26,9 +26,9 @@ import (
 //     contains "not assignable".
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that FileDiagnostics surfaces the full tsgo-reported location and text of a type error, not just its code and line: the column points at the offending initializer and the message carries the human-readable reason.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the TS2322 diagnostic sits at line 1 / column 14 and its message contains "not assignable".
+// @evidence contracts/testing.md#independent-expectations The oracle is the compiler's own diagnostic for export const broken: number = "nope": the TS2322 must be on line 1 at column 14 (the binding, after the 13 characters of export const) with a message containing not assignable. The column and text are literals, not read from the diagnostics code.
 // @evidence contracts/testing.md#distinguishing-cases Compile a fixture whose only file assigns a string to a number binding; Ask FileDiagnostics for that file; Assert the TS2322 diagnostic sits at line 1 / column 14 and its message contains "not assignable".
-// @evidence contracts/testing.md#execution-ownership TestFileDiagnosticsReportCodeColumnAndMessage is a source-unit entry. writeFile, driver.LoadProgram, prog.Close, sourceFile, FileName, FileDiagnostics run directly over the supplied fixture/input values without installing a consumer, building a native artifact or starting a product host.
+// @evidence contracts/testing.md#execution-ownership TestFileDiagnosticsReportCodeColumnAndMessage is a Go source-unit entry. It loads a one-file project with driver.LoadProgram in the test process and calls FileDiagnostics on the resident Program; no consumer is installed and no native binary is built or launched.
 func TestFileDiagnosticsReportCodeColumnAndMessage(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

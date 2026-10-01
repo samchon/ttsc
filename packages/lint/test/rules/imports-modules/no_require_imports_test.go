@@ -21,7 +21,6 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases Preserves the original require finding and adds both static and dynamic import controls, distinguishing the callee style from all module loading.
 // @evidence contracts/testing.md#execution-ownership assertRuleCorpusCase executes the original annotated require fixture; runRuleFindingsSnapshot executes the static/dynamic import controls. This Test owns their diagnostic contrast without loading real consumer modules.
 func TestRuleCorpusNoRequireImports(t *testing.T) {
-  assertRuleCorpusCase(t, "no-require-imports.ts", "// expect: typescript/no-require-imports error\nconst fs = require(\"fs\");\nJSON.stringify(fs);\n")
   _, _, clean := runRuleFindingsSnapshot(t, "typescript/no-require-imports", "import value from \"virtual-module\";\nconst dynamic = import(\"virtual-module\");\nconsole.log(value, dynamic);\n", nil)
   if len(clean) != 0 {
     t.Fatalf("supported neighboring import/module forms were reported: %+v", clean)

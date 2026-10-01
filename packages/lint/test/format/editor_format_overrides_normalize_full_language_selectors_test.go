@@ -16,10 +16,10 @@ import (
 // 1. Configure normalized exact and bracket-containing combined selectors.
 // 2. Resolve formatter settings for TypeScript.
 // 3. Assert the exact value wins while the valid combined selector still applies.
-// @evidence contracts/testing.md#behavioral-verification editorFormatOverrides reads the disposable settings fixture and resolves normalize full language selectors; assertions check the specified effective values rather than repository settings text.
-// @evidence contracts/testing.md#independent-expectations The authored editor setting values and precedence described above determine the literal expected option map independently of resolver traversal or its map iteration order.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Configure normalized exact and bracket-containing combined selectors. The asserted decision is: Assert the exact value wins while the valid combined selector still applies. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestEditorFormatOverridesNormalizeFullLanguageSelectors is a Go unit entry exercising the settings resolver in process; native fixture files provide resolver input, without invoking VS Code or an installed product host.
+// @evidence contracts/testing.md#behavioral-verification Writes a settings.json with a top-level crlf, an `[ ][ typescript ][typescript]` section (tabSize 2), a `[[custom][typescript]` section (eol `\n`) and a `[javascript][typescript]` section (tabSize 4), calls editorFormatOverrides for typescript, and asserts tabWidth 2 and endOfLine lf.
+// @evidence contracts/testing.md#independent-expectations Expected values are authored from the selector-normalization rule (identifiers trimmed, empty ones dropped, duplicates removed, so the first key is the exact TypeScript scope; `[custom` is a distinct non-empty identifier so the third key is a combined scope that still matches); they are not derived from the resolver.
+// @evidence contracts/testing.md#distinguishing-cases tabWidth 2 distinguishes treating the normalized first key as exact (wins over the later combined 4) from treating it as a combined scope; endOfLine lf distinguishes a bracket-containing selector that still applies from one that is discarded (the top-level crlf would remain).
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls editorFormatOverrides on a temp-dir settings file; no VS Code, child process, built binary or installed consumer.
 func TestEditorFormatOverridesNormalizeFullLanguageSelectors(t *testing.T) {
   root := t.TempDir()
   settings := `{

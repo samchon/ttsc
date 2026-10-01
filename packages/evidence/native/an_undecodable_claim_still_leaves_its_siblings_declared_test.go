@@ -16,10 +16,10 @@ import (
  *  1. Configure one claim with an unsupported artifact type and one valid claim.
  *  2. Publish the rule's project inputs.
  *  3. Assert the valid claim's glob is declared and nothing panicked.
- * @evidence contracts/testing.md#behavioral-verification graphRule.ProjectInputs through declaredInputs is exercised with the scenario below; the assertions require the valid claim's glob is declared and nothing panicked.
- * @evidence contracts/testing.md#independent-expectations The host runs this contract behind a recover that turns a panic into a snapshot-wide error (`linthost/project_inputs.go:139-149`), so one malformed claim must not be able to un-watch a whole project. Declaring what decoded is also the behavior an author needs most while a configuration is mid-repair.
- * @evidence contracts/testing.md#distinguishing-cases Configure one claim with an unsupported artifact type and one valid claim. Publish the rule's project inputs. Assert the valid claim's glob is declared and nothing panicked.
- * @evidence contracts/testing.md#execution-ownership TestAnUndecodableClaimStillLeavesItsSiblingsDeclared is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification declaredInputs calls graphRule.ProjectInputs on a configuration holding one claim of the unsupported type `nonsense` (with a Markdown reference over never/**) and one valid TypeScript claim whose Markdown reference selects docs/spec/**\/*.md; assertDeclares requires the glob inputs to be exactly docs/spec/**\/*.md.
+ * @evidence contracts/testing.md#independent-expectations The expected single glob is authored: the valid claim's reference population must still be declared, and nothing from the undecodable claim (docs/** or never/**) may be declared; a panic in the input declaration would fail the test.
+ * @evidence contracts/testing.md#distinguishing-cases One broken claim beside one healthy sibling; the exact-set check separates silencing the healthy claim (empty set) from declaring the broken claim's globs (extra patterns). Fully valid configurations are owned by sibling input entries.
+ * @evidence contracts/testing.md#execution-ownership TestAnUndecodableClaimStillLeavesItsSiblingsDeclared is a Go unit entry in the native test process; it calls ProjectInputs on an in-memory project input context with no sources, consumer install or product host.
  */
 func TestAnUndecodableClaimStillLeavesItsSiblingsDeclared(t *testing.T) {
   inputs := declaredInputs(t, `{"claims":[

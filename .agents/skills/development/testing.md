@@ -64,6 +64,6 @@ Apply [validation input ownership](validation.md#inputs-and-results) to source, 
 4. Apply [state isolation and reuse validity](../contracts/e2e.md#state-isolation-and-reuse-validity) to each shared resource. Exercise cold and invalidated states through real transitions when those are the assertion. Assign process, handle and directory owners and await their actual cleanup on success, failure and cancellation before restoring shared inputs.
 5. Compare preparation counts and executable assertion owners before and after consolidation. Smaller file or function counts do not establish reduced work or preserved coverage. Execute the final population, verify discovery and Evidence selection together, and report unresolved assertions or resource lifetimes.
 
-Use the [validation README](../../../scripts/ci/README.md) for platform selections, the shared boundary batch, the single installation matrix, CI jobs, caching and measured duration acceptance. Classify filesystem cases by their actual connection under [execution ownership](../contracts/testing.md#execution-ownership) before applying that selection.
+Use the [CI workflows](validation.md#ci-workflows) for the unit, E2E and installation entries. Classify filesystem cases by their actual connection under [execution ownership](../contracts/testing.md#execution-ownership) before applying that selection.
 
 Commit only tests that are meaningful and necessary for the change. Keep scratch probes and one-off working checks outside the repository.

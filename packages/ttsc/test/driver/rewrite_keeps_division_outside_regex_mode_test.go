@@ -27,7 +27,7 @@ export const out = plugin.make(total / divisor, 2);
     Replacement:   `"replacement"`,
     ConsumeParens: true,
   })
-  if !strings.Contains(js, `"replacement"`) || strings.Contains(js, "plugin.make") {
+  if !strings.Contains(js, `exports.out = "replacement";`) {
     t.Fatalf("division rewrite mismatch:\n%s", js)
   }
 }

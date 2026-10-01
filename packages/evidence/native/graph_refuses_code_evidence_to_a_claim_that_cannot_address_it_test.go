@@ -11,10 +11,10 @@ import "testing"
  *  1. Configure a Markdown claim over a TypeScript reference.
  *  2. Evaluate the graph.
  *  3. Assert the bare citation is rejected and the file-qualified repair named.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies a bare symbol in Markdown still cannot identify a code module. The original assertions check assert the bare citation is rejected and the file-qualified repair named.
- * @evidence contracts/testing.md#independent-expectations File-qualified links enable this population without restoring the old repository-wide name lookup. An unqualified symbol remains an error. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Configure a Markdown claim over a TypeScript reference. Evaluate the graph. Assert the bare citation is rejected and the file-qualified repair named. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestGraphRefusesCodeEvidenceToAClaimThatCannotAddressIt is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a Markdown claim over docs/spec.md (symbol file) and a TypeScript function reference over src/api/**, where the document cites the bare token `get`; the diagnostics must contain `Code evidence target 'get'`, `@link` and `Missing acknowledgement`.
+ * @evidence contracts/testing.md#independent-expectations The expectations are authored from the addressing contract: file-qualified links enable this population without restoring repository-wide name lookup, so an unqualified symbol from a Markdown claim stays an error that names the `@link` repair and leaves the operation owed.
+ * @evidence contracts/testing.md#distinguishing-cases A bare code symbol cited from Markdown; the file-qualified and inline forms that resolve are owned by the file-link entries.
+ * @evidence contracts/testing.md#execution-ownership TestGraphRefusesCodeEvidenceToAClaimThatCannotAddressIt is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestGraphRefusesCodeEvidenceToAClaimThatCannotAddressIt(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

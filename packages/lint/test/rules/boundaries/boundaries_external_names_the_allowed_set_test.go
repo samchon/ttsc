@@ -16,7 +16,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification External rejection names react and @app/* as the allowed patterns for a denied legacy client subpath.
 // @evidence contracts/testing.md#independent-expectations The literal allow list determines both rejection and the independently expected rendered Allowed here clause.
-// @evidence contracts/testing.md#distinguishing-cases Allow-list rejection contrasts with deny-only message omission; actual allowed imports are covered by the external rejection sibling control.
+// @evidence contracts/testing.md#distinguishing-cases Only the allow-list rejection arm is exercised: the excluded @legacy/sdk/client import must name react and @app/* as permitted; the deny-only sibling owns the absence of the clause and this test has no permitted-import control.
 // @evidence contracts/testing.md#execution-ownership runBoundaryRule executes NewEngineWithResolver.Run for the external allow-list. This entry owns both assertSingleBoundaryFinding message checks on its one rejected legacy import.
 func TestBoundariesExternalNamesTheAllowedSet(t *testing.T) {
   const ruleName = "boundaries/external"

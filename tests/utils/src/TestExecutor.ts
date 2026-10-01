@@ -9,17 +9,6 @@ import { createRequire } from "node:module";
 const { DynamicExecutor } = createRequire(import.meta.url)(
   "@nestia/e2e",
 ) as typeof import("@nestia/e2e");
-const { partitionFiles, runPool } = createRequire(import.meta.url)(
-  "../../../scripts/ci/feature-worker-pool.cjs",
-) as {
-  partitionFiles: (
-    locations: string[],
-    filter: (name: string) => boolean,
-    workers: number,
-  ) => string[][];
-  runPool: (groups: string[][]) => Promise<string[][]>;
-};
-
 type IReport = import("@nestia/e2e").DynamicExecutor.IReport;
 
 /**
@@ -71,22 +60,6 @@ export namespace TestExecutor {
         process.exitCode = 1;
       }
     });
-
-    const workers = Number(process.env.TTSC_TEST_WORKERS ?? 1);
-    if (!Number.isSafeInteger(workers) || workers < 1)
-      throw new Error("TTSC_TEST_WORKERS must be a positive integer");
-    if (!process.env.TTSC_TEST_WORKER_FILES && workers > 1) {
-      const groups = partitionFiles(locations, filter, workers);
-      if (groups.length === 0)
-        throw new Error("feature worker selection ran no tests");
-      const failures = await runPool(groups);
-      finished = true;
-      if (failures.length) process.exitCode = 1;
-      console.log(
-        `Feature workers: ${groups.length}; failed: ${failures.length}; elapsed: ${Date.now() - started} ms`,
-      );
-      return;
-    }
 
     const executions: IReport["executions"] = [];
     for (const location of locations) {
@@ -142,28 +115,11 @@ export namespace TestExecutor {
     if (exceptions.length) process.exitCode = 1;
   };
 
-  /** Select a layer without importing modules excluded by the CLI filters. */
-  export const hasCases = (props: IProps): boolean => {
-    const locations =
-      typeof props.location === "string" ? [props.location] : props.location;
-    return partitionFiles(locations, selectedFileFilter(), 1).some(
-      (group) => group.length > 0,
-    );
-  };
-
-  /** One selection rule for discovery, worker assignment and local dispatch. */
+  /** One selection rule for discovery and dispatch. */
   function selectedFileFilter(): (name: string) => boolean {
     const include = getArguments("include");
     const exclude = getArguments("exclude");
-    const assigned = process.env.TTSC_TEST_WORKER_FILES
-      ? new Set<string>(
-          JSON.parse(
-            fs.readFileSync(process.env.TTSC_TEST_WORKER_FILES, "utf8"),
-          ),
-        )
-      : undefined;
     return (name) =>
-      (assigned === undefined || assigned.has(name)) &&
       (include.length ? include.some((str) => name.includes(str)) : true) &&
       (exclude.length ? exclude.every((str) => !name.includes(str)) : true);
   }

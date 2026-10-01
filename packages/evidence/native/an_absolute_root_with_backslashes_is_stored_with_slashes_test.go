@@ -19,10 +19,10 @@ import (
  *  1. Normalize an absolute root written with backslashes.
  *  2. Resolve it against a project root.
  *  3. Assert the stored spelling and the printed label are the slashed form.
- * @evidence contracts/testing.md#behavioral-verification resolvePopulationBase, normalizeRootPath is exercised with the scenario below; the assertions require the stored spelling and the printed label are the slashed form.
- * @evidence contracts/testing.md#independent-expectations The end-to-end complementary root case declares a relative root, which is the one form where the declared spelling and the derived one coincide, so it cannot tell the stored spelling from the old derivation. The form the acceptance actually names is an absolute Windows path, and it is asserted here rather than through the rule because a path with a drive letter is absolute on one platform and relative on the other, while the spelling this stores is the same on both.
- * @evidence contracts/testing.md#distinguishing-cases Normalize an absolute root written with backslashes. Resolve it against a project root. Assert the stored spelling and the printed label are the slashed form.
- * @evidence contracts/testing.md#execution-ownership TestAnAbsoluteRootWithBackslashesIsStoredWithSlashes is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification normalizeRootPath is called on `C:\contracts` and must return `C:/contracts` with no problem; resolvePopulationBase for a temp project and that value must record Declared `C:/contracts`, and populationRootLabel of it must be `C:/contracts`.
+ * @evidence contracts/testing.md#independent-expectations The expected strings are authored literals; the path is handled as a string by the normalizer, so the result is the same on POSIX and Windows even though a drive-letter path is absolute on only one of them.
+ * @evidence contracts/testing.md#distinguishing-cases One Windows-style absolute spelling checked at three stages (normalized, stored, printed label); a root written with slashes or a relative backslash root is owned by sibling entries.
+ * @evidence contracts/testing.md#execution-ownership TestAnAbsoluteRootWithBackslashesIsStoredWithSlashes is a Go unit entry in the native test process; it calls the normalizer, base resolver and label function on literals with no filesystem access, consumer install or product host.
  */
 func TestAnAbsoluteRootWithBackslashesIsStoredWithSlashes(t *testing.T) {
   normalized, problem := normalizeRootPath(`C:\contracts`)

@@ -15,13 +15,10 @@ import (
  * 2. Assert the loader diagnostic and absence of derivative coverage findings.
  * 3. Repair the export and verify the citation succeeds.
  *
- * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies missing named re-exports make a rooted population incomplete.
- *
- * @evidence contracts/testing.md#independent-expectations A barrel naming missing has no such declaration and must report it without judging partial coverage; removing that export independently restores a complete graph.
- *
- * @evidence contracts/testing.md#distinguishing-cases Forward one real name and one missing name from a disk-only module. Assert the loader diagnostic and absence of derivative coverage findings. Repair the export and verify the citation succeeds.
- *
- * @evidence contracts/testing.md#execution-ownership TestFileLinksRejectIncompleteExportPopulations is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#behavioral-verification newFileLinkFixture builds api/index.ts as `export { value, missing } from './value'` over a module exporting only `value`, with a link `api/index.ts#value`; the check must contain `no public export named 'missing'` and no `Missing acknowledgement`, and after the index is rewritten to export only `value` the check must be clean.
+ * @evidence contracts/testing.md#independent-expectations The expectations are authored from the population contract: a barrel naming a nonexistent export makes the rooted population incomplete, so the cause is reported and partial coverage is not judged; removing the bad name restores a complete graph.
+ * @evidence contracts/testing.md#distinguishing-cases A valid sibling export beside a missing one, which must not let the population count as healthy; the same files after the repair are the clean control.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksRejectIncompleteExportPopulations is a Go unit entry in the native test process; it drives graphRule.Check through newFileLinkFixture over real temp files, with no consumer install or product host.
  */
 func TestFileLinksRejectIncompleteExportPopulations(t *testing.T) {
   fixture := newFileLinkFixture(t, map[string]string{"api/value.ts": "export const value = 1;", "api/index.ts": "export { value, missing } from './value';", "review.md": "## Review\n<!-- @link api/index.ts#value Reads the value. -->\n"}, `{"claims":[{"type":"markdown","files":["review.md"],"symbol":"h2","reference":{"type":"typescript","root":"api","files":["index.ts"],"symbol":"property"}}]}`)

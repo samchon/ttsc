@@ -23,10 +23,7 @@ import (
 // @evidence contracts/testing.md#distinguishing-cases Owns the complete original format-project population with its rule combinations, cascades, line endings and template contents; per-project copies prevent one writable result from contaminating another case, and an empty fixture population fails rather than silently certifying coverage.
 // @evidence contracts/testing.md#execution-ownership TestFormatFixtureCorpus is the discoverable Go entry; directory-named subcases are dynamic rather than separately addressable Evidence declarations. Real RunFormat config and program operations share the selected Go process without a native producer per fixture; the separate launcher E2E batch owns executable plugin dispatch.
 func TestFormatFixtureCorpus(t *testing.T) {
-  fixtures := os.Getenv("TTSC_LINT_FORMAT_FIXTURES")
-  if fixtures == "" {
-    t.Fatal("TTSC_LINT_FORMAT_FIXTURES must name the original format projects")
-  }
+  fixtures := lintFormatProjectsRoot
   entries, err := os.ReadDir(fixtures)
   if err != nil {
     t.Fatal(err)

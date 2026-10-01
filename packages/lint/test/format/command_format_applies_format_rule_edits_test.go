@@ -18,10 +18,10 @@ import (
 // 1. Seed a project with a noVar violation and a missing-semi violation.
 // 2. Run the format subcommand with both rules enabled.
 // 3. Assert the file gains semicolons but keeps its `var` declaration.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises applies format rule edits and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert the file gains semicolons but keeps its `var` declaration.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project with a noVar violation and a missing-semi violation. The asserted decision is: Assert the file gains semicolons but keeps its `var` declaration. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatAppliesFormatRuleEdits owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on `var legacy = 1` and an unterminated call with format.semi and the no-var lint rule both enabled, and asserts exit 0, empty output and the complete file with semicolons added and `var` kept.
+// @evidence contracts/testing.md#independent-expectations The expected `var legacy = 1;\nJSON.stringify(legacy);\n` is an authored literal: semi applies and the lint rule must not rewrite under format.
+// @evidence contracts/testing.md#distinguishing-cases Distinguishes format-class edits (applied) from lint-class edits (withheld) in one run; a format command that also applied no-var would produce `let` and fail. Only the semi format rule is exercised.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand over a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatAppliesFormatRuleEdits(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\n")
   // format/semi is enabled through the format block (the only formatting

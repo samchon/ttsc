@@ -21,7 +21,7 @@ import (
  *
  * @evidence contracts/testing.md#distinguishing-cases Relative filesystem and deep package paths receive their different literal files-selector repairs.
  *
- * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticConfigurationRejectsPathsInThePackageSlot is the selectable unit entry in packages/evidence/native, compiled beside its owning implementation in the shared Go unit process. It invokes decodeGraphConfig and its decoder/assertion helpers in process; its JSON artifact/package names are input strings and trigger no installation, artifact loader, native plugin build, or child process. Its local table variants remain owned by this entry.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticConfigurationRejectsPathsInThePackageSlot is a Go unit entry in the native test process; it decodes two in-memory JSON references through the decodeReferenceProblems helper and decodeGraphConfig with no filesystem, package installation, artifact build or product host, and has no table of variants.
  */
 func TestEvidenceSemanticConfigurationRejectsPathsInThePackageSlot(t *testing.T) {
   assertProblemContains(

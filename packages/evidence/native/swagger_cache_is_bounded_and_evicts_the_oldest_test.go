@@ -19,7 +19,7 @@ import (
  * @evidence contracts/testing.md#behavioral-verification swaggerCache evicts digest0,retains newest and stays within swaggerCacheLimit.
  * @evidence contracts/testing.md#independent-expectations Ordered inserted keys and capacity limit establish retention expectations.
  * @evidence contracts/testing.md#distinguishing-cases Crossing capacity releases the oldest retained payload.
- * @evidence contracts/testing.md#execution-ownership TestSwaggerCacheIsBoundedAndEvictsTheOldest is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerCacheIsBoundedAndEvictsTheOldest is a selectable native Go unit entry. It stores swaggerCacheLimit+1 entries into an isolated swaggerCache and looks them up in-process; no consumer, Node process, native build or product host is started.
  */
 func TestSwaggerCacheIsBoundedAndEvictsTheOldest(t *testing.T) {
   cache := isolateSwaggerCache(t)

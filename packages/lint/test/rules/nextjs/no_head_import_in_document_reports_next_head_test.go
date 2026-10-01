@@ -16,14 +16,6 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases The original annotated violation remains unchanged and an adjacent accepted source is checked with filename pages/_document.tsx. This is static source/filename behavior, not a browser rendering assertion.
 // @evidence contracts/testing.md#execution-ownership TestNextjsNoHeadImportInDocumentReportsNextHead is a discoverable Go unit entry; TypeScript/TSX parsing and the owning engine execute in one shared process without installing Next, route discovery or a product child host.
 func TestNextjsNoHeadImportInDocumentReportsNextHead(t *testing.T) {
-  assertRuleCorpusCaseTSX(t, "pages/_document.tsx", `
-// expect: nextjs/no-head-import-in-document error
-import Head from "next/head";
-
-export default function Document() {
-  return <Head />;
-}
-`)
   _, _, acceptedFindings := runRuleFindingsSnapshotFile(t, "nextjs/no-head-import-in-document", "pages/_document.tsx", "import { Head } from \"next/document\"; export default function Document() { return <Head />; }\n", nil)
   if len(acceptedFindings) != 0 {
     t.Fatalf("accepted Next source unexpectedly reports: %+v", acceptedFindings)

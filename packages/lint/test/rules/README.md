@@ -1,6 +1,6 @@
 # Lint Rule Test Groups
 
-These Go tests are the engine-internal coverage layer for `@ttsc/lint`'s rule corpus. They live next to the linthost library sources in a scratch module (materialized by `scripts/test-go-lint.cjs`) so they can import unexported engine internals directly.
+These Go tests are the engine-internal coverage layer for `@ttsc/lint`'s rule corpus. They live next to the linthost library sources in a scratch module (materialized by `go test`) so they can import unexported engine internals directly.
 
 ## Testing contract
 

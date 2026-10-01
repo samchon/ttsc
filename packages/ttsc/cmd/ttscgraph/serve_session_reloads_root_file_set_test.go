@@ -18,7 +18,7 @@ import (
 // 3. Assert another reload removes the deleted declaration.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies include-glob additions and deletions replace the compiler session rather than leaving stale roots.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "reload"; another reload removes the deleted declaration.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over an include-based fixture: creating src/added.ts must give mode reload, changed, with a node named AddedRoot; deleting src/index.ts must give another mode reload, changed, whose dump no longer contains BeforeEdit. A session that kept stale roots would report incremental or unchanged.
 // @evidence contracts/testing.md#distinguishing-cases Add `AddedRoot` under an included directory and assert reload plus presence; Delete the original `BeforeEdit` root; Assert another reload removes the deleted declaration.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsRootFileSet is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsRootFileSet(t *testing.T) {

@@ -1,80 +1,38 @@
 name: typia
 
-on:
-  pull_request:
-  workflow_dispatch:
+on: pull_request
 
 concurrency:
-  group: typia-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  Ubuntu:
+  typia:
     runs-on: ubuntu-latest
-    env:
-      # Only build + pack the current platform (ttsc-linux-x64) — typia's
-      # overrides below pull in ttsc.tgz, unplugin.tgz, and the current native
-      # package. The full cross-platform matrix takes ~20 min for tarballs we
-      # never consume.
-      TTSC_TARBALLS_CURRENT: "1"
     steps:
       - uses: actions/checkout@v7
-
       - uses: pnpm/action-setup@v6
         with:
           version: 10.6.4
-
       - uses: actions/setup-node@v7
         with:
           node-version: 24.x
-
       - uses: actions/setup-go@v7
         with:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: "**/go.sum"
-
-      - name: Install ttsc dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build ttsc tarballs (current platform only)
-        id: tarballs
-        run: pnpm package:tgz
-
-      - name: Check out latest typia master
-        uses: actions/checkout@v7
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run package:tgz
+      - uses: actions/checkout@v7
         with:
           repository: samchon/typia
-          ref: master
           path: experimental/typia
-
-      - name: Add native host output ownership reporting
-        run: git -C experimental/typia apply --directory=packages/typia "$GITHUB_WORKSPACE/experimental/native-host-provenance/typia.patch"
-
-      - name: Use local ttsc tarballs
-        run: node scripts/ci/consumer-tarballs.cjs experimental/typia
-
-      - name: Install typia master dependencies
-        id: typia-install
+      - run: git -C experimental/typia apply --directory=packages/typia "$GITHUB_WORKSPACE/experimental/native-host-provenance/typia.patch"
+      - run: node .github/workflows/scripts/consumer.cjs experimental/typia
+      - run: pnpm install --no-frozen-lockfile
         working-directory: experimental/typia
-        run: pnpm install --no-frozen-lockfile
-
-      - name: Test all typia packages
-        if: ${{ !cancelled() && steps.typia-install.outcome == 'success' }}
+      - run: pnpm --filter "./tests/test-*" --fail-if-no-match --no-bail -r start
         working-directory: experimental/typia
-        run: pnpm --filter=./tests/test-* --fail-if-no-match --no-bail -r start
-
-      - name: Test typia public Go modules
-        if: ${{ !cancelled() && steps.typia-install.outcome == 'success' }}
+      - run: pnpm run test:go:public && pnpm run test:go:native
         working-directory: experimental/typia
-        run: pnpm run test:go:public
-
-      - name: Test typia native Go modules
-        if: ${{ !cancelled() && steps.typia-install.outcome == 'success' }}
-        working-directory: experimental/typia
-        run: pnpm run test:go:native
-
-      - name: Verify typia source maps with the same tarballs
-        if: ${{ !cancelled() && steps.tarballs.outcome == 'success' && steps.typia-install.outcome == 'success' }}
-        run: pnpm --dir experimental/source-map start -- --skip-pack --typia-master
-        env:
-          TTSC_CACHE_DIR: ${{ github.workspace }}/.cache/ci/plugins
+      - run: pnpm --dir experimental/source-map start -- --skip-pack --typia-master

@@ -18,9 +18,9 @@ import (
  *  2. Evaluate the declarations.
  *  3. Assert it is malformed rather than silently accepted.
  *
- * @evidence contracts/testing.md#behavioral-verification prismaDeclarationsFromComments accepts placement and checkEvidenceGraph reports a reasonless citation as malformed.
- * @evidence contracts/testing.md#independent-expectations The authored tag has no reason and the expected grammar diagnostic is literal.
- * @evidence contracts/testing.md#distinguishing-cases Placement scanning and graph validity remain separate responsibilities.
+ * @evidence contracts/testing.md#behavioral-verification scanPrismaFile and prismaDeclarationsFromComments place a reasonless `/// @evidence docs/spec.md#amounts` on the Sale model and must report no placement problem; materializeClaimStates and evaluateEvidenceGraph over a prisma model claim and a Markdown h2 reference must then report the malformed declaration at prisma/schema.prisma:1 and still report the section as unacknowledged.
+ * @evidence contracts/testing.md#independent-expectations The authored citation has a target and no reason, and both expected diagnostics are authored message fragments ("Malformed @evidence declaration at prisma/schema.prisma:1", "Missing acknowledgement for 'docs/spec.md#amounts'") rather than output of the implementation.
+ * @evidence contracts/testing.md#distinguishing-cases The body has one negative case, a citation with no reason; it asserts that the scan accepts it and the graph rejects it without counting it as coverage. It has no positive control with a reason, which other Prisma citation tests supply.
  * @evidence contracts/testing.md#execution-ownership TestPrismaCitationWithoutAReasonIsMalformed is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaCitationWithoutAReasonIsMalformed(t *testing.T) {

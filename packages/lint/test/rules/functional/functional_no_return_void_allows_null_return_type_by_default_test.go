@@ -13,8 +13,8 @@ import "testing"
 // 3. Assert nothing reports.
 //
 // @evidence contracts/testing.md#behavioral-verification runFunctionalRule executes the actual engine and verifies declared null return is accepted by default; an exact zero-finding comparison rejects both unwanted reports and recovered engine failures.
-// @evidence contracts/testing.md#independent-expectations allowNull defaults to true. The literal source and configured option express the supported policy independently of rule output.
-// @evidence contracts/testing.md#distinguishing-cases AllowNullFalseRejectsNullReturnType owns the explicit-false rejection. This case owns its explicit source/option distinction rather than certifying the whole family.
+// @evidence contracts/testing.md#independent-expectations allowNull defaults to true. The authored source states the policy case independently of rule output.
+// @evidence contracts/testing.md#distinguishing-cases AllowNullFalseRejectsNullReturnType owns the explicit-false rejection.
 // @evidence contracts/testing.md#execution-ownership TestFunctionalNoReturnVoidAllowsNullReturnTypeByDefault is a named Go unit entry running actual TypeScript AST policy operations in the shared engine process; no consumer install, native build or real product host is used.
 func TestFunctionalNoReturnVoidAllowsNullReturnTypeByDefault(t *testing.T) {
   const ruleName = "functional/no-return-void"

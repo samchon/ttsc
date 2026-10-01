@@ -10,10 +10,10 @@ import "testing"
 //
 //  1. Exercise the authored command format nested ternary parens fixtures through the Go format dispatcher.
 //  2. Require the exact authored output or rejection result for each fixture.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises nested ternary parens and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: consequent_nested_flat_parens, consequent_nested_member_test_parens, alternate_nested_no_parens, consequent_nested_broken_no_parens, consequent_source_parens_join_staircase, alternate_source_parens_chain. Each keeps its own assertions under this one discoverable entry.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatNestedTernaryParens owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Six subcases run the in-process `format` command: flat consequent-nested ternaries keep their parentheses, a flat alternate-nested chain has none, a broken consequent-nested staircase has none, and parenthesized nested ternaries written in the source (consequent and alternate position, broken layout) must be rewritten to the paren-free staircase.
+// @evidence contracts/testing.md#independent-expectations Sources and expected outputs are authored literals following the stated Prettier ternary rule (parens only for a flat consequent-nested ternary); the two source-paren cases carry the parenthesized input and the paren-free expected text.
+// @evidence contracts/testing.md#distinguishing-cases Separates consequent from alternate position, flat from broken rendering, and member-expression from simple tests. Four cases are fixed points; the two source-paren cases are the inputs that must change.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatUnchanged or assertFormatResult; no child process, built binary or installed consumer.
 func TestCommandFormatNestedTernaryParens(t *testing.T) {
   // Consequent-nested, flat: parens.
   t.Run("consequent_nested_flat_parens", func(t *testing.T) {
@@ -40,7 +40,12 @@ func TestCommandFormatNestedTernaryParens(t *testing.T) {
   // joins the broken staircase (parens dropped), same as a bare nested ternary
   // — Prettier's AST has no parenthesized-expression node.
   t.Run("consequent_source_parens_join_staircase", func(t *testing.T) {
-    assertFormatUnchanged(t, `const x = aaaaaaaaaaaaaaaaaaa
+    assertFormatResult(t, `const x = aaaaaaaaaaaaaaaaaaa
+  ? (bbbbbbbbbbbbbbb
+    ? ccccccccccccccc
+    : ddddddddddddddd)
+  : eeeeeeeeeeeeeeeeeeeeeeeee;
+`, `const x = aaaaaaaaaaaaaaaaaaa
   ? bbbbbbbbbbbbbbb
     ? ccccccccccccccc
     : ddddddddddddddd
@@ -50,7 +55,12 @@ func TestCommandFormatNestedTernaryParens(t *testing.T) {
   // Likewise an alternate-position nested ternary with source parens chains
   // (parens dropped).
   t.Run("alternate_source_parens_chain", func(t *testing.T) {
-    assertFormatUnchanged(t, `const y = aaaaaaaaaaaaaaaaaaa
+    assertFormatResult(t, `const y = aaaaaaaaaaaaaaaaaaa
+  ? bbbbbbbbbbbbbbb
+  : (ccccccccccccccc
+    ? ddddddddddddddd
+    : eeeeeeeeeeeeeeeeeeeeeeeee);
+`, `const y = aaaaaaaaaaaaaaaaaaa
   ? bbbbbbbbbbbbbbb
   : ccccccccccccccc
     ? ddddddddddddddd

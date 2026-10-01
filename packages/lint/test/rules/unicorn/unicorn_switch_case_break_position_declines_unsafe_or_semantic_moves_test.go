@@ -11,7 +11,7 @@ import (
 // 1. Execute the retained clause or command fixture through the owning Go operation.
 // 2. Compare the authored report, edit or preserved-file result for each boundary.
 //
-// @evidence contracts/testing.md#behavioral-verification The real engine now requires one ordinary rule error with exact terminator message and no fix for each named unsafe case, while the original fix pipeline must leave source unchanged.
+// @evidence contracts/testing.md#behavioral-verification The real engine must produce one ordinary rule error with exact terminator message and no fix for each named unsafe case, while the original fix pipeline must leave source unchanged.
 // @evidence contracts/testing.md#independent-expectations The supported safety policy independently forbids moving comment-bound or single-line statements and return/throw binding-sensitive expressions; the diagnostic remains required.
 // @evidence contracts/testing.md#distinguishing-cases The six named cases preserve intervening comment, trailing line/block comment, single-line block and return/throw binding distinctions; safe-edit hosts own allowed moves.
 // @evidence contracts/testing.md#execution-ownership TestUnicornSwitchCaseBreakPositionDeclinesUnsafeOrSemanticMoves owns these literal cases as a discoverable Go unit entry, retaining named subcase identities where present; actual engine/fix/command functions run in the shared process with isolated fixture files, without installation, native producer or product child host.

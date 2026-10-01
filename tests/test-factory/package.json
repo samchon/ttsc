@@ -5,7 +5,7 @@
   "description": "Unit tests for @ttsc/factory.",
   "type": "module",
   "scripts": {
-    "start": "node --import ../../scripts/register-unit-loader.mjs src/index.ts",
+    "start": "node --import ../../config/register-unit-loader.mjs src/index.ts",
     "evidence": "evidence"
   },
   "devDependencies": {

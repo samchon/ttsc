@@ -28,9 +28,16 @@ export function format(value: string | number): string {
   return String(value);
 }
 `)
+  found := 0
   for _, unit := range inventory.Units {
-    if unit.Target == "format" && unit.Line != 2 {
-      t.Fatalf("an overload set must report its first signature at line 2, got %d", unit.Line)
+    if unit.Target == "format" {
+      found++
+      if unit.Line != 2 {
+        t.Fatalf("an overload set must report its first signature at line 2, got %d", unit.Line)
+      }
     }
+  }
+  if found == 0 {
+    t.Fatal("the overload set produced no unit for 'format'")
   }
 }

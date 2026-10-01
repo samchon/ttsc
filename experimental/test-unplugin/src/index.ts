@@ -87,10 +87,25 @@ const adapterEntrypoints = [
 const TURBOPACK_SCOPED_GLOBS = ["{src/,}*.ts", "src/**/*.ts"];
 
 const requireFromRoot = createRequire(path.join(root, "package.json"));
-const { runIndependent } = requireFromRoot("./scripts/ci/run-independent.cjs");
-const { consumerDependencies } = requireFromRoot(
-  "./scripts/ci/consumer-dependencies.cjs",
+const { runIndependent } = requireFromRoot(
+  "./experimental/test-unplugin/src/contracts/run-independent.cjs",
 );
+
+/** Select a consumer's direct dependencies from one complete npm installation. */
+function consumerDependencies(
+  installed: Record<string, string>,
+  specifiers: string[],
+): Record<string, string> {
+  return Object.fromEntries(
+    specifiers.map((specifier) => {
+      const at = specifier.indexOf("@", specifier.startsWith("@") ? 1 : 0);
+      const name = at === -1 ? specifier : specifier.slice(0, at);
+      if (typeof installed[name] !== "string")
+        throw new Error(`shared installation is missing dependency ${name}`);
+      return [name, installed[name]];
+    }),
+  );
+}
 
 // Each phase owns its output directory. The Next builds and matcher probe share
 // next.config.mjs/dist-next and therefore remain one serial phase.
@@ -215,7 +230,7 @@ function executeBuildPhase(phase: string): Promise<number> {
 
 function prepareCurrentTarballs() {
   if (process.env.TTSC_UNPLUGIN_SKIP_BUILD !== "1")
-    run("pnpm run build:current", root, { TTSC_BUILD_SCOPE: "experimental" });
+    run("pnpm run build", root);
 
   fs.mkdirSync(tarballs, { recursive: true });
   for (const name of [
@@ -875,10 +890,6 @@ function verifyEcosystemContracts() {
     path.join(experimentRoot, "src", "contracts"),
     path.join(workspace, "contracts"),
     { recursive: true },
-  );
-  fs.copyFileSync(
-    path.join(root, "scripts", "ci", "run-independent.cjs"),
-    path.join(workspace, "contracts", "run-independent.cjs"),
   );
   run("node contracts/index.mjs", workspace, {}, { inheritOutput: true });
 }

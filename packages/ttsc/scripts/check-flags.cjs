@@ -16,9 +16,14 @@ const child = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const {
-  STRIP_TYPES_NODE_ARGS,
-} = require("../../../scripts/node-strip-types.cjs");
+const { pathToFileURL } = require("node:url");
+
+const STRIP_TYPES_NODE_ARGS = [
+  "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
+  "--experimental-strip-types",
+  "--import",
+  pathToFileURL(path.resolve(__dirname, "../../../config/register-typescript-loader.mjs")).href,
+];
 
 const here = __dirname;
 const ttscRoot = path.resolve(here, "..");

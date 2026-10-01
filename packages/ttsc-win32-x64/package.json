@@ -5,7 +5,7 @@
   "os": ["win32"],
   "cpu": ["x64"],
   "scripts": {
-    "build": "node ../../scripts/build-platform-package.cjs"
+    "build": "node ../ttsc/build/platform-package.cjs"
   },
   "repository": {
     "type": "git",

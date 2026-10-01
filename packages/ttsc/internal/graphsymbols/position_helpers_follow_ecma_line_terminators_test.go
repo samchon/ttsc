@@ -21,8 +21,8 @@ import (
 // 3. Convert each offset to UTF-16 LSP position and back to the same offset.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies graph-backed LSP positions use the compiler's LF, CRLF, CR, LS, and PS line boundaries.
-// @evidence contracts/testing.md#independent-expectations ECMAScript LF, CRLF, CR, LS and PS delimiters and UTF-16 LSP columns define each literal line/column; standard UTF-8 cursor boundaries establish independent round-trip offsets.
-// @evidence contracts/testing.md#distinguishing-cases Build three lines with each ECMAScript terminator; Enumerate every valid cursor boundary before each terminator; Convert each offset to UTF-16 LSP position and back to the same offset.
+// @evidence contracts/testing.md#independent-expectations Each case embeds one ECMAScript terminator (LF, CRLF, CR, LS or PS) in a three-line literal, so the expected line count (three) and the line of every offset follow from the language's line-terminator definition. Columns are checked only by an offset -> position -> offset round trip over every UTF-8 rune boundary (including the two-unit emoji), not against literal UTF-16 column numbers, so a column error made symmetrically by both helpers would not be detected.
+// @evidence contracts/testing.md#distinguishing-cases Build three lines with each ECMAScript terminator; Enumerate every valid cursor boundary before each terminator; Convert each offset to UTF-16 LSP position and back to the same offset; the five terminator subtests differ only in the terminator, and a position on the line index just past the last line must not resolve (negative case). No empty-text or out-of-range-column input is exercised here.
 // @evidence contracts/testing.md#execution-ownership TestPositionHelpersFollowECMALineTerminators is a Go source-unit entry. lspPositionToOffset, offsetToPosition execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestPositionHelpersFollowECMALineTerminators(t *testing.T) {
   cases := []struct {

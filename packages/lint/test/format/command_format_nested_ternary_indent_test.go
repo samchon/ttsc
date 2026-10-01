@@ -11,10 +11,10 @@ import "testing"
 //
 //  1. Exercise the authored command format nested ternary indent fixtures through the Go format dispatcher.
 //  2. Require the exact authored output or rejection result for each fixture.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises nested ternary indent and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Require the exact authored output or rejection result for each fixture.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: tab2_three_level_idempotent, tab4_three_level_idempotent, tab4_single_idempotent, tab4_nested_over_indent_reindented. Each keeps its own assertions under this one discoverable entry.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatNestedTernaryIndent owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Four subcases run the in-process `format` command on broken ternary chains: a three-level chain at tabWidth 2 and 4 and a single ternary at tabWidth 4 must stay unchanged, and a nested chain over-indented by a full tab width at tabWidth 4 must be re-indented to a 2-column rung.
+// @evidence contracts/testing.md#independent-expectations Sources and the single expected rewrite are authored literals reasoned from the stated Prettier staircase rule (outer arms at tabWidth, alternate-position nested arms a fixed 2 columns deeper); nothing is derived from formatter output.
+// @evidence contracts/testing.md#distinguishing-cases Distinguishes tabWidth 2 from 4, nested from single chains, and an already-correct chain from an over-indented one (the only input that must change). Consequent-position nesting is not covered.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via the assertFormat helpers; no child process, built binary or installed consumer.
 func TestCommandFormatNestedTernaryIndent(t *testing.T) {
   t.Run("tab2_three_level_idempotent", func(t *testing.T) {
     assertFormatUnchanged(t, `const result = firstConditionThatIsLongEnoughToBreakHere

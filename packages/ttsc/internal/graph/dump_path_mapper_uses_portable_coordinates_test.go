@@ -12,7 +12,7 @@ import (
 //  3. Preserve compiler virtual identities exactly.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies the dump path vocabulary directly, independent of the host OS running the test.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish Preserve compiler virtual identities exactly.
+// @evidence contracts/testing.md#independent-expectations The expectations are the literal coordinates in the table: in-project paths map to src/main.ts, same-root siblings to ../shared/src/value.ts for POSIX, drive and UNC layouts, two pnpm version/peer package paths keep their full distinct node_modules/.pnpm/... paths, and a bundled:/// path is preserved exactly, with no mapping error in any case.
 // @evidence contracts/testing.md#distinguishing-cases Map in-project and sibling paths for POSIX, drive, and UNC layouts; Keep two pnpm version/peer contexts with the same package subpath apart; Preserve compiler virtual identities exactly.
 // @evidence contracts/testing.md#execution-ownership TestDumpPathMapperUsesPortableCoordinates is a Go source-unit entry. newDumpPathMapper execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestDumpPathMapperUsesPortableCoordinates(t *testing.T) {

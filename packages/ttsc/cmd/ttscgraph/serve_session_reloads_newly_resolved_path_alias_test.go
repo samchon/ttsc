@@ -13,8 +13,8 @@ import (
 // 2. Create the excluded generated/value.ts target.
 // 3. Require a changed reload dump containing generated.
 //
-// @evidence contracts/testing.md#behavioral-verification Require a changed reload dump containing generated.
-// @evidence contracts/testing.md#independent-expectations The literal fixture and supported graph contract establish these expectations: Require a changed reload dump containing generated.
+// @evidence contracts/testing.md#behavioral-verification Creating the generated/value.ts target of a paths alias that is outside the configured root set reloads a resident session and the new dump contains generated.
+// @evidence contracts/testing.md#independent-expectations The expectation is literal: the @generated/* paths alias maps to generated/*, only src/index.ts is a root, and creating generated/value.ts must yield mode reload, changed, with a node named generated.
 // @evidence contracts/testing.md#distinguishing-cases Load @generated/value through paths while only src/index.ts is a configured root. Create the excluded generated/value.ts target. Require a changed reload dump containing generated.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsNewlyResolvedPathAlias is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsNewlyResolvedPathAlias(t *testing.T) {

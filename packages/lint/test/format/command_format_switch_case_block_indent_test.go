@@ -12,10 +12,10 @@ import "testing"
 //
 //  1. Exercise the authored command format switch case block indent fixtures through the Go format dispatcher.
 //  2. Require the exact authored output or rejection result for each fixture.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises switch case block indent and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: mixed_case_block_styles_idempotent, default_separate_line_block_idempotent, separate_line_case_block_reindented. Each keeps its own assertions under this one discoverable entry.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatSwitchCaseBlockIndent owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Three subcases run the in-process `format` command: a switch mixing separate-line and same-line case blocks plus a `default` block stays unchanged, a `default` with a separate-line block stays unchanged, and a mis-indented separate-line case block is rewritten to one level deeper than the clause.
+// @evidence contracts/testing.md#independent-expectations Sources and the one rewrite expectation are authored literals reasoned from the stated rule (same-line block like a braceless clause body, separate-line block one level deeper with its `}` one level up); nothing is derived from the formatter.
+// @evidence contracts/testing.md#distinguishing-cases Two fixed points cover both block placements and the default clause; the third input has a body and closing brace that must move, so the formatter cannot pass by doing nothing.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatUnchanged or assertFormatResult; no child process, built binary or installed consumer.
 func TestCommandFormatSwitchCaseBlockIndent(t *testing.T) {
   t.Run("mixed_case_block_styles_idempotent", func(t *testing.T) {
     assertFormatUnchanged(t, `function f(x: string): void {

@@ -1,6 +1,7 @@
 package driver_test
 
 import (
+  "strings"
   "testing"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
@@ -40,8 +41,14 @@ export const value = 1;
     t.Fatalf("unexpected config diagnostics: %#v", diags)
   }
   defer prog.Close()
-  semantic := prog.Diagnostics()
-  if len(semantic) == 0 {
-    t.Fatal("unused declaration diagnostic was filtered")
+  // The diagnostic must be the one for this declaration, not any diagnostic.
+  found := false
+  for _, diagnostic := range prog.Diagnostics() {
+    if strings.Contains(diagnostic.Message, "UnusedInterface") {
+      found = true
+    }
+  }
+  if !found {
+    t.Fatalf("unused declaration diagnostic was filtered: %#v", prog.Diagnostics())
   }
 }

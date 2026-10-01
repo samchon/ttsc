@@ -29,7 +29,7 @@ import (
 //     lists are identical.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that collectLiterals answers with the union's members whatever the declaration's layout: the same eight-member type written one member per line and written on one line both report all eight.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish both nodes carry all eight values, in source form, and that the two lists are identical.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: the eight-member union written one member per line (with a trailing comment) and written on one line must each report exactly "a" through "h" in source form, and the two lists must be equal. Eight members exceeds the old six-value cap, so a reintroduced cap fails on the flat form.
 // @evidence contracts/testing.md#distinguishing-cases Compile a fixture with a wrapped union and a flat union of the same eight string literals; Build the graph; Assert both nodes carry all eight values, in source form, and that the two lists are identical.
 // @evidence contracts/testing.md#execution-ownership TestLiteralsDoNotDependOnDeclarationLineWrapping is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestLiteralsDoNotDependOnDeclarationLineWrapping(t *testing.T) {

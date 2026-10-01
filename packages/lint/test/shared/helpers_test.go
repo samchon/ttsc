@@ -1,7 +1,7 @@
 // Helpers for the lint engine and config unit scenarios.
 //
 // The files in this directory are copied next to the native plugin sources by
-// scripts/test-go-lint.cjs before `go test ./plugin` runs. Keeping the test
+// `go test` before `go test ./plugin` runs. Keeping the test
 // source under packages/lint/test preserves the package-local test layout while
 // still allowing these cases to inspect unexported engine and config helpers.
 package linthost

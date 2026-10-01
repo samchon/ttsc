@@ -18,7 +18,7 @@ import (
 // 3. Assert the next snapshot reports a full reload.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies every config in an extends chain participates in snapshot freshness.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "reload"; the next snapshot reports a full reload.
+// @evidence contracts/testing.md#independent-expectations The expectation is literal: after only base.json (reached through extends) changes strict from true to false, the next snapshot must be mode reload, changed, with a dump. A session that watched only the requested tsconfig would answer unchanged.
 // @evidence contracts/testing.md#distinguishing-cases Create a project whose tsconfig extends `base.json`; Build once, then change a compiler option only in the base config; Assert the next snapshot reports a full reload.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsExtendedConfigChange is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsExtendedConfigChange(t *testing.T) {

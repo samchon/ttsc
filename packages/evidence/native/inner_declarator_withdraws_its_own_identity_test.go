@@ -19,10 +19,10 @@ import (
  *  1. Withdraw one declarator of a two-declarator statement.
  *  2. Collect the inventory.
  *  3. Assert only that identity carries the tag.
- * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert only that identity carries the tag.
- * @evidence contracts/testing.md#independent-expectations A variable statement's withdrawal used to be taken from the statement wrapper and applied to every declarator it holds, so `@internal` written on one of them withdrew nothing at all. The public sibling is the negative twin that keeps this from reading as "the statement withdrew", which is the answer the old code would have given for a tag one line higher. The authored scenario requires this outcome: Assert only that identity carries the tag.
- * @evidence contracts/testing.md#distinguishing-cases Withdraw one declarator of a two-declarator statement. Collect the inventory. Assert only that identity carries the tag.
- * @evidence contracts/testing.md#execution-ownership TestInnerDeclaratorWithdrawsItsOwnIdentity runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory parses `export const live = 1, /** @internal *\/ gone = 2;` and the sorted rows `symbol:target hidden=<tag>` must equal exactly `property:gone hidden=@internal` and `property:live hidden=`.
+ * @evidence contracts/testing.md#independent-expectations The expected rows are authored from the withdrawal contract: a withdrawal tag on an inner declarator withdraws only that declarator's identity, not the statement or its public sibling.
+ * @evidence contracts/testing.md#distinguishing-cases One tagged and one untagged declarator in one statement: taking the withdrawal from the statement wrapper would hide both or neither, and the exact row list fails in either case.
+ * @evidence contracts/testing.md#execution-ownership TestInnerDeclaratorWithdrawsItsOwnIdentity is a Go unit entry in the native test process; parseTypeScriptInventory parses the source with the TypeScript parser and scans its inventory, with no consumer install or product host.
  */
 func TestInnerDeclaratorWithdrawsItsOwnIdentity(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/contracts.ts", `

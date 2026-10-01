@@ -19,9 +19,9 @@ import (
  *  2. Evaluate the graph.
  *  3. Assert exactly one conflict diagnostic naming the target.
  *
- * @evidence contracts/testing.md#behavioral-verification checkEvidenceGraph reports exactly one acknowledgement/exclusion conflict.
- * @evidence contracts/testing.md#independent-expectations Authored contradictory tags cover the same literal requirement.
- * @evidence contracts/testing.md#distinguishing-cases Both declarations remain visible instead of one silently replacing the other.
+ * @evidence contracts/testing.md#behavioral-verification prismaDeclarationsFromComments attaches an @evidence on one Prisma model and an @evidenceExclude on another to the same Markdown section without scan problems; materializeClaimStates and evaluateEvidenceGraph then report exactly one "Conflicting acknowledgements" diagnostic naming docs/spec.md#amounts.
+ * @evidence contracts/testing.md#independent-expectations The contradictory pair is authored literally against one Markdown heading; that a section cannot be both used and deliberately excluded is the contract, so the count of one conflict does not repeat the implementation's own output.
+ * @evidence contracts/testing.md#distinguishing-cases The overlapping pair is the only positive case: the body asserts the scan stage reports nothing and the conflict count is exactly one, not zero (silent override) and not one per declaration. It has no non-overlapping adjacent case; ordering and hierarchy variants belong to the evidence_and_exclusion_overlaps_conflict test.
  * @evidence contracts/testing.md#execution-ownership TestPrismaExclusionOverlappingAnAcknowledgementIsAConflict is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaExclusionOverlappingAnAcknowledgementIsAConflict(t *testing.T) {

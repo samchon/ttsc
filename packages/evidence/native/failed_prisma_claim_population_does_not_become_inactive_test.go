@@ -14,10 +14,10 @@ import (
  *  1. Match one Prisma claim inventory marked as parse-failed.
  *  2. Apply the shared own-population activation gate.
  *  3. Assert the failed claim remains active for its direct diagnostic.
- * @evidence contracts/testing.md#behavioral-verification activeGraphConfig is exercised with the scenario below; the assertions require the failed claim remains active for its direct diagnostic.
- * @evidence contracts/testing.md#independent-expectations A parser failure may have hidden every selected model, so a unitless failed inventory is not evidence of a healthy empty population. Keeping the claim active preserves the parser diagnostic loaded during activation.
- * @evidence contracts/testing.md#distinguishing-cases Match one Prisma claim inventory marked as parse-failed. Apply the shared own-population activation gate. Assert the failed claim remains active for its direct diagnostic.
- * @evidence contracts/testing.md#execution-ownership TestFailedPrismaClaimPopulationDoesNotBecomeInactive is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification The test decodes a Prisma claim over prisma/schema/main.prisma, supplies a unitless Prisma inventory for that address marked LoadFailed, and calls activeGraphConfig; the resulting config must still contain exactly one claim.
+ * @evidence contracts/testing.md#independent-expectations The expectation is authored from the activation contract: a parse failure may have hidden every selected model, so a unitless failed inventory is not evidence of a healthy empty population and the claim must stay active to carry the loader's own diagnostic.
+ * @evidence contracts/testing.md#distinguishing-cases The failed-inventory case only; a healthy empty population that deactivates a claim is owned by sibling activation entries, and the TypeScript form of this rule is covered by TestFailedTypeScriptClaimPopulationDoesNotBecomeInactive.
+ * @evidence contracts/testing.md#execution-ownership TestFailedPrismaClaimPopulationDoesNotBecomeInactive is a Go unit entry in the native test process; it decodes an in-memory configuration and calls activeGraphConfig on constructed inventories, with no Prisma bridge, consumer install or product host.
  */
 func TestFailedPrismaClaimPopulationDoesNotBecomeInactive(t *testing.T) {
   root := t.TempDir()

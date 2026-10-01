@@ -13,10 +13,10 @@ import "testing"
  *  1. Give two selected headings the same explicit anchor.
  *  2. Cite that path-and-anchor target once.
  *  3. Assert resolution reports both sections as ambiguous.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies duplicate Markdown anchors remain distinct source units and make a declaration target ambiguous. The original assertions check assert resolution reports both sections as ambiguous.
- * @evidence contracts/testing.md#independent-expectations Generated or explicit anchors can repeat inside one document. Collapsing them by target would let one declaration silently acknowledge two different sections and make heading order decide which source prose the edge means. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Give two selected headings the same explicit anchor. Cite that path-and-anchor target once. Assert resolution reports both sections as ambiguous. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestDeclarationsRejectDuplicateMarkdownAnchors is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule over docs/spec.md with two headings both given the explicit anchor `{#shared}` and a cited `docs/spec.md#shared` from an interface; the test requires `Ambiguous evidence target 'docs/spec.md#shared'` naming `Markdown H2 'First'` and `Markdown H2 'Second'`.
+ * @evidence contracts/testing.md#independent-expectations The expected ambiguity and both heading names are authored from the fixture: a repeated anchor must stay two source units and make the target ambiguous rather than letting heading order choose a section.
+ * @evidence contracts/testing.md#distinguishing-cases Two headings sharing one anchor against a single citation; a collapse by target would credit one section silently and produce no ambiguity. Unique anchors are the implicit control in other entries.
+ * @evidence contracts/testing.md#execution-ownership TestDeclarationsRejectDuplicateMarkdownAnchors is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestDeclarationsRejectDuplicateMarkdownAnchors(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

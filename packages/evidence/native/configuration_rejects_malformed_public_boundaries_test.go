@@ -20,13 +20,10 @@ import (
  *  2. Decode each shape without graph evaluation.
  *  3. Assert the diagnostic names the violated public boundary.
  *
- * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig rejects each malformed JSON shape with its independently authored repair diagnostic.
- *
- * @evidence contracts/testing.md#independent-expectations The public interfaces require discriminators, positive relative file globs, non-empty selectors, and claim-side reference relations. Each independently authored malformed JSON row carries its literal repair fragment, rather than deriving expected diagnostics from the decoder.
- *
- * @evidence contracts/testing.md#distinguishing-cases Missing and unknown discriminators, selector emptiness, absolute paths, obsolete relation keys and unknown properties remain separate table cases.
- *
- * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticConfigurationRejectsMalformedPublicBoundaries is the selectable unit entry in packages/evidence/native, compiled beside its owning implementation in the shared Go unit process. It invokes decodeGraphConfig and its decoder/assertion helpers in process; its JSON artifact/package names are input strings and trigger no installation, artifact loader, native plugin build, or child process. Its local table variants remain owned by this entry.
+ * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig is called on the raw inputs of twelve t.Run rows (empty options, a non-object root, an unsupported artifact type, missing files, empty files, exclusion-only files, an absolute files pattern, an empty symbol array, a missing reference, the superseded `sources` root, the superseded `citedBy` property and an unknown claim property), and each row's joined problems must contain its literal repair fragment.
+ * @evidence contracts/testing.md#independent-expectations Each row's expected fragment is an authored literal from the public configuration contract (discriminators, positive relative file globs, non-empty selectors, claim-side relations); none is computed from the decoder.
+ * @evidence contracts/testing.md#distinguishing-cases Each malformed shape is its own t.Run row, so a decoder that accepts or mislabels one shape fails that row alone; a claim with a missing `type` discriminator is not one of the rows, and only containment of the fragment (not exclusivity) is asserted.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticConfigurationRejectsMalformedPublicBoundaries is a Go unit entry in the native test process that owns twelve t.Run rows; each calls decodeGraphConfig on an in-memory JSON string with no filesystem, package installation, artifact build or product host.
  */
 func TestEvidenceSemanticConfigurationRejectsMalformedPublicBoundaries(t *testing.T) {
   cases := []struct {

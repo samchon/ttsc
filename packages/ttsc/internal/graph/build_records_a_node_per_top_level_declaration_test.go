@@ -37,7 +37,7 @@ const fixtureTSConfig = `{
 //     marked external.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that Build records one graph node for each kind of top-level declaration, keyed by its position-invariant id, and classifies workspace source as non-external.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "fn", "Cls", "Iface", "Alias", "En", "value"; exactly those six nodes exist with the right kind and name, none marked external.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: for the six-declaration fixture there must be exactly six non-module nodes, one per (name, kind) pair fn/function, Cls/class, Iface/interface, Alias/type-alias, En/enum and value/variable at the id nodeID builds from the file path, each with the matching name and kind and none external.
 // @evidence contracts/testing.md#distinguishing-cases Compile a fixture with a function, class, interface, type alias, enum, and const declaration; Build the graph; Assert exactly those six nodes exist with the right kind and name, none marked external.
 // @evidence contracts/testing.md#execution-ownership TestBuildRecordsANodePerTopLevelDeclaration is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestBuildRecordsANodePerTopLevelDeclaration(t *testing.T) {

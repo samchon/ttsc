@@ -15,13 +15,10 @@ import (
  *  2. Evaluate the same claim.
  *  3. Assert the tag is reported.
  *
- * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies an exclusion written as prose is reported.
- *
- * @evidence contracts/testing.md#independent-expectations The authored prose exclusion is unreadable at docs/claim/plan.md:5 and must retain its evidenceExclude tag in the diagnostic.
- *
- * @evidence contracts/testing.md#distinguishing-cases Write an exclusion as an ordinary paragraph line. Evaluate the same claim. Assert the tag is reported.
- *
- * @evidence contracts/testing.md#execution-ownership TestAMarkdownExclusionWrittenAsProseIsReported is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#behavioral-verification runProseTagRule runs graphRule.Check over docs/claim/plan.md ending in the paragraph line `@evidenceExclude docs/spec/rules.md#pricing ...`; assertReported requires exactly one diagnostic `Unreadable @evidenceExclude at docs/claim/plan.md:5`.
+ * @evidence contracts/testing.md#independent-expectations The expected tag name and line 5 are literals read off the authored fixture layout; the valid HTML-comment citation in the helper discharges the obligation, so only the unreadable report can remain.
+ * @evidence contracts/testing.md#distinguishing-cases This entry owns the exclusion tag only, and the exactly-one assertion shows the diagnostic names @evidenceExclude rather than @evidence; the citation and review tags are covered by sibling entries.
+ * @evidence contracts/testing.md#execution-ownership TestAMarkdownExclusionWrittenAsProseIsReported is a Go unit entry in the native test process; runProseTagRule writes the Markdown fixture to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestAMarkdownExclusionWrittenAsProseIsReported(t *testing.T) {
   assertReported(

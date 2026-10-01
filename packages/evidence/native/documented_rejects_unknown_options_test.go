@@ -12,10 +12,10 @@ import "testing"
  *  1. Configure a misspelled option key.
  *  2. Run the rule.
  *  3. Assert a configuration diagnostic instead of a scan.
- * @evidence contracts/testing.md#behavioral-verification runDocumentedRule exercises this case: Verifies an unknown option is rejected rather than ignored. The original assertions check assert a configuration diagnostic instead of a scan.
- * @evidence contracts/testing.md#independent-expectations A misspelled property that decodes to the zero value silently restores the default selection, so a project believing it narrowed the rule would be running the widest form. The decoder has to refuse it. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Configure a misspelled option key. Run the rule. Assert a configuration diagnostic instead of a scan. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestDocumentedRejectsUnknownOptions is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runDocumentedRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule over an undocumented `parse` function with the misspelled option key `{"symbols":"type"}`; assertReported requires exactly one diagnostic, containing `unknown property`.
+ * @evidence contracts/testing.md#independent-expectations The expected outcome is authored from the option contract: an unknown property must be refused rather than decoded to the zero value, which would silently restore the default population; the exactly-one result also shows the undocumented export was not scanned.
+ * @evidence contracts/testing.md#distinguishing-cases One misspelled key; the unsupported-symbol-value branch and the graph-name attribution are covered by sibling entries.
+ * @evidence contracts/testing.md#execution-ownership TestDocumentedRejectsUnknownOptions is a Go unit entry in the native test process; runDocumentedRule parses the source with the TypeScript parser and calls the documented rule directly, with no consumer install or product host.
  */
 func TestDocumentedRejectsUnknownOptions(t *testing.T) {
   messages := runDocumentedRule(t, "src/parse.ts", `

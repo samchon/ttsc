@@ -15,10 +15,10 @@ import "testing"
 //  2. Feed `process(aaaaaa, bbbbbb, cccccc);`.
 //  3. Assert each argument occupies its own indented line with a
 //     trailing comma after the last.
-// @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule parses the breaks long call arguments fixture and applies its edit; complete authored output equality rejects lost source content or punctuation alongside incorrect line layout. The owned result is: Assert each argument occupies its own indented line with a trailing comma after the last.
-// @evidence contracts/testing.md#independent-expectations The source operands and literal expected layout are authored independently of the rule printer. The fixture fixes printWidth and indentation, so expected line placement does not come from rendering the implementation under test.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Configure printWidth=24. The asserted decision is: Assert each argument occupies its own indented line with a trailing comma after the last. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthBreaksLongCallArguments is one Go unit entry through the registered rule engine, parser and fix applier; it uses no installed consumer or child product host.
+// @evidence contracts/testing.md#behavioral-verification Applies format/print-width at printWidth 24 to `process(aaaaaa, bbbbbb, cccccc);` and requires the exact output with each argument on its own two-space-indented line and a trailing comma after the last.
+// @evidence contracts/testing.md#independent-expectations The expected text is an authored literal for a width-24 break of three short arguments; the callee, arguments and punctuation are preserved and nothing is derived from the printer.
+// @evidence contracts/testing.md#distinguishing-cases One changing case through the call-arguments path of the printer (a different path from object literals), where a lost callee, duplicated callee or malformed parentheses would change the output text; a fitting call is not included here.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls assertFixSnapshotWithOptions, applying the rule's edits to a temp-dir file; no child process, built binary or installed consumer.
 func TestFormatPrintWidthBreaksLongCallArguments(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

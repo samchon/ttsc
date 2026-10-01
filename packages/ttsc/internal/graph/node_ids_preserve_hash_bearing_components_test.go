@@ -18,7 +18,7 @@ import (
 //  3. Recover its raw file component and assert the escaped wire spelling.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies graph identity: quoted path and symbol hashes remain structured facts through dump relativization.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "label:part", "src#generated/main#file.ts"; Recover its raw file component and assert the escaped wire spelling.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal strings: an ordinary id is src/main.ts#main:function, a Windows-style path with a # and a symbol containing a colon escapes to C:\work\a\#b\main.ts#label:part:variable and decodes back to the raw path and name, and relativizing an id whose project, file and private-member names contain # yields the escaped wire spelling and a nodeFile of src#generated/main#file.ts.
 // @evidence contracts/testing.md#distinguishing-cases Build ordinary and hash-bearing ids from their raw structured facts; Relativize the hash-bearing id as the dump does; Recover its raw file component and assert the escaped wire spelling.
 // @evidence contracts/testing.md#execution-ownership TestNodeIDsPreserveHashBearingComponents is a Go source-unit entry. nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestNodeIDsPreserveHashBearingComponents(t *testing.T) {

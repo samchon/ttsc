@@ -11,10 +11,10 @@ import "testing"
 //
 //  1. Exercise the authored command format preserves comments in reflow fixtures through the Go format dispatcher.
 //  2. Require the exact authored output or rejection result for each fixture.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises preserves comments in reflow and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: call_arg_inline_block_comment, array_standalone_line_comment, object_trailing_block_comment, array_element_trailing_line_comment, object_single_prop_trailing_comment. Each keeps its own assertions under this one discoverable entry.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatPreservesCommentsInReflow owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Five subcases run the in-process `format` command at printWidth 60 on lists carrying comments (inline block comment in call arguments, block comment in an array, trailing block comment in an object, trailing line comment on an array element, trailing block comment on a single-property object) and require each file byte-identical so no comment is deleted or moved.
+// @evidence contracts/testing.md#independent-expectations Each source is an authored literal that is its own expected output, following from the contract that print-width must abstain rather than delete a comment; it is not derived from formatter output.
+// @evidence contracts/testing.md#distinguishing-cases Each subcase varies the comment position and comment kind in a different list shape; three overflow flat lines that would otherwise be reflowed. They are fixed points, so only preservation, not a comment-aware reflow, is asserted.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatUnchangedWithFormat; no child process, built binary or installed consumer.
 func TestCommandFormatPreservesCommentsInReflow(t *testing.T) {
   pw := map[string]any{"printWidth": 60}
   t.Run("call_arg_inline_block_comment", func(t *testing.T) {

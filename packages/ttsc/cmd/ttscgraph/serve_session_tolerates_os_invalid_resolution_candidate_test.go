@@ -20,7 +20,7 @@ import (
 //  3. Assert an untouched second snapshot reports unchanged.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies unresolved module specifiers that name OS-unparseable paths never break the session.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "initial", "unchanged"; an untouched second snapshot reports unchanged.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: with unresolved ./style.css?inline and data: specifiers, the first snapshot must succeed as mode initial, changed, with a dump, and a second snapshot over the untouched project must be mode unchanged with no dump. The test only fails on platforms where the candidate path read errors (Windows invalid-name) if the session surfaces that error.
 // @evidence contracts/testing.md#distinguishing-cases Open a session whose only root imports a query-suffixed CSS path and a data: URL; Assert the session initializes and serves its initial dump; Assert an untouched second snapshot reports unchanged.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionToleratesOsInvalidResolutionCandidate is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionToleratesOsInvalidResolutionCandidate(t *testing.T) {

@@ -12,10 +12,10 @@ import "testing"
  *  1. Parse Markdown and Swagger targets.
  *  2. Read back each target and reason.
  *  3. Assert neither is treated as an inline link.
- * @evidence contracts/testing.md#behavioral-verification parseDeclarations exercises this case: Verifies a path target is untouched by the braced grammar. The original assertions check assert neither is treated as an inline link.
- * @evidence contracts/testing.md#independent-expectations The negative twin that keeps the extension an extension. Markdown and Swagger targets stay one whitespace-delimited token, and a change that quietly reinterpreted them would break every existing citation. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Parse Markdown and Swagger targets. Read back each target and reason. Assert neither is treated as an inline link. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestDeclarationKeepsPathTargetsWhitespaceDelimited is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls parseDeclarations within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification parseDeclarations is called on `@evidence docs/spec.md#pricing ...` and `@evidence POST:/members ...`; each must yield exactly one declaration whose target is not an inline link target and equals `docs/spec.md#pricing` and `POST:/members` respectively.
+ * @evidence contracts/testing.md#independent-expectations The expected targets are authored literals: Markdown and Swagger targets remain one whitespace-delimited token and the braced inline-link grammar must not reinterpret them.
+ * @evidence contracts/testing.md#distinguishing-cases A Markdown path target and a Swagger operation target are the two non-braced forms; the braced forms are covered by sibling entries, and the loop covers the map's two entries as plain iterations.
+ * @evidence contracts/testing.md#execution-ownership TestDeclarationKeepsPathTargetsWhitespaceDelimited is a Go unit entry in the native test process; it calls parseDeclarations on in-memory comment strings with no filesystem, consumer install or product host.
  */
 func TestDeclarationKeepsPathTargetsWhitespaceDelimited(t *testing.T) {
   for comment, want := range map[string]string{

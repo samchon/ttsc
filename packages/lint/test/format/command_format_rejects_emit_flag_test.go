@@ -15,10 +15,10 @@ import (
 // 1. Run the lint sidecar's format command with --emit attached.
 // 2. Capture stdout/stderr/status.
 // 3. Assert exit code 2 with the documented refusal message on stderr.
-// @evidence contracts/testing.md#behavioral-verification The format dispatcher rejects --emit with status 2 and the literal @ttsc/lint format refusal message on stderr.
-// @evidence contracts/testing.md#independent-expectations The literal status and refusal string come from the supported non-emitting format command contract, independently of the dispatcher result.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Run the lint sidecar's format command with --emit attached. The asserted decision is: Assert exit code 2 with the documented refusal message on stderr. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatRejectsEmitFlag calls the Go command dispatcher in the shared lint unit process; its temporary project is input and no child host is started.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command with `--emit` on a valid project and asserts exit code 2 and a stderr containing `@ttsc/lint format: --emit is not supported`.
+// @evidence contracts/testing.md#independent-expectations The status 2 and the refusal substring are literals from the stated contract that format is write-only and refuses emit; they do not come from the dispatcher's own computation.
+// @evidence contracts/testing.md#distinguishing-cases One negative case (emit flag refused). The same project without `--emit` is not run here, so acceptance is not contrasted, and file contents are not checked after the refusal.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand against a temp-dir project; no child process, built binary or installed consumer.
 func TestCommandFormatRejectsEmitFlag(t *testing.T) {
   root := seedLintProject(t, "const value = 1;\nJSON.stringify(value);\n")
   code, stdout, stderr := captureCommandOutput(t, func() int {

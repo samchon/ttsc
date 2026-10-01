@@ -16,8 +16,8 @@ import (
 // 2. Request two snapshots without another disk edit.
 // 3. Require the first request to publish reload and clear pending state, then the second to return unchanged with no dump.
 //
-// @evidence contracts/testing.md#behavioral-verification Require the first request to publish reload and clear pending state, then the second to return unchanged with no dump.
-// @evidence contracts/testing.md#independent-expectations The literal fixture and the supported graph contract establish these expectations: Require the first request to publish reload and clear pending state, then the second to return unchanged with no dump.
+// @evidence contracts/testing.md#behavioral-verification A session holding a pending full reload change publishes that retry on the next snapshot, clears the pending state, and only then reports unchanged with no dump on a further snapshot with no disk edit.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal states: with pending set to a reload change and no disk change, the first snapshot must be mode reload, changed, with a dump and leave pending nil, and the second must be mode unchanged with no dump. A session that ignored pending would answer unchanged first.
 // @evidence contracts/testing.md#distinguishing-cases Capture a loaded program with an explicit pending reload change. Request two snapshots without another disk edit. Require the first request to publish reload and clear pending state, then the second to return unchanged with no dump.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionRetriesAPendingDumpBeforeUnchanged is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionRetriesAPendingDumpBeforeUnchanged(t *testing.T) {

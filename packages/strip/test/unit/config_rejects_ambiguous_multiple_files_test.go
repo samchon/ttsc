@@ -15,7 +15,7 @@ import (
 //
 // 1. Place both strip.config.json and strip.config.js in the same temp directory.
 // 2. Call loadStripConfigMap with no configFile key, pointing at that directory.
-// 3. Assert the error message names the directory and suggests setting configFile.
+// 3. Assert the call fails and its error message reports multiple strip config files.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls stripLoadStripConfigMap with JSON and JS candidates in one directory and asserts a nonnil multiple-strip-config-files error.
 // @evidence contracts/testing.md#independent-expectations Discovery has no format-preference rule: two supported candidates are ambiguous independently of their conflicting literal calls arrays.

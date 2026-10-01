@@ -10,7 +10,8 @@ pnpm evidence
 pnpm format
 pnpm build
 pnpm test:go
-pnpm test:features
+pnpm test:units
+pnpm test:e2e
 pnpm test
 ```
 

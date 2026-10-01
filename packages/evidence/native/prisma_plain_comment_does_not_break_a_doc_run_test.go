@@ -19,7 +19,7 @@ import (
  *
  * @evidence contracts/testing.md#behavioral-verification prismaClaimOf retains the expected index across an ordinary comment.
  * @evidence contracts/testing.md#independent-expectations Authored schema and literal host/line/reason expectation establish continuity.
- * @evidence contracts/testing.md#distinguishing-cases Harmless plain comment differs from a discarded documentation run.
+ * @evidence contracts/testing.md#distinguishing-cases The single case is a tag-free "//" line between two "///" citations, which must neither be reported nor split the run; a "//" line that itself carries a tag, and a blank-line detachment, are not exercised here.
  * @evidence contracts/testing.md#execution-ownership TestPrismaPlainCommentDoesNotBreakADocRun is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaPlainCommentDoesNotBreakADocRun(t *testing.T) {

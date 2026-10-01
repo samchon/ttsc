@@ -17,13 +17,10 @@ import (
  *  2. Evaluate the same claim.
  *  3. Assert nothing is reported, so it was read and not named.
  *
- * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies a tag inside an HTML comment is untouched.
- *
- * @evidence contracts/testing.md#independent-expectations The multiline HTML comment contains the only acknowledgement. No problems means both that it was read and that it was not misreported as prose.
- *
- * @evidence contracts/testing.md#distinguishing-cases Write a multi-line comment carrying the document's only citation. Evaluate the same claim. Assert nothing is reported, so it was read and not named.
- *
- * @evidence contracts/testing.md#execution-ownership TestAMarkdownTagInsideACommentIsNotReported is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule over docs/spec/rules.md and a claim document whose only citation sits inside a multi-line HTML comment (`<!--`, tag line, `-->`); assertNoProblems requires an empty diagnostic list.
+ * @evidence contracts/testing.md#independent-expectations The expected result is empty by contract: a tag in an HTML comment is the supported Markdown declaration form, and because it is the document's only citation, silence also shows it was read as the acknowledgement (an unread tag would leave a missing-acknowledgement diagnostic).
+ * @evidence contracts/testing.md#distinguishing-cases One positive-read case with the tag on its own line between the comment delimiters, which is the shape that fails if the scan loses track of being inside a comment; a prose tag outside a comment is owned by the sibling markdown prose entries.
+ * @evidence contracts/testing.md#execution-ownership TestAMarkdownTagInsideACommentIsNotReported is a Go unit entry in the native test process; runIndexRule writes the Markdown fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestAMarkdownTagInsideACommentIsNotReported(t *testing.T) {
   assertNoProblems(t, runIndexRule(t, map[string]string{

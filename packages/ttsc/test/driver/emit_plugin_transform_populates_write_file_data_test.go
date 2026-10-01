@@ -52,8 +52,10 @@ const (
 //  1. For each option set, materialize one project and compile it twice: once
 //     through `EmitAllRaw` (plain tsgo emit) and once through
 //     `EmitLinkedTransforms` (the hand-assembled plugin lane).
-//  2. Assert the plugin lane's WriteFileData for `index.js` is present and
-//     equals the plain lane's field for field, the plain lane being the oracle.
+//  2. Assert the plugin lane's WriteFileData for `index.js` is present, that its
+//     SourceMapUrlPos equals the plain lane's (the plain lane being the oracle),
+//     and that Diagnostics is empty, BuildInfo is nil and SkippedDtsWrite is
+//     unset on a clean build with no `.tsbuildinfo`.
 //  3. Assert the reported offset addresses the trailer in the written text
 //     (allowing for the mark taken after it), or is the -1 sentinel when no
 //     trailer was written.

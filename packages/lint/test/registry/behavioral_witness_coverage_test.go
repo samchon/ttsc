@@ -239,7 +239,7 @@ func verifyRequiredBehavioralWitnessKinds(
 
 // shouldVerifyRecordedBehavioralWitnessCoverage preserves focused test and
 // test-listing workflows. The aggregate contract is evaluated only when the
-// complete package suite ran; CI and scripts/test-go-lint.cjs use that path.
+// complete package suite ran; CI and `go test` use that path.
 func shouldVerifyRecordedBehavioralWitnessCoverage() bool {
   for _, name := range []string{"test.run", "test.skip", "test.list", "test.fuzz"} {
     value := flag.Lookup(name)

@@ -20,10 +20,10 @@ import (
 //  1. Flatten a switch canonical (block-bodied cases) to column 0.
 //  2. Run `ttsc format`.
 //  3. Assert it converges and restores the canonical exactly.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises restores switch indent from flat and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert it converges and restores the canonical exactly.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Flatten a switch canonical (block-bodied cases) to column. The asserted decision is: Assert it converges and restores the canonical exactly. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatRestoresSwitchIndentFromFlat owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Strips the leading whitespace from every line of an authored function holding a `switch` with a block-bodied `case 1` and `default`, runs the in-process `format` command (semi false), and requires exit 0 without a did-not-converge message and the file equal to the authored indented text.
+// @evidence contracts/testing.md#independent-expectations The expected text is an authored canonical literal; the flat input is derived from it by removing leading whitespace, which leaves the syntax tree identical.
+// @evidence contracts/testing.md#distinguishing-cases One input that must change: case and default labels, their bodies and the case-block braces all start at column 0; a cascade that re-indented only statements would leave labels and braces at column 0.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatRestoresSwitchIndentFromFlat(t *testing.T) {
   canonical := "function h(x) {\n" +
     "  switch (x) {\n" +

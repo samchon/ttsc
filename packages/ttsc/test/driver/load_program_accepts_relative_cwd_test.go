@@ -12,12 +12,13 @@ import (
 // values.
 //
 // Command callers may pass a project directory relative to the current process
-// instead of an absolute path. The driver should normalize that cwd before
-// resolving tsconfig and source files.
+// instead of an absolute path. The driver should resolve that cwd before
+// locating tsconfig and source files.
 //
-// 1. Create a project under the current working directory.
-// 2. Load it with a relative cwd.
-// 3. Assert a Program is produced without diagnostics.
+// 1. Create a project directory under a temp parent and chdir into the parent.
+// 2. Load it with the relative cwd "project".
+// 3. Assert a Program is produced without diagnostics (the tsconfig and its
+//    source file were found; the resolved path itself is not inspected).
 func TestLoadProgramAcceptsRelativeCwd(t *testing.T) {
   parent := t.TempDir()
   project := filepath.Join(parent, "project")

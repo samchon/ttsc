@@ -23,10 +23,10 @@ import (
  *  2. Rewrite that comment as a line comment, then as a block comment.
  *  3. Assert the first moves neither and the second moves only the declarator
  *     below it.
- * @evidence contracts/testing.md#behavioral-verification variableDigestOf exercises the authored fixture. Assert the first moves neither and the second moves only the declarator below it.
- * @evidence contracts/testing.md#independent-expectations Narrowing content to the declarator moved this line without anyone deciding it, so the answer is pinned rather than left to be rediscovered. A `//` comment is leading trivia of the declarator below it and is dropped by the same rule that drops the blank lines above an undocumented declaration, while a `/* *\/` comment survives that rule and is interior text of the declarator it precedes. Neither reaches the declarator above, whose span ends at the comma. The authored scenario requires this outcome: Assert the first moves neither and the second moves only the declarator below it.
- * @evidence contracts/testing.md#distinguishing-cases Digest both declarators with a comment between them. Rewrite that comment as a line comment, then as a block comment. Assert the first moves neither and the second moves only the declarator below it.
- * @evidence contracts/testing.md#execution-ownership TestACommentBetweenDeclaratorsBelongsToTheOneBelowIt runs as a Go unit entry in the native package. variableDigestOf executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification variableDigestOf parses `export const alpha = 1, <note> beta = 2;` and returns the alpha and beta unit digests; the test compares them before and after the note text changes, as a line comment and as a block comment.
+ * @evidence contracts/testing.md#independent-expectations The expected relation is stated by the review-expiry contract rather than computed: a `//` note is leading trivia and must change neither digest, while a `/* *\/` note is interior text of the declarator below it and must change that declarator's digest but not the one above.
+ * @evidence contracts/testing.md#distinguishing-cases The line-comment pair requires both digests equal; the block-comment pair requires alpha equal and beta different. Each pair changes only the note text, so the adjacent-declarator and comment-kind decision is the only variable.
+ * @evidence contracts/testing.md#execution-ownership TestACommentBetweenDeclaratorsBelongsToTheOneBelowIt is a Go unit entry in the native test process; variableDigestOf parses each source with the TypeScript parser and reads the inventory digest, with no consumer install or product host.
  */
 func TestACommentBetweenDeclaratorsBelongsToTheOneBelowIt(t *testing.T) {
   between := func(note string) (string, string) {

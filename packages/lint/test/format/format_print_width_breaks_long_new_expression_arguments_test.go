@@ -15,10 +15,10 @@ import "testing"
 //  2. Feed `new Foo(aaaaaa, bbbbbb, cccccc);`.
 //  3. Assert the rewrite keeps `new Foo(` on the head line and breaks
 //     the arguments onto indented lines with trailing comma.
-// @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule parses the breaks long new expression arguments fixture and applies its edit; complete authored output equality rejects lost source content or punctuation alongside incorrect line layout. The owned result is: Assert the rewrite keeps `new Foo(` on the head line and breaks the arguments onto indented lines with trailing comma.
-// @evidence contracts/testing.md#independent-expectations The source operands and literal expected layout are authored independently of the rule printer. The fixture fixes printWidth and indentation, so expected line placement does not come from rendering the implementation under test.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Configure printWidth=20. The asserted decision is: Assert the rewrite keeps `new Foo(` on the head line and breaks the arguments onto indented lines with trailing comma. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthBreaksLongNewExpressionArguments is one Go unit entry through the registered rule engine, parser and fix applier; it uses no installed consumer or child product host.
+// @evidence contracts/testing.md#behavioral-verification Applies format/print-width at printWidth 20 to `new Foo(aaaaaa, bbbbbb, cccccc);` and requires the exact output `new Foo(` followed by three indented arguments with a trailing comma and `);`.
+// @evidence contracts/testing.md#independent-expectations The expected text is an authored literal; the `new` keyword, constructor name, arguments and punctuation are preserved and nothing is derived from the printer.
+// @evidence contracts/testing.md#distinguishing-cases One changing case through the NewExpression path (keyword glue plus the argument list), the `new` counterpart of the call-arguments case; a fitting `new` call is not included here.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls assertFixSnapshotWithOptions, applying the rule's edits to a temp-dir file; no child process, built binary or installed consumer.
 func TestFormatPrintWidthBreaksLongNewExpressionArguments(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

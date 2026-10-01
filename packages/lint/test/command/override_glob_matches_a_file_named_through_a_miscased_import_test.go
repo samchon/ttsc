@@ -24,9 +24,9 @@ import (
 //  1. Create `src/directory/index.ts` below a base directory.
 //  2. Match `src/directory/**` against the file spelled `SRC/DIRECTORY/index.ts`.
 //  3. Assert it matches.
-// @evidence contracts/testing.md#behavioral-verification overrideGlobMatches compares a stored directory glob with a miscased spelling of its fixture source and must match on the intended platform branch.
+// @evidence contracts/testing.md#behavioral-verification matchAnyPattern is called with the base directory, the lowercase glob src/directory/** and the miscased path SRC/DIRECTORY/index.ts of an existing file, and must report a match. The test skips itself where the temporary directory distinguishes case, so it executes only on case-insensitive volumes such as Windows and default macOS.
 // @evidence contracts/testing.md#independent-expectations The literal uppercase target and lowercase authored glob define the supported case-folding expectation independently of the matcher.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Create `src/directory/index.ts` below a base directory. The asserted decision is: Assert it matches. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#distinguishing-cases There is a single positive case: a directory glob in lowercase against an uppercase spelling of the same existing directory. A glob that must not match a different directory is not covered, and the character-class sibling test owns the stored-case range.
 // @evidence contracts/testing.md#execution-ownership TestOverrideGlobMatchesAFileNamedThroughAMiscasedImport owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestOverrideGlobMatchesAFileNamedThroughAMiscasedImport(t *testing.T) {
   root := t.TempDir()

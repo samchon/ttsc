@@ -19,7 +19,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Actual rule execution checks six findings in order with full authored declaration ranges and messages.
 // @evidence contracts/testing.md#independent-expectations The supported default module policies and node-prefix inheritance independently determine literal styles, module spelling and message text.
-// @evidence contracts/testing.md#distinguishing-cases Six disallowed imports contrast with four allowed twins, including named-default syntax and prefixed modules.
+// @evidence contracts/testing.md#distinguishing-cases Six disallowed imports (three util, two chalk, one node:path) contrast with four allowed twins: named util, default chalk, `default as` chalk and default path; the node:-prefixed specifiers appear only among the violations.
 // @evidence contracts/testing.md#execution-ownership TestUnicornImportStyleDefaultPoliciesAtExactRanges owns these literal source/options variants as a discoverable Go unit entry; actual engine/config/fix functions execute in one shared Go process without installation, native producer or product child host, retaining named malformed subcases where present.
 func TestUnicornImportStyleDefaultPoliciesAtExactRanges(t *testing.T) {
   source := `import util from "util";

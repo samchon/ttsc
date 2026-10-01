@@ -1,116 +1,53 @@
 name: nestia
 
-on:
-  pull_request:
-  workflow_dispatch:
+on: pull_request
 
 concurrency:
-  group: nestia-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # Build the current-platform tarballs and run nestia's complete upstream
-  # suite in one broad last-defense job. Keeping producer and consumer on the
-  # same runner avoids an artifact handoff and duplicated toolchain setup.
   nestia:
     runs-on: ubuntu-latest
     env:
-      # Only build + pack the current platform (ttsc-linux-x64) — nestia's
-      # overrides pull in ttsc.tgz + ttsc-linux-x64.tgz only. The full
-      # cross-platform matrix takes ~20 min for tarballs we never consume.
-      TTSC_TARBALLS_CURRENT: "1"
+      NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.6.4
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24.x
-
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: "**/go.sum"
-
-      - name: Install ttsc dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build ttsc tarballs (current platform only)
-        run: pnpm package:tgz
-
-      - name: Check out latest nestia master
-        uses: actions/checkout@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run package:tgz
+      - uses: actions/checkout@v7
         with:
           repository: samchon/nestia
-          ref: master
           path: experimental/nestia
-
-      - name: Add native host output ownership reporting
-        run: git -C experimental/nestia apply --directory=packages/core "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia.patch"
-
-      - name: Compare the patched native command with its independently pinned source
-        run: git -C experimental/nestia apply "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia-typia-pin.patch"
-
-      - name: Read migration template versions from declared workspace catalogs
-        run: git -C experimental/nestia apply "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia-declared-catalogs.patch"
-
-      - name: Preserve temporary directories owned by concurrent nestia processes
-        run: git -C experimental/nestia apply "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia-owned-temporary-directories.patch"
-
-      - name: Use local ttsc tarballs
-        run: node scripts/ci/consumer-tarballs.cjs experimental/nestia patches/typia@15.0.0.patch
-
-      - name: Install nestia dependencies
+      - run: git -C experimental/nestia apply --directory=packages/core "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia.patch"
+      - run: git -C experimental/nestia apply "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia-typia-pin.patch"
+      - run: git -C experimental/nestia apply "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia-declared-catalogs.patch"
+      - run: git -C experimental/nestia apply "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia-owned-temporary-directories.patch"
+      - run: >-
+          node .github/workflows/scripts/consumer.cjs experimental/nestia patches/typia@15.0.0.patch
+          --go=experimental/nestia/packages/core/native --go=experimental/nestia/packages/core/test
+          --go=experimental/nestia/packages/sdk/native --go=experimental/nestia/packages/sdk/test
+      - run: pnpm install --no-frozen-lockfile
         working-directory: experimental/nestia
-        run: pnpm install --no-frozen-lockfile
-
-      - name: Use System Go For Source Plugin Build
-        run: echo "TTSC_GO_BINARY=$(go env GOROOT)/bin/go" >> "$GITHUB_ENV"
-
-      - name: Bind nestia Go tests to the current driver and shims
-        id: go-workspace
-        run: |
-          node scripts/ci/consumer-go-workspace.cjs "$RUNNER_TEMP/nestia-current-driver.work" \
-            experimental/nestia/packages/core/native \
-            experimental/nestia/packages/core/test \
-            experimental/nestia/packages/sdk/native \
-            experimental/nestia/packages/sdk/test
-
-      - name: Build nestia
-        id: nestia-build
+      - run: pnpm build
+        working-directory: experimental/nestia
+      - run: pnpm --filter @nestia/core --filter @nestia/sdk --no-bail -r run test:go
         working-directory: experimental/nestia
         env:
-          NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
-          TTSC_CACHE_DIR: ${{ runner.temp }}/nestia-plugin-cache
-        run: pnpm build
-
-      - name: Test nestia public Go modules
-        if: ${{ !cancelled() && steps.nestia-build.outcome == 'success' && steps.go-workspace.outcome == 'success' }}
-        working-directory: experimental/nestia
-        env:
-          GOWORK: ${{ runner.temp }}/nestia-current-driver.work
-          NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
-          TTSC_CACHE_DIR: ${{ runner.temp }}/nestia-plugin-cache
           TTSC_TYPIA_NATIVE_PATCH: ${{ github.workspace }}/patches/typia@15.0.0.patch
-        run: pnpm --filter @nestia/core --filter @nestia/sdk --no-bail -r run test:go
-
-      - name: Test nestia native Go modules
-        if: ${{ !cancelled() && steps.nestia-build.outcome == 'success' && steps.go-workspace.outcome == 'success' }}
+      - run: go test -count=1 ./...
         working-directory: experimental/nestia/packages/core/native
         env:
-          GOWORK: ${{ runner.temp }}/nestia-current-driver.work
-          NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
-          TTSC_CACHE_DIR: ${{ runner.temp }}/nestia-plugin-cache
           TTSC_TYPIA_NATIVE_PATCH: ${{ github.workspace }}/patches/typia@15.0.0.patch
-        run: go test -count=1 ./...
-
-      - name: Test all nestia integrations
-        if: ${{ !cancelled() && steps.nestia-build.outcome == 'success' }}
+      - run: pnpm --filter "./tests/test-*" --workspace-concurrency=1 --no-bail -r start
         working-directory: experimental/nestia
-        env:
-          NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
-          TTSC_CACHE_DIR: ${{ runner.temp }}/nestia-plugin-cache
-        run: pnpm --filter=./tests/test-* --workspace-concurrency=1 --no-bail -r start

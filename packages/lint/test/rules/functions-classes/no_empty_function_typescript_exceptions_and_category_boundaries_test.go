@@ -11,7 +11,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Named cases compare exact finding counts for parameter-property work, category exclusions and exterior comments.
 // @evidence contracts/testing.md#independent-expectations Authored allow lists and constructor initialization semantics distinguish actual work and precise category membership; fixed counts are not generated from findings.
-// @evidence contracts/testing.md#distinguishing-cases Private/decorated/override versus ordinary, async versus generator/arrow, inner versus exterior comments and function/object expression boundaries retain all original counterparts.
+// @evidence contracts/testing.md#distinguishing-cases Private/decorated/override versus ordinary, async function/method categories versus async arrows and async generators, comments outside the body braces (before/after the function and before the opening brace) that do not preserve an empty body, and function-expression/object-method/object-property-function boundaries each pair a default report with its matching allow category.
 // @evidence contracts/testing.md#execution-ownership TestNoEmptyFunctionTypeScriptExceptionsAndCategoryBoundaries is selected in the shared Go unit population. Every named table subtest calls runRuleFindingsSnapshot with its explicit source and optional JSON allow input; original names remain failure identities. No consumer install, native artifact build or real host runs.
 func TestNoEmptyFunctionTypeScriptExceptionsAndCategoryBoundaries(t *testing.T) {
   tests := []struct {

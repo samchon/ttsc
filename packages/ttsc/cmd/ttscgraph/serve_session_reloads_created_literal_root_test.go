@@ -18,7 +18,7 @@ import (
 //  3. Assert the next snapshot reloads and exposes the new declaration.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies a `files`-listed root that does not exist yet joins the graph once it is created.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "reload"; the next snapshot reloads and exposes the new declaration.
+// @evidence contracts/testing.md#independent-expectations The expectation is literal: after creating the previously absent files entry src/generated.ts and touching nothing else, the next snapshot must be mode reload, changed, with a dump containing the Generated class from that file.
 // @evidence contracts/testing.md#distinguishing-cases Open a session whose tsconfig lists absent `src/generated.ts` in files; Create that file without touching any other project input; Assert the next snapshot reloads and exposes the new declaration.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsCreatedLiteralRoot is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsCreatedLiteralRoot(t *testing.T) {

@@ -28,7 +28,7 @@ import (
 //     became a node, and that a class node carries none of this.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that an enum records the name and value of each member on its own node, and that nothing else does.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "A", "B", "C"; each enum node carries its members name-and-value, that no member became a node, and that a class node carries none of this.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over three enums and a class: Colors must report members Red/"red" and Green/"green" in order, an implicitly numbered enum First/0 and Second/1, Dup must keep all three members A, B and C even though two share a value while its Literals hold two distinct values, no enum member may become a node, and the class node must carry no enum members.
 // @evidence contracts/testing.md#distinguishing-cases Compile a fixture with a string enum, an implicitly numbered one, and a class beside them; Build the graph; Assert each enum node carries its members name-and-value, that no member became a node, and that a class node carries none of this.
 // @evidence contracts/testing.md#execution-ownership TestEnumMembersCarryTheirNamesOnTheEnumNode is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestEnumMembersCarryTheirNamesOnTheEnumNode(t *testing.T) {

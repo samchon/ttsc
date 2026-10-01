@@ -23,9 +23,9 @@ import (
 //  3. Assert stderr names the command and the path it could not load.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that a project the command cannot load exits non-zero, prints nothing to stdout, and names what it could not load.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish stderr names the command and the path it could not load.
+// @evidence contracts/testing.md#independent-expectations The expected exit code 1, empty stdout and a stderr line naming the command and the missing tsconfig path are literals taken from the command's failure contract (nonzero exit so execFileSync callers raise, stdout reserved for JSON), not computed from run. Replacing the return 1 with 0, or printing a partial dump, fails the assertions.
 // @evidence contracts/testing.md#distinguishing-cases Run the command against a tsconfig that does not exist; Assert it returns 1 and wrote nothing to stdout; Assert stderr names the command and the path it could not load.
-// @evidence contracts/testing.md#execution-ownership TestRunReportsAnUnloadableProjectWithoutPrintingADump is a source-unit entry. run, out.Len, out.String, errOut.String run directly over the supplied fixture/input values without installing a consumer, building a native artifact or starting a product host.
+// @evidence contracts/testing.md#execution-ownership TestRunReportsAnUnloadableProjectWithoutPrintingADump is a Go source-unit entry. It calls run in-process against an empty temporary directory with a tsconfig name that does not exist, so driver.LoadProgram fails inside the test process; no consumer is installed and no binary is built or launched.
 func TestRunReportsAnUnloadableProjectWithoutPrintingADump(t *testing.T) {
   root := t.TempDir()
 

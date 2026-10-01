@@ -17,10 +17,10 @@ import (
  *  1. Publish one tagged and one untagged callable through an entry.
  *  2. Cite neither.
  *  3. Assert only the untagged one is reported as missing.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert only the untagged one is reported as missing.
- * @evidence contracts/testing.md#independent-expectations This is the obligation half of the issue: the population a reference selects must not contain something the source already declared is not API, or the author's only answers are a false citation or an exclusion whose reason restates the tag. The untagged operation beside it stays owed, so the case cannot pass by selecting nothing. The authored scenario requires this outcome: Assert only the untagged one is reported as missing.
- * @evidence contracts/testing.md#distinguishing-cases Publish one tagged and one untagged callable through an entry. Cite neither. Assert only the untagged one is reported as missing.
- * @evidence contracts/testing.md#execution-ownership TestGraphOwesNoAcknowledgementForHiddenReferenceUnits runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification For each of `@internal`, `@hidden` and `@ignore` a t.Run subtest runs the graph rule with a function claim over test/** and a function reference over src/index.ts, where `reset` carries the tag and `check` does not and nothing is cited; the diagnostics must contain `Missing acknowledgement for 'check'` and exactly one `Missing acknowledgement`.
+ * @evidence contracts/testing.md#independent-expectations The expected single report is authored from the withdrawal contract: a declaration the source already marks as not API must not be in the reference population, so only the untagged `check` is owed.
+ * @evidence contracts/testing.md#distinguishing-cases Three withdrawal tag spellings are separate subtests; the untagged sibling keeps the claim active and owed, so the case cannot pass by selecting nothing, and the count of one fails if `reset` is also owed.
+ * @evidence contracts/testing.md#execution-ownership TestGraphOwesNoAcknowledgementForHiddenReferenceUnits is a Go unit entry in the native test process that owns three t.Run subtests over hiddenTagCases; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestGraphOwesNoAcknowledgementForHiddenReferenceUnits(t *testing.T) {
   for _, tag := range hiddenTagCases {

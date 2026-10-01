@@ -18,10 +18,10 @@ import (
 //  1. Seed the chained-arrow canonical (already correct).
 //  2. Run `ttsc format`.
 //  3. Assert it converges and leaves the source unchanged.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises cedes chained arrow body and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert it converges and leaves the source unchanged.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed the chained-arrow canonical (already correct). The asserted decision is: Assert it converges and leaves the source unchanged. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatCedesChainedArrowBody owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command (semi false) on a curried arrow `(a) =>\n  (b) => {` with a body hanging under the continuation indent, and asserts exit 0 without a did-not-converge message and the file unchanged.
+// @evidence contracts/testing.md#independent-expectations The source is an authored, already-correct curried-arrow layout and the expectation is that same literal; nothing is computed from formatter output.
+// @evidence contracts/testing.md#distinguishing-cases A single no-change case: a naive re-indent of the inner arrow body to depth times tab width from column 0 would alter it. There is no mangled-input case here, so it does not show the rule repairing a wrong chained-arrow indent.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand against a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatCedesChainedArrowBody(t *testing.T) {
   canonical := "export const h =\n" +
     "  (a: number) =>\n" +

@@ -23,7 +23,7 @@ import (
 // @evidence contracts/e2e.md#preserved-coverage Both original short-cwd command subcases retain exact authored let/semicolon results and the helper requirement for edits under the supplied long-form URI. Portable command class and UTF-16 semantics remain in separately selected lint units.
 func TestLSPCommandsAcceptWindowsShortCwd(t *testing.T) {
   t.Run("fix all", func(t *testing.T) {
-    source := "var value = 1;\n"
+    source := "var value = 1;\nexport {};\n"
     root := seedLintProject(t, source)
     longRoot := realProjectPath(root)
     shortRoot := windowsShortPathForTest(t, longRoot)
@@ -40,7 +40,7 @@ func TestLSPCommandsAcceptWindowsShortCwd(t *testing.T) {
       source,
       pluginsJSON,
     )
-    if want := "let value = 1;\n"; got != want {
+    if want := "let value = 1;\nexport {};\n"; got != want {
       t.Fatalf("LSP fix through short cwd: got %q, want %q", got, want)
     }
   })

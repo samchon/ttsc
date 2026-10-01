@@ -19,10 +19,10 @@ import (
  *  2. Publish the rule's project inputs.
  *  3. Assert each pattern arrives joined to the root it resolves against.
  *
- * @evidence contracts/testing.md#behavioral-verification graphProjectInputs publishes the explicitly asserted rooted globs.
- * @evidence contracts/testing.md#independent-expectations Literal configured roots and independently written expected patterns establish dependencies.
- * @evidence contracts/testing.md#distinguishing-cases Claims and references preserve external roots without running a live watcher.
- * @evidence contracts/testing.md#execution-ownership TestRootedPopulationsPublishTheirResolvedGlobs is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#behavioral-verification declaredInputs calls graphRule.ProjectInputs (which decodes the configuration and runs graphProjectInputs) and assertDeclares requires exactly four glob inputs: the ledger and requirements directories two levels up with a trailing recursive wildcard, the absolute C:/shared/schema directory with a recursive wildcard for .prisma files, and the project docs directory with a trailing recursive wildcard.
+ * @evidence contracts/testing.md#independent-expectations The expected patterns are literals written from the declared roots and globs (root joined to each glob), not read back from the rule; assertDeclares also fails on any extra pattern because it checks the set size.
+ * @evidence contracts/testing.md#distinguishing-cases A Markdown claim root, a Markdown reference root, an absolute Prisma root and a reference with no root cover the rooted and unrooted spellings; exclusion globs, rooted TypeScript references and Swagger sources are not exercised here.
+ * @evidence contracts/testing.md#execution-ownership TestRootedPopulationsPublishTheirResolvedGlobs is a selectable native Go unit entry. It evaluates the project-input contract on a literal configuration string in-process; the temp directory only supplies a project identity, no files are read and no watcher, consumer or product host runs.
  */
 func TestRootedPopulationsPublishTheirResolvedGlobs(t *testing.T) {
   inputs := declaredInputs(t, `{"claims":[{

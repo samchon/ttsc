@@ -20,7 +20,9 @@ import (
 //
 // 1. Concatenate two well-formed frames with extra Content-Type headers.
 // 2. Drain the stream until ErrFrameClosed.
-// 3. Assert the body bytes and the header block are returned losslessly.
+// 3. Assert both bodies are returned exactly, the first header block still
+//    contains its Content-Type and Content-Length lines, and the third read
+//    reports ErrFrameClosed.
 func TestLSPFrameReaderReadsWellFormedFrames(t *testing.T) {
   first := []byte("Content-Length: 7\r\nContent-Type: application/vscode-jsonrpc; charset=utf-8\r\n\r\n{\"a\":1}")
   second := []byte("Content-Length: 7\r\n\r\n{\"b\":2}")

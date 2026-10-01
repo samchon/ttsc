@@ -19,7 +19,7 @@ import (
  *
  * @evidence contracts/testing.md#behavioral-verification decodePrismaConfig accepts Prisma claims and references with their proper artifact kinds.
  * @evidence contracts/testing.md#independent-expectations Literal configuration sides define supported placement.
- * @evidence contracts/testing.md#distinguishing-cases Prisma is allowed in both directions unlike Swagger claims.
+ * @evidence contracts/testing.md#distinguishing-cases The body has the two positive cases, a Prisma claim over a Markdown reference and a TypeScript claim over a Prisma reference; it contains no rejected case, so the Swagger-claim refusal is owned by another test.
  * @evidence contracts/testing.md#execution-ownership TestPrismaConfigurationOpensBothDirections is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaConfigurationOpensBothDirections(t *testing.T) {

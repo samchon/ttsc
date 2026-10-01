@@ -5,6 +5,7 @@ import (
   "fmt"
   "os"
   "path/filepath"
+  "strings"
   "testing"
 
   shimcompiler "github.com/microsoft/typescript-go/shim/compiler"
@@ -12,13 +13,14 @@ import (
 )
 
 // TestRuntimeJsxProfiles emits four distinct effective JSX configurations.
-// Authored package inputs are shared once; equivalent preserved and already
-// executable policy requests consume the same canonical compiler output.
+// Authored package inputs are shared once; each profile is compiled in its own
+// subdirectory and its emitted view.js is checked for the JSX runtime form that
+// TypeScript's jsx modes define, then printed as a TTSC_JSX_EMIT_V1 record.
 //
-// @evidence contracts/testing.md#behavioral-verification Actual LoadProgram, complete program diagnostics and EmitAllRaw produce executable CommonJS view output at the four distinct effective JSX configurations. The Node VM owner consumes the exact emitted artifacts and evaluates the authored runtime rather than substituting rendered strings.
-// @evidence contracts/testing.md#independent-expectations The authored component contains a div hello followed by b world inside a fragment. Its independent literal HTML expectation belongs to the Node VM owner; this Go owner requires actual nonempty emitted output and zero native diagnostics, not a generated expected artifact.
-// @evidence contracts/testing.md#distinguishing-cases Classic factory/fragment, development automatic runtime, namespace classic and automatic import-source have separate effective programs. Preserved classic and already-react inputs share identical effective work; factory or namespace beside import-source both clear irrelevant declarations in the exact runtime argument units and share automatic emission. The response-file root consumer remains a real E2E transport owner.
-// @evidence contracts/testing.md#execution-ownership One named Go unit in the physical driver-unit package creates one temporary fixture workspace and loads four genuinely distinct compiler programs in the same existing unit test process. No product or contributor native binary, consumer installation or product host is built or launched. Programs close in each subtest, all outputs flow only through memory stdout records, and the VM unit requires the exact population.
+// @evidence contracts/testing.md#behavioral-verification Each subtest runs LoadProgram, complete Program diagnostics and EmitAllRaw over one authored view.tsx and requires zero configuration, program and emit diagnostics plus nonempty view.js. The emitted text must then call the factory its jsx mode selects: classic calls the jsxFactory h with the Fragment factory, react-jsxdev calls jsxDEV from myjsx/jsx-dev-runtime, reactNamespace R calls R.createElement, and react-jsx calls jsx and jsxs from myjsx/jsx-runtime. The emitted text is not executed here; each record is also printed for a Node VM consumer file, tests/test-ttsc/src/features/runtime/test_runtime_compiler_output_renders_jsx_profiles.cjs, whose runner is not part of this test.
+// @evidence contracts/testing.md#independent-expectations The expected call forms follow from the documented meaning of the TypeScript jsx, jsxFactory, jsxFragmentFactory, reactNamespace and jsxImportSource options, not from a captured emit: classic output names the configured factory, development output names the development runtime entry, and automatic output names the production runtime entry. Each profile also lists tokens that belong to a different mode and must be absent. The rendered HTML expectation lives in the Node VM consumer, not in this Go test.
+// @evidence contracts/testing.md#distinguishing-cases Four profiles differ in jsx mode or its option: factory classic, react-jsxdev with import source, namespace classic, and react-jsx with import source. A required token proves the intended mode ran and a forbidden token proves a neighbouring mode did not, so a build that ignored the jsx option or applied one mode to every profile fails at least one subtest. The preserved and already-react request variants and the response-file root consumer are not exercised by this Go test.
+// @evidence contracts/testing.md#execution-ownership One named Go unit in the physical driver-unit package writes one temporary workspace and loads four distinct compiler programs in the existing unit test process through driver.LoadProgram. It builds or launches no product binary, consumer installation or host and runs no Node process; each Program is closed by its subtest and the temporary directory is owned by t.TempDir.
 func TestRuntimeJsxProfiles(t *testing.T) {
   bytes, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "tests", "test-ttsc", "src", "internal", "runtime-jsx-fixture.json"))
   if err != nil { t.Fatal(err) }
@@ -33,11 +35,15 @@ func TestRuntimeJsxProfiles(t *testing.T) {
     if err := os.WriteFile(file, []byte(text), 0o644); err != nil { t.Fatal(err) }
   }
   for name, text := range fixture.Files { write(name, text) }
-  for _, profile := range []struct { name string; options map[string]any; prefix string; global bool }{
-    {"classic", map[string]any{"jsx": "react", "jsxFactory": "h", "jsxFragmentFactory": "Fragment"}, "import { Fragment, h } from \"myjsx\";\nvoid h; void Fragment;\n", true},
-    {"development", map[string]any{"jsx": "react-jsxdev", "jsxImportSource": "myjsx"}, "", false},
-    {"namespace", map[string]any{"jsx": "react", "reactNamespace": "R"}, "import * as R from \"myjsx\";\nvoid R;\n", true},
-    {"automatic", map[string]any{"jsx": "react-jsx", "jsxImportSource": "myjsx"}, "", false},
+  for _, profile := range []struct { name string; options map[string]any; prefix string; global bool; want, absent []string }{
+    {"classic", map[string]any{"jsx": "react", "jsxFactory": "h", "jsxFragmentFactory": "Fragment"}, "import { Fragment, h } from \"myjsx\";\nvoid h; void Fragment;\n", true,
+      []string{"myjsx_1.h)(", "myjsx_1.Fragment", `"div"`, `"b"`}, []string{"jsx-runtime", "jsxDEV", "createElement"}},
+    {"development", map[string]any{"jsx": "react-jsxdev", "jsxImportSource": "myjsx"}, "", false,
+      []string{`require("myjsx/jsx-dev-runtime")`, ".jsxDEV)("}, []string{`myjsx/jsx-runtime"`, "createElement", ".h)("}},
+    {"namespace", map[string]any{"jsx": "react", "reactNamespace": "R"}, "import * as R from \"myjsx\";\nvoid R;\n", true,
+      []string{"R.createElement(R.Fragment", `R.createElement("div"`}, []string{"jsx-runtime", "jsxDEV", ".h)("}},
+    {"automatic", map[string]any{"jsx": "react-jsx", "jsxImportSource": "myjsx"}, "", false,
+      []string{`require("myjsx/jsx-runtime")`, ".jsxs)(", `.jsx)("div"`}, []string{"jsxDEV", "createElement", ".h)("}},
   } {
     t.Run(profile.name, func(t *testing.T) {
       options := map[string]any{"target": "ES2022", "module": "commonjs", "strict": true, "types": []string{}, "outDir": "dist"}
@@ -65,6 +71,12 @@ func TestRuntimeJsxProfiles(t *testing.T) {
       if err != nil { t.Fatal(err) }
       if len(diagnostics) != 0 { t.Fatalf("emit diagnostics: %#v", diagnostics) }
       if output == "" { t.Fatal("view.js was not emitted") }
+      for _, token := range profile.want {
+        if !strings.Contains(output, token) { t.Fatalf("%s output lacks %q:\n%s", profile.name, token, output) }
+      }
+      for _, token := range profile.absent {
+        if strings.Contains(output, token) { t.Fatalf("%s output contains %q that belongs to another jsx mode:\n%s", profile.name, token, output) }
+      }
       record, err := json.Marshal(map[string]string{"name": profile.name, "javascript": output})
       if err != nil { t.Fatal(err) }
       fmt.Printf("TTSC_JSX_EMIT_V1:%s\n", record)

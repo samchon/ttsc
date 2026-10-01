@@ -17,8 +17,8 @@ import (
 //  2. Build the graph.
 //  3. Assert a Parent -> Child value-call edge exists.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies that a JSX component use (`<Child />`) is a value-call edge to the component — the relationship a React codebase is built from, which a call-expression-only walk silently dropped. An intrinsic tag (`<div />`) resolves to nothing and adds no edge, so the walk distinguishes a component use from a host element.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "div"; a Parent -> Child value-call edge exists.
+// @evidence contracts/testing.md#behavioral-verification A JSX component use <Child /> inside <div> becomes a value-call edge from Parent to Child. The negative check only rejects an edge from Parent to a node whose Name is exactly div, so it would not catch an edge to the qualified JSX.IntrinsicElements.div property node.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over a .tsx fixture: a value-call edge must run from Parent to Child, and no edge from Parent may target a node whose Name is div.
 // @evidence contracts/testing.md#distinguishing-cases Compile a .tsx fixture where Parent renders <Child /> inside a <div>; Build the graph; Assert a Parent -> Child value-call edge exists.
 // @evidence contracts/testing.md#execution-ownership TestValueCallEdgesCoverJsxComponents is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestValueCallEdgesCoverJsxComponents(t *testing.T) {

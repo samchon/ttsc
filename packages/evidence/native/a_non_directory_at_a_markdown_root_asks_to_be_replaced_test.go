@@ -16,10 +16,10 @@ import (
  *  1. Put a file where a Markdown reference's root is declared.
  *  2. Read the root diagnostic.
  *  3. Assert the Markdown repair clause names a replacement and its own sources.
- * @evidence contracts/testing.md#behavioral-verification runRootedGraph is exercised with the scenario below; the assertions require the Markdown repair clause names a replacement and its own sources.
- * @evidence contracts/testing.md#independent-expectations Repairing one artifact kind and leaving the others is the branch asymmetry #1236 existed to remove, and this clause was deferred once precisely because every branch had to move together. Markdown reaches the same predicate through a loader rather than a claim-side pass, so its repair clause is what proves the split is by artifact kind and not by call site.
- * @evidence contracts/testing.md#distinguishing-cases Put a file where a Markdown reference's root is declared. Read the root diagnostic. Assert the Markdown repair clause names a replacement and its own sources.
- * @evidence contracts/testing.md#execution-ownership TestANonDirectoryAtAMarkdownRootAsksToBeReplaced is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification runRootedGraph creates a plain file at `documents` beside the project and runs the graph rule with a Markdown reference whose root is `../documents`; the test requires diagnostics containing `could not read the markdown root '../documents', which resolves to '` and `replace that path with a directory and the markdown sources it should hold`.
+ * @evidence contracts/testing.md#independent-expectations The expected wording is authored: a root occupied by a file cannot be fixed by creating a directory, so the Markdown repair clause must ask for a replacement and name Markdown sources rather than the missing-directory advice; no string is derived from the resolver.
+ * @evidence contracts/testing.md#distinguishing-cases Only the path-exists-but-is-a-file state for a Markdown reference root is covered; the missing-directory state and the TypeScript and Prisma repair clauses are owned by sibling entries, and the second assertion is what separates this clause from them.
+ * @evidence contracts/testing.md#execution-ownership TestANonDirectoryAtAMarkdownRootAsksToBeReplaced is a Go unit entry in the native test process; runRootedGraph writes the workspace to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestANonDirectoryAtAMarkdownRootAsksToBeReplaced(t *testing.T) {
   messages := runRootedGraph(t, map[string]string{

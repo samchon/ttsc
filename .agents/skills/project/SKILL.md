@@ -32,7 +32,7 @@ Each package's README describes what it does and how to use it. This table recor
 | `packages/ttsc-*` | Per-platform packages |  |
 | `tests/test-*` | TypeScript unit suites and the single `tests/test-e2e` boundary module | Placement and experiment construction follow [development testing](../development/testing.md). |
 | `tests/utils` | Shared test helpers (`@ttsc/testing`) |  |
-| `tests/<plugin-name>` | Workspace packages a fixture must `require.resolve` from its `node_modules`, such as `tests/lint-contributor-demo` | `scripts/build-current.cjs` builds them before tests run. |
+| `tests/<plugin-name>` | Workspace packages a fixture must `require.resolve` from its `node_modules`, such as `tests/lint-contributor-demo` | `pnpm run build` builds them before tests run. |
 | `benchmarks/*` | One private package per benchmark, each with its own README | Operated through the benchmark skill. |
 | `website` | The Nextra docs site under `src/content/docs/**/*.mdx`, shipped to https://ttsc.dev | The canonical home for guides. |
 | `config`, `scripts` | Shared tsconfig and workspace scripts |  |

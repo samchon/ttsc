@@ -21,7 +21,7 @@ import (
  *
  * @evidence contracts/testing.md#distinguishing-cases The packages misspelling remains an unknown-property failure instead of silently becoming a local reference.
  *
- * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticConfigurationStillRejectsUnknownReferenceKeys is the selectable unit entry in packages/evidence/native, compiled beside its owning implementation in the shared Go unit process. It invokes decodeGraphConfig and its decoder/assertion helpers in process; its JSON artifact/package names are input strings and trigger no installation, artifact loader, native plugin build, or child process. Its local table variants remain owned by this entry.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticConfigurationStillRejectsUnknownReferenceKeys is a Go unit entry in the native test process; it decodes one in-memory JSON reference through the decodeReferenceProblems helper and decodeGraphConfig with no filesystem, package installation, artifact build or product host, and has a single case with no table.
  */
 func TestEvidenceSemanticConfigurationStillRejectsUnknownReferenceKeys(t *testing.T) {
   assertProblemContains(

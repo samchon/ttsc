@@ -12,10 +12,10 @@ import "testing"
  *  1. Configure `evidence/graph` with a misspelled property.
  *  2. Run the project rule.
  *  3. Assert the message still names `evidence/graph`.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies the graph keeps naming itself. The original assertions check assert the message still names `evidence/graph`.
- * @evidence contracts/testing.md#independent-expectations The graph counterpart to the documented rule configuration controls. Threading an owner through shared decoders is exactly the change that can silently retitle every diagnostic of the rule that was already correct. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Configure `evidence/graph` with a misspelled property. Run the project rule. Assert the message still names `evidence/graph`. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestGraphKeepsNamingItselfInConfigurationDiagnostics is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a claim carrying the misspelled key `symbolz`; assertProblemContains requires `Invalid evidence/graph configuration at claims[0].symbolz`.
+ * @evidence contracts/testing.md#independent-expectations The expected message is an authored literal: the graph rule must keep naming itself (and the exact claim path) in configuration diagnostics after the shared decoders were made owner-aware for the documented rule.
+ * @evidence contracts/testing.md#distinguishing-cases One unknown claim key on the graph rule; the documented rule's own attribution is covered by the sibling documented entries, so a regression that retitled the graph's messages fails only here.
+ * @evidence contracts/testing.md#execution-ownership TestGraphKeepsNamingItselfInConfigurationDiagnostics is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestGraphKeepsNamingItselfInConfigurationDiagnostics(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

@@ -11,7 +11,8 @@ import (
 // that is a query string, an array of queries, or a targets object.
 //
 // A decoder that rejected a legal shape would break real configs; the negative
-// twin (illegal shapes) is asserted below.
+// twin (illegal shapes) is owned by TestUnicornNoUnnecessaryPolyfillsRejectsMalformedOptions
+// in a sibling file; this test asserts only the legal shapes.
 //
 //  1. Build an engine with each legal options payload.
 //  2. Assert no ConfigError is raised.

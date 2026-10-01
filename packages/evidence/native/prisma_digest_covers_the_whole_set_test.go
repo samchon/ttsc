@@ -21,7 +21,7 @@ import (
  *
  * @evidence contracts/testing.md#behavioral-verification prismaContentDigest changes after byte edit,file addition or source rename and starts nonempty.
  * @evidence contracts/testing.md#independent-expectations Deliberate mutations independently establish three identity changes.
- * @evidence contracts/testing.md#distinguishing-cases Source membership/path and bytes all contribute beyond size alone.
+ * @evidence contracts/testing.md#distinguishing-cases Three mutations of a two-file baseline must each change the key: an edit that adds a field to one file, an added third file, and one file renamed with identical bytes. There is no same-input control asserting that identical sets digest equally, and the edit changes length, so a same-length content change is not distinguished.
  * @evidence contracts/testing.md#execution-ownership TestPrismaDigestCoversTheWholeSet is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestPrismaDigestCoversTheWholeSet(t *testing.T) {

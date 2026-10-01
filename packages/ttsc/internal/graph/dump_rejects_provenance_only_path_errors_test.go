@@ -16,7 +16,7 @@ import (
 //  3. Require NewDump to reject the unrepresentable coordinate.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies paths introduced after fact projection still pass through the dump context's fail-closed boundary.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish NewDump to reject the unrepresentable coordinate.
+// @evidence contracts/testing.md#independent-expectations The expectation is literal: with an empty graph under C:/checkout/app and a provenance-only config digest at D:/shared/tsconfig.json, NewDump must return an error containing 'different filesystem roots' rather than a dump with an unrepresentable coordinate.
 // @evidence contracts/testing.md#distinguishing-cases Build an empty graph under one synthetic Windows drive; Add a provenance-only config input from another drive; Require NewDump to reject the unrepresentable coordinate.
 // @evidence contracts/testing.md#execution-ownership TestNewDumpRejectsProvenanceOnlyPathErrors is a Go source-unit entry. NewDump execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestNewDumpRejectsProvenanceOnlyPathErrors(t *testing.T) {

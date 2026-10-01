@@ -17,13 +17,10 @@ import (
  *  2. Evaluate the same claim.
  *  3. Assert nothing is reported.
  *
- * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies an example is not reported.
- *
- * @evidence contracts/testing.md#independent-expectations Backtick/tilde/indented examples and a mid-sentence mention are not declarations; the fixture real comment supplies coverage, so these inputs must stay silent.
- *
- * @evidence contracts/testing.md#distinguishing-cases Write a tag inside each of the three code forms and inside a sentence. Evaluate the same claim. Assert nothing is reported.
- *
- * @evidence contracts/testing.md#execution-ownership TestAMarkdownTagInsideAnExampleIsNotReported is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#behavioral-verification runProseTagRule runs graphRule.Check over a plan document in four t.Run subtests that place a tag line inside a backtick fence, a tilde fence, a four-space indented block, and a sentence that mentions `@evidence` mid-line; each asserts an empty diagnostic list.
+ * @evidence contracts/testing.md#independent-expectations Silence is required by the Markdown contract that fenced and indented code and mid-sentence mentions are examples, not declarations; the helper's valid HTML-comment citation already discharges the obligation, so any diagnostic can only come from the example text.
+ * @evidence contracts/testing.md#distinguishing-cases Four negative cases for the prose-tag reporter (two fence spellings, indented code, mid-line mention); the positive prose cases that must be reported are owned by sibling entries.
+ * @evidence contracts/testing.md#execution-ownership TestAMarkdownTagInsideAnExampleIsNotReported is a Go unit entry in the native test process that owns four t.Run subtests over a map of fixtures; runProseTagRule writes the Markdown to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestAMarkdownTagInsideAnExampleIsNotReported(t *testing.T) {
   for name, plan := range map[string]string{

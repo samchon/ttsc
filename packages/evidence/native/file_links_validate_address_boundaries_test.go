@@ -12,13 +12,10 @@ import "testing"
  * 2. Verify canonical targets keep the complete reason.
  * 3. Reject malformed paths, escapes, separators, and brackets.
  *
- * @evidence contracts/testing.md#behavioral-verification splitDeclarationBody and parseFileLink exercises this case. Verifies file-address grammar distinguishes quoted segments from reason text.
- *
- * @evidence contracts/testing.md#independent-expectations The literal canonical targets preserve quoted/numeric segments and the complete reason. The independently enumerated malformed grammar inputs must all be refused.
- *
- * @evidence contracts/testing.md#distinguishing-cases Parse escaped file paths and quoted/numeric accessor segments. Verify canonical targets keep the complete reason. Reject malformed paths, escapes, separators, and brackets.
- *
- * @evidence contracts/testing.md#execution-ownership TestFileLinksValidateAddressBoundaries is the selectable Go entry and owns its fixture variants and local closures. It invokes splitDeclarationBody and parseFileLink in the native Go process. It consumes authored strings or parsed source nodes directly; no installed consumer, compiled host, or loader process participates.
+ * @evidence contracts/testing.md#behavioral-verification splitDeclarationBody is called on three file-link bodies (an encoded path with a quoted `"a b"` accessor, a numeric `[12]` accessor and a quoted accessor with a backslash) and must return display targets `a%20%23%25.ts#C["a b"].run`, `a.ts#C["12"]` and `a.ts#C["x\\y"]` with the reason `Because it applies.`; parseFileLink must return a problem for each of twelve malformed targets (empty, no fragment, no path, empty fragment, bad and NUL escapes, trailing dot, empty and zero-padded brackets, an unterminated quote, a dot before a bracket, trailing text after a bracket).
+ * @evidence contracts/testing.md#independent-expectations The expected canonical targets and the enumerated malformed list are authored from the address grammar: quoted and numeric segments keep their meaning and the whole reason, and a malformed or truncated accessor must never be guessed into a different unit.
+ * @evidence contracts/testing.md#distinguishing-cases Three valid spellings against twelve malformed ones: the valid rows check the split between target and reason, the malformed rows only check that a problem is returned, not its wording.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksValidateAddressBoundaries is a Go unit entry in the native test process that loops over two tables (not named subtests); it calls splitDeclarationBody and parseFileLink on in-memory strings with no filesystem, consumer install or product host.
  */
 func TestFileLinksValidateAddressBoundaries(t *testing.T) {
   for _, test := range []struct{ input, target string }{

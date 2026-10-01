@@ -12,10 +12,10 @@ import "testing"
  *  1. Import a real module and cite a member it does not declare.
  *  2. Evaluate the graph.
  *  3. Assert the unreachable diagnostic names the module and the missing name.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies a segment the module does not declare is reported as unreachable. The original assertions check assert the unreachable diagnostic names the module and the missing name.
- * @evidence contracts/testing.md#independent-expectations The import resolved and the module exists, so the repair is the target text or the reference selection — the diagnostic names both the module it landed in and the name it looked for, since neither is obvious from the citation. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Import a real module and cite a member it does not declare. Evaluate the graph. Assert the unreachable diagnostic names the module and the missing name. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestGraphReportsInlineLinkWithUnreachableSegment is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the import-scope configuration over a view that imports a real module declaring only `get` and cites `{@link questions.erase}`; assertProblemContains requires `src/api/questions.ts' declares no selected unit named 'erase'`.
+ * @evidence contracts/testing.md#independent-expectations The expected message is authored from the diagnostic contract: the import resolved and the module exists, so the repair is the target text or the reference selection and the message must name both the module reached and the name looked for.
+ * @evidence contracts/testing.md#distinguishing-cases A real module with a member it does not declare; the unimported and dangling-specifier causes are owned by sibling entries.
+ * @evidence contracts/testing.md#execution-ownership TestGraphReportsInlineLinkWithUnreachableSegment is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestGraphReportsInlineLinkWithUnreachableSegment(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

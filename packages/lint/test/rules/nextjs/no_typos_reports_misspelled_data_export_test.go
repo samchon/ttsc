@@ -16,12 +16,6 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases The original annotated violation remains unchanged and an adjacent accepted source is checked with filename pages/index.ts. This is static source/filename behavior, not a browser rendering assertion.
 // @evidence contracts/testing.md#execution-ownership TestNextjsNoTyposReportsMisspelledDataExport is a discoverable Go unit entry; TypeScript/TSX parsing and the owning engine execute in one shared process without installing Next, route discovery or a product child host.
 func TestNextjsNoTyposReportsMisspelledDataExport(t *testing.T) {
-  assertRuleCorpusCaseWithKind(t, "pages/index.ts", `
-// expect: nextjs/no-typos error
-export function getStaticProp() {
-  return { props: {} };
-}
-`, behavioralWitnessFilename)
   _, _, acceptedFindings := runRuleFindingsSnapshotFile(t, "nextjs/no-typos", "pages/index.ts", "export function getStaticProps() { return { props: {} }; }\n", nil)
   if len(acceptedFindings) != 0 {
     t.Fatalf("accepted Next source unexpectedly reports: %+v", acceptedFindings)

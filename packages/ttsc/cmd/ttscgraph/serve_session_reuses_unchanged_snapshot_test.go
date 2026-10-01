@@ -17,7 +17,7 @@ import (
 // 3. Assert the second response is unchanged and carries no replacement dump.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies repeated graph requests do no graph rebuild when every project input is byte-identical.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "initial", "unchanged"; the second response is unchanged and carries no replacement dump.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal session states over a one-file fixture: the first snapshot must be mode initial, changed, with a dump, and a second snapshot with no disk change must be mode unchanged, not changed, with no dump.
 // @evidence contracts/testing.md#distinguishing-cases Open a one-file graph session and request its initial dump; Request another snapshot without touching the project; Assert the second response is unchanged and carries no replacement dump.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionReusesUnchangedSnapshot is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReusesUnchangedSnapshot(t *testing.T) {

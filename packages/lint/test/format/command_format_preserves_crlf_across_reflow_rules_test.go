@@ -22,10 +22,10 @@ import (
 //  2. Run the format subcommand.
 //  3. Assert clean exit, the file changed, both reflows fired with CRLF, and
 //     every "\n" belongs to a "\r\n" (zero lone LFs).
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises preserves crlf across reflow rules and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert clean exit, the file changed, both reflows fired with CRLF, and every "\n" belongs to a "\r\n" (zero lone LFs).
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: This drives the whole config -> expansion -> engine -> fixer -> disk path and asserts the written file stays uniformly CRLF. . The asserted decision is: Assert clean exit, the file changed, both reflows fired with CRLF, and every "\n" belongs to a "\r\n" (zero lone LFs). Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatPreservesCRLFAcrossReflowRules owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command with endOfLine crlf and printWidth 50 on a CRLF class whose heritage list and parameter-property constructor both overflow, and requires exit 0 with empty output, the file changed, no lone LF, and the substrings `class Repository\r\n` and `constructor(\r\n`.
+// @evidence contracts/testing.md#independent-expectations Expectations derive from the endOfLine contract (every LF must belong to a CRLF) and two authored substrings; the complete output text is not compared, so the exact reflowed layout is not pinned here.
+// @evidence contracts/testing.md#distinguishing-cases One input that must change, proving both the declaration-header and parameter-properties breaks are emitted with CRLF rather than a hard-coded LF; LF-configured files and other reflow rules are covered elsewhere.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatPreservesCRLFAcrossReflowRules(t *testing.T) {
   input := "class Repository implements First, Second, Third, Fourth, Fifth, Sixth {\r\n" +
     "  constructor(private readonly a: Foo, private readonly b: Bar) {}\r\n" +

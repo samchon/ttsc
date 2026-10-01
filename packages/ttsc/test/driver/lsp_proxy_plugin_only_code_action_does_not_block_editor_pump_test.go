@@ -18,7 +18,8 @@ import (
 // 1. Block the plugin CodeActions callback.
 // 2. Send a plugin-only codeAction request.
 // 3. Send didOpen while CodeActions is blocked.
-// 4. Assert didOpen reaches upstream before the codeAction is released.
+// 4. Assert a non-empty frame reaches upstream while the plugin callback is
+//    still blocked (the frame's content is not inspected), then release it.
 func TestLSPProxyPluginOnlyCodeActionDoesNotBlockEditorPump(t *testing.T) {
   started := make(chan struct{})
   release := make(chan struct{})

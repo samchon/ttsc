@@ -12,11 +12,12 @@ import (
 // which the original range admits. This case runs where the volume ignores
 // case; on a case-sensitive volume the miscased Program path does not exist.
 //
-//  1. Exercise the authored override glob stored case preserves character class fixtures through the owning Go operation.
-//  2. Require the exact authored output or rejection result for each fixture.
-// @evidence contracts/testing.md#behavioral-verification Glob matching distinguishes the stored character-class spelling from a path-normalization rewrite that would change its membership.
+//  1. Create `src/_directory/index.ts` below a base directory.
+//  2. Match `src/[A-z]directory/**` against the miscased `SRC/_DIRECTORY/index.ts`.
+//  3. Assert it matches, which holds only if the glob was not lowercased.
+// @evidence contracts/testing.md#behavioral-verification matchAnyPattern is called with the glob src/[A-z]directory/** and the miscased path SRC/_DIRECTORY/index.ts of an existing file, and must report a match; lowercasing the glob to [a-z] would exclude the underscore and fail. The test skips where the temporary directory distinguishes case, so it runs only on case-insensitive volumes.
 // @evidence contracts/testing.md#independent-expectations The authored character-class pattern and fixture targets determine membership independently of stored-case normalization.
-// @evidence contracts/testing.md#distinguishing-cases This case owns the supplied fixtures for that a glob's character class keeps its original range when a miscased Program path needs the spelling the tree stores. Lowercasing `[A-z]` to `[a-z]` would lose `_`, which the original range admits. This case runs where the volume ignores case; on a case-sensitive volume the miscased Program path does not exist. Neighboring hosts retain their separately named complementary inputs.
+// @evidence contracts/testing.md#distinguishing-cases The single positive case uses an underscore directory name, which [A-z] admits but [a-z] does not, so only an implementation that preserves the glob's original range matches. The plain miscased directory glob is owned by the neighboring miscased-import test, and no negative glob case is included.
 // @evidence contracts/testing.md#execution-ownership TestOverrideGlobStoredCasePreservesCharacterClass owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestOverrideGlobStoredCasePreservesCharacterClass(t *testing.T) {
   root := t.TempDir()

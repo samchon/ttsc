@@ -22,9 +22,9 @@ import (
 //  4. Assert `-h` still succeeds, because asking for usage is not an error.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that a bad argument returns an exit code and writes usage to the command's own stream, instead of terminating the process.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the usage text went to the command's stderr stream. 4. Assert `-h` still succeeds, because asking for usage is not an error.
+// @evidence contracts/testing.md#independent-expectations The expected exit codes (2 for an unknown flag, 0 for -h) follow the Go flag package's ContinueOnError contract and the command's stdout-is-JSON rule, written as literals independent of run; stderr must name the rejected flag and show the -tsconfig usage line, and stdout must stay empty. Mapping every parse failure to 2 would fail the -h case, and exiting or writing to stdout would fail the first.
 // @evidence contracts/testing.md#distinguishing-cases Run the command with an unknown flag, capturing both streams; Assert it returns 2 rather than exiting, and that nothing reached stdout; Assert the usage text went to the command's stderr stream. 4. Assert `-h` still succeeds, because asking for usage is not an error.
-// @evidence contracts/testing.md#execution-ownership TestRunReportsAnUnknownFlagWithoutExitingTheProcess is a source-unit entry. run, out.Len, out.String, errOut.String, out.Reset, errOut.Reset run directly over the supplied fixture/input values without installing a consumer, building a native artifact or starting a product host.
+// @evidence contracts/testing.md#execution-ownership TestRunReportsAnUnknownFlagWithoutExitingTheProcess is a Go source-unit entry. It calls the package's run function in-process with stdout and stderr swapped for buffers; both argument paths return before any project is loaded, so no consumer is installed and no binary is built or launched.
 func TestRunReportsAnUnknownFlagWithoutExitingTheProcess(t *testing.T) {
   var out, errOut bytes.Buffer
   restoreStdout, restoreStderr := stdout, stderr

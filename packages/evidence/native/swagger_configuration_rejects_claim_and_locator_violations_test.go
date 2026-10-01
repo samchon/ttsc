@@ -22,7 +22,7 @@ import (
  * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig reports each invalid table row's literal repair.
  * @evidence contracts/testing.md#independent-expectations Authored bad configurations independently identify prohibited channels.
  * @evidence contracts/testing.md#distinguishing-cases All table rows retain distinct failure messages under this entry.
- * @evidence contracts/testing.md#execution-ownership TestSwaggerConfigurationRejectsClaimAndLocatorViolations is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerConfigurationRejectsClaimAndLocatorViolations is a selectable native Go unit entry whose seven table rows (claim, symbol, plural files, directory, drive relative, file URL, URL fragment) run as t.Run subtests inside this one function. Each calls decodeGraphConfig on a literal JSON string in-process and checks a diagnostic substring; there is no filesystem, Node process or product host, and no accepting row (that is the decode test's job).
  */
 func TestSwaggerConfigurationRejectsClaimAndLocatorViolations(t *testing.T) {
   cases := []struct {

@@ -18,9 +18,9 @@ import (
  *  2. Materialize an untagged model with one tagged column.
  *  3. Assert the whole first model is withdrawn and only the tagged column of
  *     the second.
- * @evidence contracts/testing.md#behavioral-verification prismaModelUnits exercises the authored fixture. Assert the whole first model is withdrawn and only the tagged column of the second.
- * @evidence contracts/testing.md#independent-expectations A schema author marking a model internal has made the same declaration a TypeScript author makes with the same tag, and honoring one artifact kind while ignoring the other would make the rule depend on where a declaration happens to live. The untagged column beside the tagged one is what proves the cascade is the model's doing rather than the file's. The authored scenario requires this outcome: Assert the whole first model is withdrawn and only the tagged column of the second.
- * @evidence contracts/testing.md#distinguishing-cases Materialize a model whose own documentation carries the tag. Materialize an untagged model with one tagged column. Assert the whole first model is withdrawn and only the tagged column of the second.
+ * @evidence contracts/testing.md#behavioral-verification prismaModelUnits is called for every tag in hiddenTagCases (@internal, @hidden, @ignore) on a hand-built model whose documentation carries the tag, and on a model whose single column documentation carries it; the test asserts each unit's Hidden marker equals the tag.
+ * @evidence contracts/testing.md#independent-expectations Models and tags are authored literals, and the expected markers follow from the contract that a hiding tag withdraws its declaration and a withdrawn model withdraws its members, the same as the TypeScript tag semantics; the expected value is the literal tag, not a recomputed result.
+ * @evidence contracts/testing.md#distinguishing-cases The tagged model withdraws the model unit and both its column and relation members; in the second model the untagged model and untagged column keep an empty marker while only the tagged column is withdrawn. Tags mentioned only in prose, or placed after other text, are not exercised here.
  * @evidence contracts/testing.md#execution-ownership TestPrismaHidingTagsWithdrawModelsAndColumns runs as a Go unit entry in the native package. prismaModelUnits executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestPrismaHidingTagsWithdrawModelsAndColumns(t *testing.T) {

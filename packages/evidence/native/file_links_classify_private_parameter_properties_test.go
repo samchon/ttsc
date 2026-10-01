@@ -12,13 +12,10 @@ import "testing"
  * 2. Cite each through its instance accessor.
  * 3. Assert the visibility reason and remaining public coverage obligation.
  *
- * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies private parameter properties receive the same diagnosis as body fields.
- *
- * @evidence contracts/testing.md#independent-expectations TypeScript private/protected constructor properties cannot be public evidence; the literal restriction and missing-acknowledgement messages expose accidental publication.
- *
- * @evidence contracts/testing.md#distinguishing-cases Declare private and protected constructor parameter properties. Cite each through its instance accessor. Assert the visibility reason and remaining public coverage obligation.
- *
- * @evidence contracts/testing.md#execution-ownership TestFileLinksClassifyPrivateParameterProperties is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#behavioral-verification For `private` and `protected` in turn, runIndexRule runs the graph rule over `export class A { constructor(<visibility> secret: number) {} value = 1; }` and a review.md linking `target.ts#A.prototype.secret` under a property reference; each run must contain a diagnostic with `private or protected` and one with `Missing acknowledgement`.
+ * @evidence contracts/testing.md#independent-expectations The expected messages are authored from the visibility contract: a private or protected parameter property is a class member that cannot be public evidence, so the link must be refused for its visibility rather than reported as a missing member, while the public `value` stays owed.
+ * @evidence contracts/testing.md#distinguishing-cases Both non-public visibilities, looped as plain iterations; the public field `value` is the remaining obligation behind the missing-acknowledgement assertion. Body-field visibility is covered by sibling entries.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksClassifyPrivateParameterProperties is a Go unit entry in the native test process that loops over two visibilities; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestFileLinksClassifyPrivateParameterProperties(t *testing.T) {
   for _, visibility := range []string{"private", "protected"} {

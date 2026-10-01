@@ -13,10 +13,10 @@ import "testing"
  *  1. Select only TypeScript property hosts and materialize one such host.
  *  2. Put a valid target on a neighboring exported function.
  *  3. Assert both the out-of-scope host and missing acknowledgement.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies claim host scope: a resolvable declaration on an unselected symbol kind does not satisfy coverage. The original assertions check assert both the out-of-scope host and missing acknowledgement.
- * @evidence contracts/testing.md#independent-expectations Resolution and host eligibility are separate checks. Treating every JSDoc tag in a matched file as valid would make a property-only claim selector indistinguishable from the all-symbol default. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Select only TypeScript property hosts and materialize one such host. Put a valid target on a neighboring exported function. Assert both the out-of-scope host and missing acknowledgement. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestDeclarationsRejectOutOfScopeSymbolHosts is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a property claim over a file holding a documented exported function (carrying `@evidence docs/spec.md#contract`) and `export const selectedProperty = true`; the test requires `Out-of-scope @evidence host`, `host kind 'function' is not selected` and `Missing acknowledgement for 'docs/spec.md#contract'`.
+ * @evidence contracts/testing.md#independent-expectations The expected diagnostics are authored from the host-eligibility contract: resolution and host eligibility are separate checks, so a resolvable citation on an unselected symbol kind must be reported and must not satisfy coverage.
+ * @evidence contracts/testing.md#distinguishing-cases The neighboring selected property keeps the claim active while the cited function is the out-of-scope host; the three assertions check refusal and the unmet obligation together, only by containment.
+ * @evidence contracts/testing.md#execution-ownership TestDeclarationsRejectOutOfScopeSymbolHosts is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestDeclarationsRejectOutOfScopeSymbolHosts(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

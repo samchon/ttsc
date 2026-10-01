@@ -18,7 +18,7 @@ import (
 //  3. Apply an undeclared unknown change and assert the cache is discarded.
 // @evidence contracts/testing.md#behavioral-verification A declared external change preserves exact resident Program identity while an unknown undeclared change invalidates it.
 // @evidence contracts/testing.md#independent-expectations The independently authored declared/unknown paths define reuse validity; identity equality and cache removal directly distinguish the two lifetime decisions.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Warm one checker-bearing Program and apply a declared external change. The asserted decision is: Apply an undeclared unknown change and assert the cache is discarded. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#distinguishing-cases The same unknown path docs/spec.md is applied twice: first with an external classification, which must leave the exact warm Program returned by the next acquisition, then without one, which must empty the cache. The classification is therefore the only variable between retention and discard; tracked TypeScript source changes are owned by other resident tests.
 // @evidence contracts/testing.md#execution-ownership TestResidentCacheRetainsProgramForDeclaredExternalChange owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestResidentCacheRetainsProgramForDeclaredExternalChange(t *testing.T) {
   root := seedLintProject(t, "export const value = 1;\n")

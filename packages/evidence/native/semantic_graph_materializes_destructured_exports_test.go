@@ -20,7 +20,7 @@ import (
  * @evidence contracts/testing.md#behavioral-verification runIndexRule evaluates the actual graph rule and rejects any diagnostic for the unchanged fixture, then requires the independently named missing obligation after removing one citation.
  * @evidence contracts/testing.md#independent-expectations The supported public declaration identities are cited explicitly; the silent original fixture contrasts a literal missing obligation after removing its citation, so an empty or inactive population cannot pass.
  * @evidence contracts/testing.md#distinguishing-cases Object shorthand, renamed, nested and rest leaves, array and rest leaves, and an export alias must resolve; private bindings must not add obligations.
- * @evidence contracts/testing.md#execution-ownership This named Go unit is overlaid into the evidence package and runs in the shared semantic test process; no consumer install, native plugin build or product process is launched.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticGraphMaterializesDestructuredExports is a selectable native Go unit entry. runIndexRule writes the authored modules to a temp root, parses them with the TypeScript parser shim and calls graphRule.Check in-process, twice (full fixture, then with the 'state' citation removed); no consumer install, native plugin build or product process is launched.
  */
 func TestEvidenceSemanticGraphMaterializesDestructuredExports(t *testing.T) {
   files := map[string]string{

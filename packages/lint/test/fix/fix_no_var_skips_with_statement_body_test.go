@@ -18,7 +18,7 @@ import "testing"
 //  3. Assert at least one finding fired but zero fixes were applied.
 //
 // @evidence contracts/testing.md#behavioral-verification no-var leaves x declared under with unchanged while reporting it.
-// @evidence contracts/testing.md#independent-expectations Literal with(o), o.x and var x plus zero edits preserve dynamic object interception instead of introducing an inner lexical shadow.
+// @evidence contracts/testing.md#independent-expectations The literal with (o) over an object that has an x property, the var x declared inside its body, and zero edits preserve dynamic object interception instead of introducing an inner lexical shadow.
 // @evidence contracts/testing.md#distinguishing-cases Declaration-inside-with differs from an outside declaration merely read by a with body.
 // @evidence contracts/testing.md#execution-ownership TestFixNoVarSkipsWithStatementBody runs assertNoFixSnapshot on the dynamic-scope fixture.
 func TestFixNoVarSkipsWithStatementBody(t *testing.T) {

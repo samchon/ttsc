@@ -22,7 +22,7 @@ import (
 //     stripping.
 // @evidence contracts/testing.md#behavioral-verification Banner coercion accepts nil/object text and rejects invalid values; framework/configFile keys pass and former inline keys fail. Native JSON loading normalizes CRLF, escapes */ and rejects empty text.
 // @evidence contracts/testing.md#independent-expectations Authored scalar/object inputs and literal a * / b define independent coercion/escaping expectations; the loaded one/two text comes from authored JSON bytes.
-// @evidence contracts/testing.md#distinguishing-cases Object text contrasts with missing/bare/numeric values; allowed keys contrast with text/config/banner/options. Nonempty CRLF text contrasts with empty export.
+// @evidence contracts/testing.md#distinguishing-cases Object text contrasts with missing/bare/numeric values; allowed keys contrast with text/config/banner/options. Nonempty CRLF text contrasts with a JSON config whose text is the empty string, which parseBanner rejects as must be a non-empty string.
 // @evidence contracts/testing.md#execution-ownership TestConfigValueBranches executes coercion, validation, sanitization and JSON-backed parseBanner through test bridges in one Go process. No Node, compiler or native producer is launched.
 func TestConfigValueBranches(t *testing.T) {
   // bannerTextFromConfigValue: nil, object, invalid.

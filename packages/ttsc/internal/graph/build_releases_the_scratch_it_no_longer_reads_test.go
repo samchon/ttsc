@@ -31,7 +31,7 @@ import (
 //     graph itself, are not.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that a returned Graph carries only what a consumer reads, and still carries what the shard path reads after the call.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the two fields the shard expansion reads after the call, and the graph itself, are not.
+// @evidence contracts/testing.md#independent-expectations The expectation is structural and exact rather than a heap measurement: found by reflection, every unexported map, slice or pointer field of the returned Graph must be nil after both a complete Build and a partial BuildFiles, ExportedTargets and ImplementationSources must remain non-nil, and Nodes, Edges and DocTags must be non-empty. The test cannot tell whether a released field was truly unreferenced elsewhere.
 // @evidence contracts/testing.md#distinguishing-cases Build the complete graph for a one-file project; Assert every build-only field is released; Assert the two fields the shard expansion reads after the call, and the graph itself, are not.
 // @evidence contracts/testing.md#execution-ownership TestBuildReleasesTheScratchItNoLongerReads is a Go source-unit entry. BuildFiles, Build execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestBuildReleasesTheScratchItNoLongerReads(t *testing.T) {

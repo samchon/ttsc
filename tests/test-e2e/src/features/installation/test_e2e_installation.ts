@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import cp from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
@@ -27,9 +28,24 @@ import { fileURLToPath, pathToFileURL } from "node:url";
  */
 export async function test_e2e_installation(): Promise<void> {
   const repository = path.resolve(fileURLToPath(new URL("../../../../..", import.meta.url)));
-  const consumer = process.env.TTSC_INSTALLED_SMOKE_ROOT;
-  assert(consumer, "The preceding installed CLI consumer is required");
-  assert.equal(fs.readFileSync(path.join(consumer, ".ttsc-cli-smoke"), "utf8"), repository);
+  const consumer = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-cli-smoke-"));
+  const target = `${process.platform}-${process.arch}`;
+  const pnpm = (args: string[], cwd: string) =>
+    cp.execFileSync("pnpm", args, { cwd, shell: process.platform === "win32", stdio: "inherit" });
+  for (const name of ["ttsc", `ttsc-${target}`])
+    pnpm(["pack", "--out", path.join(consumer, `${name}.tgz`)], path.join(repository, "packages", name));
+  fs.writeFileSync(
+    path.join(consumer, "package.json"),
+    JSON.stringify({
+      private: true,
+      dependencies: {
+        ttsc: "file:./ttsc.tgz",
+        [`@ttsc/${target}`]: `file:./ttsc-${target}.tgz`,
+        typescript: "7.0.2",
+      },
+    }),
+  );
+  pnpm(["install", "--ignore-scripts", "--no-frozen-lockfile"], consumer);
   const physicalConsumer = fs.realpathSync.native(consumer);
   const parent = fs.realpathSync.native(os.tmpdir());
   const parentIdentity = (value: string): string => process.platform === "win32" ? value.toLowerCase() : value;

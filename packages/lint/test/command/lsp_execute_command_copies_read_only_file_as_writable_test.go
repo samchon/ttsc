@@ -20,7 +20,7 @@ import (
 // 4. Assert the original read-only file remains unchanged.
 // @evidence contracts/testing.md#behavioral-verification Fix-all must return the literal rewritten document after staging a read-only source as writable and leave the original read-only source text intact.
 // @evidence contracts/testing.md#independent-expectations The authored original/fixed texts establish the rewrite and non-mutation contract; fixture permissions provide the failing staging input rather than a repository metadata assertion.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project with a read-only source file. The asserted decision is: Assert the original read-only file remains unchanged. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#distinguishing-cases The source file is chmod 0444 before fix-all, so a staging copy that kept the mode could not be rewritten; the command must still return the let rewrite and the original file must keep its var text. The test is skipped on Windows, where chmod read-only semantics differ, so it is a POSIX-only check.
 // @evidence contracts/testing.md#execution-ownership TestLSPExecuteCommandCopiesReadOnlyFileAsWritable owns its fixture cases as an in-process Go test discovered by the shared lint overlay runner. It calls the Go operations directly rather than launching a separately built product host.
 func TestLSPExecuteCommandCopiesReadOnlyFileAsWritable(t *testing.T) {
   if runtime.GOOS == "windows" {

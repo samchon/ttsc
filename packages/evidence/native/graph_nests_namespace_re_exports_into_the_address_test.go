@@ -13,10 +13,10 @@ import "testing"
  *  1. Nest two resource modules under namespace re-exports.
  *  2. Cite one operation by its full accessor path.
  *  3. Assert silence.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies `export * as ns` nests the target's surface one segment deeper. The original assertions check assert silence.
- * @evidence contracts/testing.md#independent-expectations This is the shape a generated SDK is built from, and it is the whole reason `api.functional.questions.get` can be written at all. Flattening it would collapse every resource module into one namespace and reintroduce the collision the accessor path exists to avoid. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Nest two resource modules under namespace re-exports. Cite one operation by its full accessor path. Assert silence. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestGraphNestsNamespaceReExportsIntoTheAddress is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the shared entry claim over an index `export * as functional` that forwards `export * as questions` of a module declaring `get`, with a view citing `{@link api.functional.questions.get}`; assertNoProblems requires an empty list.
+ * @evidence contracts/testing.md#independent-expectations The expectation is authored from the addressing contract: each `export * as ns` nests the target's surface one segment deeper, so the full accessor path `functional.questions.get` is the address that resolves; flattening would collapse the resource modules into one namespace.
+ * @evidence contracts/testing.md#distinguishing-cases Two nested namespace hops cited by the full path; the flat and aliased address forms are owned by sibling entries. Silence shows the citation resolved and acknowledged the one function.
+ * @evidence contracts/testing.md#execution-ownership TestGraphNestsNamespaceReExportsIntoTheAddress is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestGraphNestsNamespaceReExportsIntoTheAddress(t *testing.T) {
   assertNoProblems(t, runIndexRule(t, map[string]string{

@@ -19,7 +19,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification Checker-backed zero-finding assertions detect invalid suggestions on writable, unstable or differently scoped bindings.
 // @evidence contracts/testing.md#independent-expectations Official Unicorn valid-case semantics for const destructuring, binding identity, write safety and guard/receiver boundaries establish acceptance of the authored matrix.
-// @evidence contracts/testing.md#distinguishing-cases Calls/new/tagged/computed members, writes/destructuring targets, mutable roots/bindings, shadows, guards, early reads, default/nested/rest forms and different this scopes retain separate clean inputs.
+// @evidence contracts/testing.md#distinguishing-cases Calls/new/tagged/computed members, writes/destructuring targets, mutable roots/bindings, shadows, guards, early reads, default/nested/rest forms and different this scopes occupy separate declarations inside the one authored clean source.
 // @evidence contracts/testing.md#execution-ownership TestRuleCorpusUnicornConsistentDestructuringSkipsValidForms owns this authored source matrix as one discoverable Go unit entry. Its authored matrix exercises the owning checker-backed engine in the shared Go process; the zero-finding helper retains source identity on failure. No installed consumer, native build or child product host runs.
 func TestRuleCorpusUnicornConsistentDestructuringSkipsValidForms(t *testing.T) {
   source := `declare const sibling: { a: number; b: number };

@@ -9,12 +9,13 @@ import (
 // TestLSPEnvelopeParsesResponse covers the response shape the proxy uses
 // to match upstream code-action responses against the remembered request
 // payload. A response has id but no method; result holds the JSON-RPC
-// result value. String ids round-trip through strconv.Quote so they
-// never collide with numeric-id keys.
+// result value. A string id is keyed as its quoted literal, which differs from
+// the unquoted key a numeric id gets (the numeric side is not decoded here).
 //
 // 1. Decode a response envelope with a string id.
 // 2. Assert IsResponse is true.
-// 3. Assert IDKey is the quoted string literal and Result is preserved.
+// 3. Assert IDKey is the quoted string literal (`"abc"`) and Result is the
+//    raw `[]`.
 func TestLSPEnvelopeParsesResponse(t *testing.T) {
   body := []byte(`{"jsonrpc":"2.0","id":"abc","result":[]}`)
 

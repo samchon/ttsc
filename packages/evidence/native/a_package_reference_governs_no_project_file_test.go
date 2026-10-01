@@ -16,10 +16,10 @@ import (
  *  1. Declare a package reference whose glob would match everything.
  *  2. Write an unreadable tag in a vendored file.
  *  3. Assert it is not reported.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule reports exactly the missing acknowledgement for get and no unreadable finding for the vendored project comment.
- * @evidence contracts/testing.md#independent-expectations Package reference globs are anchored to the fixture package, so its recursive TypeScript glob cannot govern project files under another vendor path. The authored public get declaration remains owed, which prevents a deactivated graph from satisfying absence of the stray diagnostic.
- * @evidence contracts/testing.md#distinguishing-cases An authored @org/api manifest and declaration establish the package target; node_modules/vendor/index.ts holds the stray comment and an active detail function claims the package reference. This is disk resolver semantics without installing a consumer.
- * @evidence contracts/testing.md#execution-ownership TestAPackageReferenceGovernsNoProjectFile is the Go unit entry discovered beside the native package. runIndexRule evaluates its source and configuration fixtures in the native test process; local loops retain their named subcases without a consumer install or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/views/** and a TypeScript package reference `@org/api` with files ["**\/*.ts"], over a fixture that has node_modules/@org/api (manifest plus declared `get`), a stray `// @evidence get` line comment in node_modules/vendor/index.ts, and src/views/detail.ts; assertReported requires exactly one diagnostic, `Missing acknowledgement for 'get'`.
+ * @evidence contracts/testing.md#independent-expectations Package reference globs are resolved against the package root, so the recursive glob must not govern project files such as node_modules/vendor; the still-owed `get` acknowledgement proves the graph was active, which prevents a deactivated graph from satisfying the absence of an unreadable-tag diagnostic.
+ * @evidence contracts/testing.md#distinguishing-cases The vendored file holds an unreadable tag that would be reported if the glob governed project files, while the declaration owed by the package stays reported; exactly one diagnostic separates the two outcomes. A project-relative glob under a non-package reference is not covered here.
+ * @evidence contracts/testing.md#execution-ownership TestAPackageReferenceGovernsNoProjectFile is a Go unit entry in the native test process; runIndexRule writes the fixture files to a temp directory and calls the graph rule directly, resolving the package from disk with no consumer install or product host.
  */
 func TestAPackageReferenceGovernsNoProjectFile(t *testing.T) {
   assertReported(t, runIndexRule(t, map[string]string{

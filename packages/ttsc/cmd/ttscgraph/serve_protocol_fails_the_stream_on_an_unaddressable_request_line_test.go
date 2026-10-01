@@ -24,9 +24,9 @@ import (
 //  3. Assert no response frame was written, since none could be addressed.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies a malformed NDJSON line ends the stream with a diagnostic on stderr instead of answering with a reply nobody can read.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish no response frame was written, since none could be addressed.
+// @evidence contracts/testing.md#independent-expectations The expectation is the protocol rule that a line with no parsable id cannot be answered: a non-JSON line followed by a valid request must produce a nonzero exit, the stderr text 'unaddressable serve request', and zero bytes on the output stream, so the later valid request is never served. A server that replied with a zero-id error frame fails the empty-output check.
 // @evidence contracts/testing.md#distinguishing-cases Send a non-JSON line, then a valid request that must never be served; Assert serveSnapshots exits non-zero and names the offending line; Assert no response frame was written, since none could be addressed.
-// @evidence contracts/testing.md#execution-ownership TestServeProtocolFailsTheStreamOnAnUnaddressableRequestLine is a source-unit entry. graphSessionFixture, serveSnapshots, output.String, errOut.String, output.Len run directly over the supplied fixture/input values without installing a consumer, building a native artifact or starting a product host.
+// @evidence contracts/testing.md#execution-ownership TestServeProtocolFailsTheStreamOnAnUnaddressableRequestLine is a Go source-unit entry. It calls serveSnapshots in-process; the first line fails JSON decoding before any session or Git acquisition happens, so nothing is installed, built or launched.
 func TestServeProtocolFailsTheStreamOnAnUnaddressableRequestLine(t *testing.T) {
   root := graphSessionFixture(t)
   oldStderr := stderr

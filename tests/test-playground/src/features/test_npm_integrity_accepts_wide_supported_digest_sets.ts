@@ -18,7 +18,7 @@ import { verifyTarball } from "../../../../packages/playground/src/npm/internal/
  *
  * @evidence contracts/testing.md#behavioral-verification verifyTarball accepts SHA-256 witnesses matching the supplied bytes for singleton and 200000-candidate sets, and rejects an equally wide mismatching set.
  * @evidence contracts/testing.md#independent-expectations node:crypto createHash independently supplies SHA-256 base64 witnesses for authored three-byte inputs; expected acceptance and mismatch follow SRI authentication semantics.
- * @evidence contracts/testing.md#distinguishing-cases Singleton and wide valid sets contrast with a wide set computed over different bytes; existing archive-abort units own cancellation and weaker-hash precedence cases.
+ * @evidence contracts/testing.md#distinguishing-cases Singleton and wide valid sets contrast with a wide set computed over different bytes; cancellation belongs to the archive abort-boundary unit and strongest-digest precedence to the strongest-integrity unit.
  * @evidence contracts/testing.md#execution-ownership This exported asynchronous source unit directly invokes the authored verifier and Web Crypto on an in-memory three-byte payload, without fetching or installing an archive or starting a product host.
  */
 export const test_npm_integrity_accepts_wide_supported_digest_sets = async (): Promise<void> => {

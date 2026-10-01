@@ -21,10 +21,10 @@ import (
  *  1. Declare a root and walk from a different directory, as a link does.
  *  2. Hand the decision a path under the directory actually walked.
  *  3. Assert the message names the declared root and not the walked one.
- * @evidence contracts/testing.md#behavioral-verification unreadableEntryProblem, resolvePopulationBase is exercised with the scenario below; the assertions require the message names the declared root and not the walked one.
- * @evidence contracts/testing.md#independent-expectations This is the one composition where the two paths a walk error touches come from different places. A linked base is walked from the directory the link resolves to, so the callback path is measured against that, while the spelling still has to come from the base the author declared. Getting it the other way round would print a directory that appears nowhere in the configuration, which is the coupling a declared root exists to remove.
- * @evidence contracts/testing.md#distinguishing-cases Declare a root and walk from a different directory, as a link does. Hand the decision a path under the directory actually walked. Assert the message names the declared root and not the walked one.
- * @evidence contracts/testing.md#execution-ownership TestAWalkFailureInsideALinkedPopulationNamesTheDeclaredRoot is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification unreadableEntryProblem is called with a base resolved for `../documents`, a walked directory `target` that differs from the declared root, an entry under it and a permission-denied cause; it must report the entry relevant and name `'../documents/requirements/private'`, and must not quote the walked directory in slash or native spelling.
+ * @evidence contracts/testing.md#independent-expectations The expected spelling is authored: a reader opens the declared root, never the directory a link resolved to, so the walked path (computed by the test from its own workspace) must not appear as a quoted segment.
+ * @evidence contracts/testing.md#distinguishing-cases A walk rooted away from the declared base, as a linked population is, against a relevance callback that accepts the relative entry; the negative checks cover both slash and native separators, since the historical leak printed the callback argument.
+ * @evidence contracts/testing.md#execution-ownership TestAWalkFailureInsideALinkedPopulationNamesTheDeclaredRoot is a Go unit entry in the native test process; it calls unreadableEntryProblem directly with constructed paths and an in-memory cause, with no filesystem walk, consumer install or product host.
  */
 func TestAWalkFailureInsideALinkedPopulationNamesTheDeclaredRoot(t *testing.T) {
   workspace := t.TempDir()

@@ -20,10 +20,10 @@ import (
 //     line with two preceding statements.
 //  2. Run `ttsc format`.
 //  3. Assert the call ends up flat on its own line at column 0.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises split call collapses flat once isolated and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert the call ends up flat on its own line at column 0.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project whose call overflows 80 only because it shares the line with two preceding statements. The asserted decision is: Assert the call ends up flat on its own line at column 0. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatSplitCallCollapsesFlatOnceIsolated owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on one line holding two declarations and a six-argument `console.log` call (88 columns with the 2-space indent, 60 for the call alone), and requires exit 0, empty output and the exact file with three statements on their own lines and the call kept flat.
+// @evidence contracts/testing.md#independent-expectations The expected three-line file is an authored literal; the column arithmetic in the test comment (88 and 60 columns) is the reasoning that makes the flat call correct, not formatter output.
+// @evidence contracts/testing.md#distinguishing-cases One changing case that separates a cascade which keeps the call exploded because it overflowed when sharing a line from one which re-measures it after the statement split; the argument list must end up inline.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatSplitCallCollapsesFlatOnceIsolated(t *testing.T) {
   // Crammed line is 88 columns (>80); the call alone is 60 columns (<80).
   source := "  const a = 1; const b = 2; console.log(\"aaaa\", \"bbbb\", \"cccc\", \"dddd\", \"eeee\", \"ffff\");\n"

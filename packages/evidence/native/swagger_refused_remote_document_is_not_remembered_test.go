@@ -20,12 +20,12 @@ import (
  *
  * @evidence contracts/testing.md#behavioral-verification rememberSwaggerDocument/lookupSwaggerDocument refuse seeded rejected URL state.
  * @evidence contracts/testing.md#independent-expectations Literal Rejected flag and connection-refused reason independently identify transient failure.
- * @evidence contracts/testing.md#distinguishing-cases Rejected address must not poison successful remote-session storage.
- * @evidence contracts/testing.md#execution-ownership TestSwaggerRefusedRemoteDocumentIsNotRemembered is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#distinguishing-cases A rejected URL outcome is offered to rememberSwaggerDocument and the address lookup must miss. The remembered-and-hit counterpart for a successful URL is the separate remote-cache test; no later successful store for the same URL is exercised here.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerRefusedRemoteDocumentIsNotRemembered is a selectable native Go unit entry. It calls rememberSwaggerDocument and lookupSwaggerDocument against isolated in-memory caches in-process; no consumer, Node process, native build or product host is started.
  */
 func TestSwaggerRefusedRemoteDocumentIsNotRemembered(t *testing.T) {
   source := "https://example.com/openapi.json"
-  swaggerRemoteDocuments = newSwaggerCache()
+  isolateSwaggerCache(t)
   rememberSwaggerDocument(source, "", swaggerDocumentOutcome{
     Rejected: true,
     Problem:  "connection refused",

@@ -16,10 +16,10 @@ import (
  *  1. Let a disabled claim acknowledge the shared requirement.
  *  2. Leave an enabled sibling that cites the same requirement unacknowledged.
  *  3. Assert the enabled obligation still fails.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule is exercised with the scenario below; the assertions require the enabled obligation still fails.
- * @evidence contracts/testing.md#independent-expectations Evidence coverage is claim-local even when references select the same target. A declaration that exists only in a disabled claim must disappear with that claim rather than covering an enabled sibling by accident.
- * @evidence contracts/testing.md#distinguishing-cases Let a disabled claim acknowledge the shared requirement. Leave an enabled sibling that cites the same requirement unacknowledged. Assert the enabled obligation still fails.
- * @evidence contracts/testing.md#execution-ownership TestDisabledClaimCannotCoverAnEnabledSibling is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule over a disabled claim on src/staged.ts, which cites `docs/requirement.md#shared`, and an enabled claim on the uncited src/live.ts with a reference to the same requirement; the test requires exactly one message, mentioning `Claim 2` and `Missing acknowledgement`.
+ * @evidence contracts/testing.md#independent-expectations The expected single report is authored from the claim-locality contract: a declaration that exists only under a disabled claim must disappear with it, so the enabled sibling's obligation stays unmet and the disabled claim adds no message.
+ * @evidence contracts/testing.md#distinguishing-cases The two claims share one requirement and differ by `disabled`; covering the enabled claim from the disabled file would give no message, and reporting the disabled claim would give a second message.
+ * @evidence contracts/testing.md#execution-ownership TestDisabledClaimCannotCoverAnEnabledSibling is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestDisabledClaimCannotCoverAnEnabledSibling(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

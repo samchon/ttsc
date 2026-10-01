@@ -17,10 +17,10 @@ import (
 //  1. Seed the curried-arrow canonical (already correct).
 //  2. Run `ttsc format`.
 //  3. Assert it converges and leaves the source unchanged.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises cedes closing brace under wrapped head and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert it converges and leaves the source unchanged.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: The canonical is already correct, so `ttsc format` must be a no-op; a naive closing-brace re-indent would pull the `}` to column 0 and corrupt it. . The asserted decision is: Assert it converges and leaves the source unchanged. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatCedesClosingBraceUnderWrappedHead owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command (semi false) on a curried generic arrow whose `): void => {` head is wrapped, and asserts exit 0, no did-not-converge message, and the file unchanged, including the closing braces of the inner `if` and the arrow body.
+// @evidence contracts/testing.md#independent-expectations The source is an authored, already-correct layout and serves as its own expected output; the expectation is not derived from the formatter.
+// @evidence contracts/testing.md#distinguishing-cases One no-change case guarding against a closing-brace re-indent pulling `}` to column 0 under a wrapped head. No malformed input is included, so correction of a wrong brace indent here is not demonstrated.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand against a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatCedesClosingBraceUnderWrappedHead(t *testing.T) {
   canonical := "export const createHook =\n" +
     "  <T extends Function = () => any>(lifecycle: LifecycleHooks) =>\n" +

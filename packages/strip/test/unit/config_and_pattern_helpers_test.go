@@ -17,7 +17,7 @@ import (
 // 3. Assert exact, wildcard, empty, and mismatched call patterns.
 //
 // @evidence contracts/testing.md#behavioral-verification Calls strip parsers, pattern/array/slice helpers and nil AST adapters to assert defaults, explicit trace options, invalid inputs and safe nil guards.
-// @evidence contracts/testing.md#independent-expectations Default console.log/console.debug/assert.* and debugger policy follows the strip contract; literal exact/wildcard expectations distinguish segment matching and permitted statements.
+// @evidence contracts/testing.md#independent-expectations The default policy strips console.log, assert.* and debugger statements but not console.info, which the literal default assertions check; literal exact/wildcard expectations distinguish segment matching, and the explicit trace config proves an empty statements list disables the debugger default.
 // @evidence contracts/testing.md#distinguishing-cases Owns default/explicit options, missing/nil/wrong-type/blank/non-string arrays, malformed call parts/middle wildcard, unsupported return statement, exact/wildcard matching, unequal slices and nil guards. Nonnil AST transforms stay in boundary cases.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestConfigAndPatternHelpers is selected from test/unit by the utility runner unit overlay. Runs stripParseStrip, stripParseCallPattern, matching/config helpers and nil traversal adapters in the Go process; no Program, parser session or subprocess is prepared.
 func TestConfigAndPatternHelpers(t *testing.T) {

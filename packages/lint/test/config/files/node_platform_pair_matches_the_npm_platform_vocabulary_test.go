@@ -14,7 +14,7 @@ import (
 // resolves nothing on every Windows or x64 host while every fixture built from
 // the same function keeps agreeing with itself. Expectations come from Node's
 // documented values and the `@ttsc/{os}-{arch}` package names in
-// scripts/platform-target.cjs, not from this function's own output.
+// packages/ttsc/build/platform-package.cjs, not from this function's own output.
 //
 //  1. Map every target the workspace publishes a platform package for.
 //  2. Assert the divergent members are translated and the rest pass through.

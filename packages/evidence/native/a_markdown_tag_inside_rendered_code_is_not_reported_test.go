@@ -19,13 +19,10 @@ import (
  *  2. Evaluate the same claim.
  *  3. Assert neither is reported.
  *
- * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies an example that renders as code without being a fence is not reported.
- *
- * @evidence contracts/testing.md#independent-expectations MDX template code and HTML pre render examples rather than declarations; the real comment already covers the obligation, so neither may report a prose tag.
- *
- * @evidence contracts/testing.md#distinguishing-cases Write a citation inside each rendered-code syntax. Evaluate the same claim. Assert neither is reported.
- *
- * @evidence contracts/testing.md#execution-ownership TestAMarkdownTagInsideRenderedCodeIsNotReported is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#behavioral-verification runProseTagRule runs graphRule.Check over a plan document in two t.Run subtests, one with a tag line inside an MDX `<Code ... code={`...`} />` template literal and one inside an HTML `<pre>` block; each asserts an empty diagnostic list.
+ * @evidence contracts/testing.md#independent-expectations Silence is required because both constructs render as code examples, so reporting would tell the author to delete rendered documentation; the helper's valid comment citation discharges the obligation, so any diagnostic could only come from the example.
+ * @evidence contracts/testing.md#distinguishing-cases Two negative cases for rendered-code syntaxes that are not fences; fences, indented code and positive prose reports are owned by sibling entries.
+ * @evidence contracts/testing.md#execution-ownership TestAMarkdownTagInsideRenderedCodeIsNotReported is a Go unit entry in the native test process that owns two t.Run subtests; runProseTagRule writes the Markdown to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestAMarkdownTagInsideRenderedCodeIsNotReported(t *testing.T) {
   for name, plan := range map[string]string{

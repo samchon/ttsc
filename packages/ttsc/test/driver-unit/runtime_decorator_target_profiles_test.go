@@ -14,13 +14,14 @@ import (
 )
 
 // TestRuntimeDecoratorTargetProfiles observes actual compiler emit without a
-// native executable or Node host. The same actual emitted JavaScript is handed to the Node unit runner in memory
-// for portable execution effects; real runtime assembly stays in E2E consumers.
+// native executable or Node host. Each subtest prints its emitted JavaScript as
+// a TTSC_RUNTIME_EMIT_V1 record for a Node VM consumer file; this test itself
+// only inspects the emitted text.
 //
-// @evidence contracts/testing.md#behavioral-verification LoadProgram parses each real fixture configuration and CLI overlay; EmitAllRaw must retain optional chaining at modern/default targets, lower it at ES2019, and select the standard or legacy decorator protocol.
-// @evidence contracts/testing.md#independent-expectations Optional chaining belongs to ES2020 and later. The fixture's optional function must therefore retain ?. at default/ES2025 and lose it at ES2019. Standard decorators use __esDecorate while experimentalDecorators uses __decorate; emitted artifacts, rather than repository source arrangement, are inspected.
-// @evidence contracts/testing.md#distinguishing-cases Default, ES2025, ES2019, CLI ES2019 overriding ESNext, CLI null clearing ESNext, and legacy ESNext are separate named subtests. The additional ES2025 member witness covers private field, auto-accessor and class/static/instance initializer ordering. Each requires a nonempty actual index.js, zero configuration/emit diagnostics and both positive and negative helper distinctions. The Node VM unit executes the same compiler output against authored replacement/method/legacy literals; real assembly and member initialization have an actual VM owner; native ESM assembly remains in the member boundary consumer.
-// @evidence contracts/testing.md#execution-ownership This named Go test calls the owning driver library in process and creates only temporary compiler-input files; it does not install a consumer, build a native product artifact or launch a host. Each subtest closes its Program and owns its temporary directory. The physical driver-unit package is separate from native-host and race populations; its unit runner enrollment selects this package explicitly.
+// @evidence contracts/testing.md#behavioral-verification Each subtest writes a tsconfig and the authored decorator fixture, runs driver.LoadProgram with the profile's target and CLI overlay, requires zero configuration, program and emit diagnostics, and captures index.js from EmitAllRaw. The emitted text must keep the ?. optional-chaining operator when the effective target is ES2020 or later, lower it at ES2019, and use the standard decorator helpers (__esDecorate, __runInitializers) or the legacy __decorate helper according to experimentalDecorators. The emitted program is not executed here; execution effects belong to tests/test-ttsc/src/features/runtime/test_runtime_compiler_output_preserves_decorator_effects.cjs, whose runner is not part of this test.
+// @evidence contracts/testing.md#independent-expectations Optional chaining is an ES2020 feature, so the fixture's value?.answer must survive at the default target and ES2025 and be lowered at ES2019. Standard TC39 decorators lower to __esDecorate and __runInitializers while experimentalDecorators lowers to __decorate; these are the TypeScript helper names and not values captured from this build. The members subtest asserts only helper selection, diagnostics and nonempty output; its initializer ordering and private-field values are not checked in Go.
+// @evidence contracts/testing.md#distinguishing-cases Seven subtests differ in the effective target source: default, ES2025 in tsconfig, ES2019 in tsconfig, tsconfig ESNext overridden by CLI -t es2019, tsconfig ESNext cleared by CLI --target null, legacy decorators at ESNext, and an ES2025 member fixture. The optional-chaining check separates the lowering targets from the retaining ones, and the three helper checks (__esDecorate, __decorate, __runInitializers) separate standard from legacy emission in both directions.
+// @evidence contracts/testing.md#execution-ownership This named Go test calls driver.LoadProgram and Program.EmitAllRaw in the existing unit test process over temporary compiler inputs and the shared decorator fixture file. It builds or launches no product binary, consumer installation or host and runs no Node process. Each subtest defers Program.Close and owns its t.TempDir workspace.
 func TestRuntimeDecoratorTargetProfiles(t *testing.T) {
   fixtureBytes, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "tests", "test-ttsc", "src", "internal", "runtime-decorator-fixture.json"))
   if err != nil { t.Fatal(err) }
@@ -97,6 +98,11 @@ export function optional(value?: { answer: number }) { return value?.answer; }
       }
       if got := strings.Contains(output, "__decorate"); got != c.legacy {
         t.Fatalf("legacy decorator helper: got %v, want %v\n%s", got, c.legacy, output)
+      }
+      // Standard decorators run their added initializers through
+      // __runInitializers; the legacy protocol has no initializer concept.
+      if got := strings.Contains(output, "__runInitializers"); got == c.legacy {
+        t.Fatalf("standard initializer helper: got %v, legacy %v\n%s", got, c.legacy, output)
       }
     })
   }

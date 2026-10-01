@@ -14,7 +14,7 @@ import (
 //  3. Require the five named phases and reject fixture paths and JSON bodies.
 //
 // @evidence contracts/testing.md#behavioral-verification TestServePhaseTraceIsOptInAndPayloadFree proves the benchmark diagnostic is disabled by default and exposes timings without project or request content.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the five named phases and reject fixture paths and JSON bodies.
+// @evidence contracts/testing.md#independent-expectations The expectation is the opt-in contract: with the trace variable empty stderr must stay empty, and with it set to 1 each of the five phase names must appear in a literal 'owner=producer request=17 mode=initial phase=<name> durationMs=' line while the root path, the request field name and JSON braces must not. A trace that is always on or that prints payload fails.
 // @evidence contracts/testing.md#distinguishing-cases Run the same shard request through the source owner with tracing disabled and enabled; Capture only the server diagnostic stream, not the response payload; Require the five named phases and reject fixture paths and JSON bodies.
 // @evidence contracts/testing.md#execution-ownership TestServePhaseTraceIsOptInAndPayloadFree is a Go source-unit entry. serveSnapshotRequests performs actual NDJSON decoding and resident lifecycle through the source publisher; prepared projection consumes explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServePhaseTraceIsOptInAndPayloadFree(t *testing.T) {

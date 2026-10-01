@@ -14,7 +14,7 @@ import (
  * 2. Literal first/second reference documents and claim populations independently establish ownership; the message must pair docs/second.md#second with Claim 1 first.
  *
  * @evidence contracts/testing.md#behavioral-verification An exclusion in First naming only the second claim reference is rejected as non-participating for Claim 1.
- * @evidence contracts/testing.md#independent-expectations Literal first/second reference documents and claim populations independently establish ownership; the message must pair docs/second.md#second with Claim 1 first.
+ * @evidence contracts/testing.md#independent-expectations Literal first/second reference documents and claim populations independently establish ownership; the output must contain the non-participating message for target docs/second.md#second and, separately, the context text "Claim 1 ('first') across reference 1"; the two substrings are checked independently over the joined output, not within one message.
  * @evidence contracts/testing.md#distinguishing-cases A valid Second citation cannot legalize the foreign exclusion in First; independent-claim coverage and eligible-carrier placement have separate cases.
  * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticGraphReportsNonParticipatingExclusion owns these assertions. runIndexRule invokes graphRule.Check once for both typed claims and their temporary Markdown documents.
  */

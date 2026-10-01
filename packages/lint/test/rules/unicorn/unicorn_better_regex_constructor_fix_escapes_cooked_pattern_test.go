@@ -16,7 +16,7 @@ import "testing"
 // the named escapes (`\n \r \t \b \f \v`), the braced `\u{HEX}` form for the
 // remaining unsafe code points, and the raw pass-through of exotic whitespace,
 // astral symbols, and the non-delimiter quotes are all pinned. Exotic code
-// points are built from Go escapes and concatenated so every byte is explicit.
+// points are held in named constants and concatenated so every byte is explicit.
 //
 //  1. Fix constructors whose cooked pattern carries line terminators, controls,
 //     quote characters, exotic whitespace, and astral symbols.

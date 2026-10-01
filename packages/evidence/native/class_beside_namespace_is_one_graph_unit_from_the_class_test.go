@@ -17,10 +17,10 @@ import (
  *  1. Declare a class and a value-exporting namespace of one name.
  *  2. Materialize the inventory.
  *  3. Assert the type unit reports the class, and both halves contribute.
- * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the type unit reports the class, and both halves contribute.
- * @evidence contracts/testing.md#independent-expectations Both halves are type units under one identity. This order is the common one, because an *instantiated* namespace above its class is `TS2434`, and the namespace here exports a value. The namespace keeps its own members, because a companion namespace beside a class is authored contract rather than the static-side machinery a function-merged namespace holds. Its twin below covers the order TypeScript does allow. The authored scenario requires this outcome: Assert the type unit reports the class, and both halves contribute.
- * @evidence contracts/testing.md#distinguishing-cases Declare a class and a value-exporting namespace of one name. Materialize the inventory. Assert the type unit reports the class, and both halves contribute.
- * @evidence contracts/testing.md#execution-ownership TestClassBesideNamespaceIsOneGraphUnitFromTheClass runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
+ * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory parses `export class Sale { price() }` followed by `export namespace Sale { export const version }` and the test requires a `type:Sale` unit at line 2, a `function:Sale.prototype.price` unit and a `property:Sale.version` unit.
+ * @evidence contracts/testing.md#independent-expectations The expected units and line are authored from the merged-identity contract: a class beside a namespace is one type unit reported from the class, while each half still contributes its own members; line 2 is where the class is written in the fixture.
+ * @evidence contracts/testing.md#distinguishing-cases The class-first order with a value-exporting namespace; the type unit's line must be the class's, and both halves' members must survive. The namespace-first ambient order is owned by a sibling entry. Only presence of these three targets is asserted, not exclusivity of the unit set.
+ * @evidence contracts/testing.md#execution-ownership TestClassBesideNamespaceIsOneGraphUnitFromTheClass is a Go unit entry in the native test process; parseTypeScriptInventory parses the source with the TypeScript parser and scans its inventory, with no consumer install or product host.
  */
 func TestClassBesideNamespaceIsOneGraphUnitFromTheClass(t *testing.T) {
   inventory := parseTypeScriptInventory(t, "src/Sale.ts", `

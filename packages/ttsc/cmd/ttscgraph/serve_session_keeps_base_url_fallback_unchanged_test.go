@@ -18,7 +18,7 @@ import (
 //  3. Assert the session remains unchanged because the paths target still wins.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies an unmatched baseUrl-style file does not invalidate a paths resolution.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the session remains unchanged because the paths target still wins.
+// @evidence contracts/testing.md#independent-expectations The expected outcome follows from the pinned TypeScript-Go resolver behavior stated in the test: a matching paths substitution does not fall back to baseUrl, so creating @generated/value.ts at the project root cannot change the resolved module and the snapshot must be unchanged with no dump. A resident session that tracked a baseUrl probe would report a reload.
 // @evidence contracts/testing.md#distinguishing-cases Load a paths import whose configured fallback target exists; Create only the corresponding baseUrl-style file; Assert the session remains unchanged because the paths target still wins.
 // @evidence contracts/testing.md#execution-ownership TestServeSessionKeepsBaseURLFallbackUnchanged is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionKeepsBaseURLFallbackUnchanged(t *testing.T) {

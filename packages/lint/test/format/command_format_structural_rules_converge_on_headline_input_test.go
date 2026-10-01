@@ -23,10 +23,10 @@ import (
 //  2. Run `ttsc format`.
 //  3. Assert the file converges to the canonical Prettier output and the
 //     subcommand exits cleanly.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises structural rules converge on headline input and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert the file converges to the canonical Prettier output and the subcommand exits cleanly.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Seed a project plus a `format` block config (always-on rules). The asserted decision is: Assert the file converges to the canonical Prettier output and the subcommand exits cleanly. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatStructuralRulesConvergeOnHeadlineInput owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on one indented line holding four statements followed by blank and whitespace-only lines, and requires exit 0, empty output and the exact four-line file at column 0 with a single final newline and `console.log(a, b, c);` kept flat.
+// @evidence contracts/testing.md#independent-expectations The expected four-line text is an authored literal; the console.log call is 21 columns, so staying flat is the correct answer regardless of how the cascade got there.
+// @evidence contracts/testing.md#distinguishing-cases One input that changes in several ways at once (statement split, de-indent, trailing blank-line removal, no over-break); a failure in any of those rules or in their composition changes the output text.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatStructuralRulesConvergeOnHeadlineInput(t *testing.T) {
   source := "  const a: string = \"Hello, World!\"; let b: number = 42; var c: boolean = true; console.log(a, b, c);\n\n\n  \n"
   want := "const a: string = \"Hello, World!\";\n" +

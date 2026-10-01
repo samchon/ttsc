@@ -23,7 +23,7 @@ import (
 //
 // Usage:
 //
-//  node scripts/bench-go-lint.cjs -bench=^BenchmarkEngineRun$ -benchtime=3s
+//  node `go test` -bench=^BenchmarkEngineRun$ -benchtime=3s
 func BenchmarkEngineRun(b *testing.B) {
   source := engineBenchSource()
   file := parseBenchTSFile(b, "/virtual/bench.ts", source)

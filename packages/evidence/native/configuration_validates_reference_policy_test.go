@@ -20,7 +20,7 @@ import (
  *
  * @evidence contracts/testing.md#distinguishing-cases Omitted reference policy contrasts all four explicitly false policy flags without changing the zero-value model.
  *
- * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticReferencePolicyDefaultsPreserveReferenceBehavior is the selectable unit entry in packages/evidence/native, compiled beside its owning implementation in the shared Go unit process. It invokes decodeGraphConfig and its decoder/assertion helpers in process; its JSON artifact/package names are input strings and trigger no installation, artifact loader, native plugin build, or child process. Its local table variants remain owned by this entry.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticReferencePolicyDefaultsPreserveReferenceBehavior is a Go unit entry in the native test process; it calls decodeGraphConfig on one in-memory JSON string with no filesystem, package installation, artifact build or product host, and loops over the two decoded references rather than a table of variants.
  */
 func TestEvidenceSemanticReferencePolicyDefaultsPreserveReferenceBehavior(t *testing.T) {
   config, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{

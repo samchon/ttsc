@@ -26,10 +26,10 @@ import (
 //  1. Run `ttsc format` on the one-line source.
 //  2. Assert convergence and byte equality with the expected output.
 //  3. Run it again and assert the output does not move (idempotence).
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises restores stranded brace from one line block and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Run it again and assert the output does not move (idempotence).
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Run `ttsc format` on the one-line source. The asserted decision is: Run it again and assert the output does not move (idempotence). Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatRestoresStrandedBraceFromOneLineBlock owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Eight subcases (function body, if-else, for, while, try-catch-finally, class and method body, arrow body, switch case block) run the in-process `format` command on one-line blocks and require exit 0, no did-not-converge message, the exact expanded text, and an unchanged second run.
+// @evidence contracts/testing.md#independent-expectations Each expected output is an authored literal that the test comments say is the Prettier 3.8.3 output (not re-verified by this unit); the second-pass check is layered on the literal comparison, so a stable but malformed layout fails.
+// @evidence contracts/testing.md#distinguishing-cases Each block kind is a separate input that must change from one line to Prettier's layout with the closing brace on its own line; this distinguishes a cascade that splits the body but strands `}` at the end of the last statement.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase seeds a temp-dir project and calls run with the format subcommand through formatOnceForBrace (defined in this file, also used by sibling tests); no child process, built binary or installed consumer.
 func TestCommandFormatRestoresStrandedBraceFromOneLineBlock(t *testing.T) {
   for _, tc := range []struct {
     name   string

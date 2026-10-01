@@ -11,10 +11,10 @@ import "testing"
  *  1. Precede an export with a non-JSDoc block comment.
  *  2. Run the rule.
  *  3. Assert the export is still reported.
- * @evidence contracts/testing.md#behavioral-verification runDocumentedRule exercises this case: Verifies a detached block comment does not satisfy the rule. The original assertions check assert the export is still reported.
- * @evidence contracts/testing.md#independent-expectations The twin of the line-comment case one syntax away: a `/* *\/` block that is not a JSDoc block is equally unreadable to the tag collector. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Precede an export with a non-JSDoc block comment. Run the rule. Assert the export is still reported. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestDocumentedRejectsNonJsdocBlockComments is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runDocumentedRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over an `export function parse` preceded only by a `/* ... *\/` (non-JSDoc) block comment containing an `@evidence` tag; assertReported requires exactly one diagnostic, `Missing JSDoc on exported function 'parse'`.
+ * @evidence contracts/testing.md#independent-expectations The expected report is authored from the same constraint as the line-comment case: a block comment that is not a JSDoc block is unreadable to the tag collector, so it must not satisfy the rule.
+ * @evidence contracts/testing.md#distinguishing-cases A non-JSDoc block comment on an otherwise bare export, the syntactic neighbor of the `//` form owned by a sibling entry.
+ * @evidence contracts/testing.md#execution-ownership TestDocumentedRejectsNonJsdocBlockComments is a Go unit entry in the native test process; runDocumentedRule parses the source with the TypeScript parser and calls the documented rule directly, with no consumer install or product host.
  */
 func TestDocumentedRejectsNonJsdocBlockComments(t *testing.T) {
   messages := runDocumentedRule(t, "src/parse.ts", `

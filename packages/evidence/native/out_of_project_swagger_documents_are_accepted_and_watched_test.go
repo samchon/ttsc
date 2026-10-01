@@ -20,9 +20,9 @@ import (
  *  2. Decode them and publish the rule's project inputs.
  *  3. Assert both normalize as written and arrive as exact file dependencies.
  *
- * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig and graphProjectInputs preserve ascending/absolute Swagger sources and reject directory spellings.
- * @evidence contracts/testing.md#independent-expectations Authored external file locations and invalid directory table define file semantics.
- * @evidence contracts/testing.md#distinguishing-cases External files remain valid while directories do not; no Node normalization runs.
+ * @evidence contracts/testing.md#behavioral-verification decodeGraphConfig decodes a claim with an ancestor-relative and a drive-absolute Swagger file and must report no problem and keep both sources exactly as written; normalizeSwaggerSource is called on four directory spellings; graphRule.ProjectInputs (through declaredInputs) must publish both files as file inputs.
+ * @evidence contracts/testing.md#independent-expectations The expected sources and the exact published file patterns are authored literals ("../contracts/swagger.json", "C:/shared/contracts/openapi.yaml"), and the directory spellings ("C:/", "/", "../contracts/", "..") are authored as things that cannot name a document, none computed by the implementation.
+ * @evidence contracts/testing.md#distinguishing-cases Two out-of-project file spellings must be accepted and watched, while four directory spellings must each be refused by normalizeSwaggerSource; the body has no in-project positive case, and an http(s) URL source is not exercised.
  * @evidence contracts/testing.md#execution-ownership TestOutOfProjectSwaggerDocumentsAreAcceptedAndWatched is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
  */
 func TestOutOfProjectSwaggerDocumentsAreAcceptedAndWatched(t *testing.T) {

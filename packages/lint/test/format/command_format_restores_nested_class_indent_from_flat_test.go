@@ -20,10 +20,10 @@ import (
 //  1. Flatten a function-nested class canonical to column 0.
 //  2. Run `ttsc format`.
 //  3. Assert it converges and restores the canonical exactly.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises restores nested class indent from flat and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite. The owned result is: Assert it converges and restores the canonical exactly.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Flatten a function-nested class canonical to column. The asserted decision is: Assert it converges and restores the canonical exactly. Other fixture shapes remain in their separately named hosts.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatRestoresNestedClassIndentFromFlat owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Strips the leading whitespace from every line of an authored function containing a nested class `C` with a method, runs the in-process `format` command (semi false), and requires exit 0 without a did-not-converge message and the file equal to the authored indented text, including both closing braces.
+// @evidence contracts/testing.md#independent-expectations The expected text is an authored canonical literal; the flat input is derived from it by removing leading whitespace, which leaves the syntax tree identical.
+// @evidence contracts/testing.md#distinguishing-cases One input that must change at a non-zero nesting depth: class line, member header, body and the class and method closing braces all start at column 0; a class body is not a Block, so its closing brace needs its own branch.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatRestoresNestedClassIndentFromFlat(t *testing.T) {
   canonical := "function f() {\n" +
     "  class C {\n" +

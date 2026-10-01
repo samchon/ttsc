@@ -16,7 +16,6 @@ import (
 //
 // 1. Call RunLSPServer with Cwd="".
 // 2. Assert ErrLSPCwdRequired is returned.
-// 3. Assert no goroutines were started (function returns before any).
 func TestLSPServerRejectsEmptyCwd(t *testing.T) {
   err := driver.RunLSPServer(context.Background(), driver.LSPServerOptions{
     In:  io.NopCloser(nil),

@@ -16,10 +16,10 @@ import (
  *  1. Disable the only claim that references a staged Markdown section.
  *  2. Cite that staged section beside a valid citation in an enabled claim.
  *  3. Assert the staged target is unresolved rather than leaked globally.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule is exercised with the scenario below; the assertions require the staged target is unresolved rather than leaked globally.
- * @evidence contracts/testing.md#independent-expectations Target lookup is assembled globally from active obligations. Filtering only during coverage would leave a disabled reference addressable and turn an actually unresolved declaration into a misleading participation failure.
- * @evidence contracts/testing.md#distinguishing-cases Disable the only claim that references a staged Markdown section. Cite that staged section beside a valid citation in an enabled claim. Assert the staged target is unresolved rather than leaked globally.
- * @evidence contracts/testing.md#execution-ownership TestDisabledClaimContributesNoResolvableTargets is a Go unit entry beside the owning evidence package. The repository Go runner executes it in the native test process; fixtures and direct rule calls exercise portable operations without installing a consumer or building a producer.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule over a disabled claim whose reference is docs/staged.md and an enabled claim over src/live.ts whose interface cites both `docs/live.md#live` and `docs/staged.md#staged`; the test requires exactly one message, containing `Unresolved evidence target 'docs/staged.md#staged'`.
+ * @evidence contracts/testing.md#independent-expectations The expected message is authored from the activation contract: target lookup is built from active obligations only, so a section referenced solely by a disabled claim must be unresolved for the enabled claim's citation rather than leaking globally.
+ * @evidence contracts/testing.md#distinguishing-cases The live citation resolves and is satisfied while the staged citation does not; the exact count of one message separates a leak (no message) from an additional participation failure (two messages).
+ * @evidence contracts/testing.md#execution-ownership TestDisabledClaimContributesNoResolvableTargets is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestDisabledClaimContributesNoResolvableTargets(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

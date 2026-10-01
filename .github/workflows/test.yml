@@ -1,19 +1,13 @@
 name: test
 
-on:
-  push:
-    branches:
-      - master
-  pull_request:
-  workflow_dispatch:
+on: pull_request
 
 concurrency:
-  group: unit-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  unit:
-    name: unit
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -28,7 +22,6 @@ jobs:
         with:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: "**/go.sum"
-      - name: Install unit test dependencies
-        run: pnpm --filter @ttsc/station --filter @ttsc/test-lint... --filter @ttsc/unplugin --filter @ttsc/test-factory... --filter @ttsc/test-playground... --filter @ttsc/test-wasm... --filter @ttsc/test-graph... --filter test-evidence... --filter @ttsc/test-metro... install --frozen-lockfile --ignore-scripts
-      - name: Run unit tests
-        run: node scripts/ci/run-unit-tests.cjs
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test:go
+      - run: pnpm run test:units

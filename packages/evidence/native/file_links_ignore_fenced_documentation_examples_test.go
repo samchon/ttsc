@@ -15,13 +15,10 @@ import (
  * 2. Add a real citation and review after it and assert both rules pass.
  * 3. Remove the real citation and verify the example supplies no coverage.
  *
- * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies fenced JSDoc examples neither cite, review, nor withdraw declarations.
- *
- * @evidence contracts/testing.md#independent-expectations Only the real citation outside the JSDoc fence acknowledges value; removing it owes coverage despite example links, reviews, and an internal tag.
- *
- * @evidence contracts/testing.md#distinguishing-cases Place link/review/internal examples inside a documentation fence. Add a real citation and review after it and assert both rules pass. Remove the real citation and verify the example supplies no coverage.
- *
- * @evidence contracts/testing.md#execution-ownership TestFileLinksIgnoreFencedDocumentationExamples is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#behavioral-verification A review.ts interface block holds a fenced example with `@link missing.ts#never`, `@evidenceReview` and `@internal`, followed by a real `@link target.ts#value` and its `@evidenceReview`; runIndexRule and runReviewRule must report nothing, and after replacing the real link with plain prose runIndexRule must report `Missing acknowledgement`.
+ * @evidence contracts/testing.md#independent-expectations The expectations are authored from the fence contract: the citation, review and withdrawal readers must share one fence boundary, so the example links, review and `@internal` neither cite, review nor withdraw, and only the real citation acknowledges the value.
+ * @evidence contracts/testing.md#distinguishing-cases The same file with and without the real citation: with it, the invalid example link must not fail and the example `@internal` must not withdraw the declaration; without it, the example must not supply coverage.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksIgnoreFencedDocumentationExamples is a Go unit entry in the native test process; runIndexRule and runReviewRule write the fixtures to temp directories and call the owning rules directly, with no consumer install or product host.
  */
 func TestFileLinksIgnoreFencedDocumentationExamples(t *testing.T) {
   source := "/**\n * ```ts\n * @link missing.ts#never Example only.\n * @evidenceReview missing.ts#never Example review.\n * @internal\n * ```\n * @link target.ts#value Valid citation.\n * @evidenceReview target.ts#value Verified the initializer.\n */\nexport interface Review {}\n"

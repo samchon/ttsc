@@ -22,7 +22,7 @@ import (
 //  3. Assert the text changed but the node-id set did not.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that a declaration keeps the same node id after lines are inserted above it. A byte-offset or line-number key would re-key every declaration below an edit, forcing a future incremental layer to churn the whole graph; the realpath + name + kind key does not.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the text changed but the node-id set did not.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: the first build must hold exactly three node ids (fn, value and the module node), the second build must be over a changed source text (a comment line prepended) and must hold the identical id set. The test does not assert that evidence spans move.
 // @evidence contracts/testing.md#distinguishing-cases Compile a fixture, capture its node ids and source text; Rewrite the same file with leading lines that shift every offset; Assert the text changed but the node-id set did not.
 // @evidence contracts/testing.md#execution-ownership TestNodeIdentityIsPositionInvariant is a Go source-unit entry. Build execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestNodeIdentityIsPositionInvariant(t *testing.T) {

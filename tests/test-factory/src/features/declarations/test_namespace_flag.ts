@@ -12,13 +12,13 @@ import { id, mod, num, print } from "../../internal/helpers";
  * `createModuleDeclaration` documented the opposite, so the package
  * contradicted itself and the published input did nothing (#834).
  *
- * 1. NodeFlags.Namespace makes an identifier module print namespace while the no-flag twin prints module.
- * 2. The two literal declarations independently specify the flag-controlled keyword while retaining the same block semantics.
+ * 1. Build an exported identifier-named module App containing `const x = 1;`, pass NodeFlags.Namespace to createModuleDeclaration and print it.
+ * 2. Compare against the literal `export namespace App` declaration with a two-space indented body.
  *
- * @evidence contracts/testing.md#behavioral-verification NodeFlags.Namespace makes an identifier module print namespace while the no-flag twin prints module.
- * @evidence contracts/testing.md#independent-expectations The two literal declarations independently specify the flag-controlled keyword while retaining the same block semantics.
- * @evidence contracts/testing.md#distinguishing-cases Flagged/unflagged adjacent inputs detect both ignored flags and unconditional namespace emission.
- * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_namespace_flag. Calls createModuleDeclaration with and without Namespace and TsPrinter.print directly.
+ * @evidence contracts/testing.md#behavioral-verification createModuleDeclaration with NodeFlags.Namespace and an identifier name is printed by TsPrinter.print with the namespace keyword.
+ * @evidence contracts/testing.md#independent-expectations The literal three-line `export namespace App` block containing `const x = 1;` is authored from TypeScript syntax and the flag contract in the doc comment, not captured from the printer.
+ * @evidence contracts/testing.md#distinguishing-cases Only the flagged input is executed here, which detects an ignored flag that always emits module; the unflagged module keyword form and the string-named module are owned by test_module_namespace.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_namespace_flag. Calls createModuleDeclaration with NodeFlags.Namespace and TsPrinter.print directly in process.
  */
 export const test_namespace_flag = (): void => {
   const constX = factory.createVariableStatement(

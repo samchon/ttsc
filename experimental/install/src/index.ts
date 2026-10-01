@@ -19,7 +19,7 @@ const platformTarball = `ttsc-${platformKey}`;
 const packageTarballs = ["banner", "lint", "paths", "strip"];
 const registryDependencies = ["typescript@^7.0.2"];
 const { runIndependent } = createRequire(import.meta.url)(
-  "../../../scripts/ci/run-independent.cjs",
+  "../../test-unplugin/src/contracts/run-independent.cjs",
 );
 
 main().catch((error) => {
@@ -97,9 +97,7 @@ async function main() {
 
 function prepareCurrentTarballs() {
   if (process.env.TTSC_INSTALL_SKIP_BUILD !== "1")
-    run("pnpm run build:current", root, {
-      TTSC_BUILD_SCOPE: process.env.TTSC_INSTALL_BUILD_SCOPE || "experimental",
-    });
+    run("pnpm run build", root);
 
   fs.mkdirSync(tarballs, { recursive: true });
   for (const name of ["ttsc", platformTarball, ...packageTarballs]) {

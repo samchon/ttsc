@@ -25,7 +25,7 @@ import { id, print } from "../../internal/helpers";
  * @evidence contracts/testing.md#behavioral-verification Comma operators attach to their left operand and preserve nested list order without a leading space.
  * @evidence contracts/testing.md#independent-expectations Literal a, b and nested comma expectations specify separator bytes independently, with ordinary plus as a control.
  * @evidence contracts/testing.md#distinguishing-cases Binary comma, comma-list and nested forms contrast with a + b, catching accidental removal of normal operator spacing.
- * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_comma_operator_attaches_to_the_left_operand. Calls createBinaryExpression/createCommaListExpression and print directly.
+ * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_comma_operator_attaches_to_the_left_operand. Calls createComma (flat and nested), createCommaListExpression and createBinaryExpression with a plus token, printing each through TsPrinter.print.
  */
 export const test_comma_operator_attaches_to_the_left_operand = (): void => {
   TestValidator.equals(

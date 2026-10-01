@@ -20,7 +20,7 @@ import (
  * @evidence contracts/testing.md#behavioral-verification isRemoteSwaggerSource accepts the URL table and rejects the local path table.
  * @evidence contracts/testing.md#independent-expectations Explicit positive/negative strings specify remote classification.
  * @evidence contracts/testing.md#distinguishing-cases HTTP/HTTPS spellings differ from native/local file paths.
- * @evidence contracts/testing.md#execution-ownership TestSwaggerClassifiesRemoteSources is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerClassifiesRemoteSources is a selectable native Go unit entry. It calls isRemoteSwaggerSource over literal strings in-process; no consumer, Node process, native build or product host is started.
  */
 func TestSwaggerClassifiesRemoteSources(t *testing.T) {
   for _, source := range []string{

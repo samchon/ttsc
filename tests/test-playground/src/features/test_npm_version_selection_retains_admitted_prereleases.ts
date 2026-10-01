@@ -12,10 +12,10 @@ import { selectVersion } from "../../../../packages/playground/src/npm/internal/
  *    combined range requests, requiring the literal expected version.
  * 3. Require disjoint tag and range combinations, and an unknown tag, to throw.
  *
- * @evidence contracts/testing.md#behavioral-verification Every ten-row registry constraint is evaluated even after another row fails.
- * @evidence contracts/testing.md#independent-expectations The version records and expected tag/range choices are literals authored from semver precedence and exact-tag intersection.
- * @evidence contracts/testing.md#distinguishing-cases Stable defaults, exact prereleases, prerelease ranges, same/different tags, missing tags and incompatible intersections distinguish admission from final ranking.
- * @evidence contracts/testing.md#execution-ownership This exported src/features entry executes the owning source operations in this test process, without installing a consumer, building a native producer or fabricating process protocol replies.
+ * @evidence contracts/testing.md#behavioral-verification selectVersion is called on one three-version packument for ten authored range/tag lists; seven must return the literal expected version and three (latest+next, an unknown tag, next+^1) must throw. Failures from every row are collected and rethrown together.
+ * @evidence contracts/testing.md#independent-expectations The expected versions are hand-written from semver precedence (a bare wildcard skips prereleases, an explicit prerelease range admits them, two different tags have an empty intersection), not computed from selectVersion.
+ * @evidence contracts/testing.md#distinguishing-cases A wildcard picks the stable 1.0.0 while the next tag and an exact prerelease pick 2.0.0-beta.1, a prerelease range picks the higher beta.2, a tag combined with a compatible range keeps the tag's version, and disjoint tag/tag, tag/^1 and unknown-tag requests must throw.
+ * @evidence contracts/testing.md#execution-ownership Unit-layer entry exported from src/features that calls only the pure selectVersion helper on an in-memory packument; no installer, network or host runs.
  */
 export function test_npm_version_selection_retains_admitted_prereleases(): void {
   const metadata = { name: "fixture", versions: { "1.0.0": { name: "fixture", version: "1.0.0" }, "2.0.0-beta.1": { name: "fixture", version: "2.0.0-beta.1" }, "2.0.0-beta.2": { name: "fixture", version: "2.0.0-beta.2" } }, "dist-tags": { latest: "1.0.0", next: "2.0.0-beta.1", same: "1.0.0" } };

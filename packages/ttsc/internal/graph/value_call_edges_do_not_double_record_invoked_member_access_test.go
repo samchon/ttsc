@@ -21,7 +21,7 @@ import (
 //     edge from the same caller.
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies a property access used as an invocation target remains only a value-call edge.
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish each target has a value-call edge and no duplicate value-access edge from the same caller.
+// @evidence contracts/testing.md#independent-expectations The expectations are literal over service.run(), new Providers.Service() and Tags.html tagged template inside handle: for each of Providers.Service.run, Providers.Service and Tags.html there must be a value-call edge from handle and no value-access edge from handle to the same target.
 // @evidence contracts/testing.md#distinguishing-cases Compile method, constructor, and tagged-template calls whose callee/tag is a property access expression; Build the graph; Assert each target has a value-call edge and no duplicate value-access edge from the same caller.
 // @evidence contracts/testing.md#execution-ownership TestValueCallEdgesDoNotDoubleRecordInvokedMemberAccess is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestValueCallEdgesDoNotDoubleRecordInvokedMemberAccess(t *testing.T) {

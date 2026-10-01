@@ -23,7 +23,7 @@ import (
 //     heritage edge has Origin "implements".
 //
 // @evidence contracts/testing.md#behavioral-verification Verifies that a heritage edge carries the clause keyword as Origin, so the dump can split the single internal heritage kind into the schema's `extends` and `implements`: a class superclass records "extends", a class interface list records "implements".
-// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "extends", "implements"; the Sub->Sup heritage edge has Origin "extends" and the Sub->Iface heritage edge has Origin "implements".
+// @evidence contracts/testing.md#independent-expectations The expectations are literal: for class Sub extends Sup implements Iface the heritage edge Sub to Sup must have Origin extends and Sub to Iface must have Origin implements, so the clause keyword rather than the base's declaration kind selects the origin.
 // @evidence contracts/testing.md#distinguishing-cases Compile `class Sub extends Sup implements Iface` plus the base class and interface; Build the graph; Assert the Sub->Sup heritage edge has Origin "extends" and the Sub->Iface heritage edge has Origin "implements".
 // @evidence contracts/testing.md#execution-ownership TestHeritageEdgesRecordExtendsVersusImplementsOrigin is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestHeritageEdgesRecordExtendsVersusImplementsOrigin(t *testing.T) {

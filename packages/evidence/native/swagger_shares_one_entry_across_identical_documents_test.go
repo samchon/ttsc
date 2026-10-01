@@ -22,7 +22,7 @@ import (
  * @evidence contracts/testing.md#behavioral-verification loadSwaggerInventories returns both equal-byte documents with separate source-qualified POST IDs and no problems.
  * @evidence contracts/testing.md#independent-expectations Two literal paths share exact bytes but independently expected IDs include their own source names.
  * @evidence contracts/testing.md#distinguishing-cases Sharing outcomes must not collapse source identities.
- * @evidence contracts/testing.md#execution-ownership TestSwaggerSharesOneEntryAcrossIdenticalDocuments is one native Go unit entry in this file. The repository runner selects it in its unit population and calls the rule/parser/cache owner in the shared Go test process; authored inventories or fixture files establish inputs without installing a consumer or starting a product host. The warmed entry returns before process startup; the unavailable executable is a sentinel for an accidental cache miss, not a claimed real parser.
+ * @evidence contracts/testing.md#execution-ownership TestSwaggerSharesOneEntryAcrossIdenticalDocuments is a selectable native Go unit entry. It warms the swaggerDocuments cache for one of two byte-identical temp files and calls loadSwaggerInventories over both; TTSC_NODE_BINARY names an absent executable so an accidental cache miss would surface as a normalizer failure; the test runs in-process and starts no consumer, Node process, native build or product host.
  */
 func TestSwaggerSharesOneEntryAcrossIdenticalDocuments(t *testing.T) {
   isolateSwaggerCache(t)

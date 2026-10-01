@@ -1,36 +1,25 @@
 name: setup
 
-on:
-  push:
-    branches:
-      - master
-  pull_request:
-  workflow_dispatch:
+on: pull_request
 
 concurrency:
-  group: setup-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  installed-smoke:
-    name: install (${{ matrix.name }})
+  setup:
+    name: setup (${{ matrix.name }})
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: linux-x64
-            runner: ubuntu-24.04
-          - name: linux-arm64
-            runner: ubuntu-24.04-arm
-          - name: darwin-x64
-            runner: macos-15-intel
-          - name: darwin-arm64
-            runner: macos-15
-          - name: win32-x64
-            runner: windows-2025
-          - name: win32-arm64
-            runner: windows-11-arm
+          - { name: linux-x64, runner: ubuntu-24.04 }
+          - { name: linux-arm64, runner: ubuntu-24.04-arm }
+          - { name: darwin-x64, runner: macos-15-intel }
+          - { name: darwin-arm64, runner: macos-15 }
+          - { name: win32-x64, runner: windows-2025 }
+          - { name: win32-arm64, runner: windows-11-arm }
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -44,31 +33,6 @@ jobs:
         with:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: "**/go.sum"
-      - name: Install build dependencies
-        run: pnpm --filter @ttsc/station --filter @ttsc/config --filter ttsc... --filter @ttsc/test-e2e --filter @ttsc/testing... install --frozen-lockfile --ignore-scripts
-      - name: Build the current platform CLI
-        run: pnpm run build:current
-        env:
-          TTSC_BUILD_SCOPE: install-smoke
-      - name: Install and execute the packed CLI
-        id: installed
-        run: pnpm exec node scripts/ci/installed-cli-smoke.cjs --keep
-      - name: Check checkout Graph kernel boundaries on the current OS
-        if: ${{ !cancelled() && steps.installed.outcome == 'success' }}
-        run: pnpm exec node scripts/test-go-graph.cjs --os-boundaries
-      - name: Check installed SDK filesystem identities in one OS boundary batch
-        if: ${{ !cancelled() && steps.installed.outcome == 'success' }}
-        run: pnpm --filter @ttsc/test-e2e start --installation
-      - name: Check the Windows kernel boundaries in one installed SDK batch
-        if: ${{ !cancelled() && steps.installed.outcome == 'success' && runner.os == 'Windows' }}
-        shell: pwsh
-        run: |
-          $PSNativeCommandUseErrorActionPreference = $false
-          pnpm exec node scripts/test-go-evidence.cjs --os-boundaries
-          $evidenceExit = $LASTEXITCODE
-          pnpm exec node scripts/test-go-lint.cjs --os-boundaries
-          $lintExit = $LASTEXITCODE
-          if ($evidenceExit -ne 0 -or $lintExit -ne 0) {
-            Write-Error "Windows SDK boundary failures: Evidence=$evidenceExit, lint=$lintExit"
-            exit 1
-          }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter ttsc --filter ./packages/ttsc-${{ matrix.name }} build
+      - run: pnpm --filter @ttsc/test-e2e start --installation

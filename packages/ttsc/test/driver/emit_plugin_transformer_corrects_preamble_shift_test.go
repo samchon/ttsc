@@ -26,16 +26,16 @@ func (preambleEmitPlugin) SourcePreamble(driver.PluginContext) (string, error) {
 //
 // The preamble correction was first wired only into the utility host's WriteFile
 // (tsgo native emit). An executable-transform host emits through
-// EmitWithPluginTransformers instead, where a linked banner's preamble still
-// shifts the map. EmitWithPluginTransformers now runs AdjustEmittedSourceMap too;
-// without it every mapping would land four lines too deep. No test otherwise
-// exercises that block, so this is its only coverage.
+// EmitWithPluginTransformer (a wrapper over EmitWithPluginTransformers)
+// instead, where a linked banner's preamble still shifts the map. That emit
+// corrects the map for the preamble too; without it every mapping would land
+// four lines too deep.
 //
 //  1. Register a SourcePreamblePlugin and load a `sourceMap` project, so the
 //     source is preamble-shifted by four lines and prog.SourcePreamble is set.
 //  2. Emit through EmitWithPluginTransformer with an identity transform.
-//  3. Decode the `.js.map` and assert the two authored statements map to source
-//     lines {0, 1}, not the shifted {4, 5}.
+//  3. Decode the `.js.map` and assert every mapping segment names a source line
+//     in {0, 1} (not the shifted {4, 5}) and that both lines 0 and 1 are mapped.
 func TestEmitWithPluginTransformerCorrectsPreambleShift(t *testing.T) {
   resetLinkedPluginRegistry()
   driver.RegisterPlugin(preambleEmitPlugin{})

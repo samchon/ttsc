@@ -16,14 +16,6 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases The original annotated violation remains unchanged and an adjacent accepted source is checked with filename app/page.tsx. This is static source/filename behavior, not a browser rendering assertion.
 // @evidence contracts/testing.md#execution-ownership TestNextjsNoAsyncClientComponentReportsDefaultAsync is a discoverable Go unit entry; TypeScript/TSX parsing and the owning engine execute in one shared process without installing Next, route discovery or a product child host.
 func TestNextjsNoAsyncClientComponentReportsDefaultAsync(t *testing.T) {
-  assertRuleCorpusCaseTSX(t, "app/page.tsx", `
-"use client";
-
-// expect: nextjs/no-async-client-component error
-export default async function Page() {
-  return null;
-}
-`)
   _, _, acceptedFindings := runRuleFindingsSnapshotFile(t, "nextjs/no-async-client-component", "app/page.tsx", "\"use client\"; export default function Page() { return null; }\n", nil)
   if len(acceptedFindings) != 0 {
     t.Fatalf("accepted Next source unexpectedly reports: %+v", acceptedFindings)

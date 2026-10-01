@@ -12,10 +12,10 @@ import "testing"
  *  1. Import from a module that does not exist and cite through it.
  *  2. Evaluate the graph.
  *  3. Assert the unresolved-module diagnostic names the specifier.
- * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies a specifier that resolves to nothing is reported as such. The original assertions check assert the unresolved-module diagnostic names the specifier.
- * @evidence contracts/testing.md#independent-expectations One property away from the unimported case, and repaired somewhere else entirely: the import exists, the module does not. Folding both into one message would send the author to the wrong file. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
- * @evidence contracts/testing.md#distinguishing-cases Import from a module that does not exist and cite through it. Evaluate the graph. Assert the unresolved-module diagnostic names the specifier. The assertions and inputs in this function retain its own failure identity.
- * @evidence contracts/testing.md#execution-ownership TestGraphReportsInlineLinkWithDanglingSpecifier is the selectable Go test entry; its local loops and closures remain owned by this entry. It calls runIndexRule within the native Go test process. Authored fixture files are rule inputs, not a consumer build or product host.
+ * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the import-scope configuration over a view that imports `* as missing from "./../api/absent.js"` (no such module) and cites `{@link missing.get}`; assertProblemContains requires `Unresolved module './../api/absent.js'`.
+ * @evidence contracts/testing.md#independent-expectations The expected message is authored from the diagnostic contract: the import exists but the module does not, which is repaired elsewhere than a missing import, so the message must name the specifier rather than fold into the unimported case.
+ * @evidence contracts/testing.md#distinguishing-cases An import whose specifier resolves to no file, against the missing-import case in the sibling entry and the missing-member case in the unreachable-segment entry.
+ * @evidence contracts/testing.md#execution-ownership TestGraphReportsInlineLinkWithDanglingSpecifier is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestGraphReportsInlineLinkWithDanglingSpecifier(t *testing.T) {
   messages := runIndexRule(t, map[string]string{

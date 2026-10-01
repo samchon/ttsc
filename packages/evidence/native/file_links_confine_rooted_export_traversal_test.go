@@ -18,13 +18,10 @@ import (
  * 2. Assert the explicit root-boundary failure.
  * 3. Move its implementation into the root and verify recovery.
  *
- * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the file-link fixture exercises this case. Verifies rooted exports cannot silently escape into an unconfigured tree.
- *
- * @evidence contracts/testing.md#independent-expectations An explicit api root authorizes ./value but not ../private/value. The outside traversal must report the boundary and the repaired sibling must pass; derivative diagnostic suppression is not separately asserted.
- *
- * @evidence contracts/testing.md#distinguishing-cases Configure a disk barrel whose re-export leaves its root. Assert the explicit root-boundary failure. Move its implementation into the root and verify recovery.
- *
- * @evidence contracts/testing.md#execution-ownership TestFileLinksConfineRootedExportTraversal is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the file-link fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#behavioral-verification With a TypeScript reference rooted at `api`, graphRule.Check is run over temp files where api/index.ts re-exports `../private/value`, which must report `re-export leaves the explicitly configured root`; after api/index.ts is rewritten to re-export `./value` and api/value.ts is created, the check must report nothing.
+ * @evidence contracts/testing.md#independent-expectations The expectations are authored from the root contract: an explicit root authorizes `./value` but not `../private/value`, so the outside traversal must fail with the boundary reason and the repaired layout must pass.
+ * @evidence contracts/testing.md#distinguishing-cases The same link before and after moving the implementation into the root; whether derivative diagnostics are suppressed after the boundary failure is not asserted.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksConfineRootedExportTraversal is a Go unit entry in the native test process; a local write closure creates the temp files and a check closure calls graphRule.Check directly, with no consumer install or product host.
  */
 func TestFileLinksConfineRootedExportTraversal(t *testing.T) {
   root := t.TempDir()

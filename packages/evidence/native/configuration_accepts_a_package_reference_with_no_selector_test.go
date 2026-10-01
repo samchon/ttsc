@@ -21,7 +21,7 @@ import (
  *
  * @evidence contracts/testing.md#distinguishing-cases A package reference without a local selector is accepted as the adjacent negative twin of local reference omission.
  *
- * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticConfigurationAcceptsAPackageReferenceWithNoSelector is the selectable unit entry in packages/evidence/native, compiled beside its owning implementation in the shared Go unit process. It invokes decodeGraphConfig and its decoder/assertion helpers in process; its JSON artifact/package names are input strings and trigger no installation, artifact loader, native plugin build, or child process. Its local table variants remain owned by this entry.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticConfigurationAcceptsAPackageReferenceWithNoSelector is a Go unit entry in the native test process; it decodes one in-memory JSON reference through the decodeReferenceProblems helper and decodeGraphConfig with no filesystem, package installation, artifact build or product host, and has a single case with no table.
  */
 func TestEvidenceSemanticConfigurationAcceptsAPackageReferenceWithNoSelector(t *testing.T) {
   problems := decodeReferenceProblems(t, `{"type":"typescript","package":"@org/api"}`)

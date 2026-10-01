@@ -19,8 +19,8 @@ const construct = (target: Expression): Expression =>
  *
  * 1. Print `new` expressions targeting `C`, `a.b.C`, `new F()` (inner `new` with
  *    an argument list), and `new F().bar` (member access over it).
- * 2. Assert none of the targets are parenthesized, matching the legacy
- *    `ts.Printer`.
+ * 2. Assert none of the targets are parenthesized, against literal expected
+ *    text.
  * 3. Re-parse each output with the legacy compiler and assert the top-level
  *    expression is still a `NewExpression`.
  *

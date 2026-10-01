@@ -30,7 +30,7 @@ const arrow = (): Expression =>
  *    as the negative twin.
  * 3. Assert only the arrow operand is parenthesized.
  *
- * @evidence contracts/testing.md#behavioral-verification Arrow operands under as/satisfies are parenthesized, while asserted binary/identifier operands preserve their legal bare form.
+ * @evidence contracts/testing.md#behavioral-verification Arrow operands of as and satisfies are printed in parentheses; the as expression itself stays unparenthesized as the left operand of ||, and an identifier operand of as stays bare.
  * @evidence contracts/testing.md#independent-expectations Literal (() => x) as T and satisfies counterparts fix grouping from TypeScript precedence rather than another printer.
  * @evidence contracts/testing.md#distinguishing-cases As versus satisfies arrow wrappers and non-arrow negative twins prevent wrapping every assertion operand.
  * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_arrow_function_assertion_operand_parentheses. Builds each assertion operand with createArrowFunction/createAsExpression/createSatisfiesExpression and prints in process.

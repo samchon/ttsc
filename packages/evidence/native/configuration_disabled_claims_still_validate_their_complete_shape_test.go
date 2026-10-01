@@ -23,7 +23,7 @@ import (
  *
  * @evidence contracts/testing.md#distinguishing-cases The disabled gate must not conceal an unknown property, absent files or absent reference.
  *
- * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticDisabledClaimsStillValidateTheirCompleteShape is the selectable unit entry in packages/evidence/native, compiled beside its owning implementation in the shared Go unit process. It invokes decodeGraphConfig and its decoder/assertion helpers in process; its JSON artifact/package names are input strings and trigger no installation, artifact loader, native plugin build, or child process. Its local table variants remain owned by this entry.
+ * @evidence contracts/testing.md#execution-ownership TestEvidenceSemanticDisabledClaimsStillValidateTheirCompleteShape is a Go unit entry in the native test process; it calls decodeGraphConfig on one in-memory JSON string with no filesystem, package installation, artifact build or product host, and loops over three expected message fragments rather than a table of variants.
  */
 func TestEvidenceSemanticDisabledClaimsStillValidateTheirCompleteShape(t *testing.T) {
   _, problems := decodeGraphConfig(json.RawMessage(`{"claims":[{

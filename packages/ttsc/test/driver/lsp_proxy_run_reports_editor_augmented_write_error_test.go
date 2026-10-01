@@ -13,8 +13,8 @@ import (
 // TestLSPProxyRunReportsEditorAugmentedWriteError covers the
 // augmented-write branch of pumpUpstreamToEditor: a valid envelope
 // gets through augmentUpstream and then the editor pipe write fails.
-// This is the path that fires for the common cases (publishDiagnostics,
-// codeAction responses) so it must surface the error cleanly.
+// The same write path serves every forwarded upstream frame, so a failing
+// editor pipe must surface cleanly here.
 //
 // 1. Build a proxy with the editor consumer closed.
 // 2. Send a valid (parseable) upstream notification.

@@ -11,10 +11,10 @@ import "testing"
 //
 //  1. Exercise the authored command format preserves generic arg type literal indent fixtures through the Go format dispatcher.
 //  2. Require the exact authored output or rejection result for each fixture.
-// @evidence contracts/testing.md#behavioral-verification The in-process format command exercises preserves generic arg type literal indent and compares the complete resulting fixture text with the authored answer, so convergence alone cannot certify a wrong rewrite.
-// @evidence contracts/testing.md#independent-expectations The literal source or expected output is the independent answer key described above; the command result is never used to manufacture its expected bytes. Preservation assertions own only their canonical inputs and do not establish correctness for arbitrary malformed layout.
-// @evidence contracts/testing.md#distinguishing-cases This case owns the supplied fixtures for a regression guard for a type literal in a generic argument that is NOT inside a multi-line type operator: the literal opens on the property's own line, so block depth equals the visual indent and the depth model is correct. Format must keep the member at depth*tabWidth (contrast with the intersection case, where the literal opens on an indented `&`-chain line and must be ceded). Neighboring hosts retain their separately named complementary inputs.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatPreservesGenericArgTypeLiteralIndent owns the named subcases below through the Go format dispatcher and disposable JSON-configured source fixtures, without a child product host or installed consumer.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on an interface property `id: tags.Plugin<{ a: true; }>` whose literal opens on the property's own line, and requires the file byte-identical, keeping the member at depth times tab width.
+// @evidence contracts/testing.md#independent-expectations The source is an authored literal in Prettier's layout and is its own expected output.
+// @evidence contracts/testing.md#distinguishing-cases One fixed-point case where block depth equals the visual indent, the counterpart of the intersection and multi-line generic-argument cases that must be ceded. No wrongly indented input is repaired here.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatPreservesGenericArgTypeLiteralIndent(t *testing.T) {
   assertFormatUnchanged(t, `declare namespace tags {
   type Plugin<T> = object;

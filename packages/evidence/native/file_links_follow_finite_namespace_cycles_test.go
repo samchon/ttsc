@@ -12,13 +12,10 @@ import "testing"
  * 2. Cite their repeated paths from Markdown and import-scoped TypeScript.
  * 3. Verify one unit remains one obligation through every address.
  *
- * @evidence contracts/testing.md#behavioral-verification graphRule.Check through the authored project-rule fixture exercises this case. Verifies finite citation paths can traverse cyclic module namespaces.
- *
- * @evidence contracts/testing.md#independent-expectations Every finite self/other/back path ends at the same authored value; repeated namespace hops must preserve clean Markdown and inline TypeScript coverage.
- *
- * @evidence contracts/testing.md#distinguishing-cases Export a self namespace and a namespace that returns through another module. Cite their repeated paths from Markdown and import-scoped TypeScript. Verify one unit remains one obligation through every address.
- *
- * @evidence contracts/testing.md#execution-ownership TestFileLinksFollowFiniteNamespaceCycles is the selectable Go entry and owns its fixture variants and local closures. It invokes graphRule.Check through the authored project-rule fixture in the native Go process. Its fixture files and parsed TypeScript inputs feed the graph directly; only Markdown/TypeScript populations are configured, so Prisma and Swagger loader gates return before spawning processes.
+ * @evidence contracts/testing.md#behavioral-verification For each of `self.value`, `self.self.value`, `other.back.value` and `other.back.self.other.back.value`, a Markdown link and an import-scoped TypeScript `{@link api.<path>}` citation over an index with `export * as self` and `export * as other` (whose module re-exports the index as `back`) must each leave the graph with no diagnostics.
+ * @evidence contracts/testing.md#independent-expectations The expectation is authored from the addressing contract: populations must stay finite but any finite accessor path that repeats a namespace hop still names the original declaration, so every spelling must acknowledge the single `value` unit.
+ * @evidence contracts/testing.md#distinguishing-cases Four repeated and cross-module cycle paths, each through both a Markdown link and an inline TypeScript link; a traversal that rejected repeated hops, or one that counted each path as a separate unit, would fail.
+ * @evidence contracts/testing.md#execution-ownership TestFileLinksFollowFiniteNamespaceCycles is a Go unit entry in the native test process that loops over four paths (not named subtests); each iteration drives graphRule.Check through newFileLinkFixture and runIndexRule over temp files, with no consumer install or product host.
  */
 func TestFileLinksFollowFiniteNamespaceCycles(t *testing.T) {
   for _, target := range []string{"self.value", "self.self.value", "other.back.value", "other.back.self.other.back.value"} {
