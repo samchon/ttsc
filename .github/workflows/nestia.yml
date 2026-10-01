@@ -43,10 +43,12 @@ jobs:
       - run: pnpm --filter @nestia/core --filter @nestia/sdk --no-bail -r run test:go
         working-directory: experimental/nestia
         env:
+          GOWORK: ${{ github.workspace }}/experimental/nestia/go.work
           NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
       - run: go test -count=1 ./...
         working-directory: experimental/nestia/packages/core/native
         env:
+          GOWORK: ${{ github.workspace }}/experimental/nestia/go.work
           NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
       - run: pnpm --filter "./tests/test-*" --workspace-concurrency=1 --no-bail -r start
         working-directory: experimental/nestia

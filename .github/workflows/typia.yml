@@ -38,3 +38,5 @@ jobs:
         working-directory: experimental/typia
       - run: pnpm run test:go:public && pnpm run test:go:native
         working-directory: experimental/typia
+        env:
+          GOWORK: ${{ github.workspace }}/experimental/typia/go.work
