@@ -16,7 +16,7 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification The actual ResidentCheckProcess sends EOF and joins real child processes; literal success, exit-two, forced and unjoined assertions distinguish its retirement outcomes.
  * @evidence contracts/testing.md#independent-expectations Authored children use Node exit statuses and inherited OS pipes, not check results; a living pipe owner cannot establish completed close merely because its parent exited.
  * @evidence contracts/testing.md#distinguishing-cases Zero EOF succeeds, exit two permits known-failure joining but rejects strict close, ignored EOF forces rejection, and short versus long inherited pipe holds distinguish actual join from its deadline.
- * @evidence contracts/testing.md#execution-ownership This discoverable feature entry exercises real OS children. Its optional constructor is the installed SDK's actual exported owner in the shared installed-OS batch; default execution imports maintained source.
+ * @evidence contracts/testing.md#execution-ownership This named OS boundary entry runs only in the existing six-target installed-OS batch and exercises real children with the installed SDK's actual exported constructor. A direct local invocation without that constructor imports maintained source; ordinary Linux feature discovery does not repeat these lifetimes.
  * @evidence contracts/e2e.md#necessary-boundary Actual child exit, EOF and inherited stdout closure cannot be established by a simulated event emitter or direct state assertions.
  * @evidence contracts/e2e.md#shared-execution One test process and fixture host all five independent lifetimes; no installation, Go build or compiler protocol is introduced, and the installed batch supplies its existing SDK owner.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each child owns distinct marker paths; all known PIDs are stopped and observed absent before the confined fixture is removed, including failures and deadline outcomes.
@@ -26,7 +26,7 @@ export const test_resident_check_process_joins_actual_child_lifetimes = async (
   options?: { ResidentCheckProcess: ProcessConstructor },
 ): Promise<void> => {
   const Owner = options?.ResidentCheckProcess ?? (
-    await import(new URL("../../../../packages/ttsc/src/compiler/internal/ResidentCheckProcess.ts", import.meta.url).href)
+    await import(new URL("../../../../../packages/ttsc/src/compiler/internal/ResidentCheckProcess.ts", import.meta.url).href)
   ).ResidentCheckProcess as ProcessConstructor;
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-resident-close-"));
   const failures: unknown[] = [];

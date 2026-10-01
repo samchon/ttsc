@@ -6,16 +6,24 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 /**
- * Execute native filesystem cases against the already installed candidate SDK.
+ * Verifies installed SDK filesystem identities and actual process lifetimes.
  *
- * @evidence contracts/testing.md#behavioral-verification Resolves the packed SDK from the owned CLI consumer and calls the three named volume/path-identity cases and held-generation retirement case with its actual exported operations, followed by the ordinary-volume installed compiler case-only resolution probe and the installed ttsx junction runtime and ttsc short-cwd compiler cases and the two source-owned VS Code command-shim cases on Windows; each original case owns its filesystem assertions and a failure cannot hide another case.
- * @evidence contracts/testing.md#independent-expectations The preceding CLI smoke owns installation identity; the cases compare candidate identity decisions with actual native alias, case-marker and fsutil observations, not a second implementation of their decision algorithm.
- * @evidence contracts/testing.md#distinguishing-cases Physical aliases, ordinary empty/missing-directory authority, Windows sensitive-directory overrides and open-descriptor rename refusal retain their distinct named cases. Portable injected authority remains in source units and Windows Go kernel cases run in their own same-install batch.
- * @evidence contracts/testing.md#execution-ownership test_installed_os_boundaries is the explicit sole setup matrix entry for these four filesystem cases, one ordinary-volume compiler resolution case, the Windows junction runtime and short-cwd compiler cases and two Windows command-shim cases, separate from Linux units and E2E; it prepares no new installer or native producer and uses the already installed compiler for the resolution, junction and short-cwd connections.
- * @evidence contracts/e2e.md#necessary-boundary The installed SDK identity, retirement and compiler-resolution operations must agree with real filesystem and volume behavior. Windows junction/short-cwd runtime and source-owned VS Code shim transport additionally cross their actual native boundaries; Linux source units cannot prove those connections.
+ * The preceding installation supplies every SDK owner. Testing a source copy
+ * would miss a stale or missing owner in the package that users actually install.
+ * Independent failures must also leave the other native boundaries observable.
+ *
+ * 1. Validate the preceding consumer's marker and confined temporary identity.
+ * 2. Execute each filesystem, process and compiler case with its installed owner.
+ * 3. Collect independent failures and release the consumer through its OS owner.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Resolves the packed SDK from the owned CLI consumer and calls the three volume/path-identity cases, held-generation retirement case and real child/pipe lifetime entry with its actual exported owners. The ordinary-volume compiler case-only resolution probe, Windows ttsx junction and ttsc short-cwd cases and two source-owned VS Code command-shim cases retain their original assertions; each failure leaves independent cases observable.
+ * @evidence contracts/testing.md#independent-expectations The preceding CLI smoke owns installation identity; filesystem cases compare candidate decisions with real native alias, case-marker and fsutil observations. The process entry uses independently authored Node exit statuses and inherited pipes rather than a compiler result or fabricated close event.
+ * @evidence contracts/testing.md#distinguishing-cases Physical aliases, ordinary empty/missing-directory authority, Windows sensitive-directory overrides and open-descriptor rename refusal retain their distinct named cases. Installed process closure additionally distinguishes EOF zero/two, forced termination and short/long inherited pipe holds. Portable injected authority remains in source units and Windows Go kernel cases run in their own same-install batch.
+ * @evidence contracts/testing.md#execution-ownership test_installed_os_boundaries is the explicit sole setup matrix entry for four filesystem cases, the five-lifetime process entry, one ordinary-volume compiler resolution case, Windows junction/short-cwd compiler cases and two Windows command-shim cases. It prepares no new installer or native producer and uses the preceding installed SDK for process, resolution, junction and short-cwd connections.
+ * @evidence contracts/e2e.md#necessary-boundary The installed SDK identity, retirement, process-closure and compiler-resolution owners must agree with real filesystem, child and pipe behavior. Windows junction/short-cwd runtime and source-owned VS Code shim transport additionally cross their actual native boundaries; direct source units cannot prove these installed connections.
  * @evidence contracts/e2e.md#shared-execution All cases consume the preceding installation and one Node session; the existing setup matrix owns every OS row and no case prepares another SDK or Go build.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The CLI consumer marker and canonical temporary parent establish cleanup ownership. Each named case owns its separate filesystem inputs; the Windows consumer survives until the immediately following Go kernel batch, while other OS consumers are removed in finally.
- * @evidence contracts/e2e.md#preserved-coverage Calls each original filesystem OS function with the candidate operation and retains the real Windows junction runtime, short-cwd compiler and both VS Code shim argv cases and preserves every assertion, existing capability guard and failure identity; it collects independent failures before reporting them, and adds no skip or simulated OS result.
+ * @evidence contracts/e2e.md#preserved-coverage Calls each original filesystem OS function with the candidate operation and retains the real Windows junction runtime, short-cwd compiler and both VS Code shim argv cases. The five child/pipe lifetimes also retain their exact assertions with the actual installed constructor. Independent failures are collected before reporting; no assertion, existing capability guard or failure identity is dropped and no simulated OS result is introduced.
  */
 export async function test_installed_os_boundaries(): Promise<void> {
   const repository = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
@@ -53,6 +61,18 @@ export async function test_installed_os_boundaries(): Promise<void> {
         failures.push(new Error(name, { cause: error }));
         console.error(name, error);
       }
+    }
+    const lifetimeCase = "test_resident_check_process_joins_actual_child_lifetimes";
+    const lifetimeStarted = performance.now();
+    try {
+      const owner = await import(pathToFileURL(path.join(sdk, "lib/compiler/internal/ResidentCheckProcess.js")).href);
+      assert.equal(typeof owner.ResidentCheckProcess, "function", "Installed process lifetime owner");
+      const entry = await import(new URL(`../test-ttsc/src/os-boundaries/process/${lifetimeCase}.ts`, import.meta.url).href);
+      await entry[lifetimeCase]({ ResidentCheckProcess: owner.ResidentCheckProcess });
+      console.log(`${lifetimeCase}: PASS ${(performance.now() - lifetimeStarted).toFixed(1)} ms`);
+    } catch (error) {
+      failures.push(new Error(lifetimeCase, { cause: error }));
+      console.error(lifetimeCase, error);
     }
     const policyCase = "test_installed_compiler_resolves_case_only_imports_with_its_host_policy";
     const policyStarted = performance.now();
