@@ -5,7 +5,7 @@
   "version": "0.30.4",
   "description": "Unit tests for @ttsc/evidence and shared Evidence fixture operations.",
   "scripts": {
-    "start": "node --import ../../config/register-unit-loader.mjs src/index.ts",
+    "start": "tsc --noEmit -p tsconfig.json && node --import ../../config/register-unit-loader.mjs src/index.ts",
     "evidence": "evidence"
   },
   "devDependencies": {
