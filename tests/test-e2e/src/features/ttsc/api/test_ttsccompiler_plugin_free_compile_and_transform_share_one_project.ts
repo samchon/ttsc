@@ -1,3 +1,4 @@
+import { inspect } from "node:util";
 import {
   TtscCompiler,
   assert,
@@ -67,7 +68,7 @@ export async function test_ttsccompiler_plugin_free_compile_and_transform_share_
         const main = expectRecordValue(transformed.typescript, "src/main.ts");
         assert.match(main, /const message: string = "api-ok"/);
         assert.match(main, /console\.log\(\s*message\s*\)/);
-        assert.match(main, /helper(message)/);
+        assert.match(main, /helper\(message\)/);
         assert.match(expectRecordValue(transformed.typescript, "src/helpers.ts"), /toUpperCase/);
         assert.match(expectRecordValue(transformed.typescript, "src/nested/model.ts"), /interface Model/);
         for (const key of Object.keys(transformed.typescript)) {
@@ -174,7 +175,5 @@ export async function test_ttsccompiler_plugin_free_compile_and_transform_share_
 
 /** Names a native exception in a failed type assertion so its cause is not lost. */
 function describe(result: { type: string; error?: unknown }): string {
-  if (result.type !== "exception") return "";
-  const error = result.error as Error | undefined;
-  return error?.stack ?? JSON.stringify(result.error);
+  return result.type === "exception" ? inspect(result, { depth: 6 }) : "";
 }

@@ -100,13 +100,6 @@ export namespace TestLint {
     message: string;
   }
 
-  /** Expected diagnostic encoded in a fixture expectation comment. */
-  export interface ILintExpectation {
-    rule: string;
-    severity: LintSeverity;
-    line: number;
-  }
-
   /**
    * Inputs needed to synthesize and execute one lint fixture project.
    *
@@ -684,92 +677,6 @@ export namespace TestLint {
         rule,
         message: message.trim(),
       });
-    }
-    return out;
-  }
-
-  /**
-   * Read standalone line or JSX-block expectation comments and return the
-   * target line each one anchors to. Mirrors the ttsc plugin corpus expectation
-   * format.
-   *
-   * Blank lines and stacked expectation annotations between the marker and its
-   * target are skipped. A `@ts-expect-error` / `@ts-ignore` suppressor is also
-   * skipped unless the rule being tested is `ban-ts-comment` itself. Malformed
-   * markers and markers without a following target fail immediately.
-   */
-  export function parseExpectations(source: string): ILintExpectation[] {
-    const lines = source.split(/\r?\n/);
-    const expected: ILintExpectation[] = [];
-    for (let i = 0; i < lines.length; i++) {
-      const marker = parseExpectationMarker(lines[i] ?? "", i + 1);
-      if (marker === null) continue;
-      const { rule, severity } = marker;
-      // Skip blank lines and other expectation annotations stacked
-      // above the same target, but NOT regular comment lines — rules
-      // like typescript/ban-ts-comment / typescript/triple-slash-reference
-      // fire on a comment itself, and the convention is to put the
-      // annotation right above the line it pins.
-      let target = i + 1;
-      while (
-        target < lines.length &&
-        (/^\s*$/.test(lines[target] ?? "") ||
-          parseExpectationMarker(lines[target] ?? "", target + 1) !== null ||
-          (rule !== "typescript/ban-ts-comment" &&
-            /^\s*\/\/\s*@ts-(?:expect-error|ignore)\b/.test(
-              lines[target] ?? "",
-            )))
-      ) {
-        target++;
-      }
-      if (target >= lines.length) {
-        throw new Error(
-          `lint expectation at line ${i + 1} has no following target`,
-        );
-      }
-      expected.push({ rule, severity, line: target + 1 });
-    }
-    return expected;
-  }
-
-  function parseExpectationMarker(
-    line: string,
-    lineNumber: number,
-  ): { rule: string; severity: LintSeverity } | null {
-    const isLineMarker = /^\s*\/\/\s*expect\b/.test(line);
-    const isJsxMarker = /^\s*\{\s*\/\*\s*expect\b/.test(line);
-    if (!isLineMarker && !isJsxMarker) return null;
-
-    const match = isLineMarker
-      ? line.match(/^\s*\/\/\s*expect:\s*([\w][\w/-]*)\s+(error|warn)\s*$/)
-      : line.match(
-          /^\s*\{\s*\/\*\s*expect:\s*([\w][\w/-]*)\s+(error|warn)\s*\*\/\s*\}\s*$/,
-        );
-    if (!match?.[1] || !match[2]) {
-      throw new Error(
-        `malformed lint expectation at line ${lineNumber}; expected ` +
-          "`// expect: <rule> <error|warn>` or " +
-          "`{ /* expect: <rule> <error|warn> */ }`",
-      );
-    }
-    return {
-      rule: match[1],
-      severity: match[2] as LintSeverity,
-    };
-  }
-
-  /**
-   * Build a `rules` map for tsconfig from the expectations parsed out of a
-   * fixture file. Every rule that appears in an expectation annotation is
-   * enabled at its annotated severity; everything else is implicitly off (the
-   * default for unconfigured rules).
-   */
-  export function rulesFromExpectations(
-    expected: ILintExpectation[],
-  ): Record<string, LintSeverity> {
-    const out: Record<string, LintSeverity> = {};
-    for (const exp of expected) {
-      out[exp.rule] = exp.severity;
     }
     return out;
   }

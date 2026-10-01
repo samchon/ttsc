@@ -31,7 +31,6 @@ const pluginCache = path.resolve(
     path.join(experimentRoot, ".cache", "ttsc"),
 );
 const skipPack = process.argv.includes("--skip-pack");
-const packCurrent = process.argv.includes("--pack-current");
 const platformKey = `${process.platform}-${process.arch}`;
 const platformTarball = `ttsc-${platformKey}`;
 const installedPlugins = ["banner", "lint", "paths", "strip"];
@@ -176,11 +175,7 @@ export async function test_unplugin_package_e2e() {
     commandExists("bun"),
     "The complete adapter contract requires Bun on PATH (CI pins its version).",
   );
-  if (packCurrent) {
-    prepareCurrentTarballs();
-  } else if (!skipPack) {
-    run("pnpm package:tgz", root);
-  }
+  if (!skipPack) prepareCurrentTarballs();
   prepareWorkspace();
   installTarballs();
   const failed = await runIndependent(
@@ -252,7 +247,7 @@ function packPackage(packageDirName, tarballName) {
   const packageDir = path.join(root, "packages", packageDirName);
   assert(fs.existsSync(packageDir), `${packageDirName} package must exist`);
 
-  // Straight into the tarball directory, as `pnpm package:tgz` packs: a
+  // Straight into the tarball directory, as the workflows pack: a
   // tarball packed into the package directory outlives the run there.
   const output = path.join(tarballs, `${tarballName}.tgz`);
   run(`pnpm pack --out ${JSON.stringify(output)}`, packageDir);

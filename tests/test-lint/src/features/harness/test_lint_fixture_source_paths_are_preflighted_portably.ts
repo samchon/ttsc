@@ -21,8 +21,7 @@ import path from "node:path";
  * @evidence contracts/testing.md#distinguishing-cases Traversal/absolute paths, separator/case aliases, device names, streams, trailing characters, generated-target collisions, root files and linked escaping roots reject. Spaced sources, normalized companions, scoped package links and COM0/LPT0 legal controls succeed.
  * @evidence contracts/testing.md#execution-ownership Calls the authored materialization helper directly using disposable temporary trees and sentinel observations, cleaning every tree/project in finally; no compiler, installation or native lint host executes.
  */
-export const test_lint_fixture_source_paths_are_preflighted_portably =
-  (): void => {
+export function test_lint_fixture_source_paths_are_preflighted_portably(): void {
     const invalidRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), "ttsc-lint-source-preflight-"),
     );
@@ -396,4 +395,4 @@ export const test_lint_fixture_source_paths_are_preflighted_portably =
     } finally {
       fs.rmSync(invalidRoot, { recursive: true, force: true });
     }
-  };
+}

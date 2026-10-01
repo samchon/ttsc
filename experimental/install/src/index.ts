@@ -9,7 +9,6 @@ const root = path.resolve(experimentRoot, "../..");
 const tarballs = path.join(root, "experimental", "tarballs");
 const workspace = path.join(experimentRoot, ".tmp", "project");
 const skipPack = process.argv.includes("--skip-pack");
-const packCurrent = process.argv.includes("--pack-current");
 const consumer = process.argv
   .find((argument) => argument.startsWith("--consumer="))
   ?.slice("--consumer=".length);
@@ -37,10 +36,8 @@ async function main() {
       relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative),
       "shared consumer must stay outside this scenario's temporary root",
     );
-  } else if (packCurrent) {
-    prepareCurrentTarballs();
   } else if (!skipPack) {
-    run("pnpm package:tgz", root);
+    prepareCurrentTarballs();
   }
   prepareWorkspace();
   if (consumer === undefined) installTarballs();

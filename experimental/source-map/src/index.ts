@@ -30,7 +30,6 @@ const root = path.resolve(experimentRoot, "../..");
 const tarballs = path.join(root, "experimental", "tarballs");
 const workspace = path.join(experimentRoot, ".tmp", "project");
 const skipPack = process.argv.includes("--skip-pack");
-const packCurrent = process.argv.includes("--pack-current");
 const platformKey = `${process.platform}-${process.arch}`;
 const platformPackage = `@ttsc/${platformKey}`;
 const platformTarball = `ttsc-${platformKey}`;
@@ -43,16 +42,8 @@ const registryDependencies = [
 main();
 
 function main() {
-  // `--skip-pack` wins over `--pack-current` so a workflow that already ran
-  // `pnpm package:tgz` can pass both flags (the root script defaults to
-  // `--pack-current`) and reuse the existing tarballs instead of repacking.
-  if (skipPack) {
-    // Reuse tarballs already present in experimental/tarballs.
-  } else if (packCurrent) {
-    prepareCurrentTarballs();
-  } else {
-    run("pnpm package:tgz", root);
-  }
+  // `--skip-pack` reuses the tarballs already present in experimental/tarballs.
+  if (!skipPack) prepareCurrentTarballs();
   prepareWorkspace();
   installDependencies();
   compileWithTypia();
@@ -76,7 +67,7 @@ function packPackage(packageDirName, tarballName) {
   const packageDir = path.join(root, "packages", packageDirName);
   assert(fs.existsSync(packageDir), `${packageDirName} package must exist`);
 
-  // Straight into the tarball directory, as `pnpm package:tgz` packs: a
+  // Straight into the tarball directory, as the workflows pack: a
   // tarball packed into the package directory outlives the run there.
   const output = path.join(tarballs, `${tarballName}.tgz`);
   run(`pnpm pack --out ${repositoryRelative(packageDir, output)}`, packageDir);

@@ -56,12 +56,11 @@ Document public signature migrations and borrowed-state lifetimes in the [AST an
 A shim change is only proven by a downstream plugin compiling and passing against it. Build the ttsc tarballs and install them into a consumer checkout:
 
 ```bash
-pnpm package:tgz            # full release-rehearsal tarballs
-# or, faster for a single platform:
-pnpm package:tgz -- --current
+pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 -r --workspace-concurrency=1 build
+pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 exec pnpm pack --out "../../experimental/tarballs/%s.tgz"
 ```
 
-Install the produced tarballs into `../typia` (or another consumer) and run a relevant typia test that exercises the new API. The `experimental/tarballs/index.mts` flow (`pnpm package:tgz`) is what CI uses; it packs only the current-platform package.
+Install the produced tarballs into `../typia` (or another consumer) and run a relevant typia test that exercises the new API. Name the host platform package in place of `ttsc-linux-x64`; typia.yml and nestia.yml run exactly these two commands.
 
 ## Mechanical completeness gate
 

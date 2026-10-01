@@ -5,7 +5,7 @@ experimental/test-unplugin/.tmp/
 lib/
 node_modules/
 out/
-tests/test-lint/src/cases/**
+packages/lint/test/testdata/corpus/**
 
 # Authored E2E inputs are the bytes under test: some are deliberately invalid
 # syntax or unusual layout (decorator auto-accessors, malformed configuration),

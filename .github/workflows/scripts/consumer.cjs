@@ -14,7 +14,7 @@ const tarballs = path.join(producerRoot, "experimental", "tarballs");
 const platform = `${process.platform}-${process.arch}`;
 const artifacts = {
   ttsc: "ttsc.tgz",
-  "@ttsc/unplugin": "unplugin.tgz",
+  "@ttsc/unplugin": "ttsc-unplugin.tgz",
   [`@ttsc/${platform}`]: `ttsc-${platform}.tgz`,
 };
 const relative = (to) => path.relative(consumer, to).split(path.sep).join("/");

@@ -18,7 +18,7 @@ import (
 // 2. Load each root.
 // 3. Assert every layout fails for its own structural reason.
 //
-// @evidence contracts/testing.md#behavioral-verification loadLintCorpus is run on eight real layouts and each must fail with the message of the contract it breaks; a companion owned by one entry is the control that loads in the neighboring nested-owner case.
+// @evidence contracts/testing.md#behavioral-verification loadLintCorpus is run on nine layouts, each written to its own t.TempDir tree, and each must fail with the message of the companion contract it breaks. This test has no loading control; a companion with exactly one owner is covered by the companions-belong-to-their-own-case test.
 // @evidence contracts/testing.md#independent-expectations The companion contract (exact marker, no expectations, skip, clean or entry directives, exactly one owning positive entry under its src/) is the specification; every expected message is a literal written from it.
 // @evidence contracts/testing.md#distinguishing-cases Malformed and duplicate markers, expectation, skip, entry-directive and clean conflicts, a root-level orphan, a missing owner and two candidate owners each isolate one violated rule.
 // @evidence contracts/testing.md#execution-ownership TestLintCorpusDiscoveryRejectsInvalidCompanionContracts is a discoverable Go unit entry; each scenario is a named subtest over its own t.TempDir tree with no compiler or host.

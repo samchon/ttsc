@@ -27,5 +27,5 @@ npm run start -- --skip-pack
 To pack only `ttsc`, the first-party utility plugins, and the current platform package before running the same check:
 
 ```bash
-npm run start -- --pack-current
+npm run start
 ```

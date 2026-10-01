@@ -16,8 +16,7 @@ import assert from "node:assert/strict";
  * @evidence contracts/testing.md#distinguishing-cases TSX, spaced TS paths, module and declaration suffixes succeed; JavaScript and uppercase TS/TSX/declaration messages are explicit negative controls.
  * @evidence contracts/testing.md#execution-ownership Calls the authored diagnostic parser on an in-memory stderr string, with no process needed to generate that string.
  */
-export const test_lint_diagnostic_parser_accepts_tsx_source_paths =
-  (): void => {
+export function test_lint_diagnostic_parser_accepts_tsx_source_paths(): void {
     const expected: TestLint.ILintDiagnostic[] = [
       {
         file: "src/main.tsx",
@@ -66,4 +65,4 @@ export const test_lint_diagnostic_parser_accepts_tsx_source_paths =
     ].join("\n");
 
     assert.deepEqual(TestLint.parseDiagnostics(stderr), expected);
-  };
+}

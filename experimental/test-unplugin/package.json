@@ -3,6 +3,7 @@
   "name": "@ttsc/experimental-test-unplugin",
   "version": "0.0.0",
   "description": "Experimental install check for @ttsc/unplugin tgz builds",
+  "type": "module",
   "scripts": {
     "start": "node --experimental-strip-types src/index.ts"
   },

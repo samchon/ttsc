@@ -21,7 +21,7 @@ import (
 // 4. Assert the well-formed neighbors apply: options upgrade the severity to a
 //    tuple, and a clean rule is enabled at error severity.
 //
-// @evidence contracts/testing.md#behavioral-verification corpusApplyOptions, corpusResolveSourcePath and corpusParseClean are called on authored sources; malformed and duplicate forms must return the named error and the valid forms must return the tuple, path and rule they declare.
+// @evidence contracts/testing.md#behavioral-verification corpusApplyOptions, corpusResolveSourcePath and corpusParseClean are called on authored sources; malformed and duplicate forms must return an error naming the fixture, and the valid options and clean forms must return the [severity, options] tuple and the clean rule they declare. corpusResolveSourcePath is exercised only on its rejection paths.
 // @evidence contracts/testing.md#independent-expectations The directive grammar (`@ttsc-corpus-options: <rule> <json>`, `@ttsc-corpus-filename: <path>`, `@ttsc-corpus-clean: <rule>`, each at most once per target) is the specification; expected messages and the [severity, options] tuple are literals written from it.
 // @evidence contracts/testing.md#distinguishing-cases A missing colon beside a valid directive, a repeated options rule, a repeated filename, an options payload with invalid JSON, an options rule without any annotation, and an empty filename each isolate one rejection; the valid forms are the accepted controls.
 // @evidence contracts/testing.md#execution-ownership TestLintCorpusDirectivesRejectMalformedOrDuplicateMarkers is a discoverable Go unit entry that calls the loader's pure parsing functions on in-memory strings; no files, compiler or host are involved.

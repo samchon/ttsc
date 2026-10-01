@@ -9,8 +9,6 @@ concurrency:
 jobs:
   nestia:
     runs-on: ubuntu-latest
-    env:
-      NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -24,7 +22,8 @@ jobs:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: "**/go.sum"
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run package:tgz
+      - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 -r --workspace-concurrency=1 build
+      - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 exec pnpm pack --out "../../experimental/tarballs/%s.tgz"
       - uses: actions/checkout@v7
         with:
           repository: samchon/nestia
@@ -41,9 +40,17 @@ jobs:
         working-directory: experimental/nestia
       - run: pnpm build
         working-directory: experimental/nestia
+        env:
+          NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
       - run: pnpm --filter @nestia/core --filter @nestia/sdk --no-bail -r run test:go
         working-directory: experimental/nestia
+        env:
+          NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
       - run: go test -count=1 ./...
         working-directory: experimental/nestia/packages/core/native
+        env:
+          NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module
       - run: pnpm --filter "./tests/test-*" --workspace-concurrency=1 --no-bail -r start
         working-directory: experimental/nestia
+        env:
+          NODE_OPTIONS: --no-experimental-strip-types --no-experimental-detect-module

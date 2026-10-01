@@ -29,5 +29,5 @@ npm run start -- --skip-pack
 To pack only `ttsc` and the current platform package before running the check:
 
 ```bash
-npm run start -- --pack-current
+npm run start
 ```

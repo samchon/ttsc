@@ -22,7 +22,8 @@ jobs:
           go-version-file: packages/ttsc/go.mod
           cache-dependency-path: "**/go.sum"
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run package:tgz
+      - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 -r --workspace-concurrency=1 build
+      - run: pnpm --filter ttsc --filter @ttsc/unplugin --filter ./packages/ttsc-linux-x64 exec pnpm pack --out "../../experimental/tarballs/%s.tgz"
       - uses: actions/checkout@v7
         with:
           repository: samchon/typia

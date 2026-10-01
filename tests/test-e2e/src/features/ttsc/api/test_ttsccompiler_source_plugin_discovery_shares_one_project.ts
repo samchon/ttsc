@@ -1,3 +1,4 @@
+import { inspect } from "node:util";
 import {
   TtscCompiler,
   assert,
@@ -49,11 +50,11 @@ export async function test_ttsccompiler_source_plugin_discovery_shares_one_proje
         writeSharedCompilerPlugin(root);
         const compiler = compilerFor(root);
         const compiled = compiler.compile();
-        assert.equal(compiled.type, "success");
+        assert.equal(compiled.type, "success", describe(compiled));
         assert.match(expectRecordValue(compiled.output, "dist/main.js"), /PLUGIN/);
         assert.equal(fs.existsSync(dist), false);
         const transformed = compiler.transform();
-        assert.equal(transformed.type, "success");
+        assert.equal(transformed.type, "success", describe(transformed));
         assert.match(expectRecordValue(transformed.typescript, "src/main.ts"), /export const value = "PLUGIN"/);
         assert.match(expectRecordValue(transformed.typescript, "src/main.ts"), /console\.log\(value\)/);
         assert.equal(transformed.typescript["dist/main.js"], undefined);
@@ -64,11 +65,11 @@ export async function test_ttsccompiler_source_plugin_discovery_shares_one_proje
         writePackageCompilerPlugin(root, "compile-fixture");
         const compiler = compilerFor(root);
         const compiled = compiler.compile();
-        assert.equal(compiled.type, "success");
+        assert.equal(compiled.type, "success", describe(compiled));
         assert.match(expectRecordValue(compiled.output, "dist/main.js"), /PLUGIN/);
         assert.equal(fs.existsSync(dist), false);
         const transformed = compiler.transform();
-        assert.equal(transformed.type, "success");
+        assert.equal(transformed.type, "success", describe(transformed));
         assert.match(expectRecordValue(transformed.typescript, "src/main.ts"), /export const value = "PLUGIN"/);
         assert.equal(fs.existsSync(dist), false);
       }],
@@ -78,13 +79,13 @@ export async function test_ttsccompiler_source_plugin_discovery_shares_one_proje
         const project = path.join(root, "packages", "app");
         const compiler = compilerFor(project);
         const discovered = compiler.compile();
-        assert.equal(discovered.type, "success");
+        assert.equal(discovered.type, "success", describe(discovered));
         assert.match(expectRecordValue(discovered.output, "dist/main.js"), /PLUGIN/);
         assert.equal(fs.existsSync(path.join(project, "dist")), false);
 
         fs.writeFileSync(path.join(project, "package.json"), JSON.stringify({ private: true }), "utf8");
         const stopped = compilerFor(project).compile();
-        assert.equal(stopped.type, "success");
+        assert.equal(stopped.type, "success", describe(stopped));
         assert.match(expectRecordValue(stopped.output, "dist/main.js"), /goUpper\("plugin"\)/);
         assert.doesNotMatch(expectRecordValue(stopped.output, "dist/main.js"), /PLUGIN/);
         assert.equal(fs.existsSync(path.join(project, "dist")), false);
@@ -101,4 +102,9 @@ export async function test_ttsccompiler_source_plugin_discovery_shares_one_proje
   }
   if (failures.length === 1) throw failures[0];
   if (failures.length > 1) throw new AggregateError(failures, "Compiler source plugin states and cleanup failed.");
+}
+
+/** Names a native exception in a failed type assertion so its cause is not lost. */
+function describe(result: { type: string; error?: unknown }): string {
+  return result.type === "exception" ? inspect(result, { depth: 6 }) : "";
 }

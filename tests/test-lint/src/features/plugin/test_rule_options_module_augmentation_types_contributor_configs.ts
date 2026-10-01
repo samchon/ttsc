@@ -21,8 +21,7 @@ import type {} from "../../../../../packages/lint/test/lint-contributor-demo/src
  * @evidence contracts/testing.md#distinguishing-cases Valid registered options, invalid key and value, severity-only acceptance, payload rejection and unknown-namespace acceptance retain every original type distinction.
  * @evidence contracts/testing.md#execution-ownership The test-lint typecheck invokes tsc over its src include, selecting this features/unit fixture and its imported augmentation. Compiler diagnostics and unused @ts-expect-error directives own failure; DynamicExecutor does not claim execution of these compile-time cases.
  */
-export const test_rule_options_module_augmentation_types_contributor_configs =
-  (): void => {
+export function test_rule_options_module_augmentation_types_contributor_configs(): void {
     const valid = {
       rules: {
         "demo/no-marker-comment": ["error", { markers: ["TODO", "FIXME"] }],
@@ -83,4 +82,4 @@ export const test_rule_options_module_augmentation_types_contributor_configs =
       invalidOptionless,
       unknownContributor,
     ];
-  };
+}

@@ -17,12 +17,15 @@ import (
 //
 // Each fixture retains its options, filename, companions, real checker,
 // rendered diagnostic order and failure semantics while sharing one Go process.
-// Unexpected findings on companion files are failures.
+// Unexpected findings on companion files are failures, and a clean entry must
+// draw no finding from its rule. A fixture whose exact finding sequence matches
+// records its rules' behavioral witnesses.
 //
-// 1. Load and classify test/testdata/corpus, then materialize each positive entry
-//    as its own temporary project.
+// 1. Load and classify test/testdata/corpus, then materialize each positive or
+//    clean entry as its own temporary project.
 // 2. Resolve the real config and evaluate rules with their required checker.
 // 3. Compare every finding's source file, rule, severity and line.
+// 4. Record a behavioral witness for each rule of a fully matching fixture.
 //
 // @evidence contracts/testing.md#behavioral-verification Each materialized project reaches loadRules, the production engine cycle, the real checker when a rule needs one, and the production diagnostic renderer; every case compares the complete ordered source/rule/severity/line sequence, rejecting extra companion findings, and warning-only cases retain the real check failure assertion.
 // @evidence contracts/testing.md#independent-expectations Expected findings come from the authored `// expect:` annotations of each fixture, resolved by the corpus loader's annotation parser; neither Engine nor its renderer generates the expected diagnostic sequence, and the loader's parsing is separately verified by its own cases.

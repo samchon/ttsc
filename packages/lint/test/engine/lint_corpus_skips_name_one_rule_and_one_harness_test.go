@@ -21,7 +21,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification loadLintCorpus is run on real trees: a skip with a constraint, one harness path and one rule is excluded from the entries, while each malformed skip fails loading with the error of the rule it breaks.
 // @evidence contracts/testing.md#independent-expectations The skip contract (constraint in options|filename|project|checker|platform, one packages/lint/test/*_test.go harness, one rule, one skip per rule) is the specification; expected messages are literals written from it.
-// @evidence contracts/testing.md#distinguishing-cases Valid skips (including a rule named only through @ttsc-corpus-rule) are the controls; unknown constraint, missing or doubled harness, an escaping harness path, a placeholder reason, a missing rule and a duplicate rule each isolate one violation.
+// @evidence contracts/testing.md#distinguishing-cases One valid skip (its rule named only through @ttsc-corpus-rule) is the control; unknown constraint, missing or doubled harness, an escaping harness path, a placeholder reason, a missing rule and a duplicate rule each isolate one violation.
 // @evidence contracts/testing.md#execution-ownership TestLintCorpusSkipsNameOneRuleAndOneHarness is a discoverable Go unit entry; each scenario is a named subtest over its own t.TempDir tree and calls only the loader.
 func TestLintCorpusSkipsNameOneRuleAndOneHarness(t *testing.T) {
   harness := "positive coverage lives at packages/lint/test/rules/fixture/fixture_test.go."

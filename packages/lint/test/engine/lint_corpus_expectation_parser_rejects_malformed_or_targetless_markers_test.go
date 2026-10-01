@@ -17,7 +17,7 @@ import (
 // 2. Parse valid markers at end of file with no following source line.
 // 3. Assert each invalid form reports its line and category.
 //
-// @evidence contracts/testing.md#behavioral-verification corpusParseExpectations is called on authored malformed sources and must return an error naming the offending marker line; the same parser accepts the valid markers in the neighboring case.
+// @evidence contracts/testing.md#behavioral-verification corpusParseExpectations is called on authored malformed sources and must return an error naming the offending marker line across twelve subtests; this test accepts no input, and the parser's acceptance of valid markers is covered by the resolves-line-and-JSX-block-markers test.
 // @evidence contracts/testing.md#independent-expectations The marker grammar (`// expect: <rule> <error|warn>` and its JSX block form, with a target line below) is the specification; the expected line numbers are counted from the authored strings.
 // @evidence contracts/testing.md#distinguishing-cases An unknown severity, a space before the colon, a missing colon, a missing severity, trailing text and a broken JSX terminator each fail on their own line, including after a valid marker; end-of-file markers fail as targetless.
 // @evidence contracts/testing.md#execution-ownership TestLintCorpusExpectationParserRejectsMalformedOrTargetlessMarkers is a discoverable Go unit entry; each row is a named subtest calling the pure parser on an in-memory string.
