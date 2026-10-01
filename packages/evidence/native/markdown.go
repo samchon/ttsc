@@ -9,7 +9,6 @@ import (
   "unicode"
 )
 
-var markdownCommentPattern = regexp.MustCompile(`(?s)<!--(.*?)-->`)
 var explicitAnchorPattern = regexp.MustCompile(`\s*\{#([A-Za-z0-9][A-Za-z0-9._:-]*)\}\s*$`)
 
 // loadMarkdownInventories reads every configured Markdown population, once per
@@ -200,11 +199,26 @@ func scanMarkdownInventory(
   currentHostID := fileUnitID
   fenceMarker := rune(0)
   fenceLength := 0
-  inHTMLComment := false
+  commentStart := -1
+  commentSpans := [][2]int{}
+  lineOffset := 0
   headingUnitIDs := [5]string{}
   for index, rawLine := range lines {
+    offset := lineOffset
+    lineOffset += len(rawLine) + 1
     line := strings.TrimSuffix(rawLine, "\r")
     trimmed := strings.TrimLeft(line, " \t")
+    // Comment syntax takes precedence over fences inside the comment, while
+    // real fenced content never opens a comment. Keep the same closed spans
+    // for declaration extraction and digest removal so those views agree.
+    if fenceMarker == 0 && (commentStart >= 0 || strings.HasPrefix(trimmed, "<!--")) {
+      markdownCommentContent(line, offset, &commentStart, &commentSpans)
+      hostAtLine[index] = currentHost
+      hostIDAtLine[index] = currentHostID
+      digestHostIDAtLine[index] = currentDigestHostID
+      commentAtLine[index] = true
+      continue
+    }
     if marker, length, remainder, ok := markdownFence(line); ok {
       fencedAtLine[index] = true
       hostIDAtLine[index] = currentHostID
@@ -232,28 +246,8 @@ func scanMarkdownInventory(
       digestHostIDAtLine[index] = currentDigestHostID
       continue
     }
-    if inHTMLComment {
-      if strings.Contains(trimmed, "-->") {
-        inHTMLComment = false
-      }
-      hostAtLine[index] = currentHost
-      hostIDAtLine[index] = currentHostID
-      digestHostIDAtLine[index] = currentDigestHostID
-      commentAtLine[index] = true
-      continue
-    }
-    if strings.HasPrefix(trimmed, "<!--") {
-      remainder := strings.TrimPrefix(trimmed, "<!--")
-      if !strings.Contains(remainder, "-->") {
-        inHTMLComment = true
-      }
-      hostAtLine[index] = currentHost
-      hostIDAtLine[index] = currentHostID
-      digestHostIDAtLine[index] = currentDigestHostID
-      commentAtLine[index] = true
-      continue
-    }
-    level, title, ok := markdownHeading(line)
+    visible := markdownCommentContent(line, offset, &commentStart, &commentSpans)
+    level, title, ok := markdownHeading(visible)
     if ok {
       currentHost = "h" + decimal(level)
       currentHostID = "markdown:" + address.Key + ":" + currentHost + ":" + decimal(index+1)
@@ -338,16 +332,13 @@ func scanMarkdownInventory(
   reportUnreadableMarkdownTags(inventory, address.Display, lines, fencedAtLine, commentAtLine)
 
   sequence := 0
-  for _, match := range markdownCommentPattern.FindAllStringSubmatchIndex(content, -1) {
-    if len(match) < 4 {
-      continue
-    }
+  for _, match := range commentSpans {
     commentStart := match[0]
     line := lineAt(content, commentStart)
     if line <= 0 || line > len(lines) || fencedAtLine[line-1] {
       continue
     }
-    comment := content[match[2]:match[3]]
+    comment := content[match[0]+4:match[1]-3]
     for _, parsed := range parseDeclarations(comment) {
       sequence++
       inventory.Declarations = append(inventory.Declarations, &evidenceDeclaration{
@@ -377,8 +368,41 @@ func scanMarkdownInventory(
       })
     }
   }
-  assignMarkdownDigests(inventory, content, lines, digestHostIDAtLine, fencedAtLine)
+  assignMarkdownDigests(inventory, content, lines, digestHostIDAtLine, commentSpans)
   return inventory, problems
+}
+
+// markdownCommentContent records closed metadata spans and masks their text for
+// heading recognition. An unclosed comment suppresses syntax but stays content
+// in the digest, because no declaration can be extracted from it.
+func markdownCommentContent(line string, offset int, start *int, spans *[][2]int) string {
+  visible := []byte(line)
+  cursor := 0
+  for cursor < len(line) {
+    if *start < 0 {
+      opening := strings.Index(line[cursor:], "<!--")
+      if opening < 0 {
+        break
+      }
+      cursor += opening
+      *start = offset + cursor
+    }
+    closing := strings.Index(line[cursor:], "-->")
+    end := len(line)
+    if closing >= 0 {
+      end = cursor + closing + 3
+    }
+    for index := cursor; index < end; index++ {
+      visible[index] = ' '
+    }
+    cursor = end
+    if closing < 0 {
+      break
+    }
+    *spans = append(*spans, [2]int{*start, offset + end})
+    *start = -1
+  }
+  return string(visible)
 }
 
 // assignMarkdownDigests gives every unit the text it alone owns.
@@ -399,7 +423,7 @@ func scanMarkdownInventory(
 //
 // The text cut out of every digest is exactly what the declaration scan reads
 // as a tag position: each `<!-- ... -->` span that opens outside a fence. That
-// scan is a regular expression over the whole document, so a span may open
+// scan records exact spans while walking outside fences, so a span may open
 // after prose, close before prose, or run across lines, and it may not be a
 // whole line. Cutting spans rather than lines keeps the prose beside a comment
 // in the digest, so a content change there still expires a review, while writing
@@ -410,16 +434,8 @@ func assignMarkdownDigests(
   content string,
   lines []string,
   digestHostIDAtLine []string,
-  fencedAtLine []bool,
+  spans [][2]int,
 ) {
-  spans := [][2]int{}
-  for _, match := range markdownCommentPattern.FindAllStringIndex(content, -1) {
-    line := lineAt(content, match[0])
-    if line > 0 && line <= len(fencedAtLine) && fencedAtLine[line-1] {
-      continue
-    }
-    spans = append(spans, [2]int{match[0], match[1]})
-  }
   owned := map[string][]string{}
   next := 0
   lineStart := 0
