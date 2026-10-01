@@ -9,11 +9,10 @@ import (
 // corpus fixture use-unknown-in-catch-callback-variable.ts under a real
 // Program.
 //
-// The rule is type-aware: it confirms the receiver of `.catch` is
-// actually a Promise via `ctx.Checker.GetTypeAtLocation`. The
-// checker-less AST harness used by `assertRuleCorpusCase` skips it,
-// so this test reuses the `command_*` shape: seed a tsconfig project,
-// run `ttsc lint check`, and assert on the rendered diagnostics.
+// The rule is type-aware: it confirms the receiver of `.catch` is actually a
+// Promise via `ctx.Checker.GetTypeAtLocation`. A parser-only engine run skips it,
+// so this test reuses the `command_*` shape: seed a tsconfig project, run `ttsc
+// lint check`, and assert on the rendered diagnostics.
 //
 // 1. Seed a project with `.catch((err) => ...)` lacking the annotation.
 // 2. Run `check` with the rule enabled as error.

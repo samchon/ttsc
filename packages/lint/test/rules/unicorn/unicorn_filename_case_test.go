@@ -89,7 +89,7 @@ func assertUnicornFilenameCaseMessageAbsolute(t *testing.T, absolutePath, option
 }
 
 // TestRuleCorpusUnicornFilenameCase verifies the Go twin of the corpus fixture
-// `tests/test-lint/src/cases/unicorn-filename-case.ts`.
+// `packages/lint/test/testdata/corpus/unicorn-filename-case.ts`.
 //
 // The fixture rides the corpus harness's `@ttsc-corpus-filename` directive to
 // materialize as `src/utils/FooBar.ts`, so the default kebab-case check fires

@@ -61,7 +61,7 @@ pnpm package:tgz            # full release-rehearsal tarballs
 pnpm package:tgz -- --current
 ```
 
-Install the produced tarballs into `../typia` (or another consumer) and run a relevant typia test that exercises the new API. The `experimental/tarballs/index.ts` flow is what CI uses; `--current` / `TTSC_TARBALLS_CURRENT=1` packs only the current-platform package for a quick loop.
+Install the produced tarballs into `../typia` (or another consumer) and run a relevant typia test that exercises the new API. The `experimental/tarballs/index.mts` flow (`pnpm package:tgz`) is what CI uses; it packs only the current-platform package.
 
 ## Mechanical completeness gate
 

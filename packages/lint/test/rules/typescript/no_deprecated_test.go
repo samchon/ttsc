@@ -8,12 +8,10 @@ import (
 // TestRuleCorpusNoDeprecated verifies the lint rule corpus fixture
 // typescript-no-deprecated.ts under a real Program.
 //
-// `typescript/no-deprecated` is type-aware: the engine's checker-less
-// AST harness used by `assertRuleCorpusCase` skips it because
-// Context.Checker is nil. This Go scenario reuses the `seedLintProject`
-// shape established by the other type-aware ts rules: materialize a
-// tsconfig project, run `ttsc lint check`, and assert on the rendered
-// diagnostics.
+// `typescript/no-deprecated` is type-aware: a parser-only engine run skips it
+// because Context.Checker is nil. This Go scenario reuses the `seedLintProject`
+// shape established by the other type-aware ts rules: materialize a tsconfig
+// project, run `ttsc lint check`, and assert on the rendered diagnostics.
 //
 //  1. Seed a project that declares a deprecated function and then calls
 //     it.

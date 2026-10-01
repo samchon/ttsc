@@ -8,13 +8,12 @@ import (
 // TestRuleCorpusNonNullableTypeAssertionStyle verifies the lint rule corpus
 // fixture non-nullable-type-assertion-style.ts under a real Program.
 //
-// `typescript/non-nullable-type-assertion-style` is type-aware: it consults
-// the Checker via `GetTypeAtLocation`, `GetNonNullableType`, and
-// `GetTypeFromTypeNode`, so the engine's checker-less AST harness used by
-// `assertRuleCorpusCase` skips it because Context.Checker is nil. This Go
+// `typescript/non-nullable-type-assertion-style` is type-aware: it consults the
+// Checker via `GetTypeAtLocation`, `GetNonNullableType`, and `GetTypeFromTypeNode`,
+// so a parser-only engine run skips it because Context.Checker is nil. This Go
 // scenario therefore reuses the seedLintProject shape established by
-// `no-floating-promises` and `await-thenable`: materialize a tsconfig
-// project, run `ttsc lint check`, and assert on the rendered diagnostics.
+// `no-floating-promises` and `await-thenable`: materialize a tsconfig project, run
+// `ttsc lint check`, and assert on the rendered diagnostics.
 //
 //  1. Seed a project whose source assertion strips `undefined` and is
 //     therefore equivalent to a `!` non-null assertion.

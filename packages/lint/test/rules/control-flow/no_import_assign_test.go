@@ -7,8 +7,9 @@ import (
 
 // TestRuleCorpusNoImportAssign verifies the lint rule corpus fixture no-import-assign.ts.
 //
-// Rule corpus tests mirror tests/test-lint/src/cases inside Go unit coverage. This rule uses a
-// real temporary module because binding identity comes from the native checker rather than an
+// The annotated source mirrors packages/lint/test/testdata/corpus/no-import-assign.ts,
+// which TestLintFixtureCorpus also executes. This rule uses a real temporary
+// module because binding identity comes from the native checker rather than an
 // AST-only name set.
 //
 // This case enables the rule annotation declared in no-import-assign.ts and pins

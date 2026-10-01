@@ -4,9 +4,9 @@ import "testing"
 
 // TestRuleCorpusNoPromiseExecutorReturn verifies the lint rule corpus fixture no-promise-executor-return.ts.
 //
-// Rule corpus tests mirror tests/test-lint/src/cases inside Go unit coverage. Each generated
-// scenario keeps one annotated TypeScript fixture tied to the native Engine so individual rule
-// Check methods are measured by go test instead of only by the TypeScript feature runner.
+// The annotated source mirrors packages/lint/test/testdata/corpus/no-promise-executor-return.ts,
+// which TestLintFixtureCorpus also executes. This scenario keeps the source
+// embedded to drive the checker-backed snapshot helper directly.
 //
 // The fixture covers concise arrows, block-arrow returns, function-expression executors,
 // bare returns, nested function boundaries, and a locally shadowed Promise constructor.

@@ -10,11 +10,9 @@ import (
 // Program.
 //
 // The rule is type-aware: it inspects the reject argument's type via
-// `ctx.Checker.GetTypeAtLocation` and flags primitive rejections. The
-// checker-less AST harness used by `assertRuleCorpusCase` skips the
-// rule, so this test reuses the `command_*` shape: seed a tsconfig
-// project, run `ttsc lint check`, and assert on the rendered
-// diagnostics.
+// `ctx.Checker.GetTypeAtLocation` and flags primitive rejections. A parser-only
+// engine run skips the rule, so this test reuses the `command_*` shape: seed a
+// tsconfig project, run `ttsc lint check`, and assert on the rendered diagnostics.
 //
 // 1. Seed a project that rejects with a string literal.
 // 2. Run `check` with typescript/prefer-promise-reject-errors enabled as error.

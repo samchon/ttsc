@@ -137,7 +137,7 @@ func TestLSPFormatBufferRealBinaryE2E(t *testing.T) {
 // (test/rules/control-flow/no_magic_numbers_test_other.go). A plain
 // `go build ./plugin` would compile that helper as part of package linthost in
 // a non-test build, where the *_test.go symbols it references (e.g.
-// assertRuleCorpusCase) do not exist — breaking the build. That is purely an
+// assertRuleSkipsSource) do not exist — breaking the build. That is purely an
 // artifact of the test materialization, not a real ttsc defect. To build the
 // production binary cleanly, this helper reconstructs the scratch module into a
 // fresh temp dir and drops the flattened test files from linthost/ (identified

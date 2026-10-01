@@ -9,13 +9,11 @@ import (
 // fixture typescript-no-meaningless-void-operator.ts under a real Program.
 //
 // `typescript/no-meaningless-void-operator` is type-aware: it queries
-// `GetTypeAtLocation` on the `void X` operand to decide whether the
-// operand is already typed `void`, so the engine's checker-less AST
-// harness used by `assertRuleCorpusCase` skips it because
-// Context.Checker is nil. This Go scenario reuses the `seedLintProject`
-// shape established by `no-base-to-string` and `restrict-plus-operands`:
-// materialize a tsconfig project, run `ttsc lint check`, and assert on
-// the rendered diagnostics.
+// `GetTypeAtLocation` on the `void X` operand to decide whether the operand is
+// already typed `void`, so a parser-only engine run skips it because
+// Context.Checker is nil. This Go scenario reuses the `seedLintProject` shape
+// established by `no-base-to-string` and `restrict-plus-operands`: materialize a
+// tsconfig project, run `ttsc lint check`, and assert on the rendered diagnostics.
 //
 //  1. Seed a project whose `void X` operand calls a `void`-returning
 //     function so the operand is statically typed `void`.

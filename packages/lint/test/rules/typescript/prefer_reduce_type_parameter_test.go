@@ -8,18 +8,17 @@ import (
 // TestRuleCorpusPreferReduceTypeParameter verifies the lint rule corpus
 // fixture typescript-prefer-reduce-type-parameter.ts under a real Program.
 //
-// `typescript/prefer-reduce-type-parameter` is type-aware: the engine's
-// checker-less AST harness used by `assertRuleCorpusCase` skips it because
-// Context.Checker is nil. This Go scenario reuses the `seedLintProject`
-// shape established by `prefer-includes` and `no-base-to-string`:
-// materialize a tsconfig project, run `ttsc lint check`, and assert on
-// the rendered diagnostics.
+// `typescript/prefer-reduce-type-parameter` is type-aware: a parser-only engine run
+// skips it because Context.Checker is nil. This Go scenario reuses the
+// `seedLintProject` shape established by `prefer-includes` and `no-base-to-string`:
+// materialize a tsconfig project, run `ttsc lint check`, and assert on the rendered
+// diagnostics.
 //
 // Fixture-shape parity with
-// tests/test-lint/src/cases/typescript-prefer-reduce-type-parameter.ts is
-// enforced by the TypeScript feature corpus; this Go scenario locks the
-// minimum-viable trigger (`arr.reduce(cb, [] as string[])`) so a future
-// shim regression surfaces here without depending on the full fixture.
+// packages/lint/test/testdata/corpus/typescript-prefer-reduce-type-parameter.ts is
+// enforced by TestLintFixtureCorpus; this Go scenario locks the minimum-viable
+// trigger (`arr.reduce(cb, [] as string[])`) so a future shim regression surfaces
+// here without depending on the full fixture.
 //
 //  1. Seed a project that calls `.reduce` on a `number[]` with an
 //     `as`-asserted accumulator seed.

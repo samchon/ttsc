@@ -9,13 +9,12 @@ import (
 // fixture typescript-related-getter-setter-pairs.ts under a real Program.
 //
 // `typescript/related-getter-setter-pairs` is type-aware: it consults
-// `GetTypeFromTypeNode` on both the getter's return-type annotation
-// and the setter's parameter-type annotation, so the engine's checker-
-// less AST harness used by `assertRuleCorpusCase` skips it because
-// Context.Checker is nil. This Go scenario reuses the
+// `GetTypeFromTypeNode` on both the getter's return-type annotation and the
+// setter's parameter-type annotation, so the engine's checker- less a parser-only
+// engine run skips it because Context.Checker is nil. This Go scenario reuses the
 // `seedLintProject` shape established by `no-base-to-string` and
-// `restrict-plus-operands`: materialize a tsconfig project, run
-// `ttsc lint check`, and assert on the rendered diagnostics.
+// `restrict-plus-operands`: materialize a tsconfig project, run `ttsc lint check`,
+// and assert on the rendered diagnostics.
 //
 //  1. Seed a project where a class declares `get value(): string` and
 //     `set value(next: number)` — the reader sees `string`, the writer

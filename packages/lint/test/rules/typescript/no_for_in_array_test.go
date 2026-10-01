@@ -8,17 +8,17 @@ import (
 // TestRuleCorpusNoForInArray verifies the lint rule corpus fixture
 // no-for-in-array.ts under a real Program.
 //
-// `typescript/no-for-in-array` is type-aware: the engine's checker-less AST
-// harness used by `assertRuleCorpusCase` skips it because Context.Checker is
-// nil. This Go scenario therefore reuses the `seedLintProject` shape
-// established by `no-floating-promises` and `non-nullable-type-assertion-style`:
-// materialize a tsconfig project, run `ttsc lint check`, and assert on the
-// rendered diagnostics.
+// `typescript/no-for-in-array` is type-aware: a parser-only engine run skips it
+// because Context.Checker is nil. This Go scenario therefore reuses the
+// `seedLintProject` shape established by `no-floating-promises` and
+// `non-nullable-type-assertion-style`: materialize a tsconfig project, run `ttsc
+// lint check`, and assert on the rendered diagnostics.
 //
-// Fixture-shape parity with tests/test-lint/src/cases/typescript-no-for-in-array.ts
-// is enforced by the TypeScript feature corpus; this Go scenario locks the
-// minimum-viable trigger (`for (const k in arr)` over a `number[]`) so a
-// future shim regression surfaces here without depending on the full fixture.
+// Fixture-shape parity with
+// packages/lint/test/testdata/corpus/typescript-no-for-in-array.ts is enforced by
+// TestLintFixtureCorpus; this Go scenario locks the minimum-viable trigger (`for
+// (const k in arr)` over a `number[]`) so a future shim regression surfaces here
+// without depending on the full fixture.
 //
 // 1. Seed a project that iterates a typed `number[]` with `for...in`.
 // 2. Run `check` with typescript/no-for-in-array enabled as error.

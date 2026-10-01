@@ -7,11 +7,11 @@ import (
 const unicornPreferNumberPropertiesRuleName = "unicorn/prefer-number-properties"
 
 // unicornPreferNumberPropertiesCorpusSource mirrors
-// tests/test-lint/src/cases/unicorn-prefer-number-properties.ts so the Go layer
-// and the end-to-end corpus assert the same default-option behavior: base-10 /
-// no-radix parseInt calls and locally shadowed bindings are valid, while a
-// radix-2 parseInt and both value positions of an object literal
-// (`{normalize: parseFloat, parseInt}`) are reported.
+// packages/lint/test/testdata/corpus/unicorn-prefer-number-properties.ts so the Go
+// layer and the end-to-end corpus assert the same default-option behavior: base-10
+// / no-radix parseInt calls and locally shadowed bindings are valid, while a
+// radix-2 parseInt and both value positions of an object literal (`{normalize:
+// parseFloat, parseInt}`) are reported.
 const unicornPreferNumberPropertiesCorpusSource = `export {};
 
 const raw = "10";

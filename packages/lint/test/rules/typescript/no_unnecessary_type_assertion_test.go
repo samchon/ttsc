@@ -8,13 +8,12 @@ import (
 // TestRuleCorpusNoUnnecessaryTypeAssertion verifies the lint rule corpus
 // fixture typescript-no-unnecessary-type-assertion.ts under a real Program.
 //
-// `typescript/no-unnecessary-type-assertion` is type-aware: it consults
-// the Checker via `GetTypeAtLocation`, `GetTypeFromTypeNode`, and
-// `IsTypeAssignableTo`, so the engine's checker-less AST harness used by
-// `assertRuleCorpusCase` skips it because Context.Checker is nil. This Go
-// scenario therefore reuses the seedLintProject shape established by
-// `non-nullable-type-assertion-style`: materialize a tsconfig project,
-// run `ttsc lint check`, and assert on the rendered diagnostics.
+// `typescript/no-unnecessary-type-assertion` is type-aware: it consults the Checker
+// via `GetTypeAtLocation`, `GetTypeFromTypeNode`, and `IsTypeAssignableTo`, so a
+// parser-only engine run skips it because Context.Checker is nil. This Go scenario
+// therefore reuses the seedLintProject shape established by
+// `non-nullable-type-assertion-style`: materialize a tsconfig project, run `ttsc
+// lint check`, and assert on the rendered diagnostics.
 //
 //  1. Seed a project that asserts a `string` value back to `string`.
 //  2. Run `check` with typescript/no-unnecessary-type-assertion enabled

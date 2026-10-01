@@ -9,13 +9,11 @@ import (
 // TestRuleCorpusUnicornNoUnusedProperties verifies the lint rule corpus
 // fixture unicorn-no-unused-properties.ts through the type-aware engine path.
 //
-// The rule resolves references with the TypeScript checker, so the plain
-// assertRuleCorpusCase helper (which runs without a Program) can never see
-// its findings. This twin runs the exact corpus source through the real
-// Program/checker lifecycle and pins the same three diagnostics the
-// TypeScript feature runner asserts end-to-end: an unused object property,
-// an unused property of a nested object, and an unused member of an inline
-// parameter type literal.
+// The rule resolves references with the TypeScript checker, so a parser-only
+// engine run can never see its findings. This twin runs the corpus source (also
+// executed by TestLintFixtureCorpus) through the real Program/checker
+// lifecycle and pins the three diagnostics: an unused object property, an unused property of a nested
+// object, and an unused member of an inline parameter type literal.
 //
 //  1. Materialize the corpus fixture source in a strict project.
 //  2. Run unicorn/no-unused-properties through loadProgram + runLintCycle.

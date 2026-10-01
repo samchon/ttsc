@@ -16,9 +16,7 @@ import (
  * 2. Inspect the configured external topology without loading sources.
  * 3. Reject a root/package combination instead of silently choosing a base.
  *
- * @evidence contracts/testing.md#behavioral-verification graphRule.ProjectInputs and decodeGraphConfig exercises this case. Verifies rooted code references declare future export dependencies.
  *
- * @evidence contracts/testing.md#independent-expectations Explicit reference roots publish ../api/** beside review.md, while combining root and package is an invalid configuration. Both expected values are authored independently of normalization.
  *
  * @evidence contracts/testing.md#behavioral-verification declaredInputs on a Markdown claim (review.md) with a TypeScript reference rooted at `../api` over src/index.ts must declare the glob inputs exactly `review.md` and `../api/**`; decodeGraphConfig on the same reference with both `root` and `package` must produce a problem containing `cannot be combined`.
  * @evidence contracts/testing.md#independent-expectations Both expectations are authored literals: a rooted code reference must watch its root so a newly created re-export module is observable outside the entry globs, and root with package is an invalid configuration rather than a silent choice of base.

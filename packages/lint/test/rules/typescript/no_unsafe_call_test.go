@@ -8,20 +8,19 @@ import (
 // TestRuleCorpusNoUnsafeCall verifies the lint rule corpus fixture
 // typescript-no-unsafe-call.ts under a real Program.
 //
-// `typescript/no-unsafe-call` is type-aware: it asks the Checker for the
-// callee's static type at each `CallExpression`, `NewExpression`, and
-// `TaggedTemplateExpression`, and flags invocations on an `any` value.
-// The engine's checker-less AST harness used by `assertRuleCorpusCase`
-// skips the rule because Context.Checker is nil, so this Go scenario
-// reuses the `seedLintProject` shape established by `no-floating-promises`
-// and `no-for-in-array`: materialize a tsconfig project, run `ttsc lint
-// check`, and assert on the rendered diagnostics.
+// `typescript/no-unsafe-call` is type-aware: it asks the Checker for the callee's
+// static type at each `CallExpression`, `NewExpression`, and
+// `TaggedTemplateExpression`, and flags invocations on an `any` value. A
+// parser-only engine run skips the rule because Context.Checker is nil, so this Go
+// scenario reuses the `seedLintProject` shape established by `no-floating-promises`
+// and `no-for-in-array`: materialize a tsconfig project, run `ttsc lint check`, and
+// assert on the rendered diagnostics.
 //
 // Fixture-shape parity with
-// tests/test-lint/src/cases/typescript-no-unsafe-call.ts is enforced by
-// the TypeScript feature corpus; this Go scenario locks the
-// minimum-viable trigger (`anyValue()`) so a future shim regression
-// surfaces here without depending on the full fixture.
+// packages/lint/test/testdata/corpus/typescript-no-unsafe-call.ts is enforced by
+// TestLintFixtureCorpus; this Go scenario locks the minimum-viable trigger
+// (`anyValue()`) so a future shim regression surfaces here without depending on the
+// full fixture.
 //
 // 1. Seed a project that calls an `any`-typed value as a function.
 // 2. Run `check` with typescript/no-unsafe-call enabled as error.

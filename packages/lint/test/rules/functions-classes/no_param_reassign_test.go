@@ -35,9 +35,9 @@ func assertNoParamReassignCorpusCase(t *testing.T, relativeFile, source string) 
 
 // TestRuleCorpusNoParamReassign verifies the lint rule corpus fixture no-param-reassign.ts.
 //
-// Rule corpus tests mirror tests/test-lint/src/cases inside Go unit coverage. Each generated
-// scenario keeps one annotated TypeScript fixture tied to the native Engine so individual rule
-// Check methods are measured by go test instead of only by the TypeScript feature runner.
+// The annotated source mirrors packages/lint/test/testdata/corpus/no-param-reassign.ts,
+// which TestLintFixtureCorpus also executes. This scenario keeps the source
+// embedded to drive the checker-backed assertion helper directly.
 //
 // This case enables the rule annotations declared in no-param-reassign.ts and compares
 // normalized rule, severity, and line triples. The source text stays embedded in the generated

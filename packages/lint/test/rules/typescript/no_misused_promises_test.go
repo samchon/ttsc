@@ -8,12 +8,10 @@ import (
 // TestRuleCorpusNoMisusedPromises verifies the lint rule corpus fixture
 // no-misused-promises.ts under a real Program.
 //
-// `typescript/no-misused-promises` is type-aware: the engine's
-// checker-less AST harness used by `assertRuleCorpusCase` skips it
-// because Context.Checker is nil. The rule reuses the `command_*`
-// shape established by `no-floating-promises`'s corpus test:
-// materialize a tsconfig project, run `ttsc lint check`, and assert on
-// the rendered diagnostics.
+// `typescript/no-misused-promises` is type-aware: a parser-only engine run skips it
+// because Context.Checker is nil. The rule reuses the `command_*` shape established
+// by `no-floating-promises`'s corpus test: materialize a tsconfig project, run
+// `ttsc lint check`, and assert on the rendered diagnostics.
 //
 // 1. Seed a project that places a Promise in an `if` condition.
 // 2. Run `check` with typescript/no-misused-promises enabled as error.

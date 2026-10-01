@@ -24,7 +24,6 @@ import (
 )
 
 var ruleExpectationPattern = regexp.MustCompile(`//\s*expect:\s*([@\w/-]+)\s+(error|warn)\s*$`)
-var ruleOptionsDirectivePattern = regexp.MustCompile(`^\s*//\s*@ttsc-corpus-options:\s*(\S+)\s+(\S.*?)\s*$`)
 var ansiControlSequencePattern = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 var renderedRuleDiagnosticPattern = regexp.MustCompile(`(?m)(?:^|[\s/\\])[^\s:]+\.(?:[cm]?tsx?|jsx?):\d+:\d+\s+-\s+(?:error|warning)\s+TS\d+:\s*\[([@\w/-]+)\]`)
 
@@ -53,10 +52,10 @@ func parseTS(t *testing.T, source string) *shimast.SourceFile {
 
 // parseTSFile parses one virtual TypeScript file with a caller-selected path.
 //
-// Some rule-corpus cases live in subdirectories and import sibling fixtures.
-// The native rule engine only needs the offending source file for these AST
-// rules, but preserving the relative fixture name makes assertion failures
-// easier to map back to tests/test-lint/src/cases.
+// Some cases live in subdirectories and import sibling fixtures. The native rule
+// engine only needs the offending source file for these AST rules, but
+// preserving the relative fixture name makes assertion failures easier to map
+// back to packages/lint/test/testdata/corpus.
 //
 // 1. Keep the filename absolute because the tsgo parser rejects relatives.
 // 2. Parse as TypeScript so TS-only syntax and directives are preserved.
@@ -96,180 +95,6 @@ func parseTSXFile(t *testing.T, fileName, source string) *shimast.SourceFile {
   return file
 }
 
-// assertRuleCorpusCase runs one annotated fixture through the native rule engine.
-//
-// The TypeScript feature corpus already exercises these files end-to-end through
-// ttsc. This Go unit layer exists for coverage and debugging: it parses the same
-// `// expect:` annotations, enables only the mentioned rules, and compares the
-// rule/severity/line triples directly against Engine findings.
-//
-//  1. Parse expectation annotations using the same target-line convention as the
-//     TypeScript helper.
-//  2. Run the lint engine on the virtual fixture source with those rules enabled.
-//  3. Compare normalized findings so every rule fixture contributes Go coverage.
-func assertRuleCorpusCase(t *testing.T, relativeFile, source string) {
-  t.Helper()
-  assertRuleCorpusCaseWithKind(t, relativeFile, source, behavioralWitnessEngine)
-}
-
-func assertRuleCorpusCaseWithKind(
-  t *testing.T,
-  relativeFile string,
-  source string,
-  kind behavioralWitnessKind,
-) {
-  t.Helper()
-  expected := parseRuleExpectations(t, source)
-  if len(expected) == 0 {
-    t.Fatalf("%s has no rule expectations", relativeFile)
-  }
-  rules := RuleConfig{}
-  for _, exp := range expected {
-    rules[exp.Rule] = exp.Severity
-  }
-  engine := newRuleCorpusEngine(t, relativeFile, source, rules)
-  // A type-aware rule handed a nil checker cannot resolve anything and reports
-  // nothing, so the corpus would measure the harness rather than the rule. The
-  // engine already knows which lane its rule set needs; ask it, exactly as the
-  // snapshot helpers do.
-  file, findings := runRuleCorpusEngine(t, engine, relativeFile, source)
-  if err := validateSemanticRuleFindings(rules, findings); err != nil {
-    t.Fatalf("%s: invalid semantic findings: %v", relativeFile, err)
-  }
-  actual := normalizeRuleFindings(file, findings)
-  if len(actual) != len(expected) {
-    t.Fatalf("%s: want %v, got %v", relativeFile, expected, actual)
-  }
-  for i := range expected {
-    if actual[i] != expected[i] {
-      t.Fatalf("%s[%d]: want %+v, got %+v; all findings=%+v", relativeFile, i, expected[i], actual[i], actual)
-    }
-  }
-  recordExpectedBehavioralWitnesses(t, expected, kind)
-}
-
-// assertRuleCorpusCaseTSX runs one annotated TSX fixture through the native
-// rule engine.
-//
-// JSX-focused families need ScriptKindTSX so intrinsic tags and component tags
-// surface as JSX nodes instead of parse errors. This mirrors assertRuleCorpusCase
-// while preserving the caller's virtual file path for path-sensitive rules.
-//
-//  1. Parse expectation annotations from `// expect:` comments.
-//  2. Parse the source as TSX under the requested virtual path.
-//  3. Compare normalized Engine findings against the annotations.
-func assertRuleCorpusCaseTSX(t *testing.T, relativeFile, source string) {
-  t.Helper()
-  expected := parseRuleExpectations(t, source)
-  if len(expected) == 0 {
-    t.Fatalf("%s has no rule expectations", relativeFile)
-  }
-  rules := RuleConfig{}
-  for _, exp := range expected {
-    rules[exp.Rule] = exp.Severity
-  }
-  file := parseTSXFile(t, "/virtual/"+filepath.ToSlash(relativeFile), source)
-  findings := newRuleCorpusEngine(t, relativeFile, source, rules).Run([]*shimast.SourceFile{file}, nil)
-  if err := validateSemanticRuleFindings(rules, findings); err != nil {
-    t.Fatalf("%s: invalid semantic findings: %v", relativeFile, err)
-  }
-  actual := normalizeRuleFindings(file, findings)
-  if len(actual) != len(expected) {
-    t.Fatalf("%s: want %v, got %v", relativeFile, expected, actual)
-  }
-  for i := range expected {
-    if actual[i] != expected[i] {
-      t.Fatalf("%s[%d]: want %+v, got %+v; all findings=%+v", relativeFile, i, expected[i], actual[i], actual)
-    }
-  }
-  recordExpectedBehavioralWitnesses(t, expected, behavioralWitnessEngine)
-}
-
-func recordExpectedBehavioralWitnesses(
-  t *testing.T,
-  expected []ruleExpectation,
-  kind behavioralWitnessKind,
-) {
-  t.Helper()
-  recorded := map[string]struct{}{}
-  for _, expectation := range expected {
-    if _, ok := recorded[expectation.Rule]; ok {
-      continue
-    }
-    recorded[expectation.Rule] = struct{}{}
-    recordBehavioralWitness(t, expectation.Rule, kind)
-  }
-}
-
-// newRuleCorpusEngine builds the engine for one annotated corpus fixture.
-// Severities come from the `// expect:` annotations; a fixture that needs
-// rule options carries them in `// @ttsc-corpus-options:` directives (the
-// Go mirror of the TypeScript corpus runner's `[severity, options]` rule
-// entries). Options for a rule the fixture never expects a finding from are
-// a fixture bug and fail loudly, as does a payload the engine rejects.
-// runRuleCorpusEngine runs one corpus fixture on the lane its rule set requires
-// and returns the parsed file the findings are keyed against.
-//
-// The source-only lane keeps the cheap parsed-file path most fixtures need. A
-// rule set containing a type-aware rule is materialized as a real project so the
-// Checker exists; the same text is parsed separately as the line oracle, which
-// is sound because the two hold identical bytes.
-func runRuleCorpusEngine(
-  t *testing.T,
-  engine *Engine,
-  relativeFile, source string,
-) (*shimast.SourceFile, []*Finding) {
-  t.Helper()
-  if !engine.NeedsTypeChecker() {
-    file := parseTSFile(t, "/virtual/"+filepath.ToSlash(relativeFile), source)
-    return file, engine.Run([]*shimast.SourceFile{file}, nil)
-  }
-  fileName := filepath.Base(relativeFile)
-  root := seedLintProjectFile(t, fileName, source)
-  engine.SetCurrentDirectory(root)
-  program, diagnostics, err := loadProgram(root, "tsconfig.json", loadProgramOptions{
-    forceNoEmit:      true,
-    needsRuleChecker: true,
-  })
-  if program != nil {
-    defer program.close()
-  }
-  if err != nil {
-    t.Fatalf("%s: loadProgram: %v", relativeFile, err)
-  }
-  if len(diagnostics) != 0 {
-    t.Fatalf("%s: loadProgram diagnostics: %+v", relativeFile, diagnostics)
-  }
-  if program == nil || program.checker == nil {
-    t.Fatalf("%s: loadProgram returned no checker for a type-aware rule set", relativeFile)
-  }
-  return parseTSFile(t, filepath.Join(root, "src", fileName), source), program.runLintCycle(engine)
-}
-
-func newRuleCorpusEngine(t *testing.T, relativeFile, source string, rules RuleConfig) *Engine {
-  t.Helper()
-  options := parseRuleOptionsDirectives(t, relativeFile, source)
-  for rule := range options {
-    if _, enabled := rules[rule]; !enabled {
-      t.Fatalf("%s: @ttsc-corpus-options names %q, which has no // expect: annotation", relativeFile, rule)
-    }
-  }
-  engine := NewEngineWithResolver(InlineRuleResolver{Rules: rules, Options: options})
-  if err := engine.ConfigError(); err != nil {
-    t.Fatalf("%s: @ttsc-corpus-options rejected by the engine: %v", relativeFile, err)
-  }
-  if unknown := engine.UnknownRules(); len(unknown) != 0 {
-    t.Fatalf("%s: unknown corpus rule identities: %v", relativeFile, unknown)
-  }
-  enabled := engine.EnabledRules()
-  for rule, severity := range rules {
-    if actual, ok := enabled[rule]; !ok || actual != severity {
-      t.Fatalf("%s: corpus rule %q did not bind at severity %v: %v", relativeFile, rule, severity, enabled)
-    }
-  }
-  return engine
-}
-
 // validateSemanticRuleFindings rejects execution failures before semantic
 // harnesses normalize ranges or record positive rule coverage. Panic recovery
 // deliberately uses the original rule identity and error severity, so those
@@ -290,30 +115,6 @@ func validateSemanticRuleFindings(rules RuleConfig, findings []*Finding) error {
     }
   }
   return nil
-}
-
-// parseRuleOptionsDirectives reads `// @ttsc-corpus-options: <rule> <json>`
-// directives, mirroring the TypeScript corpus helper. Each directive supplies
-// the options half of the named rule's `[severity, options]` config entry.
-func parseRuleOptionsDirectives(t *testing.T, relativeFile, source string) RuleOptionsMap {
-  t.Helper()
-  options := RuleOptionsMap{}
-  for _, line := range strings.Split(strings.ReplaceAll(source, "\r\n", "\n"), "\n") {
-    match := ruleOptionsDirectivePattern.FindStringSubmatch(line)
-    if match == nil {
-      continue
-    }
-    rule := match[1]
-    payload := json.RawMessage(match[2])
-    if !json.Valid(payload) {
-      t.Fatalf("%s: @ttsc-corpus-options for %q carries invalid JSON: %s", relativeFile, rule, payload)
-    }
-    if _, duplicate := options[rule]; duplicate {
-      t.Fatalf("%s: duplicate @ttsc-corpus-options directive for %q", relativeFile, rule)
-    }
-    options[rule] = payload
-  }
-  return options
 }
 
 // parseRuleExpectations mirrors the TypeScript fixture helper's annotation

@@ -8,18 +8,17 @@ import (
 // TestRuleCorpusNoUnsafeEnumComparison verifies the lint rule corpus
 // fixture typescript-no-unsafe-enum-comparison.ts under a real Program.
 //
-// `typescript/no-unsafe-enum-comparison` is type-aware: the engine's
-// checker-less AST harness used by `assertRuleCorpusCase` skips it
-// because Context.Checker is nil. This Go scenario reuses the
+// `typescript/no-unsafe-enum-comparison` is type-aware: a parser-only engine run
+// skips it because Context.Checker is nil. This Go scenario reuses the
 // `seedLintProject` shape established by `no-base-to-string` and
-// `switch-exhaustiveness-check`: materialize a tsconfig project, run
-// `ttsc lint check`, and assert on the rendered diagnostics.
+// `switch-exhaustiveness-check`: materialize a tsconfig project, run `ttsc lint
+// check`, and assert on the rendered diagnostics.
 //
 // Fixture-shape parity with
-// tests/test-lint/src/cases/typescript-no-unsafe-enum-comparison.ts is
-// enforced by the TypeScript feature corpus; this Go scenario locks the
-// minimum-viable trigger (`Color === "red"`) so a future shim
-// regression surfaces here without depending on the full fixture.
+// packages/lint/test/testdata/corpus/typescript-no-unsafe-enum-comparison.ts is
+// enforced by TestLintFixtureCorpus; this Go scenario locks the minimum-viable
+// trigger (`Color === "red"`) so a future shim regression surfaces here without
+// depending on the full fixture.
 //
 //  1. Seed a project that compares a string enum value against a raw
 //     string literal.

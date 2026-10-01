@@ -24,6 +24,7 @@ import (
   "sort"
   "strconv"
   "strings"
+  "testing"
 )
 
 // lintCorpusRoot is the committed corpus directory relative to the scratch
@@ -671,4 +672,21 @@ func expectedCorpusDiagnostics(entry corpusEntry) []corpusDiagnostic {
     expected = append(expected, corpusDiagnostic{corpusPortableFile(entry.SourcePath), expectation.Rule, expectation.Severity, expectation.Line})
   }
   return expected
+}
+
+// writeCorpusTree materializes an in-memory corpus under a fresh temporary root
+// for the loader's own cases.
+func writeCorpusTree(t *testing.T, files map[string]string) string {
+  t.Helper()
+  root := t.TempDir()
+  for name, source := range files {
+    location := filepath.Join(root, filepath.FromSlash(name))
+    if err := os.MkdirAll(filepath.Dir(location), 0o755); err != nil {
+      t.Fatal(err)
+    }
+    if err := os.WriteFile(location, []byte(source), 0o644); err != nil {
+      t.Fatal(err)
+    }
+  }
+  return root
 }

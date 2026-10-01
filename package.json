@@ -19,7 +19,7 @@
     "experimental:unplugin": "pnpm --dir experimental/test-unplugin start -- --pack-current",
     "experimental:source-map": "pnpm --dir experimental/source-map start -- --pack-current",
     "experimental:unplugin-perf": "pnpm --dir experimental/unplugin-perf start",
-    "package:tgz": "node --experimental-strip-types experimental/tarballs/index.ts",
+    "package:tgz": "node --experimental-strip-types experimental/tarballs/index.mts",
     "package:next": "bash next.bash",
     "release": "bumpp -r",
     "package:latest": "pnpm build && pnpm run package:latest:publish",

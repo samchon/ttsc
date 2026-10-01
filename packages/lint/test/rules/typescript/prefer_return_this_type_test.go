@@ -8,20 +8,18 @@ import (
 // TestRuleCorpusPreferReturnThisType verifies the lint rule corpus
 // fixture typescript-prefer-return-this-type.ts under a real Program.
 //
-// `typescript/prefer-return-this-type` is type-aware: it inspects the
-// declared return type of methods that always `return this`, so the
-// engine's checker-less AST harness used by `assertRuleCorpusCase`
-// skips it. This Go scenario therefore reuses the `seedLintProject`
-// shape established by `prefer-includes` and `no-for-in-array`:
-// materialize a tsconfig project, run `ttsc lint check`, and assert on
-// the rendered diagnostics.
+// `typescript/prefer-return-this-type` is type-aware: it inspects the declared
+// return type of methods that always `return this`, so a parser-only engine run
+// skips it. This Go scenario therefore reuses the `seedLintProject` shape
+// established by `prefer-includes` and `no-for-in-array`: materialize a tsconfig
+// project, run `ttsc lint check`, and assert on the rendered diagnostics.
 //
 // Fixture-shape parity with
-// tests/test-lint/src/cases/typescript-prefer-return-this-type.ts is
-// enforced by the TypeScript feature corpus; this Go scenario locks the
-// minimum-viable trigger (a class method declared to return the class
-// name whose body is exactly `return this;`) so a future shim
-// regression surfaces here without depending on the full fixture.
+// packages/lint/test/testdata/corpus/typescript-prefer-return-this-type.ts is
+// enforced by TestLintFixtureCorpus; this Go scenario locks the minimum-viable
+// trigger (a class method declared to return the class name whose body is exactly
+// `return this;`) so a future shim regression surfaces here without depending on
+// the full fixture.
 //
 //  1. Seed a project with a class method that returns `this` but is
 //     annotated to return the class name.

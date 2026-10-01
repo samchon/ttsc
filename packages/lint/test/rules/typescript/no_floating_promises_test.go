@@ -8,16 +8,16 @@ import (
 // TestRuleCorpusNoFloatingPromises verifies the lint rule corpus fixture
 // no-floating-promises.ts under a real Program.
 //
-// `typescript/no-floating-promises` is type-aware: the engine's checker-less
-// AST harness used by `assertRuleCorpusCase` skips it because Context.Checker
-// is nil. The rule therefore uses the command-test shape for type-aware rules:
-// materialize a tsconfig project, run `ttsc lint check`, and assert on the
-// rendered diagnostics.
+// `typescript/no-floating-promises` is type-aware: a parser-only engine run skips
+// it because Context.Checker is nil. The rule therefore uses the command-test shape
+// for type-aware rules: materialize a tsconfig project, run `ttsc lint check`, and
+// assert on the rendered diagnostics.
 //
-// Fixture-shape parity with tests/test-lint/src/cases/no-floating-promises.ts
-// is enforced by the TypeScript feature corpus; this Go scenario locks the
-// minimum-viable trigger (`getPromise();`) so a future shim regression
-// surfaces here without depending on the full fixture.
+// Fixture-shape parity with
+// packages/lint/test/testdata/corpus/no-floating-promises.ts is enforced by
+// TestLintFixtureCorpus; this Go scenario locks the minimum-viable trigger
+// (`getPromise();`) so a future shim regression surfaces here without depending on
+// the full fixture.
 //
 // 1. Seed a project that defines getPromise() and discards its return.
 // 2. Run `check` with typescript/no-floating-promises enabled as error.

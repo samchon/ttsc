@@ -9,11 +9,9 @@ import (
 // only-throw-error.ts under a real Program.
 //
 // The rule is type-aware: it inspects the throw expression's type via
-// `ctx.Checker.GetTypeAtLocation` and flags primitive throws. The
-// checker-less AST harness used by `assertRuleCorpusCase` skips the
-// rule, so this test reuses the `command_*` shape: seed a tsconfig
-// project, run `ttsc lint check`, and assert on the rendered
-// diagnostics.
+// `ctx.Checker.GetTypeAtLocation` and flags primitive throws. A parser-only engine
+// run skips the rule, so this test reuses the `command_*` shape: seed a tsconfig
+// project, run `ttsc lint check`, and assert on the rendered diagnostics.
 //
 // 1. Seed a project that throws a string literal.
 // 2. Run `check` with typescript/only-throw-error enabled as error.
