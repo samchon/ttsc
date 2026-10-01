@@ -42,7 +42,9 @@ const legacyExtendsClass = (expression: ts.Expression) =>
  * comma sequence silently became _two_ base classes — a single `extends` entry
  * turning into two. Every `extends` and `implements` clause on a class
  * declaration, class expression or interface funnels through this one branch.
- * Expectations come from the legacy printer's output for the same tree.
+ * Expectations come from independently built legacy trees. A class expression
+ * statement is explicitly parenthesized there because bare legacy emission
+ * changes it into a declaration with an enclosing name binding.
  *
  * 1. Print a class `extends` clause over each non-left-hand-side expression shape,
  *    and assert the printed text parses and means what the oracle's text
@@ -52,7 +54,7 @@ const legacyExtendsClass = (expression: ts.Expression) =>
  * 3. Assert the negative twins — a call and a qualified name — stay bare.
  *
  * @evidence contracts/testing.md#behavioral-verification Heritage emit wraps logical, conditional, assertion, await, arrow, assignment, optional-chain and comma operands where needed.
- * @evidence contracts/testing.md#independent-expectations Exact literals and independently constructed ts-legacy nodes specify heritage syntax; parsed entry counts guard commas becoming multiple bases.
+ * @evidence contracts/testing.md#independent-expectations Exact literals and independently constructed ts-legacy nodes specify heritage syntax; parsed entry counts guard commas becoming multiple bases. The legacy class expression statement has explicit parentheses to preserve expression-local binding rather than accept its bare emission as a declaration.
  * @evidence contracts/testing.md#distinguishing-cases Extends/implements, class declaration/expression and interface routes, generic heritage and bare identifier/call controls expose contextual differences.
  * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_heritage_expression_parentheses. Runs the heritage tables under this export using TsPrinter.print, assertOracle and the independent TypeScript parser.
  */
@@ -252,19 +254,23 @@ export const test_heritage_expression_parentheses = (): void => {
     "class expression",
     classExpression,
     ts.factory.createExpressionStatement(
-      ts.factory.createClassExpression(
-        undefined,
-        lid("C"),
-        undefined,
-        [
-          ts.factory.createHeritageClause(ts.SyntaxKind.ExtendsKeyword, [
-            ts.factory.createExpressionWithTypeArguments(
-              legacyComma(),
-              undefined,
-            ),
-          ]),
-        ],
-        [],
+      // Explicitly retain expression context: bare legacy emission becomes a
+      // class declaration, changing the enclosing name binding.
+      ts.factory.createParenthesizedExpression(
+        ts.factory.createClassExpression(
+          undefined,
+          lid("C"),
+          undefined,
+          [
+            ts.factory.createHeritageClause(ts.SyntaxKind.ExtendsKeyword, [
+              ts.factory.createExpressionWithTypeArguments(
+                legacyComma(),
+                undefined,
+              ),
+            ]),
+          ],
+          [],
+        ),
       ),
     ),
   );

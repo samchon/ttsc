@@ -57,7 +57,7 @@ import { NodeFlags, SyntaxKind } from "./syntax";
  *   const printer = new TsPrinter({ printWidth: 80, indent: "  " });
  *   printer.print(factory.createStringLiteral("hello")); // "hello"
  *   ```
- * @evidence contracts/common.md#principled-implementation Discriminant dispatch lowers each outline kind to grammar-specific documents; precedence, associativity, optional-chain boundaries and assignment-target context constrain parentheses and commas independently of layout. Inputs must be well-formed acyclic trees; arbitrary typed shapes are not a grammar validator.
+ * @evidence contracts/common.md#principled-implementation Discriminant dispatch lowers each outline kind to grammar-specific documents; precedence, associativity, optional-chain boundaries and assignment-target context constrain parentheses and commas independently of layout. Numeric and bitwise operands retain grouping because rounding and observable conversions forbid general reassociation; class expression statements preserve expression-local names. Inputs must be well-formed acyclic trees; arbitrary typed shapes are not a grammar validator.
  * @evidence contracts/common.md#clear-and-simple-design The instance retains only three layout settings; private helpers own grammar boundaries, comment rendering and list layout, while the document engine owns width decisions. The exhaustive switch keeps node lowering visible in one owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Grammar exceptions such as rest-target commas and JSX whitespace preserve supported syntax and meaning rather than fixture answers; the printer reads package-owned comment metadata and does not patch a compiler or consumer.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains width-aware output, outline input constraints and string-unit width; examples and separately documented options apply the documentation skill's paragraph separation and reasons for nonobvious limits.
@@ -2341,22 +2341,19 @@ export class TsPrinter {
   }
 
   private operatorHasAssociativeProperty(operator: SyntaxKind): boolean {
-    return (
-      operator === SyntaxKind.AsteriskToken ||
-      operator === SyntaxKind.BarToken ||
-      operator === SyntaxKind.AmpersandToken ||
-      operator === SyntaxKind.CaretToken ||
-      operator === SyntaxKind.CommaToken
-    );
+    // Arithmetic can round, and numeric coercions can have observable effects.
+    // Only comma grouping preserves evaluation without knowing operand values.
+    return operator === SyntaxKind.CommaToken;
   }
 
   private literalKindOfBinaryPlusOperand(
     expression: Expression,
   ): string | undefined {
     expression = this.skipPartiallyEmittedExpressions(expression);
+    // Literal strings concatenate associatively and BigInts add exactly.
+    // Numeric literals still use rounded Number addition.
     switch (expression.kind) {
       case "StringLiteral":
-      case "NumericLiteral":
       case "BigIntLiteral":
         return expression.kind;
       case "BinaryExpression": {
@@ -2402,6 +2399,7 @@ export class TsPrinter {
     const leftmost: Expression = this.leftmostExpression(expression);
     return (
       leftmost.kind === "FunctionExpression" ||
+      leftmost.kind === "ClassExpression" ||
       leftmost.kind === "ObjectLiteralExpression"
     );
   }

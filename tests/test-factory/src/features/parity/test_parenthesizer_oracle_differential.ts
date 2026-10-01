@@ -205,8 +205,15 @@ const operands: Operand[] = [
 
 const statement = (expression: Expression): Node =>
   f.createExpressionStatement(expression);
+// The legacy printer emits a bare class expression as a declaration here.
+// State the expression context explicitly in the oracle, preserving its local
+// name binding instead of accepting the legacy printer's different program.
 const legacyStatement = (expression: ts.Expression): ts.Node =>
-  l.createExpressionStatement(expression);
+  l.createExpressionStatement(
+    ts.isClassExpression(expression)
+      ? l.createParenthesizedExpression(expression)
+      : expression,
+  );
 
 const consumers: Consumer[] = [
   {
@@ -570,7 +577,7 @@ const requiredProductions: readonly string[] = [
  *    the oracle's text.
  *
  * @evidence contracts/testing.md#behavioral-verification The consumer-by-operand cross-product preserves parsed grouping and optional-chain membership, and exercises required node productions.
- * @evidence contracts/testing.md#independent-expectations Separately built ts-legacy trees define each expected structure; the one legacy object-literal generic-heritage defect has an explicit independent literal expectation instead.
+ * @evidence contracts/testing.md#independent-expectations Separately built ts-legacy trees define each expected structure. Class expression statements carry explicit parentheses in the oracle because bare legacy emission changes them into declarations and leaks their names. The legacy object-literal generic-heritage defect has an independent literal expectation instead; runtime class-scope and arithmetic semantics are checked by test_printed_program_preserves_expression_grouping.
  * @evidence contracts/testing.md#distinguishing-cases Call/new/member/unary/heritage/statement/arrow consumers combine with optional/plain calls, assertions, comma, function/object and new operands; the known unfaithful legacy cell is checked by literal outside the differential loop.
  * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_parenthesizer_oracle_differential. This export owns every labeled cross-product cell, runs TsPrinter.print/structure and collects all differences before failing; kindsOf guards actual generated node variety.
  */
