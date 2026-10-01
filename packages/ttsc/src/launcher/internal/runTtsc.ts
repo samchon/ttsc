@@ -24,7 +24,8 @@ import { resolveSourceBuildCachePaths } from "../../plugin/internal/source/resol
 import type { ITtscProjectInputSnapshot } from "../../structures/internal/ITtscProjectInputSnapshot";
 import type { TtscSingleFileEmitOptions } from "../../structures/internal/TtscSingleFileEmitOptions";
 import { PendingResidentCheckWatchChanges } from "./PendingResidentCheckWatchChanges";
-import { prepareTtscBuildMode, type TtscBuildMode } from "./prepareTtscBuildMode";
+import { prepareTtscBuildMode } from "./prepareTtscBuildMode";
+import type { TtscBuildMode } from "./TtscBuildMode";
 import { parseTtscBuildArgs } from "./parseTtscBuildArgs";
 import { getCompilerVersionText } from "./getCompilerVersionText";
 import { resolveCacheDir } from "./resolveCacheDir";
