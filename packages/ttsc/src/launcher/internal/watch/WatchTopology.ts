@@ -1287,8 +1287,14 @@ export class WatchTopology {
         previous,
         previousFingerprints: this.projectInputFingerprints,
       });
-      const reconciledChange =
-        changed ?? (changedInputs.length === 1 ? changedInputs[0] : undefined);
+      const reconciledChange = reconcileProjectInputChange({
+        changed,
+        changedInputs,
+        identities,
+        next,
+        previous,
+        reloadDirectories: population.reloadDirectories ?? [],
+      });
       // Both spellings classify the event. The normalized form names the file a
       // link pointed at when the snapshot was published, so after a retarget it
       // names the wrong one; only the declared form resolves to what the link
@@ -2396,6 +2402,77 @@ function matchesProjectInput(
       matchesProjectInputGlob(glob, location, identities),
     )
   );
+}
+
+/**
+ * Attribute a complete population scan to the changes it actually observed.
+ *
+ * Observer attention can arrive late for bytes already admitted while another
+ * member has changed. Such a name must not consume that member's delta under
+ * the wrong path or select execution reload for unchanged selection bytes.
+ * A directory event remains a valid cause when it contains every changed
+ * member. Ancestor resolution-directory digests accompany those members rather
+ * than replace their identity; unrelated directory deltas remain separate.
+ * When only those digests changed, an untracked native name can still explain
+ * an immediate-entry change whose member was not selected, but not another
+ * directory's independent delta.
+ *
+ * @evidence contracts/common.md#principled-implementation Observed member deltas establish attribution; stale selected names cannot override them, while directory names retain supported population causality and unrelated multiple members remain unnamed.
+ * @evidence contracts/common.md#clear-and-simple-design One private reconciliation separates member deltas from immediate resolution-directory digests before choosing a supported event name or an observed single member.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Native event names do not manufacture a delta; the current and previous physical membership identify already observed names without filename or fixture exceptions.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain stale attention, directory causality, accompanying resolution digests and unselected immediate entries.
+ * @evidence contracts/portability.md#os-neutral-implementation The supplied filesystem identity transaction establishes selected names and ancestry without an OS-wide case assumption or lexical alias guess.
+ * @evidence contracts/performance.md#efficient-algorithms R resolution-directory identities form one Set; C deltas and A distinct member ancestors require O(R+C+A) indexed visits before at most C event-ancestry comparisons. Shared ancestor keys terminate repeated walks and the supplied transaction shares native observations.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This classifier borrows one scan's deltas and identity transaction without retaining cross-event answers.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Delta arrays and keys remain call-local; the helper acquires no subscription, descriptor or retained history.
+ */
+function reconcileProjectInputChange(input: {
+  changed?: string;
+  changedInputs: readonly string[];
+  identities: ProjectInputPathIdentityContext;
+  next: ReadonlyMap<string, string>;
+  previous: ReadonlyMap<string, string>;
+  reloadDirectories: readonly string[];
+}): string | undefined {
+  const directories = new Set(
+    input.reloadDirectories.map((location) => input.identities.resolve(location).key),
+  );
+  const members = input.changedInputs.filter(
+    (location) => !directories.has(input.identities.resolve(location).key),
+  );
+  const memberAncestors = new Set<string>();
+  for (const member of members) {
+    let ancestor = path.dirname(input.identities.resolve(member).path);
+    while (true) {
+      const identity = input.identities.resolve(ancestor);
+      if (memberAncestors.has(identity.key)) break;
+      memberAncestors.add(identity.key);
+      const parent = path.dirname(identity.path);
+      if (parent === identity.path) break;
+      ancestor = parent;
+    }
+  }
+  const observed = input.changedInputs.filter((location) => {
+    const key = input.identities.resolve(location).key;
+    return !directories.has(key) || !memberAncestors.has(key);
+  });
+  const changed = input.changed;
+  if (changed !== undefined) {
+    const key = input.identities.resolve(changed).key;
+    if (
+      observed.every((location) => input.identities.isWithin(changed, location)) ||
+      (members.length === 0 &&
+        !input.previous.has(key) &&
+        !input.next.has(key) &&
+        observed.every((location) =>
+          input.identities.resolve(location).key ===
+          input.identities.resolve(path.dirname(changed)).key,
+        ))
+    ) {
+      return changed;
+    }
+  }
+  return observed.length === 1 ? observed[0] : undefined;
 }
 
 function projectInputChangedPaths(input: {
