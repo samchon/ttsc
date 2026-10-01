@@ -39,6 +39,9 @@ func (unicornRelativeURLStyle) Check(ctx *Context, node *shimast.Node) {
 // Removing ./ must leave a path reference, rather than create a scheme,
 // network-path reference or a base-dependent empty/query/fragment reference.
 func unicornRelativeURLPrefixIsRedundant(rest string, args []*shimast.Node) bool {
+  // Leading C0 bytes and space are trimmed by the URL parser. They were
+  // interior path content behind ./, so exposing them changes URL identity.
+  if len(rest) != 0 && rest[0] <= 0x20 { return false }
   if strings.HasPrefix(rest, "/") || strings.HasPrefix(rest, "\\") { return false }
   first := strings.SplitN(rest, "/", 2)[0]
   if strings.Contains(first, ":") { return false }

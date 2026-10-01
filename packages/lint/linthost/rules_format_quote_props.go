@@ -94,7 +94,9 @@ func (formatQuoteProps) Check(ctx *Context, node *shimast.Node) {
       return // give up on the whole holder rather than risk a partial edit
     }
     if name.Kind == shimast.KindIdentifier {
-      bare = append(bare, bareKey{start: ks, end: ke, text: src[ks:ke]})
+      // The parser decodes identifier escapes. Quoting the raw token would
+      // make its backslashes part of a different property name.
+      bare = append(bare, bareKey{start: ks, end: ke, text: identifierText(name)})
       continue
     }
     if name.Kind != shimast.KindStringLiteral {

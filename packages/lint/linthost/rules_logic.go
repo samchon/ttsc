@@ -2,7 +2,8 @@
 // Problems" and "Suggestions" categories that catch logic errors rather than
 // style issues: redundant boolean casts, unsafe negations, loose equality,
 // NaN comparisons, constant conditions, and assignment-in-condition.
-// AST-only, no scope analysis.
+// Boolean constructor calls require checker-owned binding identity; the
+// remaining rules operate on syntax.
 package linthost
 
 import (
@@ -16,6 +17,7 @@ import (
 type noExtraBooleanCast struct{}
 
 func (noExtraBooleanCast) Name() string { return "no-extra-boolean-cast" }
+func (noExtraBooleanCast) NeedsTypeChecker() bool { return true }
 func (noExtraBooleanCast) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindCallExpression, shimast.KindPrefixUnaryExpression}
 }
@@ -26,7 +28,7 @@ func (noExtraBooleanCast) Check(ctx *Context, node *shimast.Node) {
     if call == nil {
       return
     }
-    if identifierText(call.Expression) != "Boolean" {
+    if !isGlobalBooleanConverter(ctx, call.Expression) {
       return
     }
     if call.QuestionDotToken != nil {
@@ -69,6 +71,43 @@ func (noExtraBooleanCast) Check(ctx *Context, node *shimast.Node) {
     message := "Redundant double negation."
     reportBooleanCastFix(ctx, node, inner.Operand, message)
   }
+}
+
+// isGlobalBooleanConverter distinguishes the built-in truthiness conversion
+// from lexical converters with the same name. Script-level runtime declarations
+// can merge into the global table, so they must be refused even when the symbols
+// compare equal. Type-only declarations do not replace the global value.
+func isGlobalBooleanConverter(ctx *Context, callee *shimast.Node) bool {
+  if ctx == nil || ctx.Checker == nil || identifierText(callee) != "Boolean" {
+    return false
+  }
+  // Binding retains this file's own runtime declaration even when a duplicate
+  // global declaration is omitted from the checker's merged global symbol.
+  if ctx.File != nil {
+    if local := ctx.File.AsNode().Locals()["Boolean"]; local != nil && local.Flags&shimast.SymbolFlagsValue != 0 {
+      return false
+    }
+  }
+  resolved := ctx.Checker.GetSymbolAtLocation(callee)
+  global := ctx.Checker.GetGlobalSymbol("Boolean", shimast.SymbolFlagsValue, nil)
+  if resolved == nil || global == nil ||
+    ctx.Checker.GetMergedSymbol(resolved) != ctx.Checker.GetMergedSymbol(global) {
+    return false
+  }
+  for _, declaration := range ctx.Checker.GetMergedSymbol(resolved).Declarations {
+    if declaration == nil { continue }
+    file := shimast.GetSourceFileOfNode(declaration)
+    if file != nil && !file.IsDeclarationFile {
+      switch declaration.Kind {
+      case shimast.KindVariableDeclaration, shimast.KindBindingElement,
+        shimast.KindFunctionDeclaration, shimast.KindClassDeclaration,
+        shimast.KindEnumDeclaration, shimast.KindModuleDeclaration,
+        shimast.KindImportEqualsDeclaration:
+        return false
+      }
+    }
+  }
+  return true
 }
 
 // reportBooleanCastFix reports a redundant boolean cast covering `node` and,
