@@ -84,7 +84,7 @@ export async function test_e2e_installation(): Promise<void> {
       const owner = await import(pathToFileURL(path.join(sdk, "lib/compiler/internal/ResidentCheckProcess.js")).href);
       assert.equal(typeof owner.ResidentCheckProcess, "function", "Installed process lifetime owner");
       const entry = await import(new URL(`../ttsc/os-boundaries/process/${lifetimeCase}.ts`, import.meta.url).href);
-      await entry[lifetimeCase]({ ResidentCheckProcess: owner.ResidentCheckProcess });
+      await entry[lifetimeCase]({ ResidentCheckProcess: owner.ResidentCheckProcess, moduleURL: pathToFileURL(path.join(sdk, "lib/compiler/internal/ResidentCheckProcess.js")).href });
       console.log(`${lifetimeCase}: PASS ${(performance.now() - lifetimeStarted).toFixed(1)} ms`);
     } catch (error) {
       failures.push(new Error(lifetimeCase, { cause: error }));
