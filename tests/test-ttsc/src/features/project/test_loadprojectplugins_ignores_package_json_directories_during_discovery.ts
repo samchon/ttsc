@@ -14,8 +14,8 @@ import { loadProjectPlugins } from "../../../../../packages/ttsc/src/plugin/inte
  *
  * @evidence contracts/testing.md#behavioral-verification Discovery reports no plugins and records both the nearer directory candidate and ancestor manifest with fingerprints.
  * @evidence contracts/testing.md#independent-expectations Node treats a directory named package.json as a candidate rather than a package boundary; the authored ancestor is the actual manifest.
- * @evidence contracts/testing.md#distinguishing-cases Discovery reports no plugins and records both the nearer directory candidate and ancestor manifest with fingerprints.
- * @evidence contracts/testing.md#execution-ownership This source unit calls loadProjectPlugins directly before any descriptor evaluation or native build: no plugin is discovered, or the malformed manifest stops discovery. Every original input fingerprint and diagnostic assertion remains.
+ * @evidence contracts/testing.md#distinguishing-cases A directory named package.json nearer to the project than an ancestor manifest file is a candidate, not a boundary: discovery selects the ancestor file yet records both paths with string fingerprints, so replacing the directory with a file later changes discovery.
+ * @evidence contracts/testing.md#execution-ownership This source unit calls loadProjectPlugins directly on a workspace whose nearer package.json is a directory, before any descriptor evaluation or native build; it asserts no plugins, both recorded host inputs and their fingerprints.
  */
 export const test_loadprojectplugins_ignores_package_json_directories_during_discovery =
   () => {

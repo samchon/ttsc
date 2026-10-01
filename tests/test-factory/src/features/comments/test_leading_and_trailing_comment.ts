@@ -5,9 +5,7 @@ import factory, {
   addSyntheticTrailingComment,
 } from "../../../../../packages/factory/src/index";
 import { kw, param, print } from "../../internal/helpers";
-import { inlineCommentFixture } from "./test_inline_and_trailing";
-
-const { alias } = inlineCommentFixture;
+import { alias } from "../../internal/commentFixtures";
 
 /**
  * Verifies leading and trailing comments coexist on one node.

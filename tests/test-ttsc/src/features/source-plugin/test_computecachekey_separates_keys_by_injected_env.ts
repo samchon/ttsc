@@ -25,7 +25,7 @@ import { assert, computeCacheKey, fs, path } from "../../internal/source-build-u
  *
  * @evidence contracts/testing.md#behavioral-verification Contradictory GOFLAGS alpha/beta must differ without mutating ambient process.env; repeating alpha must reproduce its key.
  * @evidence contracts/testing.md#independent-expectations The programmatic compiler contract uses its injected effective environment; distinct GOFLAGS affect the build while equal effective options denote equivalent input.
- * @evidence contracts/testing.md#distinguishing-cases Contradictory GOFLAGS alpha/beta must differ without mutating ambient process.env; repeating alpha must reproduce its key.
+ * @evidence contracts/testing.md#distinguishing-cases GOFLAGS -tags=alpha and -tags=beta yield different keys while a repeated alpha reproduces its key, and the ambient process.env is never read or changed.
  * @evidence contracts/testing.md#execution-ownership This matching named source-unit entry directly executes the authored hashing owner over fixture bytes without a Go executable, native artifact or consumer host; actual build and toolchain probes remain separate boundaries.
  */
 export function test_computecachekey_separates_keys_by_injected_env() {

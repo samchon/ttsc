@@ -16,7 +16,7 @@ export function test_map_diagnostic_converts_native_bytes_to_editor_units(): voi
     "name": "ascii-full",
     "source": "ax",
     "input": {
-      "file": "D:/github/samchon/ttsc@test/authored-source.ts",
+      "file": "/project/authored-source.ts",
       "category": "error",
       "code": 9001,
       "messageText": "authored",
@@ -38,7 +38,7 @@ export function test_map_diagnostic_converts_native_bytes_to_editor_units(): voi
     "name": "bmp-prefix-full",
     "source": "éx",
     "input": {
-      "file": "D:/github/samchon/ttsc@test/authored-source.ts",
+      "file": "/project/authored-source.ts",
       "category": "error",
       "code": 9001,
       "messageText": "authored",
@@ -60,7 +60,7 @@ export function test_map_diagnostic_converts_native_bytes_to_editor_units(): voi
     "name": "astral-prefix-full",
     "source": "😀x",
     "input": {
-      "file": "D:/github/samchon/ttsc@test/authored-source.ts",
+      "file": "/project/authored-source.ts",
       "category": "error",
       "code": 9001,
       "messageText": "authored",
@@ -82,7 +82,7 @@ export function test_map_diagnostic_converts_native_bytes_to_editor_units(): voi
     "name": "combining-prefix-full",
     "source": "éx",
     "input": {
-      "file": "D:/github/samchon/ttsc@test/authored-source.ts",
+      "file": "/project/authored-source.ts",
       "category": "error",
       "code": 9001,
       "messageText": "authored",
@@ -104,7 +104,7 @@ export function test_map_diagnostic_converts_native_bytes_to_editor_units(): voi
     "name": "astral-span",
     "source": "😀",
     "input": {
-      "file": "D:/github/samchon/ttsc@test/authored-source.ts",
+      "file": "/project/authored-source.ts",
       "category": "error",
       "code": 9001,
       "messageText": "authored",
@@ -126,7 +126,7 @@ export function test_map_diagnostic_converts_native_bytes_to_editor_units(): voi
     "name": "bmp-span",
     "source": "é",
     "input": {
-      "file": "D:/github/samchon/ttsc@test/authored-source.ts",
+      "file": "/project/authored-source.ts",
       "category": "error",
       "code": 9001,
       "messageText": "authored",
@@ -148,7 +148,7 @@ export function test_map_diagnostic_converts_native_bytes_to_editor_units(): voi
     "name": "bmp-offset-only",
     "source": "éx",
     "input": {
-      "file": "D:/github/samchon/ttsc@test/authored-source.ts",
+      "file": "/project/authored-source.ts",
       "category": "error",
       "code": 9001,
       "messageText": "authored",
@@ -168,7 +168,7 @@ export function test_map_diagnostic_converts_native_bytes_to_editor_units(): voi
     "name": "astral-line-only",
     "source": "😀x",
     "input": {
-      "file": "D:/github/samchon/ttsc@test/authored-source.ts",
+      "file": "/project/authored-source.ts",
       "category": "error",
       "code": 9001,
       "messageText": "authored",
@@ -189,7 +189,7 @@ export function test_map_diagnostic_converts_native_bytes_to_editor_units(): voi
     "name": "astral-character-only",
     "source": "😀x",
     "input": {
-      "file": "D:/github/samchon/ttsc@test/authored-source.ts",
+      "file": "/project/authored-source.ts",
       "category": "error",
       "code": 9001,
       "messageText": "authored",
@@ -210,7 +210,7 @@ export function test_map_diagnostic_converts_native_bytes_to_editor_units(): voi
     "name": "LF-full",
     "source": "é\nx",
     "input": {
-      "file": "D:/github/samchon/ttsc@test/authored-source.ts",
+      "file": "/project/authored-source.ts",
       "category": "error",
       "code": 9001,
       "messageText": "authored",
@@ -232,7 +232,7 @@ export function test_map_diagnostic_converts_native_bytes_to_editor_units(): voi
     "name": "CR-offset-only",
     "source": "é\rx",
     "input": {
-      "file": "D:/github/samchon/ttsc@test/authored-source.ts",
+      "file": "/project/authored-source.ts",
       "category": "error",
       "code": 9001,
       "messageText": "authored",
@@ -252,7 +252,7 @@ export function test_map_diagnostic_converts_native_bytes_to_editor_units(): voi
     "name": "CRLF-full",
     "source": "é\r\nx",
     "input": {
-      "file": "D:/github/samchon/ttsc@test/authored-source.ts",
+      "file": "/project/authored-source.ts",
       "category": "error",
       "code": 9001,
       "messageText": "authored",
@@ -274,7 +274,7 @@ export function test_map_diagnostic_converts_native_bytes_to_editor_units(): voi
     "name": "LS-offset-only",
     "source": "é x",
     "input": {
-      "file": "D:/github/samchon/ttsc@test/authored-source.ts",
+      "file": "/project/authored-source.ts",
       "category": "error",
       "code": 9001,
       "messageText": "authored",
@@ -294,7 +294,7 @@ export function test_map_diagnostic_converts_native_bytes_to_editor_units(): voi
     "name": "PS-offset-only",
     "source": "é x",
     "input": {
-      "file": "D:/github/samchon/ttsc@test/authored-source.ts",
+      "file": "/project/authored-source.ts",
       "category": "error",
       "code": 9001,
       "messageText": "authored",

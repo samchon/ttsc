@@ -32,7 +32,7 @@ const windowsBaseExecutables = [
  *
  * @evidence contracts/testing.md#behavioral-verification Source and tarball validators accept complete Windows 0644 artifacts and reject missing required base executables, while accepting base-only artifacts, win32-arm64 and non-platform packages; mixed targets collect every error in target order and a later call retains none of the earlier diagnostics.
  * @evidence contracts/testing.md#independent-expectations Authored Windows executable paths and synthetic tar populations determine which required files are present; POSIX execute metadata is inapplicable to Windows.
- * @evidence contracts/testing.md#distinguishing-cases 1. Exercise empty and single-file-missing Windows source packages and tarballs against the real release validation operation. 2. Accept complete 0644 Windows artifacts without executable metadata while keeping the unlisted Go-tool and non-platform boundaries explicit. 3. Confirm win32-arm64 follows the same base-path rule.
+ * @evidence contracts/testing.md#distinguishing-cases Empty and single-file-missing Windows source packages and tarballs are rejected; complete 0644 Windows artifacts without executable metadata, base-only artifacts, win32-arm64 and non-platform packages are accepted, with the unlisted Go-tool boundary explicit.
  * @evidence contracts/testing.md#execution-ownership This source unit calls validatePlatformPackages on every original archive and directory variant without a process. The matching feature CLI batch retains positive/negative exit and stderr transport; all original validator failure meanings remain here.
  */
 export const test_platform_package_windows_contents_require_base_executables =

@@ -43,9 +43,12 @@ export function test_ttsx_dependency_cache_reads_a_marker_root_in_its_physical_s
     fs.mkdirSync(realRoot, { recursive: true });
     try {
       fs.symlinkSync(realRoot, linkedRoot, "junction");
-    } catch {
+    } catch (error) {
       // Without symlink permission the two spellings never diverge, and the
-      // contract this pins cannot be exercised.
+      // contract this pins cannot be exercised; the run must say so.
+      console.warn(
+        `SKIPPED linked marker root: ${(error as NodeJS.ErrnoException).code ?? String(error)}`,
+      );
       return;
     }
 

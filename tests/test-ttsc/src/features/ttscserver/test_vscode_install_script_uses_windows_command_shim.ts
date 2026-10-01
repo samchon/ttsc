@@ -18,7 +18,7 @@ import path from "node:path";
  *
  * @evidence contracts/testing.md#behavioral-verification The installer constructs direct POSIX and quoted Windows commands with exact environment slot values and selects the discovered Code command.
  * @evidence contracts/testing.md#independent-expectations Authored spaces and shell metacharacters establish the exact literal argv; literal argument and environment expectations distinguish quoting decisions; actual cmd interpretation is covered separately in the OS batch.
- * @evidence contracts/testing.md#distinguishing-cases 1. Require the packaged install helper without running its CLI entrypoint. 2. Build POSIX and Windows command shapes, including metacharacters. 3. Assert Windows carries quoted argv fragments through its environment. 4. Compare preferred installation selection with lookup fallback.
+ * @evidence contracts/testing.md#distinguishing-cases The POSIX direct command versus the Windows cmd.exe shim, arguments with spaces and shell metacharacters carried through environment slots, and the preferred Code installation versus the lookup fallback.
  * @evidence contracts/testing.md#execution-ownership This matching src/features/ttscserver function calls createCodeCommand and findWindowsCodeCommand directly with supplied existence and lookup operations; actual child argv runs in os-boundaries/ttscserver.
  */
 export const test_vscode_install_script_uses_windows_command_shim = () => {

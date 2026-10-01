@@ -1,4 +1,4 @@
-import { TestProject } from "@ttsc/testing";
+import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import path from "node:path";
 

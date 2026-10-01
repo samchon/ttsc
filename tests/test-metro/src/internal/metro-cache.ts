@@ -1,8 +1,4 @@
-import {
-  TestProject,
-  TestUnpluginProject,
-  TestUnpluginRuntime,
-} from "@ttsc/testing";
+import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -58,12 +54,51 @@ function listSnapshotRecoveryFiles(root: string): string[] {
     .map((name) => path.join(directory, name));
 }
 
-/** Whether chmod can enforce the controlled write failures used below. */
-function canEnforceReadOnlyDirectory(): boolean {
-  return (
-    process.platform !== "win32" &&
-    !(typeof process.getuid === "function" && process.getuid() === 0)
+/**
+ * Whether directory permissions can make the controlled write failures below.
+ *
+ * Root ignores both POSIX mode bits and Windows deny entries, so the three
+ * failure scenarios cannot run as root. They report that through
+ * {@link announceSkippedAsRoot} instead of returning as if they had passed.
+ */
+function canEnforceDeniedAccess(): boolean {
+  return !(typeof process.getuid === "function" && process.getuid() === 0);
+}
+
+/** Log, on the run's output, a scenario skipped because the process is root. */
+function announceSkippedAsRoot(scenario: string): void {
+  console.warn(
+    `SKIPPED ${scenario}: running as root, which directory permissions do not bind.`,
   );
+}
+
+/**
+ * Deny a kind of access to one path and return the function that restores it.
+ *
+ * POSIX uses the mode bits. Windows ignores them for directories, so an
+ * Everyone deny entry (`*S-1-1-0`) refuses new entries (`WD,AD`) or reads
+ * (`R`) for the current user as well.
+ */
+function denyAccess(
+  target: string,
+  access: "create" | "read",
+): () => void {
+  if (process.platform === "win32") {
+    const right = access === "create" ? "(WD,AD)" : "(R)";
+    const deny = spawnSync("icacls", [target, "/deny", `*S-1-1-0:${right}`], {
+      encoding: "utf8",
+    });
+    assert.equal(deny.status, 0, deny.stderr || deny.stdout);
+    return () => {
+      const remove = spawnSync("icacls", [target, "/remove:d", "*S-1-1-0"], {
+        encoding: "utf8",
+      });
+      assert.equal(remove.status, 0, remove.stderr || remove.stdout);
+    };
+  }
+  const mode = fs.statSync(target).mode & 0o777;
+  fs.chmodSync(target, access === "create" ? 0o555 : 0o000);
+  return () => fs.chmodSync(target, mode);
 }
 
 /** Parse the main snapshot document, failing the test when absent. */
@@ -91,23 +126,6 @@ function listWorkerSnapshots(root: string): string[] {
         name.startsWith("graph-inputs.worker-") && name.endsWith(".json"),
     )
     .map((name) => path.join(directory, name));
-}
-
-/**
- * The worker snapshot the last run wrote: the one worker file no compaction has
- * claimed. A claimed file a compaction merged but could not remove stays beside
- * it on Windows, so the list's first entry is not the run's own.
- */
-function runWorkerSnapshot(root: string): string {
-  const unclaimed = listWorkerSnapshots(root).filter(
-    (file) => !path.basename(file).startsWith("graph-inputs.worker-claimed-"),
-  );
-  assert.equal(
-    unclaimed.length,
-    1,
-    `one run's worker snapshot: ${JSON.stringify(listWorkerSnapshots(root))}`,
-  );
-  return unclaimed[0]!;
 }
 
 /** Union of the `files` arrays across every worker snapshot on disk. */
@@ -252,243 +270,6 @@ export async function assertCacheKeyCoversRootSpecsUnderTheCompilerCaseRule(): P
 }
 
 /**
- * The issue's two-run acceptance reproduction, in-project direction: a
- * transform whose output depends on another file, the dependency edited between
- * runs, no `--reset-cache` anywhere. The dependent file's content is untouched,
- * so v1's static key would have served the stale run-1 output; the fingerprint
- * re-keys the run and the fresh transform carries the regenerated output.
- */
-export async function assertCacheKeyRekeysWhenTransformInputFileChanges(): Promise<void> {
-  const root = TestUnpluginProject.createProject({
-    plugins: [
-      { transform: "./plugin.cjs", name: "fixture", operation: "read-helper" },
-    ],
-  });
-  const helper = path.join(root, "src", "helper.ts");
-  fs.writeFileSync(helper, "first\n", "utf8");
-  await prepareSnapshot(root);
-
-  const options = {
-    upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
-  };
-  const runOne = await TestMetroRuntime.withTransformerEnv(
-    options,
-    async (mod) => ({
-      key: mod.getCacheKey({ projectRoot: root }) as string,
-      result: await mod.transform({
-        src: TestUnpluginProject.mainSource(root),
-        filename: "src/main.ts",
-        options: { projectRoot: root },
-      }),
-    }),
-  );
-  assert.match(runOne.result.ast.src, /PLUGIN:FIRST/);
-
-  fs.writeFileSync(helper, "second\n", "utf8");
-  const runTwo = await TestMetroRuntime.withTransformerEnv(
-    options,
-    async (mod) => ({
-      key: mod.getCacheKey({ projectRoot: root }) as string,
-      result: await mod.transform({
-        src: TestUnpluginProject.mainSource(root),
-        filename: "src/main.ts",
-        options: { projectRoot: root },
-      }),
-    }),
-  );
-  assert.notEqual(runTwo.key, runOne.key);
-  assert.match(runTwo.result.ast.src, /PLUGIN:SECOND/);
-}
-
-/**
- * The two-run acceptance reproduction, out-of-walk direction: the transform
- * depends on a file outside the project root, which no project walk can see.
- * Run 1 records it into the worker snapshot through the derived watch inputs;
- * the next run's key re-hashes the recorded path, so editing only that external
- * file re-keys the run and a fresh transform regenerates the output.
- */
-export async function assertCacheKeyChangesWhenRecordedExternalInputChanges(): Promise<void> {
-  const shared = TestProject.tmpdir("ttsc-metro-shared-");
-  const external = path.join(shared, "helper.ts");
-  fs.writeFileSync(external, "first\n", "utf8");
-
-  const root = TestUnpluginProject.createProject({ plugins: [] });
-  const relative = path.relative(root, external);
-  const options = {
-    upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
-    plugins: [
-      {
-        transform: "./plugin.cjs",
-        name: "reader",
-        operation: "read-configured-helper",
-        path: relative,
-      },
-      {
-        transform: "./plugin.cjs",
-        name: "reporter",
-        operation: "emit-dependencies",
-        dependencies: [relative.split(path.sep).join("/")],
-      },
-    ],
-  };
-
-  await prepareSnapshot(root);
-  const runOne = await TestMetroRuntime.runTransform({
-    options,
-    params: {
-      src: TestUnpluginProject.mainSource(root),
-      filename: "src/main.ts",
-      options: { projectRoot: root },
-    },
-  });
-  assert.match(runOne.ast.src as string, /PLUGIN:FIRST/);
-  // The transform recorded the external input into this worker's snapshot,
-  // beside the project's own configuration inputs, which are out of walk too
-  // now that the walk hashes only files that could enter the program
-  // (samchon/ttsc#1307).
-  assert.deepEqual(
-    workerSnapshotFiles(root),
-    [
-      external,
-      path.join(root, "package.json"),
-      path.join(root, "plugin.cjs"),
-      path.join(root, "src", "tsconfig.json"),
-      path.join(root, "tsconfig.json"),
-    ].sort(),
-    "exactly the out-of-walk inputs, and never a project source",
-  );
-  assert.ok(
-    workerSnapshotTrees(root).includes(TestUnpluginProject.pluginSource(root)),
-    "the plugin's Go source is recorded as a tree",
-  );
-
-  // Next run: withTtsc compacts the worker snapshot into the main file.
-  await prepareSnapshot(root);
-  assert.deepEqual(listWorkerSnapshots(root), []);
-  assert.ok(readMainSnapshot(root).files.includes(external));
-  const before = await cacheKeyForRun(root, options);
-
-  fs.writeFileSync(external, "second\n", "utf8");
-  const after = await cacheKeyForRun(root, options);
-  assert.notEqual(before, after);
-  const runThree = await TestMetroRuntime.runTransform({
-    options,
-    params: {
-      src: TestUnpluginProject.mainSource(root),
-      filename: "src/main.ts",
-      options: { projectRoot: root },
-    },
-  });
-  assert.match(runThree.ast.src as string, /PLUGIN:SECOND/);
-}
-
-/**
- * Asserts the next run's key carries the state of every plugin source a run
- * recorded, so editing a plugin's Go source in place re-keys the run while a
- * write the plugin build never keys on does not (samchon/ttsc#1487).
- */
-export async function assertCacheKeyChangesWhenARecordedPluginSourceChanges(): Promise<void> {
-  const root = TestUnpluginProject.createProject();
-  // The project's own copy of the plugin's source, edited below; the shared
-  // fixture stays as every other test built it.
-  const source = path.join(root, "go-plugin");
-  fs.cpSync(TestUnpluginProject.pluginSource(root), source, {
-    recursive: true,
-  });
-  fs.writeFileSync(
-    path.join(root, "plugin.cjs"),
-    'module.exports = (context) => ({ name: context.plugin.name, source: "./go-plugin" });\n',
-  );
-  const options = {
-    upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
-  };
-
-  await prepareSnapshot(root);
-  await TestMetroRuntime.runTransform({
-    options,
-    params: {
-      src: TestUnpluginProject.mainSource(root),
-      filename: "src/main.ts",
-      options: { projectRoot: root },
-    },
-  });
-  assert.ok(workerSnapshotTrees(root).includes(source), "recorded as a tree");
-
-  await prepareSnapshot(root);
-  assert.ok(readMainSnapshot(root).trees.includes(source));
-  const before = await cacheKeyForRun(root, options);
-  fs.mkdirSync(path.join(source, "node_modules"), { recursive: true });
-  fs.writeFileSync(
-    path.join(source, "node_modules", "ignored.go"),
-    "package x\n",
-  );
-  assert.equal(
-    await cacheKeyForRun(root, options),
-    before,
-    "a pruned write keeps the key",
-  );
-  fs.appendFileSync(path.join(source, "main.go"), "\n// edited\n");
-  assert.notEqual(
-    await cacheKeyForRun(root, options),
-    before,
-    "an edited plugin source re-keys the run",
-  );
-}
-
-/**
- * Asserts a run's key moves with the environment a recorded plugin source's
- * binary is built in, not only with its files: another `GOFLAGS` builds another
- * binary, so it re-keys the run as an edit does (samchon/ttsc#1493).
- */
-export async function assertCacheKeyChangesWhenThePluginBuildEnvironmentChanges(): Promise<void> {
-  const root = TestUnpluginProject.createProject();
-  const source = path.join(root, "go-plugin");
-  fs.cpSync(TestUnpluginProject.pluginSource(root), source, {
-    recursive: true,
-  });
-  fs.writeFileSync(
-    path.join(root, "plugin.cjs"),
-    'module.exports = (context) => ({ name: context.plugin.name, source: "./go-plugin" });\n',
-  );
-  const options = {
-    upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
-  };
-
-  await prepareSnapshot(root);
-  await TestMetroRuntime.runTransform({
-    options,
-    params: {
-      src: TestUnpluginProject.mainSource(root),
-      filename: "src/main.ts",
-      options: { projectRoot: root },
-    },
-  });
-  await prepareSnapshot(root);
-  assert.ok(
-    readMainSnapshot(root).trees.includes(source),
-    "recorded as a tree",
-  );
-  const before = await cacheKeyForRun(root, options);
-  assert.equal(
-    await cacheKeyForRun(root, options),
-    before,
-    "an unchanged environment keeps the key",
-  );
-  const previous = process.env.GOFLAGS;
-  process.env.GOFLAGS = "-tags=ttsc_metro_environment_probe";
-  try {
-    assert.notEqual(
-      await cacheKeyForRun(root, options),
-      before,
-      "another GOFLAGS re-keys the run",
-    );
-  } finally {
-    if (previous === undefined) delete process.env.GOFLAGS;
-    else process.env.GOFLAGS = previous;
-  }
-}
-
-/**
  * Asserts a deleted-and-recreated snapshot mints a new epoch: the recorded
  * out-of-walk set of the old epoch is unknown, so its keys must never alias.
  * Guards the residual staleness path of a wiped `node_modules` combined with a
@@ -526,7 +307,8 @@ export async function assertCacheKeyFoldsNonceWithoutReadableSnapshot(): Promise
  * under a fresh epoch.
  */
 export async function assertCacheKeyFoldsNonceAfterSnapshotWriteFailure(): Promise<void> {
-  if (!canEnforceReadOnlyDirectory()) {
+  if (!canEnforceDeniedAccess()) {
+    announceSkippedAsRoot("worker snapshot write failure");
     return;
   }
   const root = createBareProject();
@@ -543,14 +325,14 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotWriteFailure(): Promi
   const recorder = createSnapshotRecorder();
   const project = resolveProjectView({ projectRoot: root });
 
-  fs.chmodSync(snapshotDirectory(root), 0o555);
+  const restore = denyAccess(snapshotDirectory(root), "create");
   try {
     recorder.record({ input: external, project });
     assert.deepEqual(listWorkerSnapshots(root), []);
     assert.equal(listSnapshotRecoveryFiles(root).length, 1);
     assert.notEqual(await cacheKeyForRun(root), await cacheKeyForRun(root));
   } finally {
-    fs.chmodSync(snapshotDirectory(root), 0o755);
+    restore();
   }
 
   // The same observation retries because the failed publication stayed dirty.
@@ -574,7 +356,8 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotWriteFailure(): Promi
  * readable main cannot authorize reuse, and recovery compacts under a new id.
  */
 export async function assertCacheKeyFoldsNonceAfterSnapshotCompactionFailure(): Promise<void> {
-  if (!canEnforceReadOnlyDirectory()) {
+  if (!canEnforceDeniedAccess()) {
+    announceSkippedAsRoot("main snapshot compaction failure");
     return;
   }
   const root = createBareProject();
@@ -594,14 +377,14 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotCompactionFailure(): 
     "utf8",
   );
 
-  fs.chmodSync(snapshotDirectory(root), 0o555);
+  const restore = denyAccess(snapshotDirectory(root), "create");
   try {
     await prepareSnapshot(root);
     assert.equal(readMainSnapshot(root).id, originalIdentity);
     assert.equal(listSnapshotRecoveryFiles(root).length, 1);
     assert.notEqual(await cacheKeyForRun(root), await cacheKeyForRun(root));
   } finally {
-    fs.chmodSync(snapshotDirectory(root), 0o755);
+    restore();
   }
 
   await prepareSnapshot(root);
@@ -620,7 +403,8 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotCompactionFailure(): 
  * later process cannot trust an old main file that becomes readable again.
  */
 export async function assertSnapshotFailureWithoutRecoveryStorageFailsClosed(): Promise<void> {
-  if (!canEnforceReadOnlyDirectory()) {
+  if (!canEnforceDeniedAccess()) {
+    announceSkippedAsRoot("snapshot failure without recovery storage");
     return;
   }
   const root = createBareProject();
@@ -630,9 +414,9 @@ export async function assertSnapshotFailureWithoutRecoveryStorageFailsClosed(): 
   const project = fingerprint.resolveProjectView({ projectRoot: root });
   const external = path.resolve(root, "..", "unpersisted-worker-input.d.ts");
   const cacheDirectory = snapshotCacheDirectory(root);
-  fs.chmodSync(mainSnapshotPath(root), 0o000);
-  fs.chmodSync(snapshotDirectory(root), 0o555);
-  fs.chmodSync(cacheDirectory, 0o555);
+  const restoreMain = denyAccess(mainSnapshotPath(root), "read");
+  const restoreSnapshots = denyAccess(snapshotDirectory(root), "create");
+  const restoreCache = denyAccess(cacheDirectory, "create");
   let nonReusableRunId: string;
   try {
     assert.throws(
@@ -655,9 +439,9 @@ export async function assertSnapshotFailureWithoutRecoveryStorageFailsClosed(): 
       "preparation must carry an unpersisted failure across process boundaries",
     );
   } finally {
-    fs.chmodSync(cacheDirectory, 0o755);
-    fs.chmodSync(snapshotDirectory(root), 0o755);
-    fs.chmodSync(mainSnapshotPath(root), 0o644);
+    restoreCache();
+    restoreSnapshots();
+    restoreMain();
   }
 
   await prepareSnapshot(root);
@@ -750,99 +534,6 @@ export async function assertCompactionDoesNotMergeALeftoverClaimedFileAgain(): P
     [],
     "the next compaction removes the leftover",
   );
-}
-
-/**
- * Asserts snapshot compaction: leftover worker files merge into the main
- * snapshot (files unioned, epoch id preserved — compaction is maintenance, not
- * an epoch change) and are deleted afterwards.
- */
-export async function assertPrepareSnapshotCompactsWorkerFiles(): Promise<void> {
-  const root = createBareProject();
-  await prepareSnapshot(root);
-  const identity = readMainSnapshot(root).id;
-  const recorded = path.join(root, "..", "somewhere", "external.d.ts");
-  fs.writeFileSync(
-    path.join(snapshotDirectory(root), "graph-inputs.worker-test.json"),
-    JSON.stringify({
-      files: [recorded],
-      tainted: false,
-      trees: [],
-      accessibleEntries: [],
-      version: 4,
-      volatile: false,
-    }),
-    "utf8",
-  );
-  const compactionLock = path.join(
-    snapshotDirectory(root),
-    "snapshot-compaction.lock",
-  );
-  fs.mkdirSync(compactionLock);
-  fs.writeFileSync(
-    path.join(compactionLock, "owner.json"),
-    JSON.stringify({ pid: process.pid, token: "1".repeat(32) }),
-    "utf8",
-  );
-  try {
-    assert.match(
-      await prepareSnapshot(root),
-      /^nonce:[a-f0-9]{32}$/,
-      "a concurrent compactor must force this run onto a private key",
-    );
-    assert.equal(
-      readMainSnapshot(root).id,
-      identity,
-      "the contender must not rewrite the shared main snapshot",
-    );
-    assert.equal(
-      listWorkerSnapshots(root).length,
-      1,
-      "the contender must leave the owner's pending worker document intact",
-    );
-  } finally {
-    fs.rmSync(compactionLock, { force: true, recursive: true });
-  }
-
-  const exited = spawnSync(process.execPath, ["-e", ""], { stdio: "ignore" });
-  assert.equal(exited.status, 0);
-  const staleToken = "2".repeat(32);
-  fs.mkdirSync(compactionLock);
-  fs.writeFileSync(
-    path.join(compactionLock, "owner.json"),
-    JSON.stringify({ pid: exited.pid, token: staleToken }),
-    "utf8",
-  );
-  assert.match(
-    await prepareSnapshot(root),
-    /^nonce:[a-f0-9]{32}$/,
-    "the run that discovers a dead compactor must remain private",
-  );
-  assert.equal(
-    fs.existsSync(compactionLock),
-    false,
-    "a proven dead owner's lock must be moved away from the shared name",
-  );
-  assert.equal(
-    fs.existsSync(
-      path.join(
-        snapshotDirectory(root),
-        `.snapshot-compaction-stale-${staleToken}`,
-      ),
-    ),
-    true,
-    "dead-owner recovery must retain an election record for delayed contenders",
-  );
-  assert.equal(
-    listWorkerSnapshots(root).length,
-    1,
-    "dead-owner recovery must leave compaction to the next run",
-  );
-  await prepareSnapshot(root);
-  const main = readMainSnapshot(root);
-  assert.equal(main.id, identity);
-  assert.ok(main.files.includes(recorded));
-  assert.deepEqual(listWorkerSnapshots(root), []);
 }
 
 /**
@@ -1115,103 +806,6 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
     await cacheKeyForRun(recoveryRoot),
     await cacheKeyForRun(recoveryRoot),
     "malformed recovery state must heal to stable reuse",
-  );
-}
-
-/**
- * Asserts the transformer guards every implicit-project dependency against the
- * exact main-process run baseline.
- *
- * The main-process static map is not available to a worker as evidence. A
- * worker that reclassifies from its current filesystem can see a directory link
- * replaced by a real directory after the key was computed and falsely claim
- * that the earlier walk covered its inputs. Generation evidence compared with a
- * run-specific baseline proves static coverage without duplicating normal
- * project inputs, while a mismatch rotates the epoch.
- */
-export async function assertTransformerRecordsImplicitDependencyGuards(): Promise<void> {
-  const shared = TestProject.tmpdir("ttsc-metro-shared-");
-  const external = path.join(shared, "types.d.ts");
-  fs.writeFileSync(external, "declare const marker: string;\n", "utf8");
-
-  const root = TestUnpluginProject.createProject({ plugins: [] });
-  const inner = path.join(root, "src", "inner.d.ts");
-  fs.writeFileSync(inner, "declare const inner: string;\n", "utf8");
-  const options = {
-    upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
-    plugins: [
-      {
-        transform: "./plugin.cjs",
-        name: "reporter",
-        operation: "emit-dependencies",
-        dependencies: [
-          "src/inner.d.ts",
-          path.relative(root, external).split(path.sep).join("/"),
-        ],
-      },
-    ],
-  };
-  const firstRunId = await prepareSnapshot(root);
-  await TestMetroRuntime.withTransformerEnv(
-    options,
-    async (mod) => {
-      mod.getCacheKey({ projectRoot: root });
-      await mod.transform({
-        src: TestUnpluginProject.mainSource(root),
-        filename: "src/main.ts",
-        options: { projectRoot: root },
-      });
-    },
-    firstRunId,
-  );
-  // The exact set, not a lower bound: the main baseline proves the in-project
-  // source and config, while every newly discovered external input is retained.
-  assert.deepEqual(
-    workerSnapshotFiles(root),
-    [
-      external,
-      path.join(root, "package.json"),
-      path.join(root, "plugin.cjs"),
-    ].sort(),
-    "exactly the inputs outside proven static coverage must remain as snapshot guards",
-  );
-  assert.ok(
-    workerSnapshotTrees(root).includes(TestUnpluginProject.pluginSource(root)),
-    "the plugin's Go source is recorded as a tree",
-  );
-  const firstWorker = JSON.parse(
-    fs.readFileSync(runWorkerSnapshot(root), "utf8"),
-  );
-  assert.equal(
-    firstWorker.tainted,
-    true,
-    "newly discovered inputs must rotate the epoch before their first reusable key",
-  );
-  await prepareSnapshot(root);
-  const stabilizedEpoch = readMainSnapshot(root).id;
-  const stableRunId = await prepareSnapshot(root);
-  await TestMetroRuntime.withTransformerEnv(
-    options,
-    async (mod) => {
-      mod.getCacheKey({ projectRoot: root });
-      await mod.transform({
-        src: TestUnpluginProject.mainSource(root),
-        filename: "src/main.ts",
-        options: { projectRoot: root },
-      });
-    },
-    stableRunId,
-  );
-  assert.equal(
-    JSON.parse(fs.readFileSync(runWorkerSnapshot(root), "utf8")).tainted,
-    false,
-    "a complete unchanged baseline must stabilize instead of disabling cache reuse",
-  );
-  await prepareSnapshot(root);
-  assert.equal(
-    readMainSnapshot(root).id,
-    stabilizedEpoch,
-    "an unchanged proven run must preserve its snapshot epoch",
   );
 }
 
@@ -1503,94 +1097,6 @@ export async function assertRecorderGuardsImplicitDependencyTransitions(): Promi
 }
 
 /**
- * Asserts Metro records an existing linked input because the project walk does
- * not follow the link and therefore cannot fingerprint its target.
- */
-export async function assertTransformerRecordsLinkedInput(): Promise<void> {
-  const shared = TestProject.tmpdir("ttsc-metro-linked-");
-  const target = path.join(shared, "types.d.ts");
-  fs.writeFileSync(target, "declare const marker: string;\n", "utf8");
-
-  const root = TestUnpluginProject.createProject({ plugins: [] });
-  const linkedDirectory = path.join(root, "linked");
-  fs.symlinkSync(
-    shared,
-    linkedDirectory,
-    process.platform === "win32" ? "junction" : "dir",
-  );
-  const linked = path.join(linkedDirectory, "types.d.ts");
-  await prepareSnapshot(root);
-  await TestMetroRuntime.runTransform({
-    options: {
-      upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
-      plugins: [
-        {
-          transform: "./plugin.cjs",
-          name: "reporter",
-          operation: "emit-dependencies",
-          dependencies: ["linked/types.d.ts"],
-        },
-      ],
-    },
-    params: {
-      src: TestUnpluginProject.mainSource(root),
-      filename: "src/main.ts",
-      options: { projectRoot: root },
-    },
-  });
-  // The exact set. The project's own configuration inputs are recorded beside
-  // the linked one, because the walk hashes only files that could enter the
-  // program and these cannot (samchon/ttsc#1307); a lower bound would let a
-  // recorder that swallowed a whole subtree pass.
-  assert.deepEqual(
-    workerSnapshotFiles(root),
-    [
-      linked,
-      path.join(root, "package.json"),
-      path.join(root, "plugin.cjs"),
-      path.join(root, "src", "tsconfig.json"),
-      path.join(root, "tsconfig.json"),
-    ].sort(),
-    "exactly the out-of-walk inputs, and never a project source",
-  );
-  assert.ok(
-    workerSnapshotTrees(root).includes(TestUnpluginProject.pluginSource(root)),
-    "the plugin's Go source is recorded as a tree",
-  );
-}
-
-/**
- * Asserts a plugin-declared volatile transform marks this worker's snapshot
- * volatile, feeding the nonce degradation checked by the volatile key case.
- */
-export async function assertTransformerRecordsVolatileDeclarations(): Promise<void> {
-  const root = TestUnpluginProject.createProject({ plugins: [] });
-  await prepareSnapshot(root);
-  await TestMetroRuntime.runTransform({
-    options: {
-      upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk(),
-      plugins: [
-        {
-          transform: "./plugin.cjs",
-          name: "volatile",
-          operation: "emit-volatile",
-          volatile: ["src/main.ts"],
-        },
-      ],
-    },
-    params: {
-      src: TestUnpluginProject.mainSource(root),
-      filename: "src/main.ts",
-      options: { projectRoot: root },
-    },
-  });
-  const workers = listWorkerSnapshots(root);
-  assert.equal(workers.length, 1);
-  const parsed = JSON.parse(fs.readFileSync(workers[0]!, "utf8"));
-  assert.equal(parsed.volatile, true);
-}
-
-/**
  * Verifies the two-run resolution-precedence transition inside the project
  * walk. The candidate is absent during run one, so the ordinary project walk
  * cannot hash it; the transform layer still delivers it through addWatchFile,
@@ -1686,51 +1192,6 @@ export async function assertWithTtscPreparesTheSnapshot(): Promise<void> {
   assert.equal(typeof main.id, "string");
   assert.notEqual(main.id.length, 0);
   assert.deepEqual(main.files, []);
-}
-
-/**
- * Asserts editing the project's tsconfig re-keys a run that has transformed.
- *
- * The static fingerprint hashes the effective config graph directly, while the
- * worker also retains each config as a derived input and compares its compiler
- * state with the exact run baseline. This transformed-project case proves both
- * routes agree rather than letting either one silently cover a different file.
- */
-export async function assertCacheKeyChangesWhenTheTsconfigChanges(): Promise<void> {
-  const root = TestUnpluginProject.createProject();
-  await prepareSnapshot(root);
-  await TestMetroRuntime.runTransform({
-    options: { upstreamTransformer: TestMetroRuntime.fakeUpstreamPathOnDisk() },
-    params: {
-      src: TestUnpluginProject.mainSource(root),
-      filename: "src/main.ts",
-      options: { projectRoot: root },
-    },
-  });
-  const tsconfig = path.join(root, "tsconfig.json");
-  assert.ok(
-    workerSnapshotFiles(root).includes(tsconfig),
-    "the tsconfig must be recorded, since the walk no longer hashes it",
-  );
-
-  await prepareSnapshot(root);
-  const before = await cacheKeyForRun(root);
-
-  const parsed = JSON.parse(fs.readFileSync(tsconfig, "utf8")) as {
-    compilerOptions?: Record<string, unknown>;
-  };
-  parsed.compilerOptions = {
-    ...(parsed.compilerOptions ?? {}),
-    target: "ES2021",
-  };
-  fs.writeFileSync(tsconfig, JSON.stringify(parsed, null, 2), "utf8");
-
-  const after = await cacheKeyForRun(root);
-  assert.notEqual(
-    before,
-    after,
-    "a tsconfig edit must re-key every transform in the run",
-  );
 }
 
 /**

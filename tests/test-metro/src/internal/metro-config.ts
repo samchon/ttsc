@@ -2,7 +2,6 @@ import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { createRequire } from "node:module";
 
 import { TestMetroRuntime } from "./metro-runtime";
 
@@ -61,28 +60,6 @@ function writePackage(root: string, name: string, main: string): string {
 /** The `upstreamTransformer` the last `withTtsc` call published to the worker. */
 function publishedUpstream(envKey: string): unknown {
   return JSON.parse(process.env[envKey] as string).upstreamTransformer;
-}
-
-/**
- * Asserts `withTtsc` points `transformer.babelTransformerPath` at the package's
- * built transformer module, by absolute path, and that the file exists.
- */
-export async function assertWithTtscSetsBabelTransformerPath(): Promise<void> {
-  await withCleanEnv(async () => {
-    const { withTtsc } = await TestMetroRuntime.loadIndex();
-    const config = withTtsc({
-      projectRoot: tempProjectRoot(),
-      transformer: {},
-    });
-    const target = config.transformer.babelTransformerPath;
-    assert.equal(typeof target, "string");
-    assert.equal(path.isAbsolute(target), true);
-    assert.match(target, /transformer\.js$/);
-    const loaded = createRequire(import.meta.url)(target) as {
-      getCacheKey: (...args: unknown[]) => string;
-    };
-    assert.match(loaded.getCacheKey({ projectRoot: config.projectRoot }), /^[a-f0-9]{64}$/);
-  });
 }
 
 /**

@@ -1,9 +1,7 @@
 import { TestValidator } from "@nestia/e2e";
 import factory, { SyntaxKind, addSyntheticLeadingComment } from "../../../../../packages/factory/src/index";
 import { kw, print } from "../../internal/helpers";
-import { singleLineFixture } from "./test_single_line";
-
-const { alias } = singleLineFixture;
+import { alias } from "../../internal/commentFixtures";
 
 /**
  * Verifies a single-line leading comment.

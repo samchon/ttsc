@@ -266,7 +266,12 @@ export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_
     write(target);
     try {
       fs.symlinkSync(target, path.join(root, "shortcut.ts"), "file");
-    } catch {
+    } catch (error) {
+      // Creating a file symlink needs elevation on Windows; without it the
+      // file-link section cannot run, and the run must say so.
+      console.warn(
+        `SKIPPED file-symlink emit ownership: ${(error as NodeJS.ErrnoException).code ?? String(error)}`,
+      );
       return;
     }
     write(path.join(emit, "shortcut.js"));

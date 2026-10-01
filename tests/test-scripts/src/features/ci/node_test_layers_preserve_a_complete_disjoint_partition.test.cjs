@@ -34,10 +34,10 @@ const test_node_test_layers_preserve_a_complete_disjoint_partition = (
 ) => {
   const root = workspace(t, [
     "scripts/go-test-runners.test.cjs",
-    "tests/test-scripts-e2e/src/features/go/go-wasm-exec.test.cjs",
-    "tests/test-scripts-e2e/src/features/ci/typescript-loader.test.cjs",
+    "tests/test-e2e/src/features/scripts/go/go-wasm-exec.test.cjs",
+    "tests/test-e2e/src/features/scripts/ci/typescript-loader.test.cjs",
     "scripts/ci/validation-group-failures.test.cjs",
-    "tests/test-scripts-e2e/src/features/package/factory-package.test.cjs",
+    "tests/test-e2e/src/features/scripts/package/factory-package.test.cjs",
   ]);
   for (const lane of ["go", "typecheck", "package-defenses"]) {
     const units = selectedNodeTests(root, lane, "unit");

@@ -21,8 +21,8 @@ import { loadProjectPlugins } from "../../../../../packages/ttsc/src/plugin/inte
  *
  * @evidence contracts/testing.md#behavioral-verification Malformed package discovery throws the ttsc parse prefix and the exact manifest path.
  * @evidence contracts/testing.md#independent-expectations The fixture path and malformed JSON are authored before loading, so the path diagnostic does not derive from a formatter or parser under test.
- * @evidence contracts/testing.md#distinguishing-cases 1. Create a project whose tsconfig is valid and whose `package.json` is not. 2. Invoke `loadProjectPlugins` against that project. 3. Assert the throw carries the `ttsc:` prefix and names the manifest.
- * @evidence contracts/testing.md#execution-ownership This source unit calls loadProjectPlugins directly before any descriptor evaluation or native build: no plugin is discovered, or the malformed manifest stops discovery. Every original input fingerprint and diagnostic assertion remains.
+ * @evidence contracts/testing.md#distinguishing-cases A project whose tsconfig is valid and whose package.json is truncated must still fail discovery, with the ttsc parse prefix and the manifest path, so the valid tsconfig cannot mask the broken manifest.
+ * @evidence contracts/testing.md#execution-ownership This source unit calls loadProjectPlugins directly on a project whose package.json is malformed, before any descriptor evaluation or native build.
  */
 export const test_loadprojectplugins_names_the_package_manifest_that_failed_to_parse =
   () => {

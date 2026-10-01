@@ -23,7 +23,7 @@ import {
  *
  * @evidence contracts/testing.md#behavioral-verification resolveProjectConfig returns the physical tsconfig path when the request enters through a directory alias.
  * @evidence contracts/testing.md#independent-expectations The native filesystem realpath of the independently created real config is the canonical-path oracle.
- * @evidence contracts/testing.md#distinguishing-cases 1. Create a real directory `real/` with a tsconfig and a symlink `link/ → real/`. 2. Invoke `resolveProjectConfig` with the symlinked tsconfig path. 3. Assert the returned path equals `fs.realpathSync(real/tsconfig.json)`.
+ * @evidence contracts/testing.md#distinguishing-cases A tsconfig requested through a directory link whose spelling differs from the physical directory must resolve to the physical path, so two links to one shared config cannot produce two cache keys.
  * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry exercises the owning operations directly on isolated fixture inputs; no product host, native artifact build or consumer installation executes.
  */
 export const test_resolveprojectconfig_canonicalizes_symlinked_tsconfig_paths =

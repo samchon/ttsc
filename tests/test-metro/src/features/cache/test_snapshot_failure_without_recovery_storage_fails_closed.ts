@@ -11,7 +11,7 @@ import { assertSnapshotFailureWithoutRecoveryStorageFailsClosed } from "../../in
  *
  * @evidence contracts/testing.md#behavioral-verification Denied primary and sibling recovery storage makes the recorder throw AggregateError and preparation return a nonreusable token that still nonces after permissions recover.
  * @evidence contracts/testing.md#independent-expectations The fail-closed transport contract requires the authored diagnostic, nonce token grammar, durable cleanup and later ordinary stable reuse.
- * @evidence contracts/testing.md#distinguishing-cases Both storage locations denied contrasts recovered access; the permission scenario requires a non-root POSIX host and is not exercised on Windows.
+ * @evidence contracts/testing.md#distinguishing-cases Both storage locations denied contrasts recovered access; the denial uses mode bits on POSIX and an Everyone deny entry on Windows; as root, which neither binds, the case logs a SKIPPED notice and asserts nothing.
  * @evidence contracts/testing.md#execution-ownership This named src/features/cache entry runs authored Metro fingerprint and transformer operations through the serial source-unit loader. Real fixture files and upstream input modules exercise resolution; no consumer installation, native compilation or product host is started.
  */
 export const test_snapshot_failure_without_recovery_storage_fails_closed =

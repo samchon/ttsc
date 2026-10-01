@@ -12,11 +12,6 @@ function captureThrow(fn: () => unknown): Error {
   return assert.fail("expected the call to throw") as never;
 }
 
-/** Escape a literal string for embedding in a `RegExp`. */
-function escapeRegExp(literal: string): RegExp {
-  return new RegExp(literal.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&"));
-}
-
 /** Walk the `cause` chain, collecting every message it exposes. */
 function messageChain(error: Error): string {
   let text = error.message;
@@ -36,17 +31,6 @@ function tagged(name: string): {
   transform: (params: unknown) => Promise<{ ast: { name: string } }>;
 } {
   return { transform: async () => ({ ast: { name } }) };
-}
-
-async function nameOf(upstream: {
-  transform: (params: unknown) => Promise<{ ast: { name: string } }>;
-}): Promise<string> {
-  const result = await upstream.transform({
-    src: "",
-    filename: "",
-    options: {},
-  });
-  return result.ast.name;
 }
 
 /**

@@ -1,9 +1,7 @@
 import { TestValidator } from "@nestia/e2e";
 import factory, { SyntaxKind, addSyntheticLeadingComment } from "../../../../../packages/factory/src/index";
 import { kw, print } from "../../internal/helpers";
-import { jsdocFixture } from "./test_leading_jsdoc";
-
-const { jsdoc } = jsdocFixture;
+import { jsdoc } from "../../internal/commentFixtures";
 
 /**
  * Verifies attachment of a multi-line JSDoc comment to a top-level declaration.

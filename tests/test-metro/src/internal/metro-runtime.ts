@@ -4,11 +4,10 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 /**
- * Runtime import helpers for the Metro test layers.
+ * Runtime import helpers for the Metro source units.
  *
- * Boundary entries load emitted ESM/CJS output. The source-unit layer loads
- * authored owners under the unit loader, preserving the same fresh worker
- * module and environment reset without starting native compilation.
+ * Authored owners are loaded under the unit loader with a fresh worker module
+ * and a restored environment per case, without starting native compilation.
  */
 export namespace TestMetroRuntime {
   /** Environment variable `withTtsc` sets to its workers' transform session. */
@@ -48,29 +47,15 @@ export namespace TestMetroRuntime {
   /** The variables `os.tmpdir()` reads, on every platform. */
   const TEMPORARY_ENV = ["TEMP", "TMP", "TMPDIR"];
 
-  /** Resolve a built entrypoint under `packages/metro/lib`. */
-  export function libPath(entry: string, extension: "js" | "mjs"): string {
-    return path.resolve(
-      TestProject.WORKSPACE_ROOT,
-      "packages/metro/lib",
-      `${entry}.${extension}`,
-    );
-  }
-
-  /** Convert a built ESM entrypoint into a dynamic-importable file URL. */
-  export function libUrl(entry: string): string {
-    return pathToFileURL(libPath(entry, "mjs")).href;
-  }
-
-  /** Source units load authored owners; boundary entries load emitted modules. */
+  /** Authored owners are loaded from source so the unit exercises the code under review. */
   function runtimeUrl(entry: string): string {
-    return process.env.TTSC_TEST_LAYER === "unit"
-      ? pathToFileURL(path.resolve(
-          TestProject.WORKSPACE_ROOT,
-          "packages/metro/src",
-          `${entry}.ts`,
-        )).href
-      : libUrl(entry);
+    return pathToFileURL(
+      path.resolve(
+        TestProject.WORKSPACE_ROOT,
+        "packages/metro/src",
+        `${entry}.ts`,
+      ),
+    ).href;
   }
 
   /** Load the package entry (`withTtsc`, types). */

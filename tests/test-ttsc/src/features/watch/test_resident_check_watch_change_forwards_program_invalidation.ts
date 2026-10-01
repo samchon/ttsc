@@ -19,7 +19,7 @@ import { PendingResidentCheckWatchChanges } from "../../../../../packages/ttsc/s
  *
  * @evidence contracts/testing.md#behavioral-verification PendingResidentCheckWatchChanges and residentCheckRequest retain invalidation and changed/external paths, drain state and make full reload dominate.
  * @evidence contracts/testing.md#independent-expectations Authored event kinds and literal expected request objects establish that invalidation survives coalescing while content-only edits remain warm.
- * @evidence contracts/testing.md#distinguishing-cases 1. Coalesce invalidating and data-only project-input events. 2. Forward the resulting paths and invalidation bit to the sidecar request. 3. Prove a full reload dominates and drains all narrower pending state.
+ * @evidence contracts/testing.md#distinguishing-cases Invalidating and data-only project-input events coalesce into different resident requests, and a full reload dominates and drains every narrower pending change.
  * @evidence contracts/testing.md#execution-ownership This matching src/features/watch entry exercises the owning operations directly on isolated fixture inputs; no product host, native artifact build or consumer installation executes.
  */
 export const test_resident_check_watch_change_forwards_program_invalidation =
