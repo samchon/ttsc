@@ -30,13 +30,15 @@ import { runTtsxWithCoverage } from "../../../internal/ttsc/internal/ttsx-source
  * @evidence contracts/testing.md#behavioral-verification Runs a linked external clear.ts under V8 coverage and checks success, its original marker, lowered optional-function syntax, a recorded script and nonnull source map.
  * @evidence contracts/testing.md#independent-expectations The ES2019 language contract requires optional chaining to be lowered; the authored function source and its false syntax result independently distinguish project options from modern isolated orphan emit. The V8 record separately establishes map presence.
  * @evidence contracts/testing.md#distinguishing-cases The lexical owning project requests ES2019 while the external physical source has no config. Unavailable symlink creation still returns early; nonnull maps alone are deliberately not a lane discriminator.
+ * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
+ *
  * @evidence contracts/testing.md#execution-ownership This second runtime review entry is the named E2E export test_ttsx_runs_an_entry_that_is_itself_a_symlink at this path, selected by tests/test-e2e/evidence.config.json; no direct-source unit equivalence is inferred without comparing its assertions.
  * @evidence contracts/e2e.md#necessary-boundary The real filesystem alias, native emission and Node coverage connection remain necessary for observing served-source behavior.
  * @evidence contracts/e2e.md#shared-execution One source project, linked target and host reuse installed compiler preparation; coverage is collected for this invocation.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Both tracked directories own the link and target; coverage is read after synchronous completion and fixture cleanup occurs at process exit.
  * @evidence contracts/e2e.md#preserved-coverage All original status, marker, V8-script and map assertions remain; the additional false optional-chain result now independently establishes project-option inheritance instead of relying on the disproved orphan-no-map premise.
  */
-export function test_ttsx_runs_an_entry_that_is_itself_a_symlink() {
+export function test_ttsx_runs_an_entry_that_is_itself_a_symlink(): void | false {
   const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_runs_an_entry_that_is_itself_a_symlink/inputs-1"));
   // Tracked by the harness, so it is reclaimed even on the early return below.
   const outside = TestProject.tmpdir("ttsc-symlink-target-");
@@ -58,7 +60,7 @@ export function test_ttsx_runs_an_entry_that_is_itself_a_symlink() {
   } catch {
     // Without symlink permission there is no link to run through, and the
     // contract this pins cannot be exercised at all.
-    return;
+    return false;
   }
   const run = runTtsxWithCoverage(root, "clear.ts");
   assert.equal(run.status, 0, run.stderr);

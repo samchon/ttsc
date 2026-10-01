@@ -22,13 +22,15 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification Actual ttsx mirrors a root file symlink and executes file-symlink-ok when native fixture link creation is permitted.
  * @evidence contracts/testing.md#independent-expectations Authored output and lstat proof of a real file link establish expectations independently of mirror logic.
  * @evidence contracts/testing.md#distinguishing-cases External file target contrasts with the directory-link case; forced mirror rejection/copy bytes belong to the direct unit.
+ * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
+ *
  * @evidence contracts/testing.md#execution-ownership This named E2E entry owns one real link/launcher request; native setup denial returns before the request and is a host limitation.
  * @evidence contracts/e2e.md#necessary-boundary Full prepareExecution must accept real file-link input before startup. Direct fallback units do not certify complete assembly.
  * @evidence contracts/e2e.md#shared-execution One project/external file/host covers actual mirror assembly without per-assertion preparation.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Immutable tracked target/root survive synchronous completion. The setup-only catch distinguishes native fixture denial from a product mirror failure.
  * @evidence contracts/e2e.md#preserved-coverage Original link, zero status and exact output remain on capable hosts. Incapable hosts cannot execute this boundary; the forced-rejection unit preserves fallback assertions without claiming equivalent assembly.
  */
-export function test_ttsx_virtual_layout_mirrors_a_file_symlink_project_entry() {
+export function test_ttsx_virtual_layout_mirrors_a_file_symlink_project_entry(): void | false {
     const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_virtual_layout_mirrors_a_file_symlink_project_entry/inputs-1"));
     const linkedFile = path.join(
       TestProject.tmpdir("ttsx-linked-file-"),
@@ -43,7 +45,7 @@ export function test_ttsx_virtual_layout_mirrors_a_file_symlink_project_entry() 
       // about, so without it there is no file-symlink entry to mirror. The
       // fallback taken when the mirror itself is refused is pinned by
       // test_linkvirtualentry_copies_a_file_symlink_entry_when_symlink_creation_fails.
-      return;
+      return false;
     }
     assert.equal(fs.lstatSync(entry).isSymbolicLink(), true);
 

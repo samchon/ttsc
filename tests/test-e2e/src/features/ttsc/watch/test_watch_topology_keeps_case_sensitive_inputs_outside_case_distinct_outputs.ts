@@ -23,6 +23,8 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
  * @evidence contracts/testing.md#behavioral-verification This case drives the real WatchTopology: case-distinct compiler outputs do not hide project inputs. 1. Put declaration output in `Output` and project inputs in sibling `output`. 2. Put build-info output at `State.json` and input at sibling `state.json`. 3. Assert both project-input watcher roots remain live. 4. Create exact and glob members and observe every project change.
  * @evidence contracts/testing.md#independent-expectations Authored tsconfig options, source imports and declared input paths establish which files are compiler inputs, products or reload dependencies. Literal event-kind/path assertions and quiet negative twins enforce those independently specified roles rather than snapshotting topology output.
  * @evidence contracts/testing.md#distinguishing-cases 1. Put declaration output in `Output` and project inputs in sibling `output`. 2. Put build-info output at `State.json` and input at sibling `state.json`. 3. Assert both project-input watcher roots remain live. 4. Create exact and glob members and observe every project change.
+ * Unavailable initial filesystem capabilities return false so the runner reports SKIPPED; returns after a completed path-identity assertion retain that partial result.
+ *
  * @evidence contracts/testing.md#execution-ownership This named src/features/watch entry refreshes the real tsgo compiler population and drives native filesystem subscriptions through WatchTopology; the source units own direct event planning and injected watcher decisions.
  * @evidence contracts/e2e.md#necessary-boundary The real compiler input/output population must agree with native observer registration and notification classification for this authored layout. Direct path planning cannot establish tsgo membership, actual delivered events or subscription survival across mutations.
  * @evidence contracts/e2e.md#shared-execution The case reuses its built compiler and one Node test process; each topology session serves its authored mutation sequence. Distinct roots/options need their own compiler-population request, and an explicitly new session retains the initial-versus-newly-admitted input distinction; watcher registration installs or builds nothing.
@@ -30,18 +32,18 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
  * @evidence contracts/e2e.md#preserved-coverage 1. Put declaration output in `Output` and project inputs in sibling `output`. 2. Put build-info output at `State.json` and input at sibling `state.json`. 3. Assert both project-input watcher roots remain live. 4. Create exact and glob members and observe every project change. Every original assertion and authored layout remains in this named entry; no change to timeout, capability guard, input, expected event or quiet negative twin is made by these acknowledgments.
  */
 export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distinct_outputs =
-  async (): Promise<void> => {
+  async (): Promise<void | false> => {
     const root = TestProject.tmpdir("ttsc-project-input-output-project-");
     const source = path.join(root, "src", "main.ts");
     fs.mkdirSync(path.dirname(source), { recursive: true });
     fs.writeFileSync(source, "export const value = 1;\n", "utf8");
 
     const external = TestProject.tmpdir("ttsc-project-input-output-external-");
-    if (enableWindowsCaseSensitivity(external) === false) return;
+    if (enableWindowsCaseSensitivity(external) === false) return false;
     const outputRoot = path.join(external, "Output");
     const inputRoot = path.join(external, "output");
     fs.mkdirSync(outputRoot);
-    if (createCaseDistinctDirectory(inputRoot) === false) return;
+    if (createCaseDistinctDirectory(inputRoot) === false) return false;
     assert.notEqual(realpath(outputRoot), realpath(inputRoot));
     const exactRoot = path.join(external, "Exact");
     const exactDirectory = path.join(exactRoot, "nested");

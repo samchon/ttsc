@@ -22,6 +22,8 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
  * @evidence contracts/testing.md#behavioral-verification This case drives the real WatchTopology: watch topology preserves case-sensitive project inputs. 1. Create case-distinct external roots and glob roots. 2. Assert both recursive watcher handles remain live. 3. Observe each exact and glob input, then remove one glob and keep it quiet.
  * @evidence contracts/testing.md#independent-expectations Authored tsconfig options, source imports and declared input paths establish which files are compiler inputs, products or reload dependencies. Literal event-kind/path assertions and quiet negative twins enforce those independently specified roles rather than snapshotting topology output.
  * @evidence contracts/testing.md#distinguishing-cases 1. Create case-distinct external roots and glob roots. 2. Assert both recursive watcher handles remain live. 3. Observe each exact and glob input, then remove one glob and keep it quiet.
+ * Unavailable initial filesystem capabilities return false so the runner reports SKIPPED; returns after a completed path-identity assertion retain that partial result.
+ *
  * @evidence contracts/testing.md#execution-ownership This named src/features/watch entry refreshes the real tsgo compiler population and drives native filesystem subscriptions through WatchTopology; the source units own direct event planning and injected watcher decisions.
  * @evidence contracts/e2e.md#necessary-boundary The real compiler input/output population must agree with native observer registration and notification classification for this authored layout. Direct path planning cannot establish tsgo membership, actual delivered events or subscription survival across mutations.
  * @evidence contracts/e2e.md#shared-execution The case reuses its built compiler and one Node test process; each topology session serves its authored mutation sequence. Distinct roots/options need their own compiler-population request, and an explicitly new session retains the initial-versus-newly-admitted input distinction; watcher registration installs or builds nothing.
@@ -29,7 +31,7 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
  * @evidence contracts/e2e.md#preserved-coverage 1. Create case-distinct external roots and glob roots. 2. Assert both recursive watcher handles remain live. 3. Observe each exact and glob input, then remove one glob and keep it quiet. Every original assertion and authored layout remains in this named entry; no change to timeout, capability guard, input, expected event or quiet negative twin is made by these acknowledgments.
  */
 export const test_watch_topology_preserves_case_sensitive_project_inputs =
-  async (): Promise<void> => {
+  async (): Promise<void | false> => {
     const root = TestProject.tmpdir("ttsc-project-input-case-project-");
     const source = path.join(root, "src", "main.ts");
     fs.mkdirSync(path.dirname(source), { recursive: true });
@@ -47,11 +49,11 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
     );
 
     const external = TestProject.tmpdir("ttsc-project-input-case-external-");
-    if (enableWindowsCaseSensitivity(external) === false) return;
+    if (enableWindowsCaseSensitivity(external) === false) return false;
     const upperRoot = path.join(external, "Project");
     const lowerRoot = path.join(external, "project");
     fs.mkdirSync(upperRoot);
-    if (createCaseDistinctDirectory(lowerRoot) === false) return;
+    if (createCaseDistinctDirectory(lowerRoot) === false) return false;
     assert.notEqual(realpath(upperRoot), realpath(lowerRoot));
     const upperApi = path.join(upperRoot, "Api");
     const lowerApi = path.join(upperRoot, "api");

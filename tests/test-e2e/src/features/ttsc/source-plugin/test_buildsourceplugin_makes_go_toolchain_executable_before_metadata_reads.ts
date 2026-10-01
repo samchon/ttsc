@@ -30,6 +30,8 @@ import {
  * @evidence contracts/testing.md#behavioral-verification POSIX permission repair normalizes bundled mode to 0755, adds only owner execute for the selected external tool, builds, then preserves restrictive 0700 on reuse.
  * @evidence contracts/testing.md#independent-expectations POSIX mode bits establish literal 0755, 0766 and 0700 expectations independently of launcher logic.
  * @evidence contracts/testing.md#distinguishing-cases Nonexecutable 0666 external tool and restrictive already-executable 0700 distinguish necessary repair from permission widening; Windows returns before these assertions.
+ * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
+ *
  * @evidence contracts/testing.md#execution-ownership The exported test_buildsourceplugin_makes_go_toolchain_executable_before_metadata_reads entry is discovered by TestExecutor from features/source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary buildSourcePlugin passes actual executable arguments, cwd, environment and copied workspace inputs through a child process before publication. The fake Go script can fail or record those inputs independently; it proves build orchestration at this process boundary and does not certify native Go compilation.
  * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. Calls that change source, cache ownership, environment or tool permissions retain distinct observations because those are the inputs under test. The fake subprocess fixtures avoid unnecessary native compilation.
@@ -37,9 +39,9 @@ import {
  * @evidence contracts/e2e.md#preserved-coverage POSIX permission repair normalizes bundled mode to 0755, adds only owner execute for the selected external tool, builds, then preserves restrictive 0700 on reuse. These assertions stay in test_buildsourceplugin_makes_go_toolchain_executable_before_metadata_reads with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_buildsourceplugin_makes_go_toolchain_executable_before_metadata_reads =
-  () => {
+  (): void | false => {
     if (process.platform === "win32") {
-      return;
+      return false;
     }
 
     const root = TestProject.tmpdir("ttsc-go-mode-");

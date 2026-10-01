@@ -16,6 +16,8 @@ import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build
  * @evidence contracts/testing.md#behavioral-verification Bun descriptor loads retain static ESM dependencies and their resolution premises while rejecting untracked ambient runtime configuration.
  * @evidence contracts/testing.md#independent-expectations Explicit and ambient authored tsconfigs select different modules; these fixture paths distinguish the requested config from Bun ambient discovery. This case retains its existing availability guard when Bun is absent.
  * @evidence contracts/testing.md#distinguishing-cases Bun descriptor loads retain static ESM dependencies and their resolution premises while rejecting untracked ambient runtime configuration.
+ * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
+ *
  * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
  * @evidence contracts/e2e.md#necessary-boundary The isolated descriptor evaluator must carry real module selection, loaded values and input proof back to loadProjectPlugins; direct calls to path or fingerprint helpers cannot establish evaluator transport or module-cache isolation.
  * @evidence contracts/e2e.md#shared-execution All loads in this named case reuse its private fixture and cache. Descriptor reevaluation is retained only for a distinct format, changed input/proof state or intentionally nonreusable factory; an unchanged proven evaluation uses the same cache. Fake Go fixtures avoid rebuilding a real plugin where this case already supplies them.
@@ -23,13 +25,13 @@ import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build
  * @evidence contracts/e2e.md#preserved-coverage Bun descriptor loads retain static ESM dependencies and their resolution premises while rejecting untracked ambient runtime configuration. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
  */
 export const test_loadprojectplugins_tracks_bun_esm_descriptor_dependencies =
-  (): void => {
+  (): void | false => {
     const bunBinary = process.env.TTSC_BUN_BINARY ?? "bun";
     const bun = childProcess.spawnSync(bunBinary, ["--version"], {
       encoding: "utf8",
       windowsHide: true,
     });
-    if (bun.status !== 0) return;
+    if (bun.status !== 0) return false;
 
     const root = TestProject.tmpdir("ttsc-bun-esm-descriptor-input-");
     const project = path.join(root, "project");

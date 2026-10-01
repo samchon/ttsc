@@ -25,13 +25,15 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification Actual ttsx follows a file symlink from a CommonJS package to an external ESM package; status zero, loaded-as-esm output and absence of syntax-loader errors require the physical target format.
  * @evidence contracts/testing.md#independent-expectations The fixture gives the source target type module and the link owner no type; authored export syntax and marker must execute as ESM independently of package lookup internals.
  * @evidence contracts/testing.md#distinguishing-cases Contrary lexical and physical package types distinguish target-based classification; the unchanged early return means hosts lacking file-symlink permission do not execute this boundary.
+ * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
+ *
  * @evidence contracts/testing.md#execution-ownership This named feature entry owns one public launcher and an external fixture source tree linked by a native file symlink; no test function is dynamically hidden inside that source.
  * @evidence contracts/e2e.md#necessary-boundary Native link resolution must select the same source package for compiler emit and Node host labeling; record-only classifier calls cannot establish this real filesystem-to-loader connection.
  * @evidence contracts/e2e.md#shared-execution One immutable linked entry and one launcher host suffice; its contrary external package identity prevents replacing it with the ordinary same-directory ESM consumer.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the consumer and external target trees; only the fixture file is linked, synchronous execution ends before tracked cleanup, and the account capability limitation is explicit.
  * @evidence contracts/e2e.md#preserved-coverage Zero status, marker output and both negative syntax-error patterns remain; actual link divergence is not claimed on hosts that cannot create the original symlink.
  */
-export function test_ttsx_classifies_a_symlinked_entry_from_the_target_package_type() {
+export function test_ttsx_classifies_a_symlinked_entry_from_the_target_package_type(): void | false {
     const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_classifies_a_symlinked_entry_from_the_target_package_type/inputs-1"));
     const outside = TestProject.tmpdir("ttsc-esm-package-");
     fs.writeFileSync(
@@ -60,7 +62,7 @@ export function test_ttsx_classifies_a_symlinked_entry_from_the_target_package_t
     } catch {
       // Without symlink permission the link and its target share a directory,
       // and the contract this pins cannot be exercised.
-      return;
+      return false;
     }
     const result = TestProject.spawn(
       TestProject.TTSX_BIN,

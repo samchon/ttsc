@@ -23,14 +23,16 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification One ttsx run requires tools/a.ts and b.ts, must print a=3 b=3, and the real-compiler wrapper log must contain exactly one tools/tsconfig.json project build.
  * @evidence contracts/testing.md#independent-expectations Legacy method decorators receive three arguments, and the authored log filter counts actual -p invocations of the tools config independently of runtime memo state.
  * @evidence contracts/testing.md#distinguishing-cases The empty files list yields no project output while two excluded roots still inherit experimentalDecorators. Windows returns before this POSIX wrapper scenario.
+ * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
+ *
  * @evidence contracts/testing.md#execution-ownership The discoverable named test_ttsx_builds_a_failing_project_once_for_every_file_it_owns entry belongs to the TypeScript E2E population and executes the actual launch/bootstrap path described here. Its fixture helpers do not register hidden assertion hosts; no portable unit owner is inferred without exact body comparison.
  * @evidence contracts/e2e.md#necessary-boundary Actual root compilation, decorator execution and compiler-process invocation recording jointly expose duplicate failed-project builds; a memo unit alone cannot prove one real compiler request.
  * @evidence contracts/e2e.md#shared-execution One consumer, one tools config and two roots share one host; the wrapper delegates every call to the real compiler. The asserted tools project request occurs once, while each required root still needs its own checked emit.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The log belongs to the private fixture and accumulates only this host invocation. TestProject tracks the fixture until test-process exit; wrapper/host children are synchronous. Hard termination can leave tracked temp state.
  * @evidence contracts/e2e.md#preserved-coverage Original two decorator outputs and exact one-project log count remain. The early Windows return remains an explicit execution limitation.
  */
-export function test_ttsx_builds_a_failing_project_once_for_every_file_it_owns() {
-    if (process.platform === "win32") return;
+export function test_ttsx_builds_a_failing_project_once_for_every_file_it_owns(): void | false {
+    if (process.platform === "win32") return false;
     const probe = (name: string): string =>
       [
         `let observed: number = 0;`,

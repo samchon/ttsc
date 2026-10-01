@@ -26,14 +26,16 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification Real SIGTERM to the launcher must reach a handler and return exit 3; unhandled SIGTERM must report that signal; process-group SIGINT must reach the handler once. Each session must remove runtime output.
  * @evidence contracts/testing.md#independent-expectations Native close code/signal, literal handler output and exactly one SIGINT occurrence are independent Node process observations, while native directory reads check cleanup.
  * @evidence contracts/testing.md#distinguishing-cases Handled and unhandled SIGTERM distinguish forwarding from signal propagation; group SIGINT distinguishes duplicate launcher forwarding from direct group delivery. Windows returns because this delivery model is unavailable.
+ * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
+ *
  * @evidence contracts/testing.md#execution-ownership The named async E2E entry owns three POSIX detached launcher/program sessions and their assertions; program and signaling helpers are not separate test entries.
  * @evidence contracts/e2e.md#necessary-boundary Real process-group delivery and native termination reporting require actual launcher/program lifetimes; a signal-listener unit cannot establish kernel delivery or resulting cleanup.
  * @evidence contracts/e2e.md#shared-execution The three sessions share one project and existing compiler artifacts, but distinct termination modes require separate lifetimes; current preparation still repeats checked compilation for those sessions.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture declares its own workspace boundary so an ancestor installation cannot select an external cache. Each launcher owns a distinct POSIX process group; only its authenticated complete stdout readiness line gates signaling. Close, error and timeout clear the timer and terminate that owned group before settlement; stderr supplies diagnostics only.
- * @evidence contracts/e2e.md#preserved-coverage Handled codes/output, unhandled native signal, exactly-once group delivery and all three empty runtime-index assertions remain; the Windows early return is unchanged and is not POSIX coverage.
+ * @evidence contracts/e2e.md#preserved-coverage Handled codes/output, unhandled native signal, exactly-once group delivery and all three empty runtime-index assertions remain; the Windows capability condition is unchanged and returns false without claiming POSIX coverage.
  */
-export async function test_ttsx_forwards_termination_signals_and_cleans_up_on_posix() {
-    if (process.platform === "win32") return;
+export async function test_ttsx_forwards_termination_signals_and_cleans_up_on_posix(): Promise<void | false> {
+    if (process.platform === "win32") return false;
     const root = TestProject.createProject({
       "package.json": JSON.stringify({ name: "signals", private: true, workspaces: ["packages/*"] }),
       "tsconfig.json": JSON.stringify({

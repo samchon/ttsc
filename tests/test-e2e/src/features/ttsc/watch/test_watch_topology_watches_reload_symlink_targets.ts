@@ -24,6 +24,8 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
  * @evidence contracts/testing.md#behavioral-verification This case drives the real WatchTopology: a symlinked reload input observes edits to the file it points at. 1. Declare a reload input inside the project that links to an external file. 2. Edit the external target and require a cold config transition. 3. Retarget the link and require the same transition from the lexical anchor.
  * @evidence contracts/testing.md#independent-expectations Authored tsconfig options, source imports and declared input paths establish which files are compiler inputs, products or reload dependencies. Literal event-kind/path assertions and quiet negative twins enforce those independently specified roles rather than snapshotting topology output.
  * @evidence contracts/testing.md#distinguishing-cases 1. Declare a reload input inside the project that links to an external file. 2. Edit the external target and require a cold config transition. 3. Retarget the link and require the same transition from the lexical anchor.
+ * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
+ *
  * @evidence contracts/testing.md#execution-ownership This named src/features/watch entry refreshes the real tsgo compiler population and drives native filesystem subscriptions through WatchTopology; the source units own direct event planning and injected watcher decisions.
  * @evidence contracts/e2e.md#necessary-boundary The real compiler input/output population must agree with native observer registration and notification classification for this authored layout. Direct path planning cannot establish tsgo membership, actual delivered events or subscription survival across mutations.
  * @evidence contracts/e2e.md#shared-execution The case reuses its built compiler and one Node test process; each topology session serves its authored mutation sequence. Distinct roots/options need their own compiler-population request, and an explicitly new session retains the initial-versus-newly-admitted input distinction; watcher registration installs or builds nothing.
@@ -31,7 +33,7 @@ import { WATCH_EVENT_DEADLINE_MS } from "../../../internal/ttsc/internal/watch";
  * @evidence contracts/e2e.md#preserved-coverage 1. Declare a reload input inside the project that links to an external file. 2. Edit the external target and require a cold config transition. 3. Retarget the link and require the same transition from the lexical anchor. Every original assertion and authored layout remains in this named entry; no change to timeout, capability guard, input, expected event or quiet negative twin is made by these acknowledgments.
  */
 export const test_watch_topology_watches_reload_symlink_targets =
-  async (): Promise<void> => {
+  async (): Promise<void | false> => {
     const root = TestProject.tmpdir("ttsc-watch-reload-symlink-");
     const externalRoot = TestProject.tmpdir("ttsc-watch-reload-target-");
     const target = path.join(externalRoot, "selected", "selection.json");
@@ -46,7 +48,7 @@ export const test_watch_topology_watches_reload_symlink_targets =
       fs.symlinkSync(target, declaration, "file");
     } catch {
       // The filesystem cannot express the alias this case is about.
-      return;
+      return false;
     }
 
     const source = path.join(root, "src", "main.ts");

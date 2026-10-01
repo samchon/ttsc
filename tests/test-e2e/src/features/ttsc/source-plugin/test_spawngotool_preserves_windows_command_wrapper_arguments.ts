@@ -20,6 +20,8 @@ import { assert, fs, path } from "../../../internal/ttsc/internal/source-build";
  * @evidence contracts/testing.md#behavioral-verification spawnGoTool preserves literal Windows wrapper argv and env across PATH selection variants and distinguishes tool identities and missing wrappers.
  * @evidence contracts/testing.md#independent-expectations A separate Node capture script serializes received argv/env; the handwritten command vectors and native selection sentinel are independent expectations.
  * @evidence contracts/testing.md#distinguishing-cases Command metacharacters, quotes, empty/whitespace/semicolon PATH entries, cwd policy, relative paths, PATHEXT and env casing remain covered; non-Windows returns without claiming the wrapper matrix; the named source unit test_windowsgocommandargs_disables_delayed_expansion owns the portable cmd plan assertion.
+ * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
+ *
  * @evidence contracts/testing.md#execution-ownership The exported test_spawngotool_preserves_windows_command_wrapper_arguments entry is discovered by TestExecutor from features/source-plugin in the E2E runner population. Helper callbacks and embedded worker scripts execute beneath this named owner and are not separately selectable Evidence hosts.
  * @evidence contracts/e2e.md#necessary-boundary spawnGoTool meets the operating system executable/wrapper boundary. Captured arguments or Node-native missing-process errors distinguish an incorrect shell selection, quoting or lookup result that a direct argument formatter cannot detect. The Windows wrapper matrix is conditional and ordinary Linux execution does not prove that branch.
  * @evidence contracts/e2e.md#shared-execution One case-local source/workspace and tool fixture supplies all observations in this named case; the suite built libraries are reused. One capture wrapper or native missing-executable reference serves the argument/name matrix; changing lookup inputs needs another spawn, without rebuilding or installing a product host.
@@ -27,8 +29,8 @@ import { assert, fs, path } from "../../../internal/ttsc/internal/source-build";
  * @evidence contracts/e2e.md#preserved-coverage spawnGoTool preserves literal Windows wrapper argv and env across PATH selection variants and distinguishes tool identities and missing wrappers. These assertions stay in test_spawngotool_preserves_windows_command_wrapper_arguments with their original fixture inputs and failure identity; no assertion has been transferred to a claimed but unexecuted semantic owner.
  */
 export const test_spawngotool_preserves_windows_command_wrapper_arguments =
-  () => {
-    if (process.platform !== "win32") return;
+  (): void | false => {
+    if (process.platform !== "win32") return false;
 
     const root = TestProject.tmpdir("ttsc-go-command-shim-");
     const wrapperRoot = path.join(

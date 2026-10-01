@@ -27,14 +27,16 @@ import { denyWrites, runsAsRoot } from "../../../internal/ttsc/internal/read-onl
  * @evidence contracts/testing.md#behavioral-verification With project writes denied and cache elsewhere, excluded clear.ts must fail status 2 naming the directory/remedy without running; included src/main.ts must still print included-ran.
  * @evidence contracts/testing.md#independent-expectations Actual directory permissions and authored include membership independently separate denied temporary-config creation from a runnable included project; exact status/remedy text narrow the failure.
  * @evidence contracts/testing.md#distinguishing-cases Excluded and included entries use the same denied directory. Root returns before all assertions; POSIX modes and Windows deny ACL implement different real permission boundaries.
+ * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
+ *
  * @evidence contracts/testing.md#execution-ownership The named test_ttsx_names_an_unwritable_project_directory_for_an_out_of_include_entry E2E entry owns the actual bootstrap and observations specified here. TestProject/internal helpers supply fixtures and completed process results; this acknowledgment does not infer portable unit coverage from similarly named tests.
  * @evidence contracts/e2e.md#necessary-boundary Native fallback config creation must respect actual filesystem permissions and the launcher must report actionable context. Direct policy checks cannot prove an OS denial is classified correctly.
  * @evidence contracts/e2e.md#shared-execution One fixture, one external cache and two host lifetimes isolate failure/success under the same permissions. Windows deny/restore add native ACL processes; no compiler install repeats.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Finally restores permissions before tracked cleanup. POSIX restore reuses original mode; Windows restore command status is not checked, so guaranteed ACL restoration is not claimed. Root execution skips the case.
  * @evidence contracts/e2e.md#preserved-coverage Original status, path, include/files remedy, no outside output and included success/value remain. Permission enforcement and restoration limitations are explicit.
  */
-export function test_ttsx_names_an_unwritable_project_directory_for_an_out_of_include_entry() {
-    if (runsAsRoot()) return;
+export function test_ttsx_names_an_unwritable_project_directory_for_an_out_of_include_entry(): void | false {
+    if (runsAsRoot()) return false;
     const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_names_an_unwritable_project_directory_for_an_out_of_include_entry/inputs-1"));
     const cacheDir = TestProject.tmpdir("ttsx-readonly-cache-");
     const restore = denyWrites(root);

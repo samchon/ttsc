@@ -25,16 +25,18 @@ import {
  * @evidence contracts/testing.md#behavioral-verification POSIX local fake compiler chmod644 is invoked through --version; expected NONEXEC banner prints and executable mode is repaired.
  * @evidence contracts/testing.md#independent-expectations Scripted version literal distinguishes consumer binary from workspace one; explicit mode bits prove repair before successful execution.
  * @evidence contracts/testing.md#distinguishing-cases Non-executable consumer-local version binary; Windows returns without this POSIX case.
- * @evidence contracts/testing.md#execution-ownership Named E2E test_ttsc_version_makes_consumer_tsgo_executable_before_spawn is discovered under features/compiler by @ttsc/test-ttsc src/index.ts/TestExecutor. It runs the built CLI through actual child processes; private helpers keep the cases and assertions above in this entry.
+ * Unavailable host capabilities return false so the runner reports SKIPPED without claiming this case executed its behavioral assertions.
+ *
+ * @evidence contracts/testing.md#execution-ownership Named E2E test_ttsc_version_makes_consumer_tsgo_executable_before_spawn is discovered under src/features/ttsc/compiler by @ttsc/test-e2e src/index.ts and TestExecutor. It runs the built CLI through actual child processes; private helpers keep the cases and assertions above in this entry.
  * @evidence contracts/e2e.md#necessary-boundary Actual package resolution, chmod and OS executable spawn use a deliberate fake producer; real TypeScript version semantics are not tested.
  * @evidence contracts/e2e.md#shared-execution One consumer fixture and version invocation prove repair. createFakeNativePreview reuses a process-built Go script launcher, while the copied consumer executable is private and deliberately chmod644. No real compiler build or semantic compile is needed.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private package installation owns mode changes; spawnWithoutTsgoOverride removes both workspace binary overrides only in child environment. POSIX mode repair is observable before process completion; Windows skips. Tracked root and shared stub-launcher temp root end at process exit.
  * @evidence contracts/e2e.md#preserved-coverage Retained assertions: POSIX local fake compiler chmod644 is invoked through --version; expected NONEXEC banner prints and executable mode is repaired. No case is removed or transferred by these acknowledgments; the oracle limitations above remain explicit.
  */
 export const test_ttsc_version_makes_consumer_tsgo_executable_before_spawn =
-  () => {
+  (): void | false => {
     if (process.platform === "win32") {
-      return;
+      return false;
     }
     const root = createProject(FixtureFiles.read("ttsc/ttsc_version_makes_consumer_tsgo_executable_before_spawn/inputs-1"));
     createFakeNativePreview(
