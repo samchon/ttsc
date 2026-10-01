@@ -10,7 +10,7 @@ npx ttsc
 
 Reads `tsconfig.json` from the current directory, type-checks the project, runs every configured plugin, and writes JavaScript + declaration files to `outDir`. Same as `ttsc build`.
 
-Configuration parsing reports JSONC syntax errors and compiler-option errors before creating a Program. An incomplete configuration is rejected even when its recovered JSON tree contains usable options. A configuration that cannot be read also returns its native diagnostic instead of admitting a partial project.
+Configuration parsing reports JSONC syntax errors and compiler-option errors before creating a Program. An incomplete configuration is rejected even when its recovered JSON tree contains usable options. If a configuration exists but cannot be read, the parser returns its native diagnostic instead of admitting a partial project.
 
 ## Type-check only
 
