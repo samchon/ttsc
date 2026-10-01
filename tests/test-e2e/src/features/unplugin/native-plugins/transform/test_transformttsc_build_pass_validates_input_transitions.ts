@@ -19,17 +19,18 @@ import { startDeliveryPassSession } from "../../../../internal/unplugin/internal
  * 2. Rewrite undeclared text and create four ignored directories without compiling.
  * 3. Edit delivered and type-only inputs, add a source, remove irrelevant text,
  *    then add, remove, restore and change the kind of another admitted source.
+ *    Finally edit the descriptor between two deliveries of one module in a pass.
  * 4. Assert literal invocation counts, retain each failure identity and release
  *    the shared cache in finally.
  *
- * @evidence contracts/testing.md#behavioral-verification deliverPass asserts every original module's output in the phases that originally delivered all modules. The native log stays one for undeclared edits and ignored directories, reaches two for delivered-source edit and reuse, three for an undelivered type-only edit, four for appeared.ts creation and notes.txt removal, then five/six/seven/eight for extra.ts creation/removal/return/directory conversion. The type-only and appeared.ts phases deliver only the first module, preserving their undelivered-input assertions.
+ * @evidence contracts/testing.md#behavioral-verification deliverPass asserts every original module's output in the phases that originally delivered all modules. The native log stays one for undeclared edits and ignored directories, reaches two for delivered-source edit and reuse, three for an undelivered type-only edit, four for appeared.ts creation and notes.txt removal, then five/six/seven/eight for extra.ts creation/removal/return/directory conversion. The type-only and appeared.ts phases deliver only the first module. In a final pass, the first module returns output at eight captures; a descriptor edit followed by that same module in the same pass requires output and exactly nine captures.
  * @evidence contracts/testing.md#independent-expectations The fixture admits TypeScript sources but never the planted text or ignored emitted JavaScript. Literal successive counts require exactly one replacement per admitted content or membership transition and none for irrelevant changes, independently of adapter digests. Counts are fixed expectations, never computed from observed earlier results.
- * @evidence contracts/testing.md#distinguishing-cases Owns undeclared text edit/removal, ignored-directory appearance, delivered-source edit and reuse, an undelivered type-only edit, absent-to-present source membership, source removal/return and a same-name file-to-directory change holding inner.ts. The positive transitions reject unconditional reuse, while both irrelevant controls reject arbitrary directory or content invalidation.
- * @evidence contracts/testing.md#execution-ownership The test-e2e runner discovers this single native transform entry. Its named phases own all assertions formerly in the two build-pass ignores entries and four recompiles entries for module edit, type-only edit, membership change and membership removal. Direct source metadata memo semantics remain in test-unplugin units.
+ * @evidence contracts/testing.md#distinguishing-cases Owns undeclared text edit/removal, ignored-directory appearance, delivered-source edit and reuse, an undelivered type-only edit, absent-to-present source membership, source removal/return and a same-name file-to-directory change holding inner.ts. Repeated delivery after a descriptor edit contrasts with the first-delivery pass shortcut. Positive transitions reject unconditional reuse; both irrelevant controls reject arbitrary directory or content invalidation.
+ * @evidence contracts/testing.md#execution-ownership The test-e2e runner discovers this single native transform entry. Its named phases own all assertions formerly in the two build-pass ignores entries, four recompiles entries for module edit, type-only edit, membership change and membership removal, and a_repeated_delivery_inside_a_pass_revalidates. Direct source metadata memo semantics remain in test-unplugin units.
  * @evidence contracts/e2e.md#necessary-boundary The built transform API launches the counting Go sidecar and consumes its graph across real delivery-pass boundaries. The invocation log proves native envelope admission and generation reuse; this synthetic producer does not establish native compiler graph semantics.
- * @evidence contracts/e2e.md#shared-execution Exactly one startDeliveryPassSession, root, options, log and cache serve all six original cases. Six original cold captures become one, reducing their thirteen native invocations to eight while retaining each subsequent required invalidation. The sidecar source and artifact use the existing shared cache without per-phase installation or producer setup.
+ * @evidence contracts/e2e.md#shared-execution Exactly one startDeliveryPassSession, root, options, log and cache serve all seven original cases. Seven original cold captures become one, reducing fifteen native invocations to nine while retaining each required invalidation. The repeated-delivery phase reuses the eighth captured generation in a new pass and requires a ninth only after its descriptor edit. The sidecar source and artifact use the existing shared cache without per-phase installation or producer setup.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Both original text files exist before the common capture. Negative phases mutate disjoint irrelevant paths and both run despite assertion failure. Each subsequent admitted-input phase requires its predecessor's exact literal count; if that phase fails, later dependent phases are reported as blocked rather than claiming coverage against an unknown state. finally resets the cache and releases trackers; TestProject owns temporary roots until runner exit.
- * @evidence contracts/e2e.md#preserved-coverage All original mutation bytes, path identities, compile-count distinctions and module-output assertions remain in their named phases. Repeated per-case cold counts share one actual initial assertion. Undelivered input cases still deliver only the first module; membership removal still delivers every original module after each mutation. Every original failure identity is retained, with blocked dependent phases named explicitly.
+ * @evidence contracts/e2e.md#preserved-coverage All original mutation bytes, path identities, compile-count distinctions and module-output assertions remain in their named phases. Repeated per-case cold counts share one initial assertion. Undelivered input cases still deliver only the first module; membership removal still delivers every original module after each mutation. Repeated delivery preserves both result assertions, the exact plugin.cjs append and the absence of a pass boundary between those deliveries. Every original failure identity is retained, with blocked dependent phases named explicitly.
  */
 export async function test_transformttsc_build_pass_validates_input_transitions(): Promise<void> {
   const session = await startDeliveryPassSession();
@@ -127,6 +128,23 @@ export async function test_transformttsc_build_pass_validates_input_transitions(
       fs.writeFileSync(path.join(source, "inner.ts"), "export const inner: number = 1;", "utf8");
       await deliverPass(session);
       assert.equal(session.compiles(), 8, "an entry changing kind must replace the generation");
+    });
+    await transition("test_transformttsc_a_repeated_delivery_inside_a_pass_revalidates", 8, async () => {
+      const first = session.modules[0]!;
+      session.pass();
+      assert.ok(await session.deliver(first));
+      assert.equal(session.compiles(), 8);
+      fs.appendFileSync(
+        path.join(session.root, "plugin.cjs"),
+        "\n// changed inside the pass\n",
+        "utf8",
+      );
+      assert.ok(await session.deliver(first));
+      assert.equal(
+        session.compiles(),
+        9,
+        "a module delivered twice in one pass must validate on its second delivery",
+      );
     });
     if (failures.length !== 0)
       throw new AggregateError(failures, "Build-pass input transition batch failed");
