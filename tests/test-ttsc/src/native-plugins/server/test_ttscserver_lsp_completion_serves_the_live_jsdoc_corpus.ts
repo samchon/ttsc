@@ -90,246 +90,267 @@ const CLIENT_CAPABILITIES = {
 };
 
 /**
- * Verifies rule-published completion reaches an editor from the live buffer.
+ * Verifies LF, CR and CRLF live buffers receive rule-published completion.
  *
- * Every existing test for this channel stops at a package boundary: the matcher
- * is unit-tested, the merge is unit-tested against a synthetic response, and
- * the driver test only proves an embedder can implement the interface. Nothing
- * has ever driven `jsdoc/check-tag-names` → the lint sidecar's `lsp-hints` verb
- * → the proxy's merge → an LSP `textDocument/completion` reply in one process,
- * so a break in any seam between them would leave the whole suite green while
- * the editor offered nothing. The channel has shipped unproven since #736.
+ * The same UTF-16 caret must select the half-typed JSDoc tag under each
+ * supported newline spelling. A proxy that counts LF alone can still forward
+ * native completions while losing every plugin item in a CR-only document.
+ * Saved files contain no JSDoc block, so a result read from disk cannot satisfy
+ * the dirty-buffer assertions.
  *
- * The buffer half matters just as much as the wire half. Plugin diagnostics
- * come from a sidecar that reads disk, so they are deliberately suppressed
- * while a file is dirty — completion is the one plugin feature that must answer
- * from the unsaved buffer instead, because a corpus the user cannot reach until
- * they save is a corpus they will never use. Writing the JSDoc block only into
- * the buffer, and leaving disk without one, is what separates the two paths: an
- * answer built from disk cannot see the block at all.
- *
- * 1. Open a saved file that has no JSDoc block and wait for its own `no-var`
- *    finding. That wait is what pays for the cold plugin build: until the
- *    sidecar is compiled it answers no verb at all, so a completion request
- *    sent before this point does not come back empty, it does not come back.
- * 2. Type the JSDoc block into the buffer without saving, then poll completion at
- *    the half-typed tag until the corpus lands. Discovery is asynchronous by
- *    design — it loads a Program — so the first replies may carry no item.
- * 3. Assert the reply an editor consumes: the validated tag, an edit that replaces
- *    exactly what was typed, and a sibling tag proving this is the rule's
- *    vocabulary rather than one lucky guess.
- * 4. Assert disk still has no JSDoc block, and that a caret outside one is refused
- *    after the corpus is known to be live.
- * 5. Resolve a plugin item and assert `ttscserver` answers it without handing
- *    TypeScript-Go an item it never produced.
+ * 1. Open three saved documents with LF, CR and CRLF endings in one real server,
+ *    requiring each document's own no-var readiness finding.
+ * 2. Type the same JSDoc block into each buffer without saving and poll its corpus.
+ * 3. Require param, its exact edit and description, returns, unchanged saved
+ *    bytes and no plugin item outside the block for every newline spelling.
+ * 4. Resolve each actual plugin item locally and collect all document failures
+ *    before shutting down the shared session and cleaning its fixture.
  *
  * @evidence contracts/testing.md#behavioral-verification The real rule-published JSDoc corpus must return param/returns and exact replacement range from an unsaved buffer, remain absent outside its block and resolve its own item locally.
  * @evidence contracts/testing.md#independent-expectations Saved bytes without JSDoc, authored dirty block/caret/typed fragment and literal param/returns and ownership marker independently prescribe the published item and resolve response.
- * @evidence contracts/testing.md#distinguishing-cases Tests disk versus dirty-buffer authority, in-block versus outside scope, two vocabulary entries and ownership-preserving resolve; upstream hover/plain-completion probes retain failure context.
- * @evidence contracts/testing.md#execution-ownership The named server entry owns real jsdoc rule registration, lsp-hints transport, proxy merge and completionItem resolve in one actual editor session.
+ * @evidence contracts/testing.md#distinguishing-cases LF and CRLF controls distinguish the CR-only coordinate branch with identical authored carets and vocabulary. Every document retains disk versus dirty-buffer authority, in-block versus outside scope, two vocabulary entries and ownership-preserving resolve; upstream probes retain failure context.
+ * @evidence contracts/testing.md#execution-ownership The named server E2E entry executes all three document rows through one actual jsdoc registration, lsp-hints transport, proxy merge and completionItem resolve session; row callbacks are reviewed with this entry.
  * @evidence contracts/e2e.md#necessary-boundary Matcher/merge units cannot prove the lint contributor corpus crosses lsp-hints into the live editor buffer and that plugin-owned resolve stays out of TypeScript-Go.
- * @evidence contracts/e2e.md#shared-execution One immutable producer, server and saved document serve the dirty buffer, corpus polling, negative scope and resolve sequence; polling observes one asynchronous population rather than starting more hosts.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Dirty text is notified without writing disk, the literal saved-source assertion verifies this authority separation, readiness precedes polling, and session shutdown plus project cleanup always run.
- * @evidence contracts/e2e.md#preserved-coverage Preserves both corpus entries, filter/detail, exact edit range/text, unchanged disk, empty outside-block result and resolve marker; the original asynchronous readiness protocol is not replaced by a preloaded fake corpus.
+ * @evidence contracts/e2e.md#shared-execution One immutable lint producer, configuration, project and server supply the same JSDoc vocabulary to LF, CR and CRLF documents. Every row sends its own open/change requests and waits for its own readiness; buffer coordinates do not require a second producer or server, and this case does not assert native Program-load counts.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Distinct URIs and saved bytes isolate dirty buffers and diagnostics. No disk source is changed, each saved-source assertion verifies authority separation, and awaited session shutdown precedes fixture cleanup. Assertions and document operation failures accumulate before shutdown.
+ * @evidence contracts/e2e.md#preserved-coverage All original LF corpus entries, filter/detail, exact edit range/text, unchanged disk, empty outside-block result and resolve marker also execute for CR and CRLF. Original readiness, corpus and request budgets remain; resolve requires an actual published param and is blocked when that dependent input is absent.
  */
 export async function test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpus() {
-    const project = TestLint.createProject({
-      nativeProducer: "snapshot",
-      name: "ttscserver-lsp-completion-corpus",
-      rules: { "jsdoc/check-tag-names": "error", "no-var": "error" },
-      source: SAVED,
-    });
-    const file = path.join(project.tmpdir, "src", "main.ts");
-    const uri = pathToFileURL(file).href;
+  const project = TestLint.createProject({
+    nativeProducer: "snapshot",
+    name: "ttscserver-lsp-completion-corpus",
+    rules: { "jsdoc/check-tag-names": "error", "no-var": "error" },
+    source: SAVED,
+    sourcePath: "src/LF.ts",
+    extraSources: {
+      "src/CR.ts": SAVED.replaceAll("\n", "\r"),
+      "src/CRLF.ts": SAVED.replaceAll("\n", "\r\n"),
+    },
+  });
+  const failures: unknown[] = [];
+  try {
     const client = TtscserverClient.startLauncher(project.tmpdir, {
       env: { TTSC_CACHE_DIR: SHARED_PLUGIN_CACHE_DIR },
     });
+    await runTtscserverSession(client, async () => {
+      // 1. Handshake. Deliberately unbounded, matching the sibling session
+      // test: the launcher builds project plugins before spawning the server,
+      // so a cold `@ttsc/lint` build is charged entirely to this request.
+      await client.request("initialize", {
+        capabilities: CLIENT_CAPABILITIES,
+        processId: process.pid,
+        rootUri: pathToFileURL(project.tmpdir).href,
+      });
+      client.notify("initialized", {});
 
-    try {
-      await runTtscserverSession(client, async () => {
-        // 1. Handshake. Deliberately unbounded, matching the sibling session
-        // test: the launcher builds project plugins before spawning the server,
-        // so a cold `@ttsc/lint` build is charged entirely to this request.
-        await client.request("initialize", {
-          capabilities: CLIENT_CAPABILITIES,
-          processId: process.pid,
-          rootUri: pathToFileURL(project.tmpdir).href,
-        });
-        client.notify("initialized", {});
-
-        // 2. Open what was saved and wait for the saved file's own lint finding.
-        //
-        // This wait is what absorbs the cold plugin build. The sidecar compiles
-        // `@ttsc/lint` from Go source on first use — minutes on a cold cache — and
-        // answers no verb until it does, so a completion request sent before this
-        // point does not come back empty, it does not come back at all. Once a
-        // plugin diagnostic has arrived, the sidecar is known to be answering.
-        const ready = client.waitForNotification<PublishDiagnosticsParams>(
-          "textDocument/publishDiagnostics",
-          (params) =>
-            params.uri === uri &&
-            (params.diagnostics ?? []).some(
-              (diagnostic) =>
-                diagnostic.source === "@ttsc/lint" &&
-                diagnostic.code === "no-var",
-            ),
-          PLUGIN_BUILD_TIMEOUT,
-        );
-        client.notify("textDocument/didOpen", {
-          textDocument: {
-            languageId: "typescript",
-            text: SAVED,
-            uri,
-            version: 1,
-          },
-        });
-        await ready;
-
-        // Now type the JSDoc block into the buffer only. A rangeless
-        // contentChange is a full-document replacement, which is what an editor
-        // sends when it does not track incremental edits.
-        client.notify("textDocument/didChange", {
-          contentChanges: [{ text: DIRTY }],
-          textDocument: { uri, version: 2 },
-        });
-
-        // 3. Establish whether this session answers completion at all, before
-        // asking anything about the corpus.
-        //
-        // A completion request the proxy does not enrich is forwarded untouched
-        // and answered by TypeScript-Go, so a caret in ordinary code has to come
-        // back — with items, with null, it does not matter. Without this probe a
-        // silent session and an empty corpus produce the same failure, and the two
-        // have nothing to do with each other.
-        // Ask TypeScript-Go something it alone owns first. A hover reply proves
-        // the upstream server is alive and serving this document, which separates
-        // "completion is not answered" from "nothing upstream is answered".
-        let alive: string;
-        try {
-          await client.request(
-            "textDocument/hover",
-            { position: { character: 4, line: 0 }, textDocument: { uri } },
-            REQUEST_TIMEOUT,
-          );
-          alive = "upstream answered hover";
-        } catch (error) {
-          alive = `upstream never answered hover: ${
-            error instanceof Error ? error.message : String(error)
-          }`;
-        }
-
-        const probeStart = Date.now();
-        let probe: string;
-        try {
-          const response = await client.request<CompletionResponse>(
-            "textDocument/completion",
-            {
-              context: { triggerKind: 1 },
-              position: { character: 0, line: 0 },
-              textDocument: { uri },
-            },
-            REQUEST_TIMEOUT,
-          );
-          const shape = Array.isArray(response)
-            ? `${response.length} items`
-            : response === null
-              ? "null"
-              : `list of ${(response.items ?? []).length}`;
-          probe = `upstream answered plain completion in ${Date.now() - probeStart}ms (${shape})`;
-        } catch (error) {
-          probe = `upstream never answered plain completion: ${
-            error instanceof Error ? error.message : String(error)
-          }`;
-        }
-
-        // 4. Wait for the corpus. `lsp-hints` is answered from a Program the
-        // sidecar loads in the background, and the proxy answers nothing until it
-        // lands, so an early empty reply is the documented state rather than a
-        // failure.
-        const deadline = Date.now() + CORPUS_TIMEOUT;
-        let items: CompletionItem[] = [];
-        let attempts = 0;
-        let last = "no attempt completed";
-        while (items.length === 0) {
-          attempts++;
+      for (const [name, newline] of [
+        ["LF", "\n"],
+        ["CR", "\r"],
+        ["CRLF", "\r\n"],
+      ] as const) {
+        const saved = SAVED.replaceAll("\n", newline);
+        const dirty = DIRTY.replaceAll("\n", newline);
+        const file = path.join(project.tmpdir, "src", name + ".ts");
+        const uri = pathToFileURL(file).href;
+        const check = (body: () => void): void => {
           try {
-            items = published(
-              await client.request<CompletionResponse>(
-                "textDocument/completion",
-                {
-                  context: { triggerKind: 1 },
-                  position: CARET,
-                  textDocument: { uri },
-                },
-                REQUEST_TIMEOUT,
-              ),
-            );
+            body();
           } catch (error) {
-            // A request that never came back is the cold-build state, not a
-            // failure: the sidecar builds `@ttsc/lint` from Go source on first
-            // use, which the build itself documents as minutes on a cold cache.
-            // Only the outer deadline decides that the corpus is never coming.
-            last = error instanceof Error ? error.message : String(error);
+            failures.push(new Error(name + ": completion assertion", { cause: error }));
           }
-          if (items.length > 0) break;
-          assert.ok(
-            Date.now() < deadline,
-            `no rule-published completion after ${attempts} requests in ${CORPUS_TIMEOUT}ms (last: ${last}) — ${alive}; ${probe}`,
+        };
+        try {
+          // 2. Open what was saved and wait for the saved file's own lint finding.
+          //
+          // This wait is what absorbs the cold plugin build. The sidecar compiles
+          // `@ttsc/lint` from Go source on first use — minutes on a cold cache — and
+          // answers no verb until it does, so a completion request sent before this
+          // point does not come back empty, it does not come back at all. Once a
+          // plugin diagnostic has arrived, the sidecar is known to be answering.
+          const ready = client.waitForNotification<PublishDiagnosticsParams>(
+            "textDocument/publishDiagnostics",
+            (params) =>
+              params.uri === uri &&
+              (params.diagnostics ?? []).some(
+                (diagnostic) =>
+                  diagnostic.source === "@ttsc/lint" &&
+                  diagnostic.code === "no-var",
+              ),
+            PLUGIN_BUILD_TIMEOUT,
           );
-          await sleep(POLL_INTERVAL);
-        }
-
-        // 4. The item an editor shows for the tag the user is halfway through.
-        const param = items.find((item) => item.insertText === "param");
-        assert.ok(
-          param,
-          `expected the validated @param tag: ${JSON.stringify(items.map((item) => item.insertText))}`,
-        );
-        assert.equal(
-          param.filterText,
-          "param",
-          "the client filters on the inserted text, so it must match the insertion",
-        );
-        assert.ok(
-          param.detail,
-          "each published tag carries its own description",
-        );
-        assert.deepEqual(
-          param.textEdit?.range,
-          {
-            end: CARET,
-            start: {
-              character: CARET.character - TYPED.length,
-              line: CARET.line,
+          client.notify("textDocument/didOpen", {
+            textDocument: {
+              languageId: "typescript",
+              text: saved,
+              uri,
+              version: 1,
             },
-          },
-          "accepting the item must replace exactly what was typed after the trigger",
-        );
-        assert.equal(
-          param.textEdit?.newText,
-          "param",
-          "the edit writes the tag itself, leaving the @ the user already typed",
-        );
-        // One tag could be a coincidence. The corpus is the rule's whole
-        // validated vocabulary, so a second, unrelated tag has to be there too.
-        assert.ok(
-          items.some((item) => item.insertText === "returns"),
-          `expected the rule's vocabulary, not a single tag: ${JSON.stringify(items.map((item) => item.insertText))}`,
-        );
+          });
+          await ready;
 
-        // 5. The proof that this came from the buffer: disk never had a block.
-        assert.equal(
-          fs.readFileSync(file, "utf8"),
-          SAVED,
-          "the test must not have saved; completion answered from the dirty buffer",
-        );
+          // Now type the JSDoc block into the buffer only. A rangeless
+          // contentChange is a full-document replacement, which is what an editor
+          // sends when it does not track incremental edits.
+          client.notify("textDocument/didChange", {
+            contentChanges: [{ text: dirty }],
+            textDocument: { uri, version: 2 },
+          });
 
-        // 6. The negative twin, asked only now that the corpus is known to be
-        // live. A caret on the declaration below the block is outside any JSDoc
-        // scope, and an unscoped corpus would fire there too.
-        assert.deepEqual(
-          published(
-            await client.request<CompletionResponse>(
+          // 3. Establish whether this session answers completion at all, before
+          // asking anything about the corpus.
+          //
+          // A completion request the proxy does not enrich is forwarded untouched
+          // and answered by TypeScript-Go, so a caret in ordinary code has to come
+          // back — with items, with null, it does not matter. Without this probe a
+          // silent session and an empty corpus produce the same failure, and the two
+          // have nothing to do with each other.
+          // Ask TypeScript-Go something it alone owns first. A hover reply proves
+          // the upstream server is alive and serving this document, which separates
+          // "completion is not answered" from "nothing upstream is answered".
+          let alive: string;
+          try {
+            await client.request(
+              "textDocument/hover",
+              { position: { character: 4, line: 0 }, textDocument: { uri } },
+              REQUEST_TIMEOUT,
+            );
+            alive = "upstream answered hover";
+          } catch (error) {
+            alive = `upstream never answered hover: ${
+              error instanceof Error ? error.message : String(error)
+            }`;
+          }
+
+          const probeStart = Date.now();
+          let probe: string;
+          try {
+            const response = await client.request<CompletionResponse>(
+              "textDocument/completion",
+              {
+                context: { triggerKind: 1 },
+                position: { character: 0, line: 0 },
+                textDocument: { uri },
+              },
+              REQUEST_TIMEOUT,
+            );
+            const shape = Array.isArray(response)
+              ? `${response.length} items`
+              : response === null
+                ? "null"
+                : `list of ${(response.items ?? []).length}`;
+            probe = `upstream answered plain completion in ${Date.now() - probeStart}ms (${shape})`;
+          } catch (error) {
+            probe = `upstream never answered plain completion: ${
+              error instanceof Error ? error.message : String(error)
+            }`;
+          }
+
+          // 4. Wait for the corpus. `lsp-hints` is answered from a Program the
+          // sidecar loads in the background, and the proxy answers nothing until it
+          // lands, so an early empty reply is the documented state rather than a
+          // failure.
+          const deadline = Date.now() + CORPUS_TIMEOUT;
+          let items: CompletionItem[] = [];
+          let attempts = 0;
+          let last = "no attempt completed";
+          while (items.length === 0) {
+            attempts++;
+            try {
+              items = published(
+                await client.request<CompletionResponse>(
+                  "textDocument/completion",
+                  {
+                    context: { triggerKind: 1 },
+                    position: CARET,
+                    textDocument: { uri },
+                  },
+                  REQUEST_TIMEOUT,
+                ),
+              );
+            } catch (error) {
+              // A request that never came back is the cold-build state, not a
+              // failure: the sidecar builds `@ttsc/lint` from Go source on first
+              // use, which the build itself documents as minutes on a cold cache.
+              // Only the outer deadline decides that the corpus is never coming.
+              last = error instanceof Error ? error.message : String(error);
+            }
+            if (items.length > 0) break;
+            if (Date.now() >= deadline) {
+              check(() =>
+                assert.ok(
+                  Date.now() < deadline,
+                  `no rule-published completion after ${attempts} requests in ${CORPUS_TIMEOUT}ms (last: ${last}) — ${alive}; ${probe}`,
+                ),
+              );
+              break;
+            }
+            await sleep(POLL_INTERVAL);
+          }
+
+          // 4. The item an editor shows for the tag the user is halfway through.
+          const param = items.find((item) => item.insertText === "param");
+          check(() =>
+            assert.ok(
+              param,
+              `expected the validated @param tag: ${JSON.stringify(items.map((item) => item.insertText))}`,
+            ),
+          );
+          check(() =>
+            assert.equal(
+              param?.filterText,
+              "param",
+              "the client filters on the inserted text, so it must match the insertion",
+            ),
+          );
+          check(() =>
+            assert.ok(
+              param?.detail,
+              "each published tag carries its own description",
+            ),
+          );
+          check(() =>
+            assert.deepEqual(
+              param?.textEdit?.range,
+              {
+                end: CARET,
+                start: {
+                  character: CARET.character - TYPED.length,
+                  line: CARET.line,
+                },
+              },
+              "accepting the item must replace exactly what was typed after the trigger",
+            ),
+          );
+          check(() =>
+            assert.equal(
+              param?.textEdit?.newText,
+              "param",
+              "the edit writes the tag itself, leaving the @ the user already typed",
+            ),
+          );
+          // One tag could be a coincidence. The corpus is the rule's whole
+          // validated vocabulary, so a second, unrelated tag has to be there too.
+          check(() =>
+            assert.ok(
+              items.some((item) => item.insertText === "returns"),
+              `expected the rule's vocabulary, not a single tag: ${JSON.stringify(items.map((item) => item.insertText))}`,
+            ),
+          );
+
+          // 5. The proof that this came from the buffer: disk never had a block.
+          check(() =>
+            assert.equal(
+              fs.readFileSync(file, "utf8"),
+              saved,
+              "the test must not have saved; completion answered from the dirty buffer",
+            ),
+          );
+
+          // 6. The negative twin, asked only now that the corpus is known to be
+          // live. A caret on the declaration below the block is outside any JSDoc
+          // scope, and an unscoped corpus would fire there too.
+          try {
+            const outside = await client.request<CompletionResponse>(
               "textDocument/completion",
               {
                 context: { triggerKind: 1 },
@@ -337,35 +358,59 @@ export async function test_ttscserver_lsp_completion_serves_the_live_jsdoc_corpu
                 textDocument: { uri },
               },
               REQUEST_TIMEOUT,
-            ),
-          ),
-          [],
-          "the JSDoc corpus must not fire outside a JSDoc block",
-        );
+            );
+            check(() =>
+              assert.deepEqual(
+                published(outside),
+                [],
+                "the JSDoc corpus must not fire outside a JSDoc block",
+              ),
+            );
+          } catch (error) {
+            failures.push(new Error(name + ": outside-block request", { cause: error }));
+          }
 
-        // 7. Resolve. TypeScript-Go advertises completionItem/resolve for its own
-        // items and expects its own private data on every request, so a plugin
-        // item has to be answered by ttscserver itself.
-        const resolved = await client.request<CompletionItem>(
-          "completionItem/resolve",
-          param,
-          REQUEST_TIMEOUT,
-        );
-        assert.equal(
-          resolved.insertText,
-          "param",
-          `resolve must answer the plugin's own item: ${JSON.stringify(resolved)}`,
-        );
-        assert.equal(
-          resolved.data?.$ttsc,
-          PLUGIN_MARKER,
-          "the ownership marker must survive resolve",
-        );
-      });
-    } finally {
+          // 7. Resolve. TypeScript-Go advertises completionItem/resolve for its own
+          // items and expects its own private data on every request, so a plugin
+          // item has to be answered by ttscserver itself.
+          if (param !== undefined) {
+            const resolved = await client.request<CompletionItem>(
+              "completionItem/resolve",
+              param,
+              REQUEST_TIMEOUT,
+            );
+            check(() =>
+              assert.equal(
+                resolved.insertText,
+                "param",
+                `resolve must answer the plugin's own item: ${JSON.stringify(resolved)}`,
+              ),
+            );
+            check(() =>
+              assert.equal(
+                resolved.data?.$ttsc,
+                PLUGIN_MARKER,
+                "the ownership marker must survive resolve",
+              ),
+            );
+          }
+        } catch (error) {
+          failures.push(new Error(name + ": LSP newline corpus", { cause: error }));
+        }
+      }
+    });
+  } catch (error) {
+    failures.push(error);
+  } finally {
+    try {
       project.cleanup();
+    } catch (error) {
+      failures.push(error);
     }
   }
+  if (failures.length !== 0)
+    throw new AggregateError(failures, "LSP newline corpus assertions failed");
+}
 
 /**
  * Bound for the corpus wait, measured from a sidecar already known to answer.
