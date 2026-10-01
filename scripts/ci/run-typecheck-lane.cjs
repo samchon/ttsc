@@ -44,7 +44,7 @@ if (require.main === module) {
     throw new Error("Select quality gates or Node boundaries, not both");
   const selectedTests = selectedNodeTests(root, "typecheck");
   const formatterTest = (relative) =>
-    relative.startsWith("tests/e2e/scripts/ci/gofmt_");
+    relative.startsWith("tests/test-scripts-e2e/src/features/ci/gofmt_");
   const absoluteTests = (names) => names.map((relative) => path.join(root, ...relative.split("/")));
   const nodeTests = absoluteTests(selectedTests.filter((relative) => !formatterTest(relative)));
   const formatterTests = absoluteTests(selectedTests.filter(formatterTest));

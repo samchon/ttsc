@@ -225,7 +225,7 @@ function runLintCoverage() {
 }
 
 function runGoTransformerCoverage() {
-  const cwd = path.join(root, "tests", "go-transformer");
+  const cwd = path.join(root, "packages", "ttsc", "test", "go-transformer");
   const coverprofile = path.join(coverageRoot, "go-transformer.out");
   run(
     "go",
@@ -239,7 +239,7 @@ function runGoTransformerCoverage() {
     ],
     { cwd, env: goEnv() },
   );
-  assertFullCoverage("tests/go-transformer/transformer", coverprofile, { cwd });
+  assertFullCoverage("packages/ttsc/test/go-transformer/transformer", coverprofile, { cwd });
 }
 
 function assertFullCoverage(label, coverprofile, options) {

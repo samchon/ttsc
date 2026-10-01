@@ -137,16 +137,12 @@ function main() {
       );
     }
     for (const file of walkForGoFiles(
-      path.join(root, "tests", "test-evidence", "go"),
+      path.join(packageDir, "test", "e2e"),
     )) {
       const target = path.join(testDirectory, "native", path.basename(file));
       if (fs.existsSync(target) || Object.hasOwn(replace, target))
         throw new Error(`evidence Go overlay collision: ${target}`);
-      const relative = path
-        .relative(path.join(root, "tests", "test-evidence", "go"), file)
-        .split(path.sep)
-        .join("/");
-      capture(file, target, relative.startsWith("e2e/") ? "e2e" : "unit");
+      capture(file, target, "e2e");
     }
     if (layer) {
       const cases = selectEvidenceGoTests(inputs);

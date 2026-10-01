@@ -2,6 +2,7 @@ packages:
   - "config"
   - "benchmarks/*"
   - "packages/*"
+  - "packages/lint/test/lint-contributor-demo"
   - "tests/*"
   - "website"
 overrides:

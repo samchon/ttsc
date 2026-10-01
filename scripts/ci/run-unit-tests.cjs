@@ -21,7 +21,7 @@ async function main() {
         "--import",
         pathToFileURL(path.join(root, "scripts", "register-unit-loader.mjs"))
           .href,
-        "./src/unit/index.ts",
+        "./src/index.ts",
       ],
       cwd: path.join(root, "tests", "test-unplugin"),
     },
@@ -35,7 +35,7 @@ async function main() {
       ],
       cwd: path.join(root, "tests", "test-factory"),
     },
-    ...["test-ttsc", "test-wasm", "test-playground", "test-graph", "test-lint", "test-banner", "test-strip", "test-metro", "test-evidence", "test-evidence-benchmark"].map((suite) => ({
+    ...["test-ttsc", "test-wasm", "test-playground", "test-graph", "test-lint", "test-banner", "test-strip", "test-metro", "test-evidence"].map((suite) => ({
       name: `${suite} source units`,
       args: [
         "--import",

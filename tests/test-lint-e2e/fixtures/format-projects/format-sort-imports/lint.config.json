@@ -1,0 +1,6 @@
+{
+  "format": {
+    "sortImports": { "order": ["<THIRD_PARTY_MODULES>", "", "^[./]"] },
+    "severity": "error"
+  }
+}

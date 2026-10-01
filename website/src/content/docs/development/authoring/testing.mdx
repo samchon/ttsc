@@ -140,13 +140,13 @@ export const test_my_plugin_strips_debugger_statements_from_emit = () => {
 
 ## Project-shaped fixtures
 
-When a regression depends on a real directory layout, entry discovery, package boundaries, `compilerOptions.plugins[]` resolution. Check the fixture into `tests/projects/<name>/` and copy it into a temp dir at test time. The canonical "third-party shape" for project fixtures is what this repo's own `tests/projects/` ships: nine fixtures, every one uses **explicit `compilerOptions.plugins[]`** (no `package.json` auto-discovery), so the wiring is unambiguous.
+When a regression depends on directory layout, entry discovery, package boundaries, or `compilerOptions.plugins[]` resolution, check the fixture into its owning package's test directory and copy it into a temp dir at test time. The Go-source fixtures in `packages/ttsc/test/` use explicit `compilerOptions.plugins[]` so their wiring is unambiguous. Pure compiler API behavior belongs in the package's Go unit tests.
 
 Worked exemplars in this repo:
 
-- [`tests/projects/go-source-plugin/`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin/): minimal Go source plugin.
-- [`tests/projects/go-source-plugin-checker/`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/): Checker-using plugin.
-- [`tests/projects/go-source-plugin-properties/`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-properties/): properties round-trip.
+- [`packages/ttsc/test/go-source-plugin/`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/test/go-source-plugin/): minimal Go source plugin.
+- [`packages/ttsc/test/driver-unit/source_sdk_program_checker_test.go`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/test/driver-unit/source_sdk_program_checker_test.go): public Program/Checker unit test.
+- [`packages/ttsc/test/driver-unit/source_sdk_interface_properties_test.go`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/test/driver-unit/source_sdk_interface_properties_test.go): interface syntax and resolved properties.
 
 The materialize-into-tempdir pattern is one helper a third-party author can paste without depending on `@ttsc/testing` (which is private to this repo):
 

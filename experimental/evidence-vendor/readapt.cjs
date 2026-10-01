@@ -11,7 +11,6 @@ const TREES = [
   "packages/evidence/native",
   "benchmarks/evidence/src",
   "tests/test-evidence/src",
-  "tests/test-evidence-benchmark/src",
 ];
 // The two vendored skills nest one level below their host skill, so upstream's
 // own shape survives the copy. They take the identifier rewrites of step 1 and
@@ -371,73 +370,6 @@ const edit = (file, pairs, optional = false) => {
   fs.writeFileSync(file, t, "utf8");
 };
 
-// The suites re-base the paths that named upstream's layout.
-edit("tests/test-evidence-benchmark/src/internal/suiteRoot.ts", [
-  [
-    `export const repositoryRoot: string = path.resolve(suiteRoot, "..", "..");`,
-    `export const repositoryRoot: string = path.resolve(suiteRoot, "..", "..");
-
-/**
- * Absolute path of the benchmark package inside {@link repositoryRoot}.
- *
- * The repository and the benchmark are two different roots here, and the suite
- * keeps the second in one place for the same reason \`EvidenceBenchmarkLayout\`
- * does on the other side: a case that spells the location itself is a case that
- * can drift away from the runner it drives.
- */
-export const benchmarkRoot: string = path.resolve(
-  repositoryRoot,
-  "benchmarks",
-  "evidence",
-);`,
-    `export const benchmarkRoot`,
-  ],
-]);
-edit(
-  "tests/test-evidence-benchmark/src/features/test_benchmark_command_line_runs_from_its_own_entry.ts",
-  [
-    [`cwd: path.join(repositoryRoot, "benchmark"),`, `cwd: benchmarkRoot,`],
-    [
-      `import { repositoryRoot } from "../internal/suiteRoot";`,
-      `import { benchmarkRoot } from "../internal/suiteRoot";`,
-    ],
-    [`import path from "node:path";\n\n`, ``, `import type { IRunResult }`],
-  ],
-);
-for (const f of [
-  "tests/test-evidence-benchmark/src/features/test_benchmark_evidence_backend_gates_activate_each_claim.ts",
-  "tests/test-evidence-benchmark/src/features/test_benchmark_evidence_frontend_gates_activate_each_claim.ts",
-])
-  edit(f, [[`"benchmark/template/`, `"benchmarks/evidence/template/`]]);
-for (const [f, from, to] of [
-  [
-    "tests/test-evidence-benchmark/src/internal/benchmarkWorkspace.ts",
-    "`benchmark/requirements/<subject>/`",
-    "`benchmarks/evidence/requirements/<subject>/`",
-  ],
-  [
-    "tests/test-evidence-benchmark/src/internal/benchmarkWorkspace.ts",
-    "`benchmark/output/` is where",
-    "`benchmarks/evidence/output/` is where",
-  ],
-  [
-    "tests/test-evidence-benchmark/src/internal/requirementDocuments.ts",
-    "`benchmark/requirements/<subject>/`",
-    "`benchmarks/evidence/requirements/<subject>/`",
-  ],
-  [
-    "tests/test-evidence-benchmark/src/internal/workspaceLayer.ts",
-    "`benchmark/template/**`",
-    "`benchmarks/evidence/template/**`",
-  ],
-  [
-    "tests/test-evidence-benchmark/src/internal/suiteRoot.ts",
-    "`EvidenceBenchmarkWorkspace.prepareWorkspace` resolves `benchmark/template`\n * and `benchmark/requirements` under whatever repository it is handed, so every\n * case hands it this one",
-    "`EvidenceBenchmarkWorkspace.prepareWorkspace` resolves the template and the\n * requirements under whatever repository it is handed, so every case hands it\n * this one",
-  ],
-])
-  edit(f, [[from, to]]);
-
 // The fixture builder links every runtime dependency the package declares.
 edit("tests/test-evidence/src/internal/createProject.ts", [
   [
@@ -505,23 +437,6 @@ edit("tests/test-evidence/src/internal/pluginCacheDirectory.ts", [
  * here rather than written out at each caller.`,
   ],
 ]);
-// The benchmark suite reaches the runner across the workspace, and the runner
-// no longer sits at `<repository>/benchmark`.
-let rebased = 0;
-for (const f of walk("tests/test-evidence-benchmark/src")) {
-  if (!/\.tsx?$/.test(f)) continue;
-  const before = fs.readFileSync(f, "utf8");
-  const after = before.replace(
-    /(\.\.\/)+benchmark\/src\//g,
-    "../../../../benchmarks/evidence/src/",
-  );
-  if (after !== before) {
-    fs.writeFileSync(f, after, "utf8");
-    rebased++;
-  }
-}
-console.log("4. suite adaptations applied | import paths re-based:", rebased);
-
 // ---------------------------------------------------------------- 5. verify
 const SUF = ["", ".ts", ".tsx", ".d.ts", ".json", "/index.ts", "/index.tsx"];
 let checked = 0;

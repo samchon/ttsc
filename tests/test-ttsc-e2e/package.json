@@ -1,0 +1,22 @@
+{
+  "private": true,
+  "name": "@ttsc/test-ttsc-e2e",
+  "version": "0.30.4",
+  "description": "Compiler, API, plugin host, platform, and utility plugin integration tests for ttsc.",
+  "type": "module",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/index.ts"
+  },
+  "devDependencies": {
+    "@ttsc/banner": "workspace:*",
+    "@ttsc/lint": "workspace:*",
+    "@ttsc/paths": "workspace:*",
+    "@ttsc/strip": "workspace:*",
+    "@ttsc/testing": "workspace:*",
+    "@types/node": "catalog:utils",
+    "mocha": "^12.0.2",
+    "tslib": "2.8.1",
+    "ttsc": "workspace:*",
+    "typescript": "catalog:typescript"
+  }
+}

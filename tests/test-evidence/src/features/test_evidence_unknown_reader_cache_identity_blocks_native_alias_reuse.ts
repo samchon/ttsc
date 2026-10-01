@@ -3,9 +3,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { EvidenceProcessOwnership } from "../internal/EvidenceProcessOwnership";
-import { linkDirectory } from "../internal/linkDirectory";
-import { pluginCacheDirectory } from "../internal/pluginCacheDirectory";
+import { EvidenceProcessOwnership } from "../../../utils/src/evidence/EvidenceProcessOwnership";
+import { linkDirectory } from "../../../utils/src/evidence/linkDirectory";
+import { pluginCacheDirectory } from "../../../utils/src/evidence/pluginCacheDirectory";
 
 /**
  * Verifies cache admission follows actual native aliases and retargeted identities.
@@ -22,11 +22,7 @@ import { pluginCacheDirectory } from "../internal/pluginCacheDirectory";
  * @evidence contracts/testing.md#behavioral-verification Uses a real native directory link, realpath and directory replacement with the actual cache/ownership operations. The used alias remains refused after unknown-reader input and retargeting, the distinct target is admitted through its independent spelling, and the replaced original path remains refused.
  * @evidence contracts/testing.md#independent-expectations Authored target paths and actual realpath observations establish which directory the kernel selected independently of registry keys; unchanged sentinel bytes distinguish admission from accidental deletion.
  * @evidence contracts/testing.md#distinguishing-cases Same physical target through another spelling is refused; a used alias stays blocked after retargeting while the distinct target's independent spelling is admitted. Replacement at the original physical path cannot clear sticky unknown state. There is no Windows permission skip.
- * @evidence contracts/testing.md#execution-ownership The matching src/features export is discovered by the suite's ordinary E2E runner and central function claim. It executes actual native filesystem identity/link operations in that Node process; no CLI, Go binary, installer or additional product host is created.
- * @evidence contracts/e2e.md#necessary-boundary Node's actual directory-link and realpath/stat boundary must connect to shared-cache admission; a pure resolver or manufactured metadata cannot prove native alias and retarget behavior.
- * @evidence contracts/e2e.md#shared-execution One private root and one explicit actual ownership operation serve alias, retarget and replacement states in the existing E2E process. This adds no consumer install, compiler preparation or native producer.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only this case's native targets and link are mutated; environment restoration and exact owned-root removal run in finally. The explicit retention callback records a reason and touches no shared default owner. The authored unknown state has no actual process reader, so cleanup removes only the caller's own inputs.
- * @evidence contracts/e2e.md#preserved-coverage The new alias/retarget/replacement oracle complements direct source admission/lexical-path units; every original compiler/watch status, PID/count, timeout and quiet assertion remains in its existing owner.
+ * @evidence contracts/testing.md#execution-ownership The matching src/features export is discovered by the unit runner and central function claim. It executes actual native filesystem identity/link operations in that Node process; no CLI, Go binary, installer or additional product host is created.
  */
 export function test_evidence_unknown_reader_cache_identity_blocks_native_alias_reuse(): void {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "evidence-native-cache-identity-"));

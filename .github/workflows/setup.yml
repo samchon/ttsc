@@ -58,7 +58,7 @@ jobs:
         run: pnpm exec node scripts/test-go-graph.cjs --os-boundaries
       - name: Check installed SDK filesystem identities in one OS boundary batch
         if: ${{ !cancelled() && steps.installed.outcome == 'success' }}
-        run: pnpm exec node --import ./scripts/register-typescript-loader.mjs tests/e2e/installed-os-boundaries.mts
+        run: pnpm exec node --import ./scripts/register-typescript-loader.mjs tests/test-installation-e2e/src/features/test_installed_os_boundaries.mts
       - name: Check the Windows kernel boundaries in one installed SDK batch
         if: ${{ !cancelled() && steps.installed.outcome == 'success' && runner.os == 'Windows' }}
         shell: pwsh

@@ -1,0 +1,7 @@
+{
+  "rules": {
+    "eqeqeq": "warning",
+    "no-var": "error",
+    "prefer-const": "error"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "format": {
+    "jsDoc": true,
+    "severity": "error"
+  }
+}

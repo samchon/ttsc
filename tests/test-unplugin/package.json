@@ -2,10 +2,10 @@
   "private": true,
   "name": "@ttsc/test-unplugin",
   "version": "0.30.4",
-  "description": "Adapter entrypoint and transform tests for @ttsc/unplugin.",
+  "description": "Unit tests for @ttsc/unplugin.",
   "type": "module",
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/index.ts"
+    "start": "node --import ../../scripts/register-unit-loader.mjs src/index.ts"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^29.0.2",

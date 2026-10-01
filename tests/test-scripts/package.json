@@ -1,0 +1,12 @@
+{
+  "private": true,
+  "name": "@ttsc/test-scripts",
+  "version": "0.30.4",
+  "scripts": {
+    "start": "node --test --experimental-test-isolation=none src/features/ci/*.test.cjs src/features/go/*.test.cjs"
+  },
+  "devDependencies": {
+    "@ttsc/testing": "workspace:*",
+    "ttsc": "workspace:*"
+  }
+}

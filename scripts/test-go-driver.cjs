@@ -55,7 +55,7 @@ if (require.main === module) {
     ["test_runtime_compiler_output_preserves_decorator_effects", "test_runtime_compiler_output_preserves_decorator_effects"],
     ["test_runtime_compiler_output_renders_jsx_profiles", "test_runtime_compiler_output_renders_jsx_profiles"],
   ]) {
-    try { require("../tests/unit/runtime/" + file + ".cjs")[name](result); }
+    try { require("../tests/test-scripts/src/features/runtime/" + file + ".cjs")[name](result); }
     catch (error) { console.error(error); process.exitCode = 1; }
   }
   process.exitCode = process.exitCode || result.status || 0;

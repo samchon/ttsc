@@ -1,0 +1,2 @@
+// @ttsc-corpus-companion
+export {};

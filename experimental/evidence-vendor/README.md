@@ -1,6 +1,6 @@
 # Evidence vendoring tools
 
-`@ttsc/evidence`, its benchmark, and its two feature suites are vendored from `samchon/lint-plugin-evidence` (published as `@samchon/lint-plugin-evidence`). Upstream keeps moving, so the copy has to be repeatable rather than hand-made.
+`@ttsc/evidence`, its benchmark, and its Evidence feature suite are vendored from `samchon/lint-plugin-evidence` (published as `@samchon/lint-plugin-evidence`). Upstream keeps moving, so the copy has to be repeatable rather than hand-made.
 
 This script is branch-local tooling for the migration pull request. It is not part of any build, lane, or published package.
 
@@ -21,7 +21,6 @@ robocopy <upstream>/benchmark/instructions   benchmarks/evidence/instructions /M
 robocopy <upstream>/packages/evidence/src    packages/evidence/src            /MIR /XD node_modules .git
 robocopy <upstream>/packages/evidence/native packages/evidence/native         /MIR /XD node_modules .git
 robocopy <upstream>/tests/test-evidence/src  tests/test-evidence/src          /MIR /XD node_modules .git
-robocopy <upstream>/tests/test-benchmark/src tests/test-evidence-benchmark/src /MIR /XD node_modules .git
 
 # The two skills nest one level below their host skill, so upstream's own
 # two-level shape survives the copy and every relative link inside it still
@@ -47,7 +46,6 @@ bash ./.vscode/gofmt-2spaces.sh -w packages/evidence/native/*.go
 npx prettier --write "packages/evidence/src/**/*.ts" \
   "benchmarks/evidence/src/**/*.ts" \
   "tests/test-evidence/src/**/*.ts" \
-  "tests/test-evidence-benchmark/src/**/*.ts" \
   ".agents/skills/project/evidence/*.md" \
   ".agents/skills/benchmark/evidence/**/*.md"
 ```
@@ -62,7 +60,7 @@ Do not run Prettier over `benchmarks/evidence/{template,requirements,instruction
 3. Writes `EvidenceBenchmarkLayout` and re-roots every benchmark path through it. Upstream sits at `<repository>/benchmark`, so one value answered both "which repository" and "where are the benchmark's own files". Here it cannot.
 4. Restores `workspacePackageVersions`, which upstream deleted. See below.
 5. Applies the suite-local adaptations (`benchmarkRoot`, manifest-driven dependency linking, re-based import paths, corrected prose).
-6. Resolves every relative specifier in all five trees and prints the count.
+6. Resolves every relative specifier in all four trees and prints the count.
 
 ### The one deletion that must not be taken
 

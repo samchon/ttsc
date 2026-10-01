@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "name": "@ttsc/test-metro-e2e",
+  "version": "0.30.4",
+  "description": "Adapter and transform tests for @ttsc/metro.",
+  "type": "module",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/index.ts"
+  },
+  "devDependencies": {
+    "@ttsc/testing": "workspace:*",
+    "@types/node": "catalog:utils",
+    "ttsc": "workspace:*",
+    "typescript": "catalog:typescript"
+  }
+}

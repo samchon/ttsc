@@ -1,0 +1,168 @@
+import { TestProject } from "@ttsc/testing";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+
+import { LINUX_DIRECTORY_WATCHES } from "../../../../../../packages/unplugin/lib/core/transform/tracker/linux/LINUX_DIRECTORY_WATCHES.mjs";
+import { openLinuxDirectoryObserver } from "../../../../../../packages/unplugin/lib/core/transform/tracker/linux/openLinuxDirectoryObserver.mjs";
+import { waitFor } from "../../../internal/adapter-vite-serve/waitFor";
+
+/**
+ * Verifies the directory-level observer watches exactly the directories its
+ * admission names, one shared watch each, and follows the tree as it changes
+ * (samchon/ttsc#1389).
+ *
+ * Node emulates a recursive watch on Linux by walking the whole tree
+ * synchronously and opening one inotify watch per file, so every capture paid
+ * for all of `node_modules`. The observer replaces that emulation. Its watches
+ * live in the Linux watch helper of the native binary (samchon/ttsc#1426), and
+ * Windows and macOS watch in the isolated broker instead, so the scenario runs
+ * on Linux.
+ *
+ * 1. Open two observers on one tree whose admission rejects `node_modules`, wait
+ *    until both are live, and assert only the admitted directories are watched,
+ *    once each, and no file is.
+ * 2. Create a directory, then a file inside it, and assert the new directory is
+ *    watched and the file reported relative to the root, while a new package
+ *    directory stays unwatched.
+ * 3. Track a file below `node_modules` and assert exactly its directory chain
+ *    joins the watch set, and a directory, which is watched itself. Then widen
+ *    the admission below a package already tracked, as a project's root-file
+ *    membership does (samchon/ttsc#1419), and assert only a `subtree` track
+ *    watches what it now admits there.
+ * 4. Close both observers and assert every shared watch is released.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Two real Linux observers must share exactly the admitted root/src directory watches, report a newly created nested source, reject new package directories, add only explicitly tracked package chains, and widen a previously watched subtree only on subtree=true. Closing both must release every watch.
+ * @evidence contracts/testing.md#independent-expectations Literal relative-path watch sets follow the declared admission predicate and explicitly tracked locations independently of observer traversal. An actual emitted filesystem filename confirms notification behavior rather than directory arrangement. Watch-map inspection measures live resource ownership, not committed files.
+ * @evidence contracts/testing.md#distinguishing-cases Two consumers sharing one path, admitted versus rejected new directories, file versus directory tracks, ordinary versus widened subtree track, and final shared-owner close are distinct decisions. This entry is Linux-only because it observes the native inotify helper population.
+ * @evidence contracts/testing.md#execution-ownership TestExecutor discovers test_directory_observer_watches_only_admitted_directories in native-plugins/transform. This exported E2E entry owns its local scenario callbacks and assertions; the suite runner selects the native population independently of unit cases.
+ * @evidence contracts/e2e.md#necessary-boundary The directory observer connects real filesystem events through the native Linux watch helper to JS admission and notification consumers. Synthetic callbacks cannot show newly created directories acquire actual watches or that last-owner close releases shared native resources.
+ * @evidence contracts/e2e.md#shared-execution Both observers intentionally share one root and native helper session. Initial directories and later tracked chains are built once; no per-file helper launch is needed. Twenty unadmitted package trees test bounded admission without another installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A unique physical root scopes watch-map inspection. first/second callbacks are separate, and widened is changed only before the subtree comparison. finally closes both observers even after assertion failure; TestProject owns the fixture directory through runner exit.
+ * @evidence contracts/e2e.md#preserved-coverage All assertions described above remain in test_directory_observer_watches_only_admitted_directories; no case or assertion is removed or transferred. This entry retains its actual boundary checks, while synthetic fixture envelopes do not establish native compiler semantics.
+ */
+export async function test_directory_observer_watches_only_admitted_directories(): Promise<void> {
+  if (process.platform !== "linux") return;
+  const root = fs.realpathSync(
+    TestProject.tmpdir("ttsc-unplugin-directory-observer-"),
+  );
+  TestProject.writeFiles(root, {
+    "src/main.ts": "export {};\n",
+    "src/feature/view.ts": "export {};\n",
+    ...Object.fromEntries(
+      Array.from({ length: 20 }, (_, index) => [
+        `node_modules/pkg-${index}/lib/index.d.ts`,
+        "export {};\n",
+      ]),
+    ),
+  });
+  const at = (...segments: string[]): string => path.join(root, ...segments);
+  const watchedBelowRoot = (): string[] =>
+    [...LINUX_DIRECTORY_WATCHES.keys()]
+      .filter((key) => key === root || key.startsWith(`${root}${path.sep}`))
+      .map((key) => path.relative(root, key).replace(/\\/g, "/"))
+      .sort();
+  // A widened subtree is admitted too, the way a membership's walk widens a
+  // scope's admission after its observer opened.
+  let widened: string | undefined;
+  const admit = (directory: string): boolean =>
+    !directory.split(path.sep).includes("node_modules") ||
+    (widened !== undefined &&
+      (directory === widened || directory.startsWith(`${widened}${path.sep}`)));
+
+  const reported: string[] = [];
+  const failures: string[] = [];
+  const first = openLinuxDirectoryObserver(
+    root,
+    admit,
+    (_eventType, filename) => {
+      if (filename !== null) reported.push(filename.replace(/\\/g, "/"));
+    },
+    () => failures.push("first"),
+  );
+  const second = openLinuxDirectoryObserver(
+    root,
+    admit,
+    () => undefined,
+    () => failures.push("second"),
+  );
+  try {
+    assert.deepEqual(
+      [await first.ready, await second.ready],
+      [true, true],
+      "both observers go live",
+    );
+    assert.deepEqual(
+      watchedBelowRoot(),
+      ["", "src", "src/feature"],
+      "only the admitted directories are watched, and never a file",
+    );
+
+    fs.mkdirSync(at("src", "later"));
+    fs.mkdirSync(at("node_modules", "pkg-new"));
+    await waitFor(
+      () => watchedBelowRoot().includes("src/later"),
+      "the created directory to be watched",
+    );
+    fs.writeFileSync(at("src", "later", "new.ts"), "export {};\n");
+    await waitFor(
+      () => reported.includes("src/later/new.ts"),
+      "the file created in the new directory to be reported",
+    );
+    assert.equal(
+      watchedBelowRoot().includes("node_modules/pkg-new"),
+      false,
+      "a directory the admission rejects is not watched when it appears",
+    );
+
+    first.track(at("node_modules", "pkg-3", "lib", "index.d.ts"));
+    assert.deepEqual(
+      watchedBelowRoot(),
+      [
+        "",
+        "node_modules",
+        "node_modules/pkg-3",
+        "node_modules/pkg-3/lib",
+        "src",
+        "src/feature",
+        "src/later",
+      ],
+      "tracking a file watches exactly the directories leading to it",
+    );
+    first.track(at("node_modules", "pkg-5"));
+    assert.ok(
+      watchedBelowRoot().includes("node_modules/pkg-5"),
+      "tracking a directory watches the directory itself, whose entries a listing decides",
+    );
+
+    first.track(at("node_modules", "pkg-7"));
+    widened = at("node_modules", "pkg-7");
+    first.track(widened);
+    assert.equal(
+      watchedBelowRoot().includes("node_modules/pkg-7/lib"),
+      false,
+      "without subtree, a path already watched is not read again",
+    );
+    first.track(widened, true);
+    assert.deepEqual(
+      watchedBelowRoot().filter((key) => key.startsWith("node_modules/pkg-")),
+      [
+        "node_modules/pkg-3",
+        "node_modules/pkg-3/lib",
+        "node_modules/pkg-5",
+        "node_modules/pkg-7",
+        "node_modules/pkg-7/lib",
+      ],
+      "a subtree track watches what the widened admission now accepts below the path, and nothing beside it",
+    );
+    assert.deepEqual(failures, []);
+  } finally {
+    first.close();
+    second.close();
+  }
+  assert.deepEqual(
+    watchedBelowRoot(),
+    [],
+    "closing the last observer releases every shared watch",
+  );
+}

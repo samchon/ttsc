@@ -78,41 +78,33 @@ try {
     recursive: true,
     filter: (src) => !skip.has(path.basename(src)),
   });
-  const packageFiles = copyGoTestsFlat(
-    lintTestsDir,
-    path.join(scratch, "linthost"),
-    (file) =>
-      !windowsBoundary ||
-      path
-        .relative(lintTestsDir, file)
-        .split(path.sep)
-        .join("/")
-        .startsWith("os-boundaries/windows/") ||
-      [
-        "config_fixture_helpers_test.go",
-        "windows_short_path_windows_test.go",
-        "helpers_test.go",
-        "behavioral_witness_coverage_test.go",
-        "lsp_command_helpers_test.go",
-        "lsp_format_buffer_helpers_test.go",
-        "lsp_code_action_helpers_test.go",
-        "lsp_logical_project_link_helpers_test.go",
-      ].includes(path.basename(file)),
-  );
-  // Repository validation tests stay outside the product package. Overlay
-  // them beside the engine only in this disposable Go test module.
-  const unitOverlays = new Set([
+  const corpusUnits = new Set([
     "lint_fixture_corpus_test.go",
     "command_format_fixture_corpus_test.go",
     "command_check_preserves_severity_exit_contract_test.go",
   ]);
-  const repositoryFiles = copyGoTestsFlat(
-    path.join(root, "tests", "test-lint", "go"),
+  const packageFiles = copyGoTestsFlat(
+    lintTestsDir,
     path.join(scratch, "linthost"),
     (file) =>
-      !windowsBoundary && (!e2e || !unitOverlays.has(path.basename(file))),
+      (!e2e || !corpusUnits.has(path.basename(file))) &&
+      (!windowsBoundary ||
+        path
+          .relative(lintTestsDir, file)
+          .split(path.sep)
+          .join("/")
+          .startsWith("os-boundaries/windows/") ||
+        [
+          "config_fixture_helpers_test.go",
+          "windows_short_path_windows_test.go",
+          "helpers_test.go",
+          "behavioral_witness_coverage_test.go",
+          "lsp_command_helpers_test.go",
+          "lsp_format_buffer_helpers_test.go",
+          "lsp_code_action_helpers_test.go",
+          "lsp_logical_project_link_helpers_test.go",
+        ].includes(path.basename(file))),
   );
-
   // Discover every in-tree module the workspace needs to satisfy:
   //   - the lint package (whose tests we're running),
   //   - packages/ttsc itself (required for shim resolution),
@@ -190,8 +182,7 @@ try {
     const layer = windowsBoundary ? "windows" : unit ? "unit" : "e2e";
     const tests = selectLintGoTests(
       lintTestsDir,
-      path.join(root, "tests", "test-lint", "go"),
-      { packageFiles, repositoryFiles, layer },
+      { packageFiles, layer },
     );
     const wrapper = writeLintGoSelection(
       path.join(scratch, "linthost", "lint_layer_selection_test.go"),

@@ -66,6 +66,7 @@ Useful shim sub-packages:
 | --- | --- |
 | `shim/ast` | `SourceFile`, `Node`, `Kind*`, typed accessors like `AsCallExpression` |
 | `shim/parser` | parse JS or TS text into a `SourceFile` when the plugin owns that text |
+| `shim/stringutil` | Decode and encode compiler JavaScript string values with `DecodeJSStringRune` and `EncodeJSStringRune`, preserving lone surrogate code units. |
 | `shim/scanner` | token positions, trivia skipping, line/column mapping, source text helpers |
 | `shim/printer` | render source from a (possibly mutated) AST. The only way to surface AST mutations through the `transform` subcommand. |
 | `shim/tsoptions` | parse `tsconfig.json` |
@@ -81,7 +82,7 @@ Do not import `github.com/microsoft/typescript-go/internal/...` directly. The sh
 
 ### Upstream compatibility
 
-The shim currently follows TypeScript-Go revision `7fc57c0050639e01409766f41a77a10d03106297`, pinned as `v0.0.0-20260610182825-7fc57c005063` in the compiler and shim modules. This revision preserves lone surrogate code units in JavaScript strings through its scanner, JSX transform and printer codec. Source text positions remain byte offsets; JavaScript string values and editor character positions have separate encoding contracts.
+The shim currently follows TypeScript-Go revision `7fc57c0050639e01409766f41a77a10d03106297`, pinned as `v0.0.0-20260610182825-7fc57c005063` in the compiler and shim modules. This revision preserves lone surrogate code units in JavaScript strings through its scanner, JSX transform and printer codec. Source text positions remain byte offsets; JavaScript string values and editor character positions have separate encoding contracts. A cooked literal's Go string can contain the compiler codec's lone-surrogate encoding. Decode it through `shim/stringutil`, rather than treating its byte length or Go range iteration as JavaScript length. A supplementary code point occupies two UTF-16 units; a decoded lone surrogate occupies one. Require `github.com/microsoft/typescript-go/shim/stringutil v0.0.0` when importing that module.
 
 `shim/tsoptions.ParseExtendedConfig` now accepts `resolutionStack []shimtspath.Path` instead of `[]string`. The stack contains canonical config paths used for cycle detection. Consumers calling this low-level function must update the stack's type and construct its entries under the same host path and case-sensitivity policy. Enum regeneration retains every previously public family and completes its current upstream siblings.
 
@@ -114,7 +115,7 @@ checker := prog.Checker         // ready to query
 Most shipped third-party-shaped consumers in this repo use this path:
 
 - [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go): the generic linked transform host (`loadUtilityProgram`).
-- [`tests/projects/go-source-plugin-checker/go-plugin/main.go`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/go-plugin/main.go): compact Program/Checker fixture.
+- [`packages/ttsc/test/driver-unit/source_sdk_program_checker_test.go`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/test/driver-unit/source_sdk_program_checker_test.go): public Program/Checker API test.
 
 `@ttsc/lint` is the exception: [`packages/lint/linthost/host.go`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/host.go) inlines the Program bootstrap, then creates a dedicated checker for type-aware lint rules so its native engine and WASM build can share one package without importing the public `driver` facade.
 
@@ -389,7 +390,7 @@ func propertyNames(decl *shimast.InterfaceDeclaration) []string {
 
 This only sees properties written directly in that interface body. It does not expand `extends`, intersections, mapped types, or aliases. Use the Checker for that.
 
-Reference: [`tests/projects/go-source-plugin-properties/go-plugin/main.go`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-properties/go-plugin/main.go).
+Reference: [`packages/ttsc/test/driver-unit/source_sdk_interface_properties_test.go`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/test/driver-unit/source_sdk_interface_properties_test.go).
 
 ## Checker Basics
 
@@ -714,7 +715,7 @@ Always call `defer release()` after a successful raw load. TypeScript-Go leases 
 
 Reference for the raw bootstrap:
 
-- [`tests/projects/go-source-plugin-checker/go-plugin/main.go`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/go-plugin/main.go): compact fixture.
+- [`packages/ttsc/test/driver-unit/source_sdk_program_checker_test.go`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/test/driver-unit/source_sdk_program_checker_test.go): public Program/Checker API test.
 
 ## Study Path
 
@@ -723,6 +724,6 @@ Read these in order:
 1. [`packages/banner`](https://github.com/samchon/ttsc/tree/master/packages/banner/): source JSDoc preamble insertion (consumer behavior).
 2. [`packages/banner/driver`](https://github.com/samchon/ttsc/tree/master/packages/banner/driver/), [`packages/strip/driver`](https://github.com/samchon/ttsc/tree/master/packages/strip/driver/), and [`packages/paths/driver`](https://github.com/samchon/ttsc/tree/master/packages/paths/driver/): linked transform implementations.
 3. [`packages/ttsc/utility/host.go`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/utility/host.go): the generic host that loads linked transforms.
-4. [`tests/projects/go-source-plugin-checker`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/): Program/Checker bootstrap.
-5. [`tests/projects/go-source-plugin-properties`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-properties/): interface AST walk.
+4. [`packages/ttsc/test/driver-unit/source_sdk_program_checker_test.go`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/test/driver-unit/source_sdk_program_checker_test.go): Program/Checker bootstrap.
+5. [`packages/ttsc/test/driver-unit/source_sdk_interface_properties_test.go`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/test/driver-unit/source_sdk_interface_properties_test.go): interface syntax and resolved properties.
 6. [`packages/lint/linthost`](https://github.com/samchon/ttsc/tree/master/packages/lint/linthost/): full diagnostics engine.

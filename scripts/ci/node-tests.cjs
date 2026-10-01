@@ -16,42 +16,31 @@ const path = require("node:path");
  * - `scripts/ci/*.test.cjs` and `packages/<name>/scripts/*.test.cjs`: the CI
  *   tooling's own tests and package build scripts' tests, run by the
  *   `typecheck` lane.
- * - `tests/unit/scripts/ci/*.test.cjs`: in-process tooling cases enrolled in
+ * - `tests/test-scripts/src/features/ci/*.test.cjs`: in-process tooling cases enrolled in
  *   the test contracts, also run by the `typecheck` lane.
  *
- * - `tests/e2e/scripts/ci/*.test.cjs`: actual tooling process boundaries,
+ * - `tests/test-scripts-e2e/src/features/ci/*.test.cjs`: actual tooling process boundaries,
  *   run only by the E2E typecheck population.
  *
  * A `.test.cjs` anywhere else below `scripts/` belongs to no lane, and
  * discovery throws naming it, so it cannot be silently skipped.
  */
 const NODE_TEST_OWNERS = [
-  { lane: "typecheck", pattern: /^tests\/e2e\/scripts\/ci\/[^/]+\.test\.cjs$/ },
-  { lane: "go", pattern: /^tests\/unit\/scripts\/go\/[^/]+\.test\.cjs$/ },
-  { lane: "typecheck", pattern: /^tests\/unit\/scripts\/ci\/[^/]+\.test\.cjs$/ },
+  { lane: "go", pattern: /^tests\/test-scripts-e2e\/src\/features\/go\/[^/]+\.test\.cjs$/ },
+  { lane: "package-defenses", pattern: /^tests\/test-scripts-e2e\/src\/features\/package\/[^/]+\.test\.cjs$/ },
+  { lane: "typecheck", pattern: /^tests\/test-scripts-e2e\/src\/features\/ci\/[^/]+\.test\.cjs$/ },
+  { lane: "go", pattern: /^tests\/test-scripts\/src\/features\/go\/[^/]+\.test\.cjs$/ },
+  { lane: "typecheck", pattern: /^tests\/test-scripts\/src\/features\/ci\/[^/]+\.test\.cjs$/ },
   { lane: "go", pattern: /^scripts\/[^/]+\.test\.cjs$/ },
   { lane: "package-defenses", pattern: /^scripts\/ci\/package\/[^/]+\.test\.cjs$/ },
   { lane: "typecheck", pattern: /^scripts\/ci\/[^/]+\.test\.cjs$/ },
   { lane: "typecheck", pattern: /^packages\/[^/]+\/scripts\/[^/]+\.test\.cjs$/ },
 ];
 
-// These tests exercise real process, launcher, formatter or packed-package
-// boundaries. Keep their assertions in e2e even when Node's test runner owns them.
-const E2E_NODE_TESTS = new Set([
-  "scripts/format-go.test.cjs",
-  "scripts/go-wasm-exec.test.cjs",
-  "scripts/ci/feature-worker-isolation.test.cjs",
-  "scripts/ci/typescript-loader.test.cjs",
-  "scripts/ci/unit-source-loader.test.cjs",
-  "scripts/ci/unplugin-test-contract.test.cjs",
-  "packages/ttsc/scripts/check-flags.test.cjs",
-]);
-
 /** Classify observable process and package boundaries separately from units. */
 function nodeTestLayer(relative) {
-  return relative.startsWith("tests/e2e/") ||
-    relative.startsWith("scripts/ci/package/") ||
-    E2E_NODE_TESTS.has(relative)
+  return relative.startsWith("tests/test-scripts-e2e/") ||
+    relative.startsWith("scripts/ci/package/")
     ? "e2e"
     : "unit";
 }
@@ -105,8 +94,8 @@ function discoverNodeTests(root, lane) {
     }
   };
   walk("scripts");
-  walk("tests/unit/scripts");
-  walk("tests/e2e/scripts");
+  walk("tests/test-scripts/src/features");
+  walk("tests/test-scripts-e2e/src/features");
   for (const entry of fs.readdirSync(path.join(root, "packages"), {
     withFileTypes: true,
   })) {
@@ -119,7 +108,7 @@ function discoverNodeTests(root, lane) {
   if (unowned.length !== 0) {
     throw new Error(
       `no CI lane runs ${unowned.join(", ")}: move it under scripts/ (Go ` +
-      `lanes), scripts/ci/package/ (package defenses), tests/unit/scripts/ci/ ` +
+      `lanes), scripts/ci/package/ (package defenses), tests/test-scripts/src/features/ci/ ` +
         `(units), or scripts/ci/ ` +
         `(typecheck), as scripts/ci/node-tests.cjs describes`,
     );

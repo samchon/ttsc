@@ -34,8 +34,8 @@ async function runEvidence() {
       name: "production",
       args: ["--filter", "./packages/*", "-r", "--no-bail", "--workspace-concurrency=1", "run", "evidence"],
     },
-    { name: "unit", args: ["exec", "evidence", "--config", "tests/unit/evidence.config.json"] },
-    { name: "e2e", args: ["exec", "evidence", "--config", "tests/e2e/evidence.config.json"] },
+    { name: "unit", args: ["exec", "evidence", "--config", "tests/test-scripts/evidence.config.json"] },
+    { name: "e2e", args: ["exec", "evidence", "--config", "tests/test-scripts-e2e/evidence.config.json"] },
   ];
   const failures = await runIndependent(scopes, (scope) => new Promise((resolve) => {
     console.log(`Evidence ${scope.name}: start`);

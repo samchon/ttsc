@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "name": "@ttsc/test-paths-e2e",
+  "version": "0.30.4",
+  "description": "@ttsc/paths project-shape feature tests.",
+  "type": "module",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/index.ts"
+  },
+  "devDependencies": {
+    "@ttsc/paths": "workspace:*",
+    "@ttsc/testing": "workspace:*",
+    "@types/node": "catalog:utils",
+    "ttsc": "workspace:*",
+    "typescript": "catalog:typescript"
+  }
+}

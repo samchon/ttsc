@@ -60,7 +60,7 @@ function main() {
         replace[target] = captured;
         inputs.push({ package: pkg, file: `packages/ttsc/${pkg}/${name}`, source: contents.toString("utf8"), layer: "unit" });
       }
-      const boundaryRoot = path.join(root, "tests", "test-graph", "go", "e2e", ...pkg.split("/"));
+      const boundaryRoot = path.join(cwd, "test", "graph", "e2e", ...pkg.split("/"));
       if (fs.existsSync(boundaryRoot)) for (const captured of copyGoTestsFlat(boundaryRoot, capturedDir)) {
         const target = path.join(cwd, pkg, path.basename(captured.file));
         if (fs.existsSync(target) || Object.hasOwn(replace, target)) throw new Error(`Graph Go overlay collision: ${target}`);

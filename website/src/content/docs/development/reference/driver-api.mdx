@@ -1,6 +1,6 @@
 # Driver API
 
-`github.com/samchon/ttsc/packages/ttsc/driver` is the Go façade plugin authors should call instead of building a tsgo `Program` themselves. Most shipped consumers in this repo use this path: `packages/ttsc/cmd/*`, `packages/wasm/host/api.go`, and the `tests/projects/go-source-plugin*` fixtures are driver-backed. `@ttsc/lint` owns a dedicated engine and exports driver-compatible LSP sidecar verbs through `linthost/lsp.go`; `ttscserver` embeds the driver LSP host instead of building a Program directly.
+`github.com/samchon/ttsc/packages/ttsc/driver` is the Go façade plugin authors should call instead of building a tsgo `Program` themselves. Most shipped consumers in this repo use this path: `packages/ttsc/cmd/*`, `packages/wasm/host/api.go`, and the `packages/ttsc/test/go-source-plugin*` fixtures are driver-backed. `@ttsc/lint` owns a dedicated engine and exports driver-compatible LSP sidecar verbs through `linthost/lsp.go`; `ttscserver` embeds the driver LSP host instead of building a Program directly.
 
 This page is the curated, plugin-relevant surface. For the raw shim path (custom checker pool, in-memory-only Program, no `tsconfig.json`), see [AST & Checker → If you cannot use the driver](/docs/development/concepts/tsgo#if-you-cannot-use-the-driver).
 

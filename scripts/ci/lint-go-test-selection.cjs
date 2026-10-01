@@ -111,7 +111,7 @@ function isUnitTest(relative) {
 }
 
 /** Discover the original Go test functions and assign one owning layer each. */
-function selectLintGoTests(packageTestDir, repositoryTestDir, captured) {
+function selectLintGoTests(packageTestDir, captured) {
   const unit = [];
   const e2e = [];
   const windows = [];
@@ -141,7 +141,6 @@ function selectLintGoTests(packageTestDir, repositoryTestDir, captured) {
         : isUnitTest(relative) ? unit : e2e,
     );
   }
-  for (const input of captured ? captured.repositoryFiles : liveInputs(repositoryTestDir)) collect(input, unit);
   const requiredLayers = captured ? [captured.layer] : ["unit", "e2e"];
   const layers = { unit, e2e, windows };
   if (requiredLayers.some((layer) => !layers[layer]?.length))

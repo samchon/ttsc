@@ -21,7 +21,6 @@ const commonjsSources = [
   .map((owner) => new URL(`../packages/${owner}/src/`, import.meta.url).href)
   .concat(
     new URL("../benchmarks/evidence/src/", import.meta.url).href,
-    new URL("../tests/test-evidence-benchmark/src/", import.meta.url).href,
   );
 registerHooks({
   load(url, context, nextLoad) {

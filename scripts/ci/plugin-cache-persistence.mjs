@@ -43,8 +43,9 @@ const TTSC_BIN = path.join(
 );
 const FIXTURE_GO_PLUGIN = path.join(
   REPO_ROOT,
-  "tests",
-  "projects",
+  "packages",
+  "ttsc",
+  "test",
   "go-source-plugin",
   "go-plugin",
 );

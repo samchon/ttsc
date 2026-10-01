@@ -26,15 +26,15 @@ const LANES = [
   },
   {
     "id": "package-defenses",
-    "run": `node --test ${discoverNodeTests(path.resolve(__dirname, '../..'), 'package-defenses').join(' ')} && pnpm --filter @ttsc/test-banner start && pnpm --filter @ttsc/test-paths start && pnpm --filter @ttsc/test-strip start && pnpm --filter @ttsc/test-playground start && pnpm --filter @ttsc/test-wasm start`
+    "run": `node --test ${discoverNodeTests(path.resolve(__dirname, '../..'), 'package-defenses').join(' ')} && pnpm --filter @ttsc/test-banner-e2e start && pnpm --filter @ttsc/test-paths-e2e start && pnpm --filter @ttsc/test-strip-e2e start && pnpm --filter @ttsc/test-playground-e2e start && pnpm --filter @ttsc/test-wasm-e2e start`
   },
   {
     "id": "ttsc-core",
-    "run": "pnpm --filter @ttsc/test-ttsc start",
+    "run": "pnpm --filter @ttsc/test-ttsc-e2e start",
     "dirs": [
       "features/api",
       "features/compiler",
-      "native-plugins/compiler",
+      "features/native-plugins/compiler",
       "features/platform",
       "features/project",
       "features/source-plugin",
@@ -42,27 +42,27 @@ const LANES = [
       "features/ttsx-runtime",
       "features/utility-plugins",
       "features/watch",
-      "native-plugins/corpus-source",
-      "native-plugins/corpus-ttsc",
-      "native-plugins/driver",
-      "native-plugins/source-plugin"
+      "features/native-plugins/corpus-source",
+      "features/native-plugins/corpus-ttsc",
+      "features/native-plugins/driver",
+      "features/native-plugins/source-plugin"
     ]
   },
   {
     "id": "ttsc-native",
-    "run": "pnpm --filter @ttsc/test-ttsc start",
+    "run": "pnpm --filter @ttsc/test-ttsc-e2e start",
     "dirs": [
-      "native-plugins/corpus-misc",
-      "native-plugins/server",
-      "native-plugins/service",
-      "native-plugins/service-incremental",
-      "native-plugins/utility",
-      "native-plugins/utility-host"
+      "features/native-plugins/corpus-misc",
+      "features/native-plugins/server",
+      "features/native-plugins/service",
+      "features/native-plugins/service-incremental",
+      "features/native-plugins/utility",
+      "features/native-plugins/utility-host"
     ]
   },
   {
     "id": "runtime-node-floor",
-    "run": "pnpm --filter @ttsc/test-ttsc start",
+    "run": "pnpm --filter @ttsc/test-ttsc-e2e start",
     "dirs": [
       "features/ttsx-runtime/node-compatibility"
     ],
@@ -70,7 +70,7 @@ const LANES = [
   },
   {
     "id": "runtime-node-current",
-    "run": "pnpm --filter @ttsc/test-ttsc start",
+    "run": "pnpm --filter @ttsc/test-ttsc-e2e start",
     "dirs": [
       "features/ttsx-runtime/node-compatibility"
     ],
@@ -78,7 +78,7 @@ const LANES = [
   },
   {
     "id": "lint-1",
-    "run": "pnpm --filter @ttsc/test-lint start",
+    "run": "pnpm --filter @ttsc/test-lint-e2e start",
     "dirs": [
       "features/config",
       "features/plugin"
@@ -86,24 +86,24 @@ const LANES = [
   },
   {
     "id": "lint-2",
-    "run": "pnpm --filter @ttsc/test-lint start",
+    "run": "pnpm --filter @ttsc/test-lint-e2e start",
     "dirs": [
-      "native-plugins/config",
-      "native-plugins/fix",
-      "native-plugins/format"
+      "features/native-plugins/config",
+      "features/native-plugins/fix",
+      "features/native-plugins/format"
     ]
   },
   {
     "id": "bundler-defenses",
-    "run": "pnpm --filter @ttsc/test-unplugin start && pnpm run experimental:unplugin-perf && pnpm --filter @ttsc/test-metro start",
+    "run": "pnpm --filter @ttsc/test-unplugin-e2e start && pnpm run experimental:unplugin-perf && pnpm --filter @ttsc/test-metro-e2e start",
     "dirs": [
       "features",
-      "native-plugins"
+      "features/native-plugins"
     ]
   },
   {
     "id": "graph",
-    "run": "pnpm --filter @ttsc/test-graph start"
+    "run": "pnpm --filter @ttsc/test-graph-e2e start"
   },
   {
     "id": "workspace-install",
@@ -111,7 +111,7 @@ const LANES = [
   },
   {
     "id": "evidence",
-    "run": "pnpm --filter @ttsc/benchmark-evidence run check && pnpm --filter test-evidence start && pnpm --filter test-evidence-benchmark start"
+    "run": "pnpm --filter @ttsc/benchmark-evidence run check && pnpm --filter test-evidence-e2e start"
   }
 ];
 

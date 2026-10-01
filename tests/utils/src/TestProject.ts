@@ -254,7 +254,12 @@ export namespace TestProject {
    * small synthetic file map, such as entry discovery or package boundaries.
    */
   export function copyProject(name: string) {
-    const source = path.join(PROJECTS_ROOT, name);
+    const source = path.join(
+      ["go-source-plugin", "go-source-plugin-entry", "go-source-plugin-managed-replace", "go-driver-emit-plugin"].includes(name)
+        ? path.join(WORKSPACE_ROOT, "packages", "ttsc", "test")
+        : PROJECTS_ROOT,
+      name,
+    );
     const root = tmpdir(`ttsc-${name}-`);
     copyDirectory(source, root);
     return root;

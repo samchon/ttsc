@@ -44,6 +44,10 @@ export interface ISale {
       "src/subject.ts": source,
     }, mergedIdentityReferenceConfig)
     assertProblemContains(t, messages, "Missing acknowledgement for 'ISale'")
+    assertProblemContains(t, messages, "with @evidence on a selected typescript host, building that artifact first when none does, or write @evidenceExclude on an eligible carrier when nothing here owes it.")
+    if countProblemsContaining(messages, "Add '@evidence") != 0 {
+      t.Fatal("the replaced verbose missing-acknowledgement repair survived")
+    }
     if countProblemsContaining(messages, "at src/subject.ts:2)") == 0 {
       t.Fatalf("%s: the obligation must name the first declaration's line", name)
     }

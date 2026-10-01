@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "name": "@ttsc/test-lint-e2e",
+  "version": "0.30.4",
+  "description": "@ttsc/lint descriptor, config, and rule corpus tests.",
+  "type": "module",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/index.ts"
+  },
+  "devDependencies": {
+    "@ttsc/lint": "workspace:*",
+    "@ttsc/testing": "workspace:*",
+    "@types/node": "catalog:utils",
+    "ttsc": "workspace:*"
+  }
+}
