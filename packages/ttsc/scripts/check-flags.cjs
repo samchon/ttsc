@@ -1,9 +1,9 @@
 // CI gate for the flag schema, in two phases.
 //
 // 1. Re-run gen-flags.mts and fail if any generated file changed on disk
-//    relative to the committed copy. Mirrors the pattern used by the gen_shims
-//    tool — committed output is the spec, drift means someone edited a
-//    generated file by hand without updating schema.ts.
+//    relative to the checked-out copy captured before generation. A difference
+//    detects disagreement with the current schema; this gate does not read Git
+//    history or require a clean working tree.
 // 2. Run check-flag-kinds.mts, which fails when a declared `kind` contradicts
 //    the arity the compiler ttsc forwards to implements. Phase 1 only proves
 //    the layers agree with the schema; phase 2 proves the schema agrees with
@@ -107,7 +107,7 @@ function snapshot(files) {
   return out;
 }
 
-// Compare the content Git treats as committed, not the raw bytes on disk. A
+// Compare normalized checkout content, not the raw line endings on disk. A
 // clean Windows checkout with core.autocrlf=true materializes the committed LF
 // generated files as CRLF, while the Node generator and gofmt always emit LF;
 // those two representations are the same committed content. Normalizing CRLF
@@ -119,10 +119,10 @@ function normalizeEol(text) {
   return text.replace(/\r\n?/g, "\n");
 }
 
-// Decide which targets genuinely drifted between the committed snapshot and the
+// Decide which targets genuinely drifted between the pre-generation snapshot and the
 // freshly regenerated one. Line terminators are folded first (see normalizeEol)
 // so a checkout's CRLF materialization is not mistaken for content drift, but
-// every other byte still counts. A target absent from `before` (never committed)
+// every other byte still counts. A target absent from `before` (missing on disk)
 // normalizes to "" and so drifts against any regenerated content.
 function computeDrift(before, after, files) {
   const keys = files ?? Object.keys(after);

@@ -82,10 +82,11 @@ export namespace GoSourceInputs {
   }
 
   /**
-   * The Go root of an absolute `<root>/bin/go` binary, verified by the presence
-   * of `<root>/src/runtime`; `null` when the layout does not match.
+   * Infer an SDK root for an absolute binary path inside `<root>/bin` when
+   * `<root>/src/runtime` exists. The binary basename and runtime entry kind
+   * are not validated here; `null` means this layout check did not match.
    *
-   * @evidence contracts/common.md#principled-implementation Only an absolute bin/go layout with an actual runtime source directory establishes the inferred SDK root; other layouts leave the caller's environment unchanged.
+   * @evidence contracts/common.md#principled-implementation An absolute binary path under bin and an existing src/runtime path establish this layout inference; the selected compiler's actual identity belongs to its resolution/probing owner, and other layouts leave the caller's environment unchanged.
    * @evidence contracts/common.md#clear-and-simple-design Small early returns expose each required layout condition without a speculative toolchain-discovery abstraction.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Layout recognition uses the SDK's real structure, not a particular user's install path or expected test directory.
    * @evidence contracts/common.md#meaningful-documentation Native prose documents the recognized layout and null meaning rather than merely repeating the return type.
