@@ -12,16 +12,24 @@ import {
 } from "../../../internal/ttsx-source-map";
 
 /**
- * V8 consumes real maps from both entry and independently built dependency lanes.
+ * Verifies V8 coverage consumes entry and independently built dependency maps.
+ *
+ * Correct execution counts alone cannot establish source attribution. Both
+ * entry and dependency maps must identify their physical TypeScript source
+ * under maps-enabled and maps-disabled compiler configurations.
+ *
+ * 1. Create one entry and two independently configured dependency sources.
+ * 2. Run separate root maps-enabled and maps-disabled V8 coverage sessions.
+ * 3. Require actual maps, source paths and called/uncalled function counts.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual compiler-backed ttsx runs under NODE_V8_COVERAGE; each root/dependency script must expose nonnull map data, its exact physical source and used-positive/unused-zero function counts.
  * @evidence contracts/testing.md#independent-expectations The authored tall-comment fixture calls only used, so unused must remain zero and used must execute. Native physical paths independently identify source files; V8 coverage data is observed rather than constructed by the test.
  * @evidence contracts/testing.md#distinguishing-cases Root sourceMap true and false require separate entry preparations; two dependencies independently set sourceMap true and false in their own configs. Both served lanes retain real-map and called/uncalled twins; each assertion names its config and source on failure.
  * @evidence contracts/testing.md#execution-ownership This named E2E entry runs two real compiler/Node coverage sessions. Fixture modules are compiler inputs; the source-map source units separately own pure inlining and path conversion decisions.
  * @evidence contracts/e2e.md#necessary-boundary V8 must consume served inline maps under original TS script URLs in both entry and dependency hooks; direct map conversion calls cannot prove the native coverage cache or function execution counts.
- * @evidence contracts/e2e.md#shared-execution The first root host imports both independently configured dependency packages and its own library, sharing root build and V8 session. The second host is necessary because the root compiler configuration changes from maps enabled to disabled; it reuses unchanged dependency publications rather than rebuilding them per assertion.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One fresh fixture gives both dependencies genuinely cold first publications; their distinct names/configs prevent cache identity collision. The second root preparation changes its own sourceMap input only, retaining equivalent immutable dependencies. Each synchronous coverage session owns and closes its output directory before TestProject removes the fixture.
- * @evidence contracts/e2e.md#preserved-coverage All four previous entry/dependency maps-enabled/disabled cases retain successful exit, recorded script, nonnull map, exact physical source, unused-zero and used-positive assertions. The batch additionally rechecks both dependency maps after warm publication reuse; failures are collected across scripts and both root configurations.
+ * @evidence contracts/e2e.md#shared-execution Each root host imports both independently configured dependencies and its own library in one shared build/V8 session. The second host is necessary because root sourceMap changes; it shares immutable dependency inputs, while the runtime creates and releases fresh dependency publications for each session.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity One fixture supplies distinct dependency names/configs and unchanged dependency bytes to both root configurations. Each runtime session owns fresh cleanupDir/deps publications, so no warm publication reuse across sessions is asserted. Synchronous child completion precedes fixture exit cleanup; V8 coverage directories remain tracked for the test process's exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage All four previous entry/dependency maps-enabled/disabled cases retain successful exit, recorded script, nonnull map, exact physical source, unused-zero and used-positive assertions. Both dependency maps are checked in each actual root session; failures are collected across scripts and both root configurations.
  */
 export function test_ttsx_coverage_maps_preserve_entry_and_dependency_sources_in_shared_hosts(): void {
   const options = {

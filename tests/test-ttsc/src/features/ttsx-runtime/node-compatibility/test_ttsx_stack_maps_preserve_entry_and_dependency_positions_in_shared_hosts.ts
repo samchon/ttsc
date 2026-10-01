@@ -6,15 +6,23 @@ import path from "node:path";
 import { THROWER_THROW_COLUMN, THROWER_THROW_LINE, physicalRealpath, tallCommentThrowerSource } from "../../../internal/ttsx-source-map";
 
 /**
- * Native error stacks consume entry and dependency maps without user Node flags.
+ * Verifies native error stacks consume entry and dependency source maps.
+ *
+ * Tall comments separate emitted positions from the authored throw positions.
+ * Node's real stack consumer must recover the original frames without user
+ * source-map flags under both root compiler configurations.
+ *
+ * 1. Create entry and dependency throwers with known source coordinates.
+ * 2. Run maps-enabled and maps-disabled root hosts that record both throws.
+ * 3. Require nonzero rethrow exits and exact native source frames in each host.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual ttsx compiler/Node hosts execute both tall-comment throwers, report their caught native Error stacks and rethrow an actual captured error to fail each run; exact original function/source/line/column frames are asserted.
  * @evidence contracts/testing.md#independent-expectations Fixture-defined THROWER_THROW_LINE/COLUMN and actual physical TS paths identify the authored throw, independently of emitted JS positions. Both authored calls must throw, and an actual rethrow requires a nonzero process exit.
  * @evidence contracts/testing.md#distinguishing-cases Root sourceMap enabled and disabled retain separate transient entry preparations; a dependency-owned mapped emit contributes its independent served lane in both. Named root and dependency stack records prevent one lane from satisfying the other's assertion.
  * @evidence contracts/testing.md#execution-ownership This named E2E entry executes the public compiler-backed runtime twice, with no user enable-source-maps flag; direct inlining source units and the V8 coverage batch own their complementary pure and coverage-consumer distinctions.
  * @evidence contracts/e2e.md#necessary-boundary Node's actual Error.stack consumer must read the served maps and enabled runtime bootstrap; a map's JSON contents or a direct converter call cannot establish native stack remapping.
- * @evidence contracts/e2e.md#shared-execution Each root configuration shares one project build, launcher and Node session between root and dependency throwers. A second root preparation is required for the changed sourceMap option; unchanged dependency inputs reuse their publication instead of an independent third host.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A fresh dependency is built cold in the first session and reused unchanged in the second; only root sourceMap changes. Each throw is caught independently so its native stack is recorded before the final actual-error rethrow, and synchronous child completion ends its handles before fixture cleanup.
+ * @evidence contracts/e2e.md#shared-execution Each root configuration shares one project build, launcher and Node session between root and dependency throwers. A second root preparation is required for the changed sourceMap option; it shares unchanged dependency inputs, while each runtime session creates and releases its own dependency publication.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Both sessions read the same authored dependency bytes and differ in root sourceMap. Runtime cleanupDir/deps outputs and publication markers are created and released per session, so this case claims no cross-session warm publication reuse. Each throw is caught and recorded before the final actual-error rethrow; synchronous child completion precedes tracked fixture exit cleanup.
  * @evidence contracts/e2e.md#preserved-coverage All three former cases retain nonzero exit plus original boom/depBoom physical-source line/column stderr assertions. The batch strengthens them with independent did-throw flags for both lanes and rechecks the dependency under both root configurations; all frame failures are collected.
  */
 export function test_ttsx_stack_maps_preserve_entry_and_dependency_positions_in_shared_hosts(): void {
