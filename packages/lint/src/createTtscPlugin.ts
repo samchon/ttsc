@@ -597,7 +597,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const configUrl = %CONFIG_IMPORT%;
 const outputPath = %CONFIG_OUTPUT%;
 const resolutionRoot = path.resolve(%CONFIG_ROOT%);
-const requireFromConfig = createRequire(configUrl);
 const CONFIG_KEYS = new Set<string>([
   "files",
   "ignores",
@@ -643,6 +642,7 @@ const configUrlSpellings = [
     pathToFileURL(realConfigLocation()).href,
   ]),
 ];
+const configEntryUrls = new Set(configUrlSpellings);
 const moduleProbeExtensions = [
   ".ts",
   ".tsx",
@@ -702,13 +702,16 @@ const hooks = registerHooks({
     // recorded under — and the graph would collapse to the records made before
     // the first import. The request itself is unambiguous, so it decides.
     const entry =
-      specifier === configUrl ||
+      configEntryUrls.has(specifier) ||
       url === new URL(configUrl).href ||
       samePhysicalPath(location, configLocation);
     if (!entry && (parent === undefined || !graphNodes.has(parent))) {
       return resolved;
     }
     graphNodes.set(url, location);
+    if (entry && configEntryUrls.has(specifier) && specifier !== url) {
+      graphEdges.push({ child: url, packageBoundary: false, parent: specifier });
+    }
     if (parent !== undefined) {
       graphEdges.push({
         child: url,
@@ -752,19 +755,7 @@ const hooks = registerHooks({
       ? JSON.parse(fs.readFileSync(configLocation, "utf8").replace(/^\uFEFF/, ""))
       : await import(configUrl);
     const current = await resolveConfig(importedConfig, true);
-    const pluginMaps = collectPluginObjects(current);
-    const entries: Array<{ namespace: string; source: string }> = [];
-    for (const map of pluginMaps) {
-      for (const [namespace, value] of Object.entries(map)) {
-        const source = extractPluginSource(value);
-        if (source === undefined || source.length === 0) {
-          throw new Error(
-            \`contributor \${JSON.stringify(namespace)} must resolve to an object with a non-empty "source" string\`,
-          );
-        }
-        entries.push({ namespace, source });
-      }
-    }
+    const entries = await collectPluginEntries(current, configLocation, [configLocation]);
     fs.writeFileSync(outputPath, JSON.stringify({
       dependencies: finalizeDependencies(),
       entries,
@@ -1854,26 +1845,59 @@ function mergeConfigObjects(
   return out;
 }
 
-function collectPluginObjects(value: unknown): Array<Record<string, unknown>> {
-  const out: Array<Record<string, unknown>> = [];
-  visit(value);
-  return out;
-
-  function visit(node: unknown): void {
-    if (Array.isArray(node)) {
-      for (const item of node) visit(item);
-      return;
+// Follow the same containing-file-relative, base-first extends chain as the
+// native config reader. Each explicit base is a watch input even when it lives
+// in node_modules; imports made by that base retain ordinary package boundaries.
+async function collectPluginEntries(
+  value: unknown,
+  location: string,
+  chain: readonly string[],
+): Promise<Array<{ namespace: string; source: string }>> {
+  const out: Array<{ namespace: string; source: string }> = [];
+  if (Array.isArray(value)) {
+    for (const item of value) out.push(...await collectPluginEntries(item, location, chain));
+    return out;
+  }
+  if (!isObject(value)) return out;
+  if (value.extends !== undefined && value.extends !== null) {
+    if (typeof value.extends !== "string" || value.extends.trim() === "") {
+      throw new Error("extends must be a non-empty string path to another config file");
     }
-    if (!isObject(node)) return;
-    if (hasOwn(node, "plugins") && isObject(node.plugins)) {
-      out.push(node.plugins as Record<string, unknown>);
+    const next = path.resolve(path.dirname(location), value.extends);
+    if (chain.includes(next)) {
+      throw new Error("extends cycle detected: " + [...chain, next].join(" -> "));
+    }
+    if (chain.length >= 32) {
+      throw new Error("extends chain exceeds the depth limit of 32: " + chain.join(" -> "));
+    }
+    const nextUrl = pathToFileURL(next).href;
+    const parentUrl = pathToFileURL(location).href;
+    configEntryUrls.add(nextUrl);
+    graphNodes.set(nextUrl, next);
+    graphEdges.push({ child: nextUrl, packageBoundary: false, parent: parentUrl });
+    recordDependency("file", next, createHash("sha256").update(fs.readFileSync(next)).digest("hex"), [nextUrl]);
+    recordPackageManifests(next, [nextUrl]);
+    const imported = next.toLowerCase().endsWith(".json")
+      ? JSON.parse(fs.readFileSync(next, "utf8").replace(/^\uFEFF/, ""))
+      : await import(nextUrl);
+    const base = await resolveConfig(imported, true);
+    out.push(...await collectPluginEntries(base, next, [...chain, next]));
+  }
+  if (hasOwn(value, "plugins") && isObject(value.plugins)) {
+    for (const [namespace, plugin] of Object.entries(value.plugins)) {
+      const source = extractPluginSource(plugin, location);
+      if (source === undefined || source.length === 0) {
+        throw new Error("contributor " + JSON.stringify(namespace) + " must resolve to an object with a non-empty source string");
+      }
+      out.push({ namespace, source });
     }
   }
+  return out;
 }
 
-function extractPluginSource(value: unknown): string | undefined {
+function extractPluginSource(value: unknown, location: string): string | undefined {
   if (typeof value === "string") {
-    value = requireFromConfig(value);
+    value = createRequire(pathToFileURL(location))(value);
   }
   if (!isObject(value)) return undefined;
   // ESM-from-CJS interop wraps CJS modules' \`exports.default\` so the
@@ -2190,7 +2214,7 @@ function createCanonicalTempDirectory(prefix: string, parent: string): string {
  * Namespaces the on-disk config cache. Kept in lockstep with the Go sidecar's
  * `configCacheVersion`; bump both when the shape or evaluator semantics change.
  */
-const CONFIG_CACHE_VERSION = "v9";
+const CONFIG_CACHE_VERSION = "v10";
 
 /**
  * Directory shared by this factory and the Go sidecar for cached lint configs.

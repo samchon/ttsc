@@ -1761,7 +1761,7 @@ func loadConfigFileEvaluationWithin(
 // equal observations do not prove absence of intervening replacements.
 // v9 invalidates module graphs whose identity and package-boundary decisions
 // used lexical case folding instead of actual filesystem identity.
-const configCacheVersion = "v9"
+const configCacheVersion = "v10"
 
 // configEvalCache memoizes evaluated .ts/.js lint config objects for the
 // lifetime of one process; the on-disk cache (configCacheDir) extends the
