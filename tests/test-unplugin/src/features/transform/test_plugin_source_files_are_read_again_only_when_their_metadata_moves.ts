@@ -56,7 +56,7 @@ export async function test_plugin_source_files_are_read_again_only_when_their_me
   TestProject.copyDirectory(
     path.join(
       TestProject.WORKSPACE_ROOT,
-      "packages/unplugin/test/fixtures/unit/plugin-source-metadata",
+      "packages/unplugin/test/fixtures/plugin-source-baseline",
     ),
     source,
   );

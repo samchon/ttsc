@@ -29,6 +29,10 @@ export function createClockRollbackFixture(): IClockRollbackFixture {
   TestProject.writeFiles(root, FixtureFiles.read("createClockRollbackFixture/inputs-1", "unplugin"));
   const project = path.join(root, "project");
   const source = path.join(root, "plugin");
+  TestProject.copyDirectory(
+    path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/plugin-source-baseline"),
+    source,
+  );
   const files = () =>
     fs
       .readdirSync(source, { recursive: true, withFileTypes: true })

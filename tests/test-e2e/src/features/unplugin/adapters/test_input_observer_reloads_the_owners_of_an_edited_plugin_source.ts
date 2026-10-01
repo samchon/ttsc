@@ -1,4 +1,3 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "../../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -36,16 +35,19 @@ import type { TtscWatchInput } from "../../../../../../packages/unplugin/src/cor
  *   test_input_observer_reloads_the_owners_of_an_edited_plugin_source owns createInputObserver.open/replace and the captured watch listener for each pruned/edit/addition row; actual pluginSourceState/holds reads fixture source plus go env/go version and GOROOT toolchain identity; observer disposal is in finally and no native artifact is built.
  *
  * @evidence contracts/e2e.md#necessary-boundary The observer must interpret actual Go-source proofs produced under the available Go toolchain and reload only owners of changed selected inputs. Direct digest composition cannot establish this Go provider connection; the original actual source/environment assertions remain here.
- * @evidence contracts/e2e.md#shared-execution All authored edits share the private module and one Node process with the installed Go toolchain; unchanged environment observations reuse the provider reading, and no plugin binary or consumer installation is prepared.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns private fixture roots; original environment restoration and observer disposal remain unchanged. Each deliberately changed source or environment receives its original fresh proof.
- * @evidence contracts/e2e.md#preserved-coverage The transferred case retains every original input, literal assertion, negative control and cleanup statement. Only physical execution ownership changes from features/unit to features/e2e.
+ * @evidence contracts/e2e.md#shared-execution The static Go baseline is shared with metadata and rollback proofs, then copied into this private module before mutation. All edits share that copy and one Node process with the installed Go toolchain; unchanged environment observations reuse the provider reading, and no plugin binary or consumer installation is prepared.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the private copied fixture root and observer disposal remains in finally. Each selected source mutation gets its original fresh proof; the entry changes no process environment and never writes the shared baseline.
+ * @evidence contracts/e2e.md#preserved-coverage The common baseline retains all three original files byte for byte. Every original edit, literal assertion, negative control and cleanup statement remains in this entry; source proof identities stay private to its copied tree.
  */
 export async function test_input_observer_reloads_the_owners_of_an_edited_plugin_source(): Promise<void> {
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-input-observer-plugin-source-"),
   );
-  TestProject.writeFiles(root, FixtureFiles.read("input_observer_reloads_the_owners_of_an_edited_plugin_source/inputs-1", "unplugin"));
   const source = path.join(root, "plugin");
+  TestProject.copyDirectory(
+    path.join(TestProject.WORKSPACE_ROOT, "packages/unplugin/test/fixtures/plugin-source-baseline"),
+    source,
+  );
   const owner = path.join(root, "owner");
   const input = (): TtscWatchInput => ({
     evidence: {
