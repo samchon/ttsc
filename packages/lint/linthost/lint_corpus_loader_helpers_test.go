@@ -59,6 +59,7 @@ type corpusFile struct {
 type corpusEntry struct {
   RelativeFile string
   Source       string
+  // SourcePath uses canonical portable separators before native file access.
   SourcePath   string
   Rules        map[string]any
   Expected     []corpusExpectation
@@ -405,7 +406,8 @@ func corpusValidateSkips(files []corpusFile) error {
 
 // corpusResolveSourcePath returns the project-relative path at which a fixture
 // is materialized: its `@ttsc-corpus-filename` directive, or `src/main` plus its
-// own TypeScript suffix so TSX keeps its JSX grammar.
+// own TypeScript suffix so TSX keeps its JSX grammar. Explicit directives use
+// the writer's case-preserving portable normalization before any native read.
 func corpusResolveSourcePath(source, relativeFile string) (string, error) {
   markers := len(corpusMatchLines(corpusFilenameMarker, source))
   directives := corpusMatchLines(corpusFilenameDirective, source)
@@ -419,7 +421,7 @@ func corpusResolveSourcePath(source, relativeFile string) (string, error) {
     if directives[0][1] == "" {
       return "", fmt.Errorf("%s: `// @ttsc-corpus-filename:` requires a path", relativeFile)
     }
-    return directives[0][1], nil
+    return corpusProjectPath(relativeFile, directives[0][1])
   }
   if corpusIsNonCanonicalSuffix(relativeFile) {
     return "", fmt.Errorf("%s: TypeScript source extension must use canonical lowercase spelling", relativeFile)
