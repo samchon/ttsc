@@ -52,9 +52,9 @@ interface ISwaggerOperation {
  * One source read, with the identity of the bytes it came from.
  *
  * The digest is empty for a remote source. A URL has nothing the native side
- * can hash without fetching it again, so it never participates in reuse, and
- * reporting a digest for one would let it into a cache that cannot revalidate
- * it.
+ * can hash without fetching it again, so it never participates in the local
+ * content-addressed cache. The native host separately retains successful URL
+ * results for its process lifetime; a new process fetches the URL again.
  */
 interface IReadSource {
   text: string;
@@ -84,6 +84,10 @@ interface IReadSource {
  * per-source boundary preserves original identity and collects every read or
  * normalization problem. Remote content has no local cache digest. The matching
  * configuration guide states scheme case and unsupported file URLs.
+ * Local reads use one handle, acquire at most 16MiB of input plus a sentinel
+ * byte, and fill bounded chunks across short reads before releasing the handle
+ * on every exit. UTF-8 decoding and parsing have their own bounded-input costs;
+ * this byte limit is not a total process-memory quota.
  *
  * @internal
  */
@@ -136,23 +140,55 @@ const readSource = async (
   // spelling; this side only has to resolve it the same way, which
   // `path.resolve` already does for both forms.
   const location: string = path.resolve(root, source);
-  const stat: Awaited<ReturnType<typeof fs.stat>> = await fs.stat(location);
-  if (!stat.isFile()) throw new Error("the local Swagger source is not a file");
-  if (stat.size > MAX_DOCUMENT_BYTES)
-    throw new Error(
-      `the Swagger document exceeds the ${MAX_DOCUMENT_BYTES} byte limit`,
-    );
-
-  // Hashed before decoding, over the bytes as they were read. The native side
-  // hashes the file's bytes too, so the two agree by construction; hashing the
-  // decoded string instead would agree only for inputs where the round trip
-  // happens to be exact.
-  const content: Buffer = await fs.readFile(location);
-  return {
-    text: decodeUtf8(content),
-    digest: createHash("sha256").update(content).digest("hex"),
-  };
+  const handle = await fs.open(location, "r");
+  try {
+    const stat = await handle.stat();
+    if (!stat.isFile()) throw new Error("the local Swagger source is not a file");
+    if (stat.size > MAX_DOCUMENT_BYTES) throw documentSizeError();
+    // The file can grow after stat. Read at most the limit plus one sentinel
+    // byte from this same handle, rather than allocating its new whole size.
+    const chunks: Buffer[] = [];
+    let length = 0;
+    let chunk = Buffer.allocUnsafe(64 * 1024);
+    let used = 0;
+    while (true) {
+      const { bytesRead } = await handle.read(
+        chunk,
+        used,
+        Math.min(chunk.length - used, MAX_DOCUMENT_BYTES - length + 1),
+        null,
+      );
+      if (bytesRead === 0) {
+        if (used > 0) chunks.push(chunk.subarray(0, used));
+        break;
+      }
+      length += bytesRead;
+      if (length > MAX_DOCUMENT_BYTES) throw documentSizeError();
+      used += bytesRead;
+      // Short reads fill the same buffer. Retaining a new 64KiB backing
+      // allocation for every one-byte read would defeat the memory bound.
+      if (used === chunk.length) {
+        chunks.push(chunk);
+        chunk = Buffer.allocUnsafe(
+          Math.min(64 * 1024, MAX_DOCUMENT_BYTES - length + 1),
+        );
+        used = 0;
+      }
+    }
+    const content = Buffer.concat(chunks, length);
+    // Cache identity hashes exactly the accepted raw bytes. Invalid UTF-8 is
+    // an unreadable source and returns no read result or content-cache digest.
+    return {
+      text: decodeUtf8(content),
+      digest: createHash("sha256").update(content).digest("hex"),
+    };
+  } finally {
+    await handle.close();
+  }
 };
+
+const documentSizeError = (): Error =>
+  new Error(`the Swagger document exceeds the ${MAX_DOCUMENT_BYTES} byte limit`);
 
 const readRemoteSource = async (source: string): Promise<string> => {
   const response: Response = await fetch(source, {
