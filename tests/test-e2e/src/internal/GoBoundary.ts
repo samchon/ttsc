@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { TestProject } from "../../../utils/src/TestProject";
 
-/** Executes package-owned Go connection cases in one Go test process. */
+/** Executes package-owned Go connection cases in one invocation, with one test process per selected package. */
 export namespace GoBoundary {
   /**
    * Run the explicitly named connection population and preserve Go failure names.
@@ -13,12 +13,12 @@ export namespace GoBoundary {
    * Go JSON events distinguish capability skips from executed assertions.
    *
    * @evidence contracts/common.md#principled-implementation Exact Go test names select their owning package's actual Test bodies. The JSON run and terminal events establish execution independently of process exit zero, which also occurs for an empty selection.
-   * @evidence contracts/common.md#clear-and-simple-design One synchronous command owns the Go test process, while Go test owns case ordering, independent failure collection and package cleanup.
+   * @evidence contracts/common.md#clear-and-simple-design One synchronous command owns the Go invocation. Go creates one test binary and process per selected package and owns case ordering, independent failure collection and package cleanup.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Case output is forwarded without retry, status substitution or fabricated test events. Missing selected cases fail and capability skips are printed without coverage claims.
    * @evidence contracts/common.md#meaningful-documentation States selection, fixture ownership, process joining and skip interpretation separately from these acknowledgments.
    * @evidence contracts/portability.md#os-neutral-implementation TTSC_GO_BINARY explicitly selects the toolchain, otherwise go resolves through the invocation's PATH, including setup-go in CI. Node passes argv without a shell and joins the native module path.
    * @evidence contracts/performance.md#efficient-algorithms Event processing visits each output line once and set membership checks each requested case once. Output retention scales with the command's emitted bytes up to the spawn helper's 64 MiB buffer limit; exceeding that limit fails the invocation.
-   * @evidence contracts/performance.md#reuse-equivalent-work Every selected case shares one Go test binary and process. The existing shared Go object cache reuses equivalent compilation while count=1 preserves actual case execution.
+   * @evidence contracts/performance.md#reuse-equivalent-work Cases in the same Go package share its test binary and process; selecting several packages creates separate binaries and processes. The shared Go object cache reuses equivalent compilation while count=1 preserves actual case execution.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The synchronous child is joined before return; Go package cleanup owns its fixture resources. Output is retained through result validation and grows with emitted bytes up to the shared spawn helper's 64 MiB buffer limit.
    */
   export function run(
