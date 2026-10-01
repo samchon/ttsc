@@ -375,7 +375,7 @@ function tokenize(source: string): Token[] {
     // Line comment.
     if (c === "/" && source[i + 1] === "/") {
       i += 2;
-      while (i < n && source[i] !== "\n") i++;
+      while (i < n && !isLineTerminator(source[i]!)) i++;
       continue;
     }
     // Block comment.
@@ -488,7 +488,7 @@ function findTemplateSubstitutionEnd(source: string, start: number): number {
     }
     if (c === "/" && source[i + 1] === "/") {
       i += 2;
-      while (i < source.length && source[i] !== "\n") i++;
+      while (i < source.length && !isLineTerminator(source[i]!)) i++;
       continue;
     }
     if (c === "/" && source[i + 1] === "*") {

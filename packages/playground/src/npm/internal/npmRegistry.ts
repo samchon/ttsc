@@ -218,7 +218,9 @@ export function selectVersion(
       semverRanges.every((range) => satisfies(version, range)) &&
       (taggedVersions.size === 0 || taggedVersions.has(version)),
   );
-  const selected = maxSatisfying(candidates, "*");
+  // Candidates already satisfy every requested constraint, including the
+  // explicit prerelease admission of a range or exact registry tag.
+  const selected = maxSatisfying(candidates, "*", { includePrerelease: true });
   if (selected) return selected;
   throw new Error(
     `No version of ${metadata.name} satisfies ${requested

@@ -79,6 +79,12 @@ func TestLSPPositionConversionsSpanAstralAndCombiningRunes(t *testing.T) {
     },
   }
 
+  cases = append(cases, struct { name string; text string; line int; character int; want int; wantOK bool }{
+    "bare CR reaches target line", "a\rconst \U0001D499 = 1;", 1, 8, 12, true,
+  }, struct { name string; text string; line int; character int; want int; wantOK bool }{
+    "CRLF is one line boundary", "a\r\nconst \U0001D499 = 1;", 1, 8, 13, true,
+  })
+
   for _, testCase := range cases {
     t.Run(testCase.name, func(t *testing.T) {
       got, ok := lspPositionToByteOffset(testCase.text, lspPositionWire{

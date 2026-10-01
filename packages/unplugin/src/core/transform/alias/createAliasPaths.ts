@@ -33,7 +33,13 @@ import { normalizeAliases } from "./normalizeAliases";
  */
 export function createAliasPaths(aliases: unknown): Record<string, string[]> {
   const paths = new Map<string, string[]>();
-  for (const alias of normalizeAliases(aliases)) {
+  const declarations = normalizeAliases(aliases).map((alias) =>
+    typeof alias.find === "string" && alias.find.endsWith("/") && alias.replacement.endsWith("/")
+      ? { ...alias, find: alias.find.slice(0, -1), replacement: alias.replacement.slice(0, -1) }
+      : alias,
+  );
+  const translated = new Map<(typeof declarations)[number], string[]>();
+  for (const alias of declarations) {
     if (typeof alias.find !== "string") {
       // Vite's array form accepts a `RegExp` find, and `{ find: /^~/ }` is a
       // common way to spell a prefix alias. A tsconfig `paths` map has no
@@ -70,7 +76,7 @@ export function createAliasPaths(aliases: unknown): Record<string, string[]> {
       );
       continue;
     }
-    const key = alias.find.replace(/\/+$/, "");
+    const key = alias.find;
     if (key.length === 0) {
       continue;
     }
@@ -102,8 +108,25 @@ export function createAliasPaths(aliases: unknown): Record<string, string[]> {
       );
       continue;
     }
-    const normalized = targets.map((target) => normalizePath(target));
-    paths.set(key, normalized);
+    translated.set(alias, targets.map((target) => normalizePath(target)));
+  }
+  // TypeScript selects the longest paths key; Vite selects the first matching
+  // declaration. Every more-specific key must therefore carry the first
+  // declaration's replacement, not the later declaration that supplied it.
+  for (const alias of translated.keys()) {
+    const key = alias.find as string;
+    const winner = declarations.find((entry) => {
+      if (typeof entry.find === "string") return entry.find === key || key.startsWith(`${entry.find}/`);
+      if (entry.find instanceof RegExp) return new RegExp(entry.find.source, entry.find.flags).test(key);
+      return false;
+    });
+    const targets = winner === undefined ? undefined : translated.get(winner);
+    if (targets === undefined || typeof winner?.find !== "string") continue;
+    const suffix = key.slice(winner.find.length);
+    const normalized = targets.map((target) => normalizePath(target + suffix));
+    // A find-only trailing slash is not a normal @x prefix. Its translatable
+    // descendants begin with another slash; the bare key is not admitted.
+    if (!key.endsWith("/")) paths.set(key, normalized);
     paths.set(`${key}/*`, normalized.map((target) => `${target}/*`));
   }
   return Object.fromEntries(paths);
