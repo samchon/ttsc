@@ -14,9 +14,14 @@ import (
 
 // TestServeSourceEncodingKeepsRawIdentityAndDecodedResidentText verifies eight
 // source encodings through one real resident compiler and shard owner.
+//
 // Cold and unchanged snapshots contrast an unrelated edit, encoded edits and
 // restoration. Raw disk digests remain byte hashes while overlay source text
 // stays compiler-decoded. Every independent file assertion is collected.
+//
+// 1. Load eight encoded sources into one real resident compiler.
+// 2. Request unchanged, unrelated-edit, encoded-edit and restored snapshots.
+// 3. Check publication, decoded text and raw-byte identity independently.
 //
 // @evidence contracts/testing.md#behavioral-verification The real resident graph session publishes cold and incremental shard snapshots, retains decoded compiler text, and keeps raw disk hashes and changed-source decisions consistent for all eight encodings.
 // @evidence contracts/testing.md#independent-expectations Literal source text and BOM/endian byte encoding define both domains; standard SHA-256 supplies expected raw identity independently of session hashing and decoding.

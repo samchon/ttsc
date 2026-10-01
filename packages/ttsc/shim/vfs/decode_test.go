@@ -4,8 +4,14 @@ import "testing"
 
 // TestDecodeBytesUsesCompilerFilesystemSemantics verifies the real pinned
 // decoder bridge against literal byte/text pairs, including endian, empty,
-// truncated-code-unit and surrogate boundaries. It links and calls upstream
-// code in this test process; no copied decoder or filesystem substitute runs.
+// truncated-code-unit and surrogate boundaries.
+//
+// The bridge must call upstream code so filesystem and overlay decoding cannot
+// drift. No copied decoder or filesystem substitute runs in this test.
+//
+// 1. Supply literal byte inputs for each decoding boundary.
+// 2. Call the linked compiler decoder in the test process.
+// 3. Collect each independently specified Unicode text and success assertion.
 //
 // @evidence contracts/testing.md#behavioral-verification DecodeBytes links and calls the real pinned compiler filesystem decoder for every byte/text pair.
 // @evidence contracts/testing.md#independent-expectations Literal bytes and Unicode text specify expected decoding independently of the linked implementation.

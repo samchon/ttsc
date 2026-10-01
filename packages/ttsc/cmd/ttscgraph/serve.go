@@ -826,7 +826,6 @@ func hashesChanged(previous map[string][sha256.Size]byte) (bool, error) {
       return false, fmt.Errorf("ttscgraph: read %s: %w", path, err)
     }
     if sha256.Sum256(content) != oldHash {
-      // Compiler overlays accept decoded text, not encoded filesystem bytes.
       return true, nil
     }
   }
@@ -844,6 +843,7 @@ func changedSources(previous map[string][sha256.Size]byte) (map[string]string, b
       return nil, false, fmt.Errorf("ttscgraph: read %s: %w", path, err)
     }
     if sha256.Sum256(content) != oldHash {
+      // Compiler overlays accept decoded text, not encoded filesystem bytes.
       decoded, ok := shimvfs.DecodeBytes(string(content))
       if !ok {
         return nil, false, fmt.Errorf("ttscgraph: decode %s", path)
