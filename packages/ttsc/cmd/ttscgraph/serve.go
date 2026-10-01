@@ -18,6 +18,7 @@ import (
 
   shimtsoptions "github.com/microsoft/typescript-go/shim/tsoptions"
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
+  shimvfs "github.com/microsoft/typescript-go/shim/vfs"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
   "github.com/samchon/ttsc/packages/ttsc/internal/graph"
@@ -783,7 +784,13 @@ func hashProgramSources(program *driver.Program) (map[string][sha256.Size]byte, 
     // match what the checker holds. When they do not, the manifest's text and
     // disk digests disagree, which is precisely what a consumer needs to see.
     digests[source.FileName()] = graph.Digest(rawHash)
-    expected := driver.ApplySourcePreambleToFile(source.FileName(), string(content), program.SourcePreamble)
+    // Disk identity and checker text come from the same captured bytes. The
+    // compiler filesystem strips BOMs and decodes UTF-16 before parsing.
+    decoded, ok := shimvfs.DecodeBytes(string(content))
+    if !ok {
+      return nil, nil, fmt.Errorf("ttscgraph: decode %s", source.FileName())
+    }
+    expected := driver.ApplySourcePreambleToFile(source.FileName(), decoded, program.SourcePreamble)
     if source.Text() == expected {
       hashes[source.FileName()] = rawHash
     } else {
@@ -819,6 +826,7 @@ func hashesChanged(previous map[string][sha256.Size]byte) (bool, error) {
       return false, fmt.Errorf("ttscgraph: read %s: %w", path, err)
     }
     if sha256.Sum256(content) != oldHash {
+      // Compiler overlays accept decoded text, not encoded filesystem bytes.
       return true, nil
     }
   }
@@ -836,7 +844,11 @@ func changedSources(previous map[string][sha256.Size]byte) (map[string]string, b
       return nil, false, fmt.Errorf("ttscgraph: read %s: %w", path, err)
     }
     if sha256.Sum256(content) != oldHash {
-      changed[path] = string(content)
+      decoded, ok := shimvfs.DecodeBytes(string(content))
+      if !ok {
+        return nil, false, fmt.Errorf("ttscgraph: decode %s", path)
+      }
+      changed[path] = decoded
     }
   }
   return changed, false, nil
