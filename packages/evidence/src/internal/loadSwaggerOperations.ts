@@ -75,10 +75,15 @@ interface IReadSource {
  * against the supplied root and carry their raw-byte digest; remote sources
  * carry no content-cache digest and retain normal fetch and TLS failures.
  *
- * @evidence contracts/common.md#principled-implementation The URL parser canonicalizes protocol case for HTTP(S) locators while native configuration owns locator validation; local paths retain path.resolve and raw-byte SHA256 identity, and operation normalization/digests remain independent of source spelling.
- * @evidence contracts/common.md#clear-and-simple-design One source reader separates URL transport from local byte reading, while the outer per-source boundary preserves original identity and collects every read or normalization problem.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Protocol semantics come from URL parsing without lowercasing document paths, replacing fetch, weakening TLS, or assigning a local cache digest to remote content.
- * @evidence contracts/common.md#meaningful-documentation Describes original source attribution, root-relative local resolution, local versus remote digest meaning and transport failures; the matching configuration guide states scheme case and unsupported file URLs.
+ * Native configuration owns locator validation. The URL parser canonicalizes
+ * protocol case without changing document paths or replacing fetch and its TLS
+ * validation. Local paths retain path.resolve and raw-byte SHA256 identity;
+ * normalization and operation digests remain independent of source spelling.
+ *
+ * One source reader separates URL transport from local byte reading. The outer
+ * per-source boundary preserves original identity and collects every read or
+ * normalization problem. Remote content has no local cache digest. The matching
+ * configuration guide states scheme case and unsupported file URLs.
  *
  * @internal
  */
