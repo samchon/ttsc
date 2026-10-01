@@ -19,7 +19,7 @@ import (
  * @evidence contracts/testing.md#behavioral-verification runIndexRule traverses the original emitted-specifier barrel and reports actual owed targets; changing its type-only edge to a value edge admits Sale.prototype.price while preserving interface type-space.
  * @evidence contracts/testing.md#independent-expectations Literal expected populations come from the authored Sale.price and IPlain.rate declarations; the independent lists are not read from the collector or calculated by the product projection.
  * @evidence contracts/testing.md#distinguishing-cases The original type-only reference remains active because IPlain.rate must be owed, with Sale.prototype.price absent; the adjacent value-export twin must owe that same class member, preventing a blanket member-suppression implementation from passing.
- * @evidence contracts/testing.md#execution-ownership This named TestEvidenceSemantic source unit runs the authored parser and graph rule through the shared Go overlay in one process; native compiler exit-status and packaged diagnostic transport remain separate consumer boundary responsibilities.
+ * @evidence contracts/testing.md#execution-ownership This named TestEvidenceSemantic source unit runs the authored parser and graph rule through `go test` in the native package in one process; native compiler exit-status and packaged diagnostic transport remain separate consumer boundary responsibilities.
  */
 func TestEvidenceSemanticGraphWithholdsValueSpaceFromATypeOnlyBarrel(t *testing.T) {
   files := map[string]string{

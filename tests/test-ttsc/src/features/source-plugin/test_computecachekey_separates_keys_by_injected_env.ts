@@ -23,10 +23,10 @@ import { assert, computeCacheKey, fs, path } from "../../internal/source-build-u
  *    re-using the first `env`.
  * 3. Assert the first two differ and the first and third match.
  *
- * @evidence contracts/testing.md#behavioral-verification Contradictory GOFLAGS alpha/beta must differ without mutating ambient process.env; repeating alpha must reproduce its key.
+ * @evidence contracts/testing.md#behavioral-verification computeCacheKey is called three times on one Go module with injected env objects {GOFLAGS: '-tags=alpha'}, {GOFLAGS: '-tags=beta'} and alpha again: the alpha and beta keys must differ and the repeated alpha call must reproduce the first key.
  * @evidence contracts/testing.md#independent-expectations The programmatic compiler contract uses its injected effective environment; distinct GOFLAGS affect the build while equal effective options denote equivalent input.
- * @evidence contracts/testing.md#distinguishing-cases GOFLAGS -tags=alpha and -tags=beta yield different keys while a repeated alpha reproduces its key, and the ambient process.env is never read or changed.
- * @evidence contracts/testing.md#execution-ownership This matching named source-unit entry directly executes the authored hashing owner over fixture bytes without a Go executable, native artifact or consumer host; actual build and toolchain probes remain separate boundaries.
+ * @evidence contracts/testing.md#distinguishing-cases Alpha versus beta GOFLAGS are the changing property and a repeated alpha is the same-input control; because the only difference between the first two calls is the injected env, the keys prove the argument is consulted. The test does not check that process.env is untouched.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling computeCacheKey directly on a temp Go module with no goBinary and no go.mod replace directive, so no Go process is spawned and no native build or consumer host is involved.
  */
 export function test_computecachekey_separates_keys_by_injected_env() {
   const root = TestProject.tmpdir("ttsc-source-plugin-");

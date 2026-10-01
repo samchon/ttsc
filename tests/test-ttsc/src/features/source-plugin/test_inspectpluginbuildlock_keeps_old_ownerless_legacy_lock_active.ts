@@ -21,7 +21,7 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Retains a backdated ownerless directory as an active legacy fence.
  * @evidence contracts/testing.md#independent-expectations An mtime alone cannot prove a task died; literal active state and legacy protocol are independent fail-safe expectations.
  * @evidence contracts/testing.md#distinguishing-cases Changes age by two minutes relative to the fresh-legacy twin while preserving unconfirmed ownership.
- * @evidence contracts/testing.md#execution-ownership test_inspectpluginbuildlock_keeps_old_ownerless_legacy_lock_active is discovered once under src/features/source-plugin and directly invokes the authored lock/cache operation over test-owned paths. This case installs no consumer, builds no artifact and starts no product host; the temporary-directory owner and its explicit lease finally blocks release its state.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling inspectPluginBuildLock directly on a lock directory with no owner.json whose mtime is backdated two minutes in a private temp directory; it acquires no lease and starts no process, build or host.
  */
 export const test_inspectpluginbuildlock_keeps_old_ownerless_legacy_lock_active =
   () => {

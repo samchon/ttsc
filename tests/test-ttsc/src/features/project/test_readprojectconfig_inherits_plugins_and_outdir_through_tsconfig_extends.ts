@@ -25,7 +25,7 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Compares inherited plugins, absolute outDir and plugin base directories from a child with empty compilerOptions, detecting lost values or wrong plugin resolution ownership.
  * @evidence contracts/testing.md#independent-expectations The preset explicitly declares one plugin and ../dist/shared; the expected values and parent directory follow that fixture rather than a second call to the reader.
  * @evidence contracts/testing.md#distinguishing-cases An empty child preserves parent options; lets_child_tsconfig_override_inherited_plugins supplies the explicit-override twin and lets_a_child_null_reset_an_inherited_outdir supplies reset behavior.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_inherits_plugins_and_outdir_through_tsconfig_extends once under src/features/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling readProjectConfig directly on a child tsconfig with empty compilerOptions extending a shared preset in a private temp directory; no install, native build, compiler process or CLI is involved.
  */
 export const test_readprojectconfig_inherits_plugins_and_outdir_through_tsconfig_extends =
   () => {

@@ -27,8 +27,8 @@ import {
  *
  * @evidence contracts/testing.md#behavioral-verification Calls resolvePluginCacheRoot on owned filesystem fixtures and asserts stale eviction, fresh and uncertain-lock retention, unchanged external hardlink contents and no traversal through the cache-root link.
  * @evidence contracts/testing.md#independent-expectations The 30-day retention and owned default-root contracts independently specify the authored old/fresh dates and protected external sentinel bytes.
- * @evidence contracts/testing.md#distinguishing-cases Evictable old entries contrast with fresh and uncertain-owner entries; a hardlinked GC marker and linked root distinguish unsafe writes and escaped deletion. Real producer and process coordination remain in native source-plugin boundaries.
- * @evidence contracts/testing.md#execution-ownership test_resolveplugincacheroot_prunes_stale_cache_entries is a named source-unit entry discovered in src/features/source-plugin; direct owning operations use disposable fixture directories without installing a consumer, building native code or starting a product host.
+ * @evidence contracts/testing.md#distinguishing-cases Evictable old entry versus a fresh entry and an old entry held by an ownerless legacy lock (kept), version-two coordination and a retired-lock directory left in place, a future-dated GC marker hard-linked to an outside file (that file must not change), and a plugins directory replaced by a junction to an outside cache whose stale entry must survive. No live lock holder or build process is exercised.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling resolvePluginCacheRoot (which runs the opportunistic prune) over disposable workspaces under the temp directory, with TTSC_CACHE_DIR and TTSC_GO_CACHE_DIR cleared and restored; no consumer is installed, no native code is built and no host is started.
  */
 export const test_resolveplugincacheroot_prunes_stale_cache_entries = () => {
   const root = TestProject.tmpdir("ttsc-cache-gc-");

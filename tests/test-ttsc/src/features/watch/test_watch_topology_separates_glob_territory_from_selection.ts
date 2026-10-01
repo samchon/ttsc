@@ -33,8 +33,8 @@ import { projectInputReloadEventShouldNotify } from "../../../../../packages/tts
  *
  * @evidence contracts/testing.md#behavioral-verification Actual reload-event policy distinguishes warm data territory from cold selection surfaces, including named events versus directory fingerprint deltas.
  * @evidence contracts/testing.md#independent-expectations Explicit path populations, literal true/false lane expectations and independent changedInputs tuples define the expected policy.
- * @evidence contracts/testing.md#distinguishing-cases Glob members versus declared files, directory/nested/ancestor identity, unexplained deltas, data explanation and unrelated-directory evidence retain every original assertion.
- * @evidence contracts/testing.md#execution-ownership The named src/features/watch entry calls authored policy and resource-reconciliation functions directly over private path fixtures and owned callbacks; no compiler refresh, native event scheduler, product host or build executes.
+ * @evidence contracts/testing.md#distinguishing-cases A glob root and a member below it stay warm while a declared file beside it, the resolution directory itself and an unrelated entry go cold; a directory digest delta with no event, with an event naming non-data, or with a deep data event goes cold while one explained by a data event on an immediate entry stays warm; globs rooted on or above the resolution directory exempt nothing; and one directory's data event never cancels another directory's (node_modules or ancestor) digest delta.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it calls only projectInputReloadEventShouldNotify with path strings under a TestProject.tmpdir (the directory exists, the entries are never created). The test does not construct a WatchTopology and opens no watcher.
  */
 export function test_watch_topology_separates_glob_territory_from_selection() {
     const root = TestProject.tmpdir("ttsc-project-input-territory-");

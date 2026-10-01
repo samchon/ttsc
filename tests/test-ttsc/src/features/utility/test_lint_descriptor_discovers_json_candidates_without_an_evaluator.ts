@@ -12,14 +12,20 @@ import { createRequire } from "node:module";
  * directories and retain absent nearer config names before an ancestor winner.
  * Plain JSON has no executable config dependency and needs no product evaluator.
  *
- * 1. Call the authored lint factory with candidate directories and ancestor JSON.
- * 2. Assert all original discovery bounds and reject conflicting nearer JSON files.
- * 3. On Windows, preserve the native-spelling content hash and ancestor stop control.
+ * 1. Call the real lint factory for a project whose `lint.config.ts` is a
+ *    directory and `lint.config.mts` is a link to a directory, with a
+ *    `lint.config.json` file in the workspace two levels above.
+ * 2. Assert the reported host inputs include the directory candidates, the
+ *    ancestor's absent `ttsc-lint.config.cjs` name and the selected JSON, but not
+ *    a file above it; then add two JSON configs in the project and assert the
+ *    factory throws a multiple-config error.
+ * 3. On Windows only, assert a differently-cased `Lint.Config.Json` is selected
+ *    under its native spelling with a SHA-256 hash and discovery stops there.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls actual authored createTtscPlugin and preserves the original candidate-path presence, selected ancestor stop, ambiguous JSON refusal and Windows native-spelling hash assertions.
- * @evidence contracts/testing.md#independent-expectations Explicit files and directory links establish the winner independently from discovery; literal path memberships, absent higher ancestor and duplicate-config error distinguish the expected walk.
- * @evidence contracts/testing.md#distinguishing-cases Owns ordinary and linked candidate directories, selected ancestor JSON, absent nearer names, two conflicting local JSON files and the existing Windows spelling control. Script-import resolution and retargeted executable CJS config remain in the actual evaluator boundary.
- * @evidence contracts/testing.md#execution-ownership The matching named unit export loads the authored lint factory directly with only a temporary JSON discovery filesystem; no consumer installation, native build or executable-config evaluator is needed. The Windows control is conditional on the actual filesystem as before.
+ * @evidence contracts/testing.md#behavioral-verification Calls the real @ttsc/lint createTtscPlugin factory over a temporary workspace and asserts descriptor.hostInputs membership, the error for two sibling JSON configs, and (Windows only) the content hash of a case-variant config.
+ * @evidence contracts/testing.md#independent-expectations The fixture authors the winner (workspace/lint.config.json) and the non-matches (a directory, a directory link) up front, and the expectations are literal paths: candidate names the walk must have recorded, a path above the winner that must be absent, and the literal error text naming `lint.config.json, ttsc-lint.config.json`.
+ * @evidence contracts/testing.md#distinguishing-cases A candidate-named directory and a link to a directory must not stop discovery (they are recorded, then the walk continues to the ancestor JSON); a nearer absent candidate name is still recorded before the ancestor winner; two real JSON files in one directory are ambiguous. Executable (.js/.ts) configs and the evaluator are not exercised.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/utility; it loads the TypeScript factory through createRequire and runs discovery over TestProject.tmpdir directories holding only empty JSON files, directories and a directory link, with no evaluator, native build or host. The Windows case is skipped on other platforms by a process.platform check.
  */
 export function test_lint_descriptor_discovers_json_candidates_without_an_evaluator(): void {
   const workspace = TestProject.tmpdir("ttsc-lint-host-inputs-");

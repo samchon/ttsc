@@ -26,7 +26,7 @@ import { projectInputWatchDirectories } from "../../../../../packages/ttsc/src/l
  * @evidence contracts/testing.md#behavioral-verification projectInputWatchDirectories and projectInputActiveWatchDirectories preserve the project root while narrowing or rejecting external anchors.
  * @evidence contracts/testing.md#independent-expectations an external recursive anchor may not contain the project and displace its own coverage.
  * @evidence contracts/testing.md#distinguishing-cases a safe sibling keeps its parent anchor, a beside-project target narrows to itself, a containing target is rejected and active merging retains the project root.
- * @evidence contracts/testing.md#execution-ownership The named test_project_input_watch_root_never_swallows_the_project source-unit function under src/features/watch invokes authored decision or merge operations with fixture paths and supported identity injection; it opens no watcher, product process or native build.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it calls projectInputWatchDirectories and projectInputActiveWatchDirectories with default identity contexts over real directories created in a TestProject.tmpdir (nearest-existing-directory lookup reads the filesystem). It opens no watcher and starts no process.
  */
 export function test_project_input_watch_root_never_swallows_the_project(): void {
     const parent = TestProject.tmpdir("ttsc-project-input-anchor-");

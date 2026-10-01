@@ -26,7 +26,7 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Compares inherited baseUrl and rootDir against the declaring preset directory, detecting accidental rebasing onto the consumer directory.
  * @evidence contracts/testing.md#independent-expectations The preset authors two relative sibling paths; expected absolute directories follow their declared owner and standard path resolution.
  * @evidence contracts/testing.md#distinguishing-cases Backslash baseUrl and slash rootDir cover both supported spellings; substitutes_configdir_from_the_final_consumer owns the deliberately consumer-relative template distinction.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_resolves_inherited_relative_path_options_from_the_declaring_file once under src/features/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling readProjectConfig directly on a project extending a shared tsconfig that declares baseUrl and rootDir relative to itself in a private temp directory; no install, native build, compiler process or CLI is involved.
  */
 export const test_readprojectconfig_resolves_inherited_relative_path_options_from_the_declaring_file =
   () => {

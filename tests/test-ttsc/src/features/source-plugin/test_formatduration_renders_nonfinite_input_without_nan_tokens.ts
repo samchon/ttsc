@@ -19,7 +19,7 @@ import { formatDuration } from "../../../../../packages/ttsc/src/plugin/internal
  * @evidence contracts/testing.md#behavioral-verification Calls authored formatDuration and asserts literal finite and non-finite diagnostic strings, rejecting Infinity/NaN leakage.
  * @evidence contracts/testing.md#independent-expectations Unknown durations have the documented human-readable phrase; literal millisecond, second and minute expectations follow elapsed-time arithmetic.
  * @evidence contracts/testing.md#distinguishing-cases Covers positive/negative infinity and NaN plus negative, zero, 999ms, 1000ms, 59999ms, 60000ms and a multi-minute remainder.
- * @evidence contracts/testing.md#execution-ownership The matching exported entry runs in source units and imports formatDuration directly without building or launching a compiler.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling formatDuration directly with numbers; nothing is built or launched.
  */
 export function test_formatduration_renders_nonfinite_input_without_nan_tokens() {
     for (const value of [

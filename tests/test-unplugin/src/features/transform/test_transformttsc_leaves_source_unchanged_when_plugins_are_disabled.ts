@@ -20,7 +20,7 @@ import { transformTtsc } from "../../../../../packages/unplugin/src/core/transfo
  * @evidence contracts/testing.md#behavioral-verification A real consumer with a fail-fast descriptor returns undefined under plugins:false, leaves its evaluation marker absent, and preserves source bytes.
  * @evidence contracts/testing.md#independent-expectations The descriptor writes a literal marker before throwing; marker absence and the original source string establish expectations without consulting transform output or selection helpers.
  * @evidence contracts/testing.md#distinguishing-cases Explicit false overrides a tsconfig plugin declaration before descriptor evaluation; this early return does not claim a native compile or adapter build connection.
- * @evidence contracts/testing.md#execution-ownership The source-unit runner discovers this named entry under unit/transform and imports authored resolveOptions and transformTtsc. It needs only an isolated consumer directory, removed in finally; no native producer, Go probe, or built API preparation executes.
+ * @evidence contracts/testing.md#execution-ownership Unit test: calls the real resolveOptions({ plugins: false }) and transformTtsc on a file in a temporary consumer directory that is removed in finally. The directory holds a tsconfig plugin entry and a throwing plugin.cjs, but transformTtsc returns before project selection, so no native producer, Go probe or descriptor evaluation happens.
  */
 export async function test_transformttsc_leaves_source_unchanged_when_plugins_are_disabled(): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-disabled-plugins-"));

@@ -23,7 +23,7 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Changing only overlay host.go Value moves the key while plugin source and compiler versions stay fixed.
  * @evidence contracts/testing.md#independent-expectations Overlay Go sources participate in the linked binary, so changing only their Value must change artifact identity.
  * @evidence contracts/testing.md#distinguishing-cases The plugin source, overlay list and compiler versions stay identical while one overlay constant moves from 1 to 2, so a key that ignored overlay contents would collide.
- * @evidence contracts/testing.md#execution-ownership This matching named source-unit entry directly executes the authored hashing owner over fixture bytes without a Go executable, native artifact or consumer host; actual build and toolchain probes remain separate boundaries.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling computeCacheKey directly on a temp Go module with no goBinary and no go.mod replace directive, so no Go process is spawned and no native build or consumer host is involved.
  */
 export function test_computecachekey_changes_when_overlay_source_changes() {
   const root = TestProject.tmpdir("ttsc-source-plugin-");

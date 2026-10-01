@@ -33,8 +33,8 @@ import { writeProjectRecordFile } from "../../../../../packages/unplugin/src/cor
  *
  * @evidence contracts/testing.md#behavioral-verification Calls record writing, signaling and refresh with and without openHostWatchBridge; asserts truncated records become bare signals, both refresh paths change those bytes while remaining unreadable, and signaling a removed file does not recreate it.
  * @evidence contracts/testing.md#independent-expectations An unreadable record cannot establish cache validity, so the watched signal must move at the next build start. Distinct raw bytes and undefined decoded records express that requirement without reconstructing the signal algorithm.
- * @evidence contracts/testing.md#distinguishing-cases Owns half-written, bare-signal, bridge/no-bridge and removed-record states. Quiet watch/poll seams retain no native handles and the bridge closes in finally; actual host cache replay belongs to adapter boundaries.
- * @evidence contracts/testing.md#execution-ownership Unit entry test_project_record_that_cannot_be_read_moves_at_a_build_start is discovered under src/features/transform by TestExecutor. It invokes the owning operations in the test process against controlled fixture inputs; the assertions moved from features and source imports replace built package imports and this entry owns no dynamically registered cases.
+ * @evidence contracts/testing.md#distinguishing-cases Owns half-written, bare-signal, bridge/no-bridge and removed-record states. Quiet watch/poll seams retain no native handles and the bridge closes in finally; no host cache replay is exercised.
+ * @evidence contracts/testing.md#execution-ownership Unit test: calls the real writeProjectRecordFile, signalProjectRecordFile, readProjectRecordFile and refreshProjectRecordFiles (without and then with an openHostWatchBridge built on quiet seams) over a record file in a real temporary directory. No host cache or build is run.
  */
 export async function test_project_record_that_cannot_be_read_moves_at_a_build_start(): Promise<void> {
   const root = fs.realpathSync.native(

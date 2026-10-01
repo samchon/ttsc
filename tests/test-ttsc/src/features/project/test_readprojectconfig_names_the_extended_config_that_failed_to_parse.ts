@@ -20,7 +20,7 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project-unit
  * @evidence contracts/testing.md#behavioral-verification Reads a valid root and middle extending a malformed grandparent, requiring attribution to the grandparent and rejecting attribution to either valid descendant.
  * @evidence contracts/testing.md#independent-expectations Only the explicitly authored grandparent is syntactically incomplete; its fixture path is the independent expected owner.
  * @evidence contracts/testing.md#distinguishing-cases A three-level chain distinguishes ancestor attribution from entry attribution; names_the_config_that_failed_to_parse owns the malformed-entry variant.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_names_the_extended_config_that_failed_to_parse once under src/features/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling readProjectConfig directly on a three-file extends chain whose last config is unterminated in a private temp directory; no install, native build, compiler process or CLI is involved.
  */
 export const test_readprojectconfig_names_the_extended_config_that_failed_to_parse =
   () => {

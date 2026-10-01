@@ -18,11 +18,11 @@ import { formatGoWorkPath } from "../../../../../packages/ttsc/src/plugin/intern
  *    every forced-quote trigger, and every escape form.
  * 2. Feed the explicit Windows grammar paths with and without spaces.
  * 3. Contrast POSIX literal backslashes and check the native default grammar.
- * 4. Assert each output equals the value Go would emit for the same token.
+ * 4. Assert each output equals the literal authored from Go's modfile quoting rules (the Go toolchain is not run).
  * @evidence contracts/testing.md#behavioral-verification Calls authored autoQuoteGoModToken and formatGoWorkPath; literal output assertions detect invalid workspace tokens and incorrect Go escape sequences.
- * @evidence contracts/testing.md#independent-expectations The table literals follow golang.org/x/mod/modfile.AutoQuote and strconv.Quote grammar, independently of the TypeScript implementation.
+ * @evidence contracts/testing.md#independent-expectations Each expected string is an authored literal following the documented behavior of golang.org/x/mod/modfile AutoQuote and strconv.Quote (which tokens must be quoted, and Go's escape forms); the expectations are not computed by the TypeScript implementation, but the Go toolchain is not executed here, so a mistaken reading of those rules would not be detected.
  * @evidence contracts/testing.md#distinguishing-cases Covers unquoted clean tokens, empty input, spaces, quotes, comments, Unicode separators and control escapes; explicit Windows grammar owns all original drive/UNC/device expectations, Linux and macOS preserve literal backslashes, and the omitted argument retains the real host default.
- * @evidence contracts/testing.md#execution-ownership The named source-unit entry directly executes both real quoting functions with declared grammars and with the native default, without replacing process.platform; the retained writeGoWork integration separately validates a real Go workspace consumer.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling autoQuoteGoModToken and formatGoWorkPath directly with strings and declared platform grammars, plus one call with the host default; it does not replace process.platform and does not run Go.
  */
 export function test_gomod_token_quoting_mirrors_go_autoquote() {
   const NBSP = String.fromCodePoint(0x00a0);

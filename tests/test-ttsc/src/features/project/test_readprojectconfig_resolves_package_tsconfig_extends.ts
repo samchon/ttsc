@@ -24,8 +24,8 @@ import {
  *
  * @evidence contracts/testing.md#behavioral-verification Reads a scoped package preset subpath and checks inherited plugins and absolute output location, detecting failure to resolve node_modules presets or incorrect path ownership.
  * @evidence contracts/testing.md#independent-expectations The authored scoped package base.json supplies the literal plugin and ../../dist/preset output; expected anchoring follows that preset directory.
- * @evidence contracts/testing.md#distinguishing-cases A scoped package subpath contrasts with the bare manifest-selected package in resolves_package_tsconfig_extends_via_manifest and missing-target rejection.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_resolves_package_tsconfig_extends once under src/features/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
+ * @evidence contracts/testing.md#distinguishing-cases One positive case: a scoped package subpath (@scope/tsconfig/base.json) resolved through node_modules; the bare manifest-selected package, the missing target and the malformed manifest are other tests' cases.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling readProjectConfig directly on a project extending @scope/tsconfig/base.json from a fake node_modules directory in a private temp directory; no install, native build, compiler process or CLI is involved.
  */
 export const test_readprojectconfig_resolves_package_tsconfig_extends = () => {
   const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-project-"));

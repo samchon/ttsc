@@ -21,7 +21,7 @@ import { pruneCacheFileRoot } from "../../../../../packages/ttsc/src/plugin/inte
  * @evidence contracts/testing.md#behavioral-verification Collection neither throws nor creates a missing root and leaves file roots and linked outside entries untouched.
  * @evidence contracts/testing.md#independent-expectations Authored absent, regular-file and linked-directory roots distinguish safe collection scope from following an external target.
  * @evidence contracts/testing.md#distinguishing-cases An absent part, a regular file where the part should be, and a link to an outside directory holding a 31-day-old entry are collected with force; nothing throws, the absent part is not created, the file is unchanged and the link target is not followed.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry exercises the owning operations directly on isolated fixture inputs; no product host, native artifact build or consumer installation executes.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling pruneCacheFileRoot directly on a missing path, a regular file and a junction/symlink in a temp directory; no product host, native build or install is involved.
  */
 export const test_prunecachefileroot_leaves_what_is_not_an_ordinary_directory =
   (): void => {

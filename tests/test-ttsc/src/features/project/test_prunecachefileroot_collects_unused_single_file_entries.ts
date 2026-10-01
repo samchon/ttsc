@@ -28,7 +28,7 @@ import { recordCacheFileUse } from "../../../../../packages/ttsc/src/plugin/inte
  * @evidence contracts/testing.md#behavioral-verification pruneCacheFileRoot removes aged unused/staging entries, keeps fresh/reused entries, suppresses the daily repeat and honors forced collection.
  * @evidence contracts/testing.md#independent-expectations Manually set 31-day ages and an explicit recordCacheFileUse establish retention outcomes independently of the collector.
  * @evidence contracts/testing.md#distinguishing-cases An entry unused for 31 days and a 31-day-old staging file are collected, while a fresh entry and an old entry that a recorded use keeps survive; a second pass within a day leaves an aged entry alone until a forced collection removes it.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry exercises the owning operations directly on isolated fixture inputs; no product host, native artifact build or consumer installation executes.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling pruneCacheFileRoot and recordCacheFileUse directly on a temp directory whose file mtimes are set with utimes; no product host, native build or install is involved.
  */
 export const test_prunecachefileroot_collects_unused_single_file_entries =
   (): void => {

@@ -22,8 +22,8 @@ import {
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the authored buildSourcePlugin with a text-file source and requires the precise package-directory/go.mod admission diagnostic, before any toolchain or producer is resolved.
  * @evidence contracts/testing.md#independent-expectations A plugin source must name a Go package directory or go.mod; a plain text file is independently outside that supported input contract.
- * @evidence contracts/testing.md#distinguishing-cases The file-source negative owns early target rejection; valid directory/go.mod and actual cold builds remain owned by the real native workspace/module cases.
- * @evidence contracts/testing.md#execution-ownership test_buildsourceplugin_rejects_non_directory_and_non_go_mod_sources is the named src/features/source-plugin entry; the production target admission precedes Go compiler resolution and returns by throwing, so the direct filesystem fixture executes no installation, Go build or product host.
+ * @evidence contracts/testing.md#distinguishing-cases Only the file-source negative runs: a plain text file given as the plugin source is rejected with the package-directory-or-go.mod diagnostic; a valid directory source or a real go.mod file source is not exercised here.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling buildSourcePlugin on a temp text file; target admission throws before the Go compiler is resolved, so no Go build or product host is started.
  */
 export const test_buildsourceplugin_rejects_non_directory_and_non_go_mod_sources =
   () => {

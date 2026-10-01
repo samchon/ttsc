@@ -23,8 +23,8 @@ import {
  *
  * @evidence contracts/testing.md#behavioral-verification Reads a two-file reciprocal extends chain and requires the circular-config error, detecting unchecked recursion or acceptance of cyclic configuration.
  * @evidence contracts/testing.md#independent-expectations The authored edges a to b and b to a form a cycle independent of reader traversal; the supported contract rejects circular inheritance.
- * @evidence contracts/testing.md#distinguishing-cases A two-node cycle contrasts with the valid acyclic chain in inherits_plugins_and_outdir_through_tsconfig_extends and ordered independent bases in applies_array_extends_in_order.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_rejects_circular_tsconfig_extends once under src/features/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
+ * @evidence contracts/testing.md#distinguishing-cases One two-node reciprocal cycle (a.json extends b.json extends a.json) is the only case; acyclic chains are exercised by other tests, not here, and a self-extending or three-node cycle is not covered.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling readProjectConfig directly on two tsconfig files that extend each other in a private temp directory; no install, native build, compiler process or CLI is involved.
  */
 export const test_readprojectconfig_rejects_circular_tsconfig_extends = () => {
   const root = TestProject.tmpdir("ttsc-project-");

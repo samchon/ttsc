@@ -24,7 +24,7 @@ import { computeCacheKey } from "../../../../../packages/ttsc/src/plugin/interna
  * @evidence contracts/testing.md#behavioral-verification computeCacheKey equals the canonical key for trailing separator, forward slash, redundant parent and dot source spellings.
  * @evidence contracts/testing.md#independent-expectations Each spelling resolves to the same nested-source fixture; the oracle is required equivalence rather than a digest generated as a expected snapshot.
  * @evidence contracts/testing.md#distinguishing-cases Equivalent native path spellings must share identity; POSIX-invalid backslash spelling is deliberately not included.
- * @evidence contracts/testing.md#execution-ownership This named source unit executes the authored computeCacheKey directly. No goBinary or replace directive is supplied, so the environment owner performs no Go subprocess probe; native path spelling and filesystem content are the only fixture inputs. The source-unit runner discovers it under src/features/source-plugin.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling computeCacheKey directly on a temp Go module with no goBinary and no go.mod replace directive, so no Go process is spawned and no native build or consumer host is involved.
  */
 export const test_computecachekey_is_stable_across_source_path_spellings =
   () => {

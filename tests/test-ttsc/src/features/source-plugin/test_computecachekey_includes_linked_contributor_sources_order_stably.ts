@@ -23,7 +23,7 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Reversing left/right descriptor declaration order preserves one logical contributor set; replacing only right Value must invalidate it.
  * @evidence contracts/testing.md#independent-expectations Descriptor list order does not change the named contributor set, while a contributor source replacement does change the linked program.
  * @evidence contracts/testing.md#distinguishing-cases Declaring the contributors as left,right and as right,left yields one key, a set rather than a sequence, while changing only the right contributor's constant yields a different key.
- * @evidence contracts/testing.md#execution-ownership This matching named source-unit entry directly executes the authored hashing owner over fixture bytes without a Go executable, native artifact or consumer host; actual build and toolchain probes remain separate boundaries.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling computeCacheKey directly on a temp Go module with no goBinary and no go.mod replace directive, so no Go process is spawned and no native build or consumer host is involved.
  */
 export function test_computecachekey_includes_linked_contributor_sources_order_stably() {
   const root = TestProject.tmpdir("ttsc-source-cache-");

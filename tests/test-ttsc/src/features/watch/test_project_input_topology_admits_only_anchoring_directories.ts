@@ -26,7 +26,7 @@ import { projectInputTopologyMayAffect } from "../../../../../packages/ttsc/src/
  * @evidence contracts/testing.md#behavioral-verification projectInputTopologyMayAffect admits only events that may re-anchor declared inputs.
  * @evidence contracts/testing.md#independent-expectations an atomic replacement can move a declared ancestor while unrelated dependency descendants cannot move any declaration.
  * @evidence contracts/testing.md#distinguishing-cases replaced siblings, declared ancestors and the top dependency root are admitted; deeper dependency trees and ordinary files are rejected; missing glob roots remain admitted.
- * @evidence contracts/testing.md#execution-ownership The named test_project_input_topology_admits_only_anchoring_directories source-unit function under src/features/watch invokes authored decision or merge operations with fixture paths and supported identity injection; it opens no watcher, product process or native build.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it calls projectInputTopologyMayAffect with the default identity context and an empty previous population over real directories and files in a TestProject.tmpdir (the rule checks which paths are directories). It opens no watcher and starts no process.
  */
 export function test_project_input_topology_admits_only_anchoring_directories(): void {
     const root = TestProject.tmpdir("ttsc-project-input-admission-");

@@ -8,8 +8,7 @@ import { pruneCacheFileRoot } from "../../../../../packages/ttsc/src/plugin/inte
 
 /**
  * Verifies a single-file cache part over its size ceiling loses its least
- * recently used entries first, and keeps the ones used within the protection
- * window.
+ * recently used entries first, down to the target.
  *
  * The ceiling is the plugin cache's (samchon/ttsc#1562): past it, entries are
  * evicted oldest use first down to the target, never one used within the
@@ -19,10 +18,10 @@ import { pruneCacheFileRoot } from "../../../../../packages/ttsc/src/plugin/inte
  * 2. Collect with a 25-byte ceiling, a 20-byte target and a 30-minute window.
  * 3. Assert the two oldest are gone and the two newest remain.
  *
- * @evidence contracts/testing.md#behavioral-verification The collector removes the two oldest ten-byte entries and keeps the newest and protected entries under the 25-byte ceiling and 20-byte target.
- * @evidence contracts/testing.md#independent-expectations Authored byte sizes, 3/2/1-hour ages and a 30-minute protection window independently determine the expected surviving pair.
- * @evidence contracts/testing.md#distinguishing-cases Four 10-byte entries used 3 hours, 2 hours, 1 hour and now against a 25-byte ceiling and 20-byte target: only the two least recently used are evicted, and the entries inside or near the 30-minute protection window remain.
- * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry exercises the owning operations directly on isolated fixture inputs; no product host, native artifact build or consumer installation executes.
+ * @evidence contracts/testing.md#behavioral-verification pruneCacheFileRoot is run with force, a 25-byte ceiling and a 20-byte target over four 10-byte entries last used 3 hours, 2 hours, 1 hour and now ago; the 3-hour and 2-hour entries are deleted and the 1-hour and current entries remain.
+ * @evidence contracts/testing.md#independent-expectations The expected survivors follow from authored sizes and ages: 40 bytes exceeds the 25-byte ceiling, evicting oldest-first reaches the 20-byte target after exactly two 10-byte entries; the 30-minute protectedAgeMs value is passed but the expected result would be the same without it, so the protection rule is not verified here.
+ * @evidence contracts/testing.md#distinguishing-cases One over-ceiling case, with ordering by age deciding which entries go (oldest first) and eviction stopping at the target; the below-ceiling case, the protected-window skip, the 30-day expiry and the daily marker are not exercised by this test.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling pruneCacheFileRoot directly on a temp directory whose file mtimes are set with utimes; no product host, native build or install is involved.
  */
 export const test_prunecachefileroot_evicts_the_least_recently_used_past_the_ceiling =
   (): void => {

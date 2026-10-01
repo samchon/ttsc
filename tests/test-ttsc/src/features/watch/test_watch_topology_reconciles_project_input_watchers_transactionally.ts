@@ -17,10 +17,11 @@ import { syncWatchers } from "../../../../../packages/ttsc/src/launcher/internal
  * 1. Reject descendant creation and assert the ancestor stays open.
  * 2. Retry successfully and assert creation precedes ancestor closure.
  * 3. Reject the descendant root and assert retry selection falls back upward.
- * @evidence contracts/testing.md#behavioral-verification Subscription replacement remains transactional: a rejected descendant leaves the ancestor open, successful creation precedes closure, and rejection selects the available parent.
- * @evidence contracts/testing.md#independent-expectations Literal event order, exact map keys, explicit thrown watch rejection and an independently resolved parent path establish replacement and fallback outcomes.
- * @evidence contracts/testing.md#distinguishing-cases Rejected and successful replacement, handle closure order and rejected-root fallback retain every original assertion.
- * @evidence contracts/testing.md#execution-ownership The named src/features/watch entry calls authored policy and resource-reconciliation functions directly over private path fixtures and owned callbacks; no compiler refresh, native event scheduler, product host or build executes.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls syncWatchers with a fake watcher map and a creator that first throws then succeeds, asserting the ancestor stays open and in the map after the failure, "create descendant" precedes "close ancestor" after success, and the result flags; then calls projectInputAvailableWatchDirectory with a rejected descendant and asserts it returns the existing parent.
+ * @evidence contracts/testing.md#independent-expectations The expected event order, map keys and boolean results are authored literals from the transactional contract (create before close, keep on failure), and the fallback directory is the parent created in the test and resolved with fs.realpathSync.native rather than computed by the function.
+ * @evidence contracts/testing.md#distinguishing-cases A failed creation (returns false, ancestor kept, one error) is contrasted with a successful one (returns true, create then close, only the descendant left), and a rejected descendant directory falls back to its ancestor. A root with no existing parent or a project-root ceiling is not covered.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it calls syncWatchers (fake watcher objects) and projectInputAvailableWatchDirectory (real directories in a TestProject.tmpdir), not WatchTopology itself, and opens no watcher or process.
  */
 export function test_watch_topology_reconciles_project_input_watchers_transactionally() {
     const events: string[] = [];

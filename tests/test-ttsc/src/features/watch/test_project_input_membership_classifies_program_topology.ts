@@ -19,7 +19,7 @@ import { projectInputMembershipInvalidatesProgram } from "../../../../../package
  * @evidence contracts/testing.md#behavioral-verification Calls projectInputMembershipInvalidatesProgram on source/data populations and content edits, checking exact cold/warm decisions rather than filesystem watcher output.
  * @evidence contracts/testing.md#independent-expectations JSON and TypeScript/JavaScript additions/removals can reshape a Program; package metadata content changes resolution, while unchanged membership and ordinary data edits permit warm reuse. Literal booleans follow these independent contracts.
  * @evidence contracts/testing.md#distinguishing-cases JSON create/delete contrasts with content-only JSON edits and Markdown/YAML additions. Package content invalidates, unnamed changed population invalidates, unchanged empty population stays warm, and a named data event cannot conceal removal of another compiler source.
- * @evidence contracts/testing.md#execution-ownership This named source unit passes local maps and native path spellings to the actual policy function. It starts no watcher/compiler/host and performs no filesystem writes; OS-specific event transport is tested separately.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it passes in-memory population maps and path.resolve-built spellings to projectInputMembershipInvalidatesProgram. It starts no watcher, compiler or host and writes no files.
  */
 export const test_project_input_membership_classifies_program_topology =
   (): void => {

@@ -22,7 +22,7 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Calls the actual wait loop with a seeded binary and no lock and observes published.
  * @evidence contracts/testing.md#independent-expectations The authored binary path establishes publication independently; literal published rejects unnecessary reacquisition.
  * @evidence contracts/testing.md#distinguishing-cases Pins publication precedence over missing-lock release, without claiming the inert bytes are a working executable.
- * @evidence contracts/testing.md#execution-ownership test_waitforpluginbinary_prefers_published_binary_over_released_lock is discovered once under src/features/source-plugin and directly invokes the authored lock/cache operation over test-owned paths. This case installs no consumer, builds no artifact and starts no product host; the temporary-directory owner and its explicit lease finally blocks release its state.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling waitForPluginBinary directly with an existing placeholder binary file and a lock path that does not exist; no lease is taken, the wait loop returns at its first binary check, and no process, build or host is involved.
  */
 export const test_waitforpluginbinary_prefers_published_binary_over_released_lock =
   () => {

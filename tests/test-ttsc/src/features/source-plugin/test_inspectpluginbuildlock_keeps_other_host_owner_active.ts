@@ -15,15 +15,17 @@ import { inspectPluginBuildLock } from "../../../../../packages/ttsc/src/plugin/
  * locally (a shared cache on a network filesystem). Only the wait budget may
  * end that wait.
  *
- * 1. Use this process's PID with a deliberately different hostname.
- * 2. Write a lock directory whose `owner.json` names that pid on a hostname that
- *    is not this machine's.
- * 3. Assert inspection reports `active`, not `abandoned`.
+ * 1. Write a lock directory whose `owner.json` names this process's PID on a
+ *    hostname that is not this machine's, and require `active`.
+ * 2. Do the same with a PID no local process has, still under the foreign
+ *    hostname, and require `active`.
+ * 3. Name that dead PID under this machine's own hostname and require
+ *    `abandoned`, which shows the dead PID really is dead locally.
  *
  * @evidence contracts/testing.md#behavioral-verification Authored inspectPluginBuildLock returns active and preserves the deliberately foreign hostname in its owner label, regardless of whether that numeric PID happens to identify a local process.
- * @evidence contracts/testing.md#independent-expectations The authored owner record names this hostname plus -elsewhere; host-scoped ownership forbids any local PID observation from establishing that remote owner dead.
- * @evidence contracts/testing.md#distinguishing-cases The foreign-host owner is the negative control for the same-host dead-owner boundary case. The remote branch does not probe the PID, and both active classification and remote owner label assertions remain.
- * @evidence contracts/testing.md#execution-ownership This named source unit imports the authored lock inspector and reads one private legacy owner record directly. The irrelevant seed child was removed because remote-host policy precedes local liveness probing; real dead-local-owner process coverage remains in its existing boundary case.
+ * @evidence contracts/testing.md#independent-expectations The authored owner records name a host that is not this machine, so by the host-scoped ownership rule the owner can never be proven dead locally. The live-pid record can pass even without that rule, so the same hostname is also used with a pid no local process has (2147483646), where the same record under this machine's own hostname must be classified abandoned; the foreign-host copy of it must stay active.
+ * @evidence contracts/testing.md#distinguishing-cases The foreign-host owner with a live pid and with a dead pid is the negative; the same dead pid under the local hostname is the positive control that is classified abandoned, which shows the dead-pid fixture really is dead on this host.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling inspectPluginBuildLock directly on three legacy-layout lock directories with owner.json files in a private temp directory; it starts no process, build or host.
  */
 export const test_inspectpluginbuildlock_keeps_other_host_owner_active = () => {
   const root = TestProject.tmpdir("ttsc-lock-observe-");
@@ -44,4 +46,35 @@ export const test_inspectpluginbuildlock_keeps_other_host_owner_active = () => {
   assert.equal(observation.state, "active");
   const owner = observation.state === "active" ? observation.owner : "";
   assert.match(owner, /-elsewhere/);
+
+  // A pid no local process can have: on this host the owner would be abandoned,
+  // so staying active can only come from the foreign hostname.
+  const deadElsewhere = path.join(root, "dead-elsewhere.lock");
+  fs.mkdirSync(deadElsewhere);
+  fs.writeFileSync(
+    path.join(deadElsewhere, "owner.json"),
+    `${JSON.stringify({
+      hostname: `${os.hostname()}-elsewhere`,
+      pid: 2_147_483_646,
+      startedAt: new Date().toISOString(),
+    })}\n`,
+    "utf8",
+  );
+  assert.equal(inspectPluginBuildLock(deadElsewhere).state, "active");
+  const sameHostDead = path.join(root, "dead-local.lock");
+  fs.mkdirSync(sameHostDead);
+  fs.writeFileSync(
+    path.join(sameHostDead, "owner.json"),
+    `${JSON.stringify({
+      hostname: os.hostname(),
+      pid: 2_147_483_646,
+      startedAt: new Date().toISOString(),
+    })}\n`,
+    "utf8",
+  );
+  assert.equal(
+    inspectPluginBuildLock(sameHostDead).state,
+    "abandoned",
+    "the pid must be dead locally for the foreign-host case to prove anything",
+  );
 };

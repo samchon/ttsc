@@ -24,7 +24,7 @@ import { hashPluginBuildEnvironment } from "../../../../../packages/ttsc/src/plu
  * @evidence contracts/testing.md#behavioral-verification Unchanged quoted launcher/flag/compiler command keeps its digest; delegated compiler bytes and flag text independently invalidate it.
  * @evidence contracts/testing.md#independent-expectations Go CC command words can delegate compilation to a later executable; changing that executable or optimization flag changes build input independently of the launcher bytes.
  * @evidence contracts/testing.md#distinguishing-cases An identical CC command reproduces its digest; changing only the delegated compiler's bytes and then only the -O2 to -O3 flag each move it while the launcher bytes stay fixed.
- * @evidence contracts/testing.md#execution-ownership This matching named source-unit entry directly executes the authored hashing owner over fixture bytes without a Go executable, native artifact or consumer host; actual build and toolchain probes remain separate boundaries.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling hashPluginBuildEnvironment with goBinary undefined and an injected readFile over temp launcher/compiler files, so no Go process, native build or consumer host is involved.
  */
 export function test_hashpluginbuildenvironment_hashes_every_program_a_c_command_names() {
   const root = TestProject.tmpdir("ttsc-cc-command-");

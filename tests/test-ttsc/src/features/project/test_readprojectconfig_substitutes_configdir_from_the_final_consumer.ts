@@ -20,9 +20,9 @@ import { readProjectConfig } from "../../../../../packages/ttsc/src/compiler/int
  *    as written.
  *
  * @evidence contracts/testing.md#behavioral-verification Checks six inherited path options and a mis-cased configDir spelling, detecting preset-relative substitution, separator loss or incorrect rewriting of the mis-cased literal.
- * @evidence contracts/testing.md#independent-expectations Expected paths follow the authored final-consumer directory and the compiler template contract, including exact substitution spelling and the retained mis-cased literal.
+ * @evidence contracts/testing.md#independent-expectations Expected paths are built from the authored consumer directory with path.join or path.resolve according to the compiler's template rule (the template is replaced only in its exact spelling and anchors at the consuming config), including the mis-cased literal being retained; the drive-shaped rootDir row uses path.resolve(root, './C:/sources'), which is the same resolution the reader applies, so that single row only pins the relative anchoring.
  * @evidence contracts/testing.md#distinguishing-cases Bare, slash, backslash, output-file and drive-looking suffixes contrast with the mis-cased token; resolves_inherited_relative_path_options_from_the_declaring_file owns ordinary preset-relative paths.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_substitutes_configdir_from_the_final_consumer once under src/features/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling readProjectConfig directly on a preset using ${configDir} in six path options, extended by a consumer, plus a mis-cased template in a private temp directory; no install, native build, compiler process or CLI is involved.
  */
 export const test_readprojectconfig_substitutes_configdir_from_the_final_consumer =
   (): void => {

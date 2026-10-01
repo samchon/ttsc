@@ -23,7 +23,7 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Calls resolveProjectIdentity with a linked project directory and compares every cwd, config and project-root channel, detecting leaked physical spellings or unresolved physical Program paths.
  * @evidence contracts/testing.md#independent-expectations The fixture creates a physical project and a separately named directory link; lexical paths follow the authored request and physical expectations come from filesystem realpath rather than another resolver call.
  * @evidence contracts/testing.md#distinguishing-cases Directory selection through a link distinguishes logical and physical paths; discovers_config_through_logical_file_path owns source discovery and keeps_explicit_root_separate owns a distinct explicit root.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers exported test_resolveprojectidentity_preserves_linked_logical_selection once under src/features/project. It calls the authored resolver directly on isolated fixture directories and a native directory link; no compiler artifact, installed consumer or CLI host is prepared.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling resolveProjectIdentity directly with the linked project directory as the tsconfig selection in private temp directories with a real symlink or junction; no compiler artifact, installed consumer or CLI host is prepared.
  */
 export const test_resolveprojectidentity_preserves_linked_logical_selection =
   (): void => {

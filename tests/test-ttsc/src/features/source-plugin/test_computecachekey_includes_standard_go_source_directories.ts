@@ -23,7 +23,7 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Independent vendor/lib/dist/build helper mutations each invalidate the key, proving no source subtree is incorrectly excluded.
  * @evidence contracts/testing.md#independent-expectations Go can compile helper code under vendor, lib, dist and build; none is a generic generated-source exclusion in the source-plugin contract.
  * @evidence contracts/testing.md#distinguishing-cases Each of vendor, lib, dist and build is mutated in turn with its own one-constant change, so an exclusion of any single subtree fails naming that directory.
- * @evidence contracts/testing.md#execution-ownership This matching named source-unit entry directly executes the authored hashing owner over fixture bytes without a Go executable, native artifact or consumer host; actual build and toolchain probes remain separate boundaries.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling computeCacheKey directly on a temp Go module with no goBinary and no go.mod replace directive, so no Go process is spawned and no native build or consumer host is involved.
  */
 export function test_computecachekey_includes_standard_go_source_directories() {
   const root = TestProject.tmpdir("ttsc-source-plugin-");

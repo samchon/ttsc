@@ -23,8 +23,8 @@ import {
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the authored buildSourcePlugin on a deeply nested directory without a nearby module and requires the precise bounded module-discovery failure, without creating a compiler or host.
  * @evidence contracts/testing.md#independent-expectations The source-module admission contract requires go.mod within the permitted parent walk; the fixture deliberately creates none in that path.
- * @evidence contracts/testing.md#distinguishing-cases The missing-module negative owns failed bounded discovery; the valid deep workspace-module native case owns the admitted opposite and actual Go connection.
- * @evidence contracts/testing.md#execution-ownership test_buildsourceplugin_rejects_a_source_outside_a_nearby_go_module is the named src/features/source-plugin entry; the production target admission precedes Go compiler resolution and returns by throwing, so the direct filesystem fixture executes no installation, Go build or product host.
+ * @evidence contracts/testing.md#distinguishing-cases Only the negative case runs: a source directory four levels below a temp root with no go.mod within three parent directories must be rejected; the accepting side (a go.mod at distance three) is covered at the resolver level by test_source_plugin_module_resolution_preserves_manifest_and_bounded_package_identity, not here.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling buildSourcePlugin on a temp directory tree; the source-target admission throws before the Go compiler is resolved (resolveSourceBuildTarget runs before resolveGoCompiler), so no Go build or product host is started.
  */
 export const test_buildsourceplugin_rejects_a_source_outside_a_nearby_go_module =
   () => {

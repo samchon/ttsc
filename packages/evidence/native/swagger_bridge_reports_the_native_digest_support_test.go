@@ -8,14 +8,14 @@ import (
 
 // swaggerBridgeRoot materializes a project the real Node bridge can load from.
 //
-// The directory lives under `tests/test-evidence-e2e` rather than in the system
+// The directory lives under `tests/test-evidence` rather than in the system
 // temp area, because the bridge resolves `@ttsc/evidence` by
 // name from the root it is handed. That name resolves in exactly one place in
 // this workspace — the feature suite's `node_modules`, which pnpm links to this
 // package — and a directory outside the workspace cannot see it at all.
 func swaggerBridgeRoot(t *testing.T, document string) string {
   t.Helper()
-  suite := filepath.Join("..", "..", "..", "tests", "test-evidence-e2e")
+  suite := filepath.Join("..", "..", "..", "tests", "test-evidence")
   if _, err := os.Stat(filepath.Join(suite, "node_modules", "@ttsc", "evidence")); err != nil {
     t.Fatalf("the feature suite must link this package before the bridge can be exercised; run `pnpm install`: %v", err)
   }

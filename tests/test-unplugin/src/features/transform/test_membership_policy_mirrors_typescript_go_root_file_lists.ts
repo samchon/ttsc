@@ -26,7 +26,7 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  *    config keeps the permissive fallback.
  * @evidence contracts/testing.md#behavioral-verification The authored membership reader resolves default root specs and inherited files/include arrays while retaining unreadable-config fallback.
  * @evidence contracts/testing.md#independent-expectations Literal expected files/include arrays follow the config inheritance contract, including owner-relative anchors and leaf configDir substitution, independently of product read results.
- * @evidence contracts/testing.md#distinguishing-cases Absent/null/non-array lists, files-only/empty/union, single/multiple extends, leaf null blocking and malformed JSON retain their distinct assertions.
+ * @evidence contracts/testing.md#distinguishing-cases Each case has its own expected files/include pair: no list, null and non-array lists, files-only, empty include, files plus include with a non-string entry dropped, one inherited list, two extends entries where the later holds null or an array, a leaf null that blocks inheritance, and malformed JSON giving no root specs.
  * @evidence contracts/testing.md#execution-ownership The named source unit imports only the actual authored membership reader with private config bytes; it needs no emitted API entry, plugin source, native process or project compile.
  */
 export async function test_membership_policy_mirrors_typescript_go_root_file_lists(): Promise<void> {

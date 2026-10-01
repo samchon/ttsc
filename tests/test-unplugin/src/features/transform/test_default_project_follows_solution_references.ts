@@ -37,7 +37,7 @@ import { selectReferencedProject } from "../../../../../packages/unplugin/src/co
  *    reference that includes it wins unless the first lists the file.
  * @evidence contracts/testing.md#behavioral-verification selectReferencedProject selects the admitting referenced config and returns every earlier routing candidate, including content changes whose size/mtime remain fixed.
  * @evidence contracts/testing.md#independent-expectations Literal tsconfig references/include/files/exclude and expected consulted arrays independently define depth-first routing, rather than replaying resolver output.
- * @evidence contracts/testing.md#distinguishing-cases Own-admission, nested solutions, missing references that appear or are rewritten, cycles, fallback and files overriding exclude all retain their original assertions.
+ * @evidence contracts/testing.md#distinguishing-cases Own-admission, nested solutions, a missing directory reference, a missing .json reference that appears and is then rewritten with unchanged size and modification time, a reference cycle, the nearest-config fallback for a file no project admits, and a files entry overriding exclude are each asserted with an expected selected config and consulted list.
  * @evidence contracts/testing.md#execution-ownership The named source unit calls authored selectReferencedProject on private config/source files; no CLI, native compiler, consumer install or source-plugin fixture is created.
  */
 export async function test_default_project_follows_solution_references(): Promise<void> {

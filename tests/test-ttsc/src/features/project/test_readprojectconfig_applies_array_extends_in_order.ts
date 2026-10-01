@@ -26,7 +26,7 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Compares outDir, rootDir, declarationDir, plugins and pluginBaseDirs after ordered array inheritance, detecting reversed precedence or an incorrect declaring directory.
  * @evidence contracts/testing.md#independent-expectations The second preset explicitly overrides output and plugins while omitting the first preset rootDir; the child declarationDir is independently authored.
  * @evidence contracts/testing.md#distinguishing-cases Overridden options, inherited omitted options and child-only options are distinguished in one array; lets_later_array_extends_clear_inherited_plugins owns the explicit empty-list boundary.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_applies_array_extends_in_order once under src/features/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling readProjectConfig directly on a project tsconfig that extends two base configs through an array in a private temp directory; no install, native build, compiler process or CLI is involved.
  */
 export const test_readprojectconfig_applies_array_extends_in_order = () => {
   const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-project-"));

@@ -12,14 +12,15 @@ import { takeResidentCheckEntryRequest } from "../../../../../packages/ttsc/src/
  * each entry still needs its own complete filesystem-change stream.
  *
  * 1. Plan two identical synthetic check entries and require one shared key.
- * 2. Buffer one cycle, consume only the first entry, and simulate a failure.
+ * 2. Buffer one cycle and consume only the first entry (as if it failed before
+ *    the second entry ran).
  * 3. Buffer the next cycle and require the deferred entry to retain both
  *    transitions while the first entry receives only the new transition.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls planResidentCheckEntries, bufferResidentCheckEntryRequests and takeResidentCheckEntryRequest to preserve separate entry positions and change delivery despite equal process keys.
  * @evidence contracts/testing.md#independent-expectations Literal initial/next path lists establish exactly what each independently indexed entry receives. Duplicate-path union, sticky invalidation and compiler-argument key differences follow the delivery/process-identity contract rather than mirroring key construction.
  * @evidence contracts/testing.md#distinguishing-cases Two identical entries share a key but retain independent pending deltas when the first consumes early. Later cycles accumulate only for the deferred entry, consumption releases both slots, missing consumption rejects, duplicate changes deduplicate, and false cannot clear prior invalidation.
- * @evidence contracts/testing.md#execution-ownership This named source unit uses synthetic plugin descriptions and a local pending map to call real planning/buffering operations. No resident process or native binary starts; real protocol startup/recovery remains a separately owned boundary.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it uses a synthetic plugin description and a local pending map to call planResidentCheckEntries, bufferResidentCheckEntryRequests and takeResidentCheckEntryRequest. No resident process, native binary or file is involved.
  */
 export const test_resident_check_planning_preserves_duplicate_entry_buffers =
   (): void => {

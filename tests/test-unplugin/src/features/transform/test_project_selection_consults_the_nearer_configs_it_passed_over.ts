@@ -26,7 +26,7 @@ import { selectionInputs } from "../../../../../packages/unplugin/src/core/trans
  *    holds.
  * @evidence contracts/testing.md#behavioral-verification Actual project selection reports absent nearer configs and selectionInputs marks their missing evidence; creating the nearer config reroutes selection and changes the old absence reading.
  * @evidence contracts/testing.md#independent-expectations Literal nearest/nearer/root config paths and [true,true] missing flags establish expected routing and evidence without copying the resolver answer.
- * @evidence contracts/testing.md#distinguishing-cases Two absent candidates, selected config exclusion, nearer config appearance, shortened consulted list and absence-to-present evidence retain every original control.
+ * @evidence contracts/testing.md#distinguishing-cases Two absent candidates are consulted and the selected root config is not, then creating the nearer config selects it, shortens the consulted list to the one remaining candidate, and flips the old recorded absence evidence of that path from missing to present.
  * @evidence contracts/testing.md#execution-ownership The named source unit calls authored selection and evidence readers on real fixture files. It starts no watcher or transform host to observe config routing.
  */
 export async function test_project_selection_consults_the_nearer_configs_it_passed_over(): Promise<void> {

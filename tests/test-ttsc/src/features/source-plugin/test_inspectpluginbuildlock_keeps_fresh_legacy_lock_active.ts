@@ -24,7 +24,7 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Retains a freshly created metadata-less lock as an active legacy generation fence.
  * @evidence contracts/testing.md#independent-expectations Initial directory acquisition precedes owner publication; literal active/legacy labels and 32-hex generation follow that protocol.
  * @evidence contracts/testing.md#distinguishing-cases Pins missing metadata during acquisition; absence, old age and corrupt metadata have distinct sibling units.
- * @evidence contracts/testing.md#execution-ownership test_inspectpluginbuildlock_keeps_fresh_legacy_lock_active is discovered once under src/features/source-plugin and directly invokes the authored lock/cache operation over test-owned paths. This case installs no consumer, builds no artifact and starts no product host; the temporary-directory owner and its explicit lease finally blocks release its state.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling inspectPluginBuildLock directly on a freshly created lock directory without owner.json in a private temp directory; it acquires no lease and starts no process, build or host.
  */
 export const test_inspectpluginbuildlock_keeps_fresh_legacy_lock_active =
   () => {

@@ -17,8 +17,9 @@ import { planCompilerDirectoryWatchEvent } from "../../../../../packages/ttsc/sr
  *    change, its rearm and no refresh.
  * 2. Plan filename-less events on POSIX and Windows and require every surviving
  *    tracked input to change, with a refresh.
- * 3. Plan a filename-less rename after an input disappeared and an untracked
- *    change, and require only survivors to change.
+ * 3. Plan a filename-less rename after an input disappeared (only the survivor
+ *    changes) and a named change of an untracked file (no change, refresh
+ *    only).
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the actual directory-event planner for named content changes, replacements and unnamed notifications, checking exact change, rearm and refresh plans.
  * @evidence contracts/testing.md#independent-expectations Literal arrays and booleans specify event policy independently of the planner; supplied membership, existence and virtual identity describe the input authority only.

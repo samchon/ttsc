@@ -11,9 +11,6 @@ import { createCachedDeliveryUnitFixture } from "../../internal/transform-projec
 /**
  * Verifies discarding generations preserves the current delivery pass until reset.
  *
- * Verify discarding generations preserves the current delivery pass until
- * reset.
- *
  * Pending compilations can finish after withdrawal. Their handles still belong
  * to the removed generation, whereas the pass declaration belongs to the
  * cache.

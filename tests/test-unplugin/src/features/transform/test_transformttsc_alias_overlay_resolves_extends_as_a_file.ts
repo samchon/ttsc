@@ -21,8 +21,8 @@ import { readEffectiveTsconfigPaths } from "../../../../../packages/unplugin/src
  * 4. Assert an explicit `.json` spelling is not given a second suffix.
  * @evidence contracts/testing.md#behavioral-verification The authored effective-paths reader resolves extensionless extends to config.json, refuses the same-named directory and never adds .json twice to an explicit suffix.
  * @evidence contracts/testing.md#independent-expectations Literal file/* versus directory/* declarations and empty negative expectations distinguish the supported file resolution rule independently of runtime output.
- * @evidence contracts/testing.md#distinguishing-cases Competing file/directory, removed file and an explicit .json target beside a tempting double-suffix file retain all three independent assertions.
- * @evidence contracts/testing.md#execution-ownership This named source unit calls readEffectiveTsconfigPaths directly on private config bytes; the old native-plugins placement never launched a compiler and is removed from that execution population.
+ * @evidence contracts/testing.md#distinguishing-cases Three assertions: an extensionless extends with both a config.json file and a same-named config directory (the file wins), the same extends after config.json is removed (the directory contributes nothing), and an explicit .json extends where only a double-suffixed explicit.json.json exists (nothing is read).
+ * @evidence contracts/testing.md#execution-ownership Unit test: calls the real readEffectiveTsconfigPaths directly on tsconfig files it writes into a temporary directory and rewrites between calls. No compiler, plugin or host runs.
  */
 export async function test_transformttsc_alias_overlay_resolves_extends_as_a_file(): Promise<void> {
   const root = TestProject.tmpdir("ttsc-unplugin-extends-");

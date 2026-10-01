@@ -21,7 +21,7 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project-unit
  * @evidence contracts/testing.md#behavioral-verification Checks line-six error attribution behind comments, empty and comment-only acceptance, non-object rejection and valid BOM JSONC, detecting location shifts introduced by intermediate parsing text.
  * @evidence contracts/testing.md#independent-expectations The fixture explicitly places its missing delimiter at the end of line six; expected line and semantic boundaries follow the authored bytes and JSONC object contract.
  * @evidence contracts/testing.md#distinguishing-cases Malformed text contrasts with empty, comments-only and valid BOM/comment/trailing-comma text; a JSON string root separately distinguishes syntactic validity from config validity.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_reports_the_parse_position_in_the_original_file once under src/features/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling readProjectConfig directly on a tsconfig with an unterminated object behind comments, plus empty, comment-only, string-root and BOM/JSONC files in a private temp directory; no install, native build, compiler process or CLI is involved.
  */
 export const test_readprojectconfig_reports_the_parse_position_in_the_original_file =
   () => {

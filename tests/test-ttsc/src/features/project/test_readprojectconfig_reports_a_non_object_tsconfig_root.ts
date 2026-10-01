@@ -18,8 +18,8 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project-unit
  *
  * @evidence contracts/testing.md#behavioral-verification Checks null, array, string and number roots plus a child extending null, requiring ordinary attributed configuration errors instead of TypeError or empty options.
  * @evidence contracts/testing.md#independent-expectations These independently authored JSON values are valid JSON but violate the object-root config contract; the child must attribute its invalid ancestor.
- * @evidence contracts/testing.md#distinguishing-cases Four non-object root kinds and inherited null contrast with valid object roots and the empty-text acceptance in reports_the_parse_position_in_the_original_file.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_reports_a_non_object_tsconfig_root once under src/features/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
+ * @evidence contracts/testing.md#distinguishing-cases Four non-object root kinds (null, array, string, number) and a child extending the null one are each rejected with a plain Error naming the offending file; the matching acceptance of object roots and of empty text is exercised only by other tests.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling readProjectConfig directly on tsconfig files whose root values are null, an array, a string or a number in a private temp directory; no install, native build, compiler process or CLI is involved.
  */
 export const test_readprojectconfig_reports_a_non_object_tsconfig_root = () => {
   const root = TestProject.tmpdir("ttsc-project-");

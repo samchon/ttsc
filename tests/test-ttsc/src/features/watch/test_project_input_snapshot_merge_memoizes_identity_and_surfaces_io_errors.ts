@@ -19,7 +19,7 @@ import { createProjectInputPathIdentityContext } from "../../../../../packages/t
  * @evidence contracts/testing.md#behavioral-verification mergeProjectInputSnapshots resolves shared ancestors once and propagates hard errors without treating them as missing.
  * @evidence contracts/testing.md#independent-expectations one hundred unique leaves, two shared absent ancestors and one root require 103 probes; EACCES, EIO and ELOOP are actual errors rather than absence.
  * @evidence contracts/testing.md#distinguishing-cases one hundred missing siblings share one case query; each hard failure escapes as the original object with no further ancestor probe.
- * @evidence contracts/testing.md#execution-ownership The named test_project_input_snapshot_merge_memoizes_identity_and_surfaces_io_errors source-unit function under src/features/watch invokes authored decision or merge operations with fixture paths and supported identity injection; it opens no watcher, product process or native build.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it calls mergeProjectInputSnapshots with an identity context whose realpath and case-sensitivity probes are injected counters and failures over virtual paths, so no real filesystem, watcher or process is involved. The 103 and 1 counts are tied to the merge's current probe sequence.
  */
 export function test_project_input_snapshot_merge_memoizes_identity_and_surfaces_io_errors(): void {
     const root = path.resolve("virtual-project-input-root");

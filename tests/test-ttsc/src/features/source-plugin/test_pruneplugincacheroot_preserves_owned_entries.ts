@@ -18,15 +18,15 @@ import {
  * use, so only the unowned old entry may be removed.
  *
  * 1. Seed four old cache entries: one under a young metadata-less legacy lock, one
- *    under a live version-two lease, the returned binary and an unowned one.
+ *    under a live current-protocol (v3) lease, the returned binary and an unowned one.
  * 2. Prune with a one-byte budget, a zero target and the returned entry protected.
  * 3. Require the locked and returned entries to remain and the unowned one to be
  *    removed.
  *
  * @evidence contracts/testing.md#behavioral-verification Forces a zero-target collector pass over legacy, active generation, protected returned and unowned old entries.
  * @evidence contracts/testing.md#independent-expectations Authored directory contents and independently acquired ownership determine three survivors and one eviction.
- * @evidence contracts/testing.md#distinguishing-cases Contrasts young metadata-less ownership, a real same-process lease, explicit return protection and an unprotected evictable entry.
- * @evidence contracts/testing.md#execution-ownership test_pruneplugincacheroot_preserves_owned_entries is discovered once under src/features/source-plugin and directly invokes the authored lock/cache operation over test-owned paths. This case installs no consumer, builds no artifact and starts no product host; the temporary-directory owner and its explicit lease finally blocks release its state.
+ * @evidence contracts/testing.md#distinguishing-cases Four entries, all 31 days old and pruned with a one-byte budget and zero target: one under a young ownerless legacy lock directory, one under a live lease this process acquired with acquirePluginBuildLock (current v3 protocol), the entry passed in protectedEntries, and an unowned entry; only the unowned entry is removed. A held old-protocol (v2) lock is not exercised.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling prunePluginCacheRoot and acquirePluginBuildLock over directories in a private temp tree; the one lease it takes is released in finally, and no consumer is installed, no native artifact is built and no host is started.
  */
 export const test_pruneplugincacheroot_preserves_owned_entries = (): void => {
   const root = path.join(

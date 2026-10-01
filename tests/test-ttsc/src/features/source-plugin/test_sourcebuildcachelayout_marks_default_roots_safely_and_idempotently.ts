@@ -20,8 +20,8 @@ import {
  *
  * @evidence contracts/testing.md#behavioral-verification SourceBuildCacheLayout marks an empty fixture cache twice and rejects a marker directory; the three literal predicate results and unsafe-marker throw detect unsafe ownership admission.
  * @evidence contracts/testing.md#independent-expectations The persisted workspace-marker contract independently requires empty/marked roots to be accepted and a directory marker to be rejected.
- * @evidence contracts/testing.md#distinguishing-cases Empty, repeatedly marked and directory-collision states exercise initial publication, idempotent reuse and unsafe metadata; process-owner races remain in native lock boundaries.
- * @evidence contracts/testing.md#execution-ownership test_sourcebuildcachelayout_marks_default_roots_safely_and_idempotently is a named source-unit entry discovered in src/features/source-plugin; direct owning operations use disposable fixture directories without installing a consumer, building native code or starting a product host.
+ * @evidence contracts/testing.md#distinguishing-cases Three states in sequence on one root: empty, marked twice (second call accepts the existing marker file), and a directory sitting at the marker path, which makes the predicate false and the mark call throw. Concurrent publication and symlink markers are not exercised.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling SourceBuildCacheLayout.markDefaultWorkspaceCacheRoot and its predicate directly on a temp directory; no consumer, native build or host is involved.
  */
 export const test_sourcebuildcachelayout_marks_default_roots_safely_and_idempotently =
   () => {

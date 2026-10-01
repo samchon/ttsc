@@ -31,8 +31,8 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  * 3. Assert the walk under the link admits the source and not the emitted file.
  * @evidence contracts/testing.md#behavioral-verification Authored config/policy/paths readers preserve the named project link in roots, exclusions and aliases, and the actual walk admits source while excluding dist output.
  * @evidence contracts/testing.md#independent-expectations Literal base outDir/paths values and expected linked path arrays define lexical anchoring; the independent source/output fixture distinguishes a lost output exclusion.
- * @evidence contracts/testing.md#distinguishing-cases Physical versus linked spellings, ordinary source versus emitted output, policy roots/configs/paths and exact collected source keys are all retained.
- * @evidence contracts/testing.md#execution-ownership This named source unit imports the actual policy and walk owners and uses a real directory link as resolver data. It starts no watcher, native compiler, plugin producer or host; native watch streams have separate boundary owners.
+ * @evidence contracts/testing.md#distinguishing-cases The same project is read through a link and compared with its physical spelling (nothing may be spelled under the physical directory), an ordinary source against an emitted dist file for both the walk predicate and the collected hash keys, and the policy's configs, root and exclusions against the paths mapping.
+ * @evidence contracts/testing.md#execution-ownership Unit test: calls the real readProjectMembershipPolicy, readEffectiveTsconfigPaths, isProjectWalkPath and collectProjectInputHashes over real temporary files reached through a directory link (a junction on Windows). No watcher, native compiler or host starts.
  */
 export async function test_membership_policy_keeps_a_linked_projects_spelling(): Promise<void> {
   const physical = fs.realpathSync.native(

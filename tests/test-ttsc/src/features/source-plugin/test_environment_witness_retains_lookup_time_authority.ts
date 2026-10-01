@@ -14,7 +14,7 @@ import { PluginBuildEnvironmentWitness } from "../../../../../packages/ttsc/src/
  * @evidence contracts/testing.md#behavioral-verification addEnvironment and holds preserve the observed B value across restoration to A and permanently refuse conflicting repeated observations.
  * @evidence contracts/testing.md#independent-expectations Authored literal A/B/undefined observations define equality and refusal; expectations are not calculated from witness internals.
  * @evidence contracts/testing.md#distinguishing-cases Stable, missing, restored, conflicting and absent-witness inputs separate successful reuse from inadmissible lookup authority.
- * @evidence contracts/testing.md#execution-ownership The matching source-plugin unit entry calls the owning witness without creating a worker, Go child or native plugin; real shared-worker ABA remains a separate integration assertion.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling PluginBuildEnvironmentWitness.addEnvironment and holds directly while temporarily setting one process.env variable (restored in finally); no worker, Go child or native plugin is used and a real shared-worker interleaving is not exercised.
  */
 export function test_environment_witness_retains_lookup_time_authority(): void {
   const name = "TTSC_TEST_LOOKUP_AUTHORITY";

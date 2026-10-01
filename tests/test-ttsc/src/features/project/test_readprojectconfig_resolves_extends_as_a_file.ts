@@ -19,7 +19,7 @@ import { assert, fs, path, readProjectConfig } from "../../internal/project-unit
  * @evidence contracts/testing.md#behavioral-verification Distinguishes a sibling config.json from directory config/tsconfig.json, then rejects directory-only and double-suffix fallback paths.
  * @evidence contracts/testing.md#independent-expectations The fixture deliberately gives file and directory presets different output values; relative extends permits the file or implicit .json sibling, not directory expansion or .json.json.
  * @evidence contracts/testing.md#distinguishing-cases A backslash relative specifier finds the file; removing that file rejects the directory-only alternative, and an explicit .json spelling must not probe a doubled suffix.
- * @evidence contracts/testing.md#execution-ownership TestExecutor discovers the exported test_readprojectconfig_resolves_extends_as_a_file once under src/features/project. It calls the authored readProjectConfig on an isolated fixture directory; there is no installation, native build or CLI process.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling readProjectConfig directly on a project extending ..\config where both a config.json file and a config/tsconfig.json directory exist, then only the directory, then an explicit .json target in a private temp directory; no install, native build, compiler process or CLI is involved.
  */
 export const test_readprojectconfig_resolves_extends_as_a_file = () => {
   const root = TestProject.physicalPath(TestProject.tmpdir("ttsc-project-"));

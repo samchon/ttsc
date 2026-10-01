@@ -19,7 +19,7 @@ import (
  * @evidence contracts/testing.md#behavioral-verification The actual runIndexRule graph operation evaluates both original claims, retaining the first-declaration diagnostic and later-declaration citation acceptance; removing the citation changes the actual rule findings.
  * @evidence contracts/testing.md#independent-expectations The authored interface occupies src/ISale.ts line 1 and the literal sale-price heading supplies the expected Markdown target; neither expected address is calculated from the resulting inventory or diagnostic.
  * @evidence contracts/testing.md#distinguishing-cases One deliberately uncited ledger keeps the initial population active while the later namespace citation discharges the document obligation; its removal exposes that obligation and prevents empty-population success.
- * @evidence contracts/testing.md#execution-ownership This named TestEvidenceSemantic source unit is included by the shared Go overlay and semantic selector, invoking the actual parser and graph rule in process without an installed compiler or native plugin subprocess.
+ * @evidence contracts/testing.md#execution-ownership This named TestEvidenceSemantic source unit is selected by `go test` in the native package, invoking the actual parser and graph rule in process without an installed compiler or native plugin subprocess.
  */
 func TestEvidenceSemanticGraphResolvesMergedIdentityFromFirstDeclaration(t *testing.T) {
   files := map[string]string{

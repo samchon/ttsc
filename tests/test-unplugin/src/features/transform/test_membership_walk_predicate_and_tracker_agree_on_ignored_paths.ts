@@ -24,15 +24,16 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  *
  * 1. Plant sources in ordinary, package, hidden, and literally included
  *    directories.
- * 2. Walk the project, and ask the walk predicate and the tracker about every
+ * 2. Walk the project, and ask the walk predicate (`isProjectWalkPath`) and the
+ *    membership predicate the trackers use (`reportsProgramMembership`) about every
  *    planted file, under a default-include policy with a literal `files` entry
  *    and under the permissive fallback.
- * 3. Assert all three agree, and tool output under ignored names is never
- *    membership.
+ * 3. Assert all three agree with an authored expected list per policy, so tool
+ *    output under ignored names is never membership.
  * @evidence contracts/testing.md#behavioral-verification Actual walk, isProjectWalkPath and reportsProgramMembership select the independently specified planted corpus under readable policy and permissive fallback.
  * @evidence contracts/testing.md#independent-expectations Two literal expected file populations define ordinary source, explicitly pinned package input and fallback hidden-path admission independently of all three product operations.
  * @evidence contracts/testing.md#distinguishing-cases Every planted source/package/hidden/tool file is checked positively or negatively under both policies, while exact walk populations prevent three identically incorrect predicates from certifying each other.
- * @evidence contracts/testing.md#execution-ownership This named source unit invokes authored walk and membership operations over private files. reportsProgramMembership is the policy predicate; no live tracker/watch process or native compiler is opened.
+ * @evidence contracts/testing.md#execution-ownership Unit test: calls the real walkProjectInputs, isProjectWalkPath and reportsProgramMembership over planted files in a real temporary project, once per policy. reportsProgramMembership is the predicate the live trackers call; no tracker, watcher or compiler is opened.
  */
 export async function test_membership_walk_predicate_and_tracker_agree_on_ignored_paths(): Promise<void> {
   const root = TestProject.tmpdir("ttsc-unplugin-membership-agree-");

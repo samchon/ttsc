@@ -19,10 +19,14 @@ import { createWatchInputUnitFixture } from "../../internal/transform-complete/c
  * 3. Assert they are exactly the two reported dependencies and the universal
  *    inputs.
  *
- * @evidence contracts/testing.md#behavioral-verification Actual authored notifyWatchInputs derives and delivers this file's list through selectWatchInputs; exact dependency, graph, universal host and missing nearer-config paths distinguish incorrect narrowing or lost registration.
- * @evidence contracts/testing.md#independent-expectations Literal graph edges and reported dependencies specify the protocol input, while the independently enumerated expected list follows completeness and volatility rules; no production selector computes the oracle.
- * @evidence contracts/testing.md#distinguishing-cases A reported dependency outside the graph must remain while unread transitive and ambient graph inputs drop; empty dependencies and contradictory volatility have separate named units.
- * @evidence contracts/testing.md#execution-ownership This named source unit supplies a handwritten consumer envelope to the actual notification owner with real cheap filesystem inputs. Native successful envelope assembly remains in test_transformttsc_composes_a_mixed_completeness_envelope_per_file, and actual volatile producer output and delivery remain in test_transformttsc_volatile_file_bypasses_the_transform_cache; this unit makes no native-producer claim.
+ * @evidence contracts/testing.md#behavioral-verification
+ *   The real notifyWatchInputs is handed an envelope declaring src/main.ts complete with two reported dependencies, one (src/only-declared.d.ts) absent from the graph; the registered inputs must be exactly those two plus the universal inputs, so keeping unread graph reach or globals, or dropping the unlisted dependency, fails.
+ * @evidence contracts/testing.md#independent-expectations
+ *   The expected list is enumerated in the test from the two reported dependencies and the fixture's universal inputs; the unread transitive (src/unread.d.ts, src/deep.d.ts) and ambient (src/ambient.d.ts) inputs named in the literal GRAPH are expected absent. selectWatchInputs does not compute the oracle.
+ * @evidence contracts/testing.md#distinguishing-cases
+ *   A reported dependency outside the graph must register while unread transitive and ambient graph inputs drop. The empty-dependencies and volatile variants are the sibling tests test_transformttsc_keeps_only_universal_inputs_for_a_complete_file_without_dependencies and test_transformttsc_ignores_completeness_for_a_volatile_file.
+ * @evidence contracts/testing.md#execution-ownership
+ *   Unit test: a synchronous function passes a handwritten success envelope to the real notifyWatchInputs with an addWatchFile hook over a small real temporary project; no compiler, plugin binary or host runs. Native envelope assembly is covered by the E2E test_transformttsc_composes_a_mixed_completeness_envelope_per_file.
  */
 export function test_transformttsc_narrows_watch_inputs_for_a_file_declared_complete(): void {
   const fixture = createWatchInputUnitFixture();

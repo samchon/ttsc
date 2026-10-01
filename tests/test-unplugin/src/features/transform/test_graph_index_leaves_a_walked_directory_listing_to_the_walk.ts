@@ -26,9 +26,10 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  * directory it never enters, a universal resolution input such as a type root,
  * and a path whose listing is its only predicate.
  *
- * 1. Index an envelope whose root, a directory below it, a directory the policy
- *    excludes, a universal input, and a listing-only path each carry a listing,
- *    with the capture's membership registered.
+ * 1. Index an envelope whose root, a directory below it, `dist` (which the
+ *    tsconfig's `include: ["src"]` never reaches), a universal input, and a
+ *    listing-only path each carry a listing, with the capture's membership
+ *    registered.
  * 2. Assert only the walked directories that carry another predicate lose their
  *    listing, and that an envelope captured without a membership keeps all.
  * 3. Write a framework's files beside the project, and assert the root's indexed
@@ -36,8 +37,8 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  *
  * @evidence contracts/testing.md#behavioral-verification Calls envelopeGraphIndexes and graphInputObservationFailures on authored envelopes; asserts walked directory listings are omitted only with membership evidence, excluded/universal/listing-only observations survive, and unrelated framework writes do not invalidate the root.
  * @evidence contracts/testing.md#independent-expectations The project membership walk establishes membership rather than every directory entry. Fixture categories independently specify which listing still contributes meaning; the no-membership envelope is the counterexample to unsafe omission.
- * @evidence contracts/testing.md#distinguishing-cases Owns root and nested walked directories, excluded dist, universal types, listing-only src/only, absent membership and later unrelated writes. No compiler envelope producer runs; producer correspondence is outside this direct-index case.
- * @evidence contracts/testing.md#execution-ownership Unit entry test_graph_index_leaves_a_walked_directory_listing_to_the_walk is discovered under src/features/transform by TestExecutor. It invokes the owning operations in the test process against controlled fixture inputs; the assertions moved from features and source imports replace built package imports and this entry owns no dynamically registered cases.
+ * @evidence contracts/testing.md#distinguishing-cases Covers the walked root and a nested walked directory (listing dropped), dist which the include never reaches, the universal src/types input and the listing-only src/only (listings kept), an envelope with no registered membership (all kept), and later unrelated writes beside the project. A handwritten envelope is indexed; no compiler runs.
+ * @evidence contracts/testing.md#execution-ownership Unit test: calls envelopeGraphIndexes (with a membership registered in TRANSFORM_RESULT_MEMBERSHIP for one envelope and none for another) and graphInputObservationFailures on a handwritten envelope over a real temporary project directory. No compiler, watcher or process starts.
  */
 export async function test_graph_index_leaves_a_walked_directory_listing_to_the_walk(): Promise<void> {
   const root = fs.realpathSync.native(

@@ -24,7 +24,7 @@ import { projectInputReplacementStrandsWatchers } from "../../../../../packages/
  * @evidence contracts/testing.md#behavioral-verification projectInputReplacementStrandsWatchers requests rearming only for an anchored directory on the path-keyed backend.
  * @evidence contracts/testing.md#independent-expectations Node path-keyed recursive watches require rearming after ancestor replacement while native subtree backends preserve coverage.
  * @evidence contracts/testing.md#distinguishing-cases Linux declared ancestors and exact reload roots contrast with macOS and Windows, ordinary files, deep glob descendants and reload-directory children.
- * @evidence contracts/testing.md#execution-ownership The named test_project_input_replacement_strands_only_path_keyed_watchers source-unit function under src/features/watch invokes authored decision or merge operations with fixture paths and supported identity injection; it opens no watcher, product process or native build.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it calls projectInputReplacementStrandsWatchers with the default path identity context over real directories and files created in a TestProject.tmpdir (the decision checks whether the replaced path is a directory), passing the platform as an argument. It opens no watcher and starts no process.
  */
 export function test_project_input_replacement_strands_only_path_keyed_watchers(): void {
     const root = TestProject.tmpdir("ttsc-project-input-strand-");

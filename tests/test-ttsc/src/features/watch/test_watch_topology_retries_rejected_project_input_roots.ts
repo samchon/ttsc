@@ -19,12 +19,16 @@ import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/l
  *    error and the distinct uncovered-lane report, and let the recovery microtask
  *    honor the project-root ceiling.
  * 2. Republish the unchanged snapshot and prove it retries successfully.
- * 3. Reject a replacement root and keep reporting the old live handle.
+ * 3. Reject watchers for an external input's directory and its parent and prove
+ *    recovery installs the next safe ancestor in order.
+ * 4. Close the topology from inside the error callback and prove no watcher is
+ *    created afterwards.
+ * 5. Reject a replacement root and keep reporting the old live handle.
  *
- * @evidence contracts/testing.md#behavioral-verification First-root EMFILE is explicit and retryable; recovery cannot escape the project ceiling, replacement failure preserves the live handle and changed snapshots retain separate ownership.
- * @evidence contracts/testing.md#independent-expectations Independently supplied EMFILE failures, exact active/unavailable root sets and handle close counts establish resource and recovery expectations.
- * @evidence contracts/testing.md#distinguishing-cases First-root EMFILE is explicit and retryable; recovery cannot escape the project ceiling, replacement failure preserves the live handle and changed snapshots retain separate ownership; uncontrolled native scheduling remains covered by the retained actual fs.watch watch boundaries.
- * @evidence contracts/testing.md#execution-ownership The named src/features/watch function directly calls authored WatchTopology project-input publication and recovery operations through explicit supplied observer callbacks; no refresh/listFilesOnly, product host, native build or installed consumer is executed.
+ * @evidence contracts/testing.md#behavioral-verification Drives the real WatchTopology.setProjectInputs with fake fs.watch subscriptions through four scenarios: an EMFILE rejection of the project-root watcher then an unchanged republication, a two-step fallback to an existing external ancestor, close() called inside the error callback, and a rejected replacement while a first watcher is live; it asserts attempts, reported errors, unavailable-root reports and the active-root list at each step.
+ * @evidence contracts/testing.md#independent-expectations The injected failures (EMFILE, rejected paths by attempt number) are authored, and the expected attempt counts, ordered fallback paths (requested, first fallback, external root), error codes and root sets are literals built from the temp directories and fs.realpathSync.native, not from the topology's own bookkeeping. Close counts of the fake watchers are not asserted.
+ * @evidence contracts/testing.md#distinguishing-cases The first failure is not retried inside recovery (one attempt) but is retried by an unchanged republication; an external root falls back upward past two rejections and reports no loss, while an in-project root never falls back above the project and is reported as unavailable; a close during failure stops further creation; a failed replacement leaves the earlier root reported as active.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it drives the real WatchTopology over TestProject.tmpdir directories with fake fs.watch subscriptions injected through the constructor, with no compiler refresh, native build, product host or real OS watcher.
  */
 export async function test_watch_topology_retries_rejected_project_input_roots() {
     const root = TestProject.tmpdir("ttsc-project-input-retry-");

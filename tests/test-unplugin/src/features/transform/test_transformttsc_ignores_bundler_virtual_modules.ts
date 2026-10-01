@@ -17,8 +17,8 @@ import { transformTtsc } from "../../../../../packages/unplugin/src/core/transfo
  *
  * @evidence contracts/testing.md#behavioral-verification Calls authored resolveOptions and transformTtsc with a NUL-prefixed rolldown id; asserts undefined before project/compiler work rather than a filesystem error or emitted module.
  * @evidence contracts/testing.md#independent-expectations Bundler virtual IDs represent no file, so the adapter must decline them. The literal undefined expectation follows that host contract without deriving an output from transformTtsc.
- * @evidence contracts/testing.md#distinguishing-cases Owns one virtual JavaScript spelling. Source/declaration classification counterexamples remain in the adapter-filter and transform declaration unit cases; this early-return case starts no compiler or product host.
- * @evidence contracts/testing.md#execution-ownership Unit entry test_transformttsc_ignores_bundler_virtual_modules is discovered under src/features/transform by TestExecutor. It invokes the owning operations in the test process against controlled fixture inputs; the assertions moved from features and source imports replace built package imports and this entry owns no dynamically registered cases.
+ * @evidence contracts/testing.md#distinguishing-cases Exactly one input, the NUL-prefixed id \0rolldown/runtime.js with default options and no cache, and one expectation (undefined). A non-virtual adjacent id is not exercised here; the shared id filter is covered by test_shared_adapter_filter_accepts_source_files_and_skips_declarations.
+ * @evidence contracts/testing.md#execution-ownership Unit test: calls the real resolveOptions and transformTtsc once with a virtual id; the call returns before any project selection, cache or compiler work, and no files are created.
  */
 export async function test_transformttsc_ignores_bundler_virtual_modules(): Promise<void> {
   const result = await transformTtsc(

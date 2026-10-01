@@ -1,0 +1,64 @@
+package linthost
+
+import "testing"
+
+// TestEngineFlattenResolvesBreaksToFlatForm verifies flatten collapses a
+// doc to its single-line rendering and reports docs that cannot render
+// flat.
+//
+// flatten produces the all-flat ConditionalGroup option for a hugged
+// argument list. It must resolve Line to a space, Softline and IfBreak
+// to their flat forms, and see through Group/Concat/Indent/Align — and
+// it must refuse a doc carrying a Hardline, Literalline, LineSuffix,
+// multi-line Text or a forced-broken Group.
+//
+//  1. Flatten a Group mixing Text, Line, Softline and IfBreak and assert
+//     the rendered flat string.
+//  2. Flatten each non-flattenable doc (Hardline, Literalline,
+//     LineSuffix, multi-line Text, a Concat holding a Hardline, a
+//     forced-break Group) and assert ok is false.
+//  3. Flatten an empty ConditionalGroup, a two-option ConditionalGroup
+//     and an Indent wrapping an Align, and assert the admitted forms.
+//
+// @evidence contracts/testing.md#behavioral-verification flatten must yield a by for flat Line, Softline and IfBreak while rejecting intrinsically multiline docs.
+// @evidence contracts/testing.md#independent-expectations Doc algebra defines Line as a space, Softline as empty and IfBreak as its flat arm; literal outputs retain operand order.
+// @evidence contracts/testing.md#distinguishing-cases Hardline, Literalline, suffix, newline text, nested break and forced Group are rejected; empty alternatives, first alternative and transparent wrappers are admitted.
+// @evidence contracts/testing.md#execution-ownership TestEngineFlattenResolvesBreaksToFlatForm is one Go unit entry that calls the unexported flatten directly on literal Doc trees and renders the flat results with Print in-process; it parses no source and installs, builds and launches nothing.
+func TestEngineFlattenResolvesBreaksToFlatForm(t *testing.T) {
+  flat, ok := flatten(Group(
+    Text("a"), Line(), Softline(), Text("b"), IfBreak(Text("X"), Text("y")),
+  ))
+  if !ok {
+    t.Fatal("flattenable doc: want ok=true")
+  }
+  if got := Print(flat, DefaultPrintOptions()); got != "a by" {
+    t.Fatalf("flat form: want %q, got %q", "a by", got)
+  }
+  for name, doc := range map[string]Doc{
+    "hardline":     Hardline(),
+    "literalline":  Literalline(),
+    "line-suffix":  LineSuffix(Text("c")),
+    "newline-text": Text("a\nb"),
+    "concat-break": Concat(Text("a"), Hardline()),
+  } {
+    if _, ok := flatten(doc); ok {
+      t.Fatalf("%s: want not flattenable", name)
+    }
+  }
+  forced := Group(Text("z"))
+  forced.Break = true
+  if _, ok := flatten(forced); ok {
+    t.Fatal("forced-break group: want not flattenable")
+  }
+  if _, ok := flatten(ConditionalGroup()); !ok {
+    t.Fatal("empty conditional group: want ok=true")
+  }
+  cg, ok := flatten(ConditionalGroup(Text("first"), Text("second")))
+  if !ok || Print(cg, DefaultPrintOptions()) != "first" {
+    t.Fatal("conditional group flatten: want its first option")
+  }
+  ind, ok := flatten(Indent(2, Align(Text("ab"))))
+  if !ok || Print(ind, DefaultPrintOptions()) != "ab" {
+    t.Fatal("indent/align should flatten transparently")
+  }
+}
