@@ -9,7 +9,7 @@ import { UtilityWorkspace } from "../../../internal/UtilityWorkspace";
  *
  * Moving the banner above a `#!` line would make the emitted CLI unexecutable.
  *
- * 1. Emit a source that begins with a Node shebang.
+ * 1. Compile the ordinary and shebang sources together with external maps.
  * 2. Assert the output still starts with the shebang line.
  * 3. Assert the banner appears exactly once.
  *
@@ -18,16 +18,16 @@ import { UtilityWorkspace } from "../../../internal/UtilityWorkspace";
  * @evidence contracts/testing.md#distinguishing-cases The shebang source is the boundary input; the shared baseline emitted by other scenarios without one is the contrast.
  * @evidence contracts/testing.md#execution-ownership Called by test_e2e_banner with the shared workspace; output ordering is observed in real emitted bytes.
  * @evidence contracts/e2e.md#necessary-boundary Emit-time preamble insertion and the compiler's hashbang handling meet in the native host.
- * @evidence contracts/e2e.md#shared-execution Reuses the shared workspace, package link and plugin cache; its distinct source requires its own emit.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The scenario owns its source and dist directory and reuses the shared configuration read-only.
+ * @evidence contracts/e2e.md#shared-execution One external-map compiler Program emits the ordinary and shebang sources together; the map scenario reads the same output rather than starting another compiler.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This scenario prepares the external-map output and the map scenario only reads it after the compiler joins. Missing output fails, and no previous fixture output is copied.
  * @evidence contracts/e2e.md#preserved-coverage Retains the former shebang-first and single-banner assertions; the banner text is now the shared configuration's.
  */
 export function case_banner_preserves_executable_shebang(
   workspace: UtilityWorkspace.IWorkspace,
 ): void {
-  const result = UtilityWorkspace.emit(workspace, "shebang");
+  const result = UtilityWorkspace.emit(workspace, "external-maps");
   assert.equal(result.status, 0, result.stderr);
-  const js = UtilityWorkspace.read(workspace, "shebang", "dist/main.js");
+  const js = UtilityWorkspace.read(workspace, "external-maps", "dist/shebang.js");
   assert.equal(js.startsWith("#!/usr/bin/env node\n"), true, js);
   TestBanner.assertSingleBanner(js, TestBanner.SHARED_TEXT);
 }
