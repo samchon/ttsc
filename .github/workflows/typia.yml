@@ -28,7 +28,9 @@ jobs:
         with:
           repository: samchon/typia
           path: experimental/typia
-      - run: node .github/workflows/scripts/consumer.cjs experimental/typia
+      - run: >-
+          node .github/workflows/scripts/consumer.cjs experimental/typia
+          --go=experimental/typia/packages/typia/native --go=experimental/typia/packages/typia/test
       - run: pnpm install --no-frozen-lockfile
         working-directory: experimental/typia
       - run: pnpm --filter "./tests/test-*" --fail-if-no-match --no-bail -r start
