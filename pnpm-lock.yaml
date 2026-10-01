@@ -758,15 +758,6 @@ importers:
         specifier: catalog:typescript
         version: 7.0.2
 
-  tests/test-scripts:
-    devDependencies:
-      '@ttsc/testing':
-        specifier: workspace:*
-        version: link:../utils
-      ttsc:
-        specifier: workspace:*
-        version: link:../../packages/ttsc
-
   tests/test-strip:
     devDependencies:
       '@ttsc/strip':

@@ -4,6 +4,19 @@ import { mapDiagnostic } from "../../../../packages/playground/src/compiler/mapD
 /**
  * Verifies native diagnostic byte coordinates against literal editor coordinates.
  *
+ * Native diagnostics carry UTF-8 byte offsets while the editor counts UTF-16 units
+ * and line separators of every ECMAScript kind, so astral characters, combining
+ * marks and separators must shift columns and lengths exactly as the literal table
+ * states.
+ *
+ * 1. Map each authored native diagnostic over sources with ASCII, BMP, astral and
+ *    combining prefixes, spans, offset-only and line-only inputs, and LF, CR,
+ *    CRLF, LS and PS separators.
+ * 2. Map a project-wide diagnostic that has no file and require its default
+ *    position.
+ * 3. Compare every result with the literal editor coordinates of its row and
+ *    collect all mismatches before failing.
+ *
  * @evidence contracts/testing.md#behavioral-verification All fifteen authored DTO rows call mapDiagnostic and compare complete normalized records.
  * @evidence contracts/testing.md#independent-expectations Literal one-based lines, UTF-16 columns and spans are authored independently of the mapper; the DTO supplies native UTF-8 byte offsets.
  * @evidence contracts/testing.md#distinguishing-cases ASCII, BMP, astral, combining, optional coordinates, every ECMAScript newline, and an unlocated project diagnostic preserve different boundaries.

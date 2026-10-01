@@ -4,6 +4,7 @@
  * PATH helper that prepends a local Go SDK when present.
  */
 import { TestProject } from "@ttsc/testing";
+import { ProjectFixtures } from "./ProjectFixtures";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -41,9 +42,9 @@ function goPath() {
     : process.env.PATH;
 }
 
-/** Copies a named fixture from `tests/projects` into a fresh temp directory. */
+/** Copies a named authored project into a fresh temp directory. */
 function copyProject(name: string) {
-  return TestProject.copyProject(name);
+  return ProjectFixtures.copy(name);
 }
 
 /** Runs the compiled JS file directly via Node.js. */

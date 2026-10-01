@@ -3,8 +3,18 @@ import assert from "node:assert/strict";
 import { selectGraphInputs } from "../../../../packages/unplugin/src/core/transform/envelope/selectGraphInputs";
 
 /**
- * A complete plugin input declaration still contributes the full universal
- * config chain without expanding it into a variadic call.
+ * Verifies a complete plugin input declaration contributes its full config chain
+ * without a variadic expansion.
+ *
+ * Graph input selection must return every universal config of a complete
+ * declaration regardless of width, and nothing when the compilation raised an
+ * exception.
+ *
+ * 1. Declare zero, one and 200000 universal configs for a complete plugin
+ *    declaration.
+ * 2. Select graph inputs for a successful result and require exactly the declared
+ *    configs.
+ * 3. Select for an exception result and require no inputs.
  *
  * @evidence contracts/testing.md#behavioral-verification selectGraphInputs returns every config in original order for the complete branch and returns no inputs for an exception, including a 200000-entry config chain.
  * @evidence contracts/testing.md#independent-expectations Independently authored config paths are the complete branch's only universal graph inputs; exact length, endpoints and deep equality detect truncation, reordering or omission.

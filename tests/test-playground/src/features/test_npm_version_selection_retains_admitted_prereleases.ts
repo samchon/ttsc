@@ -3,12 +3,20 @@ import { selectVersion } from "../../../../packages/playground/src/npm/internal/
 /**
  * Verifies the highest version of the already admitted range/tag intersection.
  *
+ * Version selection intersects every requested range or dist-tag before choosing
+ * the highest member, so a prerelease admitted by a tag or an explicit range stays
+ * selectable while a disjoint intersection selects nothing.
+ *
+ * 1. Offer release and prerelease versions with latest, same and next tags.
+ * 2. Select the highest version for wildcard, tag, exact, prerelease-range and
+ *    combined range requests, requiring the literal expected version.
+ * 3. Require disjoint tag and range combinations, and an unknown tag, to throw.
+ *
  * @evidence contracts/testing.md#behavioral-verification Every ten-row registry constraint is evaluated even after another row fails.
  * @evidence contracts/testing.md#independent-expectations The version records and expected tag/range choices are literals authored from semver precedence and exact-tag intersection.
  * @evidence contracts/testing.md#distinguishing-cases Stable defaults, exact prereleases, prerelease ranges, same/different tags, missing tags and incompatible intersections distinguish admission from final ranking.
  * @evidence contracts/testing.md#execution-ownership This exported src/features entry executes the owning source operations in this test process, without installing a consumer, building a native producer or fabricating process protocol replies.
  */
-
 export function test_npm_version_selection_retains_admitted_prereleases(): void {
   const metadata = { name: "fixture", versions: { "1.0.0": { name: "fixture", version: "1.0.0" }, "2.0.0-beta.1": { name: "fixture", version: "2.0.0-beta.1" }, "2.0.0-beta.2": { name: "fixture", version: "2.0.0-beta.2" } }, "dist-tags": { latest: "1.0.0", next: "2.0.0-beta.1", same: "1.0.0" } };
   const rows: { ranges: string[]; expected: string | null }[] = [

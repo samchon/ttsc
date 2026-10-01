@@ -1,0 +1,23 @@
+{
+  "severity": "error",
+  "claims": [
+    {
+      "name": "TypeScript function units",
+      "type": "typescript",
+      "root": "../..",
+      "files": [
+        "tests/test-factory/src/features/**/test_*.ts"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    }
+  ]
+}

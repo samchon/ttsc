@@ -26,8 +26,13 @@
     {
       "name": "native contributor discovery and shared config evaluation",
       "type": "typescript",
-      "files": ["src/createTtscPlugin.ts"],
-      "symbol": ["type", "function"],
+      "files": [
+        "src/createTtscPlugin.ts"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -73,8 +78,14 @@
     {
       "name": "native resident compiler protocol and resource ownership",
       "type": "go",
-      "files": ["linthost/check_serve.go", "linthost/serve.go"],
-      "symbol": ["type", "function"],
+      "files": [
+        "linthost/check_serve.go",
+        "linthost/serve.go"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -90,8 +101,13 @@
     {
       "name": "native LSP command and compiler boundary",
       "type": "go",
-      "files": ["linthost/lsp.go"],
-      "symbol": ["type", "function"],
+      "files": [
+        "linthost/lsp.go"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -102,6 +118,94 @@
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
+      }
+    },
+    {
+      "name": "Go lint semantic units",
+      "type": "go",
+      "files": [
+        "test/engine/**/*_test.go",
+        "test/plugin/**/*_test.go",
+        "test/format/**/*_test.go",
+        "test/printer/**/*_test.go",
+        "test/registry/**/*_test.go",
+        "test/rules/**/*_test.go",
+        "test/shared/**/*_test.go",
+        "test/shim/**/*_test.go",
+        "test/fix/**/*_test.go",
+        "test/command/**/*_test.go",
+        "test/config/external/**/*_test.go",
+        "test/config/**/as_*_test.go",
+        "test/config/**/file_url_*_test.go",
+        "test/config/**/format_block_*_test.go",
+        "test/config/**/project_rule_config_*_test.go",
+        "test/config/**/config_cache_does_not_memoize_failed_evaluation_test.go",
+        "test/config/**/config_cache_reuses_evaluation_until_content_changes_test.go",
+        "test/config/**/config_loader_sources_escape_every_literal_percent_test.go",
+        "test/config/**/find_lint_config_file_discovers_nearest_ancestor_test.go",
+        "test/config/**/find_lint_config_file_discovers_plain_lint_config_test.go",
+        "test/config/**/find_lint_config_file_falls_back_to_cwd_for_out_of_tree_tsconfig_test.go",
+        "test/config/**/find_lint_config_file_prefers_nearest_directory_test.go",
+        "test/config/**/find_lint_config_file_rejects_same_directory_conflicts_test.go",
+        "test/config/**/find_lint_config_file_uses_tsconfig_directory_when_outside_cwd_test.go",
+        "test/config/**/inline_resolver_carries_options_in_resolved_config_test.go",
+        "test/config/**/legacy_custom_resolver_keeps_rule_options_fallback_test.go",
+        "test/config/**/load_config_file_rejects_unsupported_extension_test.go",
+        "test/config/**/load_config_resolver_scopes_extends_options_in_engine_test.go",
+        "test/config/**/load_json_config_file_rejects_invalid_json_test.go",
+        "test/config/**/load_rule_config_configfile_overrides_discovery_test.go",
+        "test/config/**/load_rule_config_discovers_cwd_config_for_out_of_tree_tsconfig_test.go",
+        "test/config/**/load_rule_config_discovers_plain_lint_config_test.go",
+        "test/config/**/load_rule_config_extends_with_ignores_and_rules_ignores_globally_test.go",
+        "test/config/**/load_rule_config_honors_plugin_config_dir_env_test.go",
+        "test/config/**/load_rule_config_loads_json_config_file_test.go",
+        "test/config/**/load_rule_config_missing_config_error_names_search_origins_test.go",
+        "test/config/**/load_rule_config_rejects_extends_cycle_between_two_configs_test.go",
+        "test/config/**/load_rule_config_rejects_missing_discovered_config_test.go",
+        "test/config/**/load_rule_config_rejects_overly_deep_extends_chain_test.go",
+        "test/config/**/load_rule_config_rejects_self_referential_extends_test.go",
+        "test/config/**/load_rule_config_resolves_configfile_relative_to_plugin_config_dir_env_test.go",
+        "test/config/**/load_rule_config_resolves_linear_extends_chain_test.go",
+        "test/config/**/loader_module_option_follows_the_config_package_type_test.go",
+        "test/config/**/loader_rootdir_contains_loader_and_config_test.go",
+        "test/config/**/loader_temp_base_stays_on_config_volume_test.go",
+        "test/config/**/node_config_loader_env_prepends_nearest_node_modules_test.go",
+        "test/config/**/node_package_manifest_from_resolves_a_relative_anchor_test.go",
+        "test/config/**/node_package_manifest_from_skips_a_node_modules_directory_test.go",
+        "test/config/**/node_platform_pair_matches_the_npm_platform_vocabulary_test.go",
+        "test/config/**/parse_rules_accepts_eslint_tuples_in_standard_inline_config_test.go",
+        "test/config/**/parse_rules_accepts_legacy_numeric_severities_test.go",
+        "test/config/**/parse_rules_accepts_string_severities_test.go",
+        "test/config/**/parse_rules_nil_treated_as_empty_test.go",
+        "test/config/**/parse_rules_preserves_positional_options_test.go",
+        "test/config/**/project_companion_preserves_file_scoped_rule_config_test.go",
+        "test/config/**/resolve_config_file_path_uses_tsconfig_directory_test.go",
+        "test/config/**/resolve_config_tsgo_falls_back_to_the_project_root_anchor_test.go",
+        "test/config/**/resolve_config_tsgo_keeps_an_explicitly_pinned_compiler_test.go",
+        "test/config/**/resolve_config_tsgo_prefers_the_config_anchor_over_the_project_root_test.go",
+        "test/config/**/resolve_config_tsgo_resolves_the_project_compiler_without_the_environment_test.go",
+        "test/config/**/resolve_config_tsgo_resolves_through_a_linked_typescript_install_test.go",
+        "test/config/**/resolve_config_tsgo_returns_nothing_without_a_project_typescript_test.go",
+        "test/config/**/resolve_config_tsgo_returns_nothing_without_the_platform_package_test.go",
+        "test/config/**/resolve_ttsx_launcher_falls_back_to_the_bare_command_test.go",
+        "test/config/**/resolve_ttsx_launcher_keeps_an_explicitly_pinned_binary_test.go",
+        "test/config/**/resolve_ttsx_launcher_resolves_the_project_launcher_without_the_environment_test.go",
+        "test/config/**/set_env_replaces_or_appends_test.go",
+        "test/config/**/severity_string_formats_values_test.go",
+        "test/config/**/ttsx_command_context_spawns_the_project_launcher_test.go",
+        "test/config/**/load_rule_config_rejects_empty_extends_test.go",
+        "test/config/**/load_rule_config_rejects_array_rules_test.go",
+        "!test/**/*_bench_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
       }
     }
   ]

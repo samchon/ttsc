@@ -22,7 +22,7 @@ import { UtilityWorkspace } from "../../../internal/UtilityWorkspace";
  * @evidence contracts/testing.md#execution-ownership Called by test_e2e_strip with the shared workspace; it exercises the built launcher's package discovery and native plugin, while default list semantics belong to Go units.
  * @evidence contracts/e2e.md#necessary-boundary Package-manifest auto-plugin discovery, including the upward walk, crosses launcher, filesystem and native host; no unit call establishes that connection.
  * @evidence contracts/e2e.md#shared-execution Both scenarios reuse the one workspace copy, package link and plugin cache; the two manifest positions are the only differing inputs, so two emits remain.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each emit writes its own dist directory and each manifest bounds its own discovery, so neither output or configuration is visible to the other or to sibling scenarios.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each emit writes its own dist directory and the manifests sit in the scenarios' own directories while the workspace root and the sibling scenarios hold no manifest or strip configuration on either project's ancestor path, so neither output nor configuration of another scenario is visible to it.
  * @evidence contracts/e2e.md#preserved-coverage Retains the former default-config and ancestor-walk assertions (log, debug, assert.equal, debugger, kept) and extends the ancestor emit with the same full default set.
  */
 export function case_strip_package_auto_plugin_uses_default_config(

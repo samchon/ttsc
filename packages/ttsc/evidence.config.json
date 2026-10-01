@@ -8,10 +8,16 @@
         "src/launcher/internal/parseTtscBuildArgs.ts",
         "src/plugin/internal/load/composePluginSources.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -284,10 +290,15 @@
         "!src/launcher/internal/parseTtscBuildArgs.ts",
         "!src/plugin/internal/load/composePluginSources.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md"],
+        "files": [
+          "contracts/common.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -311,7 +322,10 @@
         "src/launcher/internal/watch/planCompilerDirectoryWatchEvent.ts",
         "src/launcher/internal/watch/reloadInputsForFailedTopologyRefresh.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -336,10 +350,16 @@
         "src/launcher/internal/watch/projectInputReplacementStrandsWatchers.ts",
         "src/launcher/internal/watch/projectInputWatchDirectories.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -358,7 +378,10 @@
         "src/compiler/internal/runSingleFileEmit.ts",
         "src/compiler/internal/runNativeCheckWithObservations.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -378,7 +401,10 @@
         "src/launcher/internal/runtime/installRuntimeHooks.ts",
         "src/launcher/internal/runtime/CommonJsRuntimeSource.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -397,10 +423,16 @@
       "files": [
         "src/launcher/internal/runtime/PluginDescriptorInputObservation.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -416,10 +448,16 @@
         "src/launcher/internal/runtime/RuntimeEntryPreparer.ts",
         "src/launcher/internal/runtime/isLocalProcessGone.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -433,10 +471,16 @@
         "src/launcher/internal/runtime/dependencyCacheKey.ts",
         "src/launcher/internal/runtime/runtimeRunKey.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -466,7 +510,10 @@
         "src/launcher/internal/runtime/resolveRuntimeCleanTargets.ts",
         "src/launcher/internal/runtime/withRuntimeDirectoryLock.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -490,7 +537,10 @@
         "src/register.ts",
         "src/launcher/internal/parseTtsxCLI.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -515,10 +565,16 @@
         "src/launcher/internal/runtimeCompilerArgs.ts",
         "src/launcher/internal/runtimeEmitProfile.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -531,10 +587,16 @@
         "src/launcher/internal/parseCommonJsExports.ts",
         "src/launcher/internal/PendingResidentCheckWatchChanges.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -543,11 +605,18 @@
     {
       "name": "build diagnostic representation",
       "type": "typescript",
-      "files": ["src/compiler/internal/build/createProcessDiagnostic.ts"],
-      "symbol": ["type", "function"],
+      "files": [
+        "src/compiler/internal/build/createProcessDiagnostic.ts"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md"],
+        "files": [
+          "contracts/common.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -562,10 +631,16 @@
         "src/compiler/internal/build/ResidentCheckWatchChange.ts",
         "src/compiler/internal/build/RunBuildOptions.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -581,10 +656,16 @@
         "src/compiler/internal/build/PassthroughFlags.ts",
         "src/compiler/internal/build/takeResidentCheckEntryRequest.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -607,7 +688,10 @@
         "src/compiler/internal/build/TsgoArguments.ts",
         "src/compiler/internal/build/runExternalEmitProvenance.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -623,8 +707,13 @@
     {
       "name": "native JavaScript resolution observation owner",
       "type": "javascript",
-      "files": ["driver/resolutioninputs/**/*.cjs"],
-      "symbol": ["type", "function"],
+      "files": [
+        "driver/resolutioninputs/**/*.cjs"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -656,10 +745,16 @@
         "src/structures/internal/TtscBuildOptions.ts",
         "src/structures/internal/TtscSingleFileEmitOptions.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -686,7 +781,10 @@
         "src/plugin/internal/load/realpathHostInputPaths.ts",
         "src/plugin/internal/load/realpathHostInput.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -710,10 +808,16 @@
         "src/plugin/internal/load/observeImportSearchRoots.ts",
         "src/plugin/internal/load/visitImportMappedCandidates.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -728,10 +832,16 @@
         "src/flags/flagsForSubcommand.ts",
         "src/flags/buildGoAllowList.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -745,10 +855,16 @@
         "src/compiler/internal/ensureExecutable.ts",
         "src/compiler/internal/isOutsideRelativePath.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -765,7 +881,10 @@
         "src/compiler/internal/resolveBinary.ts",
         "src/compiler/internal/resolveTsgo.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -781,8 +900,13 @@
     {
       "name": "sidecar invocation ownership and host selection",
       "type": "typescript",
-      "files": ["src/compiler/internal/sharedHost/**/*.ts"],
-      "symbol": ["type", "function"],
+      "files": [
+        "src/compiler/internal/sharedHost/**/*.ts"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -888,10 +1012,15 @@
         "!shim/vfs/shim.go",
         "!utility/flags_gen.go"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md"],
+        "files": [
+          "contracts/common.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -948,7 +1077,10 @@
         "src/plugin/internal/source/PluginBuildLockProtocol.ts",
         "src/plugin/internal/source/PluginBuildLockOwner.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -973,10 +1105,16 @@
         "src/plugin/internal/source/PluginBuildLockLease.ts",
         "src/plugin/internal/source/PluginBuildLockObservation.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -990,10 +1128,16 @@
         "src/plugin/internal/source/prunesPluginSourceDirectory.ts",
         "src/plugin/internal/source/formatDuration.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1002,11 +1146,19 @@
     {
       "name": "legacy native cache migration targets",
       "type": "typescript",
-      "files": ["src/plugin/internal/source/legacyGlobalCacheTargets.ts"],
-      "symbol": ["type", "function"],
+      "files": [
+        "src/plugin/internal/source/legacyGlobalCacheTargets.ts"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1025,7 +1177,10 @@
         "src/launcher/internal/ttscserver/materializeLSPPluginManifest.ts",
         "src/launcher/internal/ttscserver/runTtscserver.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -1045,10 +1200,16 @@
         "src/launcher/internal/resolveCacheDir.ts",
         "src/launcher/internal/ttscserver/ILSPPluginSelectionInputs.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1070,7 +1231,10 @@
         "src/internal/spawnSyncResilient.ts",
         "src/internal/spawnSyncWithLowDescriptors.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -1098,10 +1262,16 @@
         "src/internal/parseWindowsDirectoryCaseSensitivity.ts",
         "src/internal/resolveNodeBinary.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1114,10 +1284,16 @@
         "src/internal/runHoldingLock.ts",
         "src/internal/serializeCompilerError.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1132,7 +1308,10 @@
         "src/compiler/internal/startResidentTransform.ts",
         "src/compiler/internal/transformProjectInWorker.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -1155,10 +1334,16 @@
         "src/compiler/internal/StartedResidentTransform.ts",
         "src/compiler/internal/TransformProjectWorkerRequest.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1174,7 +1359,10 @@
         "src/compiler/internal/project/compilerUsesCaseSensitiveFileNames.ts",
         "src/compiler/internal/project/resolveOwningProjectConfig.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -1194,10 +1382,16 @@
         "src/compiler/internal/project/resolveProjectConfig.ts",
         "src/compiler/internal/project/tsconfigExtendsFileCandidates.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1219,7 +1413,10 @@
         "internal/lspserver/lsp_completion_scope.go",
         "internal/lspserver/lsp_refresh.go"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -1242,10 +1439,16 @@
         "internal/lspserver/lsp_project_input_glob_path_windows.go",
         "internal/lspserver/lsp_project_input_glob_path_other.go"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1254,11 +1457,19 @@
     {
       "name": "LSP message framing algorithm",
       "type": "go",
-      "files": ["internal/lspserver/lsp_frame.go"],
-      "symbol": ["type", "function"],
+      "files": [
+        "internal/lspserver/lsp_frame.go"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1280,10 +1491,16 @@
         "internal/graph/diagnostics.go",
         "internal/graph/line_model.go"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1299,7 +1516,10 @@
         "internal/graph/artifacts.go",
         "internal/graph/gitignore.go"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -1315,11 +1535,19 @@
     {
       "name": "graph source path boundary",
       "type": "go",
-      "files": ["internal/graph/source.go"],
-      "symbol": ["type", "function"],
+      "files": [
+        "internal/graph/source.go"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1328,11 +1556,19 @@
     {
       "name": "compiler configuration literal grammar",
       "type": "typescript",
-      "files": ["src/compiler/internal/project/parseJsonc.ts"],
-      "symbol": ["type", "function"],
+      "files": [
+        "src/compiler/internal/project/parseJsonc.ts"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1345,10 +1581,16 @@
         "src/compiler/internal/project/readJsoncFile.ts",
         "src/compiler/internal/project/readJsonFile.ts"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1362,7 +1604,10 @@
         "shim/compiler/emit_sourcemap.go",
         "shim/compiler/resolution.go"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -1378,11 +1623,19 @@
     {
       "name": "compiler native output representations",
       "type": "go",
-      "files": ["shim/compiler/emitassemble.go"],
-      "symbol": ["type", "function"],
+      "files": [
+        "shim/compiler/emitassemble.go"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1391,11 +1644,19 @@
     {
       "name": "printer source map bridge",
       "type": "go",
-      "files": ["shim/printer/sourcemap.go"],
-      "symbol": ["type", "function"],
+      "files": [
+        "shim/printer/sourcemap.go"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1411,10 +1672,16 @@
         "driver/windowsjunction/windowsjunction.go",
         "driver/plugins.go"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1430,7 +1697,10 @@
         "utility/host.go",
         "utility/serve.go"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -1446,11 +1716,19 @@
     {
       "name": "driver source mappings and dependency algorithms",
       "type": "go",
-      "files": ["driver/sourcemap_preamble.go"],
-      "symbol": ["type", "function"],
+      "files": [
+        "driver/sourcemap_preamble.go"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1473,7 +1751,10 @@
         "driver/emit_containment.go",
         "driver/diagnostics_preamble.go"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -1489,11 +1770,20 @@
     {
       "name": "native working-directory boundary",
       "type": "go",
-      "files": ["internal/cwd/**/*.go", "!**/*_test.go"],
-      "symbol": ["type", "function"],
+      "files": [
+        "internal/cwd/**/*.go",
+        "!**/*_test.go"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
-        "files": ["contracts/common.md", "contracts/portability.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md"
+        ],
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
@@ -1508,7 +1798,10 @@
         "!**/*_test.go",
         "!internal/watchhelper/run_other.go"
       ],
-      "symbol": ["type", "function"],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -1524,8 +1817,13 @@
     {
       "name": "non-Linux watching helper build alternative",
       "type": "go",
-      "files": ["internal/watchhelper/run_other.go"],
-      "symbol": ["type", "function"],
+      "files": [
+        "internal/watchhelper/run_other.go"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
       "reference": {
         "type": "markdown",
         "files": [
@@ -1536,6 +1834,118 @@
         "symbol": "h2",
         "checklist": true,
         "root": "../../.agents/skills"
+      }
+    },
+    {
+      "name": "Go transformer fixture operation units",
+      "type": "go",
+      "files": [
+        "test/go-transformer/transformer/*_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Go AST shim text units",
+      "type": "go",
+      "files": [
+        "shim/ast/test/*_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Go shim generator source units",
+      "type": "go",
+      "files": [
+        "tools/gen_shims/*_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Go VFS source decoding units",
+      "type": "go",
+      "files": [
+        "shim/vfs/decode_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Go graph projection and protocol units",
+      "type": "go",
+      "files": [
+        "internal/graph/*_test.go",
+        "internal/graphsymbols/*_test.go",
+        "cmd/ttscgraph/*_test.go",
+        "cmd/graphdump/*_test.go",
+        "cmd/graphbench/*_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Go compiler and runtime semantic units",
+      "type": "go",
+      "files": [
+        "test/driver-unit/runtime_decorator_target_profiles_test.go",
+        "test/driver-unit/runtime_jsx_profiles_test.go",
+        "test/driver-unit/source_sdk_program_checker_test.go",
+        "test/driver-unit/source_sdk_citation_import_usage_test.go",
+        "test/driver-unit/source_sdk_interface_properties_test.go",
+        "test/driver-unit/source_sdk_factory_printer_test.go",
+        "test/driver-unit/parse_tsconfig_preserves_native_diagnostics_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
       }
     }
   ]

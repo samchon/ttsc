@@ -16,8 +16,6 @@ const path = require("node:path");
  * - `scripts/ci/*.test.cjs` and `packages/<name>/scripts/*.test.cjs`: the CI
  *   tooling's own tests and package build scripts' tests, run by the
  *   `typecheck` lane.
- * - `tests/test-scripts/src/features/ci/*.test.cjs`: in-process tooling cases enrolled in
- *   the test contracts, also run by the `typecheck` lane.
  *
  * - `tests/test-e2e/src/features/scripts/ci/*.test.cjs`: actual tooling process boundaries,
  *   run only by the E2E typecheck population.
@@ -29,8 +27,6 @@ const NODE_TEST_OWNERS = [
   { lane: "go", pattern: /^tests\/test-e2e\/src\/features\/scripts\/go\/[^/]+\.test\.cjs$/ },
   { lane: "package-defenses", pattern: /^tests\/test-e2e\/src\/features\/scripts\/package\/[^/]+\.test\.cjs$/ },
   { lane: "typecheck", pattern: /^tests\/test-e2e\/src\/features\/scripts\/ci\/[^/]+\.test\.cjs$/ },
-  { lane: "go", pattern: /^tests\/test-scripts\/src\/features\/go\/[^/]+\.test\.cjs$/ },
-  { lane: "typecheck", pattern: /^tests\/test-scripts\/src\/features\/ci\/[^/]+\.test\.cjs$/ },
   { lane: "go", pattern: /^scripts\/[^/]+\.test\.cjs$/ },
   { lane: "package-defenses", pattern: /^scripts\/ci\/package\/[^/]+\.test\.cjs$/ },
   { lane: "typecheck", pattern: /^scripts\/ci\/[^/]+\.test\.cjs$/ },
@@ -94,7 +90,6 @@ function discoverNodeTests(root, lane) {
     }
   };
   walk("scripts");
-  walk("tests/test-scripts/src/features");
   walk("tests/test-e2e/src/features/scripts");
   for (const entry of fs.readdirSync(path.join(root, "packages"), {
     withFileTypes: true,
@@ -108,8 +103,7 @@ function discoverNodeTests(root, lane) {
   if (unowned.length !== 0) {
     throw new Error(
       `no CI lane runs ${unowned.join(", ")}: move it under scripts/ (Go ` +
-      `lanes), scripts/ci/package/ (package defenses), tests/test-scripts/src/features/ci/ ` +
-        `(units), or scripts/ci/ ` +
+      `lanes), scripts/ci/package/ (package defenses), or scripts/ci/ ` +
         `(typecheck), as scripts/ci/node-tests.cjs describes`,
     );
   }

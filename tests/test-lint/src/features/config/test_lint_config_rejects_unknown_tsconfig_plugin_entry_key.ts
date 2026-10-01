@@ -5,6 +5,15 @@ import { TestLintPlugin } from "../internal/TestLintPlugin";
 /**
  * Verifies stale inline lint options are rejected before config discovery.
  *
+ * The descriptor factory owns the first rejection of stale inline options on the
+ * tsconfig plugin entry, before any configuration file is discovered, so a legacy
+ * rules, format, extends, config or plugins key cannot be silently ignored.
+ *
+ * 1. Call the factory with each stale key in a plugin entry and require an
+ *    unsupported-key error naming that key.
+ * 2. Call it with a host switch and an explicit configFile that does not exist and
+ *    require that it does not throw.
+ *
  * @evidence contracts/testing.md#behavioral-verification The authored factory is called with the original inline rules value and must throw an unsupported-key error naming rules; additional obsolete config keys are rejected and framework keys remain accepted.
  * @evidence contracts/testing.md#independent-expectations The lint plugin-entry contract permits host transform/enabled and configFile only; literal obsolete option names and the migration diagnostic come from that contract.
  * @evidence contracts/testing.md#distinguishing-cases The original rules object remains the negative case, supplemented by format, extends, config and plugins. A supported disabled entry with explicit missing configFile is the adjacent accepted control.

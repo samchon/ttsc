@@ -3,11 +3,19 @@ import assert from "node:assert/strict";
 import { ResidentCheckWatchSession } from "../../../../../packages/ttsc/src/compiler/internal/build/ResidentCheckWatchSession";
 
 /**
- * Verify terminal closure and reusable disposal before compiler admission.
+ * Verifies terminal closure and reusable disposal of a resident watch session
+ * before compiler admission.
  *
  * Every run is interrupted before its first await resumes, so these cases own
  * session admission without constructing a project or spawning a native host.
  * Actual EOF, IPC, failed transport and OS close belong to watch E2E tests.
+ *
+ * 1. Close and dispose a fresh session repeatedly and require one shared close
+ *    result and a closed rejection for later runs.
+ * 2. Dispose a session while a run is admitted, twice, and require each admitted
+ *    run to retire while the session stays reusable until closed.
+ * 3. Close a session while a run is admitted and require that run to reject as
+ *    closed and the close to join.
  *
  * @evidence contracts/testing.md#behavioral-verification Terminal close rejects later run calls, repeated close shares one promise, and reusable disposal cancels admitted cycles across two fresh generations.
  * @evidence contracts/testing.md#independent-expectations Closed sessions cannot acquire a compiler; disposal releases one invocation while allowing another to be admitted. Literal error categories and promise identity distinguish those public lifecycle contracts.

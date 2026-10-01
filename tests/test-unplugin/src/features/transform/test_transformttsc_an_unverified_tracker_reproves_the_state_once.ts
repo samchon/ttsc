@@ -14,7 +14,8 @@ import { createCachedDeliveryUnitFixture } from "../../internal/transform-projec
 import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
 
 /**
- * Verify notification gaps require one full proof before silence becomes authority again.
+ * Verifies notification gaps require one full proof before silence becomes
+ * authority again.
  *
  * Actual tracker constructors own a cache-local silent observer view. Their
  * unverified flags are input state, not a claim that an OS stream dropped an

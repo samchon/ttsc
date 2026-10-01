@@ -1,4 +1,5 @@
 import { TestProject } from "@ttsc/testing";
+import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -32,7 +33,7 @@ import { SHARED_GO_BUILD_CACHE_DIR } from "../../../../internal/ttsc/internal/pl
  * @evidence contracts/e2e.md#preserved-coverage Every original build-message, contributor-count, JS/d.ts banner/import/strip assertion, hello:ok runtime assertion and both map-version assertions stays in this single build.
  */
 export function test_ttsc_utility_plugins_lint_banner_paths_and_strip_run_together_in_ttsc_build(): void {
-  const root = TestProject.copyProject("ttsc-utility-plugins");
+  const root = ProjectFixtures.copy("ttsc-utility-plugins");
   TestUtilityPlugins.seedPackages(root);
   const result = TestProject.spawn(
     TestProject.TTSC_BIN,

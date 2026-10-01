@@ -1,4 +1,5 @@
 import { TestProject } from "@ttsc/testing";
+import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -35,7 +36,7 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plug
  * @evidence contracts/e2e.md#preserved-coverage The original assert.rejects remains, with the same incompatible source and actual compiled host; no success value is accepted to shorten this failure boundary.
  */
 export async function test_ttscservice_rejects_when_the_project_does_not_compile(): Promise<void> {
-  const root = TestProject.copyProject("ttsc-utility-plugins");
+  const root = ProjectFixtures.copy("ttsc-utility-plugins");
   TestUtilityPlugins.seedPackages(root);
   fs.writeFileSync(
     path.join(root, "src", "main.ts"),

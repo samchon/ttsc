@@ -8,9 +8,19 @@ import { inspectDependencyBuildLock } from "../../../../../packages/ttsc/src/lau
 import { releaseDependencyBuildLock } from "../../../../../packages/ttsc/src/launcher/internal/runtime/releaseDependencyBuildLock";
 
 /**
+ * Verifies a contender's expired deadline never retires a live dependency-build
+ * owner.
+ *
  * A contender's deadline cannot authorize retiring a demonstrably live owner.
  * The actual source operations acquire a lease for this still-running process,
  * then expire both passive observation and full builder admission against it.
+ *
+ * 1. Acquire a real lease for this live process and inspect it as active.
+ * 2. Expire passive waiting and full builder admission with one-millisecond and
+ *    zero budgets and require timeout errors, an unreached builder and an
+ *    unchanged lock state.
+ * 3. Require negative, NaN and infinite budgets to throw RangeError, then release
+ *    the lease and require the next wait to report it released.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual DependencyBuildAdmission.wait and run throw for a live held generation; inspection afterward retains its exact generation and no build callback executes. Normal release then produces the distinct released observation.
  * @evidence contracts/testing.md#independent-expectations Ownership is supplied by a successfully acquired lease of this live test process, independently of the contender's elapsed budget. A deadline restricts waiting rather than proving death; the acquired generation must remain unchanged until its owner releases it.

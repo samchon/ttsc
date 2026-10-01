@@ -10,6 +10,16 @@ import { prepareTtscBuildMode } from "../../../../../packages/ttsc/src/launcher/
  * as the CLI. Conflicting inputs pin validation order, while valid commands
  * distinguish a real refusal from an implementation that rejects everything.
  *
+ * 1. For fix and format modes, parse conflicting emit, watch and single-file
+ *    arguments and require the exact rejection of each, in the validation order
+ *    its input pins.
+ * 2. Accept an explicitly disabled emit and require the mode flags it sets, then
+ *    resolve emit for build, check and watch commands.
+ * 3. Resolve emit from the emit and noEmit boolean spellings and require the
+ *    literal result of each.
+ * 4. Parse single-file extensions, forwarded flags and the quiet and verbose
+ *    switches.
+ *
  * @evidence contracts/testing.md#behavioral-verification Executes production argument parsing and prepareTtscBuildMode for all six original fix/format refusal inputs, then checks valid modes, watch handling and conflicting option precedence.
  * @evidence contracts/testing.md#independent-expectations Literal complete messages, booleans and ordered argument arrays define the oracle; no CLI subprocess or duplicate mode validator generates expectations.
  * @evidence contracts/testing.md#distinguishing-cases Owns emit/watch/single-file rejection for both mutation commands, error precedence when combined, accepted false emit, ordinary build/check and watch check emit ownership, all source extensions and unknown flag/value adjacency.

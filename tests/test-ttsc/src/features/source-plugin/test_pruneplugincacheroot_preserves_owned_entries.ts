@@ -9,7 +9,20 @@ import {
   releasePluginBuildLock,
 } from "../../internal/source-build-unit";
 
-/** Active generations and the just-returned binary survive an LRU pass. *
+/**
+ * Verifies a forced pruning pass preserves active generations and the
+ * just-returned binary.
+ *
+ * A pass told to evict everything must still protect an entry whose build lock
+ * shows an owner that cannot yet be disproven and the entry the caller is about to
+ * use, so only the unowned old entry may be removed.
+ *
+ * 1. Seed four old cache entries: one under a young metadata-less legacy lock, one
+ *    under a live version-two lease, the returned binary and an unowned one.
+ * 2. Prune with a one-byte budget, a zero target and the returned entry protected.
+ * 3. Require the locked and returned entries to remain and the unowned one to be
+ *    removed.
+ *
  * @evidence contracts/testing.md#behavioral-verification Forces a zero-target collector pass over legacy, active generation, protected returned and unowned old entries.
  * @evidence contracts/testing.md#independent-expectations Authored directory contents and independently acquired ownership determine three survivors and one eviction.
  * @evidence contracts/testing.md#distinguishing-cases Contrasts young metadata-less ownership, a real same-process lease, explicit return protection and an unprotected evictable entry.

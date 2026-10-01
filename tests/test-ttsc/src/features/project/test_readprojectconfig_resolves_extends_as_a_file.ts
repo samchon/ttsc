@@ -3,8 +3,18 @@ import { TestProject } from "../../../../utils/src/TestProject";
 import { assert, fs, path, readProjectConfig } from "../../internal/project-unit";
 
 /**
+ * Verifies a relative extends target resolves as a file or its json sibling and
+ * never as a directory.
+ *
  * TypeScript resolves a relative `extends` target as that file or its `.json`
  * sibling, never as a directory's `tsconfig.json`.
+ *
+ * 1. Create a config directory holding a tsconfig and a sibling json file of the
+ *    same name, and extend the bare name.
+ * 2. Require the json file to win, then remove it and require the
+ *    extended-config-not-found error.
+ * 3. Add a file with a doubled json suffix and require an explicit json target not
+ *    to probe it.
  *
  * @evidence contracts/testing.md#behavioral-verification Distinguishes a sibling config.json from directory config/tsconfig.json, then rejects directory-only and double-suffix fallback paths.
  * @evidence contracts/testing.md#independent-expectations The fixture deliberately gives file and directory presets different output values; relative extends permits the file or implicit .json sibling, not directory expansion or .json.json.

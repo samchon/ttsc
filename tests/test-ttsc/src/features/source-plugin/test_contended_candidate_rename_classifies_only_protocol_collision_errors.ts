@@ -2,8 +2,19 @@ import assert from "node:assert/strict";
 import { isContendedCandidateRename } from "../../../../../packages/ttsc/src/internal/isContendedCandidateRename";
 
 /**
+ * Verifies only the native collision error codes of a lock publication rename are
+ * classified as contention.
+ *
  * Writable-parent lock publication interprets these native collision errors
  * without re-reading a destination that a concurrent holder may already remove.
+ *
+ * 1. Classify rename errors and bare objects carrying EEXIST, ENOTEMPTY, EACCES
+ *    and EPERM and require contention.
+ * 2. Classify EIO, ENOENT, ENOSPC, EBUSY and an empty code and require no
+ *    contention.
+ * 3. Classify an empty object and a plain error without a code and require no
+ *    contention.
+ *
  * @evidence contracts/testing.md#behavioral-verification The authored shared lock classifier returns true for EEXIST, ENOTEMPTY, EACCES and EPERM and false for unrelated or absent errno values.
  * @evidence contracts/testing.md#independent-expectations A literal corpus enumerates the protocol's four allowed collision codes and neighboring I/O, missing-source and resource failures; expected booleans do not come from product computation or a snapshot.
  * @evidence contracts/testing.md#distinguishing-cases Every accepted code is exercised as an Error with rename metadata and as a plain errno record; EIO, ENOENT, ENOSPC, EBUSY, an empty code, an absent code and a plain Error must remain false.

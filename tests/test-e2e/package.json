@@ -4,7 +4,8 @@
   "version": "0.30.4",
   "type": "module",
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/index.ts"
+    "start": "node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/index.ts",
+    "evidence": "evidence"
   },
   "devDependencies": {
     "@nestia/e2e": "catalog:utils",

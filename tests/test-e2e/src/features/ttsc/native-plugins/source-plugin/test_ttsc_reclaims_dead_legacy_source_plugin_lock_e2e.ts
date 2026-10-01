@@ -1,4 +1,5 @@
 import { TestProject } from "@ttsc/testing";
+import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import child_process from "node:child_process";
 import os from "node:os";
 
@@ -33,7 +34,7 @@ import {
  * @evidence contracts/e2e.md#preserved-coverage Exited-child success, zero CLI status and both named reclamation/build diagnostics remain unchanged. This entry does not independently inspect the rebuilt artifact contents, and the seed-build expense is not hidden by its contract.
  */
 export const test_ttsc_reclaims_dead_legacy_source_plugin_lock_e2e = () => {
-  const root = TestProject.copyProject("go-source-plugin");
+  const root = ProjectFixtures.copy("go-source-plugin");
   const plugin = path.join(root, "go-plugin");
   const cacheDir = path.join(root, "cache");
   const savedPath = process.env.PATH;

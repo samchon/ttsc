@@ -8,6 +8,8 @@ import {
 } from "../internal/fakeWorker";
 
 /**
+ * Verifies a disabled plugin lane is never invoked or surfaced as a failure.
+ *
  * Explicit plugin disabling (`typiaPlugin: false`, `lintPlugin: false`) must be
  * preserved: the failure-surfacing logic only runs for a _configured_ plugin. A
  * disabled plugin is never invoked, so a would-be failing envelope can never
@@ -21,6 +23,7 @@ import {
  *    directly to a success.
  * 2. `lintPlugin: false` → lint returns an empty result without calling the
  *    plugin, even though the wired handler would resolve a nonzero envelope.
+ *
  * @evidence contracts/testing.md#behavioral-verification createWorkerCompilerService.compile/lint honor disabled typia/lint options: direct compilation returns literalx=1;, lint is empty and a wired failing plugin is never called.
  * @evidence contracts/testing.md#independent-expectations Independent makeFakeWorker call logs require plugin0/build1 and authored emitted JSx=1; distinguishes successful direct compilation from invented empty success.
  * @evidence contracts/testing.md#distinguishing-cases Two disabled lanes contrast with a populated plugin handler that would fail if invoked; configured-plugin failures remain owned by neighboring failure cases.

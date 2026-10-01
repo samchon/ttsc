@@ -12,6 +12,13 @@ import { resolvePluginGoModule } from "../../../../../packages/ttsc/src/plugin/i
  * production resolver must retain the package entry and use the nearest
  * manifest within three parents, rejecting the fourth rather than guessing.
  *
+ * 1. Resolve a go.mod file and its directory and require the module root as
+ *    package.
+ * 2. Resolve a directory three parents below the manifest and require its relative
+ *    entry, then one four parents below and require the exact rejection.
+ * 3. Add a nearer go.mod and require the nearest manifest to win, then resolve a
+ *    plain source file and require the exact rejection.
+ *
  * @evidence contracts/testing.md#behavioral-verification Calls the authored resolvePluginGoModule against real manifests and directories; verifies exact moduleRoot, packageDir and Go entry, and the complete rejected-depth diagnostic.
  * @evidence contracts/testing.md#independent-expectations Literal entries dot, ./a/b/c and ./b/c/d and the independently assembled diagnostic define the expected identities; no production resolver constructs the oracle.
  * @evidence contracts/testing.md#distinguishing-cases Owns a direct manifest, module directory, exactly three parents, rejected fourth parent, nearer nested manifest and a non-manifest source file.

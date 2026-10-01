@@ -4,6 +4,18 @@ import { pluginSourceState } from "../../../../../packages/ttsc/src/plugin/inter
 /**
  * Verifies source state composition preserves both supplied build readings.
  *
+ * The plugin source state is a digest of the source reading and the
+ * build-environment reading in a fixed serialization that consumers recompute.
+ * Each supplied reading must move the state independently, and an empty reading is
+ * a value rather than an absent one.
+ *
+ * 1. Compose states from source and environment readings, changing each
+ *    independently and including empty strings.
+ * 2. Pass two spellings of a nonexistent directory so no filesystem reading can
+ *    contribute.
+ * 3. Compare every state with the SHA-256 reference value of the stated
+ *    serialization.
+ *
  * @evidence contracts/testing.md#behavioral-verification The actual source composer hashes the declared source/environment serialization from supplied readings without reading a nonexistent source directory or launching Go; changing either reading changes the literal expected state.
  * @evidence contracts/testing.md#independent-expectations Literal SHA-256 reference values of the explicitly stated source=<reading> newline environment=<reading> newline serialization establish the expectations independently of the product composer.
  * @evidence contracts/testing.md#distinguishing-cases Source-only and environment-only changes, unchanged readings across directory spellings, and supplied empty readings distinguish both input authorities and nullish rather than truthy fallback. Actual native environment freshness remains in the source-state E2E owner.

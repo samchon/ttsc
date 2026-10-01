@@ -10,6 +10,15 @@ import type { ITtscPlugin } from "../../../../../packages/ttsc/src/structures/IT
  * capability inheritance determine the later native host identity, so direct
  * descriptor assertions distinguish incorrect decisions before compiling.
  *
+ * 1. Compose a three-plugin chain and require redirection to be one hop over
+ *    unchanged input records.
+ * 2. Compose an aggregate carrying contributors and capabilities and require the
+ *    target to inherit them, falling back to its own capabilities when the
+ *    aggregate has none.
+ * 3. Require cycles, a plugin composed by several aggregates, a composed plugin
+ *    with its own contributors and malformed aliases to be rejected with their
+ *    literal messages.
+ *
  * @evidence contracts/testing.md#behavioral-verification Calls production composePluginSources with the original A-to-B-to-C, aggregate/target and reciprocal-cycle shapes; checks exact source/contributor/capability records, nonmutation and original complete rejection messages.
  * @evidence contracts/testing.md#independent-expectations Literal A/B/C source identities and exact diagnostics establish expected results; the target suffix and source-missing counterexample remain in one real contributor-redirect E2E.
  * @evidence contracts/testing.md#distinguishing-cases Owns nontransitive redirects, name and transform-specifier aliases, inherited contributors/capabilities, absent-capability fallback, independent records, reciprocal cycles, conflicting aggregates, invalid targets and forbidden target contributors.

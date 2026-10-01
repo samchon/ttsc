@@ -12,6 +12,11 @@ import { transformTtsc } from "../../../../../packages/unplugin/src/core/transfo
  * The consumer declares a descriptor that records evaluation and throws. A
  * disabled transform must leave that descriptor and the source untouched.
  *
+ * 1. Write a consumer whose plugin descriptor records its evaluation and then
+ *    throws.
+ * 2. Transform a source with plugins explicitly disabled.
+ * 3. Require no result, an unevaluated descriptor and an unchanged source file.
+ *
  * @evidence contracts/testing.md#behavioral-verification A real consumer with a fail-fast descriptor returns undefined under plugins:false, leaves its evaluation marker absent, and preserves source bytes.
  * @evidence contracts/testing.md#independent-expectations The descriptor writes a literal marker before throwing; marker absence and the original source string establish expectations without consulting transform output or selection helpers.
  * @evidence contracts/testing.md#distinguishing-cases Explicit false overrides a tsconfig plugin declaration before descriptor evaluation; this early return does not claim a native compile or adapter build connection.

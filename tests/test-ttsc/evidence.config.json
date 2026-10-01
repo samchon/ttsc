@@ -1,0 +1,41 @@
+{
+  "severity": "error",
+  "claims": [
+    {
+      "name": "TypeScript function units",
+      "type": "typescript",
+      "root": "../..",
+      "files": [
+        "tests/test-ttsc/src/features/**/test_*.ts"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Node function units over captured Go compiler output",
+      "type": "javascript",
+      "root": "../..",
+      "files": [
+        "tests/test-ttsc/src/features/runtime/*.cjs"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    }
+  ]
+}

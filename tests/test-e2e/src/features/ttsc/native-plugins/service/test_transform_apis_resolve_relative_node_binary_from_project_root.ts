@@ -1,4 +1,5 @@
 import { TestProject } from "@ttsc/testing";
+import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -34,7 +35,7 @@ import { SHARED_GO_BUILD_CACHE_DIR, SHARED_PLUGIN_CACHE_DIR } from "../../../../
  */
 export async function test_transform_apis_resolve_relative_node_binary_from_project_root(): Promise<void> {
   const root = TestProject.physicalPath(
-    TestProject.copyProject("ttsc-utility-plugins"),
+    ProjectFixtures.copy("ttsc-utility-plugins"),
   );
   const caller = TestProject.tmpdir("ttsc-relative-node-caller-");
   TestUtilityPlugins.seedPackages(root, ["banner"]);

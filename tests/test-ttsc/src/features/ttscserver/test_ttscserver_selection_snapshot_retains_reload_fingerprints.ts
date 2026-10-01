@@ -16,23 +16,16 @@ import { materializeLSPPluginManifest } from "../../../../../packages/ttsc/src/l
  * can therefore bless a selection that is already stale. This test pins the
  * launcher-owned baseline that crosses that startup gap.
  *
- * 1. Capture one exact reload file and one reload directory.
- * 2. Prove an ordinary child-content edit leaves immediate topology current.
- * 3. Change the exact file and prove the captured selection becomes stale.
- * 4. Recapture, add one immediate directory entry, and prove topology drift also
- *    makes the selection stale.
- * 5. Where supported, retarget an exact-file symlink and prove its lexical
- *    identity remains part of the selection fingerprint.
- * 6. Retarget a same-topology reload-directory link and prove its physical target
- *    identity invalidates the startup selection.
- * 7. On POSIX, prove directory identity preserves backslashes and, where the
- *    filesystem stores such names, raw non-UTF-8 physical target bytes exactly
- *    as the Go validator does.
- * 8. Where the filesystem preserves them, prove raw non-UTF-8 symlink-target bytes
- *    use the same explicit digest framing as the Go validator.
- * 9. Materialize a manifest larger than a practical Windows environment block,
- *    prove the transport carries it by private file, and dispose it
- *    idempotently.
+ * 1. Capture one exact reload file and one reload directory, prove a child-content
+ *    edit leaves immediate topology current, then prove an exact-file edit and an
+ *    added directory entry each make the selection stale.
+ * 2. Where link creation is permitted, retarget an exact-file symlink and a
+ *    same-topology reload-directory link and prove lexical and physical identity
+ *    invalidate the selection.
+ * 3. On POSIX, where the filesystem stores them, prove backslash names and raw
+ *    non-UTF-8 target bytes are digested with the framing of the Go validator.
+ * 4. Materialize a manifest larger than a Windows environment block, prove it
+ *    travels by private file and dispose it idempotently.
  *
  * @evidence contracts/testing.md#behavioral-verification Snapshot operations distinguish child-content edits from reload-file, immediate-topology and link-identity drift and preserve framed raw identities; manifest transport carries 8192 inputs and disposes its directory twice safely.
  * @evidence contracts/testing.md#independent-expectations Authored file/tree mutations define currency independently, and explicit Go-compatible digest framing plus literal input count establish transport expectations.

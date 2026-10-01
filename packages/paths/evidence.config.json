@@ -44,6 +44,23 @@
         "checklist": true,
         "root": "../../.agents/skills"
       }
+    },
+    {
+      "name": "Go utility plugin semantic units",
+      "type": "go",
+      "files": [
+        "test/unit/**/*_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/testing.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
     }
   ]
 }

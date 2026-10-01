@@ -1,3 +1,4 @@
+import { Scenarios } from "../../internal/Scenarios";
 import { UtilityWorkspace } from "../../internal/UtilityWorkspace";
 import { case_paths_rewrites_bundler_esm_and_allow_js_targets } from "./scenes/case_paths_rewrites_bundler_esm_and_allow_js_targets";
 import { case_paths_rewrites_commonjs_json_alias_to_copied_extension } from "./scenes/case_paths_rewrites_commonjs_json_alias_to_copied_extension";
@@ -29,7 +30,7 @@ import { case_paths_uses_nodenext_extensions_and_json_import_attributes } from "
 export async function test_e2e_paths(): Promise<void> {
   const workspace = UtilityWorkspace.open("paths");
   try {
-    await UtilityWorkspace.collect("paths", [
+    await Scenarios.collect("paths", [
       ["rewrites_bundler_esm_and_allow_js_targets", () => case_paths_rewrites_bundler_esm_and_allow_js_targets(workspace)],
       ["uses_nodenext_extensions_and_json_import_attributes", () => case_paths_uses_nodenext_extensions_and_json_import_attributes(workspace)],
       ["rewrites_commonjs_json_alias_to_copied_extension", () => case_paths_rewrites_commonjs_json_alias_to_copied_extension(workspace)],

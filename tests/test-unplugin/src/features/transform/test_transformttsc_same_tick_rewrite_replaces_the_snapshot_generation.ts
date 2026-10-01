@@ -14,12 +14,20 @@ import { createTickPinnedFilesystem } from "../../internal/transform-project-cac
 import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
 
 /**
- * Verify complete proof reads unchanged stamps rather than trusting an unfinished tick.
+ * Verifies complete proof reads unchanged stamps rather than trusting an
+ * unfinished tick.
  *
  * Four unchanged modules share a literal consumer generation. Same-length
  * source and external rewrites change bytes under the identical pinned native
  * metadata view, forcing actual cache eviction and a capture request. Fresh
  * consumer checkpoints supply inputs, not a simulated compiler response.
+ *
+ * 1. Create four modules with external declarations, pin the native metadata view
+ *    and record a consumer checkpoint, requiring every module to be served.
+ * 2. Rewrite one source with same-length bytes under identical metadata and
+ *    require the cache to evict its generation and request a capture.
+ * 3. Record a new checkpoint, rewrite an external input the same way and require
+ *    another eviction and capture.
  *
  * @evidence contracts/testing.md#behavioral-verification The actual selectCachedGenerationAction and complete snapshot validators serve four unchanged modules, then evict the recorded Promise for a sibling source rewrite and an external graph rewrite under unchanged timestamps.
  * @evidence contracts/testing.md#independent-expectations Literal serve then capture decisions and unequal cache identities follow from changed bytes, independently of metadata equality. The supported cache-local clock view pins all metadata ticks while native bytes are actually rewritten; fresh fixture snapshots are inputs only.

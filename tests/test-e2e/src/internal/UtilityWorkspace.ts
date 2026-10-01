@@ -42,10 +42,10 @@ export namespace UtilityWorkspace {
    * The copy keeps authored bytes through the existing directory copier. The
    * package link is the same junction-or-symlink the former per-case projects
    * created, made once at the workspace root so every scenario directory
-   * resolves the plugin through ordinary upward `node_modules` lookup. A
-   * scenario that must not see a sibling's configuration owns its own
-   * `package.json`, which bounds package discovery, and the workspace root
-   * itself carries neither a manifest nor a plugin configuration.
+   * resolves the plugin through ordinary upward `node_modules` lookup. Scenarios
+   * are sibling directories, so no scenario's manifest or configuration lies on
+   * another scenario's ancestor path, and the workspace root itself carries
+   * neither a manifest nor a plugin configuration.
    *
    * @evidence contracts/common.md#principled-implementation The workspace is the authored fixture copied byte for byte plus one real package link, so scenarios observe the same upward tsconfig, package and node_modules resolution an installed consumer has; no compiler result is synthesized.
    * @evidence contracts/common.md#clear-and-simple-design One function owns copy, link and the per-scenario process environment; scenarios own their assertions and expected strings, and no executor framework is introduced beyond the failure collector.
@@ -195,40 +195,5 @@ export namespace UtilityWorkspace {
       throw new Error("Workspace was not removed: " + workspace.root);
     if (!fs.existsSync(path.join(workspace.packageRoot, "package.json")))
       throw new Error("Workspace cleanup reached the linked package: " + workspace.packageRoot);
-  }
-
-  /**
-   * Run every independent scenario and report each failure under its name.
-   *
-   * A failed scenario does not stop the others, because they own separate
-   * directories of one workspace and none consumes another's output.
-   *
-   * @evidence contracts/common.md#principled-implementation Each scenario runs to its own verdict and its failure is wrapped with the scenario name and original cause, so the aggregate preserves failure identity.
-   * @evidence contracts/common.md#clear-and-simple-design A loop and one aggregate error replace a runner abstraction; ordering follows the declaration.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts No failure is retried, downgraded or filtered, and an empty scenario list is itself rejected.
-   * @evidence contracts/common.md#meaningful-documentation States the independence assumption that allows collecting failures.
-   * @evidence contracts/portability.md#os-neutral-implementation It touches no filesystem or process boundary; scenario names are plain strings, so no platform path or separator semantics apply.
-   * @evidence contracts/performance.md#efficient-algorithms Scenarios run once each, so cost is the sum of their own work.
-   * @evidence contracts/performance.md#reuse-equivalent-work It adds no computation of its own and shares only the opened workspace through the scenario closures.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Retains one error per failed scenario until the aggregate is thrown and owns no handle.
-   */
-  export async function collect(
-    label: string,
-    scenarios: ReadonlyArray<readonly [string, () => unknown]>,
-  ): Promise<void> {
-    if (scenarios.length === 0) throw new Error(`${label} has no scenarios`);
-    const failures: Error[] = [];
-    for (const [name, run] of scenarios) {
-      try {
-        await run();
-      } catch (error) {
-        failures.push(new Error(name, { cause: error }));
-      }
-    }
-    if (failures.length)
-      throw new AggregateError(
-        failures,
-        `${label} scenarios failed: ${failures.map((failure) => failure.message).join(", ")}`,
-      );
   }
 }

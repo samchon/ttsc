@@ -12,6 +12,12 @@ import { loadProjectPlugins } from "../../../../../packages/ttsc/src/plugin/inte
  * ancestor file. The loader must make the same selection and retain the nearer
  * directory candidate, because replacing it with a file changes discovery.
  *
+ * 1. Create a project whose package.json is a directory below a workspace that
+ *    holds a real manifest.
+ * 2. Load the project plugins from its tsconfig.
+ * 3. Require no native plugins, both candidates among the host inputs and content
+ *    hashes only as strings for the real manifest and the directory marker.
+ *
  * @evidence contracts/testing.md#behavioral-verification Discovery reports no plugins and records both the nearer directory candidate and ancestor manifest with fingerprints.
  * @evidence contracts/testing.md#independent-expectations Node treats a directory named package.json as a candidate rather than a package boundary; the authored ancestor is the actual manifest.
  * @evidence contracts/testing.md#distinguishing-cases A directory named package.json nearer to the project than an ancestor manifest file is a candidate, not a boundary: discovery selects the ancestor file yet records both paths with string fingerprints, so replacing the directory with a file later changes discovery.

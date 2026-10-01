@@ -27,9 +27,10 @@ import { projectInputReloadEventShouldNotify } from "../../../../../packages/tts
  *
  * 1. Take a resolution directory holding both a glob root and a declared file.
  * 2. Assert the glob root stays warm and the declared file stays cold.
- * 3. Assert the directory itself and its other entries stay cold when named.
- * 4. Assert the directory's own digest delta alone does not select cold.
- * 5. Assert a data event cancels no other directory's digest evidence.
+ * 3. Assert the directory itself and its other entries stay cold when named, and
+ *    that its own digest delta alone does not select cold.
+ * 4. Assert a data event cancels no other directory's digest evidence.
+ *
  * @evidence contracts/testing.md#behavioral-verification Actual reload-event policy distinguishes warm data territory from cold selection surfaces, including named events versus directory fingerprint deltas.
  * @evidence contracts/testing.md#independent-expectations Explicit path populations, literal true/false lane expectations and independent changedInputs tuples define the expected policy.
  * @evidence contracts/testing.md#distinguishing-cases Glob members versus declared files, directory/nested/ancestor identity, unexplained deltas, data explanation and unrelated-directory evidence retain every original assertion.

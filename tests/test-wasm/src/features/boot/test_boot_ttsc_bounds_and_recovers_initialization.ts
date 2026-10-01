@@ -28,13 +28,14 @@ function signal(): { promise: Promise<void>; resolve: () => void } {
  * boot ends early — which makes it the thing that must release the cache
  * entry.
  *
- * 1. Stall fetch, abort it, and observe the forwarded signal.
- * 2. Assert phase-specific abort ownership and readiness callback cleanup.
- * 3. Retry the same key and resolve normally.
- * 4. Join and cancel a shared same-key fetch, then retry it.
- * 5. Abort during Go readiness and prove queued and later boots are terminal.
- * 6. Fire stale Ready/Failed signals and prove no replacement bridge is exposed.
- * 7. Cancel a different-URL pre-runtime boot and retry after its predecessor.
+ * 1. Stall fetch, abort it, observe the forwarded signal, assert phase-specific
+ *    abort ownership and readiness callback cleanup, then retry the same key and
+ *    resolve normally.
+ * 2. Join and cancel a shared same-key fetch and retry it, and cancel a
+ *    different-URL pre-runtime boot and retry after its predecessor.
+ * 3. Abort during Go readiness and prove queued and later boots are terminal.
+ * 4. Fire stale Ready and Failed signals and prove no replacement bridge is
+ *    exposed.
  *
  * @evidence contracts/testing.md#behavioral-verification bootTtsc releases canceled pre-runtime cache and queue entries, forwards fetch cancellation, and terminally rejects a started runtime rather than exposing a replacement bridge. Exact promise identity, cause, callback absence and run count detect poisoned retries or stale readiness.
  * @evidence contracts/testing.md#independent-expectations The caller cancellation contract permits retry only before go.run; after it starts the Worker must be replaced. Authored cause objects, expected error code, one runtime invocation and absent Ready/Failed slots are independent state oracles, not results copied from bootTtsc.

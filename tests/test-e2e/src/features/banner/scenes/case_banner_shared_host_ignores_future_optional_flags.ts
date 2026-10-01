@@ -22,7 +22,7 @@ import { UtilityWorkspace } from "../../../internal/UtilityWorkspace";
  * @evidence contracts/testing.md#distinguishing-cases The unknown flag is the boundary input; the normal launcher scenarios supply the known-flag contrast.
  * @evidence contracts/testing.md#execution-ownership Called by test_e2e_banner with the shared workspace; it drives the built SDK loader and a real native plugin process.
  * @evidence contracts/e2e.md#necessary-boundary The SDK plugin loader, the resolved native binary and its command protocol meet only in a real process; flag parsing in isolation cannot show the host accepts the actual argument vector.
- * @evidence contracts/e2e.md#shared-execution Reuses the shared workspace, package link and plugin cache so the binary is the cached one; it adds one transform process and no separate build.
+ * @evidence contracts/e2e.md#shared-execution Reuses the shared workspace, package link and plugin cache so the plugin binary is the content-keyed cached one, built by the loader only if no earlier scenario has built it; the scenario adds one transform process.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity PATH and TTSC_CACHE_DIR are set only around the in-process loader call and restored afterwards, including on failure; the native process is joined before assertions.
  * @evidence contracts/e2e.md#preserved-coverage Retains the former exit status, envelope and source-content assertions unchanged.
  */

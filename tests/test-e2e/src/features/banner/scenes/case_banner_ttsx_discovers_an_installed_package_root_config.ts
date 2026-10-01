@@ -24,7 +24,7 @@ import { UtilityWorkspace } from "../../../internal/UtilityWorkspace";
  * @evidence contracts/testing.md#execution-ownership Called by test_e2e_banner with the shared workspace; execution crosses the built ttsx launcher, native plugin and Node runtime.
  * @evidence contracts/e2e.md#necessary-boundary ttsx dependency transpilation, per-package plugin discovery and the runtime manifest meet only in a real runtime process.
  * @evidence contracts/e2e.md#shared-execution Reuses the shared workspace, package link and plugin cache; the installed package is a static fixture copied once and its distinct execution mode requires one ttsx process.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The consumer has its own manifest, so discovery stops there, and the package is copied only into this scenario's node_modules; the synchronous process is joined before assertions.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The consumer carries no banner configuration and none lies on its ancestor path, so a banner found in the dependency cache cannot come from it; the package is copied only into this scenario's node_modules; the synchronous process is joined before assertions.
  * @evidence contracts/e2e.md#preserved-coverage Retains the former exit status and exact stdout assertion; the installed package files are now static fixtures with identical contents.
  */
 export function case_banner_ttsx_discovers_an_installed_package_root_config(

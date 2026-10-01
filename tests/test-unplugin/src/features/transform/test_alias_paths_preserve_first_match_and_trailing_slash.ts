@@ -4,12 +4,22 @@ import { createAliasPaths } from "../../../../../packages/unplugin/src/core/tran
 /**
  * Verifies first-match alias ownership despite TypeScript longest-key selection.
  *
+ * Aliases are consulted in declaration order, so the first match owns a name even
+ * where the compiler would pick the longest key, and a trailing slash on either
+ * side is normalized without inventing an exact key.
+ *
+ * 1. Create paths from duplicate, short-before-long and long-before-short alias
+ *    lists and require the first declaration to own each exact and wildcard key.
+ * 2. Create paths from aliases that differ by a trailing slash and require the
+ *    exact and wildcard keys it implies.
+ * 3. Create paths from an unsupported relative replacement and require its
+ *    sub-alias to stay undefined.
+ *
  * @evidence contracts/testing.md#behavioral-verification Calls createAliasPaths for duplicates, overlapping prefixes and asymmetric trailing-slash declarations.
  * @evidence contracts/testing.md#independent-expectations The first and second absolute replacement directories are authored; literal mappings express the independent Vite first-match contract.
  * @evidence contracts/testing.md#distinguishing-cases Duplicate, short-first/long-first, find-only/both trailing slash, and unsupported first-match declarations distinguish precedence and over-admission.
  * @evidence contracts/testing.md#execution-ownership This exported src/features entry executes the owning source operations in this test process, without installing a consumer, building a native producer or fabricating process protocol replies.
  */
-
 export function test_alias_paths_preserve_first_match_and_trailing_slash(): void {
   const first = path.resolve("/alias-first").replace(/\\/g, "/");
   const second = path.resolve("/alias-second").replace(/\\/g, "/");

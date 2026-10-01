@@ -52,7 +52,7 @@ Use [Evidence adoption](evidence.md#selection-and-execution) to write and valida
 
 Store authored E2E source, configuration and expected file inputs as static fixture files. Read or copy them through the existing helpers instead of embedding projects as long source strings or file maps. Preserve relevant bytes, binary inputs, supported symbolic links, newline conventions and path identity. A mutation scenario may edit its copied input at runtime; the initial authored project remains a static fixture.
 
-Use existing project-copy helpers for directory-shaped regressions. Existing `tests/projects` fixtures keep their owners; new E2E scenario inputs use the location above. Go fixture ownership follows the Go package. Use [Evidence provenance selection](evidence.md#selection-and-execution) to distinguish copied product inputs from authored test declarations.
+Use existing project-copy helpers for directory-shaped regressions. Authored E2E projects are copied from the fixtures directory of their package experiment. Go fixture ownership follows the Go package. Use [Evidence provenance selection](evidence.md#selection-and-execution) to distinguish copied product inputs from authored test declarations.
 
 Apply [validation input ownership](validation.md#inputs-and-results) to source, generated output, caches and fixtures used by a shared run. Apply [consequence analysis](implementation.md#consequence-analysis) to new files and writes observed by directory walks, watchers, cache keys or timestamps.
 

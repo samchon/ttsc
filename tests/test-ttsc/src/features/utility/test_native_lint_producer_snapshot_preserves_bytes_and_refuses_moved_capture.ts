@@ -7,6 +7,23 @@ import { captureNativeLintProducer, selectNativeLintSourceFiles, linkNativeLintP
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
+ * Verifies the native lint producer capture preserves exact bytes and refuses a
+ * moved or foreign source.
+ *
+ * The capture helper snapshots the authored lint package, so it must copy exactly
+ * the authored files, sign a sorted manifest, exclude only the unit-test
+ * declarations proven unused by package selection, and refuse a source that
+ * changes during the copy.
+ *
+ * 1. Capture an authored package and require exact file bytes, a signed sorted
+ *    manifest, the installation link and the excluded cache boundary.
+ * 2. Select source files from package metadata and require unit-test declarations
+ *    excluded while embedded ones are kept, and incomplete, empty, escaping and
+ *    forged selections refused.
+ * 3. Corrupt the copy, edit the source during capture, add an unaccounted source
+ *    link, change the package identity and reuse a destination, requiring each to
+ *    be refused.
+ *
  * @evidence contracts/testing.md#behavioral-verification Calls the owning snapshot capture against authored file fixtures, requiring exact Go/descriptor/embedded/nested-cache bytes, a signed sorted manifest and the real installation link; corrupt copy, concurrent source edit, unexpected source link, wrong package metadata and a preexisting link to a foreign producer must refuse publication or reuse.
  * @evidence contracts/testing.md#independent-expectations Literal distinct file contents and independently calculated SHA-256 values establish the copied population and manifest signature; expected refusal messages are literal contracts rather than values derived from capture output.
  * @evidence contracts/testing.md#distinguishing-cases Compares complete regular assets and a nested .cache asset against root installation/cache boundaries, positive copy against corrupted destination and changed source, and an owned package against an external source link, non-lint metadata, exact selected test declarations versus embedded test declarations, and same-target links versus foreign or regular occupants.

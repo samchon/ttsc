@@ -15,11 +15,11 @@ import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/l
  * recovery pass must leave the lane uncovered. That loss must be explicit, but
  * the failed root must not remain rejected for the rest of the session.
  *
- * 1. Reject the first project-root watcher with `EMFILE`.
- * 2. Prove the ordinary watch error and the distinct uncovered-lane report.
- * 3. Let the recovery microtask honor the project-root ceiling.
- * 4. Republish the unchanged snapshot and prove it retries successfully.
- * 5. Reject a replacement root and keep reporting the old live handle.
+ * 1. Reject the first project-root watcher with EMFILE, prove the ordinary watch
+ *    error and the distinct uncovered-lane report, and let the recovery microtask
+ *    honor the project-root ceiling.
+ * 2. Republish the unchanged snapshot and prove it retries successfully.
+ * 3. Reject a replacement root and keep reporting the old live handle.
  *
  * @evidence contracts/testing.md#behavioral-verification First-root EMFILE is explicit and retryable; recovery cannot escape the project ceiling, replacement failure preserves the live handle and changed snapshots retain separate ownership.
  * @evidence contracts/testing.md#independent-expectations Independently supplied EMFILE failures, exact active/unavailable root sets and handle close counts establish resource and recovery expectations.

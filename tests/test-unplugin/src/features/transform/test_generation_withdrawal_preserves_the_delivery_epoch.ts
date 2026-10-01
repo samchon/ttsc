@@ -9,12 +9,21 @@ import type { TtscProjectMutationTracker } from "../../../../../packages/unplugi
 import { createCachedDeliveryUnitFixture } from "../../internal/transform-project-cache/createCachedDeliveryUnitFixture";
 
 /**
+ * Verifies discarding generations preserves the current delivery pass until reset.
+ *
  * Verify discarding generations preserves the current delivery pass until
  * reset.
  *
  * Pending compilations can finish after withdrawal. Their handles still belong
  * to the removed generation, whereas the pass declaration belongs to the
  * cache.
+ *
+ * 1. Cache a fulfilled generation with project and host trackers, a pending one
+ *    and a rejected one, one close throwing.
+ * 2. Withdraw every generation and require an empty cache, an unchanged delivery
+ *    epoch and the fulfilled trackers closed and detached.
+ * 3. Complete the pending generation afterwards and require its tracker closed
+ *    too.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the actual withdrawal and terminal reset operations; cache membership disappears immediately, fulfilled and later-resolved generation handles close, rejected compiles are consumed, and terminal reset removes the delivery epoch.
  * @evidence contracts/testing.md#independent-expectations Literal epoch one then two, zero membership, and exact three handle closures are authored lifecycle expectations. Tracker callbacks are generation-owned input capabilities, not substitutes for the cleanup operation under test.

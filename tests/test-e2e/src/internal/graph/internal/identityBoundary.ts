@@ -140,7 +140,7 @@ async function prepareProject(): Promise<string> {
           "@models": ["./src/models/index.ts"],
         },
         strict: true,
-        rootDir: "src",
+        rootDir: ".",
         outDir: "dist",
       },
       include: ["src", "packages/app/src"],

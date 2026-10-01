@@ -4,8 +4,17 @@ import { createHash } from "node:crypto";
 import { verifyTarball } from "../../../../packages/playground/src/npm/internal/npmRegistry";
 
 /**
- * Authenticate a legal wide SRI candidate set without expanding it into a
- * variadic call, and continue to reject a digest mismatch.
+ * Verifies a legal wide integrity candidate set is authenticated without a
+ * variadic expansion.
+ *
+ * A subresource-integrity string may list very many candidate digests.
+ * Verification must accept a matching set of any width and still reject a set
+ * whose digests all mismatch.
+ *
+ * 1. Verify tarball bytes against an integrity string repeating the matching
+ *    digest once and 200000 times.
+ * 2. Verify the same bytes against 200000 digests of different bytes and require
+ *    the integrity mismatch error.
  *
  * @evidence contracts/testing.md#behavioral-verification verifyTarball accepts SHA-256 witnesses matching the supplied bytes for singleton and 200000-candidate sets, and rejects an equally wide mismatching set.
  * @evidence contracts/testing.md#independent-expectations node:crypto createHash independently supplies SHA-256 base64 witnesses for authored three-byte inputs; expected acceptance and mismatch follow SRI authentication semantics.

@@ -6,6 +6,17 @@ import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/l
 /**
  * Verifies the directory adapter owns one supplied subscription and preserves its lifecycle.
  *
+ * The directory adapter must forward its arguments and events through the supplied
+ * watch function, normalize names and gaps, and hand back that subscription's own
+ * handle, without replacing the global filesystem watch.
+ *
+ * 1. Open a recursive and a non-recursive adapter through an injected watch
+ *    function and require one call with the persistent option.
+ * 2. Deliver change, rename, unrecognized and nameless events and require
+ *    normalized names, a rename for the unrecognized kind and a gap flag only for
+ *    the nameless event.
+ * 3. Close the handle and require one close and the original fs.watch untouched.
+ *
  * @evidence contracts/testing.md#behavioral-verification The authored adapter forwards location and recursion to one observer, normalizes events and absent filenames, and returns the same closable handle without replacing the global filesystem operation.
  * @evidence contracts/testing.md#independent-expectations Literal subscription options and event tuples establish the expected protocol independently of the adapter; the fixture retains the callback and a distinct handle identity.
  * @evidence contracts/testing.md#distinguishing-cases Change, rename, unknown events, Buffer filenames and a null observation gap distinguish normalization; recursive false and true distinguish options, and closing the returned handle establishes lifecycle authority.

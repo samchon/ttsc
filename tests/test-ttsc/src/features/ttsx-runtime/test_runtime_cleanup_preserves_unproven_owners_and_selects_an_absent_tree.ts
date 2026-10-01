@@ -6,7 +6,15 @@ import path from "node:path";
 import { resolveRuntimeCleanTargets } from "../../../../../packages/ttsc/src/launcher/internal/runtime/resolveRuntimeCleanTargets";
 
 /**
+ * Verifies runtime cleanup removes only a tree whose runs have no unproven owner.
+ *
  * Ownership uncertainty is not evidence that cleanup can remove a run.
+ *
+ * 1. Plan cleanup for a cache with no runtime tree and with an empty one and
+ *    require the runtime directory as the only target.
+ * 2. Add a legacy run directory and require it kept with no target.
+ * 3. Add a run whose owner record is unparseable and require both runs kept with
+ *    no target.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual resolveRuntimeCleanTargets selects an absent or empty runtime tree for removal, then preserves both a legacy unowned run and a malformed owner record with no deletion targets.
  * @evidence contracts/testing.md#independent-expectations Cleanup may remove a runtime tree with no runs, but cannot infer process death from a missing or unparsable owner record; literal independently authored run paths define the expected protected set.

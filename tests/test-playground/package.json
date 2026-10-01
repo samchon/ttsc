@@ -5,7 +5,8 @@
   "description": "Unit tests for @ttsc/playground.",
   "type": "module",
   "scripts": {
-    "start": "node --import ../../scripts/register-unit-loader.mjs src/index.ts"
+    "start": "node --import ../../scripts/register-unit-loader.mjs src/index.ts",
+    "evidence": "evidence"
   },
   "devDependencies": {
     "@ttsc/playground": "workspace:*",

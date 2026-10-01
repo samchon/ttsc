@@ -1,3 +1,4 @@
+import { Scenarios } from "../../internal/Scenarios";
 import { UtilityWorkspace } from "../../internal/UtilityWorkspace";
 import { case_strip_configured_calls_and_statements } from "./scenes/case_strip_configured_calls_and_statements";
 import { case_strip_explicit_config_sources_override_package_auto_plugin } from "./scenes/case_strip_explicit_config_sources_override_package_auto_plugin";
@@ -31,7 +32,7 @@ import { case_strip_rejects_inline_config_keys } from "./scenes/case_strip_rejec
 export async function test_e2e_strip(): Promise<void> {
   const workspace = UtilityWorkspace.open("strip");
   try {
-    await UtilityWorkspace.collect("strip", [
+    await Scenarios.collect("strip", [
       ["configured_calls_and_statements", () => case_strip_configured_calls_and_statements(workspace)],
       ["package_auto_plugin_uses_default_config", () => case_strip_package_auto_plugin_uses_default_config(workspace)],
       ["explicit_config_sources_override_package_auto_plugin", () => case_strip_explicit_config_sources_override_package_auto_plugin(workspace)],

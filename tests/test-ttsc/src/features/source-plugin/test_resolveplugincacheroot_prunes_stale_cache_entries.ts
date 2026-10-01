@@ -16,14 +16,14 @@ import {
  * last-used metadata is older than the 30-day retention window. Scoped to the
  * project cache root only — never a shared/global location.
  *
- * 1. Seed evictable, fresh and legacy-protected entries plus lock artifacts.
- * 2. Seed a future-dated GC marker hard-linked to an external sentinel, as can
- *    happen in a pre-populated project cache.
- * 3. Resolve the default plugin cache root (no cacheDir/TTSC_CACHE_DIR override).
- * 4. Assert the unprotected old entry is removed while an ownerless legacy lock
- *    protects its binary and old v2 coordination remains available.
- * 5. Point another default plugin-cache leaf at an external directory and assert
- *    opportunistic GC never follows the junction to delete its entries.
+ * 1. Seed evictable, fresh and legacy-protected entries with lock artifacts, and a
+ *    future-dated GC marker hard-linked to an external sentinel.
+ * 2. Resolve the default plugin cache root with no cache directory override.
+ * 3. Assert the unprotected old entry is removed, an ownerless legacy lock
+ *    protects its binary, old version-two coordination remains and the external
+ *    sentinel is unchanged.
+ * 4. Point another default plugin-cache leaf at an external directory through a
+ *    junction and assert opportunistic GC never follows it.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls resolvePluginCacheRoot on owned filesystem fixtures and asserts stale eviction, fresh and uncertain-lock retention, unchanged external hardlink contents and no traversal through the cache-root link.
  * @evidence contracts/testing.md#independent-expectations The 30-day retention and owned default-root contracts independently specify the authored old/fresh dates and protected external sentinel bytes.

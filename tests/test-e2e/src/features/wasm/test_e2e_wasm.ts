@@ -1,4 +1,4 @@
-import { UtilityWorkspace } from "../../internal/UtilityWorkspace";
+import { Scenarios } from "../../internal/Scenarios";
 import { case_wasm_build_stamps_release_metadata } from "./scenes/case_wasm_build_stamps_release_metadata";
 import { case_wasm_built_package_entry_runs_its_public_functions } from "./scenes/case_wasm_built_package_entry_runs_its_public_functions";
 
@@ -24,7 +24,7 @@ import { case_wasm_built_package_entry_runs_its_public_functions } from "./scene
  * @evidence contracts/e2e.md#preserved-coverage Every assertion of both former entries is retained in its scenario; actual Go WASM host tests remain in the integration batch.
  */
 export async function test_e2e_wasm(): Promise<void> {
-  await UtilityWorkspace.collect("wasm", [
+  await Scenarios.collect("wasm", [
     ["built_package_entry_runs_its_public_functions", case_wasm_built_package_entry_runs_its_public_functions],
     ["build_stamps_release_metadata", case_wasm_build_stamps_release_metadata],
   ]);

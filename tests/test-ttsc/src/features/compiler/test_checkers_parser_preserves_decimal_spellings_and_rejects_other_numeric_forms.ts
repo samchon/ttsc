@@ -10,6 +10,12 @@ import { parseFlags } from "../../../../../packages/ttsc/src/flags/parseFlags";
  * fractional forms. These exact previous CLI inputs exercise the authored
  * flag parser before any project or compiler is needed.
  *
+ * 1. Reject zero, scientific, hexadecimal, fractional, negative and empty checker
+ *    counts in both flag spellings with the exact message.
+ * 2. Reject a dash-leading separate value and a missing value.
+ * 3. Accept signed, zero-padded and plain digits in both spellings and require the
+ *    number two with no passthrough or positional leftovers.
+ *
  * @evidence contracts/testing.md#behavioral-verification Calls production parseFlags and getNumber for the checker option, asserting exact rejected diagnostics and numeric values passed to compiler options.
  * @evidence contracts/testing.md#independent-expectations Literal invalid strings and literal expected numbers define the oracle, with complete JSON-quoted diagnostics rather than recomputing validity through another parser.
  * @evidence contracts/testing.md#distinguishing-cases Preserves zero, scientific, hexadecimal, fractional, signed and zero-padded inputs from the original CLI cases and adds negative, empty and missing operands.

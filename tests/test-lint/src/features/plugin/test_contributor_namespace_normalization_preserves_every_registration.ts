@@ -8,6 +8,13 @@ import { normalizeContributors } from "../../../../../packages/lint/src/internal
  * The config evaluator has already resolved contributor sources when this
  * decision runs. Its permutations and precedence do not require another host.
  *
+ * 1. Normalize colliding namespaces in both orders and with three spellings and
+ *    require an error naming the config and every colliding name.
+ * 2. Require repeated identical names to fold to their first registration and
+ *    distinct names to keep their sources.
+ * 3. Require an empty list to stay empty and several collision groups to report in
+ *    sorted order.
+ *
  * @evidence contracts/testing.md#behavioral-verification The authored normalizeContributors detects distinct namespaces that share a Go name and preserves exact repeated namespaces' first source; diagnostics and returned descriptors are asserted directly.
  * @evidence contracts/testing.md#independent-expectations Go package naming replaces hyphens with underscores, while distinct user namespaces must never be discarded. Literal name/source descriptors and diagnostic spellings independently express those contracts.
  * @evidence contracts/testing.md#distinguishing-cases Two-way collisions in both orders, three-way collisions, exact repetition with different source paths, two independent namespaces, a single hyphenated namespace and an empty list retain the original CJS case's meaningful decisions. A second collision group pins deterministic ordering across groups.

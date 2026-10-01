@@ -10,6 +10,13 @@ import { TTSX_EXTRACTOR_SCRIPT } from "../../../../../packages/lint/src/createTt
  * A real TypeScript parser validates what the evaluator receives, rather than a
  * quote-counting approximation of the emitted grammar.
  *
+ * 1. Substitute POSIX and Windows-shaped import, output and root values, including
+ *    a quote and backslashes, into the extractor template.
+ * 2. Parse each result with the TypeScript parser and require no syntax
+ *    diagnostics.
+ * 3. Parse a literal containing a raw newline and require diagnostics, so the
+ *    oracle detects the failure it guards.
+ *
  * @evidence contracts/testing.md#behavioral-verification The authored extractor template is instantiated with quoted file URL and path inputs and parsed by the independent TypeScript parser; syntax diagnostics must be absent.
  * @evidence contracts/testing.md#independent-expectations TypeScript syntax defines validity independently of the emitter. Literal placeholder tokens are the documented substitution interface, and an intentionally broken string must produce a parser diagnostic.
  * @evidence contracts/testing.md#distinguishing-cases POSIX and Windows path strings containing quotes and backslashes must parse after JSON quoting; a raw newline inside a quoted literal is rejected by the same parser. All three substitution slots must exist before replacement.

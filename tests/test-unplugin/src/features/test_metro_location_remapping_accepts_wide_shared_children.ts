@@ -4,8 +4,17 @@ import path from "node:path";
 import { remapAstLocations } from "../../../../packages/metro/src/core/remapAstLocations";
 
 /**
- * Traverse wide arrays of shared AST children without a variadic argument
- * limit or remapping a shared node twice.
+ * Verifies location remapping traverses wide arrays of shared AST children once
+ * without a variadic expansion.
+ *
+ * A node shared by many parents must be remapped exactly once, however many
+ * references the array holds, and a node whose map names another source must stay
+ * untouched.
+ *
+ * 1. Remap an AST whose body holds zero, one and 200000 references to one shared
+ *    node and require the node to be shifted exactly once.
+ * 2. Remap a node against a map for a different source and require its location
+ *    unchanged.
  *
  * @evidence contracts/testing.md#behavioral-verification remapAstLocations rewrites the shared child's two source positions from generated line one to original line five in singleton and 200000-child AST populations; an empty population leaves the unattached child at line one.
  * @evidence contracts/testing.md#independent-expectations Source-map VLQ AAIA independently encodes source zero, original zero-based line four and column zero; Babel's one-based position must therefore become line five exactly once.

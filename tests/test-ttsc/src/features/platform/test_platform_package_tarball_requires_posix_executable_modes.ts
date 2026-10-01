@@ -15,15 +15,14 @@ const { validatePlatformPackages } = createRequire(import.meta.url)(path.join(Te
  * installs, but release tarballs still need to fail before publication when the
  * tar headers do not preserve executable bits.
  *
- * 1. Write a synthetic @ttsc/linux-x64 tarball with every executable at 0755.
- * 2. Write a second tarball with ttscgraph at 0644.
- * 3. Write a partial tarball whose manifest declares only the executables it
- *    carries.
- * 4. Write a source package whose manifest omits pnpm executable-file metadata.
- * 5. Write a source package whose manifest omits the bundled Go tool metadata.
- * 6. Assert the platform-package verifier accepts the good tarballs, rejects the
- *    bad tarball with the offending path in stderr, and rejects unsafe source
- *    manifests before publish.
+ * 1. Write synthetic linux-x64 tarballs: one with every executable at 0755, one
+ *    with ttscgraph at 0644, and a partial one whose manifest declares only the
+ *    executables it carries.
+ * 2. Write source packages whose manifests omit the pnpm executable-file metadata
+ *    or the bundled Go tool metadata.
+ * 3. Assert the platform-package verifier accepts the good and partial tarballs.
+ * 4. Assert it rejects the bad tarball with the offending path in stderr and
+ *    rejects the unsafe source manifests before publish.
  *
  * @evidence contracts/testing.md#behavioral-verification The direct validator accepts complete and partial valid tarballs and rejects nonexecutable modes and missing published executable metadata.
  * @evidence contracts/testing.md#independent-expectations Authored tar headers and manifests define the required platform executable population and POSIX 0755 versus invalid modes.

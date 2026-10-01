@@ -6,11 +6,22 @@ import type { IPlaygroundInstalledDependency } from "../../../../packages/playgr
 import { createTarball } from "../internal/tarball";
 
 /**
+ * Verifies incremental installs reconcile every new dependency edge with the
+ * mounted registry state.
+ *
  * Incremental installs must reconcile every new edge with the exact mounted
  * registry identity, version, and active requests. Compatible packages reuse
  * their tarballs, required conflicts fail before publication, optional
  * conflicts are omitted, and a full replacement solve can select a version that
  * stale session state would otherwise pin.
+ *
+ * 1. Mount a root package and install compatible, conflicting, optional, aliased
+ *    and identity-conflicting roots against it.
+ * 2. Require compatible packages to reuse their tarballs, required conflicts to
+ *    fail before publication and optional conflicts to be omitted.
+ * 3. Require a full replacement solve to select a version that stale session state
+ *    would otherwise pin.
+ *
  * @evidence contracts/testing.md#behavioral-verification installPlaygroundDependencies reconciles mounted version/registry identity and active edge requests, reuses compatible tarballs, rejects required conflicts, omits optional conflicts and replaces stale file maps on a fresh solve.
  * @evidence contracts/testing.md#independent-expectations Authored versions1/2 and edge ranges specify exact package inventories/requests independently; captured URLs prove shared tarball reuse, and literal declaration/runtime versions pin replacement outputs.
  * @evidence contracts/testing.md#distinguishing-cases Compatible versus required/optional conflict, fresh replacement, npm alias identity conflict and an aborted solve cover reuse and publication ownership; original caller mounted records must remain byte-equivalent after abort.

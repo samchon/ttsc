@@ -3,9 +3,18 @@ import assert from "node:assert/strict";
 import { collectExternalPackageNames } from "../../../../packages/playground/src/npm/collectExternalPackageNames";
 
 /**
+ * Verifies package discovery tells a regex literal from division at statement and
+ * value boundaries.
+ *
  * A slash after a control header or statement block starts a regex literal,
  * while a slash after an object, function, or class expression is division.
  * Both rules apply again inside executable template substitutions.
+ *
+ * 1. Write regex literals containing a require after control headers, statement
+ *    blocks and declarations, and division expressions containing a real require
+ *    after object, function, class and member values.
+ * 2. Repeat both rules inside an executable template substitution.
+ * 3. Require exactly the specifiers outside regex literals, in sorted order.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls collectExternalPackageNames with control headers, declaration blocks and expression values; the exact ten names must include executable division operands and exclude every regex-body lookalike.
  * @evidence contracts/testing.md#independent-expectations Authored statement and expression positions determine JavaScript regex versus division interpretation. Literal sorted names enumerate real require arguments without deriving expectations from lexer tokens.

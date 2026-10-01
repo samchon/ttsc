@@ -11,6 +11,12 @@ import { TestLintPlugin } from "../internal/TestLintPlugin";
  * The fixture contains neither plugins nor extends. Its deliberately nonexistent
  * launcher input makes an unnecessary attempt to evaluate user code observable.
  *
+ * 1. Point the evaluator binary at a nonexistent launcher and write a JSON
+ *    configuration without plugins or extends.
+ * 2. Build the lint descriptor against that configuration.
+ * 3. Require the descriptor name and an empty contributor list, restoring the
+ *    environment afterwards.
+ *
  * @evidence contracts/testing.md#behavioral-verification The authored factory resolves an explicit JSON rules object with a nonexistent evaluator input and returns its descriptor without contributors, proving the plain-data path does not launch a script evaluator.
  * @evidence contracts/testing.md#independent-expectations A JSON object with only a rules map can declare no contributor and executes no user code; the independently authored missing launcher must therefore be irrelevant to descriptor resolution.
  * @evidence contracts/testing.md#distinguishing-cases The plain no-plugins/no-extends object owns the evaluator-free decision. The native language boundary separately owns an extends chain containing executable configs, and contributor protocol E2E owns actual module evaluation.

@@ -3,20 +3,20 @@ const path = require("node:path");
 const { runIndependent } = require("./run-independent.cjs");
 
 /**
- * Check production and both authored test populations without early bailout.
+ * Check production and every authored test package without early bailout.
  *
  * A failing production or test claim must leave the other populations observable.
  * This is the root command used by the existing build job, not another CI job.
  *
  * Each scope invokes the actual checker with its owning configuration. The
- * ordered production, unit and E2E checks preserve their selectors and finish
+ * ordered production and test-package checks preserve their selectors and finish
  * independently after diagnostics or spawn errors. Any failure fails the root
  * result; inherited diagnostics and exit statuses remain authoritative, with no
  * severity override, exclusion, retry or successful fallback. Named start and
  * completion messages distinguish every scope's outcome.
  *
  * Each configured population runs once, with no result cached across source
- * changes. The checker owns source analysis; this adapter retains only three
+ * changes. The checker owns source analysis; this adapter retains only two
  * scope entries and their failures. At most one child runs, and it is joined
  * before the next scope. Output is streamed and spawn failures settle as failures.
  *
@@ -34,8 +34,10 @@ async function runEvidence() {
       name: "production",
       args: ["--filter", "./packages/*", "-r", "--no-bail", "--workspace-concurrency=1", "run", "evidence"],
     },
-    { name: "unit", args: ["exec", "evidence", "--config", "tests/test-scripts/evidence.config.json"] },
-    { name: "e2e", args: ["exec", "evidence", "--config", "tests/test-e2e/evidence.config.json"] },
+    {
+      name: "tests",
+      args: ["--filter", "./tests/*", "-r", "--no-bail", "--workspace-concurrency=1", "run", "evidence"],
+    },
   ];
   const failures = await runIndependent(scopes, (scope) => new Promise((resolve) => {
     console.log(`Evidence ${scope.name}: start`);

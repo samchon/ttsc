@@ -9,7 +9,19 @@ import { inlineServedSourceMap } from "../../../../packages/ttsc/src/launcher/in
 import { CommonJsRuntimeSource } from "../../../../packages/ttsc/src/launcher/internal/runtime/CommonJsRuntimeSource";
 
 /**
- * Preserve compiler locations through the actual inline-producer/CommonJS chain.
+ * Verifies compiler locations survive the actual inline-producer and CommonJS
+ * runtime preparation chain.
+ *
+ * The runtime wrapper prepends text to emitted CommonJS, so the attached source
+ * map must shift by exactly that insertion for ordinary, hashbang and indexed
+ * maps, while malformed optional metadata must never reject valid JavaScript.
+ *
+ * 1. Inline served maps given as base64, charset base64 and percent-encoded data
+ *    URIs, prepare them, and require the original sources content, a file URL
+ *    source and the shifted mapped positions.
+ * 2. Repeat with a hashbang line and with an indexed section map.
+ * 3. Feed malformed and unsupported map payloads and require the program to still
+ *    execute and return its value.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the actual inlineServedSourceMap and CommonJsRuntimeSource.prepare chain, decodes its emitted maps and executes valid code carrying malformed optional metadata.
  * @evidence contracts/testing.md#independent-expectations Literal original line two and adjacent columns zero and one, authored sourcesContent and independent source-file URLs establish location expectations rather than reading expected positions from a second implementation call.

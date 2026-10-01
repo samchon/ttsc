@@ -1,4 +1,5 @@
 import { TestProject } from "@ttsc/testing";
+import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -41,7 +42,7 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plug
  * @evidence contracts/e2e.md#preserved-coverage Original nonempty/banner, stable-repeat, outside/concurrent replies and disposed-request rejection assertions remain, together with every original incremental before/update/after/banner/no-join and nested-link transform/update/external-absence assertion. Physical-versus-nested alias result equality additionally checks a shared overlay. The old separate incremental and nested-link files are removed only after actual shared-host validation.
  */
 export async function test_ttscservice_transforms_a_file_through_the_resident_host(): Promise<void> {
-  const root = TestProject.copyProject("ttsc-utility-plugins");
+  const root = ProjectFixtures.copy("ttsc-utility-plugins");
   TestUtilityPlugins.seedPackages(root);
   const alias = path.join(root, "linked-src");
   fs.symlinkSync(path.join(root, "src"), alias, "junction");

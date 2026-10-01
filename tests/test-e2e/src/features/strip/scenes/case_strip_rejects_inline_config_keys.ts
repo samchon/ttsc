@@ -15,7 +15,7 @@ import { UtilityWorkspace } from "../../../internal/UtilityWorkspace";
  *
  * @evidence contracts/testing.md#behavioral-verification The launcher must reject the obsolete inline calls entry with a nonzero exit and an error naming calls.
  * @evidence contracts/testing.md#independent-expectations The dedicated-config contract independently disallows inline plugin keys, so rejection and the named key follow from the contract.
- * @evidence contracts/testing.md#distinguishing-cases Inline calls is the negative entry case; the other scenarios supply valid configuration sources, and key variations belong to descriptor units.
+ * @evidence contracts/testing.md#distinguishing-cases Inline calls is the negative entry case; the other scenarios supply valid configuration sources, and the unsupported-key matrix belongs to the Go config_rejects_unsupported_tsconfig_keys unit.
  * @evidence contracts/testing.md#execution-ownership Called by test_e2e_strip with the shared workspace; the failure propagates through the built launcher.
  * @evidence contracts/e2e.md#necessary-boundary Descriptor validation must propagate an invalid tsconfig plugin entry to the public launcher failure.
  * @evidence contracts/e2e.md#shared-execution One rejected load proves launcher propagation, aborts before a native producer is built and reuses the shared workspace.

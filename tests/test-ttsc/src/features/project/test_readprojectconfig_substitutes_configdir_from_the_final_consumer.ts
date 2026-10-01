@@ -12,6 +12,13 @@ import { readProjectConfig } from "../../../../../packages/ttsc/src/compiler/int
  * them. TypeScript's `${configDir}` template is deliberately different: it is
  * preserved through `extends` and substituted from the consuming tsconfig.
  *
+ * 1. Write a preset using the configDir template in base, declaration, output,
+ *    bundle, root and build-info options, and extend it from a consumer.
+ * 2. Require every path to be anchored on the consuming config, including
+ *    drive-shaped and backslash spellings.
+ * 3. Write a mis-cased template and require it to anchor on the consumer but stay
+ *    as written.
+ *
  * @evidence contracts/testing.md#behavioral-verification Checks six inherited path options and a mis-cased configDir spelling, detecting preset-relative substitution, separator loss or incorrect rewriting of the mis-cased literal.
  * @evidence contracts/testing.md#independent-expectations Expected paths follow the authored final-consumer directory and the compiler template contract, including exact substitution spelling and the retained mis-cased literal.
  * @evidence contracts/testing.md#distinguishing-cases Bare, slash, backslash, output-file and drive-looking suffixes contrast with the mis-cased token; resolves_inherited_relative_path_options_from_the_declaring_file owns ordinary preset-relative paths.

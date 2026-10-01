@@ -16,11 +16,11 @@ import { UtilityWorkspace } from "../../../internal/UtilityWorkspace";
  *
  * @evidence contracts/testing.md#behavioral-verification The launcher must exit nonzero naming banner.config.{ts,cts,mts,js,cjs,mjs,json} for the missing file and naming the unsupported text key with a configFile hint for the inline entry.
  * @evidence contracts/testing.md#independent-expectations The dedicated-config contract and the documented accepted file names establish both messages independently of the implementation.
- * @evidence contracts/testing.md#distinguishing-cases Missing configuration and inline option are the two negative inputs; the configuration-selection scenario owns the valid sources, and per-key variations belong to descriptor units.
+ * @evidence contracts/testing.md#distinguishing-cases Missing configuration and inline option are the two negative inputs; the configuration-selection scenario owns the valid sources, and the unsupported-key matrix belongs to the Go config_rejects_unknown_tsconfig_keys unit.
  * @evidence contracts/testing.md#execution-ownership Called by test_e2e_banner with the shared workspace; both failures cross the built launcher, one from native discovery and one from descriptor validation.
  * @evidence contracts/e2e.md#necessary-boundary Native discovery failure and descriptor validation failure must reach the public launcher status and stderr.
  * @evidence contracts/e2e.md#shared-execution Both failures abort before any output, reusing the shared workspace and package link; discovery failure aborts without a native build and the two inputs differ in manifest versus tsconfig entry.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The manifest in the missing-config project bounds its discovery so the workspace's shared configuration is not found; no output is written.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The shared banner configuration lives in the sibling shared directory, so it is on no ancestor path of either project and cannot satisfy the missing-config discovery; no output is written.
  * @evidence contracts/e2e.md#preserved-coverage Retains the former missing-config and inline-key assertions unchanged.
  */
 export function case_banner_rejects_missing_config_and_inline_options(

@@ -16,6 +16,13 @@ import { TestProject } from "../../../utils/src/TestProject";
  * case. This predicate unit receives the explicit resolved state as input and
  * owns the configuration and manifest transitions without invoking discovery.
  *
+ * 1. Write a tsconfig and a manifest and resolve an explicit empty publication
+ *    over them.
+ * 2. Require the unchanged state fresh, then require expired and unavailable
+ *    discovery to read stale.
+ * 3. Edit each declared file in turn, require stale, then re-baseline and require
+ *    fresh again.
+ *
  * @evidence contracts/testing.md#behavioral-verification artifactsAreStale retains an unchanged empty publication, rejects each independently changed declared file and rejects unavailable or expired discovery authority.
  * @evidence contracts/testing.md#independent-expectations Independently written tsconfig and manifest contents establish unchanged and changed states; fingerprintInputs supplies the baseline but does not supply expected fresh/stale results or independently certify hash encoding.
  * @evidence contracts/testing.md#distinguishing-cases Empty publication reuse contrasts separate tsconfig and manifest edits, expired discovery and unavailable discovery; the real resolved-empty native connection remains in its E2E owner.

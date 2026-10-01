@@ -27,12 +27,12 @@ import { artifactsAreStale, fingerprintInputs, type IPublishedArtifacts, type IA
  * does not descend must not drag its subdirectories into a walk taken before
  * every request.
  *
- * 1. Build a project with a lint configuration and a document tree.
- * 2. Take the state, and require it fresh against itself.
- * 3. Edit a document, add one, delete one, and edit the configuration.
- * 4. Require each to read stale, and an unrelated file's edit not to.
- * 5. Require a non-recursive directory to ignore what lies below it.
- * 6. Delete the published file itself and require that to read stale too.
+ * 1. Build a project with a lint configuration and a document tree, take the
+ *    published-input state and require it fresh against itself.
+ * 2. Edit a document, add one, delete one and edit the configuration, requiring
+ *    each to read stale while an unrelated file's edit does not.
+ * 3. Require a non-recursive directory to ignore what lies below it.
+ * 4. Delete the published file itself and require that to read stale too.
  *
  * @evidence contracts/testing.md#behavioral-verification artifactsAreStale checks the actual published-input fingerprint and discovery authority; document/config changes withdraw reuse while unrelated source edits and nested edits below a shallow scope retain reuse.
  * @evidence contracts/testing.md#independent-expectations Independently authored filesystem edits and declared recursive/shallow inputs define expected freshness transitions. fingerprintInputs establishes each baseline; the test does not independently certify its hash encoding, but stale/fresh differences distinguish omitted or overbroad inputs.

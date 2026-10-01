@@ -3,8 +3,16 @@ import assert from "node:assert/strict";
 import { createSandboxRequire } from "../../../../packages/playground/src/sandbox/createSandboxRequire";
 
 /**
+ * Verifies the sandbox require reads one immutable mount manifest once.
+ *
  * Repeated resolution of one immutable mount reads its manifest once, while a
  * second mount keeps independent manifest and module ownership.
+ *
+ * 1. Mount two packages whose manifests count their reads.
+ * 2. Require the first package one hundred and one times and the second once,
+ *    requiring identical first exports.
+ * 3. Require each manifest to have been read exactly once and a missing package to
+ *    throw.
  *
  * @evidence contracts/testing.md#behavioral-verification createSandboxRequire returns the same authored entry exports across 100 requests while each immutable mount's manifest getter is read exactly once.
  * @evidence contracts/testing.md#independent-expectations The fixture's own getters count real pack accesses independently of the resolver, and literal module exports identify the selected entries; no resolver-generated cache statistic is used.

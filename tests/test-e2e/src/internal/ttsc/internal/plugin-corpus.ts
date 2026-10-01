@@ -5,6 +5,7 @@
  * across the plugin-corpus feature suite.
  */
 import { TestProject, getNativeLintProducer, linkNativeLintPackage } from "@ttsc/testing";
+import { ProjectFixtures } from "./ProjectFixtures";
 import assert from "node:assert/strict";
 import child_process from "node:child_process";
 import fs from "node:fs";
@@ -218,7 +219,7 @@ function setupLintProject(
   name: string,
   options: { nativeProducer?: "workspace" | "snapshot" } = {},
 ): string {
-  const root = TestProject.copyProject(name);
+  const root = ProjectFixtures.copy(name);
   const linkDir = path.join(root, "node_modules", "@ttsc");
   fs.mkdirSync(linkDir, { recursive: true });
   const target = options.nativeProducer === "snapshot"
@@ -241,7 +242,7 @@ function commonJsProject(files: Record<string, string>, options?: any) {
 }
 
 function copyProject(name: string) {
-  return TestProject.copyProject(name);
+  return ProjectFixtures.copy(name);
 }
 
 function spawn(command: string, args: string[], options?: any) {

@@ -10,7 +10,8 @@ import { createCachedDeliveryUnitFixture } from "../../internal/transform-projec
 import { observeValidationUnitGeneration } from "../../internal/transform-project-cache/observeValidationUnitGeneration";
 
 /**
- * Verify notification admission transfers every qualified observer and no unqualified one.
+ * Verifies notification admission transfers every qualified observer and no
+ * unqualified one.
  *
  * Supported filesystem providers construct actual tracker objects and can
  * refuse registration at a chosen phase. The transfer operation then consumes

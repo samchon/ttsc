@@ -4,9 +4,20 @@ import { collectExternalPackageNames } from "../../../../packages/playground/src
 import { installPlaygroundDependencies } from "../../../../packages/playground/src/npm/installPlaygroundDependencies";
 
 /**
+ * Verifies package discovery reads quoted strings and slashes with the lexical
+ * semantics of JavaScript.
+ *
  * Dependency discovery must use the same cooked quoted-string values and slash
  * boundaries as JavaScript while recognizing only a direct optional CommonJS
  * call. Malformed literals fail closed, and inert lookalikes remain opaque.
+ *
+ * 1. Collect specifiers written with hex, unicode, code-point, line-continuation,
+ *    simple and quote escapes, and require their cooked values.
+ * 2. Require malformed literals to fail closed without hiding a later valid
+ *    import, and optional calls to count only when made directly on the require
+ *    binding.
+ * 3. Pass a cooked name to the installer and require the registry request to carry
+ *    the cooked name rather than its escape spelling.
  *
  * @evidence contracts/testing.md#behavioral-verification collectExternalPackageNames decodes executable import and direct optional require literals while ignoring malformed strings, comments, regex text and object methods. The cooked package name is passed into the authored dependency installer request path.
  * @evidence contracts/testing.md#independent-expectations Literal expected cooked characters follow JavaScript string-escape and line-continuation semantics; explicit package arrays distinguish executable syntax from inert text. A recording fetch rejects before any network access and independently captures the requested registry name.

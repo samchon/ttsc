@@ -15,12 +15,12 @@ import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/l
  * window, coalesce repeated publications, deduplicate a real event that wins
  * the race, and stay silent after close.
  *
- * 1. Swallow the startup event and recover the synchronous input change once.
- * 2. Let a backend event win the race without producing a duplicate.
- * 3. Close before reconciliation and prove the queued scan stays silent.
- * 4. Reject one root while a healthy root still completes its handoff scan.
- * 5. Materialize a symlink and retain both its declared and physical owners.
- * 6. Keep an unchanged republication from starting a polling-style rescan.
+ * 1. Swallow the startup event and recover the synchronous input change once, then
+ *    let a backend event win the race without a duplicate.
+ * 2. Close before reconciliation and prove the queued scan stays silent.
+ * 3. Reject one root while a healthy root still completes its handoff scan, and
+ *    materialize a symlink retaining both its declared and physical owners.
+ * 4. Keep an unchanged republication from starting a polling-style rescan.
  *
  * @evidence contracts/testing.md#behavioral-verification Preserves startup recovery, event-first deduplication, close cancellation, uncovered versus healthy roots, newly materialized link owners and quiet unchanged republication.
  * @evidence contracts/testing.md#independent-expectations Literal created input bytes, exact notification and handle counts, explicit rejected-root errors and distinct lexical/physical owners define the publication contract.

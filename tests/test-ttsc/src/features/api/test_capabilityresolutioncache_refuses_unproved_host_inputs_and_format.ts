@@ -36,6 +36,17 @@ interface IEntry extends Omit<IAnswer, "pluginSources"> {
 /**
  * Verifies capability entries fail closed on host inputs, missing binaries and invalid format.
  *
+ * A cached capability answer may be believed only while every input it was proved
+ * against still holds. An entry that records no inputs proves nothing, because two
+ * empty states always agree, so it must be refused on its shape.
+ *
+ * 1. Record an entry over a tsconfig, a manifest and a binary and require it to
+ *    hit with the declaration it was recorded with.
+ * 2. Re-record a valid entry before each change, then change the tsconfig, change
+ *    and delete the manifest, delete the binary, corrupt the entry and empty its
+ *    recorded inputs, requiring the cache to decline each time.
+ * 3. Read the entry under another ttsc version and require a miss.
+ *
  * @evidence contracts/testing.md#behavioral-verification Actual source reader/writer retain a reachable positive cache hit and refuse changed config/manifest, deleted input or binary, malformed JSON, empty proofs and another product version.
  * @evidence contracts/testing.md#independent-expectations Authored bytes, explicit file removals, corrupted JSON and literal versions independently define accepted and refused answers; every mutation starts from an asserted valid entry.
  * @evidence contracts/testing.md#distinguishing-cases Content changes, deletion, unprovable empty input, corruption and version changes retain their individual original assertions; plugin source/build-environment and metadata proofs remain in the two actual environment E2E entries.

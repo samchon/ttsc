@@ -13,6 +13,13 @@ import { planCompilerDirectoryWatchEvent } from "../../../../../packages/ttsc/sr
  * input on both POSIX and Windows. The supplied virtual path identity has no
  * aliases and unknown case policy; native case discovery is not exercised.
  *
+ * 1. Plan a named POSIX change and rename for a tracked file and require its
+ *    change, its rearm and no refresh.
+ * 2. Plan filename-less events on POSIX and Windows and require every surviving
+ *    tracked input to change, with a refresh.
+ * 3. Plan a filename-less rename after an input disappeared and an untracked
+ *    change, and require only survivors to change.
+ *
  * @evidence contracts/testing.md#behavioral-verification Calls the actual directory-event planner for named content changes, replacements and unnamed notifications, checking exact change, rearm and refresh plans.
  * @evidence contracts/testing.md#independent-expectations Literal arrays and booleans specify event policy independently of the planner; supplied membership, existence and virtual identity describe the input authority only.
  * @evidence contracts/testing.md#distinguishing-cases POSIX content change differs from rename, Windows unnamed change does not rearm, a vanished member is excluded and an unrelated named event refreshes without inventing a candidate.

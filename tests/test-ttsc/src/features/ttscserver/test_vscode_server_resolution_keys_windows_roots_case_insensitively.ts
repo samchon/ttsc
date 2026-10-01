@@ -8,11 +8,11 @@ import assert from "node:assert/strict";
  * drive-letter casing. The extension keys running clients by canonical root so
  * it does not stop and restart the same project unnecessarily.
  *
- * 1. Call the authored server resolution helper in the unit process.
- * 2. Prove ordinary aliases converge under supplied Windows directory authority.
- * 3. Inject a deterministic filesystem with two case-distinct roots.
- * 4. Prove planning, containment, and deepest-root selection keep both clients.
- * 5. Prove missing descendants inherit the nearest existing root semantics.
+ * 1. Call the authored server resolution helper with injected Windows directory
+ *    authority and prove ordinary aliases converge.
+ * 2. Inject a filesystem with two case-distinct roots and prove planning,
+ *    containment and deepest-root selection keep both clients.
+ * 3. Prove missing descendants inherit the semantics of the nearest existing root.
  *
  * @evidence contracts/testing.md#behavioral-verification root identity, root planning and deepest-root selection honor ordinary Windows aliases and sensitive directory distinctions.
  * @evidence contracts/testing.md#independent-expectations independently injected realpath and per-directory case semantics define identity, not lowercased strings.

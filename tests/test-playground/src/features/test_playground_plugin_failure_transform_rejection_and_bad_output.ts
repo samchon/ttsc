@@ -8,6 +8,9 @@ import {
 } from "../internal/fakeWorker";
 
 /**
+ * Verifies a rejected or unparseable transform completion fails the build while
+ * empty output succeeds.
+ *
  * Abnormal transform completions — a rejected plugin call and code-0 output
  * that cannot be parsed — are failures, not fall-throughs to an untransformed
  * build. A code-0 call with empty stdout is the boundary: it is a legitimate
@@ -21,6 +24,7 @@ import {
  * 2. Code 0 with non-JSON stdout → error (unusable configured transform).
  * 3. Boundary: code 0 with empty stdout → success, build runs once (no rewrite was
  *    produced, so the original source is compiled legitimately).
+ *
  * @evidence contracts/testing.md#behavioral-verification createWorkerCompilerService.compile rejects a throwing transform and unusable code0 JSON without invoking build, while empty code0 output legitimately builds the original source once.
  * @evidence contracts/testing.md#independent-expectations Independent build logs, literal wasm host crashed message, authored malformed JSON and exact originalTS/emittedJS define rejection/no-op semantics without deriving expected values from the service.
  * @evidence contracts/testing.md#distinguishing-cases Rejected call, nonJSON stdout and empty successful stdout preserve three separate instances; the no-op control must retain the original source bytes passed to the host.

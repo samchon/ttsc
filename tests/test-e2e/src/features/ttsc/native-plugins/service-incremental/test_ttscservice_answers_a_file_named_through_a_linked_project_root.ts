@@ -1,4 +1,5 @@
 import { TestProject } from "@ttsc/testing";
+import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -33,7 +34,7 @@ import { SHARED_PLUGIN_CACHE_DIR } from "../../../../internal/ttsc/internal/plug
  * @evidence contracts/e2e.md#preserved-coverage Original nonempty/banner, successful update, nonempty edited output and LINKED_EDIT assertions remain; normal-root nested alias behavior is consolidated separately without deleting this constructor distinction.
  */
 export async function test_ttscservice_answers_a_file_named_through_a_linked_project_root(): Promise<void> {
-  const root = TestProject.copyProject("ttsc-utility-plugins");
+  const root = ProjectFixtures.copy("ttsc-utility-plugins");
   TestUtilityPlugins.seedPackages(root);
   const link = path.join(TestProject.tmpdir("ttsc-service-link-"), "project");
   fs.symlinkSync(root, link, "junction");

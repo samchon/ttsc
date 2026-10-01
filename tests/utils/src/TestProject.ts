@@ -53,8 +53,6 @@ export namespace TestProject {
   export const WORKSPACE_ROOT = findWorkspaceRoot(process.cwd());
   /** Root of the shared `@ttsc/testing` helper package. */
   export const TEST_PACKAGE_ROOT = path.join(WORKSPACE_ROOT, "tests", "utils");
-  /** Canonical fixture tree copied by project-shaped regression tests. */
-  export const PROJECTS_ROOT = path.join(WORKSPACE_ROOT, "tests", "projects");
   /** Require function scoped to `tests/utils` so helper deps resolve stably. */
   export const REQUIRE_FROM_TEST = createRequire(
     path.join(TEST_PACKAGE_ROOT, "package.json"),
@@ -244,24 +242,6 @@ export namespace TestProject {
   export function createProject(files: Record<string, string>) {
     const root = tmpdir("ttsc-smoke-");
     writeFiles(root, files);
-    return root;
-  }
-
-  /**
-   * Copy a checked-in fixture project into a writable temp directory.
-   *
-   * Project fixtures cover behaviors where directory layout matters more than a
-   * small synthetic file map, such as entry discovery or package boundaries.
-   */
-  export function copyProject(name: string) {
-    const source = path.join(
-      ["go-source-plugin", "go-source-plugin-entry", "go-source-plugin-managed-replace", "go-driver-emit-plugin"].includes(name)
-        ? path.join(WORKSPACE_ROOT, "packages", "ttsc", "test")
-        : PROJECTS_ROOT,
-      name,
-    );
-    const root = tmpdir(`ttsc-${name}-`);
-    copyDirectory(source, root);
     return root;
   }
 

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { BASE_OPTIONS, envelope, makeFakeWorker } from "../internal/fakeWorker";
 
 /**
+ * Verifies a lint plugin failure is surfaced rather than reported as a clean file.
+ *
  * A lint plugin that fails to run must stay visible; it can never collapse into
  * an empty (clean) diagnostic list. A lint run that _completed_ — even with a
  * nonzero exit because it found violations — reports its parsed findings
@@ -18,6 +20,7 @@ import { BASE_OPTIONS, envelope, makeFakeWorker } from "../internal/fakeWorker";
  * 3. Negative twin: code 2 whose stderr parses into a real finding → that finding
  *    is preserved, not replaced by a generic failure.
  * 4. Boundary: code 0 with empty stderr → genuinely clean empty result.
+ *
  * @evidence contracts/testing.md#behavioral-verification createWorkerCompilerService.lint surfaces nonzero/unparseable output and plugin rejection as contextual errors, preserves a completed linter finding exactly and permits genuine clean code0/empty stderr.
  * @evidence contracts/testing.md#independent-expectations Literal panic/terminated messages and a complete authored TS9001 no-magic diagnostic independently pin source coordinates, severity, span and message; empty findings are expected only for the completed clean control.
  * @evidence contracts/testing.md#distinguishing-cases Nonzero no-findings, rejected call, nonzero parsed finding and zero clean output separate failure from completed violation/clean outcomes; no count-only diagnostic oracle certifies a generic substituted finding.
