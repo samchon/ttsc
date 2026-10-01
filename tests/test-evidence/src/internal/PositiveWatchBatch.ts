@@ -14,15 +14,17 @@ import type { ICreateProjectProps } from "./ICreateProjectProps";
  * Config and source-topology changes legitimately reload the Program; Markdown-only
  * residency is measured within its phase. Staged keeps its first position and name;
  * changed parser capability is isolated in a detached private Evidence library.
+ * Initially missing Swagger runs first so its parent is genuinely absent;
+ * empty Markdown follows with its original .keep before the covered Alpha phase.
  * Each real build transcript is forwarded unchanged with its requested phase;
  * unknown process closure blocks every later fixture mutation and cleanup.
  *
  * @evidence contracts/common.md#principled-implementation Original primary graph settings, compiler options, include populations and authored mutation bytes exercise the same actual watcher; an independent canonical cold check keeps identical physical inputs. Plain default consumer configs remain plain, typed named consumers retain their public type checks, and file-qualified links retain their original primary/sibling layout.
- * @evidence contracts/common.md#clear-and-simple-design One owner prepares the consumer/library, exposes guarded mutation and settled-cycle operations, forwards each actual build transcript with its phase, collects assertion failures and independently requests watcher closure and fixture cleanup before throwing.
+ * @evidence contracts/common.md#clear-and-simple-design One owner prepares the consumer/library, exposes guarded writes/removal with recorded bytes or absence and settled-cycle operations, forwards each actual build transcript with its phase, collects assertion failures and independently requests watcher closure and fixture cleanup before throwing.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No result, PID, count, cache proof, source identity or watcher is replaced. The canonical live producer is selected from startup to preserve the original cold exception without package-junction changes; real library deletion occurs only after verified detachment.
  * @evidence contracts/common.md#meaningful-documentation Explains first-claim identity, same-directory cold oracle, bounded settle/reset behavior, config-driven Program reloads and final irreversible private loader revocation.
  * @evidence contracts/performance.md#efficient-algorithms Activation visits the previous and next finite authored file maps once, mutation resets read only tracked changed paths, and settling examines at most eight real cycles per request. Empty owned directories remain until final cleanup rather than recursively scanning each transition.
- * @evidence contracts/performance.md#reuse-equivalent-work Watch consumers share one canonical producer, workspace and watcher lifetime. Original source/config/include populations change only at genuine phase boundaries and may reload Programs; the three identical Alpha cases retain one phase Program, one necessary fresh cold Program remains, and one private parser-library copy serves both last-phase cache controls with independent original source filters.
+ * @evidence contracts/performance.md#reuse-equivalent-work Watch consumers share one canonical producer, workspace and watcher lifetime. Missing Swagger is preserved at actual startup; empty Markdown and later source/config/include populations activate at genuine phase boundaries and may reload Programs. The three Alpha cases retain one phase Program, one necessary fresh cold Program remains, and one private parser-library copy serves both last-phase cache controls with independent original source filters.
  * @evidence contracts/performance.md#bound-retention-and-release-resources One workspace, private library and native watcher remain until all phases finish. Watch closure and strict project cleanup are independently attempted; unknown descendant closure retains inputs and blocks writes, while failures aggregate. Normal Node closure alone is not independent native-descendant join proof. Session transcript retention belongs to startWatch; logging forwards each actual consumed cycle once.
  * @evidence contracts/portability.md#os-neutral-implementation Native path APIs construct exact owned roots, existing helpers own junction detachment and Node process execution, and source/protocol literals remain platform-neutral. Physical ancestor targets stay outside compiler project membership.
  */
@@ -44,7 +46,7 @@ export namespace PositiveWatchBatch {
       watcher = startWatch(owned.directory, { diagnostics: true });
       const session = watcher;
       console.log("Positive watch owned workspace: " + owned.workspace + "; private library: " + library);
-      let observation = "positive-alpha initial baseline";
+      let observation = authored[0].props.name + " initial baseline";
       const quiet = async (milliseconds: number): Promise<IRunResult> => {
         const actual = await session.expectNoBuild(milliseconds);
         console.log("Positive watch actual quiet observation " + JSON.stringify({ phase: observation, milliseconds, actualStatus: actual.status }));
@@ -66,37 +68,44 @@ export namespace PositiveWatchBatch {
         }
         throw new Error("Watch did not settle to the requested actual cycle: " + status + " " + marker + "\n" + last?.output);
       };
-      const baseline = await next(0, undefined, true);
-      check(() => assertStatus(baseline, 0, "The original Alpha inputs must pass the actual initial Program."));
-      const telemetry = baseline.output.match(/@ttsc\/lint resident check: pid=(\d+) programLoads=(\d+)/);
-      check(() => assert.ok(telemetry !== null, "The baseline must report the real resident PID and Program-load count."));
-      console.log("Positive watch baseline resident: " + telemetry?.[0]);
+      const baseline = await next(authored[0].initialStatus ?? 0, undefined, true);
       let previous = authored[0].props;
       for (const phase of authored) {
         const localRoot = owned.directory;
         const outsideRoot = owned.workspace;
-        const originals = new Map<string, string>();
+        const originals = new Map<string, string | undefined>();
+        const remember = (file: string): void => {
+          if (!originals.has(file)) originals.set(file, fs.existsSync(file) ? fs.readFileSync(file, "utf8") : undefined);
+        };
         const write = (relative: string, bytes: string, outside = false): void => {
           EvidenceProcessOwnership.assertAvailable(owned.directory);
           const file = path.join(outside ? outsideRoot : localRoot, relative);
-          if (!originals.has(file)) originals.set(file, fs.readFileSync(file, "utf8"));
+          remember(file);
+          fs.mkdirSync(path.dirname(file), { recursive: true });
           fs.writeFileSync(file, bytes, "utf8");
+        };
+        const remove = (relative: string, outside = false): void => {
+          EvidenceProcessOwnership.assertAvailable(owned.directory);
+          const file = path.join(outside ? outsideRoot : localRoot, relative);
+          remember(file);
+          fs.unlinkSync(file);
         };
         try {
           let phaseBaseline = baseline;
-          if (phase.props.name !== "positive-alpha") {
+          if (phase !== authored[0]) {
             observation = phase.props.name + " activation baseline";
             activate(owned, previous, phase.props);
             previous = phase.props;
-            phaseBaseline = await next(0);
+            phaseBaseline = await next(phase.initialStatus ?? 0, undefined, phase.props.name === "positive-markdown-life" || phase.props.name === "positive-alpha");
           }
           for (const external of Object.keys(phase.props.workspaceFiles ?? {})) {
             const physical = fs.realpathSync.native(path.join(owned.workspace, external));
             check(() => assert.ok(!physical.startsWith(fs.realpathSync.native(owned.directory) + path.sep), "An external fixture must remain physically outside the compiler project: " + physical));
           }
-          check(() => assertStatus(phaseBaseline, 0, "The original watch inputs must pass before mutation: " + phase.props.name));
+          check(() => assertStatus(phaseBaseline, phase.initialStatus ?? 0, "The original watch inputs must have their authored initial verdict: " + phase.props.name));
+          if (phase.props.name === "positive-alpha") check(() => assert.ok(phaseBaseline.output.match(/@ttsc\/lint resident check: pid=(\d+) programLoads=(\d+)/) !== null, "The Alpha baseline must report the real resident PID and Program-load count."));
           console.log("Positive watch " + phase.props.name + " resident: " + phaseBaseline.output.match(/@ttsc\/lint resident check: pid=\d+ programLoads=\d+/)?.[0]);
-          const context: positiveWatchCases.Context = { project: owned, localRoot, outsideRoot, library, baseline: phaseBaseline, write, next, quiet, check };
+          const context: positiveWatchCases.Context = { project: owned, localRoot, outsideRoot, library, baseline: phaseBaseline, write, remove, next, quiet, check };
           for (const mutate of phase.cases) {
             observation = phase.props.name + " " + mutate.name + " mutation";
             const before = failures.length;
@@ -104,15 +113,16 @@ export namespace PositiveWatchBatch {
             if (mutate !== positiveWatchCases.caches) {
               try {
                 let changed = false;
-                for (const [file, bytes] of originals) if (!fs.existsSync(file) || fs.readFileSync(file, "utf8") !== bytes) {
+                for (const [file, bytes] of originals) if (bytes === undefined ? fs.existsSync(file) : !fs.existsSync(file) || fs.readFileSync(file, "utf8") !== bytes) {
                   EvidenceProcessOwnership.assertAvailable(owned.directory);
-                  fs.writeFileSync(file, bytes, "utf8");
+                  if (bytes === undefined) fs.unlinkSync(file);
+                  else fs.writeFileSync(file, bytes, "utf8");
                   if (file !== path.join(localRoot, "README.md")) changed = true;
                 }
                 if (changed) {
                   observation = phase.props.name + " " + mutate.name + " reset";
-                  const reset = await next(0);
-                  check(() => assertStatus(reset, 0, "Original bytes must restore the actual graph."));
+                  const reset = await next(phase.initialStatus ?? 0);
+                  check(() => assertStatus(reset, phase.initialStatus ?? 0, "Original bytes or absence must restore the actual graph."));
                 }
               } catch (error) { failures.push(new Error(mutate.name + " reset failed", { cause: error })); }
             }
@@ -164,6 +174,7 @@ function activate(project: ITtscEvidenceProject, previous: ICreateProjectProps, 
 
 interface IWatchScene {
   readonly props: ICreateProjectProps;
+  readonly initialStatus?: 0 | 2;
   readonly cases: readonly ((context: positiveWatchCases.Context) => Promise<void>)[];
 }
 
@@ -181,6 +192,16 @@ function watchScenes(): [IWatchScene, ...IWatchScene[]] {
   const members = "/** @evidence POST:/members Creates members through the declared API operation. */\nexport interface IMemberCreation {}\n";
   const swaggerClaim = { type: "typescript", files: ["src/members.ts"], symbol: "type", reference: { type: "swagger", file: "api/swagger.json" } };
   return [
+    {
+      props: { name: "positive-swagger-generated", lintConfig: graph([{ ...swaggerClaim, files: ["src/**/*.ts"] }]), files: { "src/members.ts": members } },
+      initialStatus: 2,
+      cases: [positiveWatchCases.generatedSwagger],
+    },
+    {
+      props: { name: "positive-markdown-life", lintConfig: graph([{ type: "typescript", files: ["src/**/*.ts"], symbol: "type", reference: { type: "markdown", files: ["docs/**/*.md"], symbol: "h2" } }]), files: { "docs/.keep": "", "src/implementation.ts": "export interface Implementation {}\n" } },
+      initialStatus: 2,
+      cases: [positiveWatchCases.markdownLife],
+    },
     {
       props: { name: "positive-alpha", lintConfig: graph([{ type: "typescript", files: ["src/**/*.ts"], symbol: "type", reference: { type: "markdown", files: ["docs/**/*.md"], symbol: "h2" } }]), files: {
         "README.md": "# Fixture\n", "docs/spec.md": positiveWatchCases.alpha,

@@ -39,11 +39,14 @@ export namespace positiveWatchCases {
     /** Actual detached private Evidence library, the only permitted loader-deletion target. */
     readonly library: string;
 
-    /** Activation result, independently checked for status0; collection continues after assertion failures. */
+    /** Activation result, independently checked for its authored status0 or2; assertions collect independently. */
     readonly baseline: IRunResult;
 
     /** Writes and records exact originals for bounded later recovery. */
     readonly write: (relative: string, bytes: string, outside?: boolean) => void;
+
+    /** Removes one exact owned input while retaining its original bytes or absence for recovery. */
+    readonly remove: (relative: string, outside?: boolean) => void;
 
     /** Observes the latest settled real cycle; requested status/text do not replace its result. */
     readonly next: (status: number, marker?: string) => Promise<IRunResult>;
@@ -63,6 +66,65 @@ export namespace positiveWatchCases {
 
   /** Authors original member operations; sibling contracts retain Created/201 responses. */
   export const swagger = (methods: readonly string[], operation = "/members", external = false): string => JSON.stringify({ openapi: "3.1.0", info: { title: "Members", version: "1.0.0" }, paths: { [operation]: Object.fromEntries(methods.map(method => [method, { responses: external ? { "201": { description: "Created" } } : { "200": { description: "OK" } } }])) } }, null, 2) + "\n";
+
+  /**
+   * Verifies an exact Swagger dependency arrives after initially missing startup.
+   *
+   * Registering only existing files would leave the first failing build unable
+   * to observe the generator's first creation of the parent and document.
+   *
+   * 1. Start the shared watcher before api/swagger.json or its parent exists.
+   * 2. Require the original absent-input status2 without inventing its diagnostic.
+   * 3. Create the original POST document and require the real rebuild status0.
+   *
+   * @evidence contracts/testing.md#behavioral-verification The actual initial absent Swagger build must fail2, then creating its parent and exact POST document must trigger a passing0 build.
+   * @evidence contracts/testing.md#independent-expectations The literal POST:/members citation and authored OpenAPI POST operation establish the recovered graph independently; no initial diagnostic text is required.
+   * @evidence contracts/testing.md#distinguishing-cases Startup before the exact file and parent exist contrasts with generated valid bytes; the batch additionally restores absence before changing the source/config population.
+   * @evidence contracts/testing.md#execution-ownership generatedSwagger is invoked first by test_evidence_positive_watch_consumers_share_one_watcher; the batch owns the actual child, guarded file creation and independent verdict assertions.
+   * @evidence contracts/e2e.md#necessary-boundary Missing-path registration and packaged Swagger normalization must connect an actual first file creation to a native resident rebuild.
+   * @evidence contracts/e2e.md#shared-execution This first phase shares the canonical producer, workspace and launcher with later phases while preserving genuinely missing startup; later config/source populations legitimately retire and reload Programs.
+   * @evidence contracts/e2e.md#state-isolation-and-reuse-validity It precedes every api-writing phase; the guarded writer records initial absence, creates the owned parent and restores absence before another phase. Unknown reader ownership blocks mutation and cleanup.
+   * @evidence contracts/e2e.md#preserved-coverage Both original status2 and generated0 assertions from test_evidence_watch_observes_a_generated_swagger_document remain here with identical source/citation, JSON bytes and real cycle timeout.
+   */
+  export async function generatedSwagger(context: Context): Promise<void> {
+    context.check(() => assert.ok(!fs.existsSync(path.join(context.localRoot, "api")), "The original generated Swagger parent must be absent at startup."));
+    context.check(() => assertStatus(context.baseline, 2, "A citation against a document that does not exist cannot resolve and must be reported."));
+    context.write("api/swagger.json", swagger(["post"]));
+    const generated = await context.next(0);
+    context.check(() => assertStatus(generated, 0, "Generating the declared document must be observed even though it was missing when the watch started."));
+  }
+
+  /**
+   * Verifies an initially empty Markdown glob observes creation and deletion.
+   *
+   * A declared population must remain watched while no Markdown file matches;
+   * updating only the startup file inventory would miss its first obligation.
+   *
+   * 1. Activate the original empty docs/.keep population and require status2.
+   * 2. Create Alpha and require its obligation with the empty finding absent.
+   * 3. Delete Alpha and require the empty finding with its obligation absent.
+   *
+   * @evidence contracts/testing.md#behavioral-verification The real empty-glob baseline reports2 and matched no markdown files; creation introduces missing Alpha and removes empty, while deletion restores empty and removes Alpha.
+   * @evidence contracts/testing.md#independent-expectations The original recursive docs Markdown glob, empty .keep and literal Alpha heading independently determine the three inventory states.
+   * @evidence contracts/testing.md#distinguishing-cases Empty, created and deleted populations are distinct real events; post-create/delete status is requested for logging but the original assertions concern diagnostic content only.
+   * @evidence contracts/testing.md#execution-ownership markdownLife runs through the shared positive features entry after a genuine source/config reinitialization; the batch owns exact-file writes/removal and collects each content assertion independently.
+   * @evidence contracts/e2e.md#necessary-boundary A native contributor's declared glob watcher must discover a new file and withdraw its deleted heading from the resident inventory.
+   * @evidence contracts/e2e.md#shared-execution One existing launcher serves all three states after the original source/config population activates; no cold compiler, build or consumer is allocated for either filesystem event.
+   * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The authored document does not exist at activation and only its owned exact path changes between settled cycles. Removal restores original absence before Alpha's distinct cited source population activates.
+   * @evidence contracts/e2e.md#preserved-coverage Original initial2 and all five empty/Alpha inclusions or exclusions from test_evidence_watch_observes_markdown_create_and_delete remain with identical .keep/source/heading bytes; no later status assertion is claimed.
+   */
+  export async function markdownLife(context: Context): Promise<void> {
+    context.check(() => assertStatus(context.baseline, 2, "A reference glob matching no document cannot materialize evidence and must be reported."));
+    context.check(() => assertIncludes(context.baseline, "matched no markdown files", "The empty population must name the globs that produced it."));
+    context.write("docs/spec.md", alpha);
+    const created = await context.next(2);
+    context.check(() => assertIncludes(created, "Missing acknowledgement for 'docs/spec.md#alpha'", "A created document must be observed even though nothing matched the glob when the watch started."));
+    context.check(() => assertExcludes(created, "matched no markdown files", "The population must stop being empty once the document exists."));
+    context.remove("docs/spec.md");
+    const deleted = await context.next(2);
+    context.check(() => assertIncludes(deleted, "matched no markdown files", "Deleting the only matched document must empty the population again."));
+    context.check(() => assertExcludes(deleted, "Missing acknowledgement for 'docs/spec.md#alpha'", "A deleted heading must not survive as an obligation in the next cycle."));
+  }
 
   /**
    * Verifies declared Markdown freshness, unrelated quiet and stable resident identity.
