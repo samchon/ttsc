@@ -1,0 +1,101 @@
+diff --git a/lib/transform.js b/lib/transform.js
+index 28cc37c44c2677c347933307574d4b048c7b3aa9..d4a7a1d6fd43d06ca82d736808da653d6599b26f 100644
+--- a/lib/transform.js
++++ b/lib/transform.js
+@@ -14,6 +14,7 @@ function createTtscPlugin(context) {
+     const root = node_path_1.default.dirname(requireFrom.resolve("typia/package.json"));
+     return {
+         name: "typia",
++        capabilities: { emitProvenance: true },
+         source: node_path_1.default.resolve(root, "native", "cmd", "ttsc-typia"),
+     };
+ }
+diff --git a/lib/transform.mjs b/lib/transform.mjs
+index 9926526956ec17d88d365cbbf381eeab95365a98..05a1f3ec5b6cd1b32a0f8a6ee8a685e35b68ea5f 100644
+--- a/lib/transform.mjs
++++ b/lib/transform.mjs
+@@ -6,6 +6,7 @@ function createTtscPlugin(context) {
+ 	const root = path.dirname(requireFrom.resolve("typia/package.json"));
+ 	return {
+ 		name: "typia",
++		capabilities: { emitProvenance: true },
+ 		source: path.resolve(root, "native", "cmd", "ttsc-typia")
+ 	};
+ }
+diff --git a/native/cmd/ttsc-typia/build.go b/native/cmd/ttsc-typia/build.go
+index b6c443c73905f74da51d1411a0a571378cf2db6c..48281470c1c0b559dd96eed217eab4bb9d2aeab6 100644
+--- a/native/cmd/ttsc-typia/build.go
++++ b/native/cmd/ttsc-typia/build.go
+@@ -19,7 +19,7 @@ import (
+   nativetransform "github.com/samchon/typia/packages/typia/native/transform"
+ )
+ 
+-func runBuild(args []string) int {
++func runBuild(args []string) (code int) {
+   fs := flag.NewFlagSet("build", flag.ContinueOnError)
+   fs.SetOutput(stderr)
+   tsconfigPath := fs.String("tsconfig", "tsconfig.json", "path to tsconfig.json")
+@@ -30,11 +30,16 @@ func runBuild(args []string) int {
+   noEmit := fs.Bool("noEmit", false, "force analysis-only run with no file writes")
+   outDir := fs.String("outDir", "", "override compilerOptions.outDir")
+   manifestPath := fs.String("manifest", "", "write emitted file list as JSON")
++  provenancePath := fs.String("emit-provenance-json", "", "write successful emitted JavaScript ownership as JSON")
+   rewriteMode := fs.String("rewrite-mode", "typia", "native rewrite backend id")
+   pluginsJSON := fs.String("plugins-json", "", "ordered ttsc plugin payload")
+   if err := fs.Parse(args); err != nil {
+     return 2
+   }
++  if *provenancePath != "" && !filepath.IsAbs(*provenancePath) {
++    fmt.Fprintln(stderr, "emit provenance destination must be an absolute path")
++    return 2
++  }
+   if *emit && *noEmit {
+     fmt.Fprintln(stderr, "ttsc-typia build: --emit and --noEmit are mutually exclusive")
+     return 2
+@@ -109,6 +114,25 @@ func runBuild(args []string) int {
+     }
+   }
+   defer prog.Close()
++  // Record the physical publication, not the transactional buffer: a rejected
++  // transform writes nothing, and a failed flush owns only its successful prefix.
++  commitOutput := shimcompiler.WriteFile(func(name, text string, _ *shimcompiler.WriteFileData) error {
++    return driver.DefaultWriteFile(name, text)
++  })
++  if *provenancePath != "" {
++    recorded, snapshot, err := prog.NewEmitProvenanceRecorder(commitOutput)
++    if err != nil {
++      fmt.Fprintf(stderr, "emit provenance recorder: %v\n", err)
++      return 3
++    }
++    commitOutput = recorded
++    defer func() {
++      if err := driver.WriteEmitProvenanceJSON(*provenancePath, snapshot()); err != nil {
++        fmt.Fprintf(stderr, "emit provenance publication: %v\n", err)
++        code = 3
++      }
++    }()
++  }
+   registerTypiaDefaultLibraryClassifier(prog)
+   defer schemametadata.MetadataDefaultLibrary_release(prog.Checker)
+ 
+@@ -156,7 +180,7 @@ func runBuild(args []string) int {
+   }
+   if shouldEmit {
+     for _, output := range pending {
+-      if err := driver.DefaultWriteFile(output.FileName, output.Text); err != nil {
++      if err := commitOutput(output.FileName, output.Text, nil); err != nil {
+         fmt.Fprintf(stderr, "ttsc-typia build: emit write failed: %v\n", err)
+         return 3
+       }
+diff --git a/src/transform.ts b/src/transform.ts
+index 9dd977a5e6d57a68ebb39546e34f07709118f551..5044e524c27519ddd23260b7b5e541566314de1f 100644
+--- a/src/transform.ts
++++ b/src/transform.ts
+@@ -14,6 +14,7 @@ export function createTtscPlugin(
+   const root: string = path.dirname(requireFrom.resolve("typia/package.json"));
+   return {
+     name: "typia",
++    capabilities: { emitProvenance: true },
+     source: path.resolve(root, "native", "cmd", "ttsc-typia"),
+   };
+ }
