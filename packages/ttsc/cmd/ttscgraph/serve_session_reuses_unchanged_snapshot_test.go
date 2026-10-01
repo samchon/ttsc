@@ -15,6 +15,11 @@ import (
 // 1. Open a one-file graph session and request its initial dump.
 // 2. Request another snapshot without touching the project.
 // 3. Assert the second response is unchanged and carries no replacement dump.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies repeated graph requests do no graph rebuild when every project input is byte-identical.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "initial", "unchanged"; the second response is unchanged and carries no replacement dump.
+// @evidence contracts/testing.md#distinguishing-cases Open a one-file graph session and request its initial dump; Request another snapshot without touching the project; Assert the second response is unchanged and carries no replacement dump.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionReusesUnchangedSnapshot is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReusesUnchangedSnapshot(t *testing.T) {
   root := graphSessionFixture(t)
   session, err := newGraphSession(root, "tsconfig.json")
@@ -23,7 +28,7 @@ func TestServeSessionReusesUnchangedSnapshot(t *testing.T) {
   }
   defer session.Close()
 
-  first, mode, changed, err := session.Snapshot()
+  first, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }
@@ -31,7 +36,7 @@ func TestServeSessionReusesUnchangedSnapshot(t *testing.T) {
     t.Fatalf("initial snapshot = dump:%v mode:%q changed:%v", first != nil, mode, changed)
   }
 
-  second, mode, changed, err := session.Snapshot()
+  second, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }

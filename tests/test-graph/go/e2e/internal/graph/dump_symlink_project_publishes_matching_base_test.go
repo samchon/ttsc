@@ -16,6 +16,15 @@ import (
 //  1. Select a real project directory through a symlink and add sibling inputs.
 //  2. Map an existing sibling, a missing child and a relative config symlink.
 //  3. Require stable coordinates and a canonical published project base.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual directory and file symlinks feed newDumpPathMapper and NewDump, then SameFile checks the sibling resolved from the published project base.
+// @evidence contracts/testing.md#independent-expectations The physical directory, sibling source and linked config are independently created fixture objects; literal ../shared.ts, src/new.ts and ../config/tsconfig.json define expected wire coordinates.
+// @evidence contracts/testing.md#distinguishing-cases A directory alias, a real config-file symlink, a sibling and a missing child distinguish canonical base publication from lexical path joining. Both native link capabilities are required.
+// @evidence contracts/testing.md#execution-ownership This Go E2E entry exercises real filesystem links and metadata. A host unable to create either link skips the case; such a return is a capability limitation, not executed mapping coverage.
+// @evidence contracts/e2e.md#necessary-boundary Only native directory/file alias resolution and SameFile can prove the published base names the same object; supplied lexical path facts cannot detect that connection failure.
+// @evidence contracts/e2e.md#shared-execution One owned fixture and one Go host exercise all directory alias, file alias, sibling and missing-child assertions without compiler loading, consumer installation or native artifact building.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case alone owns its real directory and both links; it performs no retarget shared with another case. TempDir cleanup removes these owned inputs after all synchronous mapper and metadata operations.
+// @evidence contracts/e2e.md#preserved-coverage Every original sibling, missing-child, linked-config, published-base and SameFile assertion remains in this boundary. Linux/macOS can exercise file symlinks; Windows privilege absence is reported rather than substituting a junction for the file symlink.
 func TestDumpSymlinkProjectPublishesMatchingBase(t *testing.T) {
   root := t.TempDir()
   realRoot := filepath.Join(root, "real")

@@ -16,6 +16,11 @@ import (
 // 1. Build a valid initial graph, then replace tsconfig.json with invalid JSON.
 // 2. Assert snapshot fails with no dump instead of serving the cached graph.
 // 3. Restore a valid config and assert the next request reloads successfully.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies a broken project config never falls back to the last valid graph and recovers after the config is fixed.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "reload"; Restore a valid config and assert the next request reloads successfully.
+// @evidence contracts/testing.md#distinguishing-cases Build a valid initial graph, then replace tsconfig.json with invalid JSON; Assert snapshot fails with no dump instead of serving the cached graph; Restore a valid config and assert the next request reloads successfully.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionFailsClosedOnInvalidConfig is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionFailsClosedOnInvalidConfig(t *testing.T) {
   root := graphSessionFixture(t)
   session, err := newGraphSession(root, "tsconfig.json")
@@ -23,7 +28,7 @@ func TestServeSessionFailsClosedOnInvalidConfig(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if _, _, _, err := session.Snapshot(); err != nil {
+  if _, _, _, err := snapshotGraphState(session); err != nil {
     t.Fatal(err)
   }
 
@@ -31,7 +36,7 @@ func TestServeSessionFailsClosedOnInvalidConfig(t *testing.T) {
   if err := os.WriteFile(config, []byte("{ invalid"), 0o644); err != nil {
     t.Fatal(err)
   }
-  dump, _, changed, err := session.Snapshot()
+  dump, _, changed, err := snapshotGraphState(session)
   if err == nil || dump != nil || changed {
     t.Fatalf("invalid config must fail closed: dump:%v changed:%v err:%v", dump != nil, changed, err)
   }
@@ -40,7 +45,7 @@ func TestServeSessionFailsClosedOnInvalidConfig(t *testing.T) {
   if err := os.WriteFile(config, []byte(valid), 0o644); err != nil {
     t.Fatal(err)
   }
-  dump, mode, changed, err := session.Snapshot()
+  dump, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }

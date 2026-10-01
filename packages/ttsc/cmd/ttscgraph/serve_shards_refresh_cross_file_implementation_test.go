@@ -10,6 +10,15 @@ import (
 // TestServeShardsRefreshCrossFileImplementation verifies that an assignment
 // source and the declaration node whose implementation span it owns enter one
 // replacement transaction.
+//
+// 1. Publish Service.run and a separate install.ts assignment whose implementation calls helper.
+// 2. Remove the cross-file assignment without changing service.ts.
+// 3. Require initial evidence to name src/install.ts, an incremental replacement of the declaration shard digest and equality with the full projection.
+//
+// @evidence contracts/testing.md#behavioral-verification Require initial evidence to name src/install.ts, an incremental replacement of the declaration shard digest and equality with the full projection.
+// @evidence contracts/testing.md#independent-expectations The literal fixture and the supported graph contract establish these expectations: Require initial evidence to name src/install.ts, an incremental replacement of the declaration shard digest and equality with the full projection. The full projection comparison uses another lane over the same compiler and extraction helpers, so it cannot independently detect a shared checker or extraction defect.
+// @evidence contracts/testing.md#distinguishing-cases Publish Service.run and a separate install.ts assignment whose implementation calls helper. Remove the cross-file assignment without changing service.ts. Require initial evidence to name src/install.ts, an incremental replacement of the declaration shard digest and equality with the full projection.
+// @evidence contracts/testing.md#execution-ownership TestServeShardsRefreshCrossFileImplementation is a Go source-unit entry. snapshotGraphShardState calls the actual prepareShardSnapshot transaction and completes each prepared projection, including fallback, with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeShardsRefreshCrossFileImplementation(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -26,7 +35,7 @@ func TestServeShardsRefreshCrossFileImplementation(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if snapshot, _, _, err := session.SnapshotShards(); err != nil || snapshot == nil {
+  if snapshot, _, _, err := snapshotGraphShardState(session); err != nil || snapshot == nil {
     t.Fatalf("initial shard snapshot = snapshot:%v error:%v", snapshot != nil, err)
   }
   serviceSource := session.compiler.Program().SourceFile(service)
@@ -49,7 +58,7 @@ func TestServeShardsRefreshCrossFileImplementation(t *testing.T) {
   if err := os.WriteFile(install, []byte("import { Service } from './service';\nexport function helper(): void {}\nexport function install(value: Service): void { void value; }\n"), 0o644); err != nil {
     t.Fatal(err)
   }
-  snapshot, mode, changed, err := session.SnapshotShards()
+  snapshot, mode, changed, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
   }

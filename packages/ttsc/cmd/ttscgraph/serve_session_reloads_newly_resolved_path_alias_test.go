@@ -8,6 +8,15 @@ import (
 
 // TestServeSessionReloadsNewlyResolvedPathAlias verifies a missing paths target
 // is tracked even when it is excluded from the tsconfig root set.
+//
+// 1. Load @generated/value through paths while only src/index.ts is a configured root.
+// 2. Create the excluded generated/value.ts target.
+// 3. Require a changed reload dump containing generated.
+//
+// @evidence contracts/testing.md#behavioral-verification Require a changed reload dump containing generated.
+// @evidence contracts/testing.md#independent-expectations The literal fixture and supported graph contract establish these expectations: Require a changed reload dump containing generated.
+// @evidence contracts/testing.md#distinguishing-cases Load @generated/value through paths while only src/index.ts is a configured root. Create the excluded generated/value.ts target. Require a changed reload dump containing generated.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsNewlyResolvedPathAlias is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsNewlyResolvedPathAlias(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -26,7 +35,7 @@ func TestServeSessionReloadsNewlyResolvedPathAlias(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if _, _, _, err := session.Snapshot(); err != nil {
+  if _, _, _, err := snapshotGraphState(session); err != nil {
     t.Fatal(err)
   }
 
@@ -37,7 +46,7 @@ func TestServeSessionReloadsNewlyResolvedPathAlias(t *testing.T) {
   if err := os.WriteFile(target, []byte("export function generated(): void {}\n"), 0o644); err != nil {
     t.Fatal(err)
   }
-  dump, mode, changed, err := session.Snapshot()
+  dump, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }

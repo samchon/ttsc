@@ -17,6 +17,11 @@ import (
 //  1. Open a session whose tsconfig lists absent `src/generated.ts` in files.
 //  2. Take repeated snapshots without touching the project.
 //  3. Assert each one reports unchanged with no replacement dump.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies a permanently absent `files` entry does not churn the session.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "unchanged"; each one reports unchanged with no replacement dump.
+// @evidence contracts/testing.md#distinguishing-cases Open a session whose tsconfig lists absent `src/generated.ts` in files; Take repeated snapshots without touching the project; Assert each one reports unchanged with no replacement dump.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionKeepsMissingLiteralRootUnchanged is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionKeepsMissingLiteralRootUnchanged(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -30,12 +35,12 @@ func TestServeSessionKeepsMissingLiteralRootUnchanged(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if _, _, _, err := session.Snapshot(); err != nil {
+  if _, _, _, err := snapshotGraphState(session); err != nil {
     t.Fatal(err)
   }
 
   for i := 0; i < 2; i++ {
-    dump, mode, changed, err := session.Snapshot()
+    dump, mode, changed, err := snapshotGraphState(session)
     if err != nil {
       t.Fatal(err)
     }

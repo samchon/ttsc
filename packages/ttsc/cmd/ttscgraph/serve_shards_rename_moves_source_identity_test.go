@@ -19,6 +19,11 @@ import (
 //  1. Commit a project whose consumer imports a source by its original path.
 //  2. Rename that source and repoint the import in the same generation.
 //  3. Require the old shard deleted, a new shard published, and the dependent replaced.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies a renamed source deletes its old shard and publishes a new one whose coordinates name the new path.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the old shard deleted, a new shard published, and the dependent replaced.
+// @evidence contracts/testing.md#distinguishing-cases Commit a project whose consumer imports a source by its original path; Rename that source and repoint the import in the same generation; Require the old shard deleted, a new shard published, and the dependent replaced.
+// @evidence contracts/testing.md#execution-ownership TestServeShardsRenameMovesSourceIdentity is a Go source-unit entry. snapshotGraphShardState calls the actual prepareShardSnapshot transaction and completes each prepared projection, including fallback, with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeShardsRenameMovesSourceIdentity(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -35,7 +40,7 @@ func TestServeShardsRenameMovesSourceIdentity(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  initial, mode, changed, err := session.SnapshotShards()
+  initial, mode, changed, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
   }
@@ -61,7 +66,7 @@ func TestServeShardsRenameMovesSourceIdentity(t *testing.T) {
   }
   writeGraphFile(t, consumerFile, "import { moved } from './renamed';\nexport function consume(): number { return moved(); }\n")
 
-  next, mode, changed, err := session.SnapshotShards()
+  next, mode, changed, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
   }

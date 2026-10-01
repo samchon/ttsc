@@ -25,6 +25,11 @@ import (
 //  1. Build a session over a one-file project, carrying one artifact.
 //  2. Take a full shard snapshot.
 //  3. Assert it succeeded and that the artifact is in it.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that a session carrying published artifacts can produce a shard snapshot at all.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish it succeeded and that the artifact is in it.
+// @evidence contracts/testing.md#distinguishing-cases Build a session over a one-file project, carrying one artifact; Take a full shard snapshot; Assert it succeeded and that the artifact is in it.
+// @evidence contracts/testing.md#execution-ownership TestServeProjectsAnArtifactNoSourceOwns is a source-unit entry. writeGraphFile, newGraphSessionWithArtifacts, session.Close, projectFullGraphShards, session.capabilities, session.artifactProducer run directly over actual resident/command state. Prepared projection consumes explicit empty ignore membership; real Git acquisition remains in the separate worktree boundary.
 func TestServeProjectsAnArtifactNoSourceOwns(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -57,7 +62,7 @@ export function priced(): void {}
   }
   defer func() { _ = session.Close() }()
 
-  snapshot, _, err := session.buildFullShardSnapshot()
+  snapshot, _, err := projectFullGraphShards(session)
   if err != nil {
     t.Fatalf("the shard projection rejected a published artifact: %v", err)
   }

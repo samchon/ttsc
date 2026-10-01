@@ -18,6 +18,11 @@ import (
 // 1. Build the initial graph containing `BeforeEdit`.
 // 2. Replace it with `AfterEdit` in the same source file.
 // 3. Assert incremental mode and an exact post-edit node set.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies a content-only source edit updates the graph through the resident tsgo Program.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "incremental"; incremental mode and an exact post-edit node set.
+// @evidence contracts/testing.md#distinguishing-cases Build the initial graph containing `BeforeEdit`; Replace it with `AfterEdit` in the same source file; Assert incremental mode and an exact post-edit node set.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionAppliesSourceEditIncrementally is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionAppliesSourceEditIncrementally(t *testing.T) {
   root := graphSessionFixture(t)
   session, err := newGraphSession(root, "tsconfig.json")
@@ -25,7 +30,7 @@ func TestServeSessionAppliesSourceEditIncrementally(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if _, _, _, err := session.Snapshot(); err != nil {
+  if _, _, _, err := snapshotGraphState(session); err != nil {
     t.Fatal(err)
   }
 
@@ -33,7 +38,7 @@ func TestServeSessionAppliesSourceEditIncrementally(t *testing.T) {
   if err := os.WriteFile(file, []byte("export class AfterEdit {}\n"), 0o644); err != nil {
     t.Fatal(err)
   }
-  dump, mode, changed, err := session.Snapshot()
+  dump, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }

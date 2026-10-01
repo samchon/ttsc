@@ -28,6 +28,11 @@ import (
 //     second producer appears, and that the citation stays a token.
 //  2. Dump the same project with a published set, and assert both appear and the
 //     citation resolved to a node carrying its heading and its line.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that the artifact capability is a statement about what this producer did, not about what it found.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "docs/sale.md#pricing", "Pricing", "docs/sale.md", "doc_ref"; Dump the same project with a published set, and assert both appear and the citation resolved to a node carrying its heading and its line.
+// @evidence contracts/testing.md#distinguishing-cases Dump a project with no `--artifacts`, and assert neither the claim nor the second producer appears, and that the citation stays a token; Dump the same project with a published set, and assert both appear and the citation resolved to a node carrying its heading and its line.
+// @evidence contracts/testing.md#execution-ownership TestRunDumpClaimsArtifactsOnlyWhenItAsked is a Go source-unit entry. runSourceDumpCommand exercises the real prepareDumpCommand grammar and encode operation; it supplies the dispatch word and does not execute the top-level dispatcher. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestRunDumpClaimsArtifactsOnlyWhenItAsked(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -110,7 +115,7 @@ func runDumpForArtifacts(t *testing.T, root, artifacts string) string {
   stdout, stderr = &out, &errOut
   defer func() { stdout, stderr = restoreStdout, restoreStderr }()
 
-  if code := run(args); code != 0 {
+  if code := runSourceDumpCommand(args); code != 0 {
     t.Fatalf("dump exited %d: %s", code, errOut.String())
   }
   return out.String()

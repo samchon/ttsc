@@ -8,6 +8,15 @@ import (
 
 // TestServeSessionReloadsNewlyResolvedPackageImport verifies wildcard imports
 // targets are tracked with the wildcard text matched from the package key.
+//
+// 1. Load the #generated/value import with a wildcard package imports mapping.
+// 2. Create the substituted generated/value.ts declaration.
+// 3. Require a changed reload dump.
+//
+// @evidence contracts/testing.md#behavioral-verification Require a changed reload dump.
+// @evidence contracts/testing.md#independent-expectations The literal fixture and supported graph contract establish these expectations: Require a changed reload dump.
+// @evidence contracts/testing.md#distinguishing-cases Load the #generated/value import with a wildcard package imports mapping. Create the substituted generated/value.ts declaration. Require a changed reload dump.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsNewlyResolvedPackageImport is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsNewlyResolvedPackageImport(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "package.json"), `{
@@ -25,7 +34,7 @@ func TestServeSessionReloadsNewlyResolvedPackageImport(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if _, _, _, err := session.Snapshot(); err != nil {
+  if _, _, _, err := snapshotGraphState(session); err != nil {
     t.Fatal(err)
   }
 
@@ -36,7 +45,7 @@ func TestServeSessionReloadsNewlyResolvedPackageImport(t *testing.T) {
   if err := os.WriteFile(target, []byte("export function generated(): void {}\n"), 0o644); err != nil {
     t.Fatal(err)
   }
-  dump, mode, changed, err := session.Snapshot()
+  dump, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }

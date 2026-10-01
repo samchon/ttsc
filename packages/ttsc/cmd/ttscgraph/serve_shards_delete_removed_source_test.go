@@ -9,6 +9,15 @@ import (
 // TestServeShardsDeleteRemovedSource verifies a root-set reload names the
 // superseded source shard explicitly while publishing a complete replacement
 // generation. A consumer never has to infer deletion from a missing payload.
+//
+// 1. Publish index.ts and keep.ts as the initial source shards.
+// 2. Delete index.ts and publish the resulting source change.
+// 3. Require a reload delta based on the initial generation, deletion of the removed key and retention of the keep key.
+//
+// @evidence contracts/testing.md#behavioral-verification Require a reload delta based on the initial generation, deletion of the removed key and retention of the keep key.
+// @evidence contracts/testing.md#independent-expectations The literal fixture and the supported graph contract establish these expectations: Require a reload delta based on the initial generation, deletion of the removed key and retention of the keep key.
+// @evidence contracts/testing.md#distinguishing-cases Publish index.ts and keep.ts as the initial source shards. Delete index.ts and publish the resulting source change. Require a reload delta based on the initial generation, deletion of the removed key and retention of the keep key.
+// @evidence contracts/testing.md#execution-ownership TestServeShardsDeleteRemovedSource is a Go source-unit entry. snapshotGraphShardState calls the actual prepareShardSnapshot transaction and completes each prepared projection, including fallback, with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeShardsDeleteRemovedSource(t *testing.T) {
   root := graphSessionFixture(t)
   keep := filepath.Join(root, "src", "keep.ts")
@@ -18,7 +27,7 @@ func TestServeShardsDeleteRemovedSource(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  initial, _, _, err := session.SnapshotShards()
+  initial, _, _, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
   }
@@ -38,7 +47,7 @@ func TestServeShardsDeleteRemovedSource(t *testing.T) {
     t.Fatal(err)
   }
 
-  replacement, mode, changed, err := session.SnapshotShards()
+  replacement, mode, changed, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
   }

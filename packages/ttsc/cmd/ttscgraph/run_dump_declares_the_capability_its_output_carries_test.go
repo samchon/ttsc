@@ -27,6 +27,11 @@ import (
 //  2. Assert the capability is declared and the tag is present in the output.
 //  3. Run it over a project with no tag and assert the field appears nowhere,
 //     while the claim still does.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that the maintained `dump` command's own output declares the documentation-tag capability, and that a project carrying no tag emits the field nowhere.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish Run it over a project with no tag and assert the field appears nowhere, while the claim still does.
+// @evidence contracts/testing.md#distinguishing-cases Run the `dump` subcommand over a project with a tag, capturing stdout; Assert the capability is declared and the tag is present in the output; Run it over a project with no tag and assert the field appears nowhere, while the claim still does.
+// @evidence contracts/testing.md#execution-ownership TestRunDumpDeclaresTheCapabilityItsOutputCarries is a Go source-unit entry. runSourceDumpCommand exercises the real prepareDumpCommand grammar and encode operation; it supplies the dispatch word and does not execute the top-level dispatcher. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestRunDumpDeclaresTheCapabilityItsOutputCarries(t *testing.T) {
   tagged := runDumpForCapabilityProbe(t, `/** @evidence docs/a.md#x Cited. */
 export function subject(): void {}
@@ -89,7 +94,7 @@ func runDumpForCapabilityProbe(t *testing.T, source string) string {
   stdout, stderr = &out, &errOut
   defer func() { stdout, stderr = restoreStdout, restoreStderr }()
 
-  if code := run([]string{"dump", "--cwd", root, "--tsconfig", "tsconfig.json"}); code != 0 {
+  if code := runSourceDumpCommand([]string{"dump", "--cwd", root, "--tsconfig", "tsconfig.json"}); code != 0 {
     t.Fatalf("dump exited %d: %s", code, errOut.String())
   }
   return out.String()

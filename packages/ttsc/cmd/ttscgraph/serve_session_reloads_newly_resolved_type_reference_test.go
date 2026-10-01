@@ -8,6 +8,15 @@ import (
 
 // TestServeSessionReloadsNewlyResolvedTypeReference verifies triple-slash type
 // directives honor configured typeRoots when a missing package appears.
+//
+// 1. Load a triple-slash fixture-types reference with explicit ./types roots.
+// 2. Create types/fixture-types/index.d.ts declaring FixtureType.
+// 3. Require a changed reload dump.
+//
+// @evidence contracts/testing.md#behavioral-verification Require a changed reload dump.
+// @evidence contracts/testing.md#independent-expectations The literal fixture and supported graph contract establish these expectations: Require a changed reload dump.
+// @evidence contracts/testing.md#distinguishing-cases Load a triple-slash fixture-types reference with explicit ./types roots. Create types/fixture-types/index.d.ts declaring FixtureType. Require a changed reload dump.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsNewlyResolvedTypeReference is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsNewlyResolvedTypeReference(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -21,7 +30,7 @@ func TestServeSessionReloadsNewlyResolvedTypeReference(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if _, _, _, err := session.Snapshot(); err != nil {
+  if _, _, _, err := snapshotGraphState(session); err != nil {
     t.Fatal(err)
   }
 
@@ -32,7 +41,7 @@ func TestServeSessionReloadsNewlyResolvedTypeReference(t *testing.T) {
   if err := os.WriteFile(target, []byte("interface FixtureType { id: number }\n"), 0o644); err != nil {
     t.Fatal(err)
   }
-  dump, mode, changed, err := session.Snapshot()
+  dump, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }

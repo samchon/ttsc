@@ -7,6 +7,15 @@ import (
 
 // TestServeSessionReloadsModuleSuffixCandidate verifies a configured module
 // suffix is considered before the unsuffixed extension candidate.
+//
+// 1. Load a value.js fallback with moduleSuffixes selecting .native before the empty suffix.
+// 2. Create value.native.ts.
+// 3. Require a reload containing nativeWinner.
+//
+// @evidence contracts/testing.md#behavioral-verification Require a reload containing nativeWinner.
+// @evidence contracts/testing.md#independent-expectations The literal fixture and the supported graph contract establish these expectations: Require a reload containing nativeWinner.
+// @evidence contracts/testing.md#distinguishing-cases Load a value.js fallback with moduleSuffixes selecting .native before the empty suffix. Create value.native.ts. Require a reload containing nativeWinner.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsModuleSuffixCandidate is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsModuleSuffixCandidate(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -26,12 +35,12 @@ func TestServeSessionReloadsModuleSuffixCandidate(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if _, _, _, err := session.Snapshot(); err != nil {
+  if _, _, _, err := snapshotGraphState(session); err != nil {
     t.Fatal(err)
   }
 
   writeGraphFile(t, filepath.Join(root, "src", "value.native.ts"), "export function winner(): void {}\nexport function nativeWinner(): void {}\n")
-  dump, mode, changed, err := session.Snapshot()
+  dump, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }

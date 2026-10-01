@@ -11,6 +11,15 @@ import (
 // The containing source lies under both src and src/generated. Only the
 // longest root makes out/views/template a peer candidate; out/generated/views
 // comes from the shorter root and is never tried by this resolution.
+//
+// 1. Load a source under overlapping src and src/generated roots with out as a peer root.
+// 2. Create the shorter-root candidate, then the valid peer-root candidate.
+// 3. Require no change for the nonselected root and a reload containing rootDirsWinner for the selected peer.
+//
+// @evidence contracts/testing.md#behavioral-verification Require no change for the nonselected root and a reload containing rootDirsWinner for the selected peer.
+// @evidence contracts/testing.md#independent-expectations The literal fixture and the supported graph contract establish these expectations: Require no change for the nonselected root and a reload containing rootDirsWinner for the selected peer.
+// @evidence contracts/testing.md#distinguishing-cases Load a source under overlapping src and src/generated roots with out as a peer root. Create the shorter-root candidate, then the valid peer-root candidate. Require no change for the nonselected root and a reload containing rootDirsWinner for the selected peer.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionKeepsNonLongestRootDirsCandidateUnchanged is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionKeepsNonLongestRootDirsCandidateUnchanged(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -30,12 +39,12 @@ func TestServeSessionKeepsNonLongestRootDirsCandidateUnchanged(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if _, _, _, err := session.Snapshot(); err != nil {
+  if _, _, _, err := snapshotGraphState(session); err != nil {
     t.Fatal(err)
   }
 
   writeGraphFile(t, filepath.Join(root, "out", "generated", "views", "template.ts"), "export function winner(): void {}\n")
-  dump, mode, changed, err := session.Snapshot()
+  dump, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }
@@ -44,7 +53,7 @@ func TestServeSessionKeepsNonLongestRootDirsCandidateUnchanged(t *testing.T) {
   }
 
   writeGraphFile(t, filepath.Join(root, "src", "views", "template.ts"), "export function winner(): void {}\nexport function rootDirsWinner(): void {}\n")
-  dump, mode, changed, err = session.Snapshot()
+  dump, mode, changed, err = snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }

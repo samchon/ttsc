@@ -347,20 +347,28 @@ func (s *graphSession) Close() error {
 }
 
 func (s *graphSession) Snapshot() (*graph.Dump, string, bool, error) {
+  prepared, mode, changed, err := s.prepareDumpSnapshot()
+  if err != nil || prepared == nil { return nil, mode, changed, err }
+  dump, err := prepared.publish(graph.GitIgnoredFiles(s.cwd, prepared.built))
+  if err != nil { return nil, "", false, err }
+  return dump, mode, true, nil
+}
+
+// prepareDumpSnapshot advances actual resident state and prepares its dump.
+// Completing it consumes evaluated membership and owns pending retry state.
+func (s *graphSession) prepareDumpSnapshot() (*preparedDumpProjection, string, bool, error) {
   change, err := s.nextChange(false)
-  if err != nil {
-    return nil, "", false, err
+  if err != nil { return nil, "", false, err }
+  if change == nil { return nil, serveModeUnchanged, false, nil }
+  prepared := s.prepareDumpProjection()
+  publish := prepared.publish
+  prepared.publish = func(ignored map[string]bool) (*graph.Dump, error) {
+    dump, err := publish(ignored)
+    if err != nil { s.pending = change; return nil, err }
+    s.pending = nil
+    return dump, nil
   }
-  if change == nil {
-    return nil, serveModeUnchanged, false, nil
-  }
-  dump, err := s.buildDump()
-  if err != nil {
-    s.pending = change
-    return nil, "", false, err
-  }
-  s.pending = nil
-  return &dump, change.mode, true, nil
+  return prepared, change.mode, true, nil
 }
 
 type graphChange struct {
@@ -622,24 +630,28 @@ func missingRootInputs(configs []*shimtsoptions.ParsedCommandLine, sourceHashes 
   return missing
 }
 
-func (s *graphSession) buildDump() (graph.Dump, error) {
+func (s *graphSession) prepareDumpProjection() *preparedDumpProjection {
   program := s.compiler.Program()
   built := graph.Build(program)
   graph.ApplyArtifacts(built, s.artifacts)
   // One texts map feeds both the spans and the manifest digests, so the bytes a
   // span points into are provably the bytes the manifest attests to.
   texts := graph.SourceTexts(program)
-  return graph.NewDump(
+  return &preparedDumpProjection{built: built, publish: func(ignored map[string]bool) (*graph.Dump, error) {
+  dump, err := graph.NewDump(
     built,
     s.cwd,
     s.tsconfig,
-    graph.GitIgnoredFiles(s.cwd, built),
+    ignored,
     texts,
     graph.DumpOrigin{
       Provenance:  s.provenance(texts),
       Diagnostics: graph.NewDiagnostics(program),
     },
   )
+  if err != nil { return nil, err }
+  return &dump, nil
+  }}
 }
 
 // serveProducer names this binary and the checker it links.
@@ -1094,6 +1106,12 @@ func serveSnapshotsWithArtifacts(
   cwd, tsconfig string,
   artifacts []graph.Artifact,
 ) int {
+  return serveSnapshotRequests(input, output, cwd, tsconfig, artifacts, nativeSnapshotPublisher{})
+}
+
+// serveSnapshotRequests owns real NDJSON decoding, session lifetime and request
+// state. Publication uses its declared port; the default adapter acquires Git.
+func serveSnapshotRequests(input io.Reader, output io.Writer, cwd, tsconfig string, artifacts []graph.Artifact, publisher serveSnapshotPublisher) int {
   scanner := bufio.NewScanner(input)
   scanner.Buffer(make([]byte, 64*1024), 1024*1024)
   encoder := json.NewEncoder(output)
@@ -1192,9 +1210,9 @@ func serveSnapshotsWithArtifacts(
     var exportDuration time.Duration
     var err error
     if request.GraphSnapshotVersion == graphSnapshotProtocolVersion {
-      snapshot, mode, changed, semanticDuration, exportDuration, err = session.snapshotShardsWithTiming()
+      snapshot, mode, changed, semanticDuration, exportDuration, err = publisher.shards(session)
     } else {
-      dump, mode, changed, err = session.Snapshot()
+      dump, mode, changed, err = publisher.dump(session)
     }
     response := newServeResponse(request.ID)
     // The envelope answers for THIS session, not for the command in general. An

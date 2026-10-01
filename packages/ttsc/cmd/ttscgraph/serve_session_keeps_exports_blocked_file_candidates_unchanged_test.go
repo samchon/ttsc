@@ -18,6 +18,11 @@ import (
 //  2. Create an unlisted file at the bare subpath without changing package.json.
 //  3. Assert the session is unchanged, then create the export-map target that
 //     genuinely precedes the fallback and assert it reloads.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies a package export map prevents unlisted bare-file candidates from invalidating a resident session.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the session is unchanged, then create the export-map target that genuinely precedes the fallback and assert it reloads.
+// @evidence contracts/testing.md#distinguishing-cases Load a package subpath resolved through its export-map fallback target; Create an unlisted file at the bare subpath without changing package.json; Assert the session is unchanged, then create the export-map target that genuinely precedes the fallback and assert it reloads.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionKeepsExportsBlockedFileCandidatesUnchanged is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionKeepsExportsBlockedFileCandidatesUnchanged(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -41,11 +46,11 @@ func TestServeSessionKeepsExportsBlockedFileCandidatesUnchanged(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if _, _, _, err := session.Snapshot(); err != nil {
+  if _, _, _, err := snapshotGraphState(session); err != nil {
     t.Fatal(err)
   }
   writeGraphFile(t, filepath.Join(root, "node_modules", "fixture-package", "feature.ts"), "export function winner(): void {}\n")
-  dump, mode, changed, err := session.Snapshot()
+  dump, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }
@@ -54,7 +59,7 @@ func TestServeSessionKeepsExportsBlockedFileCandidatesUnchanged(t *testing.T) {
   }
 
   writeGraphFile(t, filepath.Join(root, "node_modules", "fixture-package", "dist", "first.js"), "export function winner() {}\nexport function exportsWinner() {}\n")
-  dump, mode, changed, err = session.Snapshot()
+  dump, mode, changed, err = snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }

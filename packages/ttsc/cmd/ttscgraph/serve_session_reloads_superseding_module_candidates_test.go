@@ -20,6 +20,11 @@ import (
 //  2. Create only the absent target that precedes it in that resolver's search.
 //  3. Assert the resident snapshot reloads and the imported symbol resolves to
 //     the newly preferred file. Package internals remain external boundaries.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies a resident session reloads when an unchanged specifier gains a missing candidate that outranks the file TypeScript-Go selected for the first snapshot.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the resident snapshot reloads and the imported symbol resolves to the newly preferred file. Package internals remain external boundaries.
+// @evidence contracts/testing.md#distinguishing-cases Load a project whose specifier resolves to the lower-priority target; Create only the absent target that precedes it in that resolver's search; Assert the resident snapshot reloads and the imported symbol resolves to the newly preferred file. Package internals remain external boundaries.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsSupersedingModuleCandidates is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsSupersedingModuleCandidates(t *testing.T) {
   cases := []struct {
     name           string
@@ -204,12 +209,12 @@ func TestServeSessionReloadsSupersedingModuleCandidates(t *testing.T) {
         t.Fatal(err)
       }
       defer session.Close()
-      if _, _, _, err := session.Snapshot(); err != nil {
+      if _, _, _, err := snapshotGraphState(session); err != nil {
         t.Fatal(err)
       }
 
       test.add(t, root)
-      dump, mode, changed, err := session.Snapshot()
+      dump, mode, changed, err := snapshotGraphState(session)
       if err != nil {
         t.Fatal(err)
       }
@@ -233,12 +238,12 @@ func TestServeSessionReloadsSupersedingModuleCandidates(t *testing.T) {
       t.Fatal(err)
     }
     defer session.Close()
-    if _, _, _, err := session.Snapshot(); err != nil {
+    if _, _, _, err := snapshotGraphState(session); err != nil {
       t.Fatal(err)
     }
 
     writeGraphFile(t, filepath.Join(root, "node_modules", "@types", "generated", "index.d.ts"), "declare const generatedAmbient: string;\n")
-    dump, mode, changed, err := session.Snapshot()
+    dump, mode, changed, err := snapshotGraphState(session)
     if err != nil {
       t.Fatal(err)
     }

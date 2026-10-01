@@ -15,6 +15,15 @@ import (
 // accepted edit reconstruct exactly the facts the complete builder produces.
 // This keeps shard ownership and base-node reuse as an optimization boundary,
 // never a second semantic contract.
+//
+// 1. Load Base, Impl and a consumer, then publish an initial shard generation.
+// 2. Change a private implementation body and publish incrementally.
+// 3. Require canonical node, edge and diagnostic rows to equal a fresh full projection over the same compiler state; the two projection algorithms share the compiler.
+//
+// @evidence contracts/testing.md#behavioral-verification Require canonical node, edge and diagnostic rows to equal a fresh full projection over the same compiler state; the two projection algorithms share the compiler.
+// @evidence contracts/testing.md#independent-expectations The literal fixture and the supported graph contract establish these expectations: Require canonical node, edge and diagnostic rows to equal a fresh full projection over the same compiler state; the two projection algorithms share the compiler.
+// @evidence contracts/testing.md#distinguishing-cases Load Base, Impl and a consumer, then publish an initial shard generation. Change a private implementation body and publish incrementally. Require canonical node, edge and diagnostic rows to equal a fresh full projection over the same compiler state; the two projection algorithms share the compiler.
+// @evidence contracts/testing.md#execution-ownership TestServeShardsMatchFullDumpOracle is a Go source-unit entry. snapshotGraphShardState calls the actual prepareShardSnapshot transaction and completes each prepared projection, including fallback, with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeShardsMatchFullDumpOracle(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -30,7 +39,7 @@ func TestServeShardsMatchFullDumpOracle(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if snapshot, _, _, err := session.SnapshotShards(); err != nil || snapshot == nil {
+  if snapshot, _, _, err := snapshotGraphShardState(session); err != nil || snapshot == nil {
     t.Fatalf("initial shard snapshot = snapshot:%v error:%v", snapshot != nil, err)
   }
   assertServeShardFactsMatchFullDump(t, session)
@@ -39,7 +48,7 @@ func TestServeShardsMatchFullDumpOracle(t *testing.T) {
   if err := os.WriteFile(impl, []byte("import { Base } from './base';\nexport class Impl implements Base { run(): void { const touched = true; void touched; } }\n"), 0o644); err != nil {
     t.Fatal(err)
   }
-  snapshot, mode, changed, err := session.SnapshotShards()
+  snapshot, mode, changed, err := snapshotGraphShardState(session)
   if err != nil {
     t.Fatal(err)
   }
@@ -51,7 +60,7 @@ func TestServeShardsMatchFullDumpOracle(t *testing.T) {
 
 func assertServeShardFactsMatchFullDump(t *testing.T, session *graphSession) {
   t.Helper()
-  complete, err := session.buildDump()
+  complete, err := projectGraphDump(session)
   if err != nil {
     t.Fatal(err)
   }

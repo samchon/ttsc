@@ -18,6 +18,11 @@ import (
 //     data: URL.
 //  2. Assert the session initializes and serves its initial dump.
 //  3. Assert an untouched second snapshot reports unchanged.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies unresolved module specifiers that name OS-unparseable paths never break the session.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "initial", "unchanged"; an untouched second snapshot reports unchanged.
+// @evidence contracts/testing.md#distinguishing-cases Open a session whose only root imports a query-suffixed CSS path and a data: URL; Assert the session initializes and serves its initial dump; Assert an untouched second snapshot reports unchanged.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionToleratesOsInvalidResolutionCandidate is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionToleratesOsInvalidResolutionCandidate(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -38,7 +43,7 @@ export const value: unknown[] = [styles, remote];
   }
   defer session.Close()
 
-  dump, mode, changed, err := session.Snapshot()
+  dump, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }
@@ -46,7 +51,7 @@ export const value: unknown[] = [styles, remote];
     t.Fatalf("initial snapshot = dump:%v mode:%q changed:%v", dump != nil, mode, changed)
   }
 
-  dump, mode, changed, err = session.Snapshot()
+  dump, mode, changed, err = snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }

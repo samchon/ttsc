@@ -25,6 +25,11 @@ func (serveProgramPluginProbe) ApplyProgram(*driver.Program, driver.PluginContex
 //  1. Register a linked ProgramPlugin and open a graph session.
 //  2. Apply a content-only edit that would otherwise refresh incrementally.
 //  3. Assert the snapshot reports a full reload with the post-edit node.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies a project with an active linked ProgramPlugin never takes the incremental source path.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "reload"; the snapshot reports a full reload with the post-edit node.
+// @evidence contracts/testing.md#distinguishing-cases Register a linked ProgramPlugin and open a graph session; Apply a content-only edit that would otherwise refresh incrementally; Assert the snapshot reports a full reload with the post-edit node.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsWhenProgramPluginLinked is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsWhenProgramPluginLinked(t *testing.T) {
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"probe","stage":"transform"}]`)
   driver.RegisterPlugin(serveProgramPluginProbe{})
@@ -35,7 +40,7 @@ func TestServeSessionReloadsWhenProgramPluginLinked(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if _, _, _, err := session.Snapshot(); err != nil {
+  if _, _, _, err := snapshotGraphState(session); err != nil {
     t.Fatal(err)
   }
 
@@ -43,7 +48,7 @@ func TestServeSessionReloadsWhenProgramPluginLinked(t *testing.T) {
   if err := os.WriteFile(file, []byte("export class AfterEdit {}\n"), 0o644); err != nil {
     t.Fatal(err)
   }
-  dump, mode, changed, err := session.Snapshot()
+  dump, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }

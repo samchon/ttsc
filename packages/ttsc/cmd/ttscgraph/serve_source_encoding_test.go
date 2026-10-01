@@ -26,7 +26,8 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The real resident graph session publishes cold and incremental shard snapshots, retains decoded compiler text, and keeps raw disk hashes and changed-source decisions consistent for all eight encodings.
 // @evidence contracts/testing.md#independent-expectations Literal source text and BOM/endian byte encoding define both domains; standard SHA-256 supplies expected raw identity independently of session hashing and decoding.
 // @evidence contracts/testing.md#distinguishing-cases UTF-8 BOM, UTF-16 LE/BE and five newline spellings run through unchanged requests, an unrelated source edit, encoded edits, restoration and another unchanged request; every source assertion is collected independently.
-// @evidence contracts/testing.md#execution-ownership TestServeSourceEncodingKeepsRawIdentityAndDecodedResidentText calls the owning session and shard operations in the Go test process over one temporary fixture, without installing a consumer or building or spawning a native product binary.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit entry calls the actual resident compiler and prepared shard transaction through snapshotGraphShardState with explicit empty ignore membership. The owned fixture and compiler close in this process; no consumer installation, native product build or product child is used.
+//
 func TestServeSourceEncodingKeepsRawIdentityAndDecodedResidentText(t *testing.T) {
 	root := t.TempDir()
 	writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true},"include":["src"]}`)
@@ -60,7 +61,7 @@ func TestServeSourceEncodingKeepsRawIdentityAndDecodedResidentText(t *testing.T)
 	if err != nil { t.Fatal(err) }
 	defer session.Close()
 	verify := func(stage, suffix, expectedMode string) {
-		snapshot, mode, changed, err := session.SnapshotShards()
+		snapshot, mode, changed, err := snapshotGraphShardState(session)
 		if err != nil { t.Fatal(err) }
 		if mode != expectedMode { t.Errorf("%s mode=%s want=%s", stage, mode, expectedMode) }
 		if expectedMode == serveModeUnchanged {

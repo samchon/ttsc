@@ -19,6 +19,11 @@ import (
 //  1. Load a session, then rewrite the source before capturing state.
 //  2. Take a snapshot and assert it refreshes to the on-disk declaration.
 //  3. Take another snapshot and assert the session has converged (unchanged).
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies a source edited between compiler load and state capture is refreshed on the next snapshot.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "unchanged"; Take another snapshot and assert the session has converged (unchanged).
+// @evidence contracts/testing.md#distinguishing-cases Load a session, then rewrite the source before capturing state; Take a snapshot and assert it refreshes to the on-disk declaration; Take another snapshot and assert the session has converged (unchanged).
+// @evidence contracts/testing.md#execution-ownership TestServeSessionRevisitsSourceEditedDuringLoad is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionRevisitsSourceEditedDuringLoad(t *testing.T) {
   root := graphSessionFixture(t)
   compiler, diags, err := driver.NewSession(root, "tsconfig.json", driver.LoadProgramOptions{})
@@ -43,7 +48,7 @@ func TestServeSessionRevisitsSourceEditedDuringLoad(t *testing.T) {
     t.Fatal(err)
   }
 
-  dump, _, changed, err := session.Snapshot()
+  dump, _, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }
@@ -51,7 +56,7 @@ func TestServeSessionRevisitsSourceEditedDuringLoad(t *testing.T) {
     t.Fatalf("edited-during-load source was not refreshed: dump:%v changed:%v", dump != nil, changed)
   }
 
-  dump, mode, changed, err := session.Snapshot()
+  dump, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }

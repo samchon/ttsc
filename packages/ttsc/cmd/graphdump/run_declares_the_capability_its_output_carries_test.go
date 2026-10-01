@@ -32,6 +32,11 @@ import (
 //     claim is backed: a tag in the output, and a digested source.
 //  3. Run it over a project with no tag and assert the field appears nowhere,
 //     while both claims still do.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that every capability this command declares is paired with the output that backs it, and that a project carrying no documentation tag emits that field nowhere.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish Run it over a project with no tag and assert the field appears nowhere, while both claims still do.
+// @evidence contracts/testing.md#distinguishing-cases Run the command over a project with a tag, capturing stdout; Assert the declared set is exactly what this command claims, and that each claim is backed: a tag in the output, and a digested source; Run it over a project with no tag and assert the field appears nowhere, while both claims still do.
+// @evidence contracts/testing.md#execution-ownership TestRunDeclaresTheCapabilityItsOutputCarries is a Go source-unit entry. runSourceProjection exercises the real sibling prepareCommand and encode operations with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestRunDeclaresTheCapabilityItsOutputCarries(t *testing.T) {
   tagged := runGraphdump(t, `/** @evidence docs/a.md#x Cited. */
 export function subject(): void {}
@@ -95,10 +100,9 @@ export function subject(): void {}
 
 // runGraphdump runs the command over a one-file project and returns its stdout.
 //
-// It goes through run(args) and the package streams rather than through os.Args,
-// flag.CommandLine, and an os.Stdout pipe. Those seams exist on the shipped
-// sibling for this reason, and this command grew them so its own claim could be
-// asserted against its own output without patching process globals.
+// It consumes this command's actual preparation and encoder with explicit empty
+// ignore membership. The package streams preserve its producer claim without
+// routing portable capability assertions through a Git child process.
 func runGraphdump(t *testing.T, source string) string {
   t.Helper()
   root := t.TempDir()
@@ -120,7 +124,7 @@ func runGraphdump(t *testing.T, source string) string {
   stdout, stderr = &out, &errOut
   defer func() { stdout, stderr = restoreStdout, restoreStderr }()
 
-  if code := run([]string{"--cwd", root, "--tsconfig", "tsconfig.json"}); code != 0 {
+  if code := runSourceProjection([]string{"--cwd", root, "--tsconfig", "tsconfig.json"}); code != 0 {
     t.Fatalf("graphdump exited %d: %s", code, errOut.String())
   }
   return out.String()
@@ -134,4 +138,13 @@ func writeGraphdumpFile(t *testing.T, path, content string) {
   if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
     t.Fatal(err)
   }
+}
+
+// runSourceProjection consumes the same real command preparation and encoder
+// over the fixture's explicit empty ignore membership, without acquiring Git.
+func runSourceProjection(args []string) int {
+  prepared, code := prepareCommand(args)
+  if prepared == nil { return code }
+  defer func() { _ = prepared.program.Close() }()
+  return prepared.encode(nil)
 }

@@ -15,6 +15,19 @@ import (
 //     identity-only auxiliary state must not turn their edit into a reload;
 //  2. retargeting the same lexical symlink or junction must invalidate even
 //     when the old and new target bytes agree.
+//
+// 1. Capture identity-only state through an actual directory alias.
+// 2. Edit source bytes, then recreate the alias against the equal-byte target.
+// 3. Contrast invalidation decisions and content-sensitive duplicate priority.
+//
+// @evidence contracts/testing.md#behavioral-verification Actual captureDiskStates and diskStatesChanged observe a lexical directory alias before and after a source-byte edit and a physical retarget; compactAuxiliaryInputs checks duplicate ownership.
+// @evidence contracts/testing.md#independent-expectations Literal equal target bytes define the retarget control, while the first target's changed bytes must not invalidate identity-only state. Explicit duplicate inputs require the content-sensitive entry to win.
+// @evidence contracts/testing.md#distinguishing-cases Source-content edit versus same-byte physical retarget distinguishes content from identity ownership; a duplicate identity-only/content-sensitive path verifies compaction priority.
+// @evidence contracts/testing.md#execution-ownership This Go E2E entry uses real POSIX symlinks or actual Windows Node junction creation. CombinedOutput joins each Node child; unavailable native alias capability is an explicit skipped boundary.
+// @evidence contracts/e2e.md#necessary-boundary A real symlink or junction retarget changes native path identity despite equal bytes, which an in-memory path unit cannot prove. The source edit is the adjacent transition that must not invalidate this owner.
+// @evidence contracts/e2e.md#shared-execution One fixture and Go host serve both target transitions and the compaction control. Windows uses two joined one-shot Node helpers for the initial junction and its recreated target; POSIX uses direct symlink calls, without compiler or product builds.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case owns both target directories and the alias. It joins each Windows helper before observing state, deletes only its own alias before recreating it, and TempDir cleanup owns the remaining fixture.
+// @evidence contracts/e2e.md#preserved-coverage The original initial-state, source-byte noninvalidation, same-byte retarget invalidation and content-sensitive duplicate assertions remain. Windows junction and POSIX symlink execution are separate actual platform capabilities; skips are not promoted to coverage.
 func TestAuxiliaryIdentityStateTracksRetargetsNotSourceContents(t *testing.T) {
   root := t.TempDir()
   first := filepath.Join(root, "first")

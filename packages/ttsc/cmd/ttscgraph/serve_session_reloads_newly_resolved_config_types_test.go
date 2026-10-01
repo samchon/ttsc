@@ -16,6 +16,11 @@ import (
 //  1. Open a session whose config lists absent types package `fixture-types`.
 //  2. Create the package under the configured typeRoots directory.
 //  3. Assert the next snapshot reports a full reload.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies compilerOptions `types` entries participate in freshness without any source-level syntax.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "reload"; the next snapshot reports a full reload.
+// @evidence contracts/testing.md#distinguishing-cases Open a session whose config lists absent types package `fixture-types`; Create the package under the configured typeRoots directory; Assert the next snapshot reports a full reload.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionReloadsNewlyResolvedConfigTypes is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionReloadsNewlyResolvedConfigTypes(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -29,12 +34,12 @@ func TestServeSessionReloadsNewlyResolvedConfigTypes(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if _, _, _, err := session.Snapshot(); err != nil {
+  if _, _, _, err := snapshotGraphState(session); err != nil {
     t.Fatal(err)
   }
 
   writeGraphFile(t, filepath.Join(root, "types", "fixture-types", "index.d.ts"), "interface FixtureType { id: number }\n")
-  dump, mode, changed, err := session.Snapshot()
+  dump, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }

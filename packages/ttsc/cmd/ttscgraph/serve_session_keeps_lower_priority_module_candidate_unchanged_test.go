@@ -18,6 +18,11 @@ import (
 //  2. Create only lower-priority value/index.ts and value.mts candidates.
 //  3. Assert the resident session remains unchanged, then create value.ts and
 //     assert the strictly higher-priority candidate does reload it.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies a resident session does not reload when a candidate after its selected target appears.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the resident session remains unchanged, then create value.ts and assert the strictly higher-priority candidate does reload it.
+// @evidence contracts/testing.md#distinguishing-cases Load an extensionless commonjs import that resolves directly to value.js; Create only lower-priority value/index.ts and value.mts candidates; Assert the resident session remains unchanged, then create value.ts and assert the strictly higher-priority candidate does reload it.
+// @evidence contracts/testing.md#execution-ownership TestServeSessionKeepsLowerPriorityModuleCandidateUnchanged is a Go source-unit entry. snapshotGraphState calls the actual prepareDumpSnapshot state operation and completes its graph projection with explicit empty ignore membership. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary. The separate worktree E2E owns real Git acquisition.
 func TestServeSessionKeepsLowerPriorityModuleCandidateUnchanged(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{
@@ -32,14 +37,14 @@ func TestServeSessionKeepsLowerPriorityModuleCandidateUnchanged(t *testing.T) {
     t.Fatal(err)
   }
   defer session.Close()
-  if _, _, _, err := session.Snapshot(); err != nil {
+  if _, _, _, err := snapshotGraphState(session); err != nil {
     t.Fatal(err)
   }
   if err := os.MkdirAll(filepath.Join(root, "src", "value"), 0o755); err != nil {
     t.Fatal(err)
   }
   writeGraphFile(t, filepath.Join(root, "src", "value", "index.ts"), "export function winner(): void {}\n")
-  dump, mode, changed, err := session.Snapshot()
+  dump, mode, changed, err := snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }
@@ -48,7 +53,7 @@ func TestServeSessionKeepsLowerPriorityModuleCandidateUnchanged(t *testing.T) {
   }
 
   writeGraphFile(t, filepath.Join(root, "src", "value.mts"), "export function winner(): void {}\n")
-  dump, mode, changed, err = session.Snapshot()
+  dump, mode, changed, err = snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }
@@ -57,7 +62,7 @@ func TestServeSessionKeepsLowerPriorityModuleCandidateUnchanged(t *testing.T) {
   }
 
   writeGraphFile(t, filepath.Join(root, "src", "value.ts"), "export function winner(): void {}\nexport function typescriptWinner(): void {}\n")
-  dump, mode, changed, err = session.Snapshot()
+  dump, mode, changed, err = snapshotGraphState(session)
   if err != nil {
     t.Fatal(err)
   }
