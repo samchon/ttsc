@@ -26,6 +26,36 @@ export interface INativeLintSourceSelection {
 }
 
 let sharedProducer: INativeLintProducer | undefined;
+let sharedProducerRoot: string | undefined;
+let sharedProducerRetentionReason: string | undefined;
+
+/**
+ * Preserve existing shared inputs when descendant completion is unknown.
+ *
+ * No snapshot or cache is created here. The exact allocation owner validates
+ * retention and subsequent consumers cannot reuse this unresolved producer.
+ * The caller must establish descendant closure before reclaiming these roots.
+ *
+ * @evidence contracts/common.md#principled-implementation Retains only the recorded snapshot allocation and already owned cache; sticky refusal prevents another consumer from using inputs with unresolved process ownership.
+ * @evidence contracts/common.md#clear-and-simple-design One lifecycle operation delegates filesystem identity checks to TestProject and leaves capture and content validation unchanged.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Does not allocate a substitute producer, claim descendant closure or mutate an external cache selected through the environment.
+ * @evidence contracts/common.md#meaningful-documentation Explains the existing-input scope, continued reuse refusal and unresolved reclamation responsibility.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources At most the existing snapshot and internally allocated cache transfer out of exit cleanup; unresolved readers forbid further capture/reuse in this process. Later reclamation remains blocked until its caller establishes closure.
+ */
+export function retainNativeLintProducer(reason: string): void {
+  if (!reason.trim()) throw new Error("Native input retention requires a reason");
+  sharedProducerRetentionReason ??= reason;
+  const failures: unknown[] = [];
+  if (sharedProducerRoot !== undefined) {
+    try { TestProject.retainTemporaryDirectory(sharedProducerRoot, reason); }
+    catch (error) { failures.push(error); }
+  }
+  try { TestProject.retainSharedPluginCache(reason); }
+  catch (error) { failures.push(error); }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1)
+    throw new AggregateError(failures, "Shared native inputs could not all be retained");
+}
 
 /**
  * Capture one authored lint package for consumers that never mutate its source.
@@ -38,7 +68,8 @@ let sharedProducer: INativeLintProducer | undefined;
  * selects exact non-embedded test declarations without resolving dependencies;
  * inherited and workspace/proxy-isolated source selections must agree. All
  * other files, including ignored OS alternatives, remain copied. Reuse refuses
- * changed selection environment, bytes, manifest or installation link.
+ * changed selection environment, bytes, manifest or installation link. A
+ * retained producer with unknown readers also refuses subsequent consumers.
  *
  * @evidence contracts/common.md#principled-implementation The shared producer is published only after independent before/copy/after content readings agree; changing authored input is refused rather than accepted under an earlier identity.
  * @evidence contracts/common.md#clear-and-simple-design One process-owned package snapshot and manifest serve explicitly opted-in consumers; cold and source-mutating callers keep the workspace package.
@@ -46,9 +77,12 @@ let sharedProducer: INativeLintProducer | undefined;
  * @evidence contracts/common.md#meaningful-documentation Documents the package-byte capture scope and leaves external installation, SDK and toolchain proof with the actual production build.
  */
 export function getNativeLintProducer(): INativeLintProducer {
+  if (sharedProducerRetentionReason !== undefined)
+    throw new Error("Shared native lint producer has unresolved process ownership: " + sharedProducerRetentionReason);
   if (!sharedProducer) {
     const sourceRoot = path.join(TestProject.WORKSPACE_ROOT, "packages", "lint");
     const destinationRoot = TestProject.tmpdir("ttsc-native-lint-producer-");
+    sharedProducerRoot = destinationRoot;
     const selection = readGoSelection(sourceRoot);
     sharedProducer = captureNativeLintProducer({ sourceRoot, destinationRoot, selection });
   }
