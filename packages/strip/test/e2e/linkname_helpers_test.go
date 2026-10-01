@@ -1,3 +1,5 @@
+//go:build e2e
+
 // linkname_helpers_test.go exposes unexported symbols from the strip driver to
 // this external test package via go:linkname. Each declaration mirrors a
 // private type or function exactly so config and pattern unit tests can reach

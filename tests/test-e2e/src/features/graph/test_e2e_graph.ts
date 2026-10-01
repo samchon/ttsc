@@ -1,3 +1,4 @@
+import { GoBoundary } from "../../internal/GoBoundary";
 import { Scenarios } from "../../internal/Scenarios";
 import { closeIdentityBoundary } from "../../internal/graph/internal/identityBoundary";
 import { case_ttscgraph_artifacts_watch_a_project_that_publishes_none } from "./scenes/case_ttscgraph_artifacts_watch_a_project_that_publishes_none";
@@ -61,9 +62,9 @@ import { case_ttscgraph_view_owns_http_server_lifecycle } from "./scenes/case_tt
  * @evidence contracts/testing.md#behavioral-verification Each scenario drives the installed launcher, native producer, viewer or decoders and asserts graph facts, wire shapes or process behavior; this entry adds only the shared-session join and aggregation.
  * @evidence contracts/testing.md#independent-expectations Expectations are authored per scenario from the fixture sources and the graph tool contract and are not produced here.
  * @evidence contracts/testing.md#distinguishing-cases Each scenario states its own positive, negative and boundary distinctions; this entry owns none beyond the clean-exit check of the shared session.
- * @evidence contracts/testing.md#execution-ownership test_e2e_graph is the discoverable entry of the single test-e2e module; its scenarios are exported case functions selected by the same Evidence claim.
+ * @evidence contracts/testing.md#execution-ownership Exact named package-owned Go connections additionally execute through GoBoundary with the e2e tag; missing execution fails and capability skips establish no coverage. test_e2e_graph is the discoverable entry of the single test-e2e module; its scenarios are exported case functions selected by the same Evidence claim.
  * @evidence contracts/e2e.md#necessary-boundary The installed launcher, resident native graph, viewer and decoders are real connections that source units cannot exercise; each scenario states its own contribution.
- * @evidence contracts/e2e.md#shared-execution Twenty-nine scenarios share one identity project and one MCP session, and the CLI-dump scenarios share one dump; before this experiment that session was a module singleton whose join function had no caller in tests/test-e2e. Independent scenarios keep separate inputs for the conflicting state each needs.
+ * @evidence contracts/e2e.md#shared-execution The selected Go connection cases share one actual count=1 Go test process. Twenty-nine scenarios share one identity project and one MCP session, and the CLI-dump scenarios share one dump; before this experiment that session was a module singleton whose join function had no caller in tests/test-e2e. Independent scenarios keep separate inputs for the conflicting state each needs.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The experiment closes the shared MCP stdin and awaits its exit with status zero in finally, even after scenario failures, and scenarios that edit configuration or sources restore them themselves.
  * @evidence contracts/e2e.md#preserved-coverage Every former entry is a scenario with unchanged body and assertions; the shared-session join is an added verification.
  */
@@ -71,6 +72,7 @@ export async function test_e2e_graph(): Promise<void> {
   const failures: Error[] = [];
   try {
     await Scenarios.collect("graph", [
+      ["native_git_and_identity_connections", () => GoBoundary.run("ttsc", "./cmd/ttscgraph", ["TestGitIgnoreMembershipFlowsThroughNativeProjectionAdapters", "TestAuxiliaryIdentityStateTracksRetargetsNotSourceContents"])],
       ["artifacts_watch_a_project_that_publishes_none", case_ttscgraph_artifacts_watch_a_project_that_publishes_none],
       ["details_answers_an_enum_with_its_member_names", case_ttscgraph_details_answers_an_enum_with_its_member_names],
       ["details_gives_whole_identity_and_caps_fan_out", case_ttscgraph_details_gives_whole_identity_and_caps_fan_out],

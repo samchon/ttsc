@@ -1931,7 +1931,8 @@
         "internal/graphsymbols/*_test.go",
         "cmd/ttscgraph/*_test.go",
         "cmd/graphdump/*_test.go",
-        "cmd/graphbench/*_test.go"
+        "cmd/graphbench/*_test.go",
+        "!cmd/ttscgraph/*_e2e_test.go"
       ],
       "symbol": "function",
       "reference": {

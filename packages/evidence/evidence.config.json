@@ -89,7 +89,8 @@
       "files": [
         "native/*_test.go",
         "!native/*_windows_test.go",
-        "!native/*_bench_test.go"
+        "!native/*_bench_test.go",
+        "!native/*_e2e_test.go"
       ],
       "symbol": "function",
       "reference": {
