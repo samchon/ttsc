@@ -1,6 +1,7 @@
 // unicorn/prefer-regexp-test reports match/exec calls when their result is
-// consumed only for truthiness. Match arrays and null can then be replaced
-// by a boolean result under the ordinary RegExp API.
+// consumed only for truthiness. This is report-only review advice: global
+// String#match resets lastIndex, while RegExp#test uses its current value;
+// custom methods and symbol hooks can also make a replacement observable.
 //
 // AST-only: if/ternary conditions and ! are boolean consumers. Parentheses
 // and &&/|| chains must reach such a consumer; assignments and returns can
@@ -34,7 +35,7 @@ func (unicornPreferRegexpTest) Check(ctx *Context, node *shimast.Node) {
   if !unicornExpressionHasBooleanConsumer(node) {
     return
   }
-  ctx.Report(node, "Prefer `RegExp#test()` over `String#match()` / `RegExp#exec()` in a boolean context.")
+  ctx.Report(node, "Consider `RegExp#test()` in this boolean context after verifying method identity and preserving global/sticky `lastIndex` behavior.")
 }
 
 // unicornExpressionHasBooleanConsumer reports whether `node` sits in
