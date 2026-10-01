@@ -174,5 +174,7 @@ export async function test_ttsccompiler_plugin_free_compile_and_transform_share_
 
 /** Names a native exception in a failed type assertion so its cause is not lost. */
 function describe(result: { type: string; error?: unknown }): string {
-  return result.type === "exception" ? String((result.error as Error | undefined)?.stack ?? result.error) : "";
+  if (result.type !== "exception") return "";
+  const error = result.error as Error | undefined;
+  return error?.stack ?? JSON.stringify(result.error);
 }

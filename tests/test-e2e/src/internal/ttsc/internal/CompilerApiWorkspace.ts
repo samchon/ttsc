@@ -58,8 +58,9 @@ export namespace CompilerApiWorkspace {
     fs.rmSync(path.join(workspace.root, "tsconfig.json"), { force: true });
     TestProject.copyDirectory(path.join(FIXTURES, "baseline"), workspace.root);
     if (state !== "baseline") {
-      if (state === "dotted-source")
-        fs.rmSync(path.join(workspace.root, "src"), { recursive: true, force: true });
+      // An overlay state authors its own source tree; the baseline sources would
+      // otherwise join its program and change what it reports.
+      fs.rmSync(path.join(workspace.root, "src"), { recursive: true, force: true });
       TestProject.copyDirectory(path.join(FIXTURES, state), workspace.root);
     }
   }

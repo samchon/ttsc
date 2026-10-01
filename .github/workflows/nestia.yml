@@ -34,7 +34,7 @@ jobs:
       - run: git -C experimental/nestia apply "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia-declared-catalogs.patch"
       - run: git -C experimental/nestia apply "$GITHUB_WORKSPACE/experimental/native-host-provenance/nestia-owned-temporary-directories.patch"
       - run: >-
-          node .github/workflows/scripts/consumer.cjs experimental/nestia patches/typia@15.0.0.patch
+          node .github/workflows/scripts/consumer.cjs experimental/nestia
           --go=experimental/nestia/packages/core/native --go=experimental/nestia/packages/core/test
           --go=experimental/nestia/packages/sdk/native --go=experimental/nestia/packages/sdk/test
       - run: pnpm install --no-frozen-lockfile
@@ -43,11 +43,7 @@ jobs:
         working-directory: experimental/nestia
       - run: pnpm --filter @nestia/core --filter @nestia/sdk --no-bail -r run test:go
         working-directory: experimental/nestia
-        env:
-          TTSC_TYPIA_NATIVE_PATCH: ${{ github.workspace }}/patches/typia@15.0.0.patch
       - run: go test -count=1 ./...
         working-directory: experimental/nestia/packages/core/native
-        env:
-          TTSC_TYPIA_NATIVE_PATCH: ${{ github.workspace }}/patches/typia@15.0.0.patch
       - run: pnpm --filter "./tests/test-*" --workspace-concurrency=1 --no-bail -r start
         working-directory: experimental/nestia

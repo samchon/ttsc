@@ -1,5 +1,5 @@
 // Points an upstream consumer workspace (typia, nestia) at the tarballs built
-// from this checkout, and applies the given package patches.
+// from this checkout, and optionally binds their Go modules to the checkout.
 const cp = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -9,7 +9,6 @@ const producerRoot = path.resolve(__dirname, "../../..");
 const YAML = createRequire(path.join(producerRoot, "packages/evidence/package.json"))("yaml");
 const [consumerArgument, ...rest] = process.argv.slice(2);
 const goModules = rest.filter((argument) => argument.startsWith("--go=")).map((argument) => argument.slice(5));
-const patchFiles = rest.filter((argument) => argument.endsWith(".patch"));
 const consumer = path.resolve(consumerArgument);
 const tarballs = path.join(producerRoot, "experimental", "tarballs");
 const platform = `${process.platform}-${process.arch}`;
@@ -28,9 +27,6 @@ workspace.overrides = {
     Object.entries(artifacts).map(([name, file]) => [name, `file:${relative(path.join(tarballs, file))}`]),
   ),
 };
-workspace.patchedDependencies ??= {};
-for (const file of patchFiles)
-  workspace.patchedDependencies[path.basename(file, ".patch")] = relative(path.resolve(file));
 fs.writeFileSync(workspaceFile, YAML.stringify(workspace));
 
 // pnpm's installation hook binds dependency and peer edges to the same
