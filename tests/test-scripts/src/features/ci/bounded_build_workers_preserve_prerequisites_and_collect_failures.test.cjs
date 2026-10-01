@@ -1,21 +1,24 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
-const { PLATFORM, selectBuild, buildDependencies, runBuildPlan } = require("../../../../../scripts/build-current.cjs");
+const { runBuildPlan } = require("../../../../../scripts/build-current.cjs");
 
 /**
- * @evidence contracts/testing.md#behavioral-verification Calls real buildDependencies and runBuildPlan; checks package prerequisite policy, bounded concurrency, independent completion and transitive failure propagation.
+ * Verifies bounded build scheduling preserves prerequisites and collects failures.
+ *
+ * A failed prerequisite must block its descendants without hiding independent
+ * work. The graph is an input to the scheduler, independent of repository
+ * manifests and the package plan.
+ *
+ * 1. Fail a root beside independent work and observe both worker slots.
+ * 2. Require two blocked descendants and preserve the complete failure order.
+ * 3. Run the same graph successfully and require every prerequisite to finish.
+ *
+ * @evidence contracts/testing.md#behavioral-verification Calls the actual runBuildPlan scheduler with an authored dependency graph; checks bounded concurrency, prerequisite completion, independent work and transitive failure propagation.
  * @evidence contracts/testing.md#independent-expectations Authored root/independent/dependent/last graph and independently tracked completed callbacks determine legal start order and exact failures.
  * @evidence contracts/testing.md#distinguishing-cases Failed root must block two descendants but not independent work; all-success control must execute every node with prerequisites already completed.
  * @evidence contracts/testing.md#execution-ownership The actual asynchronous scheduler invokes private deterministic callbacks with short timers in one Node process; no package build is executed.
  */
 const test_bounded_build_workers_preserve_prerequisites_and_collect_failures = async () => {
-  const plan = selectBuild("full").plan;
-  const dependencies = buildDependencies(plan);
-  assert.ok(dependencies.get("@ttsc/graph").includes(PLATFORM));
-  assert.ok(dependencies.get("@ttsc/metro").includes("@ttsc/unplugin"));
-  assert.ok(dependencies.get("@ttsc/playground").some((item) => item.filter === "@ttsc/wasm"));
-  assert.deepEqual(dependencies.get("@ttsc/vscode"), plan.filter((item) => item !== "@ttsc/vscode"));
-
   const sample = ["root", "independent", "dependent", "last"];
   const edges = new Map([
     ["root", []], ["independent", []],
