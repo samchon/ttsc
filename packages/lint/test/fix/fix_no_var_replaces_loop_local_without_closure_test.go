@@ -14,6 +14,8 @@ import "testing"
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
 //
+// An explicit module owns the binding; var does not create a global-object property.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var fixes loop-body x when all reads are direct within that iteration.
 // @evidence contracts/testing.md#independent-expectations The literal expected let x keeps the surrounding const-k loop and JSON.stringify call unchanged.
 // @evidence contracts/testing.md#distinguishing-cases Loop-locality alone must not decline: a capture across a function boundary, present in TestFixNoVarSkipsLoopClosureCapture, is the distinguishing hazard.
@@ -22,7 +24,7 @@ func TestFixNoVarReplacesLoopLocalWithoutClosure(t *testing.T) {
   assertFixSnapshot(
     t,
     "no-var",
-    "for (const k of [1, 2]) {\n  var x = k;\n  JSON.stringify(x);\n}\n",
-    "for (const k of [1, 2]) {\n  let x = k;\n  JSON.stringify(x);\n}\n",
+    "for (const k of [1, 2]) {\n  var x = k;\n  JSON.stringify(x);\n}\nexport {};\n",
+    "for (const k of [1, 2]) {\n  let x = k;\n  JSON.stringify(x);\n}\nexport {};\n",
   )
 }

@@ -71,7 +71,7 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 // Five corruption holes were patched piecemeal here before (var-vs-var,
 // for-header var, function/class redeclaration, mixed destructuring sibling,
 // object-literal shorthand, use-before-declaration). That whack-a-mole is
-// replaced by one conservative rule with five preconditions; the fix is
+// replaced by one conservative rule with six preconditions; the fix is
 // emitted only if ALL hold:
 //
 //  1. Single binding in the whole file. The declared name is introduced by
@@ -124,6 +124,12 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 //     instead. The rewrite can flip which binding every reference hits, so
 //     any var with a WithStatement ancestor below the nearest function
 //     boundary declines.
+//
+//  6. No global-object or direct-eval observation. A script-global var creates
+//     a property that let does not. A direct eval in the variable environment,
+//     including a nested closure, can read hoisted or escaping bindings through
+//     string source. Parentheses and erased TypeScript assertions preserve
+//     direct eval; optional, member and comma-expression calls do not.
 //
 // Two loop-header-only grammar/TDZ hazards also decline:
 //   - a `for...in` / `for...of` declarator with an initializer (Annex B
@@ -208,6 +214,12 @@ func isNoVarAutoFixSafe(ctx *Context, listNode *shimast.Node) bool {
   if isDeclaredInsideWithStatement(listNode) {
     return false
   }
+  // Direct eval can observe a hoisted binding through string source that the
+  // identifier census cannot see, including from a nested closure. Do not
+  // assume a shadowed eval identifier is harmless: it can hold the intrinsic.
+  if noVarBindingScopeHasDynamicObservation(listNode) {
+    return false
+  }
 
   // Precondition 4 setup: the outermost loop enclosing the declaration
   // without an intervening function boundary. A loop-header list's first
@@ -290,6 +302,38 @@ func isNoVarAutoFixSafe(ctx *Context, listNode *shimast.Node) bool {
     return false
   }
   return bindingCount == 1
+}
+
+// noVarBindingScopeHasDynamicObservation inspects the binding's variable environment,
+// including nested closures that can read it, but not unrelated sibling scopes.
+// Parentheses and erased TypeScript assertions preserve a direct eval callee.
+// Optional, member and comma-expression eval calls are indirect ECMAScript calls.
+// Script-global var also creates a global-object property that let cannot preserve.
+func noVarBindingScopeHasDynamicObservation(listNode *shimast.Node) bool {
+  var scope *shimast.Node
+  for parent := listNode.Parent; parent != nil; parent = parent.Parent {
+    if isFunctionCaptureBoundary(parent) || parent.Kind == shimast.KindModuleBlock || parent.Kind == shimast.KindSourceFile {
+      scope = parent
+      break
+    }
+  }
+  if scope == nil {
+    return true
+  }
+  if scope.Kind == shimast.KindSourceFile && scope.AsSourceFile().ExternalModuleIndicator == nil {
+    return true
+  }
+  found := false
+  walkDescendants(scope, func(child *shimast.Node) {
+    if child.Kind != shimast.KindCallExpression {
+      return
+    }
+    call := child.AsCallExpression()
+    if call != nil && call.QuestionDotToken == nil && identifierText(unwrapReferenceExpression(call.Expression)) == "eval" {
+      found = true
+    }
+  })
+  return found
 }
 
 // isBlockScopeContainer reports whether a node kind is a legal parent for a

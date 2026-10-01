@@ -15,6 +15,9 @@ import "testing"
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied.
 //
+// The original script is retained. A sloppy-function counterpart runs the
+// same body so global-object binding exposure cannot mask this named guard.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var diagnoses but does not fix x read before its declaration.
 // @evidence contracts/testing.md#independent-expectations Original source identity and zero applied edits preserve the forward hoisted-var read.
 // @evidence contracts/testing.md#distinguishing-cases A true value reference before var differs from member, label, key and type occurrences that remain fixable.
@@ -24,5 +27,10 @@ func TestFixNoVarSkipsUseBeforeDeclaration(t *testing.T) {
     t,
     "no-var",
     "JSON.stringify(x);\nvar x = 1;\n",
+  )
+  assertNoFixSnapshot(
+    t,
+    "no-var",
+    "function noVarFixture(){\nJSON.stringify(x);\nvar x = 1;\n}\n",
   )
 }

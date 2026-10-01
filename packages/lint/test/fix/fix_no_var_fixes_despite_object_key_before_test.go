@@ -14,6 +14,8 @@ import "testing"
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
 //
+// An explicit module owns the binding; var does not create a global-object property.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var fixes var x after an object key named x.
 // @evidence contracts/testing.md#independent-expectations Literal let x output preserves the earlier { x: 1 } property and trailing read; the property key binds no variable.
 // @evidence contracts/testing.md#distinguishing-cases A property key differs from the shorthand value read protected by TestFixNoVarSkipsShorthandValueBefore.
@@ -22,7 +24,7 @@ func TestFixNoVarFixesDespiteObjectKeyBefore(t *testing.T) {
   assertFixSnapshot(
     t,
     "no-var",
-    "JSON.stringify({ x: 1 });\nvar x = 2;\nJSON.stringify(x);\n",
-    "JSON.stringify({ x: 1 });\nlet x = 2;\nJSON.stringify(x);\n",
+    "JSON.stringify({ x: 1 });\nvar x = 2;\nJSON.stringify(x);\nexport {};\n",
+    "JSON.stringify({ x: 1 });\nlet x = 2;\nJSON.stringify(x);\nexport {};\n",
   )
 }

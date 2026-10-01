@@ -1,19 +1,9 @@
-// unicorn/no-useless-fallback-in-spread: spreading `null` or `undefined`
-// into an object literal is already a runtime no-op, so the common
-// defensive shape `...(x ?? {})` adds an allocation and a comparison
-// that change nothing. The same goes for `...(x || {})` and the
-// array-literal variants. Drop the fallback and spread the value
-// directly.
+// unicorn/no-useless-fallback-in-spread reports empty fallbacks in object
+// spread, where null and undefined contribute no properties. Array and
+// call-argument spread require iterables and keep their load-bearing fallbacks.
 //
-// AST-only: visit each spread node — `SpreadElement` only when its
-// parent is an `ArrayLiteralExpression` (call-argument spread is
-// excluded because spreading `null` / `undefined` into a function call
-// throws a `TypeError`, so the fallback is load-bearing there) and
-// `SpreadAssignment` for object spread. After stripping parentheses,
-// the spread's operand must be a binary expression using `??` or `||`
-// whose right-hand side is an empty object or array literal. The
-// diagnostic anchors on the spread node so editors highlight the
-// redundant fallback together with its `...`.
+// AST-only: visit SpreadAssignment; after stripping parentheses, its operand
+// must use ?? or || with an empty object or array literal on the right.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-fallback-in-spread.md
 package linthost
 
@@ -25,21 +15,13 @@ func (unicornNoUselessFallbackInSpread) Name() string {
   return "unicorn/no-useless-fallback-in-spread"
 }
 func (unicornNoUselessFallbackInSpread) Visits() []shimast.Kind {
-  return []shimast.Kind{shimast.KindSpreadElement, shimast.KindSpreadAssignment}
+  return []shimast.Kind{shimast.KindSpreadAssignment}
 }
 func (unicornNoUselessFallbackInSpread) Check(ctx *Context, node *shimast.Node) {
   var operand *shimast.Node
   switch node.Kind {
   case shimast.KindSpreadElement:
-    // Only flag array-literal spread. Call-argument spread of a
-    // null/undefined operand throws TypeError at runtime, so the
-    // `?? []` / `|| []` fallback is load-bearing in that position.
-    if node.Parent == nil || node.Parent.Kind != shimast.KindArrayLiteralExpression {
-      return
-    }
-    if spread := node.AsSpreadElement(); spread != nil {
-      operand = spread.Expression
-    }
+    return
   case shimast.KindSpreadAssignment:
     if spread := node.AsSpreadAssignment(); spread != nil {
       operand = spread.Expression

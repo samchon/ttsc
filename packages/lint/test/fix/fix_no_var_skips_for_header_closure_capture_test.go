@@ -17,6 +17,9 @@ import "testing"
 // 2. Run the no-var fixer through the disk-backed applier.
 // 3. Assert at least one finding fired but zero fixes were applied.
 //
+// The original script is retained. A sloppy-function counterpart runs the
+// same body so global-object binding exposure cannot mask this named guard.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var refuses the for-header i rewrite when iteration-created arrows capture i.
 // @evidence contracts/testing.md#independent-expectations The original fns loop and zero edits retain one shared var binding; no output is generated from the candidate fixer.
 // @evidence contracts/testing.md#distinguishing-cases Closure capture contrasts with the direct-read safe for-header test.
@@ -26,5 +29,10 @@ func TestFixNoVarSkipsForHeaderClosureCapture(t *testing.T) {
     t,
     "no-var",
     "const fns = [];\nfor (var i = 0; i < 2; i += 1) {\n  fns.push(() => i);\n}\nJSON.stringify(fns.length);\n",
+  )
+  assertNoFixSnapshot(
+    t,
+    "no-var",
+    "function noVarFixture(){\nconst fns = [];\nfor (var i = 0; i < 2; i += 1) {\n  fns.push(() => i);\n}\nJSON.stringify(fns.length);\n}\n",
   )
 }

@@ -14,6 +14,8 @@ import "testing"
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
 //
+// An explicit module owns the binding; var does not create a global-object property.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var fixes count even though a later assignment updates it.
 // @evidence contracts/testing.md#independent-expectations Literal let count output retains count = count + 1, distinguishing mutable let from const and reassignment from a second binding declaration.
 // @evidence contracts/testing.md#distinguishing-cases One declaration plus a value write remains fixable; redeclarations belong to the no-fix companion cases.
@@ -22,7 +24,7 @@ func TestFixNoVarReplacesReassignedBinding(t *testing.T) {
   assertFixSnapshot(
     t,
     "no-var",
-    "var count = 0;\ncount = count + 1;\nJSON.stringify(count);\n",
-    "let count = 0;\ncount = count + 1;\nJSON.stringify(count);\n",
+    "var count = 0;\ncount = count + 1;\nJSON.stringify(count);\nexport {};\n",
+    "let count = 0;\ncount = count + 1;\nJSON.stringify(count);\nexport {};\n",
   )
 }

@@ -14,6 +14,8 @@ import "testing"
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
 //
+// An explicit module owns the binding; var does not create a global-object property.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var fixes x when its references stay in the same if block.
 // @evidence contracts/testing.md#independent-expectations The literal let result preserves the condition and body read; no reference escapes the lexical block.
 // @evidence contracts/testing.md#distinguishing-cases The same block shape with an external read is the separate no-fix escape case.
@@ -22,7 +24,7 @@ func TestFixNoVarReplacesSameBlockReferences(t *testing.T) {
   assertFixSnapshot(
     t,
     "no-var",
-    "if (Math.random() > 0.5) {\n  var x = 1;\n  JSON.stringify(x);\n}\n",
-    "if (Math.random() > 0.5) {\n  let x = 1;\n  JSON.stringify(x);\n}\n",
+    "if (Math.random() > 0.5) {\n  var x = 1;\n  JSON.stringify(x);\n}\nexport {};\n",
+    "if (Math.random() > 0.5) {\n  let x = 1;\n  JSON.stringify(x);\n}\nexport {};\n",
   )
 }

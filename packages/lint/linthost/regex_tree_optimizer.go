@@ -518,8 +518,8 @@ func (q *regexQuantifierNode) hasFrom() bool {
   return strings.ContainsRune(q.FieldOrder, 'f')
 }
 
-// regexExtractFromTo mirrors the upstream extractFromTo, including the
-// JavaScript falsiness of a zero `to` (treated as absent).
+// regexExtractFromTo preserves upper-bound presence independently of its value.
+// SAFETY: unlike upstream's truthiness check, an explicit zero is a finite bound.
 func regexExtractFromTo(q *regexQuantifierNode) (int, int, bool) {
   switch q.Kind {
   case "*":
@@ -529,7 +529,7 @@ func regexExtractFromTo(q *regexQuantifierNode) (int, int, bool) {
   case "?":
     return 0, 1, true
   }
-  if q.HasTo && q.To != 0 {
+  if q.HasTo {
     return q.From, q.To, true
   }
   return q.From, 0, false
@@ -538,7 +538,7 @@ func regexExtractFromTo(q *regexQuantifierNode) (int, int, bool) {
 func regexIsGreedyOpenRange(q *regexQuantifierNode) bool {
   return q.Greedy &&
     (q.Kind == "+" || q.Kind == "*" ||
-      (q.Kind == "Range" && (!q.HasTo || q.To == 0)))
+      (q.Kind == "Range" && !q.HasTo))
 }
 
 // regexIncreaseQuantifierByOne mirrors transform/utils.js.
@@ -556,7 +556,7 @@ func regexIncreaseQuantifierByOne(q *regexQuantifierNode) {
     q.setTo(2)
   case "Range":
     q.From++
-    if q.HasTo && q.To != 0 {
+    if q.HasTo {
       q.To++
     }
   }
@@ -577,15 +577,14 @@ func regexTransformQuantifierRangeToSymbol(re *regexRegExpNode) {
       return
     }
     q := rep.Quantifier
-    truthyTo := q.HasTo && q.To != 0
     // a{0,} -> a*
-    if q.hasFrom() && q.From == 0 && !truthyTo {
+    if q.hasFrom() && q.From == 0 && !q.HasTo {
       q.Kind = "*"
       q.deleteFrom()
       return
     }
     // a{1,} -> a+
-    if q.hasFrom() && q.From == 1 && !truthyTo {
+    if q.hasFrom() && q.From == 1 && !q.HasTo {
       q.Kind = "+"
       q.deleteFrom()
       return

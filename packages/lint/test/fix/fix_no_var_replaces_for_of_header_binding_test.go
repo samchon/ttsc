@@ -15,6 +15,8 @@ import "testing"
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
 //
+// An explicit module owns the binding; var does not create a global-object property.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var fixes the item binding in a safe for-of header.
 // @evidence contracts/testing.md#independent-expectations Literal for-let output preserves the [1, 2] iterable and direct item read.
 // @evidence contracts/testing.md#distinguishing-cases No iterable self-reference or body closure exists; both unsafe variants have companion no-fix tests.
@@ -23,7 +25,7 @@ func TestFixNoVarReplacesForOfHeaderBinding(t *testing.T) {
   assertFixSnapshot(
     t,
     "no-var",
-    "for (var item of [1, 2]) {\n  JSON.stringify(item);\n}\n",
-    "for (let item of [1, 2]) {\n  JSON.stringify(item);\n}\n",
+    "for (var item of [1, 2]) {\n  JSON.stringify(item);\n}\nexport {};\n",
+    "for (let item of [1, 2]) {\n  JSON.stringify(item);\n}\nexport {};\n",
   )
 }

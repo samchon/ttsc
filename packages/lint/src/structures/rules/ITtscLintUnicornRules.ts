@@ -482,12 +482,19 @@ export interface ITtscLintUnicornRules {
    * Reject `.length` / `Infinity` as the deleteCount argument to `splice` /
    * `toSpliced`; omit it to delete to the end.
    *
+   * Only exactly two arguments are considered, and a length must belong to
+   * the same structural receiver. Calls with insertion arguments are retained.
+   *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-unnecessary-array-splice-count.md
    */
   "unicorn/no-unnecessary-array-splice-count"?: TtscLintRuleSetting;
 
   /**
    * Reject `await` on non-thenable expressions.
+   *
+   * The AST baseline reports ordinary literals under unchanged built-in
+   * prototypes; objects with then, spreads, computed keys or prototype setters
+   * are excluded. Removing await can still change scheduling.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-unnecessary-await.md
    */
@@ -504,6 +511,9 @@ export interface ITtscLintUnicornRules {
   /**
    * Reject `.length` / `Infinity` as the end argument to `slice`; omit it to
    * slice to the end.
+   *
+   * The length must belong to the same structural receiver; another receiver's
+   * bound and effectful repeated receiver calls are retained.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-unnecessary-slice-end.md
    */
@@ -549,8 +559,9 @@ export interface ITtscLintUnicornRules {
   "unicorn/no-useless-error-capture-stack-trace"?: TtscLintRuleSetting;
 
   /**
-   * Reject `...(x ?? {})` and similar fallbacks when spreading; the spread of
-   * `null` / `undefined` is already a no-op.
+   * Reject `...(x ?? {})` and similar fallbacks in object spread, where
+   * `null` / `undefined` contributes no properties. Array and argument spread
+   * require iterables and retain their fallbacks.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-fallback-in-spread.md
    */
@@ -567,6 +578,9 @@ export interface ITtscLintUnicornRules {
   /**
    * Reject `arr.length` checks that the iteration method itself already
    * handles.
+   *
+   * Reports guards before some, and before forEach only when the result is
+   * discarded or consumed for truthiness, preserving false versus undefined.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-length-check.md
    */
@@ -667,8 +681,8 @@ export interface ITtscLintUnicornRules {
   "unicorn/prefer-array-index-of"?: TtscLintRuleSetting;
 
   /**
-   * Prefer `Array#some` over `filter(...).length > 0`, `find(...) !==
-   * undefined`, and similar shapes.
+   * Prefer `Array#some` over `filter(...).length > 0` or a nonzero-length
+   * comparison. The always-true `length >= 0` is excluded.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-array-some.md
    */
@@ -683,6 +697,9 @@ export interface ITtscLintUnicornRules {
 
   /**
    * Prefer `1n` over `BigInt(1)` and `BigInt("1")`.
+   *
+   * Numeric operands must be safe integers. Decimal integer strings can carry
+   * arbitrary precision; the author must normalize their literal spelling.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-bigint-literals.md
    */
@@ -723,13 +740,17 @@ export interface ITtscLintUnicornRules {
   /**
    * Prefer `Date.now()` over `new Date().getTime()` / `+new Date()`.
    *
+   * Only zero-argument Date construction is considered. Explicit arguments
+   * select another instant and are retained.
+   *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-date-now.md
    */
   "unicorn/prefer-date-now"?: TtscLintRuleSetting;
 
   /**
    * Prefer default parameter syntax over `x = x ?? default` reassignments
-   * inside the function body.
+   * inside the function body. The reported nullish assignment also handles
+   * null, while a parameter default handles only undefined. No edit is supplied.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-default-parameters.md
    */
@@ -820,7 +841,10 @@ export interface ITtscLintUnicornRules {
   "unicorn/prefer-keyboard-event-key"?: TtscLintRuleSetting;
 
   /**
-   * Prefer `a || b` / `a ?? b` over the equivalent ternary `a ? a : b`.
+   * Suggest logical operators for `a ? a : b` shapes. This textual baseline
+   * does not prove stable reads: a logical operator evaluates a once, while
+   * the ternary can evaluate it twice. Authors choose truthiness or nullish
+   * behavior; no edit is supplied.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-logical-operator-over-ternary.md
    */
@@ -876,6 +900,11 @@ export interface ITtscLintUnicornRules {
    * Prefer negative-index lookups (`arr.at(-1)`, `arr.slice(-2)`) over
    * `arr.length - 1` / `arr.length - 2` arithmetic.
    *
+   * The length must belong to the same structural receiver. Only first index
+   * arguments of slice/splice/toSpliced/at are considered, excluding lastIndexOf
+   * search values. For offsets larger than length, authors must check their
+   * intended bounds because the two spellings can select different positions.
+   *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-negative-index.md
    */
   "unicorn/prefer-negative-index"?: TtscLintRuleSetting;
@@ -896,7 +925,10 @@ export interface ITtscLintUnicornRules {
   "unicorn/prefer-number-properties"?: TtscLintRuleOptionsSetting<ITtscLintUnicornPreferNumberPropertiesRuleOptions>;
 
   /**
-   * Prefer `Object.fromEntries` over `reduce`-into-object patterns.
+   * Suggest reviewing two-argument reduce calls with an empty object seed.
+   * The reducer and input pair shape are not inspected. Use Object.fromEntries
+   * only when key/value entry construction preserves the intended behavior.
+   * No edit is supplied.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-object-from-entries.md
    */
@@ -973,16 +1005,17 @@ export interface ITtscLintUnicornRules {
   "unicorn/prefer-simple-condition-first"?: TtscLintRuleSetting;
 
   /**
-   * Prefer a single `push` / `unshift` / `classList.add` / `addEventListener`
-   * with multiple arguments over consecutive single-argument calls.
+   * Prefer a single `push` / `unshift` with multiple arguments over consecutive
+   * calls. EventTarget listener methods are not variadic and are excluded.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-single-call.md
    */
   "unicorn/prefer-single-call"?: TtscLintRuleSetting;
 
   /**
-   * Prefer spread (`[...arr]`, `[...str]`) over `Array.from`,
-   * `Array.prototype.slice.call`, `concat([])`, and `split('')`.
+   * Suggest spread for single-argument Array.from calls. This AST baseline
+   * does not prove iterable input or builtin identity; non-iterable array-like
+   * input needs Array.from. Mapper calls are excluded and no edit is supplied.
    *
    * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-spread.md
    */

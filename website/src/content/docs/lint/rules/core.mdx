@@ -400,7 +400,7 @@ Require strict equality operators `===` / `!==` over `==` / `!=`.
 
 Loose equality performs implicit type coercion that frequently hides bugs.
 
-The operator is autofixed only when both operands are provably the same type (two same-kind literals, or a `typeof` comparison). Otherwise tightening the comparison can change what the program computes, so the rewrite is offered as an editor suggestion the author opts into rather than being applied by `ttsc fix`.
+The operator is autofixed only when both operands are provably the same type: two same-kind literals, a `typeof` result compared with a string literal, or two `typeof` results. A `typeof` result compared with an unknown operand can still rely on coercion. Otherwise tightening the comparison can change what the program computes, so the rewrite is offered as an editor suggestion the author opts into rather than being applied by `ttsc fix`.
 
 Example:
 
@@ -1499,7 +1499,7 @@ g = function () {
 
 Reject common implicit-coercion idioms (`!!x`, `+x`, `"" + x`) in favor of the explicit `Boolean(x)` / `Number(x)` / `String(x)` conversions.
 
-The explicit forms are more readable and avoid surprise around primitive edge cases.
+This is a style preference and supplies no automatic edits. Check the intended conversion: `Number(1n)` accepts a BigInt while `+1n` throws, and `String(value)` passes a string hint to `Symbol.toPrimitive` while string concatenation passes the default hint.
 
 Example:
 
@@ -2618,6 +2618,8 @@ const s = "a" + "b";
 
 Reject empty constructor bodies (`class X { constructor() {} }`) that add nothing over the implicit constructor.
 
+For a derived class, only exact single-rest forwarding such as `constructor(...args) { super(...args); }` is a candidate. `super()` and fixed-prefix or positional calls filter the caller's arguments, unlike the implicit derived constructor, so they are retained.
+
 Example:
 
 ```ts
@@ -2682,7 +2684,9 @@ Use `let` for mutable bindings and `const` for immutable ones. Autofixable to `l
 
 Every `var` declaration list reports, whether it appears as a statement or directly in a `for`, `for...in`, or `for...of` header.
 
-The fix only fires when the rewrite cannot change behavior, mirroring ESLint's `no-var` fix conditions: the name binds exactly once in the file, is never read before the declaration or inside its own initializer, every reference stays inside the declaring block scope (a `var` declared in a block but read after it would stop compiling as `let`; a loop-header `var` read after its loop likewise), a loop `var` — declared in the body or in the header itself — is not captured by a function or arrow created inside the loop (those closures share one `var` binding but would capture a fresh per-iteration `let` binding), and the declaration does not sit under a `with` statement. A `for...in`/`for...of` header additionally declines when its declarator carries an Annex-B initializer (`for (var i = 0 in o)`, a SyntaxError under `let`) or when the head expression reads the loop variable (`for (var x of x)`, a TDZ ReferenceError under `let`). Anything else reports without a fix.
+The fix only fires when the rewrite cannot change behavior, mirroring ESLint's `no-var` fix conditions: the name binds exactly once in the file, is never read before the declaration or inside its own initializer, every reference stays inside the declaring block scope (a `var` declared in a block but read after it would stop compiling as `let`; a loop-header `var` read after its loop likewise), a loop `var` — declared in the body or in the header itself — is not captured by a function or arrow created inside the loop (those closures share one `var` binding but would capture a fresh per-iteration `let` binding), and the declaration does not sit under a `with` statement. A `for...in`/`for...of` header additionally declines when its declarator carries an Annex-B initializer (`for (var i = 0 in o)`, a SyntaxError under `let`) or when the head expression reads the loop variable (`for (var x of x)`, a TDZ ReferenceError under `let`).
+
+Script-global declarations are not fixed because `var` creates a global-object property that `let` does not. A possible direct `eval` call in the binding's function, namespace or module environment, including a nested closure, also prevents fixing because string source can observe hoisting or scope changes that identifier references do not reveal. Parentheses and erased TypeScript assertions preserve direct eval, including `eval!`, `eval as ...`, `eval satisfies ...` and angle-bracket assertions. Optional, property and comma-expression eval calls are indirect. Anything else reports without a fix.
 
 Example:
 
@@ -2732,7 +2736,7 @@ function f(scope: Record<string, unknown>) {
 
 ### `object-shorthand`
 
-Reject `{ foo: foo }` and similar object-literal shorthand candidates in favor of `{ foo }`. Autofixable, except when a comment sits between the key and the value: deleting the `: value` tail would delete the comment, so the collapse is offered as an editor suggestion instead.
+Reject `{ foo: foo }` and similar object-literal shorthand candidates in favor of `{ foo }`. The colon-form `__proto__` property is excluded because it sets the object's prototype, while shorthand creates an own property. Otherwise this is autofixable, except when a comment sits between the key and the value: deleting the `: value` tail would delete the comment, so the collapse is offered as an editor suggestion instead.
 
 Example:
 

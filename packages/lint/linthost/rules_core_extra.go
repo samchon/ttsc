@@ -625,11 +625,11 @@ func (preferObjectHasOwn) Check(ctx *Context, node *shimast.Node) {
   ctx.Report(node, "Prefer `Object.hasOwn(obj, key)` over `Object.prototype.hasOwnProperty.call(obj, key)`.")
 }
 
-// noImplicitCoercion reports the most common implicit coercion idioms:
-// `!!x` for boolean coercion, `+x` for number, `"" + x` for string. ES
-// has explicit coercion functions (`Boolean(x)`, `Number(x)`,
-// `String(x)`) that read more clearly and avoid surprise around the
-// edge cases (e.g. `+null === 0` vs `+undefined === NaN`).
+// noImplicitCoercion expresses a preference for named conversions over !!x,
+// +x and empty-string concatenation. It supplies no automatic edits and does
+// not prove equivalent coercion: Number accepts BigInt while unary + throws,
+// and String uses a string primitive hint instead of concatenation's default
+// hint. Authors must choose the conversion whose behavior they intend.
 // https://eslint.org/docs/latest/rules/no-implicit-coercion
 type noImplicitCoercion struct{}
 

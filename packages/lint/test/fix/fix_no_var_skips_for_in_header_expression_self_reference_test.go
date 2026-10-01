@@ -16,6 +16,9 @@ import "testing"
 // 2. Run the no-var fixer through the disk-backed applier.
 // 3. Assert at least one finding fired but zero fixes were applied.
 //
+// The original script is retained. A sloppy-function counterpart runs the
+// same body so global-object binding exposure cannot mask this named guard.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var leaves the self-referential for-in header looped in looped unchanged while reporting it.
 // @evidence contracts/testing.md#independent-expectations The literal original source and zero edits preserve the hoisted head-expression read rather than causing a let temporal dead zone.
 // @evidence contracts/testing.md#distinguishing-cases Head-expression self-reference differs from the ordinary non-self-referential for-in fix.
@@ -25,5 +28,10 @@ func TestFixNoVarSkipsForInHeaderExpressionSelfReference(t *testing.T) {
     t,
     "no-var",
     "for (var looped in looped) {\n  JSON.stringify(looped);\n}\n",
+  )
+  assertNoFixSnapshot(
+    t,
+    "no-var",
+    "function noVarFixture(){\nfor (var looped in looped) {\n  JSON.stringify(looped);\n}\n}\n",
   )
 }

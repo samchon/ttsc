@@ -15,6 +15,9 @@ import "testing"
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied.
 //
+// The original script is retained. A sloppy-function counterpart runs the
+// same body so global-object binding exposure cannot mask this named guard.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var reports catch-local var e without rewriting it into a lexical collision with the catch parameter.
 // @evidence contracts/testing.md#independent-expectations Original source identity and zero applied edits independently preserve the legal catch/var spelling.
 // @evidence contracts/testing.md#distinguishing-cases Two same-named binding positions decline; the unique-binding positive arm fixes normally.
@@ -24,5 +27,10 @@ func TestFixNoVarSkipsCatchBindingRedeclaration(t *testing.T) {
     t,
     "no-var",
     "try {\n} catch (e) {\n  var e = 1;\n  JSON.stringify(e);\n}\n",
+  )
+  assertNoFixSnapshot(
+    t,
+    "no-var",
+    "function noVarFixture(){\ntry {\n} catch (e) {\n  var e = 1;\n  JSON.stringify(e);\n}\n}\n",
   )
 }

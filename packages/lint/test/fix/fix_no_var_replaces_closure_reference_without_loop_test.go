@@ -15,6 +15,8 @@ import "testing"
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
 //
+// An explicit module owns the binding; var does not create a global-object property.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var fixes top-level x captured by a later arrow while leaving the closure unchanged.
 // @evidence contracts/testing.md#independent-expectations The literal let x output preserves g and its invocation; the non-loop binding remains one shared binding.
 // @evidence contracts/testing.md#distinguishing-cases Capture outside a loop is safe, contrasting with per-iteration closure captures in the loop refusal cases.
@@ -23,7 +25,7 @@ func TestFixNoVarReplacesClosureReferenceWithoutLoop(t *testing.T) {
   assertFixSnapshot(
     t,
     "no-var",
-    "var x = 1;\nconst g = () => JSON.stringify(x);\ng();\n",
-    "let x = 1;\nconst g = () => JSON.stringify(x);\ng();\n",
+    "var x = 1;\nconst g = () => JSON.stringify(x);\ng();\nexport {};\n",
+    "let x = 1;\nconst g = () => JSON.stringify(x);\ng();\nexport {};\n",
   )
 }

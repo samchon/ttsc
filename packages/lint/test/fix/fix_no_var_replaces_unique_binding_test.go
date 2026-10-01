@@ -14,6 +14,8 @@ import "testing"
 //  2. Apply the no-var finding's text edit through the disk-backed fixer.
 //  3. Assert only the `var` keyword changed to `let`.
 //
+// An explicit module owns the binding; var does not create a global-object property.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var rewrites the sole x declaration without changing its initializer or use.
 // @evidence contracts/testing.md#independent-expectations The independently authored let x source specifies the safe unique-binding result exactly.
 // @evidence contracts/testing.md#distinguishing-cases One binding and no preceding value read distinguish this arm from redeclaration and forward-reference refusals.
@@ -22,7 +24,7 @@ func TestFixNoVarReplacesUniqueBinding(t *testing.T) {
   assertFixSnapshot(
     t,
     "no-var",
-    "var x = 1;\nJSON.stringify(x);\n",
-    "let x = 1;\nJSON.stringify(x);\n",
+    "var x = 1;\nJSON.stringify(x);\nexport {};\n",
+    "let x = 1;\nJSON.stringify(x);\nexport {};\n",
   )
 }

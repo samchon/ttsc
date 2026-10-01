@@ -280,9 +280,6 @@ func isEqeqeqAutoFixSafe(expr *shimast.BinaryExpression) bool {
   if left == nil || right == nil {
     return false
   }
-  if left.Kind == shimast.KindTypeOfExpression || right.Kind == shimast.KindTypeOfExpression {
-    return true
-  }
   leftKind := comparableLiteralKind(left)
   return leftKind != "" && leftKind == comparableLiteralKind(right)
 }
@@ -292,7 +289,7 @@ func comparableLiteralKind(node *shimast.Node) string {
     return ""
   }
   switch node.Kind {
-  case shimast.KindStringLiteral:
+  case shimast.KindStringLiteral, shimast.KindTypeOfExpression:
     return "string"
   case shimast.KindNumericLiteral:
     return "number"

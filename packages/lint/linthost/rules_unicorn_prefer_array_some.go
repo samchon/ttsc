@@ -4,7 +4,7 @@
 // short-circuits at the first hit and reads as the intent.
 //
 // AST-only: visit each `BinaryExpression`. The operator must be one of
-// `>`, `>=`, `!==`, `!=`. The left operand must be
+// `>`, `!==`, `!=`. The left operand must be
 // `PropertyAccess(CallExpression(_, filter), length)`. The right operand
 // must be the numeric literal `0`. Reports on the binary expression.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-array-some.md
@@ -25,7 +25,6 @@ func (unicornPreferArraySome) Check(ctx *Context, node *shimast.Node) {
   }
   switch bin.OperatorToken.Kind {
   case shimast.KindGreaterThanToken,
-    shimast.KindGreaterThanEqualsToken,
     shimast.KindExclamationEqualsEqualsToken,
     shimast.KindExclamationEqualsToken:
   default:

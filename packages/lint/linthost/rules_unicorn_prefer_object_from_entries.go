@@ -1,16 +1,9 @@
-// unicorn/prefer-object-from-entries: `entries.reduce((acc, [k, v]) =>
-// ({ ...acc, [k]: v }), {})` is the long-hand spelling of
-// `Object.fromEntries(entries)`. The reduce shape allocates a fresh
-// object at every step (O(n^2) total), reads as the operation rather
-// than the intent, and quietly drops to `Object` from whatever type the
-// entry shape implied. `Object.fromEntries` does the same thing in one
-// pass with one allocation and one well-known name.
-//
-// AST-only: visit `KindCallExpression`. Fire when the callee is
-// `PropertyAccess(_, reduce)` AND the call has exactly two arguments AND
-// the second argument is an empty `KindObjectLiteralExpression`. The
-// shape of the reducer is intentionally not inspected: an empty-object
-// seed in a `.reduce` chain is, in practice, the from-entries shape.
+// unicorn/prefer-object-from-entries reports two-argument .reduce calls with
+// an empty object seed as candidates for manual review. The AST baseline
+// does not inspect the reducer or prove that input elements are key/value
+// pairs. Object.fromEntries is suitable only when that entry construction
+// preserves the intended reducer behavior; numeric elements or arbitrary
+// object accumulation do not satisfy that premise. No edit is supplied.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-object-from-entries.md
 package linthost
 
@@ -47,7 +40,7 @@ func (unicornPreferObjectFromEntries) Check(ctx *Context, node *shimast.Node) {
   if obj == nil || obj.Properties == nil || len(obj.Properties.Nodes) != 0 {
     return
   }
-  ctx.Report(node, "Prefer `Object.fromEntries(...)` over `.reduce((acc, ...) => ..., {})` patterns.")
+  ctx.Report(node, "Consider `Object.fromEntries(...)` if this reducer constructs an object from key/value pairs.")
 }
 
 func init() {

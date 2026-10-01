@@ -1,15 +1,10 @@
-// unicorn/prefer-regexp-test: `if ("abc".match(/a/))` and
-// `if (/a/.exec("abc"))` use match-array / null returns to encode a
-// boolean question. `RegExp#test()` returns a boolean directly, avoids
-// allocating the match result, and reads exactly like the question
-// being asked.
+// unicorn/prefer-regexp-test reports match/exec calls when their result is
+// consumed only for truthiness. Match arrays and null can then be replaced
+// by a boolean result under the ordinary RegExp API.
 //
-// AST-only and parent-driven: visit each `CallExpression` whose callee
-// is `PropertyAccess(_, match|exec)`, then confirm the call sits in a
-// boolean position — the condition slot of `if`/`?:`, the operand of a
-// unary `!`, or one of the short-circuit binary operators `&&`, `||`,
-// `??`. Matches that aren't in a boolean position may still use the
-// returned array, so they're out of scope.
+// AST-only: if/ternary conditions and ! are boolean consumers. Parentheses
+// and &&/|| chains must reach such a consumer; assignments and returns can
+// retain captures. ?? distinguishes null from false and is excluded.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/prefer-regexp-test.md
 package linthost
 
@@ -36,21 +31,24 @@ func (unicornPreferRegexpTest) Check(ctx *Context, node *shimast.Node) {
   default:
     return
   }
-  if !unicornPreferRegexpTestInBooleanPosition(node) {
+  if !unicornExpressionHasBooleanConsumer(node) {
     return
   }
   ctx.Report(node, "Prefer `RegExp#test()` over `String#match()` / `RegExp#exec()` in a boolean context.")
 }
 
-// unicornPreferRegexpTestInBooleanPosition reports whether `node` sits in
+// unicornExpressionHasBooleanConsumer reports whether `node` sits in
 // a position that consumes only its truthiness: the condition of an
-// `if` / ternary, the operand of `!`, or one side of `&&` / `||` / `??`.
-func unicornPreferRegexpTestInBooleanPosition(node *shimast.Node) bool {
+// `if` / ternary, the operand of `!`, or a parenthesized &&/|| chain
+// ultimately consumed by one of those positions. Nullishness is not truthiness.
+func unicornExpressionHasBooleanConsumer(node *shimast.Node) bool {
   parent := node.Parent
   if parent == nil {
     return false
   }
   switch parent.Kind {
+  case shimast.KindParenthesizedExpression:
+    return unicornExpressionHasBooleanConsumer(parent)
   case shimast.KindIfStatement:
     ifStmt := parent.AsIfStatement()
     return ifStmt != nil && ifStmt.Expression == node
@@ -67,9 +65,8 @@ func unicornPreferRegexpTestInBooleanPosition(node *shimast.Node) bool {
     }
     switch bin.OperatorToken.Kind {
     case shimast.KindAmpersandAmpersandToken,
-      shimast.KindBarBarToken,
-      shimast.KindQuestionQuestionToken:
-      return true
+      shimast.KindBarBarToken:
+      return unicornExpressionHasBooleanConsumer(parent)
     }
   }
   return false

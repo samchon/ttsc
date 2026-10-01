@@ -18,6 +18,9 @@ import "testing"
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied.
 //
+// The original script is retained. A sloppy-function counterpart runs the
+// same body so global-object binding exposure cannot mask this named guard.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var leaves x initialized through an immediately invoked self-reading arrow unchanged.
 // @evidence contracts/testing.md#independent-expectations The literal IIFE source and zero edits preserve the var hoisting read instead of a let temporal dead zone.
 // @evidence contracts/testing.md#distinguishing-cases The self-read executes during initialization; the deferred arrow companion pins the same conservative gate without claiming the same hazard.
@@ -27,5 +30,10 @@ func TestFixNoVarSkipsIifeSelfReferenceInInit(t *testing.T) {
     t,
     "no-var",
     "var x = (() => x)();\n",
+  )
+  assertNoFixSnapshot(
+    t,
+    "no-var",
+    "function noVarFixture(){\nvar x = (() => x)();\n}\n",
   )
 }

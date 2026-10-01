@@ -16,6 +16,9 @@ import "testing"
 // 2. Run the no-var fixer through the disk-backed applier.
 // 3. Assert at least one finding fired but zero fixes were applied.
 //
+// The original script is retained. A sloppy-function counterpart runs the
+// same body so global-object binding exposure cannot mask this named guard.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var declines the i header rewrite when a post-loop read still needs var visibility.
 // @evidence contracts/testing.md#independent-expectations Literal original loop plus trailing JSON.stringify(i) and zero edits specify the scope boundary independently.
 // @evidence contracts/testing.md#distinguishing-cases The read crosses the loop span, unlike the safe header case with only in-loop reads.
@@ -25,5 +28,10 @@ func TestFixNoVarSkipsForHeaderUseAfterLoop(t *testing.T) {
     t,
     "no-var",
     "for (var i = 0; i < 3; i += 1) {\n  JSON.stringify(i);\n}\nJSON.stringify(i);\n",
+  )
+  assertNoFixSnapshot(
+    t,
+    "no-var",
+    "function noVarFixture(){\nfor (var i = 0; i < 3; i += 1) {\n  JSON.stringify(i);\n}\nJSON.stringify(i);\n}\n",
   )
 }

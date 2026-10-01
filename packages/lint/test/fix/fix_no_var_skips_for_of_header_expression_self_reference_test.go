@@ -15,6 +15,9 @@ import "testing"
 // 2. Run the no-var fixer through the disk-backed applier.
 // 3. Assert at least one finding fired but zero fixes were applied.
 //
+// The original script is retained. A sloppy-function counterpart runs the
+// same body so global-object binding exposure cannot mask this named guard.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var preserves for (var chain of [chain]) despite emitting its diagnostic.
 // @evidence contracts/testing.md#independent-expectations The original iterable self-read and zero applied edits preserve hoisting rather than introducing a temporal dead zone.
 // @evidence contracts/testing.md#distinguishing-cases The iterable reads the same binding before assignment; ordinary non-self-referential for-of is the positive twin.
@@ -24,5 +27,10 @@ func TestFixNoVarSkipsForOfHeaderExpressionSelfReference(t *testing.T) {
     t,
     "no-var",
     "for (var chain of [chain]) {\n  JSON.stringify(chain);\n}\n",
+  )
+  assertNoFixSnapshot(
+    t,
+    "no-var",
+    "function noVarFixture(){\nfor (var chain of [chain]) {\n  JSON.stringify(chain);\n}\n}\n",
   )
 }

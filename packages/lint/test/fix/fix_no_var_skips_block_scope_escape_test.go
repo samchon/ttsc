@@ -16,6 +16,9 @@ import "testing"
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied.
 //
+// The original script is retained. A sloppy-function counterpart runs the
+// same body so global-object binding exposure cannot mask this named guard.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var still diagnoses block-local x but declines rewriting it when x is read after the block.
 // @evidence contracts/testing.md#independent-expectations The original full source and zero applied fixes preserve var visibility; runFixSnapshot requires a finding so silence cannot pass.
 // @evidence contracts/testing.md#distinguishing-cases The outside read contrasts with the same-block and nested-block positive cases.
@@ -25,5 +28,10 @@ func TestFixNoVarSkipsBlockScopeEscape(t *testing.T) {
     t,
     "no-var",
     "if (Math.random() > 0.5) {\n  var x = 1;\n}\nJSON.stringify(x);\n",
+  )
+  assertNoFixSnapshot(
+    t,
+    "no-var",
+    "function noVarFixture(){\nif (Math.random() > 0.5) {\n  var x = 1;\n}\nJSON.stringify(x);\n}\n",
   )
 }

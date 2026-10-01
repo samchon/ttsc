@@ -1,14 +1,10 @@
-// unicorn/no-unnecessary-array-splice-count: `arr.splice(start, arr.length)`
-// and `arr.splice(start, Infinity)` both say "delete from `start` to the
-// end", but `splice` already does that when the count argument is
-// omitted entirely. Dropping the redundant count makes the intent read
-// directly: "splice from `start`."
+// unicorn/no-unnecessary-array-splice-count reports exactly two-argument
+// splice/toSpliced calls whose count repeats the receiver's length or Infinity.
+// Ordinary array methods omit this count to select the tail. Additional insertion
+// arguments and lengths belonging to another receiver remain meaningful.
 //
-// AST-only: each visited `CallExpression` checks a `splice` /
-// `toSpliced` callee with at least two arguments and inspects the
-// second. A `.length` property access (on any receiver — the rule
-// doesn't try to reconcile receivers) or a bare `Infinity` identifier
-// both fire. Anything else is a real count.
+// The shared structural reference comparator excludes repeated calls. This AST
+// baseline assumes ordinary array methods and Infinity, and reports without edits.
 // https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-unnecessary-array-splice-count.md
 package linthost
 
@@ -35,20 +31,19 @@ func (unicornNoUnnecessaryArraySpliceCount) Check(ctx *Context, node *shimast.No
   if method != "splice" && method != "toSpliced" {
     return
   }
-  if call.Arguments == nil || len(call.Arguments.Nodes) < 2 {
+  if call.Arguments == nil || len(call.Arguments.Nodes) != 2 {
     return
   }
   second := stripParens(call.Arguments.Nodes[1])
-  if !unicornUnnecessaryCountArgument(second) {
+  if !unicornUnnecessaryCountArgument(second, access.Expression) {
     return
   }
   ctx.Report(call.Arguments.Nodes[1], "Use `splice(start)` without the count — `.length` / `Infinity` is the default.")
 }
 
-// unicornUnnecessaryCountArgument reports whether `node` is one of the
-// two redundant "until the end" shapes — a `.length` property access on
-// any receiver, or the bare `Infinity` identifier.
-func unicornUnnecessaryCountArgument(node *shimast.Node) bool {
+// unicornUnnecessaryCountArgument matches Infinity or the same receiver's length.
+// Structural reference comparison excludes effectful repeated calls.
+func unicornUnnecessaryCountArgument(node, receiver *shimast.Node) bool {
   if node == nil {
     return false
   }
@@ -57,7 +52,7 @@ func unicornUnnecessaryCountArgument(node *shimast.Node) bool {
     if access == nil {
       return false
     }
-    return identifierText(access.Name()) == "length"
+    return identifierText(access.Name()) == "length" && sameReferenceExpression(access.Expression, receiver)
   }
   if node.Kind == shimast.KindIdentifier {
     return identifierText(node) == "Infinity"

@@ -7,16 +7,17 @@ import "testing"
 // redeclared elsewhere.
 //
 // `var a = 1, { b } = o;` binds both a plain `a` and a destructured `b` under
-// one `var` keyword. The binding-name helper deliberately skips destructuring,
-// so only `a` is seen and the single-plain-binding guard passes — yet the same
-// keyword governs `b`. A later `var b = 2;` then redeclares `b`, so rewriting
-// the keyword to `let` would yield a duplicate-`let` SyntaxError. The
-// declaration-count guard declines because the list holds two
-// VariableDeclaration nodes, so the diagnostic still fires but no edit lands.
+// one `var` keyword. The list contains two VariableDeclaration nodes, so the
+// single-declarator precondition declines before the name census. The keyword
+// also governs b: a later `var b = 2;` shares its binding, so rewriting both
+// declarations would create a lexical collision. Both diagnostics remain.
 //
 //  1. Parse a file with a mixed plain+destructure list and a later `var b`.
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied.
+//
+// The original script is retained. A sloppy-function counterpart runs the
+// same body so global-object binding exposure cannot mask this named guard.
 //
 // @evidence contracts/testing.md#behavioral-verification no-var preserves the mixed a/{b} declaration and later b redeclaration.
 // @evidence contracts/testing.md#independent-expectations The original source and zero edits prevent rewriting the shared keyword into a b lexical collision. Exact literal statement/header spans additionally require both distinct diagnostics.
@@ -27,6 +28,11 @@ func TestFixNoVarSkipsMixedDestructureRedeclaration(t *testing.T) {
     t,
     "no-var",
     "var a = 1, { b } = o;\nvar b = 2;\n",
+  )
+  assertNoFixSnapshot(
+    t,
+    "no-var",
+    "function noVarFixture(){\nvar a = 1, { b } = o;\nvar b = 2;\n}\n",
   )
   assertRuleFindingRanges(t, "no-var", "var a = 1, { b } = o;\nvar b = 2;\n", "var a = 1, { b } = o;", "var b = 2;")
 }

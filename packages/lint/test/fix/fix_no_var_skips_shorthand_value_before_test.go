@@ -16,6 +16,9 @@ import "testing"
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied.
 //
+// The original script is retained. A sloppy-function counterpart runs the
+// same body so global-object binding exposure cannot mask this named guard.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var declines the x rewrite after an earlier object shorthand reads x.
 // @evidence contracts/testing.md#independent-expectations Literal ({ x }) is a value read; source identity and zero edits preserve its hoisted undefined behavior.
 // @evidence contracts/testing.md#distinguishing-cases The shorthand differs from the non-reading property key in TestFixNoVarFixesDespiteObjectKeyBefore.
@@ -25,5 +28,10 @@ func TestFixNoVarSkipsShorthandValueBefore(t *testing.T) {
     t,
     "no-var",
     "({ x });\nvar x = 1;\nJSON.stringify(x);\n",
+  )
+  assertNoFixSnapshot(
+    t,
+    "no-var",
+    "function noVarFixture(){\n({ x });\nvar x = 1;\nJSON.stringify(x);\n}\n",
   )
 }

@@ -16,6 +16,9 @@ import "testing"
 //  2. Run the no-var fixer through the disk-backed applier.
 //  3. Assert at least one finding fired but zero fixes were applied.
 //
+// The original script is retained. A sloppy-function counterpart runs the
+// same body so global-object binding exposure cannot mask this named guard.
+//
 // @evidence contracts/testing.md#behavioral-verification no-var diagnoses var x = x and leaves its self-read initializer unchanged.
 // @evidence contracts/testing.md#independent-expectations Original source equality and zero edits preserve the hoisted undefined read instead of introducing a let temporal dead zone.
 // @evidence contracts/testing.md#distinguishing-cases An immediate own-initializer read is the unsafe arm; the unrelated initialized unique binding fixes normally.
@@ -25,5 +28,10 @@ func TestFixNoVarSkipsDirectSelfReferenceInInit(t *testing.T) {
     t,
     "no-var",
     "var x = x;\n",
+  )
+  assertNoFixSnapshot(
+    t,
+    "no-var",
+    "function noVarFixture(){\nvar x = x;\n}\n",
   )
 }

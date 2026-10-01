@@ -1360,6 +1360,11 @@ func (objectShorthand) Check(ctx *Context, node *shimast.Node) {
   if keyName != valueName {
     return
   }
+  // A colon-form __proto__ property sets the object's prototype. Shorthand
+  // instead creates an own data property, even when both names are identical.
+  if keyName == "__proto__" {
+    return
+  }
   // Delete `: <value>` so `{ x: x }` becomes `{ x }`. The range starts
   // at the end of the property name and ends at the end of the
   // initializer; any whitespace between `:` and the value is part of
