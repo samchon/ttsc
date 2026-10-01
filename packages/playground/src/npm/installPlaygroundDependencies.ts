@@ -32,8 +32,11 @@ const DEFAULT_MAX_UNPACKED_BYTES = 64 * 1024 * 1024;
  * required, optional, and peer dependency fields. Passing a prior call's
  * `resolvedDependencies` validates new edges against the exact mounted graph
  * and reuses compatible packages without downloading their tarballs again. The
- * walk is bounded by `maxPackages` to keep a single keystroke from exhausting
- * the tab's network/memory budget.
+ * walk is bounded by the nonnegative safe-integer `maxPackages` to keep a
+ * single keystroke from exhausting the tab's network/memory budget. The cap
+ * counts distinct names completed in this call, including mounted packages
+ * revalidated and optional packages omitted. Unrequested mounted state does
+ * not consume this call's budget; zero permits no queued package work.
  *
  * @evidence contracts/common.md#principled-implementation The queue unifies required ranges per exposed name and registry identity, pins reused exact versions and rejects incompatible required edges. Optional edges refine only compatible solves; verified tar bytes are confined before files enter consumer namespaces.
  * @evidence contracts/common.md#clear-and-simple-design Graph coordination stays here while registry transport, version selection, archive validation and file mapping have explicit helper boundaries.
@@ -41,7 +44,7 @@ const DEFAULT_MAX_UNPACKED_BYTES = 64 * 1024 * 1024;
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain prior graph reuse and package budgets; queue comments explain late constraints and optional-to-required transitions under the documentation skill.
  * @evidence contracts/performance.md#efficient-algorithms Indexed queue and completed maps avoid duplicate graph processing; version solving scales with published versions times active constraints, and file extraction/mapping scales with archive bytes and entries. Sequential transport avoids an additional concurrent archive population.
  * @evidence contracts/performance.md#reuse-equivalent-work Queued names share metadata within a solve; exact mounted version and registry identity must satisfy all active required constraints before prior tarball work is reused. Changed direct roots are handled by the caller's full solve and replacement, not hidden in this additive operation.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Per-call maps and decoded archives belong to the install promise and result; package count and independent compressed/expanded byte budgets bound new archive work. Abort propagates to fetch and stream readers, while returned maps transfer to the consumer; supplied mounted state has no aggregate byte budget here.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Per-call maps and decoded archives belong to the install promise and result; a validated nonnegative safe-integer cap bounds distinct names completed in this call, including mounted revalidation and optional omission, while independent compressed/expanded byte budgets bound each archive. Invalid caps reject before input iteration or progress/transport callbacks. Abort propagates to fetch and stream readers; returned maps transfer to the consumer, and supplied mounted state has no aggregate byte budget here.
  */
 export async function installPlaygroundDependencies(
   packageNames: Iterable<string>,
@@ -52,6 +55,10 @@ export async function installPlaygroundDependencies(
     throw new Error("installPlaygroundDependencies requires fetch.");
   }
   throwIfAborted(options.signal);
+  const maxPackages = options.maxPackages ?? DEFAULT_MAX_PACKAGES;
+  if (!Number.isSafeInteger(maxPackages) || maxPackages < 0) {
+    throw new Error("maxPackages must be a non-negative safe integer.");
+  }
 
   const ignored = new Set(
     options.ignoredPackages ?? BUILT_IN_PLAYGROUND_PACKAGES,
@@ -81,7 +88,6 @@ export async function installPlaygroundDependencies(
       requests: dependency.requests.map((request) => ({ ...request })),
     });
   }
-  const maxPackages = options.maxPackages ?? DEFAULT_MAX_PACKAGES;
   const maxTarballBytes = options.maxTarballBytes ?? DEFAULT_MAX_TARBALL_BYTES;
   const maxUnpackedBytes =
     options.maxUnpackedBytes ?? DEFAULT_MAX_UNPACKED_BYTES;
