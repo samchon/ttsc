@@ -196,7 +196,7 @@ const DISPLAY_KIND: Record<string, string> = {
 };
 
 function displayKind(kind: string): string {
-  return Object.hasOwn(DISPLAY_KIND, kind) ? DISPLAY_KIND[kind]! : kind;
+  return DISPLAY_KIND[kind] ?? kind;
 }
 
 /**

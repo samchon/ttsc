@@ -1691,11 +1691,11 @@ function rejectStringLiteral(): Promise<never> {
 
 Reject private class fields that could carry `readonly`.
 
-Requires the Checker. Reports initialized `private` or `#name` fields without resolved reassignment in their source file. Assignments, updates, destructuring and nested callbacks use member declaration identity, so aliases and equally named fields of other classes remain distinct.
+AST-only baseline: fires on a `PropertyDeclaration` inside a class body that is `private` (or uses the `#name` private-hash form), does not already carry `readonly`, and is initialized at the declaration site.
 
-Mutating an object stored in a field does not replace that field. Dynamic indexed writes conservatively retain the receiver's resolved properties.
+A field initialized at declaration time is set before the constructor runs, so locking it as `readonly` rules out accidental reassignments without changing runtime behavior.
 
-Reflective and `any`-typed mutation are outside this analysis. The diagnostic states its source boundary and offers no automatic edit.
+The fully type-aware upstream rule also walks assignments inside the constructor and other methods; the AST baseline targets the narrow but safe shape.
 
 Example:
 
@@ -1756,7 +1756,7 @@ const match = text.match(/invoice/);
 
 When an instance method always `return this`, declare its return type as `this` instead of the enclosing class name so subclass call sites keep the narrower receiver type and method-chaining stays polymorphic.
 
-Type-aware via the Checker. Fires only when the method declares an explicit non-`this` return-type annotation and every normal completion returns exactly `this`. Bare returns and reachable fallthrough prevent a finding; throws do not introduce another return value. Nested functions have their own return boundary.
+Type-aware via the Checker. Fires only when the method declares an explicit non-`this` return-type annotation AND every value-returning `return` statement in the body returns exactly `this`.
 
 Methods with no annotation, methods with at least one non-`this` return, `async` methods, generators, constructors.
 

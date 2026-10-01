@@ -36,7 +36,7 @@ const NODE_KIND_ORDER: readonly string[] = [
   "variable",
 ];
 
-const NODE_COLORS: Record<string, string> = Object.assign(Object.create(null), {
+const NODE_COLORS: Record<string, string> = {
   markdown_document: "#9d174d",
   markdown_section: "#a21caf",
   prisma_model: "#4338ca",
@@ -51,19 +51,19 @@ const NODE_COLORS: Record<string, string> = Object.assign(Object.create(null), {
   type: "#b45309",
   enum: "#7e22ce",
   variable: "#64748b",
-});
+};
 
 // One definition of the edge families: the edge colour, the legend, and the
 // sidebar filter rows all read this map. `exports` is neutral because it is a
 // structural relation rather than a use, and it is darker than the slate the
 // scene falls back to for an unknown kind so the two stay distinct.
-const LINK_COLORS: Record<string, string> = Object.assign(Object.create(null), {
+const LINK_COLORS: Record<string, string> = {
   "value-call": "#15803d",
   "type-ref": "#b45309",
   "doc-ref": "#9333ea",
   heritage: "#2563eb",
   exports: "#475569",
-});
+};
 
 /**
  * What an unrecognized node kind is drawn in.

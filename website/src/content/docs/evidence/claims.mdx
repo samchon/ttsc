@@ -218,8 +218,6 @@ Every reference declares its `type` and may declare [severity](#severity) and an
 
 **Swagger** takes exactly one `file`, which is a path or an `http:`/`https:` URL rather than a glob. The document is normalized from Swagger 2.0 or OpenAPI 3.0, 3.1, and 3.2, in JSON or YAML, before its operations are indexed. A URL is fetched while the rule runs, so an unavailable document fails the build instead of quietly emptying the population. Owe coverage to two documents by writing two references.
 
-URL schemes are case-insensitive, so `HTTPS://` and `hTtPs://` use the same HTTPS transport as `https://`. Document paths and query values keep their spelling. Local paths resolve against the project root and may be absolute or ascend into a sibling directory; write a filesystem path rather than a `file:` URL, which is not supported.
-
 ### TypeScript populations
 
 Use a rooted reference to review an implementation in another workspace without adding evidence tags or installing the plugin there:
@@ -246,8 +244,6 @@ A TypeScript `files` glob selects modules, and the population is what those modu
 The Program may name a source through a linked checkout or a link inside it. The rule resolves both that source and the configured population root to their physical paths before deciding membership. A source reached through a link that leaves the root does not join the population; name the external directory as a separate rooted population when it is intended to be covered.
 
 An editor may hold a source that has not been saved below a linked root. The rule resolves the nearest existing ancestor and retains the missing suffix, so that Program source remains in the declared population while the editor owns it.
-
-The default Program population also keeps native path aliases consistent when the filesystem opens a long link chain but cannot resolve a descendant's full spelling. It uses a successfully resolved ancestor prefix and preserves the remaining spelling. This does not make an unresolved declared root traversable: disk populations still report the link-resolution failure.
 
 A unit is addressed the way a consumer reaches it rather than the way its file spells it. `export * as functional` nests a path segment, `export * from` flattens one, and `export { A as B }` is cited as `B`, so a citation written against the local binding matches nothing.
 

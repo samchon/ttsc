@@ -119,7 +119,7 @@ Inner spaces in single-line braces. `true` (default) keeps the space inside obje
 
 ### `quoteProps`
 
-Quoting of object keys, class method names, and interface or type-literal members. `"as-needed"` (default) unquotes keys that are valid identifiers. `"consistent"` quotes every identifier key in an object when a sibling needs quotes. `"preserve"` leaves quoting untouched. ttsc keeps non-ASCII identifier keys quoted under its conservative identifier policy. It can unquote `"__proto__"`: in an object literal, both `"__proto__": value` and `__proto__: value` have the same [prototype-setter semantics](https://tc39.es/ecma262/multipage/ecmascript-language-expressions.html#sec-object-initializer-runtime-semantics-propertydefinitionevaluation). Computed keys such as `["__proto__"]` remain untouched. Driven by `format.quoteProps`.
+Quoting of object keys, class method names, and interface or type-literal members. `"as-needed"` (default) unquotes keys that are valid identifiers. `"consistent"` quotes every identifier key in an object when a sibling needs quotes. `"preserve"` leaves quoting untouched. ttsc deliberately keeps `"__proto__"` and non-ASCII identifier keys quoted: unlike Prettier, unquoting them can change runtime semantics or exceed ttsc's conservative identifier policy. Driven by `format.quoteProps`.
 
 ### `trailingComma`
 

@@ -26,7 +26,7 @@ Examples come from the checked [lint corpus](https://github.com/samchon/ttsc/tre
 - [`security/detect-non-literal-require`](#rule-security-detect-non-literal-require): Detect `require(...)` calls whose specifier is computed at runtime.
 - [`security/detect-object-injection`](#rule-security-detect-object-injection): Detect dynamic bracket-access such as `obj[req.body.x] = ...`.
 - [`security/detect-possible-timing-attacks`](#rule-security-detect-possible-timing-attacks): Detect direct equality comparisons involving secret-like identifiers , use `crypto.timingSafeEqual` instead.
-- [`security/detect-pseudoRandomBytes`](#rule-security-detect-pseudorandombytes): Detect Node's deprecated `crypto.pseudoRandomBytes` alias.
+- [`security/detect-pseudoRandomBytes`](#rule-security-detect-pseudorandombytes): Detect `crypto.pseudoRandomBytes`, which produces values.
 - [`security/detect-unsafe-regex`](#rule-security-detect-unsafe-regex): Detect regex literals with catastrophic backtracking potential (ReDoS).
 
 ## Rules
@@ -128,7 +128,7 @@ eval(userInput);
 
 Detect `new Buffer(input)` constructions with non-literal input, historical source of allocation-disclosure bugs.
 
-The three APIs that replaced it are offered as editor suggestions: `Buffer.from`, `Buffer.alloc`, and `Buffer.allocUnsafe`. None is applied automatically. Which one is correct depends on what the argument turns out to be, and this rule fires precisely when the argument is not a literal, so the source cannot say. `Buffer.allocUnsafe` expects a numeric size and throws TypeError for a string. A numeric argument requests uninitialized memory rather than copying input data.
+The three APIs that replaced it are offered as editor suggestions: `Buffer.from`, `Buffer.alloc`, and `Buffer.allocUnsafe`. None is applied automatically. Which one is correct depends on what the argument turns out to be, and this rule fires precisely when the argument is not a literal, so the source cannot say. Choosing for the author is how the constructor's original hazard returns: `Buffer.allocUnsafe` applied to what was really a string hands back uninitialized heap memory.
 
 The finding stays untagged even though Node deprecated its global constructor in DEP0005. This rule mirrors the upstream syntax-only match, which can also report a user-defined constructor named `Buffer`; a rule-level `Deprecated` tag would stamp that application constructor too.
 
@@ -241,9 +241,9 @@ if (password === "mypass") {
 
 ### `security/detect-pseudoRandomBytes`
 
-Detect `crypto.pseudoRandomBytes`, Node's deprecated alias of `crypto.randomBytes`.
+Detect `crypto.pseudoRandomBytes`, which produces values that are not cryptographically secure.
 
-Use the supported `crypto.randomBytes` name. The alias uses the same cryptographically secure generator; this rule reports the deprecated name. See Node's [DEP0115](https://nodejs.org/api/deprecations.html#dep0115-cryptoprng-cryptopseudorandombytes-cryptorng).
+Tokens, session ids, and key material must use `crypto.randomBytes` (or Web Crypto's `getRandomValues`) instead.
 
 Type-aware via the Checker, which resolves the object at the use site so an automatic rewrite never lands on a shadowed binding. Enabling this rule puts the whole run on the checker path; the diagnostic itself stays name-based and still reports without one.
 

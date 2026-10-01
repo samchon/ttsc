@@ -18,7 +18,7 @@ Type errors stop execution. So do `@ttsc/lint` errors (warnings don't).
 
 The entry can also be a JavaScript host that loads TypeScript, such as `npx ttsx tools/run.js`. A JavaScript entry has no project to check up front. It runs as it would under `node --require ttsc/register`, and each TypeScript file it reaches is checked and built through its own project before it runs. The options that only configure the up-front build (`-P`, `--cache-dir`, `--checkers`, `--singleThreaded`, `--no-plugins`, and forwarded compiler options) are refused before a JavaScript entry; set compiler options in the `tsconfig.json` that owns the TypeScript it loads.
 
-`ttsx` requires Node.js 22.15 or later with the synchronous `module.registerHooks` API. The runtime probes whether native `require.resolve()` reaches these hooks. Where it does not, the CommonJS modules served by ttsx receive their own source-aware `require.resolve` through the public load boundary.
+`ttsx` requires Node's synchronous `module.registerHooks` API and a CommonJS resolver that sends `require.resolve()` through those hooks. API presence alone is insufficient: the runtime checks that resolution capability and rejects a host that bypasses it. Several Node releases provide the API while bypassing hooks for `require.resolve()`, so Node 22.15 alone does not establish runtime support.
 
 Bun and Deno report a Node.js version but do not implement the native loading capabilities required here. `ttsx` and `ttsc/register` reject unsupported runtimes with a Node.js diagnostic before running the entry. `bunx ttsx` uses Node.js unless `--bun` is given.
 
@@ -59,8 +59,6 @@ tsconfig.json
 
 `paths` applies to the type-check as it does for `src`, but aliases still need runtime module resolution. The entry is type-checked, and the project is built first: an error in either `clear.ts` or the project's sources stops the run.
 
-A successful project build that writes no JavaScript, such as a solution config with no sources of its own, still takes this checked entry lane. The empty build supplies no executable output; the entry's own build must prove which JavaScript it emitted before that code runs.
-
 A project whose sources lie under its `tsconfig.json` directory needs no explicit `rootDir`. `ttsx` pins that config directory as the source root and emits into its private cache directory, so a check-only project with `noEmit: true` and sources under `src/` runs without JavaScript appearing beside them. An explicit `rootDir` is used as written. Sources above the config directory require a `rootDir` that contains them.
 
 Positional `ttsc <file.ts>` resolves the same source root but accepts only a file included by its project. Otherwise it reports the file and tsconfig rather than assigning another file's output to that entry.
@@ -74,8 +72,6 @@ Projects that enable `allowImportingTsExtensions` are supported. During the runt
 ## Files the program reaches at run time
 
 The up-front build covers what the compiler can see: the entry and everything it imports. A program can also reach TypeScript the compiler never saw. It can `require()` a file by path, load a file outside `include`, or write a `.ts` file and then import it. `ttsx` serves such a file through its own project: the nearest `tsconfig.json` above it, or, under a [solution-style config](#solution-style-configs), the referenced project that contains it. That project is built once per run, emit-only like any dependency, and serves every file it compiled. A file that build did not compile either is a root of its own. It is compiled alone through the project's options and plugins before it runs:
-
-This also applies when the owning config has `files: []` and its project build writes nothing. The requested file still inherits that project's compiler options and plugins; an empty project build does not send it through isolated type stripping.
 
 - In your own tree, the root is type-checked. A type error stops the run before any of that file's statements execute, just like a type error in the entry.
 - Inside `node_modules`, the root is emitted without the type gate, the same way the rest of that package is served. A workspace package linked into `node_modules` is your own tree, because its files live outside it.
@@ -119,9 +115,9 @@ The type-check covers your whole program, but at runtime your dependencies are l
 
 Both reaches cover the CommonJS `require` graph and the ESM graph through `module.registerHooks`. When a runtime's ESM loading of CommonJS source bypasses those hooks, `ttsx` supplies an ESM bridge that loads the module through Node's CommonJS loader. The bridge preserves Node's default and statically detected named exports. The entry itself remains Node's main module.
 
-A CommonJS module served by ttsx receives a module-local `require` that preserves Node's shared module cache and native resolution precedence. Its `require.resolve()` also finds supported TypeScript source spellings on Node releases whose native resolver bypasses the hooks. Separately created native require functions keep their native resolution behavior.
+`require.resolve()` must use the registered hooks. Runtime initialization rejects a resolver that bypasses them; it does not replace Node's private CommonJS resolver to compensate.
 
-The module-local `require.extensions` advertises TypeScript extensions using Node's JavaScript handler, so registry checks made by tools such as `rechoir` can detect the installed runtime. Actual TypeScript loading still goes through the compile gate and public hooks. Node's global extension registry and private resolver remain unchanged.
+The runtime does not add TypeScript handlers to `require.extensions`. A tool that treats that registry as proof that a TypeScript loader is installed needs a compatible loader integration of its own. Preloading `ttsc/register` alone does not satisfy registry checks made by tools such as `rechoir`.
 
 These hooks are runtime-only and never weaken the compile gate: the up-front tsgo build still deep-checks the whole program, imported workspace neighbours included, so a type error in a dependency's source fails the run before anything executes. A missing module still throws `ERR_MODULE_NOT_FOUND`, or `MODULE_NOT_FOUND` with its require stack on the CommonJS graph.
 

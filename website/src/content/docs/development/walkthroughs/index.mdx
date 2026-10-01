@@ -43,7 +43,7 @@ Transform packages can also expose linked Go packages instead of executable comm
 Practical consequence, flagged again on each walkthrough as it becomes relevant:
 
 - **For learning,** the shipped plugins are the best worked examples in the repo: production-quality code, small enough to read end-to-end. The walkthroughs point you at the right files (`driver/<name>.go` for linked transform logic; `plugin/main.go` for the entrypoint contract).
-- **For your own plugin,** use [`driver.LoadProgram`](/docs/development/reference/driver-api) when you own an executable host, or export a linked Go package with `driver.RegisterPlugin` when your transform is a library that should ride inside another host. The public Program/Checker API example is [`packages/ttsc/test/driver-unit/source_sdk_program_checker_test.go`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/test/driver-unit/source_sdk_program_checker_test.go).
+- **For your own plugin,** use [`driver.LoadProgram`](/docs/development/reference/driver-api) when you own an executable host, or export a linked Go package with `driver.RegisterPlugin` when your transform is a library that should ride inside another host. The canonical executable fixture is [`tests/projects/go-source-plugin-checker`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker).
 
 `@ttsc/lint` is different: its real engine lives in `packages/lint/linthost/`, and the sidecar at `packages/lint/plugin/main.go` is a `linthost.Main` one-liner. That setup is reusable, the [lint deep dive](/docs/development/walkthroughs/lint) shows how to copy the pattern when your plugin grows past one file.
 

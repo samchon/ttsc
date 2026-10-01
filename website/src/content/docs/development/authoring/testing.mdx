@@ -140,13 +140,13 @@ export const test_my_plugin_strips_debugger_statements_from_emit = () => {
 
 ## Project-shaped fixtures
 
-When a regression depends on directory layout, entry discovery, package boundaries, or `compilerOptions.plugins[]` resolution, check the fixture into its owning package's test directory and copy it into a temp dir at test time. The Go-source fixtures in `packages/ttsc/test/` use explicit `compilerOptions.plugins[]` so their wiring is unambiguous. Pure compiler API behavior belongs in the package's Go unit tests.
+When a regression depends on a real directory layout, entry discovery, package boundaries, `compilerOptions.plugins[]` resolution. Check the fixture into `tests/projects/<name>/` and copy it into a temp dir at test time. The canonical "third-party shape" for project fixtures is what this repo's own `tests/projects/` ships: nine fixtures, every one uses **explicit `compilerOptions.plugins[]`** (no `package.json` auto-discovery), so the wiring is unambiguous.
 
 Worked exemplars in this repo:
 
-- [`packages/ttsc/test/go-source-plugin/`](https://github.com/samchon/ttsc/tree/master/packages/ttsc/test/go-source-plugin/): minimal Go source plugin.
-- [`packages/ttsc/test/driver-unit/source_sdk_program_checker_test.go`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/test/driver-unit/source_sdk_program_checker_test.go): public Program/Checker unit test.
-- [`packages/ttsc/test/driver-unit/source_sdk_interface_properties_test.go`](https://github.com/samchon/ttsc/blob/master/packages/ttsc/test/driver-unit/source_sdk_interface_properties_test.go): interface syntax and resolved properties.
+- [`tests/projects/go-source-plugin/`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin/): minimal Go source plugin.
+- [`tests/projects/go-source-plugin-checker/`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-checker/): Checker-using plugin.
+- [`tests/projects/go-source-plugin-properties/`](https://github.com/samchon/ttsc/tree/master/tests/projects/go-source-plugin-properties/): properties round-trip.
 
 The materialize-into-tempdir pattern is one helper a third-party author can paste without depending on `@ttsc/testing` (which is private to this repo):
 
@@ -193,8 +193,6 @@ cmd := exec.Command("go", "run", "./plugin", "transform",
 The host emits flags in equals form; construct your tests the same way.
 
 ## Asserting re-spawn env vars
-
-For host-side environment policy, use `BuildExecution.composeNativePluginEnv` with a fresh layered environment and an already selected Node executable. It publishes this invocation's compiler, config and linked-plugin payloads without discovering a runtime. `BuildExecution.nativePluginEnv` retains actual Node capability discovery before calling the same composer; a test that invokes it exercises that process boundary.
 
 `ttsc` injects `TTSC_NODE_BINARY`, `TTSC_TSGO_BINARY`, and `TTSC_TTSX_BINARY` into every plugin process (see [Architecture → Injected into the plugin process](/docs/development/reference/architecture#injected-into-the-plugin-process)). To pin that your plugin receives them, ship one Go unit test that asserts on the env from inside the plugin's own `runCheck` / `runTransform`:
 

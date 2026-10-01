@@ -20,8 +20,6 @@ One MCP tool, `inspect_typescript_graph`, answers instead. Its replies carry nam
 
 Every node and edge is the compiler's own answer, which is what a text search cannot give you.
 
-When a class and interface share a name, member ownership follows the compiler's declaration ranges. Interface members and abstract or ambient declarations remain bodyless; a concrete method in an abstract class remains a concrete trace destination.
-
 - **pnpm workspaces.** A `workspace:*` dependency is followed into the sibling package's real source, so a cross-package call lands on the true declaration rather than the barrel it passed through.
 - **Path aliases.** A `@app/*` import from `tsconfig` resolves to the real file.
 - **Barrel re-exports.** An `index.ts` that only re-exports is unwrapped to the file that declares the symbol.
