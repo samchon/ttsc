@@ -47,7 +47,7 @@ The empty pull request prevents overlapping contributor work before code is writ
 
 ## Implement And Write Tests
 
-Work through the DAG on the claimed topic branch. Map the full consequence and case surface across every issue through the development skill's [consequence analysis](../development/SKILL.md#consequence-analysis) before editing, then implement the complete cycle and its tests.
+Work through the DAG on the claimed topic branch. Map the full consequence and case surface across every issue through the development skill's [consequence analysis](../development/implementation.md#consequence-analysis) before editing, then implement the complete cycle and its tests.
 
 Implement without interruption. Write each piece's tests as that piece lands instead of leaving the tests for the end of the cycle, and keep committing as each unit becomes coherent. Do not pause the sequence for a check run; [CI gates the integrated head](#validate-with-ci-and-overall-self-review), not each commit.
 
@@ -81,7 +81,7 @@ CI and review are independent gates:
 When either gate produces defects, apply one correction for the whole set:
 
 1. Collect every finding of the complete Overall Self-Review round and every failed check of the settled head.
-2. Map the whole set through the development skill's [consequence analysis](../development/SKILL.md#consequence-analysis).
+2. Map the whole set through the development skill's [consequence analysis](../development/implementation.md#consequence-analysis).
 3. Correct the source and complete the regression coverage for every case in the resulting case matrix.
 4. Commit and push the correction to the same pull request.
 5. Perform and record the Individual Self-Review of that correction commit.

@@ -8,7 +8,7 @@ Write each Markdown or MDX paragraph on one source line. Never hard-wrap a singl
 
 One source line does not mean one long paragraph. Insert a blank line whenever the idea changes. Keep structural line breaks for paragraphs, list items, headings, tables, and fenced code.
 
-The repository enforces `prettier --prose-wrap never` across `*.md` and `*.mdx`. `embeddedLanguageFormatting: off` keeps fenced code byte-identical. Keep paragraphs on one source line; use the [development skill's formatting point](../development/SKILL.md#work-rules) for the completed change.
+The repository enforces `prettier --prose-wrap never` across `*.md` and `*.mdx`. `embeddedLanguageFormatting: off` keeps fenced code byte-identical. Keep paragraphs on one source line; use the [development skill's formatting point](../development/implementation.md#work-rules) for the completed change.
 
 ## Voice
 
