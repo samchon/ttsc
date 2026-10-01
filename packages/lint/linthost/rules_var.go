@@ -131,6 +131,11 @@ func (noVar) Check(ctx *Context, node *shimast.Node) {
 //     string source. Parentheses and erased TypeScript assertions preserve
 //     direct eval; optional, member and comma-expression calls do not.
 //
+//  7. No uninitialized repeated binding. A loop-body var without an
+//     initializer retains its value when the body re-enters, while let resets
+//     to undefined. An uninitialized for-header inside an outer loop has the
+//     same retention hazard. For-in/of headers assign on each iteration.
+//
 // Two loop-header-only grammar/TDZ hazards also decline:
 //   - a `for...in` / `for...of` declarator with an initializer (Annex B
 //     tolerates `for (var i = 0 in o)`; `for (let i = 0 in o)` is a
@@ -227,6 +232,13 @@ func isNoVarAutoFixSafe(ctx *Context, listNode *shimast.Node) bool {
   // closure-capture check. nil when the declaration is not loop-local,
   // which disables the check.
   enclosingLoop := enclosingLoopWithinFunction(listNode)
+  // A body declaration without an initializer does not reset a var binding
+  // on each iteration. Let initializes a fresh binding to undefined instead.
+  // For-in/of headers assign a value each iteration and are not body declarations.
+  if enclosingLoop != nil && decl.Initializer == nil &&
+    (owner.Kind == shimast.KindVariableStatement || owner.Kind == shimast.KindForStatement && enclosingLoop != owner) {
+    return false
+  }
 
   declPos := listNode.Pos()
   // The single declarator's initializer subtree. A value reference to `target`

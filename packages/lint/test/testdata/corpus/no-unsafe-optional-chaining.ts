@@ -12,7 +12,7 @@ const b = (arr?.[0])!.toFixed();
 
 // Positive: call after a terminated optional chain.
 // expect: no-unsafe-optional-chaining error
-const c = maybeCallable?.()();
+const c = (maybeCallable?.())();
 
 // Negative: chain continues with another `?.` — safe.
 const d = obj?.foo?.bar;
@@ -20,4 +20,7 @@ const d = obj?.foo?.bar;
 // Negative: no optional chain at all — vanilla member access is fine.
 const e = obj?.foo?.bar ?? 0;
 
-JSON.stringify({ a, b, c, d, e });
+// Negative: ordinary call links within the optional chain also short-circuit.
+const f = maybeCallable?.()();
+
+JSON.stringify({ a, b, c, d, e, f });

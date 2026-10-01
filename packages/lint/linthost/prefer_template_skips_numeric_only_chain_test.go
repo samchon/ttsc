@@ -7,7 +7,7 @@ import "testing"
 //
 // Without a string literal anywhere in the chain the addition may be
 // numeric, so there is nothing to convert to a template literal —
-// firing here (or worse, fixing) would wrap arithmetic in `${…}` for
+// firing here (or worse, fixing) would wrap arithmetic in `${"" + (…)}` for
 // no reason. Pins the `hasString && hasOther` detection gate that the
 // new flattening gate leans on: the fixer only ever sees chains that
 // contain at least one string-like operand.

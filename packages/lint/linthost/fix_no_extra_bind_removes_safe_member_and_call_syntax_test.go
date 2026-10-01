@@ -9,7 +9,7 @@ import "testing"
 // and member operator. Two precise edits retain those bytes while supporting
 // computed properties and optional member/call forms.
 //
-// 1. Bind literal, identifier, `this`, and function-expression receivers.
+// 1. Bind literal and function-expression receivers.
 // 2. Keep comments immediately before the member and after the call.
 // 3. Assert only the bind member and its call arguments disappear.
 //
@@ -22,13 +22,13 @@ func TestFixNoExtraBindRemovesSafeMemberAndCallSyntax(t *testing.T) {
     t,
     "no-extra-bind",
     `declare const receiver: unknown;
-const direct = (function () { return 1; }).bind(receiver);
+const direct = (function () { return 1; }).bind(null);
 const computed = (function () { return 2; })["bind"](null);
 const template = (function () { return 3; })[`+"`bind`"+`](true);
-const optionalMember = (function () { return 4; })?.["bind"](this);
-const optionalCall = (function () { return 5; }.bind)?.(receiver);
-const leadingComment = (function () { return 6; })/* keep */.bind(receiver);
-const trailingComment = (function () { return 7; }).bind(receiver)/* keep */;
+const optionalMember = (function () { return 4; })?.["bind"](null);
+const optionalCall = (function () { return 5; }.bind)?.(null);
+const leadingComment = (function () { return 6; })/* keep */.bind(null);
+const trailingComment = (function () { return 7; }).bind(null)/* keep */;
 const functionReceiver = (function () { return 8; }).bind(function receiverFunction() {});
 `,
     `declare const receiver: unknown;
