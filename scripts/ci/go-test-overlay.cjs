@@ -62,6 +62,10 @@ function walkForGoFiles(dir) {
     const file = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (entry.name === "node_modules") continue;
+      // A nested consumer package owns its Go input as a fixture. Flattening
+      // it into the parent's test package changes its package identity.
+      if (fs.existsSync(path.join(file, "package.json")) ||
+          fs.existsSync(path.join(file, "go.mod"))) continue;
       out.push(...walkForGoFiles(file));
     } else if (entry.isFile() && entry.name.endsWith(".go")) {
       out.push(file);

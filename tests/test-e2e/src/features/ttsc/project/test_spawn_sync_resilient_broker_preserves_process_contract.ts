@@ -1,0 +1,128 @@
+import { TestProject } from "@ttsc/testing";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+import { spawnSyncWithLowDescriptors } from "../../../../../../packages/ttsc/lib/internal/spawnSyncWithLowDescriptors.js";
+
+/**
+ * Verifies subprocess resilience: the low-descriptor broker preserves spawn
+ * semantics.
+ *
+ * The POSIX EBADF recovery path must never interpret argv through a shell or
+ * change the observable result while it redirects output through scarce file
+ * descriptors.
+ *
+ * 1. Preserve literal argv, cwd, environment, stdout and stderr.
+ * 2. Preserve nonzero, missing-command, signal and timeout results.
+ * 3. Remove every broker result file after the parent consumes it.
+ *
+ * @evidence contracts/testing.md#behavioral-verification The low-descriptor broker preserves literal argv, cwd, env, both streams, nonzero/missing/signal/timeout results and removes consumed result files.
+ * @evidence contracts/testing.md#independent-expectations Authored argument and output sentinels plus OS child exit and signal results define spawn semantics independently of the broker transport.
+ * @evidence contracts/testing.md#distinguishing-cases 1. Preserve literal argv, cwd, environment, stdout and stderr. 2. Preserve nonzero, missing-command, signal and timeout results. 3. Remove every broker result file after the parent consumes it.
+ * @evidence contracts/testing.md#execution-ownership This matching src/features/project entry executes the real boundary described above through the existing TestExecutor population; authored subcases retain their assertion identities.
+ * @evidence contracts/e2e.md#necessary-boundary The actual child or host operation exercises the transport and execution result named in this case; direct in-process decision helpers cannot establish that process outcome.
+ * @evidence contracts/e2e.md#shared-execution All authored subcases reuse the fixture and available runtime within this named entry; distinct process results or runtime identities retain their required child lifetime, without a consumer installation.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private TestProject fixtures isolate mutable records and runtime identities. Synchronous child completion or existing session cleanup owns process lifetime; temporary roots remain registered with TestProject for exit cleanup.
+ * @evidence contracts/e2e.md#preserved-coverage The low-descriptor broker preserves literal argv, cwd, env, both streams, nonzero/missing/signal/timeout results and removes consumed result files. Existing inputs and assertions remain in this named entry; no meaningful distinction is removed or transferred by these acknowledgments.
+ */
+export const test_spawn_sync_resilient_broker_preserves_process_contract =
+  (): void => {
+    const root = TestProject.physicalPath(
+      fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-spawn-broker-")),
+    );
+    try {
+      const stdout = path.join(root, "stdout");
+      const stderr = path.join(root, "stderr");
+      const marker = 'literal $() `" ; & | argument';
+      const success = spawnSyncWithLowDescriptors(
+        process.execPath,
+        [
+          "-e",
+          [
+            "process.stdout.write(JSON.stringify({",
+            "  arg: process.argv[1],",
+            "  cwd: process.cwd(),",
+            "  value: process.env.TTSC_BROKER_VALUE,",
+            "}));",
+            'process.stderr.write("diagnostic");',
+          ].join("\n"),
+          marker,
+        ],
+        {
+          cwd: root,
+          env: { ...process.env, TTSC_BROKER_VALUE: "preserved" },
+          timeout: 30_000,
+        },
+        { stderr, stdout },
+      );
+      assert.equal(success.error, undefined);
+      assert.equal(success.signal, null);
+      assert.equal(success.status, 0);
+      assert.deepEqual(JSON.parse(fs.readFileSync(stdout, "utf8")), {
+        arg: marker,
+        cwd: root,
+        value: "preserved",
+      });
+      assert.equal(fs.readFileSync(stderr, "utf8"), "diagnostic");
+
+      const nonzero = spawnSyncWithLowDescriptors(
+        process.execPath,
+        ["-e", "process.exit(23)"],
+        { cwd: root, env: process.env, timeout: 30_000 },
+        { stderr, stdout },
+      );
+      assert.equal(nonzero.error, undefined);
+      assert.equal(nonzero.signal, null);
+      assert.equal(nonzero.status, 23);
+
+      const missing = spawnSyncWithLowDescriptors(
+        path.join(root, "missing-command"),
+        [],
+        { cwd: root, env: process.env, timeout: 30_000 },
+        { stderr, stdout },
+      );
+      assert.equal(missing.status, null);
+      assert.equal(
+        (missing.error as NodeJS.ErrnoException | undefined)?.code,
+        "ENOENT",
+      );
+      if (process.platform !== "win32") {
+        const signaled = spawnSyncWithLowDescriptors(
+          process.execPath,
+          ["-e", 'process.kill(process.pid, "SIGTERM")'],
+          { cwd: root, env: process.env, timeout: 30_000 },
+          { stderr, stdout },
+        );
+        assert.equal(signaled.error, undefined);
+        assert.equal(signaled.signal, "SIGTERM");
+        assert.equal(signaled.status, null);
+
+        const timedOut = spawnSyncWithLowDescriptors(
+          process.execPath,
+          ["-e", "setInterval(() => undefined, 10_000)"],
+          {
+            cwd: root,
+            env: process.env,
+            killSignal: "SIGKILL",
+            timeout: 50,
+          },
+          { stderr, stdout },
+        );
+        assert.equal(
+          (timedOut.error as NodeJS.ErrnoException | undefined)?.code,
+          "ETIMEDOUT",
+        );
+        assert.equal(timedOut.signal, "SIGKILL");
+        assert.equal(timedOut.status, null);
+      }
+      assert.deepEqual(
+        fs.readdirSync(root).sort(),
+        ["stderr", "stdout"],
+        "the broker result file must be removed after every outcome",
+      );
+    } finally {
+      fs.rmSync(root, { force: true, recursive: true });
+    }
+  };

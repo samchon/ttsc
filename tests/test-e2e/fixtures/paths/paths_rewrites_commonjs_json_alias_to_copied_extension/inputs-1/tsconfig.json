@@ -1,0 +1,1 @@
+{"compilerOptions":{"module":"commonjs","target":"ES2022","resolveJsonModule":true,"esModuleInterop":true,"rootDir":"src","outDir":"dist","paths":{"@data":["./src/data.json"]},"plugins":[{"transform":"@ttsc/paths"}]},"include":["src"]}

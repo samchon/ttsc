@@ -19,16 +19,16 @@ const path = require("node:path");
  * - `tests/test-scripts/src/features/ci/*.test.cjs`: in-process tooling cases enrolled in
  *   the test contracts, also run by the `typecheck` lane.
  *
- * - `tests/test-scripts-e2e/src/features/ci/*.test.cjs`: actual tooling process boundaries,
+ * - `tests/test-e2e/src/features/scripts/ci/*.test.cjs`: actual tooling process boundaries,
  *   run only by the E2E typecheck population.
  *
  * A `.test.cjs` anywhere else below `scripts/` belongs to no lane, and
  * discovery throws naming it, so it cannot be silently skipped.
  */
 const NODE_TEST_OWNERS = [
-  { lane: "go", pattern: /^tests\/test-scripts-e2e\/src\/features\/go\/[^/]+\.test\.cjs$/ },
-  { lane: "package-defenses", pattern: /^tests\/test-scripts-e2e\/src\/features\/package\/[^/]+\.test\.cjs$/ },
-  { lane: "typecheck", pattern: /^tests\/test-scripts-e2e\/src\/features\/ci\/[^/]+\.test\.cjs$/ },
+  { lane: "go", pattern: /^tests\/test-e2e\/src\/features\/scripts\/go\/[^/]+\.test\.cjs$/ },
+  { lane: "package-defenses", pattern: /^tests\/test-e2e\/src\/features\/scripts\/package\/[^/]+\.test\.cjs$/ },
+  { lane: "typecheck", pattern: /^tests\/test-e2e\/src\/features\/scripts\/ci\/[^/]+\.test\.cjs$/ },
   { lane: "go", pattern: /^tests\/test-scripts\/src\/features\/go\/[^/]+\.test\.cjs$/ },
   { lane: "typecheck", pattern: /^tests\/test-scripts\/src\/features\/ci\/[^/]+\.test\.cjs$/ },
   { lane: "go", pattern: /^scripts\/[^/]+\.test\.cjs$/ },
@@ -39,7 +39,7 @@ const NODE_TEST_OWNERS = [
 
 /** Classify observable process and package boundaries separately from units. */
 function nodeTestLayer(relative) {
-  return relative.startsWith("tests/test-scripts-e2e/") ||
+  return relative.startsWith("tests/test-e2e/") ||
     relative.startsWith("scripts/ci/package/")
     ? "e2e"
     : "unit";
@@ -95,7 +95,7 @@ function discoverNodeTests(root, lane) {
   };
   walk("scripts");
   walk("tests/test-scripts/src/features");
-  walk("tests/test-scripts-e2e/src/features");
+  walk("tests/test-e2e/src/features/scripts");
   for (const entry of fs.readdirSync(path.join(root, "packages"), {
     withFileTypes: true,
   })) {

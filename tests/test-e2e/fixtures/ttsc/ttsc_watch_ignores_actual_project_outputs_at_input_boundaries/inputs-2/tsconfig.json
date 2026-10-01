@@ -1,0 +1,1 @@
+{"compilerOptions":{"incremental":true,"module":"amd","outFile":"dist/bundle.js"},"files":["src/input.ts"]}

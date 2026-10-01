@@ -1,0 +1,5 @@
+/// @evidence docs/schema.md#schema A file cannot own model evidence.
+
+// @evidenceExclude docs/schema.md#schema Prisma discards this line.
+
+/// @evidenceExclude docs/schema.md#missing This target is not configured.

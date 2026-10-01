@@ -545,25 +545,7 @@ importers:
         specifier: catalog:typescript
         version: 7.0.2
 
-  tests/test-banner-e2e:
-    devDependencies:
-      '@ttsc/banner':
-        specifier: workspace:*
-        version: link:../../packages/banner
-      '@ttsc/testing':
-        specifier: workspace:*
-        version: link:../utils
-      '@types/node':
-        specifier: catalog:utils
-        version: 25.9.1
-      ttsc:
-        specifier: workspace:*
-        version: link:../../packages/ttsc
-      typescript:
-        specifier: catalog:typescript
-        version: 7.0.2
-
-  tests/test-evidence:
+  tests/test-e2e:
     devDependencies:
       '@nestia/e2e':
         specifier: catalog:utils
@@ -571,6 +553,18 @@ importers:
       '@prisma/prisma-schema-wasm':
         specifier: catalog:prisma
         version: 7.10.0-2.d0368e25c88e68caa4d283b5f2d88d1b76ed9356
+      '@rollup/plugin-commonjs':
+        specifier: ^29.0.2
+        version: 29.0.2(rollup@4.60.4)
+      '@rollup/plugin-node-resolve':
+        specifier: ^16.0.3
+        version: 16.0.3(rollup@4.60.4)
+      '@rspack/core':
+        specifier: ^1.3.0
+        version: 1.7.11(@swc/helpers@0.5.23)
+      '@ttsc/banner':
+        specifier: workspace:*
+        version: link:../../packages/banner
       '@ttsc/evidence':
         specifier: workspace:*
         version: link:../../packages/evidence
@@ -580,6 +574,21 @@ importers:
       '@ttsc/lint':
         specifier: workspace:*
         version: link:../../packages/lint
+      '@ttsc/paths':
+        specifier: workspace:*
+        version: link:../../packages/paths
+      '@ttsc/playground':
+        specifier: workspace:*
+        version: link:../../packages/playground
+      '@ttsc/strip':
+        specifier: workspace:*
+        version: link:../../packages/strip
+      '@ttsc/testing':
+        specifier: workspace:*
+        version: link:../utils
+      '@ttsc/wasm':
+        specifier: workspace:*
+        version: link:../../packages/wasm
       '@types/node':
         specifier: catalog:utils
         version: 25.9.1
@@ -589,17 +598,38 @@ importers:
       '@typia/utils':
         specifier: catalog:samchon
         version: 15.0.0
+      esbuild:
+        specifier: ^0.25.12
+        version: 0.25.12
+      mocha:
+        specifier: ^12.0.2
+        version: 12.0.2
+      rollup:
+        specifier: ^4.60.3
+        version: 4.60.4
+      tgrid:
+        specifier: ^1.0.3
+        version: 1.2.1
+      tslib:
+        specifier: 2.8.1
+        version: 2.8.1
       ttsc:
         specifier: workspace:*
         version: link:../../packages/ttsc
       typescript:
         specifier: catalog:typescript
         version: 7.0.2
+      vite:
+        specifier: ^7.3.5
+        version: 7.3.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0)
+      webpack:
+        specifier: ^5.99.0
+        version: 5.107.1(esbuild@0.25.12)(lightningcss@1.32.0)
       yaml:
         specifier: catalog:utils
         version: 2.9.0
 
-  tests/test-evidence-e2e:
+  tests/test-evidence:
     devDependencies:
       '@nestia/e2e':
         specifier: catalog:utils
@@ -677,55 +707,7 @@ importers:
         specifier: catalog:typescript
         version: 7.0.2
 
-  tests/test-graph-e2e:
-    devDependencies:
-      '@ttsc/graph':
-        specifier: workspace:*
-        version: link:../../packages/graph
-      '@ttsc/testing':
-        specifier: workspace:*
-        version: link:../utils
-      '@types/node':
-        specifier: catalog:utils
-        version: 25.9.1
-      ttsc:
-        specifier: workspace:*
-        version: link:../../packages/ttsc
-      typescript:
-        specifier: catalog:typescript
-        version: 7.0.2
-
-  tests/test-installation-e2e:
-    devDependencies:
-      '@ttsc/testing':
-        specifier: workspace:*
-        version: link:../utils
-      '@types/node':
-        specifier: catalog:utils
-        version: 25.9.1
-      ttsc:
-        specifier: workspace:*
-        version: link:../../packages/ttsc
-      typescript:
-        specifier: catalog:typescript
-        version: 7.0.2
-
   tests/test-lint:
-    devDependencies:
-      '@ttsc/lint':
-        specifier: workspace:*
-        version: link:../../packages/lint
-      '@ttsc/testing':
-        specifier: workspace:*
-        version: link:../utils
-      '@types/node':
-        specifier: catalog:utils
-        version: 25.9.1
-      ttsc:
-        specifier: workspace:*
-        version: link:../../packages/ttsc
-
-  tests/test-lint-e2e:
     devDependencies:
       '@ttsc/lint':
         specifier: workspace:*
@@ -742,39 +724,6 @@ importers:
 
   tests/test-metro:
     devDependencies:
-      '@ttsc/testing':
-        specifier: workspace:*
-        version: link:../utils
-      '@types/node':
-        specifier: catalog:utils
-        version: 25.9.1
-      ttsc:
-        specifier: workspace:*
-        version: link:../../packages/ttsc
-      typescript:
-        specifier: catalog:typescript
-        version: 7.0.2
-
-  tests/test-metro-e2e:
-    devDependencies:
-      '@ttsc/testing':
-        specifier: workspace:*
-        version: link:../utils
-      '@types/node':
-        specifier: catalog:utils
-        version: 25.9.1
-      ttsc:
-        specifier: workspace:*
-        version: link:../../packages/ttsc
-      typescript:
-        specifier: catalog:typescript
-        version: 7.0.2
-
-  tests/test-paths-e2e:
-    devDependencies:
-      '@ttsc/paths':
-        specifier: workspace:*
-        version: link:../../packages/paths
       '@ttsc/testing':
         specifier: workspace:*
         version: link:../utils
@@ -809,37 +758,7 @@ importers:
         specifier: catalog:typescript
         version: 7.0.2
 
-  tests/test-playground-e2e:
-    devDependencies:
-      '@ttsc/playground':
-        specifier: workspace:*
-        version: link:../../packages/playground
-      '@ttsc/testing':
-        specifier: workspace:*
-        version: link:../utils
-      '@ttsc/wasm':
-        specifier: workspace:*
-        version: link:../../packages/wasm
-      '@types/node':
-        specifier: catalog:utils
-        version: 25.9.1
-      tgrid:
-        specifier: ^1.0.3
-        version: 1.2.1
-      typescript:
-        specifier: catalog:typescript
-        version: 7.0.2
-
   tests/test-scripts:
-    devDependencies:
-      '@ttsc/testing':
-        specifier: workspace:*
-        version: link:../utils
-      ttsc:
-        specifier: workspace:*
-        version: link:../../packages/ttsc
-
-  tests/test-scripts-e2e:
     devDependencies:
       '@ttsc/testing':
         specifier: workspace:*
@@ -866,58 +785,7 @@ importers:
         specifier: catalog:typescript
         version: 7.0.2
 
-  tests/test-strip-e2e:
-    devDependencies:
-      '@ttsc/strip':
-        specifier: workspace:*
-        version: link:../../packages/strip
-      '@ttsc/testing':
-        specifier: workspace:*
-        version: link:../utils
-      '@types/node':
-        specifier: catalog:utils
-        version: 25.9.1
-      ttsc:
-        specifier: workspace:*
-        version: link:../../packages/ttsc
-      typescript:
-        specifier: catalog:typescript
-        version: 7.0.2
-
   tests/test-ttsc:
-    devDependencies:
-      '@ttsc/banner':
-        specifier: workspace:*
-        version: link:../../packages/banner
-      '@ttsc/lint':
-        specifier: workspace:*
-        version: link:../../packages/lint
-      '@ttsc/paths':
-        specifier: workspace:*
-        version: link:../../packages/paths
-      '@ttsc/strip':
-        specifier: workspace:*
-        version: link:../../packages/strip
-      '@ttsc/testing':
-        specifier: workspace:*
-        version: link:../utils
-      '@types/node':
-        specifier: catalog:utils
-        version: 25.9.1
-      mocha:
-        specifier: ^12.0.2
-        version: 12.0.2
-      tslib:
-        specifier: 2.8.1
-        version: 2.8.1
-      ttsc:
-        specifier: workspace:*
-        version: link:../../packages/ttsc
-      typescript:
-        specifier: catalog:typescript
-        version: 7.0.2
-
-  tests/test-ttsc-e2e:
     devDependencies:
       '@ttsc/banner':
         specifier: workspace:*
@@ -986,61 +854,7 @@ importers:
         specifier: ^5.99.0
         version: 5.107.1(esbuild@0.25.12)(lightningcss@1.32.0)
 
-  tests/test-unplugin-e2e:
-    devDependencies:
-      '@rollup/plugin-commonjs':
-        specifier: ^29.0.2
-        version: 29.0.2(rollup@4.60.4)
-      '@rollup/plugin-node-resolve':
-        specifier: ^16.0.3
-        version: 16.0.3(rollup@4.60.4)
-      '@rspack/core':
-        specifier: ^1.3.0
-        version: 1.7.11(@swc/helpers@0.5.23)
-      '@ttsc/testing':
-        specifier: workspace:*
-        version: link:../utils
-      '@types/node':
-        specifier: catalog:utils
-        version: 25.9.1
-      esbuild:
-        specifier: ^0.25.12
-        version: 0.25.12
-      rollup:
-        specifier: ^4.60.3
-        version: 4.60.4
-      ttsc:
-        specifier: workspace:*
-        version: link:../../packages/ttsc
-      typescript:
-        specifier: catalog:typescript
-        version: 7.0.2
-      vite:
-        specifier: ^7.3.5
-        version: 7.3.6(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0)
-      webpack:
-        specifier: ^5.99.0
-        version: 5.107.1(esbuild@0.25.12)(lightningcss@1.32.0)
-
   tests/test-wasm:
-    devDependencies:
-      '@nestia/e2e':
-        specifier: catalog:utils
-        version: 14.0.0
-      '@ttsc/testing':
-        specifier: workspace:*
-        version: link:../utils
-      '@ttsc/wasm':
-        specifier: workspace:*
-        version: link:../../packages/wasm
-      '@types/node':
-        specifier: catalog:utils
-        version: 25.9.1
-      typescript:
-        specifier: catalog:typescript
-        version: 7.0.2
-
-  tests/test-wasm-e2e:
     devDependencies:
       '@nestia/e2e':
         specifier: catalog:utils

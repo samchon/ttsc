@@ -1,0 +1,38 @@
+{
+  "private": true,
+  "name": "@ttsc/test-e2e",
+  "version": "0.30.4",
+  "type": "module",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning --experimental-strip-types --import ../../scripts/register-typescript-loader.mjs src/index.ts"
+  },
+  "devDependencies": {
+    "@nestia/e2e": "catalog:utils",
+    "@prisma/prisma-schema-wasm": "catalog:prisma",
+    "@rollup/plugin-commonjs": "^29.0.2",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rspack/core": "^1.3.0",
+    "@ttsc/banner": "workspace:*",
+    "@ttsc/evidence": "workspace:*",
+    "@ttsc/graph": "workspace:*",
+    "@ttsc/lint": "workspace:*",
+    "@ttsc/paths": "workspace:*",
+    "@ttsc/playground": "workspace:*",
+    "@ttsc/strip": "workspace:*",
+    "@ttsc/testing": "workspace:*",
+    "@ttsc/wasm": "workspace:*",
+    "@types/node": "catalog:utils",
+    "@typia/interface": "catalog:samchon",
+    "@typia/utils": "catalog:samchon",
+    "esbuild": "^0.25.12",
+    "mocha": "^12.0.2",
+    "rollup": "^4.60.3",
+    "tgrid": "^1.0.3",
+    "tslib": "2.8.1",
+    "ttsc": "workspace:*",
+    "typescript": "catalog:typescript",
+    "vite": "^7.3.5",
+    "webpack": "^5.99.0",
+    "yaml": "catalog:utils"
+  }
+}

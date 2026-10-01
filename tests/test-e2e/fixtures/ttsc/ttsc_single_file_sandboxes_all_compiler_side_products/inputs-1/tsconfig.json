@@ -1,0 +1,1 @@
+{"compilerOptions":{"declaration":true,"declarationDir":"types","incremental":true,"module":"preserve","outFile":"configured-bundle.js","rootDir":"src","tsBuildInfoFile":"state/configured.tsbuildinfo"},"include":["src"]}

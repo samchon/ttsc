@@ -1,1 +1,4 @@
 * text=auto eol=lf
+tests/test-e2e/fixtures/** -text
+packages/ttsc/test/fixtures/e2e/** -text
+packages/unplugin/test/fixtures/e2e/** -text

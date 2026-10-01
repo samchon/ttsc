@@ -1,0 +1,15 @@
+datasource db {
+  provider = "postgresql"
+}
+
+model Sale {
+  id        String @id @db.Uuid
+  price     Int
+  seller_id String @db.Uuid
+  seller    Seller @relation(fields: [seller_id], references: [id])
+}
+
+model Seller {
+  id    String @id @db.Uuid
+  sales Sale[]
+}

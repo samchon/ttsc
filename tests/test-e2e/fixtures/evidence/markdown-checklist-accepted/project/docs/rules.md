@@ -1,0 +1,7 @@
+## No hardcoding {#no-hardcoding}
+
+Fix the general logic instead of special-casing a fixture.
+
+## No whack-a-mole {#no-whack-a-mole}
+
+Seal the class of failure rather than the witness.

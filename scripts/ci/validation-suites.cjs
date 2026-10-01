@@ -26,84 +26,84 @@ const LANES = [
   },
   {
     "id": "package-defenses",
-    "run": `node --test ${discoverNodeTests(path.resolve(__dirname, '../..'), 'package-defenses').join(' ')} && pnpm --filter @ttsc/test-banner-e2e start && pnpm --filter @ttsc/test-paths-e2e start && pnpm --filter @ttsc/test-strip-e2e start && pnpm --filter @ttsc/test-playground-e2e start && pnpm --filter @ttsc/test-wasm-e2e start`
+    "run": `node --test ${discoverNodeTests(path.resolve(__dirname, '../..'), 'package-defenses').join(' ')} && pnpm --filter @ttsc/test-e2e start --package=banner && pnpm --filter @ttsc/test-e2e start --package=paths && pnpm --filter @ttsc/test-e2e start --package=strip && pnpm --filter @ttsc/test-e2e start --package=playground && pnpm --filter @ttsc/test-e2e start --package=wasm`
   },
   {
     "id": "ttsc-core",
-    "run": "pnpm --filter @ttsc/test-ttsc-e2e start",
+    "run": "pnpm --filter @ttsc/test-e2e start --package=ttsc",
     "dirs": [
-      "features/api",
-      "features/compiler",
-      "features/native-plugins/compiler",
-      "features/platform",
-      "features/project",
-      "features/source-plugin",
-      "features/ttscserver",
-      "features/ttsx-runtime",
-      "features/utility-plugins",
-      "features/watch",
-      "features/native-plugins/corpus-source",
-      "features/native-plugins/corpus-ttsc",
-      "features/native-plugins/driver",
-      "features/native-plugins/source-plugin"
+      "features/ttsc/api",
+      "features/ttsc/compiler",
+      "features/ttsc/native-plugins/compiler",
+      "features/ttsc/platform",
+      "features/ttsc/project",
+      "features/ttsc/source-plugin",
+      "features/ttsc/ttscserver",
+      "features/ttsc/ttsx-runtime",
+      "features/ttsc/utility-plugins",
+      "features/ttsc/watch",
+      "features/ttsc/native-plugins/corpus-source",
+      "features/ttsc/native-plugins/corpus-ttsc",
+      "features/ttsc/native-plugins/driver",
+      "features/ttsc/native-plugins/source-plugin"
     ]
   },
   {
     "id": "ttsc-native",
-    "run": "pnpm --filter @ttsc/test-ttsc-e2e start",
+    "run": "pnpm --filter @ttsc/test-e2e start --package=ttsc",
     "dirs": [
-      "features/native-plugins/corpus-misc",
-      "features/native-plugins/server",
-      "features/native-plugins/service",
-      "features/native-plugins/service-incremental",
-      "features/native-plugins/utility",
-      "features/native-plugins/utility-host"
+      "features/ttsc/native-plugins/corpus-misc",
+      "features/ttsc/native-plugins/server",
+      "features/ttsc/native-plugins/service",
+      "features/ttsc/native-plugins/service-incremental",
+      "features/ttsc/native-plugins/utility",
+      "features/ttsc/native-plugins/utility-host"
     ]
   },
   {
     "id": "runtime-node-floor",
-    "run": "pnpm --filter @ttsc/test-ttsc-e2e start",
+    "run": "pnpm --filter @ttsc/test-e2e start --package=ttsc",
     "dirs": [
-      "features/ttsx-runtime/node-compatibility"
+      "features/ttsc/ttsx-runtime/node-compatibility"
     ],
     "node": NODE_FLOOR
   },
   {
     "id": "runtime-node-current",
-    "run": "pnpm --filter @ttsc/test-ttsc-e2e start",
+    "run": "pnpm --filter @ttsc/test-e2e start --package=ttsc",
     "dirs": [
-      "features/ttsx-runtime/node-compatibility"
+      "features/ttsc/ttsx-runtime/node-compatibility"
     ],
     "node": "current"
   },
   {
     "id": "lint-1",
-    "run": "pnpm --filter @ttsc/test-lint-e2e start",
+    "run": "pnpm --filter @ttsc/test-e2e start --package=lint",
     "dirs": [
-      "features/config",
-      "features/plugin"
+      "features/lint/config",
+      "features/lint/plugin"
     ]
   },
   {
     "id": "lint-2",
-    "run": "pnpm --filter @ttsc/test-lint-e2e start",
+    "run": "pnpm --filter @ttsc/test-e2e start --package=lint",
     "dirs": [
-      "features/native-plugins/config",
-      "features/native-plugins/fix",
-      "features/native-plugins/format"
+      "features/lint/native-plugins/config",
+      "features/lint/native-plugins/fix",
+      "features/lint/native-plugins/format"
     ]
   },
   {
     "id": "bundler-defenses",
-    "run": "pnpm --filter @ttsc/test-unplugin-e2e start && pnpm run experimental:unplugin-perf && pnpm --filter @ttsc/test-metro-e2e start",
+    "run": "pnpm --filter @ttsc/test-e2e start --package=unplugin && pnpm run experimental:unplugin-perf && pnpm --filter @ttsc/test-e2e start --package=metro",
     "dirs": [
-      "features",
-      "features/native-plugins"
+      "features/unplugin",
+      "features/metro"
     ]
   },
   {
     "id": "graph",
-    "run": "pnpm --filter @ttsc/test-graph-e2e start"
+    "run": "pnpm --filter @ttsc/test-e2e start --package=graph"
   },
   {
     "id": "workspace-install",
@@ -111,7 +111,7 @@ const LANES = [
   },
   {
     "id": "evidence",
-    "run": "pnpm --filter @ttsc/benchmark-evidence run check && pnpm --filter test-evidence-e2e start"
+    "run": "pnpm --filter @ttsc/test-e2e start --package=evidence"
   }
 ];
 
