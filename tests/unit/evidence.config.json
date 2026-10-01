@@ -187,6 +187,23 @@
       }
     },
     {
+      "name": "Go graph source encoding units",
+      "type": "go",
+      "root": "../..",
+      "files": [
+        "packages/ttsc/shim/vfs/decode_test.go",
+        "packages/ttsc/cmd/ttscgraph/serve_source_encoding_test.go"
+      ],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": ["contracts/testing.md"],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
       "name": "Go compiler and runtime semantic units",
       "type": "go",
       "root": "../..",

@@ -22,10 +22,15 @@ const goPath = fs.existsSync(goRoot)
   ? `${goRoot}${path.delimiter}${process.env.PATH ?? ""}`
   : process.env.PATH;
 
-// [working directory, package] pairs, because the shim directories are separate
-// Go modules and each must be run from its own root.
+// The AST consumer has its own module root. The VFS package is tested through
+// the compiler module's pinned dependency and replace directives, which supply
+// its dependency checksums without creating a standalone shim-module go.sum.
 const targets = [
   [path.join(root, "packages", "ttsc", "shim", "ast"), "./test"],
+  [
+    path.join(root, "packages", "ttsc"),
+    "github.com/microsoft/typescript-go/shim/vfs",
+  ],
 ];
 
 let failed = 0;
