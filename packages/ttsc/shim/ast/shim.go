@@ -862,6 +862,62 @@ func NewNodeFactory(options NodeFactoryHooks) *NodeFactory {
   return innerast.NewNodeFactory(options)
 }
 
+// GetNextJSDocCommentLocation returns the next enclosing JSDoc attachment host,
+// or nil when no supported host remains. node must be nonnil; only the first
+// declaration in a variable declaration list advances through that list.
+//
+// @evidence contracts/common.md#principled-implementation The upstream parent-kind and first-declaration checks preserve JSDoc attachment semantics rather than treating every ancestor as a comment host.
+// @evidence contracts/common.md#clear-and-simple-design One traversal step exposes upstream ownership; callers control repeated traversal and termination.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The adapter follows real AST parents without fabricated attachment nodes or foreign method replacement.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies the endpoint, nil termination, nonnil input and first-declaration boundary.
+func GetNextJSDocCommentLocation(node *Node) *Node {
+  return innerast.GetNextJSDocCommentLocation(node)
+}
+
+// IsAmbientModuleSymbolName reports whether a symbol name has the compiler's
+// quoted ambient-module spelling. It classifies spelling, not module existence.
+//
+// @evidence contracts/common.md#principled-implementation Delegation preserves the upstream quotation test without conflating a symbol name with a resolved module.
+// @evidence contracts/common.md#clear-and-simple-design One spelling predicate needs no filesystem lookup or separate module-name representation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The supplied name determines the result without consumer-specific module names.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes lexical symbol spelling from semantic existence.
+func IsAmbientModuleSymbolName(name string) bool {
+  return innerast.IsAmbientModuleSymbolName(name)
+}
+
+// IsImplicitlyExportedJSDocDeclaration classifies reparsed JSDoc declarations
+// attached to an external or CommonJS source file. node must have a parent.
+//
+// @evidence contracts/common.md#principled-implementation The upstream source-file, module and reparsed-declaration checks preserve the compiler's implicit-export boundary.
+// @evidence contracts/common.md#clear-and-simple-design One predicate keeps JSDoc export policy in its owning compiler implementation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Export status follows AST provenance rather than a printed declaration-name heuristic.
+// @evidence contracts/common.md#meaningful-documentation Native prose states module context, reparsed provenance and required parent linkage.
+func IsImplicitlyExportedJSDocDeclaration(node *Node) bool {
+  return innerast.IsImplicitlyExportedJSDocDeclaration(node)
+}
+
+// IsNamedEvaluationSource classifies syntax that can supply an assigned name
+// to a class, function or arrow function. node must be nonnil.
+//
+// @evidence contracts/common.md#principled-implementation Upstream kind, initializer and assignment-operator checks retain ECMAScript named-evaluation distinctions.
+// @evidence contracts/common.md#clear-and-simple-design One classification bridge avoids a second syntax-kind table in plugin consumers.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The compiler classifies actual nodes without guessing runtime names from source text.
+// @evidence contracts/common.md#meaningful-documentation Native prose names the assigned-name role and nonnil node premise.
+func IsNamedEvaluationSource(node *Node) bool {
+  return innerast.IsNamedEvaluationSource(node)
+}
+
+// IsProtoSetter classifies the identifier or string-literal property name
+// __proto__. Computed property names do not qualify; node must be nonnil.
+//
+// @evidence contracts/common.md#principled-implementation Upstream kind and text checks preserve the special property-name grammar while excluding computed forms.
+// @evidence contracts/common.md#clear-and-simple-design One property-name predicate serves named evaluation without duplicating proto-setter syntax policy.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The __proto__ spelling is the language's property discriminator, not a fixture or consumer exception.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies accepted name forms, computed exclusion and input premise.
+func IsProtoSetter(node *Node) bool {
+  return innerast.IsProtoSetter(node)
+}
+
 // NewNodeVisitor creates a visitor with the supplied callback and child hooks.
 // A nil factory selects the upstream default factory. The callback may be nil;
 // construction itself neither traverses nodes nor invokes visit.

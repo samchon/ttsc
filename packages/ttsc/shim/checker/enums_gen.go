@@ -17,6 +17,7 @@ const (
   ElementFlagsVariable                                  = innerchecker.ElementFlagsVariable
   IterationTypeKindNext                                 = innerchecker.IterationTypeKindNext
   IterationTypeKindReturn                               = innerchecker.IterationTypeKindReturn
+  IterationTypeKindYield                                = innerchecker.IterationTypeKindYield
   IterationUseAllowsAsyncIterablesFlag                  = innerchecker.IterationUseAllowsAsyncIterablesFlag
   IterationUseAllowsStringInputFlag                     = innerchecker.IterationUseAllowsStringInputFlag
   IterationUseAllowsSyncIterablesFlag                   = innerchecker.IterationUseAllowsSyncIterablesFlag
@@ -25,6 +26,7 @@ const (
   IterationUseCacheFlags                                = innerchecker.IterationUseCacheFlags
   IterationUseDestructuring                             = innerchecker.IterationUseDestructuring
   IterationUseDestructuringFlag                         = innerchecker.IterationUseDestructuringFlag
+  IterationUseElement                                   = innerchecker.IterationUseElement
   IterationUseForAwaitOf                                = innerchecker.IterationUseForAwaitOf
   IterationUseForOf                                     = innerchecker.IterationUseForOf
   IterationUseForOfFlag                                 = innerchecker.IterationUseForOfFlag

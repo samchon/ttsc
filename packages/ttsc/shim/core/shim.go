@@ -151,6 +151,15 @@ const (
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes compiler version from host release and explains the graph consumer's provenance need.
 func Version() string { return innercore.Version() }
 
+// ApplyDebugStackLimit applies a positive TS_GO_DEBUG_STACK_LIMIT byte count
+// to this process's Go runtime. Missing, invalid or nonpositive values do nothing.
+//
+// @evidence contracts/common.md#principled-implementation Upstream parsing and runtime.SetMaxStack preserve the documented opt-in process-wide limit and invalid-value no-op.
+// @evidence contracts/common.md#clear-and-simple-design One explicit operation leaves environment parsing and runtime policy with the compiler owner.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The explicit upstream operation changes the process-wide stack limit only when its environment input requests a positive limit; no consumer-specific policy is substituted.
+// @evidence contracts/common.md#meaningful-documentation Native prose states byte units, process scope and the three no-op conditions.
+func ApplyDebugStackLimit() { innercore.ApplyDebugStackLimit() }
+
 // TypeScriptVersionSatisfiesRange reports whether the compiler's own version
 // satisfies a typesVersions range under TypeScript-Go's semver grammar.
 // Invalid range or compiler-version syntax returns false.

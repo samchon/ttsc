@@ -79,6 +79,16 @@ Useful shim sub-packages:
 
 Do not import `github.com/microsoft/typescript-go/internal/...` directly. The shim is the plugin boundary.
 
+### Upstream compatibility
+
+The shim currently follows TypeScript-Go revision `7fc57c0050639e01409766f41a77a10d03106297`, pinned as `v0.0.0-20260610182825-7fc57c005063` in the compiler and shim modules. This revision preserves lone surrogate code units in JavaScript strings through its scanner, JSX transform and printer codec. Source text positions remain byte offsets; JavaScript string values and editor character positions have separate encoding contracts.
+
+`shim/tsoptions.ParseExtendedConfig` now accepts `resolutionStack []shimtspath.Path` instead of `[]string`. The stack contains canonical config paths used for cycle detection. Consumers calling this low-level function must update the stack's type and construct its entries under the same host path and case-sensitivity policy. Enum regeneration retains every previously public family and completes its current upstream siblings.
+
+`shimchecker.TypeAlias` is the metadata returned by `Type.Alias()`. Its `Symbol()` and `TypeArguments()` accessors accept a nil alias. To convert a nonnil alias to an AST reference, call `shimchecker.WithNodeBuilderContext` and invoke `alias.ToTypeReferenceNode(builder)` inside its callback. The upstream conversion preserves symbol-parent qualification, so a namespace alias can produce `Named.Pair<string>` rather than an unqualified `Pair<string>`.
+
+Hold the producing checker's mutex and use an enclosing declaration from that program, together with the emit context shared by the current transform/emit round. A nil enclosing declaration is supported. The callback receives a fully entered builder implementation using the compiler's default flags and tracker. Do not retain that implementation or use it concurrently; nested calls own separate builders. The context is restored after a result, callback error or panic. Callback errors retain their identity, panics propagate, and a compiler serialization error produces a nil node.
+
 ## Bootstrap with the driver
 
 The canonical bootstrap is `driver.LoadProgram`. It returns a `*driver.Program` that already owns the parsed config, the leased `*shimchecker.Checker`, the compiler host, and the VFS, and folds in `ForceEmit` / `ForceNoEmit` / `OutDir` / `SourcePreamble` overrides:

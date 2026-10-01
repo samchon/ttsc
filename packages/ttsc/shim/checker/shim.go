@@ -13,6 +13,7 @@ import (
 
   innerast "github.com/microsoft/typescript-go/internal/ast"
   innerchecker "github.com/microsoft/typescript-go/internal/checker"
+  innernodebuilder "github.com/microsoft/typescript-go/internal/nodebuilder"
   innerprinter "github.com/microsoft/typescript-go/internal/printer"
   _ "unsafe"
 )
@@ -67,6 +68,97 @@ type SignatureKind = innerchecker.SignatureKind
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No semantic type is reconstructed from consumer names or printed text.
 // @evidence contracts/common.md#meaningful-documentation Native prose states semantic versus syntax identity and producing-checker ownership.
 type Type = innerchecker.Type
+
+// TypeAlias retains a semantic type alias's symbol and instantiated arguments.
+// Obtain it from Type.Alias; its read-only accessors accept a nil alias.
+//
+// @evidence contracts/common.md#principled-implementation Exact alias identity preserves compiler-owned symbol and type-argument provenance exposed by Type.Alias.
+// @evidence contracts/common.md#clear-and-simple-design One upstream record exposes existing semantic metadata without duplicating checker state.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Alias metadata comes from a checked Type rather than reconstructed declaration names.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies metadata, its producer and nil-safe accessor behavior.
+type TypeAlias = innerchecker.TypeAlias
+
+// NodeBuilderImpl serializes checked types within an active builder context.
+// Obtain it only inside WithNodeBuilderContext and do not retain it afterward.
+//
+// @evidence contracts/common.md#principled-implementation Exact upstream identity preserves the checker, emit factory and active serialization context required by TypeAlias.ToTypeReferenceNode.
+// @evidence contracts/common.md#clear-and-simple-design A borrowed compiler implementation serves the existing metadata conversion without another semantic serializer.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The implementation comes from the upstream builder with a real entered context; a nil-context constructor is not presented as usable state.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the callback producer and forbids retaining the context-bound value beyond its lifetime.
+type NodeBuilderImpl = innerchecker.NodeBuilderImpl
+
+// WithNodeBuilderContext converts checked metadata in a fresh builder context.
+// Hold the producing checker's mutex, supply this emit round's context, and
+// use an enclosing declaration from that same program (or nil). The callback
+// must not retain the borrowed implementation or use it concurrently.
+//
+// The compiler's default serialization flags and tracker apply. Callback
+// errors are returned unchanged; compiler serialization errors return a nil
+// node. Context restoration runs on success, callback error and panic.
+//
+// @evidence contracts/common.md#principled-implementation NewNodeBuilder and its real enter/exit operations establish the host, tracker and enclosing-file context before the generated private field accessor supplies the implementation.
+// @evidence contracts/common.md#clear-and-simple-design A scoped callback separates compiler-state acquisition from caller conversion while a fresh builder owns each nested invocation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No private layout is handwritten or patched, and no unusable raw getter is published as a producer; official generation derives the one required field access.
+// @evidence contracts/common.md#meaningful-documentation Native prose states synchronization, program and emit identity, default flags, borrowing limits, nil result and error/panic restoration.
+func WithNodeBuilderContext(ch *Checker, emitContext *innerprinter.EmitContext, enclosing *innerast.Node, use func(*NodeBuilderImpl) (*innerast.Node, error)) (*innerast.Node, error) {
+  builder := innerchecker.NewNodeBuilder(ch, emitContext)
+  nodeBuilderEnterContext(builder, enclosing, innernodebuilder.FlagsNone, innernodebuilder.InternalFlagsNone, nil)
+  exited := false
+  defer func() {
+    if !exited {
+      nodeBuilderPopContext(builder)
+    }
+  }()
+  node, err := use(nodeBuilder_impl(builder))
+  if err != nil {
+    return nil, err
+  }
+  node = nodeBuilderExitContext(builder, node)
+  exited = true
+  return node, nil
+}
+
+//go:linkname nodeBuilderEnterContext github.com/microsoft/typescript-go/internal/checker.(*NodeBuilder).enterContext
+func nodeBuilderEnterContext(*innerchecker.NodeBuilder, *innerast.Node, innernodebuilder.Flags, innernodebuilder.InternalFlags, innernodebuilder.SymbolTracker)
+
+//go:linkname nodeBuilderExitContext github.com/microsoft/typescript-go/internal/checker.(*NodeBuilder).exitContext
+func nodeBuilderExitContext(*innerchecker.NodeBuilder, *innerast.Node) *innerast.Node
+
+//go:linkname nodeBuilderPopContext github.com/microsoft/typescript-go/internal/checker.(*NodeBuilder).popContext
+func nodeBuilderPopContext(*innerchecker.NodeBuilder)
+
+// IsTypeUsableAsPropertyName reports whether t is a string or number literal
+// or a unique symbol type. t must be a nonnil compiler semantic type.
+//
+// @evidence contracts/common.md#principled-implementation The upstream semantic flag test preserves literal and unique-symbol property-name eligibility.
+// @evidence contracts/common.md#clear-and-simple-design One predicate qualifies inputs to GetPropertyNameFromType without another type classifier.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Eligibility follows actual type flags rather than printed type spelling.
+// @evidence contracts/common.md#meaningful-documentation Native prose names supported semantic categories and nonnil input.
+func IsTypeUsableAsPropertyName(t *Type) bool {
+  return innerchecker.IsTypeUsableAsPropertyName(t)
+}
+
+// GetPropertyNameFromType returns a literal or unique-symbol property's
+// compiler name. t must satisfy IsTypeUsableAsPropertyName; other types panic.
+//
+// @evidence contracts/common.md#principled-implementation Upstream literal-value and unique-symbol decoding preserves semantic property identity and numeric spelling.
+// @evidence contracts/common.md#clear-and-simple-design One decoder consumes the adjacent eligibility predicate's qualified semantic input.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Property identity is not guessed from source text or converted from unsupported types.
+// @evidence contracts/common.md#meaningful-documentation Native prose states the qualification requirement and unsupported-type panic.
+func GetPropertyNameFromType(t *Type) string {
+  return innerchecker.GetPropertyNameFromType(t)
+}
+
+// GetSetAccessorValueParameter returns the value parameter of a setter,
+// accounting for an explicit this parameter. accessor must be a setter node.
+//
+// @evidence contracts/common.md#principled-implementation Delegation preserves upstream setter-parameter selection and explicit-this handling.
+// @evidence contracts/common.md#clear-and-simple-design One syntax query exposes the compiler's existing accessor convention.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Parameter selection follows actual setter syntax rather than a fixed consumer name.
+// @evidence contracts/common.md#meaningful-documentation Native prose identifies the setter premise and explicit-this distinction.
+func GetSetAccessorValueParameter(accessor *innerast.Node) *innerast.Node {
+  return innerchecker.GetSetAccessorValueParameter(accessor)
+}
 
 // TypeMapper is the compiler's type-parameter substitution mapping.
 //

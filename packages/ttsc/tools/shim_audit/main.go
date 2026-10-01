@@ -269,6 +269,64 @@ func scanShimReachable(shimRoot string) (reachable, error) {
   return r, nil
 }
 
+// scanShimEnumExports records constants that an owning shim actually publishes.
+// References inside another shim's functions do not make an enum member public.
+// Generation excludes its previous output so rewriting a family preserves all
+// required members instead of writing only additions since the previous run.
+func scanShimEnumExports(shimRoot string, includeGenerated bool) (reachable, error) {
+  exports := reachable{}
+  fset := token.NewFileSet()
+  for dir, suffix := range shimDirs {
+    paths, err := filepath.Glob(filepath.Join(shimRoot, dir, "*.go"))
+    if err != nil {
+      return nil, err
+    }
+    for _, filename := range paths {
+      if !includeGenerated && filepath.Base(filename) == "enums_gen.go" {
+        continue
+      }
+      file, err := parser.ParseFile(fset, filename, nil, parser.SkipObjectResolution)
+      if err != nil {
+        return nil, err
+      }
+      aliases := map[string]bool{}
+      for _, imp := range file.Imports {
+        if strings.Trim(imp.Path.Value, `"`) != internalPrefix+suffix {
+          continue
+        }
+        name := filepath.Base(suffix)
+        if imp.Name != nil {
+          name = imp.Name.Name
+        }
+        aliases[name] = true
+      }
+      for _, declaration := range file.Decls {
+        group, ok := declaration.(*ast.GenDecl)
+        if !ok || group.Tok != token.CONST {
+          continue
+        }
+        for _, specification := range group.Specs {
+          values := specification.(*ast.ValueSpec)
+          for index, name := range values.Names {
+            if !name.IsExported() || index >= len(values.Values) {
+              continue
+            }
+            selector, ok := values.Values[index].(*ast.SelectorExpr)
+            if !ok {
+              continue
+            }
+            qualifier, ok := selector.X.(*ast.Ident)
+            if ok && aliases[qualifier.Name] {
+              exports.add(suffix, selector.Sel.Name)
+            }
+          }
+        }
+      }
+    }
+  }
+  return exports, nil
+}
+
 // scanShimProducerSurface parses normal shim source and models value flow over
 // exported package functions and methods. A pointer to an internal named type is a
 // compiler-owned graph object: parameters consume one and results produce one.
@@ -824,6 +882,11 @@ func main() {
     fmt.Fprintln(os.Stderr, "shim_audit:", err)
     os.Exit(1)
   }
+  enumExports, err := scanShimEnumExports(*shimRoot, !*fix)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, "shim_audit:", err)
+    os.Exit(1)
+  }
   inner, err := loadInner(*anchor)
   if err != nil {
     fmt.Fprintln(os.Stderr, "shim_audit:", err)
@@ -840,13 +903,21 @@ func main() {
     os.Exit(1)
   }
 
-  findings, pool := analyze(r, inner)
+  familyExports, err := scanShimEnumExports(*shimRoot, true)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, "shim_audit:", err)
+    os.Exit(1)
+  }
+  findings, pool := analyze(r, inner, enumExports, familyExports)
   addExposedMethodFlow(r, inner, &producerSurface)
   producerSurface = canonicalizeProducerSurface(producerSurface, typeGraph)
 
   switch {
   case *fix:
-    runFix(findings, *shimRoot)
+    if err := runFix(findings, *shimRoot); err != nil {
+      fmt.Fprintln(os.Stderr, "shim_audit:", err)
+      os.Exit(1)
+    }
   case *writeBaseline:
     runWriteBaseline(findings, *baselinePath)
   case *check:
@@ -1159,9 +1230,14 @@ func collectGoTypeFlowSeen(typ types.Type, direction flowDirection, pointerLike 
 
 // analyze runs the upstream closure checks plus the unexported demand-pool scan and
 // returns the deduped findings and pool.
-func analyze(r reachable, inner map[string]*packages.Package) (findings, unexportedPool []finding) {
+func analyze(r reachable, inner map[string]*packages.Package, enumExports, familyExports reachable) (findings, unexportedPool []finding) {
   for suffix, pkg := range inner {
     scope := pkg.Types.Scope()
+    for name := range familyExports[suffix] {
+      if _, exists := scope.Lookup(name).(*types.Const); !exists {
+        findings = append(findings, finding{"ENUM_REMOVED", suffix, name, "previous public constant is absent from current upstream; resolve its migration before generation"})
+      }
+    }
 
     // CHECK 1 (ENUM): consts of an exposed enum type that are not re-exported.
     // Two passes so we also catch family members that upstream declares as
@@ -1233,7 +1309,7 @@ func analyze(r reachable, inner map[string]*packages.Package) (findings, unexpor
       // aliasing choice — report it, but at INFO.
       var exposed, missing int
       for _, n := range names {
-        if r.has(suffix, n) {
+        if enumExports.has(suffix, n) {
           exposed++
         } else {
           missing++
@@ -1241,14 +1317,21 @@ func analyze(r reachable, inner map[string]*packages.Package) (findings, unexpor
       }
       kind := "ENUM"
       detail := "member of exposed enum " + tk[1]
-      if exposed == 0 {
+      previouslyExposed := false
+      for _, name := range names {
+        if familyExports.has(suffix, name) {
+          previouslyExposed = true
+          break
+        }
+      }
+      if exposed == 0 && !previouslyExposed {
         kind = "ENUM?"
         detail += " (type-only: NO members exposed — likely intentional)"
       } else {
         detail += fmt.Sprintf(" (PARTIAL: %d/%d members exposed — missing siblings)", exposed, exposed+missing)
       }
       for _, n := range names {
-        if !r.has(suffix, n) {
+        if !enumExports.has(suffix, n) {
           findings = append(findings, finding{kind, suffix, n, detail})
         }
       }
@@ -1422,7 +1505,7 @@ func dedupe(in []finding) []finding {
 // bug class (#230); higher tiers are progressively noisier candidate pools.
 func tierOf(kind string) int {
   switch kind {
-  case "ENUM": // partial enum — some members exposed, siblings missing
+  case "ENUM", "ENUM_REMOVED": // public enum closure and migration failures
     return 1
   case "FUNC", "PRODUCER": // callable ops and constructible object flow
     return 2
@@ -1464,10 +1547,10 @@ func report(findings, pool []finding, md bool) {
   } else {
     fmt.Printf("=== Shim closure audit ===\n")
   }
-  fmt.Printf("Tier 1 PARTIAL-ENUM (near-certain bugs): %d | Tier 2 FUNC/PRODUCER: %d | Tier 3 ESCAPE: %d | Tier 4 type-only enums: %d | Unexported demand pool: %d\n",
+  fmt.Printf("Tier 1 ENUM-COMPATIBILITY (near-certain bugs): %d | Tier 2 FUNC/PRODUCER: %d | Tier 3 ESCAPE: %d | Tier 4 type-only enums: %d | Unexported demand pool: %d\n",
     len(tiers[1]), len(tiers[2]), len(tiers[3]), len(tiers[4]), len(pool))
 
-  h("TIER 1 — partial enums (a sibling const is missing; this is the #230 class)")
+  h("TIER 1 — public enum closure and upstream migration")
   thead()
   for _, f := range tiers[1] {
     row(f)
@@ -1529,6 +1612,7 @@ type baselineFile struct {
 
 type baselineEvaluation struct {
   enumGaps       []finding
+  enumRemovals   []finding
   newGaps        []finding
   producerGaps   []finding
   invalidReasons []string
@@ -1547,6 +1631,8 @@ func evaluateBaseline(findings []finding, baseline baselineFile, usedProducerRoo
     switch f.kind {
     case "ENUM":
       evaluation.enumGaps = append(evaluation.enumGaps, f)
+    case "ENUM_REMOVED":
+      evaluation.enumRemovals = append(evaluation.enumRemovals, f)
     case "FUNC", "ESCAPE":
       key := findingKey(f)
       liveAccepted[key] = true
@@ -1591,20 +1677,61 @@ func shimPackageName(dir string) string {
 // re-exports carry no behavior and no ABI risk, so closing the whole family is
 // always safe — and makes the #230 class structurally impossible.
 //
-// A member REMOVAL across a typescript-go bump is the one case -fix does not
-// auto-heal: a package whose last gap disappears is not rewritten here, so a
-// stale enums_gen.go still referencing the removed symbol must be deleted by
-// hand (the native build catches the dangling reference).
-func runFix(findings []finding, shimRoot string) {
+// A generated member handed over to an authored export no longer belongs in
+// the output. Remove an obsolete file only when all of its members remain
+// authored exports; an upstream removal is not silently accepted here.
+func runFix(findings []finding, shimRoot string) error {
+  var removed []string
+  for _, f := range findings {
+    if f.kind == "ENUM_REMOVED" {
+      removed = append(removed, f.pkg+"."+f.symbol)
+    }
+  }
+  if len(removed) != 0 {
+    sort.Strings(removed)
+    return fmt.Errorf("refusing enum generation: previous public constants absent from upstream: %s; resolve their migration first", strings.Join(removed, ", "))
+  }
   byPkg := map[string][]string{}
   for _, f := range findings {
     if f.kind == "ENUM" {
       byPkg[f.pkg] = append(byPkg[f.pkg], f.symbol)
     }
   }
+  authored, err := scanShimEnumExports(shimRoot, false)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, "shim_audit:", err)
+    os.Exit(1)
+  }
+  withGenerated, err := scanShimEnumExports(shimRoot, true)
+  if err != nil {
+    fmt.Fprintln(os.Stderr, "shim_audit:", err)
+    os.Exit(1)
+  }
+  for dir, suffix := range shimDirs {
+    if len(byPkg[suffix]) != 0 {
+      continue
+    }
+    complete := len(withGenerated[suffix]) != 0
+    for member := range withGenerated[suffix] {
+      if !authored[suffix][member] {
+        complete = false
+        break
+      }
+    }
+    if !complete {
+      continue
+    }
+    filename := filepath.Join(shimRoot, dir, "enums_gen.go")
+    if err := os.Remove(filename); err == nil {
+      fmt.Printf("shim_audit: removed obsolete %s\n", filename)
+    } else if !os.IsNotExist(err) {
+      fmt.Fprintln(os.Stderr, "shim_audit:", err)
+      os.Exit(1)
+    }
+  }
   if len(byPkg) == 0 {
-    fmt.Println("shim_audit: no enum-family gaps; nothing to fix")
-    return
+    fmt.Println("shim_audit: no enum-family gaps remain")
+    return nil
   }
   pkgs := make([]string, 0, len(byPkg))
   for p := range byPkg {
@@ -1646,6 +1773,7 @@ func runFix(findings []finding, shimRoot string) {
     }
     fmt.Printf("shim_audit: wrote %s (%d members)\n", out, len(names))
   }
+  return nil
 }
 
 // runWriteBaseline records the current TIER-2/3 gaps as accepted, so the gate
@@ -1709,7 +1837,7 @@ func runCheck(findings []finding, surface producerSurface, path string) {
     fmt.Fprintf(os.Stderr, "shim_audit: note: %d producer exemption(s) no longer match a gap; remove them\n", evaluation.staleProducers)
   }
 
-  if len(evaluation.enumGaps) == 0 && len(evaluation.newGaps) == 0 &&
+  if len(evaluation.enumGaps) == 0 && len(evaluation.enumRemovals) == 0 && len(evaluation.newGaps) == 0 &&
     len(evaluation.producerGaps) == 0 && len(evaluation.invalidReasons) == 0 {
     fmt.Println("shim_audit: OK — exposed enums, reachable symbols, and compiler-object producers are closed")
     return
@@ -1719,6 +1847,12 @@ func runCheck(findings []finding, surface producerSurface, path string) {
     fmt.Fprintf(os.Stderr, "  This is the #230 class. Fix mechanically: `pnpm --filter ttsc shim:audit -fix`.\n")
     for _, f := range evaluation.enumGaps {
       fmt.Fprintf(os.Stderr, "    ENUM   %s.%s\n", f.pkg, f.symbol)
+    }
+  }
+  if len(evaluation.enumRemovals) > 0 {
+    fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d previous public constant(s) are absent from upstream. Resolve their migration before generation.\n", len(evaluation.enumRemovals))
+    for _, f := range evaluation.enumRemovals {
+      fmt.Fprintf(os.Stderr, "    ENUM_REMOVED %s.%s\n", f.pkg, f.symbol)
     }
   }
   if len(evaluation.newGaps) > 0 {

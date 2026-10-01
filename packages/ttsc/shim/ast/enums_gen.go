@@ -61,10 +61,12 @@ const (
   NodeFlagsHasImplicitReturn                     = innerast.NodeFlagsHasImplicitReturn
   NodeFlagsHasJSDoc                              = innerast.NodeFlagsHasJSDoc
   NodeFlagsIdentifierHasExtendedUnicodeEscape    = innerast.NodeFlagsIdentifierHasExtendedUnicodeEscape
+  NodeFlagsIdentifierIsInJSDocNamespace          = innerast.NodeFlagsIdentifierIsInJSDocNamespace
   NodeFlagsInWithStatement                       = innerast.NodeFlagsInWithStatement
   NodeFlagsJSDoc                                 = innerast.NodeFlagsJSDoc
   NodeFlagsJavaScriptFile                        = innerast.NodeFlagsJavaScriptFile
   NodeFlagsJsonFile                              = innerast.NodeFlagsJsonFile
+  NodeFlagsNestedNamespace                       = innerast.NodeFlagsNestedNamespace
   NodeFlagsPermanentlySetIncrementalFlags        = innerast.NodeFlagsPermanentlySetIncrementalFlags
   NodeFlagsPossiblyContainsDeprecatedTag         = innerast.NodeFlagsPossiblyContainsDeprecatedTag
   NodeFlagsPossiblyContainsDynamicImport         = innerast.NodeFlagsPossiblyContainsDynamicImport

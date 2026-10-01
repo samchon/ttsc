@@ -5,6 +5,7 @@ package printer
 
 import (
   "github.com/microsoft/typescript-go/internal/ast"
+  "github.com/microsoft/typescript-go/internal/core"
   innerprinter "github.com/microsoft/typescript-go/internal/printer"
 )
 
@@ -104,4 +105,15 @@ func NewEmitContext() *EmitContext {
 // @evidence contracts/common.md#meaningful-documentation Native prose states full-file rendering and the returned text, distinct from the source-map companion operation.
 func EmitSourceFile(p *Printer, sourceFile *ast.SourceFile) string {
   return p.EmitSourceFile(sourceFile)
+}
+
+// RangeStartPositionsAreOnSameLine compares two range starts after skipping
+// leading trivia in sourceFile. Ranges and the nonnil file must share byte coordinates.
+//
+// @evidence contracts/common.md#principled-implementation Upstream trivia skipping and source-line comparison preserve printer layout semantics for both range starts.
+// @evidence contracts/common.md#clear-and-simple-design One predicate keeps source-position interpretation with the printer instead of a second line-index implementation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Actual source bytes and compiler ranges determine line identity without guessed UTF-16 offsets.
+// @evidence contracts/common.md#meaningful-documentation Native prose states trivia handling, nonnil source and shared byte-coordinate premises.
+func RangeStartPositionsAreOnSameLine(first core.TextRange, second core.TextRange, sourceFile *ast.SourceFile) bool {
+  return innerprinter.RangeStartPositionsAreOnSameLine(first, second, sourceFile)
 }
