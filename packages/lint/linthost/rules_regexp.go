@@ -5,6 +5,7 @@ import (
   "strconv"
   "strings"
   "unicode"
+  "unicode/utf16"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
   shimscanner "github.com/microsoft/typescript-go/shim/scanner"
@@ -487,31 +488,58 @@ func regexpHasPreferW(parts regexpLiteralParts) bool {
   return strings.Contains(parts.pattern, "[A-Za-z0-9_]") || strings.Contains(parts.pattern, "[a-zA-Z0-9_]")
 }
 
+// regexpHasDuplicateClassCharacter compares decoded simple-class characters.
+// Unicode modes use code points; legacy classes use UTF-16 code units. Ranges
+// and v-mode set expressions remain outside this diagnostic-only subset.
+//
+// @evidence contracts/common.md#principled-implementation The compiler validates syntax, the existing regex AST decodes escapes, and UTF-16 splitting preserves legacy character-class semantics for astral literals.
+// @evidence contracts/common.md#clear-and-simple-design One AST walk checks each simple class with its own character set, preventing byte prefixes or escape spelling digits from becoming members.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts No UTF-8 byte heuristic, regex runtime mutation or spelling-specific workaround supplies character identity; unsupported range/set reasoning remains explicitly outside the subset.
+// @evidence contracts/common.md#meaningful-documentation Native prose states Unicode versus legacy units and excluded syntax, matching the regexp schema and guide without promising an automatic fix.
 func regexpHasDuplicateClassCharacter(parts regexpLiteralParts) bool {
-  return walkRegexpCharacterClasses(parts.pattern, func(content string) bool {
-    if classHasRange(content) {
-      return false
-    }
-    seen := map[byte]struct{}{}
-    for i := 0; i < len(content); i++ {
-      ch := content[i]
-      if ch == '\\' {
-        i++
-        continue
-      }
-      if ch == '^' && i == 0 {
-        continue
-      }
-      if ch == '-' {
-        continue
-      }
-      if _, ok := seen[ch]; ok {
-        return true
-      }
-      seen[ch] = struct{}{}
-    }
+  if !shimscanner.IsValidRegularExpressionLiteral(parts.raw) {
     return false
+  }
+  parsed, err := regexParseLiteral(parts.raw)
+  if err != nil {
+    return false
+  }
+  unicodeMode := strings.ContainsAny(parts.flags, "uv")
+  duplicate := false
+  regexWalk(parsed, func(node regexNode, _ *regexSlot) {
+    class, ok := node.(*regexClassNode)
+    if !ok {
+      return
+    }
+    // Range overlap and opaque v-mode set expressions remain outside this
+    // simple-class rule. The existing parser interprets whole escape atoms.
+    for _, expression := range class.Expressions {
+      if _, rangeElement := expression.(*regexClassRangeNode); rangeElement {
+        return
+      }
+    }
+    seen := map[int]bool{}
+    record := func(character int) {
+      if seen[character] {
+        duplicate = true
+      }
+      seen[character] = true
+    }
+    for _, expression := range class.Expressions {
+      character, ok := expression.(*regexCharNode)
+      if !ok || character.codePointIsNaN() {
+        continue
+      }
+      if !unicodeMode && character.CodePoint > 0xffff {
+        for _, unit := range utf16.Encode([]rune{rune(character.CodePoint)}) {
+          record(int(unit))
+        }
+      } else {
+        record(character.CodePoint)
+      }
+    }
   })
+  return duplicate
 }
 
 func regexpHasUselessCharacterClass(parts regexpLiteralParts) bool {

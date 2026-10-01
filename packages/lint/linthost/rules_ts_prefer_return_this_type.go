@@ -7,10 +7,10 @@
 // typescript-eslint:
 // https://typescript-eslint.io/rules/prefer-return-this-type/
 //
-// Type-aware. Without a Checker the rule cannot read the method's
-// declared return type or distinguish the class symbol, so
-// Context.Checker == nil short-circuits each Check to a no-op the way
-// other type-aware rules do.
+// Requires a bound Program through the Checker-aware Engine. The compiler's
+// reachability flags distinguish implicit undefined returns from complete
+// branches; an unbound parser-only AST cannot establish that distinction.
+// Explicit annotation syntax and returned expressions are inspected directly.
 //
 // Skipped:
 //   - methods whose return type is already `this`;
@@ -21,14 +21,22 @@
 //   - constructors, accessors, generators, and `async` methods (each
 //     has return-shape semantics the `this` rewrite does not preserve);
 //   - methods with no body (overload signatures, abstract members);
-//   - methods that have at least one `return X;` where `X` is not the
-//     `this` keyword.
+//   - methods with reachable fallthrough, a bare return, or a returned
+//     expression other than the `this` keyword.
 package linthost
 
 import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
+// preferReturnThisType narrows explicit fluent annotations only when no normal
+// completion falls through or returns a value other than this. The bound
+// compiler owns reachability; nested functions retain their own return scope.
+//
+// @evidence contracts/common.md#principled-implementation The real bound method's implicit-return flag rejects fallthrough, and a scope-aware return walk rejects undefined and non-this returns.
+// @evidence contracts/common.md#clear-and-simple-design Existing method eligibility gates feed one completion check and one body-return analysis without an independent control-flow implementation.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts Finding a value return is not treated as proof of all-path completion; no automatic annotation rewrite or forced checker result is introduced.
+// @evidence contracts/common.md#meaningful-documentation Native comments describe normal completion and nested scope boundaries; the owning TypeScript schema and guide name bare and implicit returns.
 type preferReturnThisType struct{}
 
 func (preferReturnThisType) Name() string { return "typescript/prefer-return-this-type" }
@@ -80,9 +88,12 @@ func (preferReturnThisType) Check(ctx *Context, node *shimast.Node) {
     parent.Kind != shimast.KindClassExpression {
     return
   }
-  // Walk the method body. Every value-returning `return` must
-  // return exactly `this`; we also require at least one return
-  // statement so we don't fire on methods that fall off the end.
+  // The bound compiler's reachability flag owns fallthrough, including
+  // conditional and try/finally paths. Finding a return is not proof that
+  // every normal completion returns a value.
+  if node.Flags&shimast.NodeFlagsHasImplicitReturn != 0 {
+    return
+  }
   hasValueReturn, allAreThis := preferReturnThisTypeAnalyzeBody(decl.Body)
   if !hasValueReturn || !allAreThis {
     return
@@ -95,12 +106,11 @@ const preferReturnThisTypeMessage = "Method always returns `this` — declare th
 // preferReturnThisTypeAnalyzeBody walks the method body (without
 // descending into nested function-like scopes) and reports:
 //   - hasValueReturn: at least one `return <expression>;` exists.
-//   - allAreThis: every value-returning `return` returns the bare
+//   - allAreThis: no bare return exists and every value return is the
 //     `this` keyword (after stripping parens).
 //
-// A bare `return;` is ignored — it returns `undefined`, which the rule
-// cannot rewrite to `this` regardless. The conservative interpretation
-// matches the upstream rule's behavior.
+// A bare return produces undefined and rejects the preference, including
+// returns in finally blocks. Nested functions retain their own return scope.
 func preferReturnThisTypeAnalyzeBody(body *shimast.Node) (hasValueReturn, allAreThis bool) {
   allAreThis = true
   var walk func(*shimast.Node)
@@ -113,7 +123,9 @@ func preferReturnThisTypeAnalyzeBody(body *shimast.Node) (hasValueReturn, allAre
     }
     if n.Kind == shimast.KindReturnStatement {
       ret := n.AsReturnStatement()
-      if ret != nil && ret.Expression != nil {
+      if ret == nil || ret.Expression == nil {
+        allAreThis = false
+      } else {
         hasValueReturn = true
         inner := stripParens(ret.Expression)
         if inner == nil || inner.Kind != shimast.KindThisKeyword {
