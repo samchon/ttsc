@@ -25,9 +25,10 @@ import path from "node:path";
 export const test_resident_check_process_joins_actual_child_lifetimes = async (
   options?: { ResidentCheckProcess: ProcessConstructor },
 ): Promise<void> => {
-  const Owner = options?.ResidentCheckProcess ?? (
-    await import(new URL("../../../../../packages/ttsc/src/compiler/internal/ResidentCheckProcess.ts", import.meta.url).href)
-  ).ResidentCheckProcess as ProcessConstructor;
+  const Owner = options === undefined
+    ? (await import(new URL("../../../../../packages/ttsc/src/compiler/internal/ResidentCheckProcess.ts", import.meta.url).href)).ResidentCheckProcess as ProcessConstructor
+    : options.ResidentCheckProcess;
+  assert.equal(typeof Owner, "function", "The selected process lifetime owner must be a constructor");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-resident-close-"));
   const failures: unknown[] = [];
   const pids = new Set<number>();
