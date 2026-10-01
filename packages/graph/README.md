@@ -72,9 +72,10 @@ The interactive charts, every model, and the method are on the benchmark page: h
  * type relations. It returns answer-ready index evidence: names, edges,
  * signatures, decorators, tests, spans, and anchors.
  *
- * Every returned declaration fact is compiler-resolved and verified for the
- * snapshot that call synchronized, so trust it without re-checking against
- * files.
+ * Declaration facts come from the compiler for the synchronized snapshot.
+ * The server derives file containers, containment, property kinds and dispatch
+ * hops; lint plugins supply artifact facts. The result's audit distinguishes
+ * these producers, so trust compiler facts without re-checking against files.
  */
 export interface ITtscGraphApplication {
   /**
@@ -94,8 +95,8 @@ export interface ITtscGraphApplication {
    * - `entrypoints`: where execution starts, when the entry is unknown
    * - `overview`: the project's layers and folder structure
    *
-   * Every declaration fact in a result is the checker's own resolution, and
-   * `audit` names what is not, so nothing the compiler resolved needs verifying.
+   * The result projects compiler declaration facts, server-derived structure
+   * and plugin-supplied artifact facts; `audit` distinguishes their provenance.
    * Read a file for what the graph does not carry: a function's body, the text
    * inside a span.
    *
@@ -151,14 +152,15 @@ export namespace ITtscGraphApplication {
   /** The selected request's output. `result.type` mirrors `request.type`. */
   export interface IOutput {
     /**
-     * What the server audited this result against before returning it, in its
-     * own words: every node, span, edge, signature, member, and step in it
-     * resolves to the type-checked program for the snapshot the call synced
-     * to.
+     * The provenance and coverage of the returned projection. Compiler facts
+     * belong to the synchronized program; file containers, containment,
+     * property kinds and dispatch hops are server-derived structure. Artifact
+     * facts come from the publishing lint plugin. This text reports those
+     * origins without claiming a second compiler verification pass.
      *
-     * Nothing here was matched, ranked, or inferred, so the result is checker
-     * output end to end — complete and errorless for that snapshot, and opening
-     * a file it cites returns the fact already in it.
+     * Ranked operations identify heuristic selection. Bounded walks identify
+     * truncation; details distinguishes a symbol's shape from its sliced
+     * fan-out and reports a caller-capped member list separately.
      */
     audit: string;
 
@@ -190,7 +192,7 @@ The review is allowed to overturn the draft, and that matters more than the plan
 
 Nothing is forbidden. The tool description says when the graph applies and when to stop. Grep and file reads stay available, and the agent still uses them when they are the right move.
 
-What keeps the agent on the graph is precision. Answers carry names, signatures, edges, and spans resolved by the TypeScript compiler, so the agent accepts them as final instead of re-verifying with its own reads. The exception is a node a lint plugin publishes for a document, a data model, or an API operation: the plugin parsed it, not the compiler, and `audit` says so. And since no file body is ever included, a large repository cannot inflate the response.
+What keeps the agent on the graph is precision. Declaration facts come from the TypeScript compiler for the synchronized snapshot. The server derives file containers, containment, property kinds and dispatch hops from those facts; lint plugins publish document, data-model and API-operation facts. The result's `audit` identifies these origins and distinguishes ranked selection from compiler resolution. No file body is included.
 
 Declaration signatures come from the native compiler's declaration heads. When a producer omits a head, the response omits `signature` instead of guessing from a source line that may contain an implementation body. Consumers can use the returned source span when they need the missing text.
 

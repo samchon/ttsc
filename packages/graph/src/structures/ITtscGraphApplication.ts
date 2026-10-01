@@ -17,11 +17,13 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * type relations. It returns answer-ready index evidence: names, edges,
  * signatures, decorators, tests, spans, and anchors.
  *
- * Every returned declaration fact — each name, edge, signature, and span — is
- * compiler-resolved and verified for the snapshot that call synchronized, so
- * trust it without re-checking against files. Where an operation ranks a
- * shortlist against your question (`lookup`, `entrypoints`, `tour`), the facts
- * stay verified but the selection is heuristic: judge whether its coverage
+ * Declaration facts come from the compiler for the synchronized snapshot.
+ * The server derives file containers, containment, property kinds and dispatch
+ * hops; lint plugins supply artifact facts. The result's audit distinguishes
+ * these producers. Trust compiler facts without re-checking against files.
+ * Where an operation ranks a shortlist against your question (`lookup`,
+ * `entrypoints`, `tour`), its compiler facts retain that provenance while
+ * selection is heuristic: judge whether its coverage
  * answers you, and a follow-up request or a read of a cited span is fair when
  * it does not.
  *
@@ -62,13 +64,16 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  *
  * ## What to trust
  *
- * Before source edits, every returned declaration fact is compiler-resolved and
- * verified. A document, data-model, or API-operation node is the exception: a
- * lint plugin parsed it, and `audit` says so. Never use extra graph calls, repository search, or file reads to doubt,
+ * Before source edits, compiler declaration facts retain the resolution of the
+ * synchronized snapshot. The server derives `file` containers, `contains`
+ * ownership, `property` kinds and `dispatches` hops from those declarations.
+ * Lint plugins supply document, data-model and API-operation facts; `audit`
+ * identifies these distinct producers. Never use extra graph calls,
+ * repository search, or file reads to doubt,
  * fact-check, re-derive, re-narrate, or re-confirm a returned node, span, edge,
- * signature, decorator, test, reference, step, or anchor. The server resolved
- * each one to the type-checked program for the snapshot the call synced to, and
- * `audit` says so on every result.
+ * signature, decorator, test, reference, step, or anchor. The result projects
+ * the snapshot's facts and identifies their provenance; this server does not
+ * perform a second compiler verification pass.
  *
  * Selection is the separate question. `lookup`, `entrypoints`, and `tour` match
  * your question and return a scored, ranked, per-file-capped, limited
@@ -115,9 +120,10 @@ export interface ITtscGraphApplication {
    * - `entrypoints`: where execution starts, when the entry is unknown
    * - `overview`: the project's layers and folder structure
    *
-   * Every fact in a result is the checker's own resolution, audited before
-   * return, so no fact needs verifying; for the ranked operations (`lookup`,
-   * `entrypoints`, `tour`), judge whether the shortlist covers your question.
+   * The result projects compiler declaration facts, server-derived structure
+   * and plugin-supplied artifact facts; `audit` distinguishes their provenance.
+   * For the ranked operations (`lookup`, `entrypoints`, `tour`), judge whether
+   * the shortlist covers your question.
    * Read a file for what the graph does not carry: a body, the text in a span.
    *
    * @param props Reasoning plus one graph request
@@ -198,10 +204,11 @@ export namespace ITtscGraphApplication {
    */
   export interface IOutput {
     /**
-     * What the server audited this result against before returning it, in its
-     * own words: every node, span, edge, signature, member, and step in it
-     * resolves to the type-checked program for the snapshot the call synced to,
-     * so opening a file it cites only returns a fact already in it.
+     * The provenance and coverage of the returned projection. Compiler facts
+     * belong to the synchronized program; file containers, containment,
+     * property kinds and dispatch hops are server-derived structure. Artifact
+     * facts come from the publishing lint plugin. This text reports those
+     * origins without claiming a second compiler verification pass.
      *
      * The audit is operation-aware. For the walks from a named handle (`trace`,
      * `overview`) it reports the result as the structure the graph holds,
