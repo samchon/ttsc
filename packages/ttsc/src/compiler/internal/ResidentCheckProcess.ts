@@ -18,8 +18,10 @@ import type { ResidentCheckResult } from "./ResidentCheckResult";
  * Retirement ends stdin and waits for actual close. A one-second grace period
  * starts after stdin finishes, followed by forced termination and a one-second
  * join deadline. Pending stdin writes have a one-second flush deadline once
- * the retiring call stack yields. A forced
- * or unjoined process is not a graceful shutdown.
+ * the retiring call stack yields. An unjoined deadline releases this client's
+ * pipes, listeners, timers and process reference while keeping joining failed;
+ * it neither kills unrelated descendants nor certifies their termination.
+ * A forced or unjoined process is not a graceful shutdown.
  *
  * @evidence contracts/common.md#principled-implementation One positional reply consumes one queued cycle; invalid framing or shape retires the stream so a delayed reply cannot answer a different cycle.
  * @evidence contracts/common.md#clear-and-simple-design One client owns its child, line reader, FIFO and failure state; private parsing and settlement keep transport policy separate from the watch coordinator's fallback.
@@ -28,7 +30,7 @@ import type { ResidentCheckResult } from "./ResidentCheckResult";
  * @evidence contracts/portability.md#os-neutral-implementation Node spawns the supplied native executable with an argv array and pipe streams, without shell quoting; cwd and environment retain caller-provided native semantics.
  * @evidence contracts/performance.md#efficient-algorithms A head cursor consumes replies in constant amortized queue work; prefix compaction costs no more than the consumed population, and failure drains outstanding requests once.
  * @evidence contracts/performance.md#reuse-equivalent-work One fixed-configuration child retains its Program across FIFO cycles; changed and external paths travel with each request, while the watch owner replaces the process when configuration or plugin identity changes.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Each settled slot releases its request; retirement clears the queue, closes input and retains readable reply pipes until actual child close. Bounded forced termination and a join deadline report failure if ownership cannot be released; live request count and line bytes have no fixed cap.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Each settled slot releases its request; retirement clears the queue and drains replies until actual close or the failed join deadline. That deadline releases owned transport handles and callbacks without claiming the physical child or unrelated descendants joined; live request count and line bytes have no fixed cap.
  */
 export class ResidentCheckProcess {
   private readonly child: ChildProcess;
@@ -44,6 +46,7 @@ export class ResidentCheckProcess {
   private flushDeadline: NodeJS.Timeout | undefined;
   private terminationTimer: NodeJS.Timeout | undefined;
   private terminationDeadline: NodeJS.Timeout | undefined;
+  private releaseTransport: (() => void) | undefined;
 
   public constructor(options: ResidentCheckProcessOptions) {
     this.child = spawn(options.binary, [...options.args], {
@@ -51,15 +54,18 @@ export class ResidentCheckProcess {
       env: options.env,
       windowsHide: true,
     });
+    let onChildClose: (() => void) | undefined;
     this.exited = new Promise<void>((resolve, reject) => {
-      this.child.once("close", () => {
+      onChildClose = () => {
         this.didClose = true;
         clearTimeout(this.flushDeadline);
         clearTimeout(this.terminationTimer);
         clearTimeout(this.terminationDeadline);
+        this.releaseTransport = undefined;
         this.reader?.close();
         resolve();
-      });
+      };
+      this.child.once("close", onChildClose);
       this.rejectExit = reject;
     });
     // Legacy dispose initiates retirement without returning a promise. Keep its
@@ -72,18 +78,41 @@ export class ResidentCheckProcess {
       throw new Error("ttsc: resident check host has no stdio pipes");
     }
     this.reader = createInterface({ input: stdout });
-    this.reader.on("line", (line) => this.onLine(line));
-    this.reader.on("close", () => {
+    const onLine = (line: string) => this.onLine(line);
+    const onReaderClose = () => {
       if (this.failure === undefined) this.fail(this.exitError());
-    });
-    this.child.stderr?.on("data", (chunk: Buffer | string) => {
+    };
+    const onStderr = (chunk: Buffer | string) => {
       const text = typeof chunk === "string" ? chunk : chunk.toString("utf8");
       this.stderr = (this.stderr + text).slice(-STDERR_TAIL_LIMIT);
-    });
-    this.child.on("error", (error) => this.fail(error));
-    stdin.on("error", (error) => this.fail(error));
-    stdout.on("error", (error) => this.fail(error));
-    this.child.stderr?.on("error", () => {});
+    };
+    const onError = (error: Error) => this.fail(error);
+    this.reader.on("line", onLine);
+    this.reader.on("close", onReaderClose);
+    this.child.stderr?.on("data", onStderr);
+    this.child.on("error", onError);
+    stdin.on("error", onError);
+    stdout.on("error", onError);
+    this.child.stderr?.on("error", ResidentCheckProcess.ignoreTransportError);
+    this.releaseTransport = () => {
+      clearTimeout(this.flushDeadline);
+      clearTimeout(this.terminationTimer);
+      clearTimeout(this.terminationDeadline);
+      this.reader.off("line", onLine);
+      this.reader.off("close", onReaderClose);
+      this.reader.close();
+      if (onChildClose !== undefined) this.child.off("close", onChildClose);
+      this.child.off("error", onError);
+      this.child.on("error", ResidentCheckProcess.ignoreTransportError);
+      this.child.stderr?.off("data", onStderr);
+      for (const stream of [stdin, stdout, this.child.stderr]) {
+        stream?.off("error", onError);
+        stream?.off("error", ResidentCheckProcess.ignoreTransportError);
+        stream?.on("error", ResidentCheckProcess.ignoreTransportError);
+        stream?.destroy();
+      }
+      this.child.unref();
+    };
   }
 
   /**
@@ -150,7 +179,7 @@ export class ResidentCheckProcess {
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Disposal ends the owner and produces no computation that another request may reuse.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Disposal clears pending callbacks and sends EOF while keeping reply pipes readable until actual close; a bounded forced attempt and join deadline preserve unknown termination as failure.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Disposal clears pending callbacks and sends EOF while draining replies until actual close or a failed bounded join; the failed deadline releases this client's handles without signalling unrelated descendants or reporting graceful completion.
    */
   public dispose(): void {
     this.fail(new Error("ttsc: resident check host disposed"));
@@ -167,7 +196,7 @@ export class ResidentCheckProcess {
    * @evidence contracts/portability.md#os-neutral-implementation Native stdin EOF and child close events work through Node's process API; forced signalling is a failure rather than a portable graceful-stop assumption.
    * @evidence contracts/performance.md#efficient-algorithms Closing performs one retirement traversal and constant-time exit validation; no polling population grows over the lifetime.
    * @evidence contracts/performance.md#reuse-equivalent-work Repeated closes reuse the single actual-exit promise but never reuse an earlier process's exit as proof for another child.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The child owns readable pipes until close, which clears both timers; a bounded join failure remains observable without claiming resource release.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Actual close clears termination timers; a failed bounded join releases this client's transport and process reference while remaining a terminal failure, independent of later physical child or descendant termination.
    */
   public async close(): Promise<void> {
     this.dispose();
@@ -299,8 +328,14 @@ export class ResidentCheckProcess {
       this.rejectExit?.(
         new Error("ttsc: resident check host did not close after termination"),
       );
+      // Reject first: destroying inherited pipes can cause Node's close event,
+      // but releasing our handles cannot prove a graceful physical join.
+      this.releaseTransport?.();
+      this.releaseTransport = undefined;
     }, TERMINATION_GRACE_MS);
   }
+
+  private static ignoreTransportError(): void {}
 
   private exitError(): Error {
     const detail = this.stderr.trim();
