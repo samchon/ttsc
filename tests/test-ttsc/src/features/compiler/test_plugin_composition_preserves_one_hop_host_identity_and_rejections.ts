@@ -13,15 +13,15 @@ import type { ITtscPlugin } from "../../../../../packages/ttsc/src/structures/IT
  * 1. Compose a three-plugin chain and require redirection to be one hop over
  *    unchanged input records.
  * 2. Compose an aggregate carrying contributors and capabilities and require the
- *    target to inherit them, falling back to its own capabilities when the
- *    aggregate has none.
+ *    target to inherit the selected host's capabilities, retaining an absent
+ *    capability declaration when that host has none.
  * 3. Require cycles, a plugin composed by several aggregates, a composed plugin
  *    with its own contributors and malformed aliases to be rejected with their
  *    literal messages.
  *
- * @evidence contracts/testing.md#behavioral-verification composePluginSources is called on a compose-a to compose-b to compose-c chain (sources become source-a, source-a, source-b, input records unchanged, the aggregate returned by identity and the redirected one copied), on an aggregate/target pair (target inherits source, contributors and capabilities, or keeps its own capabilities when the aggregate has none), and on cycle, double-aggregate, target-owned-contributor and malformed-alias inputs that must throw the literal messages.
+ * @evidence contracts/testing.md#behavioral-verification composePluginSources is called on a compose-a to compose-b to compose-c chain (sources become source-a, source-a, source-b, input records unchanged, the aggregate returned by identity and the redirected one copied), on aggregate/target pairs whose redirected target inherits only the selected host's capabilities, including absent, empty and explicit false declarations, and on cycle, double-aggregate, target-owned-contributor and malformed-alias inputs that must throw the literal messages.
  * @evidence contracts/testing.md#independent-expectations Expected sources, the shared contributors/capabilities objects and the full error messages are authored literals following the one-hop contract (A.composes=[B] redirects B to A's source without cascading), not values produced by the function under test.
- * @evidence contracts/testing.md#distinguishing-cases Owns nontransitive redirects, name and transform-specifier aliases, inherited contributors/capabilities, absent-capability fallback, independent records, reciprocal cycles, conflicting aggregates, invalid targets and forbidden target contributors.
+ * @evidence contracts/testing.md#distinguishing-cases Owns nontransitive redirects, name and transform-specifier aliases, inherited contributors/capabilities, absent, empty and explicit false selected-host capabilities against a true target declaration, independent records, reciprocal cycles, conflicting aggregates, invalid targets and forbidden target contributors. Target inputs remain unchanged after each redirected copy.
  * @evidence contracts/testing.md#execution-ownership This named source-unit export invokes the authored pure composition adapter directly with fresh descriptors; no descriptor evaluator, native build or filesystem identity is simulated.
  */
 export function test_plugin_composition_preserves_one_hop_host_identity_and_rejections(): void {
@@ -53,10 +53,17 @@ export function test_plugin_composition_preserves_one_hop_host_identity_and_reje
   assert.equal(inherited[1].contributors, contributors);
   assert.equal(inherited[1].capabilities, aggregate.capabilities);
   assert.equal(target.source, "missing-target");
-  const fallback = composePluginSources(entries.slice(0, 2), [{ ...aggregate, capabilities: undefined }, target]);
-  assert.equal(fallback.length, 2);
-  assert.ok(fallback[1]);
-  assert.equal(fallback[1].capabilities, target.capabilities);
+  for (const capabilities of [undefined, {}, { threadingArgs: false, emitProvenance: false }]) {
+    const selectedHost = { ...aggregate, capabilities };
+    const targetBefore = structuredClone(target);
+    const redirected = composePluginSources(entries.slice(0, 2), [selectedHost, target]);
+    assert.equal(redirected.length, 2);
+    assert.ok(redirected[1]);
+    assert.equal(redirected[1].source, selectedHost.source);
+    assert.equal(redirected[1].capabilities, capabilities);
+    assert.deepEqual(target, targetBefore);
+    assert.notEqual(redirected[1], target);
+  }
   assert.throws(() => composePluginSources(entries.slice(0, 2), [
     { ...chain[0], composes: ["compose-b"] },
     { ...chain[1], composes: ["compose-a"] },

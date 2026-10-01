@@ -101,9 +101,9 @@ export function composePluginSources(
       // aggregate's. Inherit `capabilities` from the aggregate so a
       // capability the aggregate declares — e.g. threadingArgs — does
       // not get silently dropped just because the composed entry's own
-      // descriptor omitted it. If the aggregate did not set capabilities
-      // we keep the composed plugin's own as a fallback.
-      capabilities: aggregate.plugin.capabilities ?? plugin.capabilities,
+      // descriptor omitted it. An absent aggregate declaration is also its
+      // own CLI contract; a redirected library cannot certify the new host.
+      capabilities: aggregate.plugin.capabilities,
     };
   });
 }
