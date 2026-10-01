@@ -22,6 +22,15 @@ import (
 // Two classes each declare a `#count`, so the mangling counter is exercised more
 // than once and a per-class collision would surface here rather than in a
 // three-million-line repository.
+//
+// 1. Load the same Counter private-member and Other private-member source in two independent programs.
+// 2. Build and serialize each graph without sharing a builder.
+// 3. Require byte-identical dumps; this checks deterministic identity, while the full-graph fixture owns structural correctness.
+//
+// @evidence contracts/testing.md#behavioral-verification Two independent compiler Programs and graph builders serialize the same authored declarations to identical dump bytes.
+// @evidence contracts/testing.md#independent-expectations The fixture bytes are identical before either independent load, so deterministic identity and serialization require identical outputs. This equality oracle cannot establish that both outputs contain the correct structural facts; the full-graph fixture owns those literal assertions.
+// @evidence contracts/testing.md#distinguishing-cases Independent loads of the same private-member source distinguish deterministic serialization from identities dependent on allocation or build history.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit entry loads and closes two actual Programs and calls Build and MarshalDump directly, without installing a consumer or building or starting a native product.
 func TestDumpIsAFunctionOfTheSource(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

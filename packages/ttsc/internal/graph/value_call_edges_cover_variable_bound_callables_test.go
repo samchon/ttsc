@@ -16,6 +16,11 @@ import (
 //  1. Compile a fixture where `const handler = () => { helper(); }`.
 //  2. Build the graph.
 //  3. Assert a handler -> helper value-call edge exists.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that a call made inside a top-level variable-bound function (a `const fn = () => …`) is an edge from that variable node. The first cut never walked a variable initializer, so an arrow-const that called a function produced no edge — a common modern-TS shape the graph silently missed.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish a handler -> helper value-call edge exists.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture where `const handler = () => { helper(); }`; Build the graph; Assert a handler -> helper value-call edge exists.
+// @evidence contracts/testing.md#execution-ownership TestValueCallEdgesCoverVariableBoundCallables is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestValueCallEdgesCoverVariableBoundCallables(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

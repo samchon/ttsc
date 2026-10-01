@@ -21,6 +21,11 @@ import (
 //  2. Require the checker diagnostics that prove the fixture is rejected.
 //  3. Assert invalid pairs have no member edges while the valid class still
 //     carries its checker-backed implementation edges.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that an invalid heritage relation cannot still manufacture authoritative member edges.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "implements", "overrides"; invalid pairs have no member edges while the valid class still carries its checker-backed implementation edges.
+// @evidence contracts/testing.md#distinguishing-cases Compile invalid method/property, same-kind signature, and static/instance implementations plus an invalid class override and one valid class; Require the checker diagnostics that prove the fixture is rejected; Assert invalid pairs have no member edges while the valid class still carries its checker-backed implementation edges.
+// @evidence contracts/testing.md#execution-ownership TestMemberRelationEdgesRejectCheckerInvalidPairs is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestMemberRelationEdgesRejectCheckerInvalidPairs(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

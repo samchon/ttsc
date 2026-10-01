@@ -21,6 +21,11 @@ import (
 //  1. Run the command against a tsconfig that does not exist.
 //  2. Assert it returns 1 and wrote nothing to stdout.
 //  3. Assert stderr names the command and the path it could not load.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that a project the command cannot load exits non-zero, prints nothing to stdout, and names what it could not load.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish stderr names the command and the path it could not load.
+// @evidence contracts/testing.md#distinguishing-cases Run the command against a tsconfig that does not exist; Assert it returns 1 and wrote nothing to stdout; Assert stderr names the command and the path it could not load.
+// @evidence contracts/testing.md#execution-ownership TestRunReportsAnUnloadableProjectWithoutPrintingADump is a source-unit entry. run, out.Len, out.String, errOut.String run directly over the supplied fixture/input values without installing a consumer, building a native artifact or starting a product host.
 func TestRunReportsAnUnloadableProjectWithoutPrintingADump(t *testing.T) {
   root := t.TempDir()
 

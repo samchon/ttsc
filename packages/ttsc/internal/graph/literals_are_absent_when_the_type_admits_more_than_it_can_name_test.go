@@ -22,6 +22,11 @@ import (
 //  1. Compile a fixture holding each non-enumerable shape.
 //  2. Build the graph.
 //  3. Assert none of them recorded a value set.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies the negative twin of every literal case: a type whose members cannot all be named reports none of them rather than the subset that can.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish none of them recorded a value set.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture holding each non-enumerable shape; Build the graph; Assert none of them recorded a value set.
+// @evidence contracts/testing.md#execution-ownership TestLiteralsAreAbsentWhenTheTypeAdmitsMoreThanItCanName is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestLiteralsAreAbsentWhenTheTypeAdmitsMoreThanItCanName(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

@@ -24,6 +24,11 @@ import (
 //     the tag the parser says it is.
 //  3. Assert the overload keeps its signature's tag and the link keeps its
 //     braces.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies the boundary cases that decide whether a tag-shaped run of text is a fact about a declaration.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the overload keeps its signature's tag and the link keeps its braces.
+// @evidence contracts/testing.md#distinguishing-cases Build a fixture with a tag in a line comment, a tag written mid-sentence inside a documentation block, an overload run documented on its signature, and a link tag whose braced form must survive verbatim; Assert the line comment contributes nothing and the mid-sentence one is the tag the parser says it is; Assert the overload keeps its signature's tag and the link keeps its braces.
+// @evidence contracts/testing.md#execution-ownership TestDocTagsReadOnlyWhatTheParserAttached is a Go source-unit entry. Build execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestDocTagsReadOnlyWhatTheParserAttached(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

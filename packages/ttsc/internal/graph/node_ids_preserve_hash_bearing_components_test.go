@@ -16,6 +16,11 @@ import (
 //  1. Build ordinary and hash-bearing ids from their raw structured facts.
 //  2. Relativize the hash-bearing id as the dump does.
 //  3. Recover its raw file component and assert the escaped wire spelling.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies graph identity: quoted path and symbol hashes remain structured facts through dump relativization.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "label:part", "src#generated/main#file.ts"; Recover its raw file component and assert the escaped wire spelling.
+// @evidence contracts/testing.md#distinguishing-cases Build ordinary and hash-bearing ids from their raw structured facts; Relativize the hash-bearing id as the dump does; Recover its raw file component and assert the escaped wire spelling.
+// @evidence contracts/testing.md#execution-ownership TestNodeIDsPreserveHashBearingComponents is a Go source-unit entry. nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestNodeIDsPreserveHashBearingComponents(t *testing.T) {
   if got, want := nodeID("src/main.ts", "main", NodeFunction), "src/main.ts#main:function"; got != want {
     t.Fatalf("ordinary id = %q, want %q", got, want)

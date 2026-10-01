@@ -22,6 +22,11 @@ import (
 //  2. Build the graph and capture the resident program's source texts.
 //  3. Assert both the outside declaration and a virtual bundled library are in
 //     the checker-text manifest.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that snapshot evidence includes every class of source the checker loaded.
+// @evidence contracts/testing.md#independent-expectations The literal outside declaration of external(): number and the standard bundled library define two distinct checker-source classes; both must appear in the manifest with their actual source text.
+// @evidence contracts/testing.md#distinguishing-cases Compile a project that calls a function declared by an outside `.d.ts`; Build the graph and capture the resident program's source texts; Assert both the outside declaration and a virtual bundled library are in the checker-text manifest.
+// @evidence contracts/testing.md#execution-ownership TestSourceTextsCoverEveryResidentProgramSource is a Go source-unit entry. Build, SourceTexts execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestSourceTextsCoverEveryResidentProgramSource(t *testing.T) {
   workspace := t.TempDir()
   root := filepath.Join(workspace, "app")

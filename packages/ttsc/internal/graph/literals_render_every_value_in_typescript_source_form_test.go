@@ -23,6 +23,11 @@ import (
 //     escaped-string union.
 //  2. Build the graph.
 //  3. Assert each value set renders in TypeScript source form.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that each kind of literal a union can hold reaches the wire as the way it is written, and that the rendering is the checker's own rather than this package's.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish each value set renders in TypeScript source form.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture with a string, numeric, boolean, bigint, nullable, and escaped-string union; Build the graph; Assert each value set renders in TypeScript source form.
+// @evidence contracts/testing.md#execution-ownership TestLiteralsRenderEveryValueInTypescriptSourceForm is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestLiteralsRenderEveryValueInTypescriptSourceForm(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

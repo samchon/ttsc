@@ -26,6 +26,11 @@ import (
 //     a parent, plus an unpublishable entry.
 //  3. Assert the nodes, their containment, and the resolved edges — and that the
 //     uncited address, the unknown kind, and the dangling parent produced none.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that a published artifact becomes a node a citation resolves to, and that nothing else does.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "Pricing", "docs/sale.md", "docs/sale.md#pricing", "docs/sale.md#shadow"; the nodes, their containment, and the resolved edges — and that the uncited address, the unknown kind, and the dangling parent produced none.
+// @evidence contracts/testing.md#distinguishing-cases Build a graph for a project whose declarations cite four addresses; Apply a published set covering three of them, one by an alias, one under a parent, plus an unpublishable entry; Assert the nodes, their containment, and the resolved edges — and that the uncited address, the unknown kind, and the dangling parent produced none.
+// @evidence contracts/testing.md#execution-ownership TestArtifactsIndexWhatAPluginPublished is a Go source-unit entry. Build, ApplyArtifacts execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestArtifactsIndexWhatAPluginPublished(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

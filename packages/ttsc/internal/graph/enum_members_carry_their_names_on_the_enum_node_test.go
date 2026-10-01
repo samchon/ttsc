@@ -26,6 +26,11 @@ import (
 //  2. Build the graph.
 //  3. Assert each enum node carries its members name-and-value, that no member
 //     became a node, and that a class node carries none of this.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that an enum records the name and value of each member on its own node, and that nothing else does.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "A", "B", "C"; each enum node carries its members name-and-value, that no member became a node, and that a class node carries none of this.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture with a string enum, an implicitly numbered one, and a class beside them; Build the graph; Assert each enum node carries its members name-and-value, that no member became a node, and that a class node carries none of this.
+// @evidence contracts/testing.md#execution-ownership TestEnumMembersCarryTheirNamesOnTheEnumNode is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestEnumMembersCarryTheirNamesOnTheEnumNode(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

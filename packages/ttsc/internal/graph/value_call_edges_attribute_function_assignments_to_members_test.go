@@ -19,6 +19,11 @@ import (
 //     method implementation.
 //  2. Build the graph.
 //  3. Assert the `Service.run` method has a value-call edge to `helper`.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies function assignments to resolved members are walked as that member's implementation.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the `Service.run` method has a value-call edge to `helper`.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture where `inst.run = () => helper()` assigns a typed class method implementation; Build the graph; Assert the `Service.run` method has a value-call edge to `helper`.
+// @evidence contracts/testing.md#execution-ownership TestValueCallEdgesAttributeFunctionAssignmentsToMembers is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestValueCallEdgesAttributeFunctionAssignmentsToMembers(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

@@ -20,6 +20,11 @@ import (
 //     accessor cases.
 //  2. Require checker diagnostics for the deliberately rejected declarations.
 //  3. Assert accepted pairs produce one member relation and rejected pairs none.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies the pair query retains instantiated, overloaded, optional, declaration-merged, mixed-symbol, and class-override semantics.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish accepted pairs produce one member relation and rejected pairs none.
+// @evidence contracts/testing.md#distinguishing-cases Build generic, overloaded, optional, merged, property/method, and accessor cases; Require checker diagnostics for the deliberately rejected declarations; Assert accepted pairs produce one member relation and rejected pairs none.
+// @evidence contracts/testing.md#execution-ownership TestMemberRelationEdgesPreserveCheckerBoundaries is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestMemberRelationEdgesPreserveCheckerBoundaries(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

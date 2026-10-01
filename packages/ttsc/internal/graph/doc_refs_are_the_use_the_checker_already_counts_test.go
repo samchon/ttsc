@@ -42,6 +42,11 @@ const unusedLocalsFixtureTSConfig = `{
 //  2. Assert the compiler reports the unlinked import unused and the linked one
 //     not.
 //  3. Assert the link produced its edge in the same build.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies the premise this edge rests on: the compiler resolves a documentation link and counts it as a use, and recording the edge does not change what it reports.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the link produced its edge in the same build.
+// @evidence contracts/testing.md#distinguishing-cases Build one file importing two types, using one only through a link and the other not at all; Assert the compiler reports the unlinked import unused and the linked one not; Assert the link produced its edge in the same build.
+// @evidence contracts/testing.md#execution-ownership TestDocRefsAreTheUseTheCheckerAlreadyCounts is a Go source-unit entry. Build execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestDocRefsAreTheUseTheCheckerAlreadyCounts(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), unusedLocalsFixtureTSConfig)

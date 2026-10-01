@@ -24,6 +24,11 @@ import (
 //     re-listing a member an aliased union already has.
 //  2. Build the graph.
 //  3. Assert each alias reports the full set it admits, deduplicated.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that a union assembled out of other unions reports every member it admits, including the ones no token of its own declaration names.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish each alias reports the full set it admits, deduplicated.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture whose aliases build on each other, one of them re-listing a member an aliased union already has; Build the graph; Assert each alias reports the full set it admits, deduplicated.
+// @evidence contracts/testing.md#execution-ownership TestLiteralsResolveThroughAliasIndirection is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestLiteralsResolveThroughAliasIndirection(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

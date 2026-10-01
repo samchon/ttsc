@@ -19,6 +19,11 @@ import (
 // 1. Build three lines with each ECMAScript terminator.
 // 2. Enumerate every valid cursor boundary before each terminator.
 // 3. Convert each offset to UTF-16 LSP position and back to the same offset.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies graph-backed LSP positions use the compiler's LF, CRLF, CR, LS, and PS line boundaries.
+// @evidence contracts/testing.md#independent-expectations ECMAScript LF, CRLF, CR, LS and PS delimiters and UTF-16 LSP columns define each literal line/column; standard UTF-8 cursor boundaries establish independent round-trip offsets.
+// @evidence contracts/testing.md#distinguishing-cases Build three lines with each ECMAScript terminator; Enumerate every valid cursor boundary before each terminator; Convert each offset to UTF-16 LSP position and back to the same offset.
+// @evidence contracts/testing.md#execution-ownership TestPositionHelpersFollowECMALineTerminators is a Go source-unit entry. lspPositionToOffset, offsetToPosition execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestPositionHelpersFollowECMALineTerminators(t *testing.T) {
   cases := []struct {
     name       string

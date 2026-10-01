@@ -23,6 +23,15 @@ import (
 // value-call edge: the decoration is a fact on the node's decorators, and a
 // calls edge to the decorator function would make ubiquitous decorators the
 // busiest nodes in the graph. The test pins both halves of that contract.
+//
+// 1. Load decorated Service with generic Constraint, Base heritage and Payload arguments.
+// 2. Build its class-level type, heritage and decorator facts.
+// 3. Require Payload and Constraint type references, Base heritage and Injectable metadata, without a spurious decorator factory value-call edge.
+//
+// @evidence contracts/testing.md#behavioral-verification Require Payload and Constraint type references, Base heritage and Injectable metadata, without a spurious decorator factory value-call edge.
+// @evidence contracts/testing.md#independent-expectations The literal fixture and supported graph contract establish these expectations: Require Payload and Constraint type references, Base heritage and Injectable metadata, without a spurious decorator factory value-call edge.
+// @evidence contracts/testing.md#distinguishing-cases Load decorated Service with generic Constraint, Base heritage and Payload arguments. Build its class-level type, heritage and decorator facts. Require Payload and Constraint type references, Base heritage and Injectable metadata, without a spurious decorator factory value-call edge.
+// @evidence contracts/testing.md#execution-ownership TestEdgesCoverClassLevelReferences is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestEdgesCoverClassLevelReferences(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

@@ -11,6 +11,11 @@ import "testing"
 //  1. Build two declaration IDs owned by one physical dependency source.
 //  2. Map both IDs through the public batch helper.
 //  3. Require distinct IDs with the same portable source coordinate.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies the public resident shard helper keeps declarations from one physical source distinct and stable.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish distinct IDs with the same portable source coordinate.
+// @evidence contracts/testing.md#distinguishing-cases Build two declaration IDs owned by one physical dependency source; Map both IDs through the public batch helper; Require distinct IDs with the same portable source coordinate.
+// @evidence contracts/testing.md#execution-ownership TestWireNodeIDsShareAliasResolution is a Go source-unit entry. nodeID supplies the input identities; WireNodeIDs maps their source coordinates and nodeFile reads the resulting coordinates. These owning operations run directly in this process, without consumer installation or a native product build or host.
 func TestWireNodeIDsShareAliasResolution(t *testing.T) {
   source := "C:/checkout/app/node_modules/pkg/index.d.ts"
   first := nodeID(source, "First", NodeClass)

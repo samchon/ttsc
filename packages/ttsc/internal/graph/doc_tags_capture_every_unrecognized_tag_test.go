@@ -24,6 +24,11 @@ import (
 //  2. Assert every unrecognized tag is recorded on its own declaration's node.
 //  3. Assert no known tag is recorded, and that an untagged declaration
 //     contributes nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that the build pass records a DocTag for each documentation tag TypeScript does not recognize, on every declaration form, and records nothing for the tags it does.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish no known tag is recorded, and that an untagged declaration contributes nothing.
+// @evidence contracts/testing.md#distinguishing-cases Build a fixture whose declarations carry convention tags, known tags, a tag with no text, and a multi-line reason, across a function, a class, a class member, an interface member, a variable, a namespace member, and a closure; Assert every unrecognized tag is recorded on its own declaration's node; Assert no known tag is recorded, and that an untagged declaration contributes nothing.
+// @evidence contracts/testing.md#execution-ownership TestDocTagsCaptureEveryUnrecognizedTag is a Go source-unit entry. Build execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestDocTagsCaptureEveryUnrecognizedTag(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

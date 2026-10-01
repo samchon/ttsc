@@ -17,6 +17,11 @@ import (
 //  2. Ask FileDiagnostics for that file.
 //  3. Assert a TS2322 (not assignable) diagnostic on line 1, and that an
 //     unrelated path yields none.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that FileDiagnostics surfaces the same semantic error code and line tsgo emits, scoped to one file. This is validation gate 4 from issue #259: a deliberate type error must yield the exact tsc code/location from the graph's shared Program, proving the diagnostics path is the real checker and not a re-implementation.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish a TS2322 (not assignable) diagnostic on line 1, and that an unrelated path yields none.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture whose only file assigns a string to a number binding; Ask FileDiagnostics for that file; Assert a TS2322 (not assignable) diagnostic on line 1, and that an unrelated path yields none.
+// @evidence contracts/testing.md#execution-ownership TestFileDiagnosticsMatchTsgoCodeAndLocation is a source-unit entry. writeFile, driver.LoadProgram, prog.Close, sourceFile, FileName, FileDiagnostics run directly over the supplied fixture/input values without installing a consumer, building a native artifact or starting a product host.
 func TestFileDiagnosticsMatchTsgoCodeAndLocation(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

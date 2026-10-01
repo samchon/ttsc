@@ -17,6 +17,11 @@ import (
 // 1. Compile the same two-function project with each ECMAScript terminator.
 // 2. Marshal its graph and find both declarations and the call edge.
 // 3. Assert their evidence and source helpers agree on the three logical lines.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies graph dump evidence and compact source display use the compiler's complete ECMAScript line model.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "function", "calls", "src/main.ts#alpha:function", "// lead"; their evidence and source helpers agree on the three logical lines.
+// @evidence contracts/testing.md#distinguishing-cases Compile the same two-function project with each ECMAScript terminator; Marshal its graph and find both declarations and the call edge; Assert their evidence and source helpers agree on the three logical lines.
+// @evidence contracts/testing.md#execution-ownership TestDumpUsesECMALineTerminators is a source-unit entry. writeFile, dumpBytes, newLineStarts, compactObjectMemberSignature, regularExpressionEnd run directly over the supplied fixture/input values without installing a consumer, building a native artifact or starting a product host.
 func TestDumpUsesECMALineTerminators(t *testing.T) {
   cases := []struct {
     name       string

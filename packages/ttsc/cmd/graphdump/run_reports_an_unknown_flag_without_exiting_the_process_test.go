@@ -20,6 +20,11 @@ import (
 //  2. Assert it returns 2 rather than exiting, and that nothing reached stdout.
 //  3. Assert the usage text went to the command's stderr stream.
 //  4. Assert `-h` still succeeds, because asking for usage is not an error.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that a bad argument returns an exit code and writes usage to the command's own stream, instead of terminating the process.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the usage text went to the command's stderr stream. 4. Assert `-h` still succeeds, because asking for usage is not an error.
+// @evidence contracts/testing.md#distinguishing-cases Run the command with an unknown flag, capturing both streams; Assert it returns 2 rather than exiting, and that nothing reached stdout; Assert the usage text went to the command's stderr stream. 4. Assert `-h` still succeeds, because asking for usage is not an error.
+// @evidence contracts/testing.md#execution-ownership TestRunReportsAnUnknownFlagWithoutExitingTheProcess is a source-unit entry. run, out.Len, out.String, errOut.String, out.Reset, errOut.Reset run directly over the supplied fixture/input values without installing a consumer, building a native artifact or starting a product host.
 func TestRunReportsAnUnknownFlagWithoutExitingTheProcess(t *testing.T) {
   var out, errOut bytes.Buffer
   restoreStdout, restoreStderr := stdout, stderr

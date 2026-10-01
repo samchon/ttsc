@@ -11,6 +11,15 @@ import (
 // enum member initializer is recorded as an edge from the enum node. build.go
 // records the enum as a node, but the edge pass must also walk the enum body, or
 // the call in `A = base()` is silently dropped — the gap a round-1 reviewer found.
+//
+// 1. Load enum E whose A initializer calls base.
+// 2. Build the enum and initializer relations.
+// 3. Require the E node and its value-call edge to base.
+//
+// @evidence contracts/testing.md#behavioral-verification Require the E node and its value-call edge to base.
+// @evidence contracts/testing.md#independent-expectations The literal fixture and supported graph contract establish these expectations: Require the E node and its value-call edge to base.
+// @evidence contracts/testing.md#distinguishing-cases Load enum E whose A initializer calls base. Build the enum and initializer relations. Require the E node and its value-call edge to base.
+// @evidence contracts/testing.md#execution-ownership TestEnumInitializerCallsAreEdges is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestEnumInitializerCallsAreEdges(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), `{

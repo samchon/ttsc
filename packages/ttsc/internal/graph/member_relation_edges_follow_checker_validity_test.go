@@ -21,6 +21,11 @@ import (
 //  2. Build the native graph.
 //  3. Assert every directly declared checker-valid pair has the correct member
 //     relation while constructors never become override edges.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that native graph member relationships preserve the structurally valid shapes the TypeScript checker accepts, including shapes whose syntax kinds differ.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish every directly declared checker-valid pair has the correct member relation while constructors never become override edges.
+// @evidence contracts/testing.md#distinguishing-cases Compile a class implementing an interface through ordinary methods plus the two valid cross-kind shapes, and a class overriding an abstract base; Build the native graph; Assert every directly declared checker-valid pair has the correct member relation while constructors never become override edges.
+// @evidence contracts/testing.md#execution-ownership TestMemberRelationEdgesFollowCheckerValidity is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestMemberRelationEdgesFollowCheckerValidity(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

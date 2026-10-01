@@ -21,6 +21,11 @@ import (
 //  3. Assert the Sub->Base edge targets the real declaration in impl.ts and is
 //     not external, while the SubExt->Ext edge targets an external leaf under
 //     node_modules.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies the two edge behaviors that distinguish a checker-resolved graph from a path-heuristic one: a heritage edge into a barrel-re-exported base lands on the sibling source that declares it (not the index file), and a heritage edge into a dependency becomes an external boundary leaf that the walk does not descend into.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the Sub->Base edge targets the real declaration in impl.ts and is not external, while the SubExt->Ext edge targets an external leaf under node_modules.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture: `Sub extends Base` where Base is re-exported through a barrel, and `SubExt extends Ext` where Ext is declared in a node_modules `.d.ts`; Build the graph; Assert the Sub->Base edge targets the real declaration in impl.ts and is not external, while the SubExt->Ext edge targets an external leaf under node_modules.
+// @evidence contracts/testing.md#execution-ownership TestHeritageEdgesTraverseBarrelsAndStopAtExternalLeaves is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestHeritageEdgesTraverseBarrelsAndStopAtExternalLeaves(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

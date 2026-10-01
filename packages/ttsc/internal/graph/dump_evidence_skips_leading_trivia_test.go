@@ -24,6 +24,11 @@ import (
 //  2. Build and marshal the dump.
 //  3. Assert the `main` node's evidence starts on the `export function main`
 //     line, and the calls edge's evidence is the indented call's line and column.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that a node's and an edge's evidence line/column point at the code, not the leading trivia, because tsgo's Pos() is the full-start (it includes the doc comment and indentation before a token).
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "function", "main", "calls", "src/main.ts#main:function"; the `main` node's evidence starts on the `export function main` line, and the calls edge's evidence is the indented call's line and column.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture where `main` carries a block doc comment and calls `helper()` indented two spaces; Build and marshal the dump; Assert the `main` node's evidence starts on the `export function main` line, and the calls edge's evidence is the indented call's line and column.
+// @evidence contracts/testing.md#execution-ownership TestDumpEvidenceSkipsLeadingTrivia is a Go source-unit entry. Build, MarshalDump, SourceTexts execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestDumpEvidenceSkipsLeadingTrivia(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

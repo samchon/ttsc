@@ -24,6 +24,11 @@ import (
 //  2. Ask FileDiagnostics for that file.
 //  3. Assert the TS2322 diagnostic sits at line 1 / column 14 and its message
 //     contains "not assignable".
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that FileDiagnostics surfaces the full tsgo-reported location and text of a type error, not just its code and line: the column points at the offending initializer and the message carries the human-readable reason.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the TS2322 diagnostic sits at line 1 / column 14 and its message contains "not assignable".
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture whose only file assigns a string to a number binding; Ask FileDiagnostics for that file; Assert the TS2322 diagnostic sits at line 1 / column 14 and its message contains "not assignable".
+// @evidence contracts/testing.md#execution-ownership TestFileDiagnosticsReportCodeColumnAndMessage is a source-unit entry. writeFile, driver.LoadProgram, prog.Close, sourceFile, FileName, FileDiagnostics run directly over the supplied fixture/input values without installing a consumer, building a native artifact or starting a product host.
 func TestFileDiagnosticsReportCodeColumnAndMessage(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

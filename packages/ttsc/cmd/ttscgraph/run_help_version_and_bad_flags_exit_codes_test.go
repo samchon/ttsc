@@ -22,6 +22,11 @@ import (
 //  2. run --bogus (unknown command) exits 2 and prints usage.
 //  3. run dump --nope and run serve --nope exit 2 (flag parse failure).
 //  4. With getwd forced to fail, run dump and run serve exit 2 and explain why.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies the top-level run dispatcher returns the documented exit codes for the command surface: help and version short-circuit to 0, an unknown command prints usage and exits 2, and dump or serve invocations that cannot parse flags or resolve their working directory exit 2 with an explanation.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish run dump --nope and run serve --nope exit 2 (flag parse failure). 4. With getwd forced to fail, run dump and run serve exit 2 and explain why.
+// @evidence contracts/testing.md#distinguishing-cases run --help and run --version exit 0, printing the command name / version; run --bogus (unknown command) exits 2 and prints usage; run dump --nope and run serve --nope exit 2 (flag parse failure). 4. With getwd forced to fail, run dump and run serve exit 2 and explain why.
+// @evidence contracts/testing.md#execution-ownership TestRunHelpVersionAndBadFlagsExitCodes is a source-unit entry. run, helpOut.String, versionOut.String, badErr.String, errors.New, wdErr.String, serveWdErr.String run directly over the supplied fixture/input values without installing a consumer, building a native artifact or starting a product host.
 func TestRunHelpVersionAndBadFlagsExitCodes(t *testing.T) {
   oldStdout, oldStderr, oldGetwd := stdout, stderr, getwd
   defer func() { stdout, stderr, getwd = oldStdout, oldStderr, oldGetwd }()

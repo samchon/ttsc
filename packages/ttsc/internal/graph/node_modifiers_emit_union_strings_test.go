@@ -24,6 +24,11 @@ import (
 //  2. Build and marshal the dump.
 //  3. Assert each node's modifiers are exactly the expected union strings, the
 //     plain method has none, and every emitted string is a union member.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that the dump records a declaration's syntactic modifiers as wire strings drawn only from the TtscGraphNodeModifier union, mapping the combined modifier flags of a class, a static/readonly property, an accessibility-qualified async method, and an exported const onto their union members.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish each node's modifiers are exactly the expected union strings, the plain method has none, and every emitted string is a union member.
+// @evidence contracts/testing.md#distinguishing-cases Compile a fixture with `export abstract class`, a `static readonly` property, a `private async` method, a plain method, and `export const enum` (the `const` keyword that is a modifier, unlike a `const` variable); Build and marshal the dump; Assert each node's modifiers are exactly the expected union strings, the plain method has none, and every emitted string is a union member.
+// @evidence contracts/testing.md#execution-ownership TestNodeModifiersEmitUnionStrings is a Go source-unit entry. Build, NewDump, SourceTexts execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestNodeModifiersEmitUnionStrings(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

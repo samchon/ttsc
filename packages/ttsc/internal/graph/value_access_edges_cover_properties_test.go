@@ -19,6 +19,11 @@ import (
 //  2. Build the graph.
 //  3. Assert property/getter/setter uses are value-access edges while the
 //     property initializer's real function call stays a value-call edge.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies property and accessor reads/writes become value-access edges, not value-call edges.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish property/getter/setter uses are value-access edges while the property initializer's real function call stays a value-call edge.
+// @evidence contracts/testing.md#distinguishing-cases Compile a class with a property initializer, getter, setter, dotted access, and string-literal bracket access; Build the graph; Assert property/getter/setter uses are value-access edges while the property initializer's real function call stays a value-call edge.
+// @evidence contracts/testing.md#execution-ownership TestValueAccessEdgesCoverPropertiesAndAccessors is a Go source-unit entry. Build, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestValueAccessEdgesCoverPropertiesAndAccessors(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

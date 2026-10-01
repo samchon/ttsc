@@ -19,6 +19,11 @@ func (rejectedServeWriter) Write([]byte) (int, error) {
 //  1. Reject protocol negotiation before a graph session is constructed.
 //  2. Fail the response writer and require a nonzero server result.
 //  3. Require the stderr cause while forbidding successful phase rows.
+//
+// @evidence contracts/testing.md#behavioral-verification TestServeEarlyErrorEncodeFailureIsObservable proves a rejected early error response fails the stream without claiming that an unencoded response ran.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the stderr cause while forbidding successful phase rows.
+// @evidence contracts/testing.md#distinguishing-cases Reject protocol negotiation before a graph session is constructed; Fail the response writer and require a nonzero server result; Require the stderr cause while forbidding successful phase rows.
+// @evidence contracts/testing.md#execution-ownership TestServeEarlyErrorEncodeFailureIsObservable is a source-unit entry. graphSessionFixture, serveSnapshots, diagnostic.String run directly over the supplied fixture/input values without installing a consumer, building a native artifact or starting a product host.
 func TestServeEarlyErrorEncodeFailureIsObservable(t *testing.T) {
   root := graphSessionFixture(t)
   oldStderr := stderr

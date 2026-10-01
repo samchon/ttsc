@@ -26,6 +26,11 @@ import (
 //  2. Assert the CRLF reason joins exactly as its LF twin does.
 //  3. Assert both blocks of the merged identity are kept, every binding of the
 //     statement carries its documentation, and the link keeps its text.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies the boundary cases where one declaration's tags can be silently lost or doubled.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish both blocks of the merged identity are kept, every binding of the statement carries its documentation, and the link keeps its text.
+// @evidence contracts/testing.md#distinguishing-cases Build a fixture with CRLF sources, a redeclared `var` documented twice, a multi-binding statement, a declaration carrying two documentation blocks, and a link carrying trailing text; Assert the CRLF reason joins exactly as its LF twin does; Assert both blocks of the merged identity are kept, every binding of the statement carries its documentation, and the link keeps its text.
+// @evidence contracts/testing.md#execution-ownership TestDocTagsSurviveLineEndingsAndRepeatedBlocks is a Go source-unit entry. Build execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestDocTagsSurviveLineEndingsAndRepeatedBlocks(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

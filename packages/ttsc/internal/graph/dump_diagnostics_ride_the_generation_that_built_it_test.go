@@ -24,6 +24,11 @@ import (
 //  2. Dump it.
 //  3. Assert the TS2322 sits in the dump, at the location tsgo reports, against
 //     a project-relative path.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies the dump carries the compiler's findings for the same program that produced its nodes and edges, relativized like every other path on the wire.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "error", "src/main.ts"; the TS2322 sits in the dump, at the location tsgo reports, against a project-relative path.
+// @evidence contracts/testing.md#distinguishing-cases Build a fixture whose only file assigns a string to a number binding; Dump it; Assert the TS2322 sits in the dump, at the location tsgo reports, against a project-relative path.
+// @evidence contracts/testing.md#execution-ownership TestDumpDiagnosticsRideTheGenerationThatBuiltIt is a Go source-unit entry. Build, NewDump, SourceTexts, NewDiagnostics execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestDumpDiagnosticsRideTheGenerationThatBuiltIt(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

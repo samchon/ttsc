@@ -28,6 +28,11 @@ import (
 //     import all three, and assert every link resolves to the one this module
 //     imports the name from — the claim the rest of the file now rests on,
 //     since three declarations of `ISale` exist here.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that an inline link in a declaration's documentation becomes a checker-resolved edge, and that the tag it sits under changes nothing.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the unresolvable link, the self-link, and the untagged declaration produced none. 4. Declare the same name in two more modules that flank it alphabetically, import all three, and assert every link resolves to the one this module imports the name from — the claim the rest of the file now rests on, since three declarations of `ISale` exist here.
+// @evidence contracts/testing.md#distinguishing-cases Build a fixture linking one type from a tag, one from ordinary prose, one through `{@linkcode}`, one qualified, and one that resolves to nothing; Assert each resolvable link produced exactly one doc_ref edge to the declaration the checker resolved; Assert the unresolvable link, the self-link, and the untagged declaration produced none. 4. Declare the same name in two more modules that flank it alphabetically, import all three, and assert every link resolves to the one this module imports the name from — the claim the rest of the file now rests on, since three declarations of `ISale` exist here.
+// @evidence contracts/testing.md#execution-ownership TestDocRefsResolveDocumentationLinks is a Go source-unit entry. Build execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestDocRefsResolveDocumentationLinks(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

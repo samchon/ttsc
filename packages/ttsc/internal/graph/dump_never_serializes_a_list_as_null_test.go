@@ -21,6 +21,11 @@ import (
 //
 //  1. Build a dump whose origin declares nothing at all.
 //  2. Assert it still parses into lists, not nulls.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies every list the provenance contract declares reaches the wire as a list, even when the producer filled none of it.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish it still parses into lists, not nulls.
+// @evidence contracts/testing.md#distinguishing-cases Build a dump whose origin declares nothing at all; Assert it still parses into lists, not nulls.
+// @evidence contracts/testing.md#execution-ownership TestDumpNeverSerializesAListAsNull is a Go source-unit entry. Build, MarshalDump, SourceTexts execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestDumpNeverSerializesAListAsNull(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

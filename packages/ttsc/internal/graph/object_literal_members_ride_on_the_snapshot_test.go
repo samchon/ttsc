@@ -26,6 +26,11 @@ import (
 //     in declaration order, with method/property kinds independent of trivia.
 //  3. Dump the graph and assert member lines/signatures come from the snapshot,
 //     while spread and nested members are not fabricated as outer identity.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies that object-literal member identity is captured from the compiler AST and projected from the same source snapshot as the graph.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish "src/main.ts#shape:variable", "inner", "fromSpread", "dynamic", "real", "real: 1", "afterSpread", "afterSpread: true"; Dump the graph and assert member lines/signatures come from the snapshot, while spread and nested members are not fabricated as outer identity.
+// @evidence contracts/testing.md#distinguishing-cases Compile a wrapped object literal containing comment braces, every direct static member shape, a dynamic key, a spread, and a nested object; Assert the variable node records only its direct statically named members in declaration order, with method/property kinds independent of trivia; Dump the graph and assert member lines/signatures come from the snapshot, while spread and nested members are not fabricated as outer identity.
+// @evidence contracts/testing.md#execution-ownership TestObjectLiteralMembersRideOnTheSnapshot is a Go source-unit entry. Build, NewDump, SourceTexts, nodeID execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestObjectLiteralMembersRideOnTheSnapshot(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

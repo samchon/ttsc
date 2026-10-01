@@ -18,6 +18,11 @@ import (
 //     expression.
 //  2. Resolve the function symbol.
 //  3. Assert the selected target span includes the implementation body.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies overloaded callables resolve to the executable implementation span, not the first signature.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the selected target span includes the implementation body.
+// @evidence contracts/testing.md#distinguishing-cases Compile an overloaded function whose implementation contains a unique expression; Resolve the function symbol; Assert the selected target span includes the implementation body.
+// @evidence contracts/testing.md#execution-ownership TestResolvePrefersImplementationDeclarationSpan is a Go source-unit entry. Resolve execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.
 func TestResolvePrefersImplementationDeclarationSpan(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "tsconfig.json"), fixtureTSConfig)

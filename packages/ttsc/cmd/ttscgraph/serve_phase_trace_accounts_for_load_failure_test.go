@@ -12,6 +12,11 @@ import (
 //  1. Request a missing tsconfig with phase tracing enabled.
 //  2. Require a normal addressed error response rather than process failure.
 //  3. Require all five payload-free phases under mode=error.
+//
+// @evidence contracts/testing.md#behavioral-verification TestServePhaseTraceAccountsForLoadFailure proves addressed requests retain a complete timing record even when no resident compiler session can be built.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish all five payload-free phases under mode=error.
+// @evidence contracts/testing.md#distinguishing-cases Request a missing tsconfig with phase tracing enabled; Require a normal addressed error response rather than process failure; Require all five payload-free phases under mode=error.
+// @evidence contracts/testing.md#execution-ownership TestServePhaseTraceAccountsForLoadFailure is a source-unit entry. graphSessionFixture, serveSnapshots, output.String, trace.String run directly over the supplied fixture/input values without installing a consumer, building a native artifact or starting a product host.
 func TestServePhaseTraceAccountsForLoadFailure(t *testing.T) {
   root := graphSessionFixture(t)
   request := "{\"id\":23,\"graphSnapshotVersion\":1}\n"

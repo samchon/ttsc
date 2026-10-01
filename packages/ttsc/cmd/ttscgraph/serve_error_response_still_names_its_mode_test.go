@@ -23,6 +23,11 @@ import (
 //  2. Assert the response carries the error, and mode is the error mode.
 //  3. Assert the protocol version still rides it, so the client can read it at
 //     all.
+//
+// @evidence contracts/testing.md#behavioral-verification Verifies a failed snapshot answers with a mode and a protocol version rather than dropping them.
+// @evidence contracts/testing.md#independent-expectations The explicit input facts and supported graph/command contract establish the protocol version still rides it, so the client can read it at all.
+// @evidence contracts/testing.md#distinguishing-cases Serve a project whose tsconfig is invalid, so the session cannot be built; Assert the response carries the error, and mode is the error mode; Assert the protocol version still rides it, so the client can read it at all.
+// @evidence contracts/testing.md#execution-ownership TestServeErrorResponseStillNamesItsMode is a source-unit entry. graphSessionFixture, serveSnapshots, output.Bytes run directly over the supplied fixture/input values without installing a consumer, building a native artifact or starting a product host.
 func TestServeErrorResponseStillNamesItsMode(t *testing.T) {
   root := graphSessionFixture(t)
   if err := os.WriteFile(filepath.Join(root, "tsconfig.json"), []byte("{ invalid"), 0o644); err != nil {
