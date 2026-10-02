@@ -11,8 +11,9 @@ import type { WatchBrokerSink } from "./WatchBrokerSink";
  *   One registration combines sink, translation and opening resolver without
  *   duplicating the broker's process or outstanding drain maps.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   Mandatory translation prevents silently falling back to foreign path
- *   spellings when registering an alias-aware consumer.
+ *   Requiring a translation map makes routing ownership explicit but does not
+ *   prove every reported directory has an entry; unmatched directories retain
+ *   child spelling and the sink decides their meaning.
  * @evidence contracts/common.md#meaningful-documentation
  *   Native type and separated member comments explain routing authority and
  *   required translation under the documentation skill.
@@ -40,8 +41,8 @@ export interface WatchBrokerRegistration {
   /**
    * Resolve the registration's wait for its watches to open.
    *
-   * Failure is reported separately through the sink before this opening wait
-   * ends.
+   * Reported opening failure reaches the sink separately before completion;
+   * explicit closure also ends this wait without certifying success.
    */
   ready: WatchBrokerOpeningComplete;
 
@@ -53,9 +54,9 @@ export interface WatchBrokerRegistration {
    * watches, so a reported event is translated back before anything compares it
    * with a path the registration produced.
    *
-   * Required, not optional. A registration that forgot it would fall back to
-   * the child's canonical spelling and silently reintroduce the mismatch this
-   * map exists to remove, with no type error and no failing test.
+   * Required as routing state, but its entries are not completeness proof.
+   * A directory absent from this map is forwarded in child spelling; exact
+   * identity/relevance classification stays with the sink.
    */
   spellings: ReadonlyMap<string, string>;
 }
