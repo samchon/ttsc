@@ -10,15 +10,13 @@ import (
 // TestCommandFormatRestoresDecoratedMemberIndentFromFlat verifies the `ttsc
 // format` cascade re-indents a decorated class member's decorator lines AND
 // its declaration line from a fully flattened source, converging on the
-// canonical layout. ttsc-only self-check: the canonical string is the answer
-// key (Prettier is consulted for the target shape, not at runtime).
+// authored layout. The complete literal is the independent answer key;
+// no external formatter is invoked.
 //
-// format/indent's header pass used to re-indent only lineStart(member.Pos()),
-// which for a decorated member is the leading `@`, so a flattened class left
-// each `name: type` declaration line at column 0 while its decorator line
-// moved — a half-indented member the cascade reported as success. Running the
-// whole cascade also proves the decorator-line work converges and is
-// idempotent (no oscillation against print-width / semi).
+// A decorated member starts at its leading `@`. Moving only that line would
+// leave the declaration line or further decorator lines at column 0. The
+// whole-file expectation rejects that incomplete transformation. Command
+// success checks convergence of this invocation, not a separate second run.
 //
 //  1. Flatten a decorated-member class canonical to column 0.
 //  2. Run `ttsc format`.
