@@ -21,8 +21,7 @@ import (
 
 // Package-level streams so command tests can capture I/O without patching the
 // os globals, and argv arrives as a parameter for the same reason. Both mirror
-// the shipped sibling in cmd/ttscgraph, whose capability claim is tested the
-// same way; this command's claim went undefended because it had neither seam.
+// the shipped sibling in cmd/ttscgraph.
 var (
   stdout io.Writer = os.Stdout
   stderr io.Writer = os.Stderr

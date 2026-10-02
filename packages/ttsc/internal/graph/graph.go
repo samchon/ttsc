@@ -135,10 +135,11 @@ type Node struct {
   //
   // `literals` says what values the enum admits, which answers a serializer;
   // the code says `Colors.Red`, so a caller that had already named the enum
-  // would still open the file to learn what to type. The members are not nodes of their own —
-  // `Colors.Red` is a literal string a grep finds exactly, and minting a node
-  // per member would grow the graph and put leaves into tour flows to index
-  // what grep already does. This fills in the node that exists instead.
+  // would still open the file to learn what to type. The members are not nodes
+  // of their own — `Colors.Red` is a literal string a grep finds exactly, and
+  // minting a node per member would grow the graph and put leaves into tour
+  // flows to index what grep already does. This fills in the node that exists
+  // instead.
   EnumMembers []EnumMember
 
   // ObjectMembers is the direct, statically named outline of an object literal
@@ -252,8 +253,7 @@ const (
   // documentation names through an inline link. The checker resolves the name
   // and counts it as a use — an import that exists only to support one survives
   // `noUnusedLocals` — so the relationship is a compiler fact like every other
-  // edge here, and it was the one class of resolved reference the graph held no
-  // edge for.
+  // edge here.
   //
   // It is its own kind rather than a type-ref because it is not a type
   // position: a link may name a function, and a consumer filtering type edges

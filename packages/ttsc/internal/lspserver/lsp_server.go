@@ -86,8 +86,10 @@ type LSPServerOptions struct {
   Source PluginSource
 
   // SymbolProvider answers textDocument/documentSymbol and
-  // textDocument/references locally from ttsc's compiler-backed code graph.
-  // Nil leaves those methods forwarded to upstream tsgo.
+  // textDocument/references from ttsc's compiler-backed code graph when
+  // upstream tsgo does not advertise the capability; RunLSPServer does not
+  // force local answers over an advertised one. Nil leaves those methods
+  // forwarded to upstream tsgo.
   SymbolProvider SymbolProvider
 
   // SuppressExecuteCommandProvider keeps ttsc command ids out of the

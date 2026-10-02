@@ -1,5 +1,5 @@
 // Package watchhelper implements `ttsc __watch`, the directory notification
-// helper the unplugin adapter runs on Linux (samchon/ttsc#1426).
+// helper the unplugin adapter runs on Linux.
 //
 // An inotify instance holds a bounded queue. When it fills, the kernel drops
 // every later event and queues one IN_Q_OVERFLOW event, which libuv, and so

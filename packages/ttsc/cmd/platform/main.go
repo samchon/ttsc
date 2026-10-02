@@ -4,7 +4,7 @@
 // they can resolve the consuming project's `typescript` and
 // plugin descriptors. This binary supplies version/platform metadata, and the
 // hidden `__watch` command: the Linux directory notification helper the
-// unplugin adapter runs (samchon/ttsc#1426).
+// unplugin adapter runs.
 package main
 
 import (

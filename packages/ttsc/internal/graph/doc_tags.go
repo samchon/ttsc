@@ -21,8 +21,8 @@ import (
 // tags the parser had no meaning for, so it kept them as
 // KindJSDocUnknownTag. A known tag — `@param`, `@returns`, `@deprecated` — has
 // its own AST shape and its own meaning and is not this. Naming particular tags
-// here would make the compiler host know one convention, and would have left
-// out the 767 `@reference` tags this repository's own sources carry.
+// here would make the compiler host know one convention and leave out every
+// other convention's tags.
 //
 // Nothing is interpreted. Target is not split out of Text, because which part
 // of a tag's text names a thing is a convention's rule and this pass enforces
@@ -117,7 +117,7 @@ func collectDocTags(g *Graph, targetID string, declaration *shimast.Node) {
 // the parser attached the documentation to are different. TypeScript attaches
 // one leading block to the variable *statement*, while the graph records a node
 // per binding, so asking the binding directly finds nothing and every citation
-// written on a `const` was lost. The statement is reached through its
+// written on a `const` would be lost. The statement is reached through its
 // declaration list, and both hops are checked rather than assumed.
 //
 // One statement can declare several bindings (`export const a = 1, b = 2`), and
@@ -260,8 +260,7 @@ func joinDocTagLines(text string) string {
 //
 // The checker resolves such a name and counts it as a use — a `noUnusedLocals`
 // project keeps an import that exists only to support a link — so this is a
-// compiler fact, not a text match, and it was the one class of resolved
-// reference the graph held no edge for. The link node carries an EntityName,
+// compiler fact, not a text match. The link node carries an EntityName,
 // which is the node class typeRefEdge already resolves, so the resolution and
 // the external-boundary and self-reference rules are the existing ones.
 //
@@ -282,15 +281,14 @@ func (g *Graph) collectDocRefs(checker *shimchecker.Checker, file *shimast.Sourc
 // attributed documentation to.
 //
 // The two passes cannot share a walk — one runs before the checker exists and
-// the other needs it — so they would otherwise share only a convention, and a
-// convention is what drifted. The container walk the edge pass would naturally
-// reuse never visits a class, an interface, or a namespace as a node of its
-// own: it descends straight into their members. So a link written on a class's
-// own documentation resolved to nothing while the tag beside it was indexed,
-// and the two halves a reader is meant to compose disagreed exactly where a
-// type is documented. Recording the host here means the edge pass covers every
-// declaration form the node pass records, including forms nobody has written
-// yet.
+// the other needs it — so they would otherwise share only a convention. The
+// container walk the edge pass would naturally reuse never visits a class, an
+// interface, or a namespace as a node of its own: it descends straight into
+// their members. A link written on a class's own documentation would then
+// resolve to nothing while the tag beside it was indexed, and the two halves a
+// reader is meant to compose would disagree exactly where a type is documented.
+// Recording the host here means the edge pass covers every declaration form the
+// node pass records.
 //
 // It also fixes the attribution: the container walk hands a property member's
 // subtree to the property *and* to its class, which is deliberate for the
@@ -339,13 +337,11 @@ type docHost struct {
 // tag a consumer invents, which is the rule this edge is defined by.
 //
 // The JSDoc node itself reports no children, so its prose comment is walked
-// explicitly beside the tags; that is the same reason the existing edge passes
-// never reached a link.
+// explicitly beside the tags.
 func (g *Graph) docRefsWithin(checker *shimchecker.Checker, from string, doc *shimast.Node) {
   // Guarded on the kind before the conversion, the way the tag walk is. A
   // documentation block is what this is handed and an AsJSDoc on anything else
-  // panics rather than returning nil — which is exactly how reading a tag's
-  // comment through its own struct crashed on the first `@param`.
+  // panics rather than returning nil.
   if doc == nil || doc.Kind != shimast.KindJSDoc {
     return
   }

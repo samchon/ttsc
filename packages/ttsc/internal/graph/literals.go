@@ -84,9 +84,9 @@ func (g *Graph) putLiterals(checker *shimchecker.Checker, path string, statement
 // constituents, and that is not a detail. A type is a set, so the checker folds
 // two members carrying one value into one constituent: `enum Dup { A = 'x', B =
 // 'x' }` resolves to a single type, and reading names off it reports `A` and
-// loses `B`, a silent under-report from taking a declaration fact from a type. The value set really is one value, which
-// is why `literals` is right to say `"x"` once; the member list is two members,
-// and only the declaration says so.
+// loses `B`, a silent under-report from taking a declaration fact from a type.
+// The value set really is one value, which is why `literals` is right to say
+// `"x"` once; the member list is two members, and only the declaration says so.
 //
 // Each member's value still comes from the checker, per member, so an implicit
 // `First` reports 0 with nothing reading the source. A member the checker

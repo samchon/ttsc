@@ -80,13 +80,13 @@ func BuildFiles(prog *driver.Program, selected []string, baseNodes map[string]*N
 // finished with it.
 //
 // Every map cleared here is documented build-only, and each holds pointers into
-// the compiler AST or into the preceding generation”'s nodes: resolved is keyed
+// the compiler AST or into the preceding generation's nodes: resolved is keyed
 // by *shimast.Node, docHosts holds one per documented declaration, and baseNodes
 // is the whole prior endpoint index. A consumer that retains the returned Graph
-// therefore pinned all of it for as long as it held the graph — and
+// would otherwise pin all of it for as long as it held the graph —
 // internal/graphsymbols retains one for the lifetime of an editor session
 // between invalidations, closing the Program while the maps that reference its
-// AST live on. Clearing them here rather than at that consumer is what keeps the
+// AST live on. Clearing them here rather than at that consumer keeps the
 // decision with the producer, which is the only side that knows which fields are
 // scratch.
 //
@@ -187,20 +187,11 @@ func collectStatements(g *Graph, path string, statements []*shimast.Node) {
     case shimast.KindFunctionDeclaration:
       addNode(g, path, statement, NodeFunction)
       // A function declared inside a function is still a name the runtime calls.
-      // This was off for a while on the theory that a closure is implementation,
-      // and implementation is read from the file — but Vue's renderer chain lives
-      // inside `baseCreateRenderer`, so `patch`, `mountElement` and
-      // `setupRenderEffect` were not implementation detail the index could skip;
-      // they were the flow the index exists to describe, and the graph had a blank
-      // where they belong. Asked how a state change reaches the DOM, a model spent
-      // three calls hunting for a name the graph did not hold.
-      //
-      // The cost is small and the answer is not bigger: the graph grows 3% in
-      // nodes on Vue and 5% on VS Code, and the tour payload does not change by a
-      // byte, because a closure ranks below the surface it hangs under and never
-      // takes a seed. It answers when asked for by name. Measured on the
-      // specific-flow lane: 59% of baseline tokens saved to 82%, and the calls
-      // halve — TypeORM 5 to 1, VS Code 8 to 2, Vue 6 to 2.
+      // Much of the ecosystem writes its engine as closures inside a factory
+      // (Vue's renderer chain lives inside `baseCreateRenderer`), so skipping
+      // them would leave a blank where the flow the index exists to describe
+      // sits. A closure ranks below the surface it hangs under and never takes a
+      // tour seed; it answers when asked for by name.
       //
       // The bodies stay out. A closure is a node with edges, not source text.
       collectClosures(g, path, statement)
@@ -251,9 +242,8 @@ func collectVariables(g *Graph, path string, statement *shimast.Node) {
 // the ecosystem writes its engine: Vue's `patch`, `mountElement`, and
 // `setupRenderEffect` are locals of `baseCreateRenderer`; a curried validator's
 // real parse is a local of the function that binds its error class. Recording only
-// what a file declares at its top level left that code out of the graph entirely —
-// a model asking how a state change reaches the DOM found the factory, nothing
-// under it, and went to read the files.
+// what a file declares at its top level would leave that code out of the graph
+// entirely.
 //
 // Only functions are recorded. A local `const i = 0` is a value, not a place code
 // runs, and the graph would drown in them.
@@ -282,8 +272,7 @@ func collectClosures(g *Graph, path string, declaration *shimast.Node) {
 // It reports false when any enclosing function is anonymous. An `inner` declared
 // inside two different callbacks of one file would otherwise key the same id and
 // merge into a node that is neither, fabricating edges between unrelated scopes.
-// Such a closure stays out of the graph, exactly as every body-scoped declaration
-// did before.
+// Such a closure stays out of the graph.
 //
 // @evidence contracts/common.md#principled-implementation Lexical binding and enclosing callable identity distinguish local closures without source offsets or unstable counters.
 // @evidence contracts/common.md#clear-and-simple-design Owner and binding helpers compose one declaration identity, returning presence separately from the resulting string.
@@ -701,15 +690,15 @@ func simpleName(symbol *shimast.Symbol) string {
 //
 // A `#field` is bound under a mangled name — `__#41@#field` — whose number comes
 // from a counter that advances as the program is bound, so the same field is
-// `__#41@#field` in one run and `__#38@#field` in the next. That counter reached
-// the node id, and with it the wire: on VS Code, 661 nodes and 661 edges changed
-// identity between two dumps of the *same unedited source*. A handle the model
-// was given could name nothing after a restart, and no dump could be compared to
-// another to prove a change had left the facts alone.
+// `__#41@#field` in one run and `__#38@#field` in the next. Left in the node id
+// that counter would reach the wire: the same unedited source would produce
+// different identities in two dumps, a handle given out in one session would
+// name nothing after a restart, and no two dumps could be compared to prove a
+// change had left the facts alone.
 //
 // The number identifies nothing a reader can use — the class already
 // distinguishes the field, and `#field` is what the source calls it. Dropping it
-// makes the id a function of the code again.
+// keeps the id a function of the code.
 func stripPrivateMangling(name string) string {
   const prefix = "__#"
   start := strings.Index(name, prefix)

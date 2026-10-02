@@ -22,8 +22,10 @@ type apiTransformResult struct {
   // Diagnostics may accompany partial source results.
   Diagnostics []apiCompileDiagnostic `json:"diagnostics,omitempty"`
 
-  // TypeScript contains every non-declaration source exposed by the Program
-  // facade after its linked program hooks, keyed like api-compile output.
+  // TypeScript contains the parsed text of every non-declaration source the
+  // Program facade exposes, keyed like api-compile output. Linked program hooks
+  // run before the read but mutate the parsed AST in place, so this text is the
+  // file as parsed (including any source preamble), not a printed AST.
   TypeScript map[string]string `json:"typescript"`
 
   // Graph is the host-owned reference graph of the loaded program (direct

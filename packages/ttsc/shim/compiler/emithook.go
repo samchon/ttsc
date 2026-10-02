@@ -20,9 +20,10 @@ import (
 //
 // `sourceFile` is the marking target, not the file that gets transformed.
 // Upstream reads it for two per-file constants (in-JS-file, JSX language
-// variant) and then hands it to emitResolver.MarkLinkedReferencesRecursively,
-// whose marks the import-elision transformer later reads back through
-// EmitContext.ParseNode. A caller that runs a plugin pass first must therefore
+// variant) and, unless isolated modules without import elision, JSX transform
+// or decorator metadata makes marking unnecessary, hands it to
+// emitResolver.MarkLinkedReferencesRecursively, whose marks the import-elision
+// transformer later reads back through EmitContext.ParseNode. A caller that runs a plugin pass first must therefore
 // pass the PARSE tree here and the transformed tree to TransformSourceFile;
 // upstream's own emitter passes one file to both only because it has nothing in
 // between. Re-check this when the pin moves: a new use of the parameter inside

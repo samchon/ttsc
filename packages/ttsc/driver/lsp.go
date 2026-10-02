@@ -168,7 +168,8 @@ type LSPLocation = lspserver.LSPLocation
 
 // SymbolProvider is the driver-level alias for lspserver.SymbolProvider.
 // It is the seam that answers textDocument/documentSymbol and
-// textDocument/references locally from ttsc's compiler-backed code graph.
+// textDocument/references from ttsc's compiler-backed code graph when upstream
+// tsgo does not advertise them.
 //
 // @evidence contracts/common.md#principled-implementation The server interface alias preserves the method set required by local symbol routing.
 // @evidence contracts/common.md#clear-and-simple-design Driver embedders implement the existing provider seam without another proxy layer.

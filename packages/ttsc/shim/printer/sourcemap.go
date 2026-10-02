@@ -2,7 +2,7 @@
 //
 // Prints one source file together with a source map back to its original text,
 // for hosts that hand transformed TypeScript to a bundler instead of emitting
-// JavaScript (samchon/ttsc#1392).
+// JavaScript.
 package printer
 
 import (

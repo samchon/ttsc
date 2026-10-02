@@ -157,9 +157,8 @@ type serveResponse struct {
   // responses: a client that cannot parse the rest still learns why.
   ProtocolVersion int `json:"protocolVersion"`
 
-  // Mode is always present. It was omitempty, which meant the one field that
-  // distinguishes a reuse from a full rebuild silently vanished exactly when a
-  // consumer most wanted to report what happened.
+  // Mode is always present: it is the one field that distinguishes a reuse
+  // from a full rebuild, so it must not vanish on any path.
   Mode string `json:"mode"`
 
   // Capabilities describe this session even when no changed dump is attached.

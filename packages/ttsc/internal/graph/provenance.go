@@ -49,9 +49,9 @@ const (
   // declaration carries none.
   //
   // It is a separate claim rather than an inference from emptiness for the
-  // reason CapabilityDiskDigests is: a producer built before the field existed
-  // emits nothing, and a consumer reading that as "this declaration cites
-  // nothing" would answer a citation question with a confident, wrong "no".
+  // reason CapabilityDiskDigests is: a producer that predates the field emits
+  // nothing, and a consumer reading that as "this declaration cites nothing"
+  // would answer a citation question with a confident, wrong "no".
   CapabilityDocTags = "docTags"
 )
 
@@ -221,7 +221,7 @@ type FileDigest struct {
 //     consumer that opens the file itself can reproduce.
 //
 // They diverge when a SourcePreamble plugin injects text ahead of the file
-// before tsgo parses it, which a real plugin project does on every build. A
+// before tsgo parses it. A
 // single digest would then be a lie in one direction or the other: matched
 // against the checker it would never equal a consumer's read, and matched
 // against the disk it would not describe the text the facts came from. Publishing

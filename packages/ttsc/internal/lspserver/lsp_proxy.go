@@ -966,11 +966,11 @@ func (p *Proxy) completeExecuteCommand(env Envelope, key string, command string,
     p.reportAsyncError(p.writeExecuteCommandErrorIfClean(env.ID, pending, fmt.Sprintf("ttsc command %q failed: %v", command, err)))
     return
   }
-  // Cycle 1 returns the WorkspaceEdit inside the executeCommand response
-  // instead of sending workspace/applyEdit as a server→client request.
-  // ttsc owns both ends (its VS Code extension), so the extension applies
-  // the edit on its side. Sticking to one direction avoids tracking our
-  // own outgoing request ids in the proxy.
+  // The WorkspaceEdit is returned inside the executeCommand response instead
+  // of being sent as a workspace/applyEdit server→client request. ttsc owns
+  // both ends (its VS Code extension), so the extension applies the edit on
+  // its side. Sticking to one direction avoids tracking the proxy's own
+  // outgoing request ids for this path.
   p.reportAsyncError(p.writeExecuteCommandResultIfClean(env.ID, pending, edit))
 }
 

@@ -11,7 +11,7 @@ import (
 // NativePluginSelectionInputs is what a session's plugin selection was loaded
 // from, as the launcher writes it into the plugin manifest: a change to any of
 // it ends the session like a plugin's own reload input, so the editor starts
-// one that loads the current plugins (samchon/ttsc#1507).
+// one that loads the current plugins.
 //
 // Both kinds of input travel by directory, each directory with the names of
 // the files in it and the digest each had (projectInputReloadFileDigest). A
@@ -265,8 +265,8 @@ func (inputs pluginSelectionInputs) pruned(name string) bool {
 // has reports whether a file is recorded under the name a listing spells, by
 // the case semantics of the directory itself (projectInputPathKey): a Windows
 // directory opted into case sensitivity, or a case-sensitive macOS volume,
-// holds Foo.go and foo.go as two files, and folding by platform alone took a
-// new foo.go for the recorded Foo.go (samchon/ttsc#1532).
+// holds Foo.go and foo.go as two files, and folding by platform alone would take
+// a new foo.go for the recorded Foo.go.
 func (directory *pluginSelectionDirectory) has(name string) bool {
   if _, ok := directory.files[name]; ok {
     return true

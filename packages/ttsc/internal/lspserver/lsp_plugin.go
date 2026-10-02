@@ -71,21 +71,20 @@ type LSPDiagnostic struct {
 
   // Tags classify the diagnostic (1 = unnecessary, 2 = deprecated). Carried
   // through so a plugin's tag is not silently dropped when the proxy re-encodes
-  // the diagnostic — the same truncation codeDescription had to be rescued from.
+  // the diagnostic.
   Tags []int `json:"tags,omitempty"`
 
   // Data is opaque state the producer attaches to the diagnostic. The editor
   // preserves it and hands it back on a codeAction request whose context
   // includes this diagnostic, so a rule can recover what it computed without
-  // recomputing it. Carried through unread — like the other optional fields, an
-  // absent one it did not round-trip would be a silent truncation.
+  // recomputing it. Carried through unread — like the other optional fields, one
+  // that did not round-trip would be a silent truncation.
   Data json.RawMessage `json:"data,omitempty"`
 
   // RelatedInformation are secondary locations the diagnostic points at, each
   // with its own message — the editor renders them as clickable lines under the
   // diagnostic. Carried through so a sidecar's related locations survive the
-  // proxy's re-encode, the same truncation the other optional fields had to be
-  // rescued from.
+  // proxy's re-encode.
   RelatedInformation []LSPDiagnosticRelatedInformation `json:"relatedInformation,omitempty"`
 
   Source  string `json:"source,omitempty"`
@@ -317,9 +316,8 @@ type LSPCompletionHint struct {
   // LAST occurrence is what the editor filters on and what Insert replaces.
   //
   // Deliberately a literal and not a pattern. A regex would be unvalidatable at
-  // discovery time, and the one shipped example of plugin-supplied regex driving
-  // completion — Tailwind's experimental.classRegex — is a documented source of
-  // editor hangs. When several hints match one line, the occurrence nearest the
+  // discovery time and a pathological one run per keystroke could hang the
+  // editor. When several hints match one line, the occurrence nearest the
   // cursor wins; at that occurrence the longest After wins, and only the same
   // trigger merges. That is enough to layer a corpus without hiding a later
   // trigger behind an earlier one.
@@ -331,8 +329,9 @@ type LSPCompletionHint struct {
 
 // LSPCompletionItem is one plugin-contributed completion.
 //
-// Fully resolved on arrival: there is no completionItem/resolve round trip,
-// because a resolve would need the producer asked again, and the producer answers once with its whole corpus.
+// Fully resolved on arrival: the producer is never asked again, because it
+// answers once with its whole corpus. The proxy answers an editor's
+// completionItem/resolve for such an item itself, by echoing it back.
 //
 // @evidence contracts/common.md#principled-implementation Required Insert and optional display fields retain completion insertion and presentation distinctions.
 // @evidence contracts/common.md#clear-and-simple-design Fully resolved data avoids a second producer request.

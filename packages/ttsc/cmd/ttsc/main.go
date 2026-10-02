@@ -229,8 +229,7 @@ Integration guide (bundlers):
 
 // normalizeProjectAliasArguments owns the exact -p/--project operand rewrite
 // consumed by run. It never loads a project or returns a cached build status.
-// Both spellings share one normalized build only after independent literal argv
-// expectations establish this actual normalization result.
+// Both spellings produce the same `--tsconfig=<path>` build argv.
 //
 // Go Evidence addresses exported declarations only; these private native
 // review grounds remain attached to the owning operation and its callers.

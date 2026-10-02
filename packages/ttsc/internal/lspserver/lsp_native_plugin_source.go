@@ -661,7 +661,7 @@ func (s *NativePluginSource) CompletionHints() []LSPCompletionHint {
 // The corpus is a projection of what a project rule's Check found, so it goes
 // stale the moment the rule's inputs change: a saved contributor-indexed
 // document, a rule enabled in `lint.config.*`, a watched file rewritten outside
-// the editor. Without this the corpus stayed a session snapshot and only a
+// the editor. Without this the corpus would stay a session snapshot and only a
 // language-server restart could replace it.
 //
 // Asynchronous for the same reason the first fetch is (see CompletionHints):

@@ -24,7 +24,7 @@ import (
 //
 // Structural derivations the schema also defines (file nodes, contains/exports
 // edges) are left to the TypeScript loader, which has the node set in hand and
-// is where the redesign keeps that logic.
+// is where that logic lives.
 
 // DumpEvidence is a 1-based source span grounding a node declaration or an edge
 // expression. It is display/expansion only, never identity.
@@ -32,9 +32,9 @@ import (
 // File is omitted when the reader reconstructs it exactly: a node's span is in
 // the node's file, and an ordinary edge's span is in the file its `from` id
 // names. Cross-file assigned implementations keep the actual evidence file. The
-// path is long, it rode the wire once per node and once per edge, and on VS Code
-// those two copies are 55 MB of a 323 MB document that then has to be encoded,
-// piped, parsed and validated. An `implementation` span keeps its file — that one
+// path is long and would otherwise ride the wire once per node and once per
+// edge, on a document that then has to be encoded, piped, parsed and validated.
+// An `implementation` span keeps its file — that one
 // can genuinely live in another file from the declaration that owns it.
 //
 // @evidence contracts/common.md#principled-implementation One-based line/column spans ground displayed facts while optional File preserves the owner-reconstructible versus cross-file distinction.
@@ -530,9 +530,9 @@ func MarshalDump(g *Graph, project, tsconfig string, ignored map[string]bool, so
 //
 // The alternative, marshaling the whole document into a byte slice, converting
 // that slice into a string and printing the string, holds a second full copy of
-// the document live beside the first. On VS Code the document is 323 MB, so that
-// copy is half a gigabyte of peak heap that buys nothing, because the bytes are
-// already exactly what stdout wants.
+// the document live beside the first. On a large repository that is hundreds of
+// megabytes of peak heap that buys nothing, because the bytes are already
+// exactly what stdout wants.
 //
 // @evidence contracts/common.md#principled-implementation Validated projection is encoded directly to the supplied writer with the protocol's trailing newline and all writer failures preserved.
 // @evidence contracts/common.md#clear-and-simple-design The streaming adapter keeps projection in NewDump and uses standard buffered JSON encoding rather than a second string-output pipeline.

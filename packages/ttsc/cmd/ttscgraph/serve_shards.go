@@ -890,9 +890,9 @@ func partitionServeGraphFacts(
     // Markdown document, a Prisma schema, or nothing at all for an operation
     // named only by method and path. It belongs to the metadata shard, which
     // carries the facts no source owns — and which the client exempts from the
-    // ownership check for exactly that reason. Without this the projection
-    // rejected the node outright and the resident session failed to start for
-    // any project that publishes one.
+    // ownership check for exactly that reason. Treating the node as
+    // source-owned would fail the projection for any project that publishes
+    // one.
     if graph.IsArtifactKind(graph.NodeKind(node.Kind)) {
       metadata := shards[metadataKey]
       metadata.Nodes = append(metadata.Nodes, node)
