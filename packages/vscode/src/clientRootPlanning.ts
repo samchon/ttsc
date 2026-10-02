@@ -13,7 +13,9 @@ import type { ResolutionCandidate } from "./ResolutionCandidate";
  * @evidence contracts/common.md#principled-implementation
  *   Depth ordering selects physical descendants before ancestors. Containment
  *   rejects a candidate when a selected descendant already owns its files;
- *   filtering the original sequence preserves resolution priority.
+ *   consuming each survivor once while filtering the original sequence
+ *   preserves resolution priority, including repeated references to the same
+ *   candidate object.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   Ordering and containment selection form one pure planning operation.
@@ -68,7 +70,7 @@ export function filterCandidatesByPhysicalRoots(
     selected.push(candidate);
   }
   const survivors = new Set(selected);
-  return candidates.filter((candidate) => survivors.has(candidate));
+  return candidates.filter((candidate) => survivors.delete(candidate));
 }
 
 /**
