@@ -7,15 +7,14 @@ import (
   "testing"
 )
 
-// TestCommandFormatPreservesCRLFAcrossReflowRules is the end-to-end regression
-// guard for issue #616: `ttsc format` on a CRLF file with
-// `format: { endOfLine: "crlf" }` must never persist a lone LF.
+// TestCommandFormatPreservesCRLFAcrossReflowRules runs the in-process format
+// command on a CRLF class and requires both reflows to preserve its members
+// and heritage types while keeping every line break CRLF.
 //
-// Before the fix, format/declaration-header and format/parameter-properties
-// synthesized their breaks with a hard-coded "\n", and format/whitespace under
-// CRLF does not repair an injected lone LF, so the command wrote a mixed-EOL
-// file to disk at exit 0. This drives the whole config -> expansion -> engine
-// -> fixer -> disk path and asserts the written file stays uniformly CRLF.
+// This drives config expansion, the engine, cascading edits and the resulting
+// disk bytes. The overflowing heritage list and the two constructor parameter
+// properties require new breaks; the literal oracle also protects the class,
+// six heritage names, parameter modifiers/types and empty constructor body.
 //
 //  1. Seed a CRLF class whose header overflows AND whose constructor declares
 //     parameter properties, plus a lint config with endOfLine:"crlf".
@@ -24,8 +23,8 @@ import (
 //     every "\n" belongs to a "\r\n" (zero lone LFs).
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command with endOfLine crlf and printWidth 50 on a CRLF class whose heritage list and parameter-property constructor both overflow, and requires exit 0 with empty output, the file changed, no lone LF, and the substrings `class Repository\r\n` and `constructor(\r\n`.
-// @evidence contracts/testing.md#independent-expectations Expectations derive from the endOfLine contract (every LF must belong to a CRLF) and two authored substrings; the complete output text is not compared, so the exact reflowed layout is not pinned here.
-// @evidence contracts/testing.md#distinguishing-cases One input that must change, proving both the declaration-header and parameter-properties breaks are emitted with CRLF rather than a hard-coded LF; LF-configured files and other reflow rules are covered elsewhere.
+// @evidence contracts/testing.md#independent-expectations The complete independently authored output preserves the class, all six heritage names and both parameter properties while reflowing them. The separate endOfLine invariant and original two break substrings are retained.
+// @evidence contracts/testing.md#distinguishing-cases One input must change in both its heritage header and parameter-property list; complete output and zero lone LFs require both changes with meaning preserved. This entry does not exercise LF-configured files or every other reflow rule.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatPreservesCRLFAcrossReflowRules(t *testing.T) {
   input := "class Repository implements First, Second, Third, Fourth, Fifth, Sixth {\r\n" +
@@ -61,5 +60,14 @@ func TestCommandFormatPreservesCRLFAcrossReflowRules(t *testing.T) {
   }
   if !strings.Contains(got, "constructor(\r\n") {
     t.Fatalf("parameter-properties did not break onto a CRLF line:\n%q", got)
+  }
+  const want = "class Repository\r\n" +
+    "  implements\r\n" +
+    "    First,\r\n    Second,\r\n    Third,\r\n    Fourth,\r\n    Fifth,\r\n    Sixth\r\n" +
+    "{\r\n" +
+    "  constructor(\r\n    private readonly a: Foo,\r\n    private readonly b: Bar,\r\n  ) {}\r\n" +
+    "}\r\n"
+  if got != want {
+    t.Fatalf("reflowed class mismatch:\nwant %q\ngot  %q", want, got)
   }
 }
