@@ -546,9 +546,9 @@ func (c *ProjectContext) DecodeOptions(out interface{}) error {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts State travels through the supported publication callback instead of replacing host internals or fabricating later-cycle state.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies exact-value semantics, synchronization and rebuild lifetime; paragraphs and tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectContext.SetState performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectContext.SetState has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectContext.SetState keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectContext.SetState acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms The nil/capability/off guard and interface dispatch are fixed work; the default host setter takes a mutex and assigns one state reference while active, without traversing it. Lock contention and a supplied custom setter can add work, so callback cost is not hidden by the wrapper having no loop.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Publishing the supplied reference changes the current cycle state; equal-looking values do not make calls to different cycles or setters interchangeable. The host owns the state slot rather than this method owning a shareable computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The host setter owns the current cycle state slot, replaces its prior reference and rejects publication after closure. Contributor state can retain an arbitrary object graph without a byte-size cap, and existing result readers can retain older references; this forwarding method adds no separate history, handle or task.
 func (c *ProjectContext) SetState(state any) {
   if c == nil || c.stateSetter == nil || c.Severity == SeverityOff {
     return
@@ -563,9 +563,9 @@ func (c *ProjectContext) SetState(state any) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Failure is explicit and never replaced by a synthetic success or file diagnostic.
 // @evidence contracts/common.md#meaningful-documentation Native prose names the diagnostic-free effect with a separated tag block under documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectContext.Fail performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectContext.Fail has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectContext.Fail keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectContext.Fail acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Nil/missing/off checks and dispatch are fixed work. The default host reporter takes its mutex, checks activity and sets one failure flag; contention or a custom reporter can add work, and the method creates no message or source traversal.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Failure publication is an effect on the supplied cycle channel. The host makes repeated failure idempotent within that channel; the wrapper cannot replace publication across different reporters or cycles with a cached success.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The host reporter owns the cycle failure flag and finalization gate; this forwarding method stores no additional result history and acquires no handle or task. A retained context still retains its reporter reference, whose lifetime belongs to that owner.
 func (c *ProjectContext) Fail() {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff {
     return
@@ -580,9 +580,9 @@ func (c *ProjectContext) Fail() {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Findings use their dedicated project channel rather than fabricated source ranges.
 // @evidence contracts/common.md#meaningful-documentation Native prose states finding scope and failure effect; the tag block follows documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectContext.Report performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectContext.Report has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectContext.Report keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectContext.Report acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms The wrapper guards and dispatches once. The default host reporter hashes message bytes for an amortized map update under its cycle mutex, deduplicating by exact message and strongest level; message length, map growth and lock contention drive delegated work, and custom reporters may add their own cost.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call publishes failure and a message to its supplied cycle channel; identical text across different reporters is not equivalent work. The default host already deduplicates message records within one reporter while preserving the strongest level.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The host reporter owns messages retained for the cycle, growing with distinct message count and bytes without a size cap; closure stops new mutation and owner reachability controls release. This wrapper retains no separate message history, handle or task.
 func (c *ProjectContext) Report(message string) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff {
     return
@@ -598,9 +598,9 @@ func (c *ProjectContext) Report(message string) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy fallback addresses an actual supported reporter difference rather than hiding a failed project result.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains suppression and legacy severity fallback; tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectContext.ReportSeverity performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectContext.ReportSeverity has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectContext.ReportSeverity keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectContext.ReportSeverity acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Fixed guard/capability dispatch selects explicit-level reporting or the legacy reporter. The default capable host hashes message bytes and updates its deduplicating map under a mutex, with cost driven by message length, map growth and contention; legacy or custom callback work remains owned by that reporter.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Explicit severity changes the publication effect and fallback uses the configured level of its actual reporter. Equal message strings alone do not make channels or supplied levels interchangeable; the default host combines duplicate messages with strongest-level preservation within a single cycle.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The selected reporter owns cycle message storage and its closure policy; the default host retains distinct message bytes without a size cap until owner references cease to retain them. The wrapper stores no independent history and acquires no handle or task.
 func (c *ProjectContext) ReportSeverity(severity Severity, message string) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff || severity == SeverityOff {
     return
