@@ -156,9 +156,9 @@ func NewProjectRuleResult(
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Failure is propagated through the supported reporter rather than rewriting snapshot status to feign host state.
 // @evidence contracts/common.md#meaningful-documentation Native prose states missing and finalized channel behavior; tags are separated under documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectRuleResult.Fail performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectRuleResult.Fail has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectRuleResult.Fail keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectRuleResult.Fail acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms One nil check and optional reporter callback avoid copying or scanning the snapshot. The standard host reporter locks and sets its active failure flag in constant field work; a supplied reporter owns any additional callback cost and mutex contention is not a fixed latency.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Fail performs the requested mutation through the retained cycle reporter rather than computing a reusable snapshot. Reporter identity and finalization own validity; arbitrary reporter effects cannot be suppressed by treating a previous call as equivalent work.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Fail forwards through the snapshot's existing borrowed reporter without acquiring or retaining a new resource. The reporter owns its lock and active-cycle lifetime, while the snapshot owner controls retention of its references.
 func (r ProjectRuleResult) Fail() {
   if r.reporter != nil {
     r.reporter.Fail()
@@ -174,9 +174,9 @@ func (r ProjectRuleResult) Fail() {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Live failure remains a supported callback, not a mutation of foreign host storage.
 // @evidence contracts/common.md#meaningful-documentation Native prose documents deduplication and no-op lifetime boundaries; the tag block follows documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectRuleResult.Report performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectRuleResult.Report has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectRuleResult.Report keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectRuleResult.Report acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms One nil check forwards the message without copying findings. The standard host reporter locks and deduplicates by keyed message lookup, with hashing proportional to message bytes and amortized insertion work; another supplied reporter owns its callback algorithm and contention cost.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Reporting is an effect on the retained cycle channel, not a reusable snapshot computation. The standard reporter owns equal-message deduplication and active/finalized validity; this wrapper must preserve each supported callback invocation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The wrapper borrows the snapshot's reporter and retains no message independently. The standard host reporter owns unique message strings for the active cycle, closes mutations at finalization and can remain retained through externally held snapshots; this method introduces no separate historical cache or handle.
 func (r ProjectRuleResult) Report(message string) {
   if r.reporter != nil {
     r.reporter.Report(message)
