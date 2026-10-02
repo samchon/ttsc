@@ -11,15 +11,11 @@ import (
 // `format/print-width`, `format/semi`, `format/quotes`, and
 // `format/trailing-comma` are all enabled together.
 //
-// Beyond demonstrating multi-rule integration, this case is the
-// regression guard for an earlier bug where
-// `printImportDeclaration` unconditionally appended `;`. Combined
-// with `format/semi`'s zero-width insert at the same `node.End()`,
-// that double-emit produced `;;` on imports the user wrote without
-// a terminator. The non-overlap check in the applier did not catch
-// it (zero-width insert + same-end replacement do not "overlap" by
-// position math) and neither rule could undo the duplicate on
-// subsequent passes. The cascade silently converged to broken output.
+// The import printer preserves the source's terminator decision while semi
+// owns a missing terminator. The independent whole-file literal requires one
+// semicolon, so double emission by those two owners cannot pass. It also
+// protects import names, module spelling, object bindings and numeric values
+// across quote conversion, list reflow and trailing-comma edits.
 //
 // The fixture is a long import with a single-quoted module specifier and no
 // trailing semicolon (print-width, quotes and semi join) followed by a long
