@@ -62,7 +62,12 @@ export function matchesCachedSource(
   if (
     expected === undefined &&
     cached.result.type === "success" &&
-    !matchesProjectRootFile(file, cached.membershipPolicy, false)
+    !matchesProjectRootFile(
+      file,
+      cached.membershipPolicy,
+      false,
+      resultFilesystem(cached.result).platform,
+    )
   ) {
     const state = envelopeDerivation(cached);
     const outputs = (state.outputIndex ??= createEnvelopeKeyIndex(
