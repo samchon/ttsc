@@ -7,11 +7,11 @@ import (
 )
 
 // TestBehavioralWitnessAuditRejectsInertPublicRule is the regression sentinel.
-// It runs an actual registered no-op rule through production Engine dispatch to
+// It binds a registered no-op rule and runs production Engine over a source to
 // show it reports nothing, then shows the auditor rejects a public identity that
 // has no recorded positive witness.
 //
-//  1. Register and execute a configured no-op rule on authored TypeScript.
+//  1. Register and bind a configured no-op rule, then run Engine on authored TypeScript.
 //  2. Require zero findings and a missing-positive-witness audit rejection for that public identity.
 //
 // @evidence contracts/testing.md#behavioral-verification A registered no-op rule is bound at error severity by newRuleSnapshotEngine and Engine.Run over one parsed source returns zero findings; auditBehavioralWitnesses given that identity as public and an empty candidate map returns an error naming the rule and "public rules without a positive production witness". The no-op Check is not observed to run, and the engine result is not fed to the auditor: the candidate map is passed empty by the test.
