@@ -15,7 +15,7 @@ import {
  * A mistaken `cacheDir: "."`, external `TTSC_GO_CACHE_DIR`, project ancestor,
  * physical alias, or filesystem root must be rejected with every sentinel
  * intact. A real regression is contained to a test-owned temporary parent; the
- * alias and filesystem-root cases call the pure guard only.
+ * alias and filesystem-root cases call the filesystem validation guard only.
  *
  * 1. Reject explicit project and ancestor cache roots without removing data.
  * 2. Reject a physical alias and an environment-selected project ancestor.
@@ -57,7 +57,7 @@ export function test_ttsccompiler_clean_refuses_project_containing_cache_directo
           () => compiler.clean(),
           /refusing to clean cache directory.*equals or contains project root/,
         );
-        assert.equal(fs.readFileSync(projectSentinel, "utf8").length > 0, true);
+        assert.equal(fs.readFileSync(projectSentinel, "utf8"), 'export const keep = "project";\n');
         assert.equal(fs.readFileSync(siblingSentinel, "utf8"), "sibling");
       }
 
@@ -88,7 +88,7 @@ export function test_ttsccompiler_clean_refuses_project_containing_cache_directo
         /refusing to clean cache directory.*equals or contains project root/,
       );
       assert.equal(fs.readFileSync(pluginSentinel, "utf8"), "plugin");
-      assert.equal(fs.readFileSync(projectSentinel, "utf8").length > 0, true);
+      assert.equal(fs.readFileSync(projectSentinel, "utf8"), 'export const keep = "project";\n');
       assert.equal(fs.readFileSync(siblingSentinel, "utf8"), "sibling");
 
       assert.throws(
@@ -98,8 +98,8 @@ export function test_ttsccompiler_clean_refuses_project_containing_cache_directo
           ]),
         /filesystem roots are never valid cache directories/,
       );
-      assert.equal(fs.existsSync(projectSentinel), true);
-      assert.equal(fs.existsSync(siblingSentinel), true);
+      assert.equal(fs.readFileSync(projectSentinel, "utf8"), 'export const keep = "project";\n');
+      assert.equal(fs.readFileSync(siblingSentinel, "utf8"), "sibling");
     } finally {
       fs.rmSync(aliasRoot, { force: true, recursive: true });
       fs.rmSync(parent, { force: true, recursive: true });

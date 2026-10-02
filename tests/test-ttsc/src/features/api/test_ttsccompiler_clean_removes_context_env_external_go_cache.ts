@@ -64,6 +64,7 @@ export function test_ttsccompiler_clean_removes_context_env_external_go_cache() 
       assert.equal(fs.existsSync(externalGoCache), false);
       assert.equal(fs.existsSync(pluginCache), false);
       assert.equal(fs.existsSync(userGoCache), true);
+      assert.equal(fs.readFileSync(path.join(userGoCache, "seed"), "utf8"), "cache\n");
       // The fix must not lean on mutating the shared process environment.
       assert.equal(process.env.TTSC_GO_CACHE_DIR, undefined);
     } finally {
