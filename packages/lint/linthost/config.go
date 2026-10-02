@@ -178,14 +178,15 @@ type ProjectRuleSetting struct {
   // Severity is meaningful as a declaration only when Declared is true.
   Severity Severity
 
-  // Options is the resolved raw payload, or nil for a severity-only declaration.
+  // Options is the resolved raw payload, possibly inherited from an earlier
+  // global declaration. It is nil when no payload was contributed.
   Options json.RawMessage
 }
 
 // ResolvedRuleConfig is the complete rule setting that applies to one source
-// file. Rules and Options are folded from the same matching config entries so
-// an option tuple can never cross a files/ignores boundary independently of
-// its severity.
+// file. Built-in config-store resolution folds Rules and Options from the
+// same matching entries. Custom resolvers must preserve that ownership rather
+// than borrowing an option tuple from an entry outside the file's scope.
 //
 // `Ignored` means an `ignores`-only config entry matched the file and the
 // engine should skip linting it entirely. `OutOfScope` means the store has at
@@ -193,7 +194,7 @@ type ProjectRuleSetting struct {
 // states distinct lets wrappers preserve entry-local ignores: one entry may
 // reject a file while another matching entry still contributes rules.
 //
-// @evidence contracts/common.md#principled-implementation Paired severity and option maps preserve matching-entry ownership; separate ignored and out-of-scope states distinguish exclusion from no contributing declaration.
+// @evidence contracts/common.md#principled-implementation Paired severity and option maps carry the resolver's matching-entry policy without encoding one field into the other; separate ignored and out-of-scope states distinguish exclusion from no contributing declaration.
 // @evidence contracts/common.md#clear-and-simple-design The value carries a single file's resolution with an explicit authority bit for compatibility with older custom resolvers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts OptionsResolved distinguishes a real interface capability instead of substituting an empty map for unresolved data.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains scope and compatibility states; each public field has its own spaced comment and no checklist tag.
@@ -224,23 +225,24 @@ type ResolvedRuleConfig struct {
 // aliases are normalized on lookup so the same key selects both severity and
 // options.
 // The returned slice is the stored payload, so callers must treat it as read-only.
+// The supplying resolver must reject colliding canonical keys before execution.
 //
 // @evidence contracts/common.md#principled-implementation Exact, canonical and unique normalized-alias lookup read the file's authoritative option map without falling back to another file's declaration.
 // @evidence contracts/common.md#clear-and-simple-design Lookup remains on the resolved value so execution need not repeat config-entry folding.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Namespace normalization follows the rule naming contract and does not select a payload by consumer identity.
 // @evidence contracts/common.md#meaningful-documentation Native prose states normalization, absence and borrowed slice ownership with tags in a separate comment paragraph.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation RuleOptions looks up option bytes by rule name and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms The exact and canonical names are tried with constant-time map lookups and one linear scan of the stored names runs only when neither matches, so the common case is O(1).
+// @evidence contracts/performance.md#efficient-algorithms Exact and canonical keys use an expected constant number of map probes, with hashing and normalization proportional to query-name bytes. Only a miss scans n stored names, paying their normalization/comparison byte costs; option bytes are returned without decoding or copying.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleOptions keeps no cache and shares no computation.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleOptions returns the stored message without copying; the resolved configuration owns it.
 func (r ResolvedRuleConfig) RuleOptions(name string) json.RawMessage {
   if raw := r.Options[name]; len(raw) > 0 {
     return raw
   }
-  if raw := r.Options[normalizeBuiltinRuleName(name)]; len(raw) > 0 {
+  canonical := normalizeBuiltinRuleName(name)
+  if raw := r.Options[canonical]; len(raw) > 0 {
     return raw
   }
-  canonical := normalizeBuiltinRuleName(name)
   for storedName, raw := range r.Options {
     if normalizeBuiltinRuleName(storedName) == canonical {
       return raw
@@ -650,7 +652,7 @@ func (r InlineRuleResolver) EnabledRuleConfig() RuleConfig {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Alias normalization is supported naming policy and does not select options from expected diagnostics.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains nil results and borrowed byte ownership before separated tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation RuleOptions looks up option bytes by rule name and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms The exact and canonical names are tried with constant-time map lookups and one linear scan of the stored names runs only when neither matches, so the common case is O(1).
+// @evidence contracts/performance.md#efficient-algorithms Exact and canonical keys use an expected constant number of map probes, with hashing and normalization proportional to query-name bytes. Only a miss scans n stored names, paying their normalization/comparison byte costs; option bytes are borrowed without decoding or copying.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleOptions keeps no cache and shares no computation.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleOptions returns the stored message without copying; the resolver owns it.
 func (r InlineRuleResolver) RuleOptions(name string) json.RawMessage {
@@ -5942,7 +5944,7 @@ func matchGlobParts(patternParts, nameParts []string) bool {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing declarations remain disabled by documented policy rather than a fixture-specific activation fallback.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains opt-in absence and the direction of alias lookup, separated from the acknowledgment tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Severity looks up a rule severity by name and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms The exact and canonical names are tried with constant-time map lookups and one linear scan of the stored names runs only when neither matches, so the common case is O(1).
+// @evidence contracts/performance.md#efficient-algorithms Exact and canonical keys use an expected constant number of map probes, with hashing and normalization proportional to query-name bytes. Only a miss scans n stored names, paying their normalization/comparison byte costs; no normalized map or cached snapshot is built.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Severity keeps no cache and shares no computation.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Severity acquires no handle or task and retains nothing.
 func (c RuleConfig) Severity(name string) Severity {
