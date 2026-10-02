@@ -951,9 +951,9 @@ func (e *Engine) runsSerial() bool {
 }
 
 // NewEngine returns an engine configured for `config`. Rules whose
-// severity is `off` are skipped entirely. Configuration entries that name
-// an unknown rule are recorded so the caller can surface them as a
-// configuration warning rather than a silent typo.
+// severity is `off` have no file subscriptions; option validation still considers
+// declared variants. Active unknown names are recorded so the caller can surface
+// them as a configuration warning rather than a silent typo.
 //
 // Call ConfigError before execution; invalid declarations do not form a
 // usable engine. The registry and configuration must remain stable afterward.
@@ -962,10 +962,10 @@ func (e *Engine) runsSerial() bool {
 // @evidence contracts/common.md#clear-and-simple-design The flat-config constructor delegates to the single resolver-based constructor, avoiding a second dispatch implementation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Flat configuration uses the supported resolver interface without exceptions for particular callers or rule names.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains disabled and unknown rules, the ConfigError requirement and input stability before the tags.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation NewEngine performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms NewEngine has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewEngine keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewEngine acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation The flat-config adapter introduces no native path or process policy; resolver-based construction and rule callbacks own their supported input operations.
+// @evidence contracts/performance.md#efficient-algorithms Delegation includes resolver construction over the whole file/project registry, config names, option validation and subscribed kinds; the wrapper does not make that work constant. RuleConfig supplies flat severity metadata without options payloads.
+// @evidence contracts/performance.md#reuse-equivalent-work The delegated constructor deduplicates identical per-rule option bytes within this construction. Each call returns a distinct configurable engine; this wrapper coordinates no cross-call sharing.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The newly created engine transfers to its caller with registry subscriptions, configuration and binding state; validation-only tables end at construction. The wrapper retains no history of returned engines and owns no native handle or task.
 func NewEngine(config RuleConfig) *Engine {
   return NewEngineWithResolver(config)
 }
@@ -985,10 +985,10 @@ func NewEngine(config RuleConfig) *Engine {
 // @evidence contracts/common.md#clear-and-simple-design Construction owns resolver validation, checker requirements and dispatch binding; per-file resolution remains in runFile rather than copied into global settings.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid project resolution returns at the owning boundary rather than deriving metadata from an invalid configuration; legacy option fallback is restricted to resolvers lacking per-file option resolution.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs state file-scoped policy, initial failure effects, accumulated option errors and stable-input ownership before the tags.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation NewEngineWithResolver builds rule dispatch tables from rule names and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms Each enabled rule is visited once and its node kinds are de-duplicated with a set before it is indexed by kind, so construction is O(rules plus kinds per rule) and per-file runs index rules by node kind instead of scanning every rule.
-// @evidence contracts/performance.md#reuse-equivalent-work Identical option bytes for a rule are de-duplicated with a seen set so each distinct option variant is validated once per rule.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The engine owns its dispatch table and settings for its own lifetime; the table size is bounded by the node-kind count and the enabled rules, and no handle or task is acquired.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Construction defines name, option and kind binding without its own native path or process policy. Resolver and rule callbacks own any supported native input operations they perform.
+// @evidence contracts/performance.md#efficient-algorithms For r registered file rules, p project rules, v returned option variants, b payload bytes, a active names, k requested kinds and u unknown names, local work is O(r log r+p log p+u log u+v+b+a+k) sorting, scans and set operations. String hashing/comparison examines name bytes; resolver, display-severity lookup, metadata and unique-option validator costs are additional. A display-severity alias lookup may scan the returned map entries. All registered file rules are considered for options, not only enabled subscriptions.
+// @evidence contracts/performance.md#reuse-equivalent-work Stable registered rule metadata and identical option bytes define one validation input within construction; a per-rule seen set invokes validation once per distinct byte payload. Sets are not shared across rules or engine constructions; per-file resolution remains separate.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives the engine with its resolver, project settings, enabled/unknown names and KindCount-indexed subscriptions. Validation-only payload/kind sets and invalid-name tables end at constructor return; retained data grows with registered project rules, configured names, project payloads and subscribed kinds, with no historical-engine cache, native handle or task owned here.
 func NewEngineWithResolver(config RuleResolver) *Engine {
   if config == nil {
     config = RuleConfig{}

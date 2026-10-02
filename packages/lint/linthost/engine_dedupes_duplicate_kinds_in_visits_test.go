@@ -25,15 +25,16 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification NewEngine deduplicates two identical Visits subscriptions so the authored custom rule reports exactly once for the single variable statement.
 // @evidence contracts/testing.md#independent-expectations One matching statement and literal duplicate-kinds rule fired message independently require exactly one finding with the configured rule/error/file identity.
-// @evidence contracts/testing.md#distinguishing-cases Repeated identical Kind entries versus one matching AST node distinguish duplicate binding from ordinary traversal; cleanup removes the temporary registration after this individual case.
+// @evidence contracts/testing.md#distinguishing-cases Repeated identical Kind entries versus one matching AST node distinguish duplicate binding from ordinary traversal; the fresh-name guard prevents deleting a foreign registration and cleanup removes only the owned sentinel while invalidating its derived codes.
 // @evidence contracts/testing.md#execution-ownership Actual Register, NewEngine and Engine.Run directly exercise the authored Go rule in one shared process; this unit does not compile or start a native contributor host.
 func TestEngineDedupesDuplicateKindsInVisits(t *testing.T) {
-  // Defensive: `Register` panics on duplicates, so a `go test -count=N`
-  // re-run would crash before `defer` could clean up. Drop any prior
-  // entry first and schedule the cleanup via `t.Cleanup` so it fires
-  // for panics + Fatal alike.
-  delete(registered.rules, "dedupe-visits-test/rule")
-  t.Cleanup(func() { delete(registered.rules, "dedupe-visits-test/rule") })
+  if LookupRule("dedupe-visits-test/rule") != nil {
+    t.Fatal("duplicate-kinds sentinel is already registered")
+  }
+  t.Cleanup(func() {
+    delete(registered.rules, "dedupe-visits-test/rule")
+    invalidateRuntimeRuleCodes()
+  })
   Register(&duplicateKindsTestRule{})
 
   engine := NewEngine(RuleConfig{
