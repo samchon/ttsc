@@ -29,21 +29,6 @@ import path from "node:path";
  *   The default-export protocol uses the supported host loader. No wrapper
  *   substitutes its own transform implementation or compensates for failed
  *   source resolution.
- * @evidence contracts/portability.md#os-neutral-implementation
- *   node:path.resolve constructs the absolute sibling driver path from the
- *   host-supplied dirname on Windows and POSIX. Native roots and separators
- *   come from that supplied directory, rather than an ambient __dirname or a
- *   manually concatenated path.
- * @evidence contracts/performance.md#efficient-algorithms
- *   The factory performs one path resolution and builds one small object, so
- *   its cost is constant and independent of project size.
- * @evidence contracts/performance.md#reuse-equivalent-work
- *   The factory computes nothing worth sharing and keeps no cache of its own;
- *   its empty host-input hashes are what let the host reuse the evaluated
- *   descriptor for an unchanged module graph.
- * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   The factory opens no file or handle and retains nothing between calls;
- *   each call returns a fresh descriptor that the caller owns.
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc explains the host directory, driver ownership and the
  *   limited meaning of descriptor-input reuse in separate paragraphs. Context
