@@ -134,7 +134,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * (contracts/testing.md#distinguishing-cases): The document genuinely sits
      * above the project; swagger-file supplies the local-path counterpart.
      * Execution ownership (contracts/testing.md#execution-ownership):
-     * test_evidence_consumer_batch_accepts_complete_graphs selects this E2E
+     * case_evidence_consumer_batch_accepts_complete_graphs selects this E2E
      * scene and invokes its callback through ConsumerBatch.verify. The entry
      * field records its original owner; this table item is not independently
      * selectable. Necessary boundary (contracts/e2e.md#necessary-boundary): The
@@ -156,11 +156,11 @@ export const consumerCases: readonly IConsumerCase[] = [
      * and the caller joins closure before cleanup. Preserved coverage
      * (contracts/e2e.md#preserved-coverage): The callback below retains this
      * scene's original status and text assertions in
-     * test_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
+     * case_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_accepts_a_swagger_document_outside_the_project",
+    entry: "evidence graph accepts a swagger document outside the project",
     props: {
       nativeProducer: "snapshot",
       name: "swagger-outside",
@@ -214,7 +214,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * cover obligations without selected model/function evidence;
      * invalid-central-exclusion-carriers rejects malformed uses. Execution
      * ownership (contracts/testing.md#execution-ownership):
-     * test_evidence_consumer_batch_accepts_complete_graphs selects this E2E
+     * case_evidence_consumer_batch_accepts_complete_graphs selects this E2E
      * scene and invokes its callback through ConsumerBatch.verify. The entry
      * field records its original owner; this table item is not independently
      * selectable. Necessary boundary (contracts/e2e.md#necessary-boundary):
@@ -236,11 +236,11 @@ export const consumerCases: readonly IConsumerCase[] = [
      * and the caller joins closure before cleanup. Preserved coverage
      * (contracts/e2e.md#preserved-coverage): The callback below retains this
      * scene's original status and text assertions in
-     * test_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
+     * case_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_accepts_central_exclusion_carriers",
+    entry: "evidence graph accepts central exclusion carriers",
     props: {
       nativeProducer: "snapshot",
       name: "central-exclusion-carriers",
@@ -317,7 +317,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_accepts_central_exclusion_carriers",
+    entry: "evidence graph accepts central exclusion carriers",
     props: {
       nativeProducer: "snapshot",
       name: "invalid-central-exclusion-carriers",
@@ -388,7 +388,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * Overlapping type/property populations must discharge their own
      * model/column obligations. Execution ownership
      * (contracts/testing.md#execution-ownership):
-     * test_evidence_consumer_batch_accepts_complete_graphs selects this E2E
+     * case_evidence_consumer_batch_accepts_complete_graphs selects this E2E
      * scene and invokes its callback through ConsumerBatch.verify. The entry
      * field records its original owner; this table item is not independently
      * selectable. Necessary boundary (contracts/e2e.md#necessary-boundary): Two
@@ -410,11 +410,11 @@ export const consumerCases: readonly IConsumerCase[] = [
      * and the caller joins closure before cleanup. Preserved coverage
      * (contracts/e2e.md#preserved-coverage): The callback below retains this
      * scene's original status and text assertions in
-     * test_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
+     * case_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_accepts_overlapping_type_and_property_claims",
+    entry: "evidence graph accepts overlapping type and property claims",
     props: {
       nativeProducer: "snapshot",
       name: "overlapping-prisma-claims",
@@ -456,7 +456,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * Distinguishing cases (contracts/testing.md#distinguishing-cases): Local
      * exact-file selection complements the sibling-file and HTTP operations.
      * Execution ownership (contracts/testing.md#execution-ownership):
-     * test_evidence_consumer_batch_accepts_complete_graphs selects this E2E
+     * case_evidence_consumer_batch_accepts_complete_graphs selects this E2E
      * scene and invokes its callback through ConsumerBatch.verify. The entry
      * field records its original owner; this table item is not independently
      * selectable. Necessary boundary (contracts/e2e.md#necessary-boundary): The
@@ -478,11 +478,11 @@ export const consumerCases: readonly IConsumerCase[] = [
      * and the caller joins closure before cleanup. Preserved coverage
      * (contracts/e2e.md#preserved-coverage): The callback below retains this
      * scene's original status and text assertions in
-     * test_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
+     * case_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_accepts_swagger_file_reference",
+    entry: "evidence graph accepts swagger file reference",
     props: {
       nativeProducer: "snapshot",
       name: "swagger-file",
@@ -531,7 +531,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * (contracts/testing.md#distinguishing-cases): The selected config module
      * retains satisfies ITtscLintConfig and the public named plugin export.
      * Execution ownership (contracts/testing.md#execution-ownership):
-     * test_evidence_consumer_batch_accepts_complete_graphs selects this E2E
+     * case_evidence_consumer_batch_accepts_complete_graphs selects this E2E
      * scene and invokes its callback through ConsumerBatch.verify. The entry
      * field records its original owner; this table item is not independently
      * selectable. Necessary boundary (contracts/e2e.md#necessary-boundary):
@@ -553,11 +553,11 @@ export const consumerCases: readonly IConsumerCase[] = [
      * and the caller joins closure before cleanup. Preserved coverage
      * (contracts/e2e.md#preserved-coverage): The callback below retains this
      * scene's original status and text assertions in
-     * test_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
+     * case_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_accepts_typed_consumer_config",
+    entry: "evidence graph accepts typed consumer config",
     props: {
       nativeProducer: "snapshot",
       name: "typed-config",
@@ -632,7 +632,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_activates_only_selected_claim_hosts",
+    entry: "evidence graph activates only selected claim hosts",
     props: {
       nativeProducer: "snapshot",
       name: "selected-hosts-active",
@@ -698,7 +698,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * (contracts/testing.md#distinguishing-cases): Model-level citations must
      * discharge the selected columns and relations beneath them. Execution
      * ownership (contracts/testing.md#execution-ownership):
-     * test_evidence_consumer_batch_accepts_complete_graphs selects this E2E
+     * case_evidence_consumer_batch_accepts_complete_graphs selects this E2E
      * scene and invokes its callback through ConsumerBatch.verify. The entry
      * field records its original owner; this table item is not independently
      * selectable. Necessary boundary (contracts/e2e.md#necessary-boundary):
@@ -720,11 +720,11 @@ export const consumerCases: readonly IConsumerCase[] = [
      * and the caller joins closure before cleanup. Preserved coverage
      * (contracts/e2e.md#preserved-coverage): The callback below retains this
      * scene's original status and text assertions in
-     * test_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
+     * case_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_binds_a_prisma_schema_to_requirements",
+    entry: "evidence graph binds a prisma schema to requirements",
     props: {
       nativeProducer: "snapshot",
       name: "prisma-graph",
@@ -798,7 +798,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_cites_a_class_and_its_members",
+    entry: "evidence graph cites a class and its members",
     props: {
       nativeProducer: "snapshot",
       name: "class-units",
@@ -860,7 +860,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * (contracts/testing.md#distinguishing-cases): Mixed Markdown/TypeScript
      * references, an exclusion and TSX imports require the preserved jsx
      * setting. Execution ownership (contracts/testing.md#execution-ownership):
-     * test_evidence_consumer_batch_accepts_complete_graphs selects this E2E
+     * case_evidence_consumer_batch_accepts_complete_graphs selects this E2E
      * scene and invokes its callback through ConsumerBatch.verify. The entry
      * field records its original owner; this table item is not independently
      * selectable. Necessary boundary (contracts/e2e.md#necessary-boundary): All
@@ -882,11 +882,11 @@ export const consumerCases: readonly IConsumerCase[] = [
      * and the caller joins closure before cleanup. Preserved coverage
      * (contracts/e2e.md#preserved-coverage): The callback below retains this
      * scene's original status and text assertions in
-     * test_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
+     * case_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_composes_multi_claim_graphs",
+    entry: "evidence graph composes multi claim graphs",
     props: {
       nativeProducer: "snapshot",
       name: "composed-graph",
@@ -940,7 +940,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * Prisma-carrier-misplaced changes only eligible carrier placement and
      * retains failure. Execution ownership
      * (contracts/testing.md#execution-ownership):
-     * test_evidence_consumer_batch_accepts_complete_graphs selects this E2E
+     * case_evidence_consumer_batch_accepts_complete_graphs selects this E2E
      * scene and invokes its callback through ConsumerBatch.verify. The entry
      * field records its original owner; this table item is not independently
      * selectable. Necessary boundary (contracts/e2e.md#necessary-boundary):
@@ -962,11 +962,11 @@ export const consumerCases: readonly IConsumerCase[] = [
      * and the caller joins closure before cleanup. Preserved coverage
      * (contracts/e2e.md#preserved-coverage): The callback below retains this
      * scene's original status and text assertions in
-     * test_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
+     * case_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_confines_prisma_and_rooted_carriers",
+    entry: "evidence graph confines prisma and rooted carriers",
     props: {
       nativeProducer: "snapshot",
       name: "prisma-carrier-confined",
@@ -1054,7 +1054,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_confines_prisma_and_rooted_carriers",
+    entry: "evidence graph confines prisma and rooted carriers",
     props: {
       nativeProducer: "snapshot",
       name: "prisma-carrier-misplaced",
@@ -1146,7 +1146,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_obligates_prisma_columns_and_relations",
+    entry: "evidence graph obligates prisma columns and relations",
     props: {
       nativeProducer: "snapshot",
       name: "prisma-members",
@@ -1218,7 +1218,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_refuses_a_swagger_directory_reference",
+    entry: "evidence graph refuses a swagger directory reference",
     props: {
       nativeProducer: "snapshot",
       name: "swagger-directory",
@@ -1294,7 +1294,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_reports_a_discarded_prisma_citation",
+    entry: "evidence graph reports a discarded prisma citation",
     props: {
       nativeProducer: "snapshot",
       name: "prisma-line-comment",
@@ -1368,7 +1368,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_reports_an_uncited_prisma_model",
+    entry: "evidence graph reports an uncited prisma model",
     props: {
       nativeProducer: "snapshot",
       name: "prisma-dangling",
@@ -1443,7 +1443,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_graph_reports_swagger_source_failures",
+    entry: "evidence graph reports swagger source failures",
     props: {
       nativeProducer: "snapshot",
       name: "swagger-invalid",
@@ -1511,7 +1511,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * config is outside the Program; the direct SDK citation-usage unit owns
      * the unbraced TS6133 counterpart. Execution ownership
      * (contracts/testing.md#execution-ownership):
-     * test_evidence_consumer_batch_accepts_complete_graphs selects this E2E
+     * case_evidence_consumer_batch_accepts_complete_graphs selects this E2E
      * scene and invokes its callback through ConsumerBatch.verify. The entry
      * field records its original owner; this table item is not independently
      * selectable. Necessary boundary (contracts/e2e.md#necessary-boundary):
@@ -1533,11 +1533,11 @@ export const consumerCases: readonly IConsumerCase[] = [
      * and the caller joins closure before cleanup. Preserved coverage
      * (contracts/e2e.md#preserved-coverage): The callback below retains this
      * scene's original status and text assertions in
-     * test_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
+     * case_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_readme_cite_example_passes",
+    entry: "evidence readme cite example passes",
     props: {
       nativeProducer: "snapshot",
       name: "readme-cite",
@@ -1582,7 +1582,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * Distinguishing cases (contracts/testing.md#distinguishing-cases): Its
      * include list selects src without pulling the anonymous config into file
      * rules. Execution ownership (contracts/testing.md#execution-ownership):
-     * test_evidence_consumer_batch_accepts_complete_graphs selects this E2E
+     * case_evidence_consumer_batch_accepts_complete_graphs selects this E2E
      * scene and invokes its callback through ConsumerBatch.verify. The entry
      * field records its original owner; this table item is not independently
      * selectable. Necessary boundary (contracts/e2e.md#necessary-boundary): The
@@ -1604,11 +1604,11 @@ export const consumerCases: readonly IConsumerCase[] = [
      * and the caller joins closure before cleanup. Preserved coverage
      * (contracts/e2e.md#preserved-coverage): The callback below retains this
      * scene's original status and text assertions in
-     * test_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
+     * case_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_readme_configure_example_passes",
+    entry: "evidence readme configure example passes",
     props: {
       nativeProducer: "snapshot",
       name: "readme-configure",
@@ -1649,7 +1649,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * (contracts/testing.md#distinguishing-cases): This Markdown host
      * complements the README TypeScript host examples. Execution ownership
      * (contracts/testing.md#execution-ownership):
-     * test_evidence_consumer_batch_accepts_complete_graphs selects this E2E
+     * case_evidence_consumer_batch_accepts_complete_graphs selects this E2E
      * scene and invokes its callback through ConsumerBatch.verify. The entry
      * field records its original owner; this table item is not independently
      * selectable. Necessary boundary (contracts/e2e.md#necessary-boundary): The
@@ -1671,11 +1671,11 @@ export const consumerCases: readonly IConsumerCase[] = [
      * and the caller joins closure before cleanup. Preserved coverage
      * (contracts/e2e.md#preserved-coverage): The callback below retains this
      * scene's original status and text assertions in
-     * test_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
+     * case_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_readme_markdown_citation_example_passes",
+    entry: "evidence readme markdown citation example passes",
     props: {
       nativeProducer: "snapshot",
       name: "readme-markdown-citation",
@@ -1746,7 +1746,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_reference_selects_an_installed_package",
+    entry: "evidence reference selects an installed package",
     props: {
       nativeProducer: "snapshot",
       name: "package-population",
@@ -1800,7 +1800,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * Distinguishing cases (contracts/testing.md#distinguishing-cases): The
      * incomplete package counterpart omits the review citation only. Execution
      * ownership (contracts/testing.md#execution-ownership):
-     * test_evidence_consumer_batch_accepts_complete_graphs selects this E2E
+     * case_evidence_consumer_batch_accepts_complete_graphs selects this E2E
      * scene and invokes its callback through ConsumerBatch.verify. The entry
      * field records its original owner; this table item is not independently
      * selectable. Necessary boundary (contracts/e2e.md#necessary-boundary):
@@ -1822,11 +1822,11 @@ export const consumerCases: readonly IConsumerCase[] = [
      * and the caller joins closure before cleanup. Preserved coverage
      * (contracts/e2e.md#preserved-coverage): The callback below retains this
      * scene's original status and text assertions in
-     * test_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
+     * case_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_reference_selects_an_installed_package",
+    entry: "evidence reference selects an installed package",
     props: {
       nativeProducer: "snapshot",
       name: "package-population-complete",
@@ -1896,7 +1896,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_singular_reports_included_config_file",
+    entry: "evidence singular reports included config file",
     props: {
       nativeProducer: "snapshot",
       name: "singular-config-included",
@@ -1946,7 +1946,7 @@ export const consumerCases: readonly IConsumerCase[] = [
      * (contracts/testing.md#distinguishing-cases): Singular-config-included
      * supplies the anonymous included-config refusal. Execution ownership
      * (contracts/testing.md#execution-ownership):
-     * test_evidence_consumer_batch_accepts_complete_graphs selects this E2E
+     * case_evidence_consumer_batch_accepts_complete_graphs selects this E2E
      * scene and invokes its callback through ConsumerBatch.verify. The entry
      * field records its original owner; this table item is not independently
      * selectable. Necessary boundary (contracts/e2e.md#necessary-boundary):
@@ -1968,11 +1968,11 @@ export const consumerCases: readonly IConsumerCase[] = [
      * and the caller joins closure before cleanup. Preserved coverage
      * (contracts/e2e.md#preserved-coverage): The callback below retains this
      * scene's original status and text assertions in
-     * test_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
+     * case_evidence_consumer_batch_accepts_complete_graphs; no unverified unit
      * counterpart replaces them. Physical location expectations alone follow
      * relocated fixtures, and the scene name identifies collected failures.
      */
-    entry: "test_evidence_singular_skips_declaration_files",
+    entry: "evidence singular skips declaration files",
     props: {
       nativeProducer: "snapshot",
       name: "singular-declarations",

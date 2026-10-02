@@ -12,8 +12,8 @@ import assert from "node:assert/strict";
  * error, not an empty preload list.
  *
  * The flag has to be the last token and sit before any entry: a `-r` written
- * after the entry belongs to the program's own argv, which is the neighbouring
- * case `test_ttsx_does_not_preload_a_require_written_after_the_entry` pins.
+ * after the entry belongs to the program's own argv, so only the trailing,
+ * entry-less form is rejected here.
  *
  * 1. Create a project with a runnable entry.
  * 2. Run ttsx with a trailing `-r` that has no value and no entry after it.

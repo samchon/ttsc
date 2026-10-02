@@ -53,17 +53,17 @@ export function test_ttsx_esm_resolution_preserves_specifiers_and_non_import_tex
   const failures: unknown[] = [];
   const cases = [
     {
-      name: "test_ttsx_rewrites_extensionless_esm_side_effect_imports",
+      name: "ttsx rewrites extensionless esm side effect imports",
       expected: "side-effect-import-ok",
       json: false,
     },
     {
-      name: "test_ttsx_rewrites_extensionless_esm_directory_index_imports",
+      name: "ttsx rewrites extensionless esm directory index imports",
       expected: "directory-index-ok",
       json: false,
     },
     {
-      name: "test_ttsx_esm_rewrite_preserves_query_and_hash_on_extensioned_specifiers",
+      name: "ttsx esm rewrite preserves query and hash on extensioned specifiers",
       expected: {
         query: "?query",
         hash: "#hash",
@@ -71,7 +71,7 @@ export function test_ttsx_esm_resolution_preserves_specifiers_and_non_import_tex
       json: true,
     },
     {
-      name: "test_ttsx_esm_rewrite_leaves_strings_templates_comments_and_regex_literals_untouched",
+      name: "ttsx esm rewrite leaves strings templates comments and regex literals untouched",
       expected: {
         message: "scanner-ok",
         dynamic: "dynamic-ok",
@@ -83,62 +83,62 @@ export function test_ttsx_esm_resolution_preserves_specifiers_and_non_import_tex
       json: true,
     },
     {
-      name: "test_ttsx_builds_a_dependency_whose_project_declares_no_rootdir",
+      name: "ttsx builds a dependency whose project declares no rootdir",
       expected: "Low-2",
       json: false,
     },
     {
-      name: "test_ttsx_builds_a_raw_ts_dependency_that_type_stripping_cannot_elide",
+      name: "ttsx builds a raw ts dependency that type stripping cannot elide",
       expected: "wrapped-7",
       json: false,
     },
     {
-      name: "test_ttsx_preserves_enum_runtime_object_in_a_built_dependency",
+      name: "ttsx preserves enum runtime object in a built dependency",
       expected: "Low-2",
       json: false,
     },
     {
-      name: "test_ttsx_preserves_runtime_namespace_value_export_in_a_built_dependency",
+      name: "ttsx preserves runtime namespace value export in a built dependency",
       expected: "repeated-3",
       json: false,
     },
     {
-      name: "test_ttsx_runs_an_esm_package_raw_ts_dependency_as_a_module",
+      name: "ttsx runs an esm package raw ts dependency as a module",
       expected: "loaded-as-module",
       json: false,
     },
     {
-      name: "test_ttsx_runs_an_esm_package_raw_ts_dependency_that_uses_import_meta",
+      name: "ttsx runs an esm package raw ts dependency that uses import meta",
       expected: "meta-ok",
       json: false,
     },
     {
-      name: "test_ttsx_runs_a_commonjs_package_raw_ts_dependency_with_no_module_syntax_as_commonjs",
+      name: "ttsx runs a commonjs package raw ts dependency with no module syntax as commonjs",
       expected: "side-effect-ran",
       json: false,
     },
     {
-      name: "test_ttsx_runs_a_published_esm_raw_ts_dependency_with_enums_under_node_modules",
+      name: "ttsx runs a published esm raw ts dependency with enums under node modules",
       expected: "painted-red",
       json: false,
     },
     {
-      name: "test_ttsx_runs_a_published_mts_dependency_as_a_module",
+      name: "ttsx runs a published mts dependency as a module",
       expected: "mts-module",
       json: false,
     },
     {
-      name: "test_ttsx_resolves_directory_index_imports_in_a_node_modules_raw_ts_dependency",
+      name: "ttsx resolves directory index imports in a node modules raw ts dependency",
       expected: "directory-index-ok",
       json: false,
     },
     {
-      name: "test_ttsx_runs_an_esm_typescript_entry_through_the_emitted_project_path",
+      name: "ttsx runs an esm typescript entry through the emitted project path",
       expected: "esm-runner-ok",
       json: false,
     },
     {
-      name: "test_runner_corpus_esm_import_meta_url_resolves_from_configured_outdir",
+      name: "runner corpus esm import meta url resolves from configured outdir",
       expected: {
         asset: "import-meta-preserved",
         source: "esm-source-relative",
@@ -151,17 +151,17 @@ export function test_ttsx_esm_resolution_preserves_specifiers_and_non_import_tex
       json: true,
     },
     {
-      name: "test_runner_corpus_ttsx_keeps_configured_outdir_untouched",
+      name: "runner corpus ttsx keeps configured outdir untouched",
       expected: "cache-only-run",
       json: false,
     },
     {
-      name: "test_ttsx_runs_allow_importing_ts_extensions_project",
+      name: "ttsx runs allow importing ts extensions project",
       expected: "allow-ts-extension-ok",
       json: false,
     },
     {
-      name: "test_ttsx_runs_a_published_cts_dependency_as_commonjs",
+      name: "ttsx runs a published cts dependency as commonjs",
       expected: "cts-commonjs",
       json: false,
     },
@@ -185,7 +185,7 @@ export function test_ttsx_esm_resolution_preserves_specifiers_and_non_import_tex
       const actual = scenario.json ? JSON.parse(value) : value;
       if (
         scenario.name ===
-        "test_runner_corpus_esm_import_meta_url_resolves_from_configured_outdir"
+        "runner corpus esm import meta url resolves from configured outdir"
       )
         actual.sourceUrl = pathToFileURL(
           fs.realpathSync.native(fileURLToPath(actual.sourceUrl)),

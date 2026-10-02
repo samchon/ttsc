@@ -171,7 +171,7 @@ export async function test_ttscserver_merges_project_plugin_diagnostics() {
                   "LSP executeCommand should return edits, not write the file",
                 );
       } catch (error) {
-        failures.push(new Error("test_ttscserver_serves_project_plugin_code_actions_and_executes_command", { cause: error }));
+        failures.push(new Error("ttscserver serves project plugin code actions and executes the command", { cause: error }));
       } finally {
         client.notify("textDocument/didClose", { textDocument: { uri } });
       }
@@ -224,7 +224,7 @@ export async function test_ttscserver_merges_project_plugin_diagnostics() {
                   "LSP executeCommand should return edits, not write the file",
                 );
       } catch (error) {
-        failures.push(new Error("test_ttscserver_serves_project_plugin_format_action_and_command", { cause: error }));
+        failures.push(new Error("ttscserver serves the project plugin format action and command", { cause: error }));
       } finally {
         client.notify("textDocument/didClose", { textDocument: { uri } });
       }

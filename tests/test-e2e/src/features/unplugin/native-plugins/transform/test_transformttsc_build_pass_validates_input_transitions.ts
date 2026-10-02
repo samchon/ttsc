@@ -136,7 +136,7 @@ export async function test_transformttsc_build_pass_validates_input_transitions(
     });
 
     await phase(
-      "test_transformttsc_a_build_pass_ignores_an_undeclared_project_file_edit",
+      "transformttsc a build pass ignores an undeclared project file edit",
       async () => {
         fs.writeFileSync(note, "second, longer than the first\n", "utf8");
         await deliverPass(session);
@@ -149,7 +149,7 @@ export async function test_transformttsc_build_pass_validates_input_transitions(
     );
 
     await phase(
-      "test_transformttsc_a_build_pass_ignores_an_appearing_output_directory",
+      "transformttsc a build pass ignores an appearing output directory",
       async () => {
         for (const ignored of ["dist", "out", "coverage", ".cache"]) {
           const directory = path.join(session.root, ignored);
@@ -170,7 +170,7 @@ export async function test_transformttsc_build_pass_validates_input_transitions(
     );
 
     await transition(
-      "test_transformttsc_a_build_pass_recompiles_after_a_module_edit",
+      "transformttsc a build pass recompiles after a module edit",
       1,
       async () => {
         fs.appendFileSync(
@@ -193,7 +193,7 @@ export async function test_transformttsc_build_pass_validates_input_transitions(
       },
     );
     await transition(
-      "test_transformttsc_a_build_pass_recompiles_after_a_type_only_input_edit",
+      "transformttsc a build pass recompiles after a type only input edit",
       2,
       async () => {
         const typeOnly = session.modules[session.modules.length - 1]!;
@@ -208,7 +208,7 @@ export async function test_transformttsc_build_pass_validates_input_transitions(
       },
     );
     await transition(
-      "test_transformttsc_a_build_pass_recompiles_after_a_membership_change",
+      "transformttsc a build pass recompiles after a membership change",
       3,
       async () => {
         fs.writeFileSync(
@@ -226,7 +226,7 @@ export async function test_transformttsc_build_pass_validates_input_transitions(
       },
     );
     await transition(
-      "test_transformttsc_a_build_pass_recompiles_after_a_membership_removal",
+      "transformttsc a build pass recompiles after a membership removal",
       4,
       async () => {
         fs.rmSync(removedNote);
@@ -274,7 +274,7 @@ export async function test_transformttsc_build_pass_validates_input_transitions(
       },
     );
     await transition(
-      "test_transformttsc_a_repeated_delivery_inside_a_pass_revalidates",
+      "transformttsc a repeated delivery inside a pass revalidates",
       8,
       async () => {
         const first = session.modules[0]!;

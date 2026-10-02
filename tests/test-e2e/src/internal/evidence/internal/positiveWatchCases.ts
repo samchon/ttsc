@@ -80,11 +80,11 @@ export namespace positiveWatchCases {
    * @evidence contracts/testing.md#behavioral-verification The actual initial absent Swagger build must fail2, then creating its parent and exact POST document must trigger a passing0 build.
    * @evidence contracts/testing.md#independent-expectations The literal POST:/members citation and authored OpenAPI POST operation establish the recovered graph independently; no initial diagnostic text is required.
    * @evidence contracts/testing.md#distinguishing-cases Startup before the exact file and parent exist contrasts with generated valid bytes; the batch additionally restores absence before changing the source/config population.
-   * @evidence contracts/testing.md#execution-ownership generatedSwagger is invoked first by test_evidence_positive_watch_consumers_share_one_watcher; the batch owns the actual child, guarded file creation and independent verdict assertions.
+   * @evidence contracts/testing.md#execution-ownership generatedSwagger is invoked first by evidence positive watch consumers share one watcher; the batch owns the actual child, guarded file creation and independent verdict assertions.
    * @evidence contracts/e2e.md#necessary-boundary Missing-path registration and packaged Swagger normalization must connect an actual first file creation to a native resident rebuild.
    * @evidence contracts/e2e.md#shared-execution This first phase shares the canonical producer, workspace and launcher with later phases while preserving genuinely missing startup; later config/source populations legitimately retire and reload Programs.
    * @evidence contracts/e2e.md#state-isolation-and-reuse-validity It precedes every api-writing phase; the guarded writer records initial absence, creates the owned parent and restores absence before another phase. Unknown reader ownership blocks mutation and cleanup.
-   * @evidence contracts/e2e.md#preserved-coverage Both original status2 and generated0 assertions from test_evidence_watch_observes_a_generated_swagger_document remain here with identical source/citation, JSON bytes and real cycle timeout.
+   * @evidence contracts/e2e.md#preserved-coverage Both original status2 and generated0 assertions from evidence watch observes a generated swagger document remain here with identical source/citation, JSON bytes and real cycle timeout.
    */
   export async function generatedSwagger(context: Context): Promise<void> {
     context.check(() => assert.ok(!fs.existsSync(path.join(context.localRoot, "api")), "The original generated Swagger parent must be absent at startup."));
@@ -111,7 +111,7 @@ export namespace positiveWatchCases {
    * @evidence contracts/e2e.md#necessary-boundary A native contributor's declared glob watcher must discover a new file and withdraw its deleted heading from the resident inventory.
    * @evidence contracts/e2e.md#shared-execution One existing launcher serves all three states after the original source/config population activates; no cold compiler, build or consumer is allocated for either filesystem event.
    * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The authored document does not exist at activation and only its owned exact path changes between settled cycles. Removal restores original absence before Alpha's distinct cited source population activates.
-   * @evidence contracts/e2e.md#preserved-coverage Original initial2 and all five empty/Alpha inclusions or exclusions from test_evidence_watch_observes_markdown_create_and_delete remain with identical .keep/source/heading bytes; no later status assertion is claimed.
+   * @evidence contracts/e2e.md#preserved-coverage Original initial2 and all five empty/Alpha inclusions or exclusions from evidence watch observes markdown create and delete remain with identical .keep/source/heading bytes; no later status assertion is claimed.
    */
   export async function markdownLife(context: Context): Promise<void> {
     context.check(() => assertStatus(context.baseline, 2, "A reference glob matching no document cannot materialize evidence and must be reported."));
@@ -143,7 +143,7 @@ export namespace positiveWatchCases {
    * @evidence contracts/e2e.md#necessary-boundary Actual filesystem source events and config reload must reset contributor cycle state and transport its diagnostic once, which direct deduplication units cannot establish.
    * @evidence contracts/e2e.md#shared-execution Three original cycles share the existing launcher and canonical producer; source/config reinitialization may retire the Program and is never presented as phase residency.
    * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only the tracked extra source and primary lint config change after actual settled cycles; the batch restores exact original invalid bytes and status2 before another phase, refusing mutation with unknown readers.
-   * @evidence contracts/e2e.md#preserved-coverage Original test_evidence_documented_configuration_recovers_in_watch keeps all three statuses, both literal findings and both occurrence1 assertions with original source/config bytes and first/rebuild budgets.
+   * @evidence contracts/e2e.md#preserved-coverage Original evidence documented configuration recovers in watch keeps all three statuses, both literal findings and both occurrence1 assertions with original source/config bytes and first/rebuild budgets.
    */
   export async function documentedConfig(context: Context): Promise<void> {
     const invalid = (result: IRunResult): void => {
@@ -178,7 +178,7 @@ export namespace positiveWatchCases {
    * @evidence contracts/e2e.md#necessary-boundary Public typed config, actual Markdown loader, source review and actionable diagnostic rendering connect through real native cycles; independent fingerprint arithmetic belongs to owning Go units.
    * @evidence contracts/e2e.md#shared-execution Three required states share the existing launcher and canonical contributor instead of another watcher; actual source edits may retire and reload Programs without a cross-cycle reuse assertion.
    * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Source and document writes occur only between settled observations; both original bytes restore before later phases and unknown reader ownership blocks mutation and fixture cleanup.
-   * @evidence contracts/e2e.md#preserved-coverage Original test_evidence_graph_expires_a_review_when_cited_content_changes retains initial failure/category, accepted0, stale failure/category and quoted old-token assertions, original source/document bytes, typechecked config membership and timeouts.
+   * @evidence contracts/e2e.md#preserved-coverage Original evidence graph expires a review when cited content changes retains initial failure/category, accepted0, stale failure/category and quoted old-token assertions, original source/document bytes, typechecked config membership and timeouts.
    */
   export async function reviewExpiry(context: Context): Promise<void> {
     context.check(() => assertFailure(context.baseline, "An unreviewed requireReview citation must fail."));
@@ -210,7 +210,7 @@ export namespace positiveWatchCases {
    * @evidence contracts/testing.md#behavioral-verification Real watch ignores README for 1500ms, reports status 2 with unresolved alpha and missing beta, preserves actual resident PID and cumulative Program loads, then recovers to 0.
    * @evidence contracts/testing.md#independent-expectations Authored Alpha/Beta headings and literal addresses establish inventory expectations; before/after PID and load equality independently observe retained identity rather than a timing threshold.
    * @evidence contracts/testing.md#distinguishing-cases Declared mutation and recovery contrast with undeclared quiet; initial telemetry must exist and both PID/count are compared. Quiet proves only the original finite 1500ms window.
-   * @evidence contracts/testing.md#execution-ownership The original warm-Program and declared-Markdown assertions run through test_evidence_positive_watch_consumers_share_one_watcher in features; the batch owns its real native watcher and collects each assertion failure.
+   * @evidence contracts/testing.md#execution-ownership The original warm-Program and declared-Markdown assertions run through evidence positive watch consumers share one watcher in features; the batch owns its real native watcher and collects each assertion failure.
    * @evidence contracts/e2e.md#necessary-boundary Contributor input declarations must connect external Markdown events to native refreshed findings without replacing its unchanged phase Program.
    * @evidence contracts/e2e.md#shared-execution Original declared-Markdown and warm-Program cases share one byte-verified Alpha source/document, one watcher and one rename/recovery rather than repeated producers or initial loads.
    * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Every mutation follows a settled real cycle; the README is outside declared document globs and the document returns to Alpha before another phase. The batch closes the watcher before fixture cleanup.

@@ -27,15 +27,15 @@ export function test_ttsx_missing_import_branches_preserve_native_errors_in_one_
  const result = TestProject.spawn(TestProject.TTSX_BIN, ["--cwd", root, "src/main.ts"], { cwd: root });
  assert.deepEqual(JSON.parse(result.stdout.trim()), [
   {
-    "name": "test_ttsx_preserves_module_not_found_for_a_missing_package_import",
+    "name": "ttsx preserves module not found for a missing package import",
     "code": "ERR_MODULE_NOT_FOUND"
   },
   {
-    "name": "test_ttsx_preserves_module_not_found_for_a_missing_extensionless_relative_import",
+    "name": "ttsx preserves module not found for a missing extensionless relative import",
     "code": "ERR_MODULE_NOT_FOUND"
   },
   {
-    "name": "test_ttsx_preserves_module_not_found_for_a_missing_relative_import_with_extension",
+    "name": "ttsx preserves module not found for a missing relative import with extension",
     "code": "ERR_MODULE_NOT_FOUND"
   }
 ]);
