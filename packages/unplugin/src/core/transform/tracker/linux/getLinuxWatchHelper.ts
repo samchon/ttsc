@@ -12,12 +12,14 @@ import { routeLinuxWatchHelperLine } from "./routeLinuxWatchHelperLine";
  *
  * The helper is the `__watch` command of ttsc's platform binary, found by
  * ttsc's own rules (`ttsc/binary`), so it always comes from the binary ttsc
- * itself uses. It owns one inotify instance and reports the overflow libuv
- * discards, so a watch opened through it can never lose events without notice.
+ * itself uses. It owns one inotify instance and forwards the kernel's queue
+ * overflow notice, which libuv discards. Readiness and ordered sync qualify
+ * the native notification scope; helper construction alone proves no input.
  * When the helper exits, every subscription ends and every sync is released
  * unanswered, so each watch's observer stops vouching for anything; the next
- * watch starts a new helper. A binary that exits before answering at all is not
- * tried again.
+ * watch starts a new helper. A binary that exits before the decoder receives
+ * parsed object output is not tried again. Output receipt is separate from a
+ * successful subscription or sync acknowledgment.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The compiler-owned binary resolves the native protocol producer; exit
@@ -35,8 +37,11 @@ import { routeLinuxWatchHelperLine } from "./routeLinuxWatchHelperLine";
  *   OS-neutral startup uses ttsc/binary and argument-array spawn with windowsHide;
  *   native availability is observed rather than inferred from filesystem naming.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Reusing the current helper is constant work; failure walks live subscriptions
- *   and syncs once, linear in outstanding owners rather than project file count.
+ *   Reusing the current helper is one holder lookup. Cold acquisition pays the
+ *   binary resolver's native/module lookup, path-key checks and process startup.
+ *   Failure snapshots live subscriptions and syncs once, O(S + D) references
+ *   plus their delegated callbacks. Decoding later stdout lines follows their
+ *   text and routed subscriber populations rather than project file count.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   All directory subscriptions share one live helper. Failure clears only that
  *   instance; refused binary paths prevent repeating equivalent unsupported starts.
@@ -44,6 +49,8 @@ import { routeLinuxWatchHelperLine } from "./routeLinuxWatchHelperLine";
  *   One current child serves process-owned subscriptions and is unreferenced
  *   between requests; exit clears live state. Refused binary strings persist
  *   for process lifetime and grow with distinct rejected resolved binary paths.
+ *   Stdio and line assembly belong to that process lifetime; a partial output
+ *   line retains its received text until framing completes or the stream ends.
  */
 export function getLinuxWatchHelper(): LinuxWatchHelper | undefined {
   if (LINUX_WATCH_HELPER.current !== undefined) {
