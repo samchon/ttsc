@@ -130,9 +130,9 @@ export interface TtscCachedProjectTransform {
   divergentDeliveryReported?: Set<string>;
 
   /**
-   * Files already reported as absent from the program, and the pass that
-   * reporting belongs to, so the notice is one per file per pass rather than
-   * one per delivery.
+   * Supplied file spellings whose missing-output warning was attempted in the
+   * recorded epoch. Keys are added before stderr writing and cleared on epoch
+   * change; physical aliases are not deduplicated by this reporting set.
    */
   missingOutputReported?: Set<string>;
 
