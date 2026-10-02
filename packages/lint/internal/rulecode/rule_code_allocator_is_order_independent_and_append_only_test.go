@@ -1,4 +1,4 @@
-package linthost
+package rulecode_test
 
 import (
   "fmt"
@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification rulecode.Allocate preserves frozen assignments and allocates distinct codes for colliding names independent of 32 input permutations; Legacy preferences also match Go's standard FNV-1a reference for the complete authored name population.
 // @evidence contracts/testing.md#independent-expectations Frozen literal assignments and collision uniqueness define append-only correctness independently of either allocation. Standard hash/fnv plus the documented [9000,18000) band supplies a separate preferred-code oracle; comparing two allocations alone establishes ordering, not the preferred assignment.
 // @evidence contracts/testing.md#distinguishing-cases A new collision, a lexically earlier newcomer versus a later frozen incumbent, an unchanged input map and 130 names under 32 permutations distinguish compatibility precedence, uniqueness, input ownership and insertion-order dependence.
-// @evidence contracts/testing.md#execution-ownership The public allocator and hashing operation run directly in the shared Go process with authored maps and names; synthesized collision names are inputs, not expected outputs, and no generator, native artifact or committed-file comparison executes.
+// @evidence contracts/testing.md#execution-ownership The public allocator and hashing operation run directly in the owning rulecode Go test process with authored maps and names; synthesized collision names are inputs, not expected outputs, and no generator, native artifact or committed-file comparison executes.
 func TestRuleCodeAllocatorIsOrderIndependentAndAppendOnly(t *testing.T) {
   left, right := findSyntheticRuleCodeCollision(t)
   frozen := map[string]int32{"frozen/existing": rulecode.Minimum}

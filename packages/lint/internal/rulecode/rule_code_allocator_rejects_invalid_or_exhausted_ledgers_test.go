@@ -1,4 +1,4 @@
-package linthost
+package rulecode_test
 
 import (
   "fmt"
@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification rulecode.Allocate rejects both out-of-range endpoints, duplicate frozen codes and a completely occupied band, while accepting empty allocation and both valid band endpoints without mutating the caller's map.
 // @evidence contracts/testing.md#independent-expectations The published reserved interval is [9000,18000), frozen names must have unique codes, and no further assignment exists when all 9000 slots are occupied. Literal error classes and valid endpoint assignments distinguish those failures from arbitrary errors.
 // @evidence contracts/testing.md#distinguishing-cases Below minimum, exclusive maximum, duplicate minimum and full-band overflow retain all original failures; empty and inclusive endpoint controls prove the allocator does not reject valid ledgers, and result mutation checks caller ownership.
-// @evidence contracts/testing.md#execution-ownership Direct public Allocate calls consume authored in-memory ledgers in one Go process, including the complete exhaustion input; no file layout, generated snapshot or native host is used as an oracle.
+// @evidence contracts/testing.md#execution-ownership Direct public Allocate calls consume authored in-memory ledgers in the owning rulecode Go test process, including the complete exhaustion input; no file layout, generated snapshot or native host is used as an oracle.
 func TestRuleCodeAllocatorRejectsInvalidOrExhaustedLedgers(t *testing.T) {
   invalidLedgers := []map[string]int32{
     {"below": rulecode.Minimum - 1},
