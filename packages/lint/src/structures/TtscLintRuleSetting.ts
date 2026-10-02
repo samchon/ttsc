@@ -40,20 +40,17 @@ export type TtscLintRuleSetting =
  * options object. Rules with canonical positional option lists expose a
  * dedicated setting type instead.
  *
- * This is the tuple form ESLint users know — `[severity, options]` — kept
- * strongly typed by way of the rule's dedicated options interface (declared
- * beside its rule family under `structures/rules`). The bare {@link TtscLintRuleSetting} forms remain
+ * The `[severity, options]` tuple keeps the options strongly typed through
+ * the rule's dedicated interface beside its family under `structures/rules`.
+ * The bare {@link TtscLintRuleSetting} forms remain
  * accepted; omitting the options object means "use the rule's default
  * options".
  *
  * @example
  *   const config: ITtscLintConfig = {
- *   rules: {
- *   "boundaries/element-types": [
- *   "error",
- *   { default: "disallow", rules: [...] },
- *   ],
- *   },
+ *     rules: {
+ *       "boundaries/element-types": ["error", { default: "disallow" }],
+ *     },
  *   };
  *
  * @typeParam TOptions - The rule's options shape. Each rule supplies its own

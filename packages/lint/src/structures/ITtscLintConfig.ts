@@ -20,7 +20,7 @@ import type { ITtscLintRules } from "./rules/ITtscLintRules";
  * @evidence contracts/common.md#clear-and-simple-design One interface owns the entry shape while rule and formatter schemas remain in their respective types.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Configuration choices remain declared fields rather than consumer-specific branches or foreign mutations.
  * @evidence contracts/common.md#meaningful-documentation Member comments distinguish global ignores from selected-entry ignores, inheritance origins and project-rule selection; paragraphs and member spacing follow the documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintConfig is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidence contracts/portability.md#os-neutral-implementation extends carries a native config path and files/ignores carry glob spelling anchored to its containing config directory. The native resolver uses filepath operations and physical path resolution for identity, converts relative candidates to slash spelling for glob matching, and keeps native case capability with the matching boundary.
  * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintConfig is a declaration of data shape and chooses no algorithm or processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintConfig is a declaration of data shape and coordinates no computation that could be shared.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintConfig is a declaration of data shape; the code that holds its values owns their lifetime.
@@ -28,16 +28,21 @@ import type { ITtscLintRules } from "./rules/ITtscLintRules";
 export interface ITtscLintConfig<
   TContributors extends object = Record<never, never>,
 > {
-  /** Globs that select the files this entry applies to. */
+  /**
+   * Globs that select the files this entry applies to, relative to this config
+   * file's directory. An empty array imposes no file restriction, but remains
+   * an explicit selector for project-rule validation.
+   */
   files?: string | readonly string[];
 
   /**
    * Globs that exclude files from linting.
    *
-   * When `files` is also set, the ignores only refine that selection (the
-   * entry's rules skip the matched files). Without `files`, the ignores are
-   * global: the matched files are excluded from every rule in the resolved
-   * config, including rules inherited through `extends`.
+   * When `files` contains patterns, the ignores only refine that selection
+   * (the entry's rules skip the matched files). Without a nonempty `files`
+   * restriction, including `files: []`, the ignores are global: the matched
+   * files are excluded from every rule in the resolved config, including rules
+   * inherited through `extends`.
    */
   ignores?: string | readonly string[];
 
