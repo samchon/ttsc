@@ -4,12 +4,14 @@ import "testing"
 
 // TestRewriterOrderPatternsKeepsDeclarationOrderOnPrefixTies verifies tie-breaking matches tsc's scan.
 //
-// Locks the SliceStable choice in `paths.go::orderPatterns`. tsc's
+// Locks the tie outcome of `paths.go::orderPatterns`. tsc's
 // FindBestPatternMatch takes a strictly-greater prefix to displace the
 // current best, so between wildcards with equal literal prefixes the first
-// declared pattern wins. An unstable sort (or a >= comparison) would resolve
-// such specifiers through whichever pattern happened to land first,
-// disagreeing with the type checker on order-sensitive configs.
+// declared pattern wins. A >= comparison or a suffix-based rank would resolve
+// such specifiers through the later pattern, disagreeing with the type
+// checker on order-sensitive configs. With two patterns an unstable sort would
+// also pass, so stability itself is owned by
+// TestRewriterOrderPatternsKeepsDeclarationOrderWithinEqualRanks.
 //
 // 1. Declare two wildcard patterns with identical literal prefixes, both matching one specifier.
 // 2. Resolve it under both declaration orders.

@@ -28,7 +28,7 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary The native check command must load the alias-aware project and return success without entering the emit branch; direct resolver units cannot establish the package command exit and filesystem effect.
 // @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts one check process over one freshly seeded alias project from that binary and shares no loaded project or running session with any other entry.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity seedPathsProject (shared.SeedProject) writes the fixture project under t.TempDir, which the test framework removes at cleanup; the single check process exits before dist is stat-ed. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
-// @evidence contracts/e2e.md#preserved-coverage The status/stream check (L37) and the dist-absence check (L40) are made in this body; rewritten source is not asserted during check.
+// @evidence contracts/e2e.md#preserved-coverage The status/stream check and the dist-absence check are made in this body; rewritten source is not asserted during check.
 func TestCommandRunsCheck(t *testing.T) {
   // Scenario setup: the shared fixture includes an alias import and target so
   // program loading sees the same configuration used by build mode.

@@ -28,7 +28,7 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary The paths sidecar must connect compiler alias resolution and source rewriting to the actual emit tree; direct path calculations cannot detect discarded emitted edits.
 // @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts one build process over one freshly seeded alias project from that binary and shares no loaded project or running session with any other entry.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity seedPathsProject (shared.SeedProject) writes the fixture project under t.TempDir, which the test framework removes at cleanup; the single build process exits before dist/main.js is read. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
-// @evidence contracts/e2e.md#preserved-coverage The status/stream check (L37) and the alias-absence plus rewritten-require check on dist/main.js (L42) are made in this body; the emitted JS is not executed here.
+// @evidence contracts/e2e.md#preserved-coverage The status/stream check and the alias-absence plus rewritten-require check on dist/main.js are made in this body; the emitted JS is not executed here.
 func TestCommandRunsBuild(t *testing.T) {
   // Scenario setup: the shared fixture has rootDir/outDir so the utility host
   // can compute the emitted path for both source and target files.

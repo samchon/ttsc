@@ -27,7 +27,7 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary The native compiler rewrite, emit and actual Node module loader connect here. Direct AST assertions cannot prove that the published program still executes the intended shadowed bindings.
 // @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts one build process, followed by one node child that runs the emitted modules, from that binary and shares no loaded project or running session with any other entry.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity shared.SeedProject writes the fixture under t.TempDir, removed at cleanup; the build exits before the body writes dist/runner.mjs into the emitted output tree and starts the node child there. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
-// @evidence contracts/e2e.md#preserved-coverage The build status/stream check (L55), loader/unbound rewrite checks (L60, L64), shadowed-output retention checks (L69) and the Node-executed result array (L95) are all made in this body.
+// @evidence contracts/e2e.md#preserved-coverage The build status/stream check, loader/unbound rewrite checks, shadowed-output retention checks and the Node-executed result array are all made in this body.
 func TestCommandRewritesOnlyUnshadowedRequire(t *testing.T) {
   root := shared.SeedProject(t, map[string]string{
     "package.json":        `{"type":"module"}` + "\n",

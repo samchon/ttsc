@@ -330,6 +330,9 @@ func (r *rewriter) rewrite(fromSource string, specifier string) (string, bool) {
 // order, with extension and index fallbacks. When none of them names a
 // program source the specifier stays unrewritten — falling through to a
 // weaker pattern would rewrite at a module the type checker never resolved.
+// Each target is combined with the paths base the way TypeScript-Go combines
+// it, so a rooted target, such as one a `${configDir}` template expanded to,
+// replaces the base instead of being appended to it.
 func (r *rewriter) resolveSource(specifier string) (string, bool) {
   for _, pattern := range r.patterns {
     star, ok := matchPattern(pattern.pattern, specifier)
@@ -338,7 +341,7 @@ func (r *rewriter) resolveSource(specifier string) (string, bool) {
     }
     for _, target := range pattern.targets {
       candidate := strings.Replace(target, "*", star, 1)
-      resolved := normalizePath(filepath.Join(r.basePath, candidate))
+      resolved := normalizePath(shimtspath.CombinePaths(normalizePath(r.basePath), candidate))
       if source, ok := r.lookupSource(resolved); ok {
         return source, true
       }
@@ -350,9 +353,11 @@ func (r *rewriter) resolveSource(specifier string) (string, bool) {
 
 // lookupSource checks whether candidate corresponds to a Program source that
 // can produce an output. Explicit module-format suffixes restrict replacement
-// to their own source family, as in TypeScript-Go's tryAddingExtensions. The
-// candidate itself is the directory name for an index lookup; stripping its
-// suffix there would search a different directory.
+// to their own source family, as in TypeScript-Go's tryAddingExtensions, and an
+// unrecognized suffix such as `.service` is part of the file name, so source
+// extensions are appended to the whole candidate. The candidate itself is the
+// directory name for an index lookup; stripping its suffix there would search a
+// different directory.
 func (r *rewriter) lookupSource(candidate string) (string, bool) {
   normalized := normalizePath(candidate)
   if source, ok := r.sourceFiles[r.sourceKey(normalized)]; ok {
@@ -374,7 +379,10 @@ func (r *rewriter) lookupSource(candidate string) (string, bool) {
     extensions = []string{".ts", ".tsx", ".js", ".jsx"}
   case "":
   default:
-    extensions = nil
+    // An unrecognized suffix belongs to the file name, as in `./user.service`:
+    // tsc appends the source extensions to the whole candidate, so the stem
+    // must keep the suffix that recognized extensions lose.
+    stem = normalized
   }
   for _, ext := range extensions {
     if source, ok := r.sourceFiles[r.sourceKey(stem+ext)]; ok {
@@ -539,6 +547,11 @@ func optionalPath(value string, cwd string) string {
 // every input file. The rewriter must anchor output paths exactly where tsgo
 // anchors its own emit, or the rewritten specifiers drift from the real
 // output layout.
+//
+// A tsconfig-loaded Program always carries its config path, so the shared
+// directory fallback serves only a Program built without one. That fallback
+// intersects every file name it is given, whereas TypeScript-Go excludes
+// declaration files; the caller passes the Program's full source list.
 func inferredRootDir(configFilePath string, fileNames []string, currentDirectory string, useCaseSensitiveFileNames bool) string {
   if configFilePath != "" {
     return normalizePath(filepath.Dir(configFilePath))

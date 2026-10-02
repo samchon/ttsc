@@ -29,7 +29,7 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary The compiled paths plugin must attach to the compiler and return cwd-relative transformed sources in the utility JSON protocol; correct direct rewriter output alone cannot prove this payload connection.
 // @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts one transform process over one freshly seeded alias project from that binary and shares no loaded project or running session with any other entry.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity seedPathsProject (shared.SeedProject) writes the fixture project under t.TempDir, which the test framework removes at cleanup; the single transform process exits before stdout is decoded. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
-// @evidence contracts/e2e.md#preserved-coverage The status/stderr check (L38), JSON decode (L42), both-source presence (L47) and alias-rewrite check on src/main.ts (L51) are made in this body.
+// @evidence contracts/e2e.md#preserved-coverage The status/stderr check, JSON decode, both-source presence and alias-rewrite check on src/main.ts are made in this body.
 func TestCommandRunsTransform(t *testing.T) {
   // Scenario setup: transform mode does not write to disk, so the project only
   // needs enough structure to load and expose source files.

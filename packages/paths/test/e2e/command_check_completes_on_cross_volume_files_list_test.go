@@ -17,7 +17,7 @@ import (
 
 // TestCommandCheckCompletesOnCrossVolumeFilesList verifies the sidecar never hangs on two-volume inputs.
 //
-// Locks the termination fix for #310. A tsconfig `files` list mixing inputs
+// Recreates the input of the #310 hang. A tsconfig `files` list mixing inputs
 // from two Windows volumes sent `paths.go::commonSourceDir` into an infinite
 // spin at the volume root, so `check` ran until the 10-minute go test timeout
 // and left orphaned plugin processes behind. Windows dev boxes and
@@ -25,6 +25,12 @@ import (
 // the layout this fixture recreates: the project seeds in the system temp
 // dir, the external file next to the repository. Same-volume machines cannot
 // express the shape, so they skip.
+//
+// A Program loaded from a tsconfig always carries that config path, and the
+// rewriter anchors an omitted rootDir there, so today this input no longer
+// reaches `commonSourceDir`. The case guards the whole check path against a
+// hang on two-volume membership; the volume-root termination itself is owned by
+// TestRewriterCommonSourceDirTerminatesAtVolumeRoots.
 //
 // 1. Seed a no-rootDir project in the temp dir and one `files` entry on the repo volume.
 // 2. Run `check` through the real sidecar under a hard 2-minute deadline.
@@ -34,10 +40,10 @@ import (
 // @evidence contracts/testing.md#independent-expectations The explicit alias import has a real matching source and no type error, so successful quiet check owes empty streams; different fixture VolumeName values establish the regression input independently of commonSourceDir.
 // @evidence contracts/testing.md#distinguishing-cases This case owns termination of a real two-volume compiler input population; same-volume machines cannot express it and retain the existing explicit skip, while the source unit owns volume-root traversal calculation.
 // @evidence contracts/testing.md#execution-ownership This named E2E entry executes the actual prebuilt sidecar in a cancellable process against real project files, rather than starting the Go tool to reach the check boundary.
-// @evidence contracts/e2e.md#necessary-boundary The native command, compiler files membership and paths plugin must cooperate on real volume-separated sources; the path-calculation source unit cannot establish host termination or orphan-process prevention.
+// @evidence contracts/e2e.md#necessary-boundary The native command, compiler files membership and paths plugin must cooperate on real volume-separated sources; the path-calculation source unit cannot establish host termination or orphan-process prevention. A tsconfig-loaded Program anchors rootDir at its config path, so this case does not itself exercise the common-directory fallback.
 // @evidence contracts/e2e.md#shared-execution The case reuses the same per-package producer as the other native command cases; only this distinct cross-volume project and deadline-supervised invocation remain separate, with no per-case Go build.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity Temp project and repository-volume external source have separate cleanup owners; CommandContext kills the actual producer on the local deadline, and the runner releases its binary only after the whole test process returns.
-// @evidence contracts/e2e.md#preserved-coverage The body asserts, only on machines where the project and the external file are on different volumes, that check --quiet over a files list mixing both volumes returns before a 2-minute deadline with no error and empty trimmed stdout/stderr; on a single-volume machine it skips at L57 and asserts nothing.
+// @evidence contracts/e2e.md#preserved-coverage The body asserts, only on machines where the project and the external file are on different volumes, that check --quiet over a files list mixing both volumes returns before a 2-minute deadline with no error and empty trimmed stdout/stderr; on a single-volume machine it skips and asserts nothing.
 func TestCommandCheckCompletesOnCrossVolumeFilesList(t *testing.T) {
   cacheDir := filepath.Join(packageRoot(t), "..", "..", "node_modules", ".cache")
   if err := os.MkdirAll(cacheDir, 0o755); err != nil {
