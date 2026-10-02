@@ -770,7 +770,7 @@ func (c *Context) DecodeOptions(out interface{}) error {
 }
 
 // Report records a finding at the given node's source range. Silently
-// ignored when severity is `off` (defensive — the engine already filters
+// ignored when severity is `off` (the engine already filters
 // by severity before invoking Check) or when no reporter is attached.
 //
 // @evidence contracts/common.md#principled-implementation Nil context, missing reporter, off severity and nil node are inert; valid active calls forward the actual node and message.
@@ -778,9 +778,9 @@ func (c *Context) DecodeOptions(out interface{}) error {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Findings flow through the supported reporter without synthetic nodes or foreign mutation.
 // @evidence contracts/common.md#meaningful-documentation Native prose describes disabled and absent reporter behavior; tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.Report performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.Report has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.Report keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.Report acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This wrapper chooses no finding algorithm beyond guards and reporter delegation. A reporter may scan node trivia, normalize positions and collect a finding; its dominant cost remains the reporter owner's responsibility, not a fixed-total-cost guarantee.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Reporting is an effectful invocation, not a completed-work or in-flight coordinator. Equal node and message inputs do not authorize suppressing another report; the reporter owns collection identity and deduplication policy.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The wrapper stores no finding history or new handle/task. Reporter-owned collection may retain the message and resulting finding for its run; that owner controls population and release after this synchronous delegation.
 func (c *Context) Report(node *shimast.Node, message string) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
     return
@@ -825,9 +825,9 @@ func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdi
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit ranges use the supported API rather than synthetic AST nodes.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the range's byte units and file scope; tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ReportRange performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ReportRange has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ReportRange keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ReportRange acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Guards and direct range delegation choose no collection algorithm. Reporter-side normalization and callback work remain that owner's cost; an arbitrary Reporter implementation is not certified fixed-cost by this wrapper.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each report is an observable collection effect rather than a reusable query. The reporter owns any finding identity or deduplication policy, so equal coordinates and message do not alone permit sharing or suppressing calls.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This method adds no retained history, handle or task to the context. The delegated reporter owns retained message/finding storage and its run lifetime; the wrapper does not release or bound that collection.
 func (c *Context) ReportRange(pos, end int, message string) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff {
     return
