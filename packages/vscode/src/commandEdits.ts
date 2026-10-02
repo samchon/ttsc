@@ -22,6 +22,19 @@
  *   and the type comment explains why compiler byte offsets differ. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation
+  *   ProtocolPosition only describes values and opens no file, path or process.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   ProtocolPosition is a type definition with no computation to cost.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   ProtocolPosition is a type definition and coordinates no work across
+  *   requests.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   ProtocolPosition is a type definition and owns no state, handle or task.
  */
 export type ProtocolPosition = {
   /** Zero-based UTF-16 offset within the line. */
@@ -54,6 +67,19 @@ export type ProtocolPosition = {
  *   comment explains ordering and the collector validation boundary. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation
+  *   ProtocolRange only describes values and opens no file, path or process.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   ProtocolRange is a type definition with no computation to cost.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   ProtocolRange is a type definition and coordinates no work across
+  *   requests.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   ProtocolRange is a type definition and owns no state, handle or task.
  */
 export type ProtocolRange = {
   /** Exclusive endpoint in the same document as start. */
@@ -88,6 +114,20 @@ export type ProtocolRange = {
  *   paths are not document URIs. Purpose, conditions and reasons use separate
  *   native paragraphs under the documentation skill; member comments remain
  *   beside their fields.
+  *
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation
+  *   NormalizedTextEdit only describes values and opens no file, path or
+  *   process.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   NormalizedTextEdit is a type definition with no computation to cost.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   NormalizedTextEdit is a type definition and coordinates no work across
+  *   requests.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   NormalizedTextEdit is a type definition and owns no state, handle or task.
  */
 export type NormalizedTextEdit = {
   /** Replacement text; an empty string deletes the covered range. */
@@ -128,6 +168,20 @@ export type NormalizedTextEdit = {
  *   documentChanges/resource-operation forms. Purpose, conditions and reasons
  *   use separate native paragraphs under the documentation skill; member
  *   comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation
+  *   It decodes LSP JSON and keeps URIs as strings without resolving a path.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   One pass over each changes entry and its edits costs O(E) time and O(E)
+  *   output for E replacements, with no sorting or rescanning.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It is one pure decode of a single reply, so no other request shares its
+  *   result.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing; the returned array transfers to the caller.
  */
 export function collectWorkspaceEditChanges(
   value: unknown,
@@ -183,6 +237,20 @@ export function collectWorkspaceEditChanges(
  *   or native path resolution. Purpose, conditions and reasons use separate
  *   native paragraphs under the documentation skill; member comments remain
  *   beside their fields.
+  *
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation
+  *   It compares strings from JSON arguments and resolves no path.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   The recursion visits each argument value once, O(V) for V values, and each
+  *   string costs one lookup in the caller's Set.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It is a pure scan of one argument list with nothing to share across
+  *   requests.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing after returning a boolean.
  */
 export function commandArgumentsContainDirtyURI(
   args: readonly unknown[],
@@ -223,6 +291,19 @@ export function commandArgumentsContainDirtyURI(
  *   write.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation
+  *   It compares URI strings and resolves no path.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   It makes at most one Set lookup per replacement, O(E) for E replacements,
+  *   and stops at the first dirty target.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It is a pure scan of one edit list with nothing to share across requests.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing after returning a boolean.
  */
 export function workspaceEditChangesTouchDirtyURI(
   edits: readonly NormalizedTextEdit[],
@@ -254,6 +335,18 @@ export function workspaceEditChangesTouchDirtyURI(
  *   isolation, including why an empty prefix cannot authorize application.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation
+  *   It compares two command id strings and touches no path or process.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It performs one string prefix comparison, so there is no algorithm choice.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It is a constant-time predicate with nothing to share.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing.
  */
 export function shouldApplyCommandWorkspaceEdit(
   command: string,

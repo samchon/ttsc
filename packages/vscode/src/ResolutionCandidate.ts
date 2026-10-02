@@ -23,6 +23,21 @@
  *   optional config; the type comment explains why base and cwd can differ.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation
+  *   ResolutionCandidate only describes values and opens no file, path or
+  *   process.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   ResolutionCandidate is a type definition with no computation to cost.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   ResolutionCandidate is a type definition and coordinates no work across
+  *   requests.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   ResolutionCandidate is a type definition and owns no state, handle or
+  *   task.
  */
 export type ResolutionCandidate = {
   /** Working directory for project-owned server execution. */

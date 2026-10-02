@@ -54,6 +54,17 @@ import {
  *   identity operations, including why globals are not replaced. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It only constructs the context; resolution cost belongs to the
+  *   path-identity API.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   Memoization lives in the context it returns; this wrapper adds no cache.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   The caller owns the returned context and its lifetime; this wrapper
+  *   retains nothing.
  */
 export function createServerRootPathIdentityContext(
   platform: NodeJS.Platform = process.platform,
@@ -102,6 +113,15 @@ const WRAPPED_COMMAND_IDS = ["ttsc.lint.fixAll", "ttsc.format.document"];
  *   legacy-path conditions and undefined resolution/read failure. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It does a fixed number of module resolutions and file reads.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It keeps no cache, so each call observes the current installation.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   Its synchronous reads release their handles before returning.
  */
 export function resolveTtscServerLauncher(
   resolveFrom: string,
@@ -155,6 +175,15 @@ export function resolveTtscServerLauncher(
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill;
  *   member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It projects one findProjectConfig result and owns no computation.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It delegates all sharing decisions to findProjectConfig.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing.
  */
 export function findProjectRoot(
   start: string,
@@ -199,6 +228,19 @@ export function findProjectRoot(
  *   and starts outside the physical boundary. Purpose, conditions and
  *   reasons use separate native paragraphs under the documentation skill;
  *   member comments remain beside their fields.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   The walk visits at most D ancestor directories; each costs one readdir of
+  *   E entries, filtered and sorted in O(E log E), plus stat calls only for
+  *   matching names.
+  *
+  * @evidence contracts/performance.md#reuse-equivalent-work
+  *   One identity context serves the whole walk, so boundary and directory
+  *   identities are resolved once; nothing is cached across calls, so later
+  *   disk changes are seen.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing after the synchronous walk.
  */
 export function findProjectConfig(
   start: string,
@@ -262,6 +304,17 @@ export function findProjectConfig(
  *   ordered deduplication and identifies the discovery policy it inherits.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It performs one config walk per active file and per workspace root, with
+  *   nothing else to optimize.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   Each call rediscovers projects from disk by design, so a stale answer is
+  *   never reused.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains only the returned candidate array.
  */
 export function createResolutionCandidates(
   input: ResolutionCandidateInput,
@@ -335,6 +388,15 @@ export function createResolutionCandidates(
  *   preparation does not spawn.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It builds a short fixed argument vector.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It computes a cheap value and caches nothing.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing; the caller owns the returned command.
  */
 export function createServerLaunchCommand(
   launcher: string,
@@ -393,6 +455,16 @@ export function createServerLaunchCommand(
  *   escaping to the Windows command boundary. Purpose, conditions and reasons
  *   use separate native paragraphs under the documentation skill; member
  *   comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It composes two cheap results.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It caches nothing, so process options observe the current toolchain on
+  *   each call.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing; the caller owns the returned executable.
  */
 export function createServerExecutable(
   launcher: string,
@@ -444,6 +516,15 @@ export function createServerExecutable(
  *   why string concatenation would misinterpret root metacharacters. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It makes one constructor call.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It computes a cheap value and caches nothing.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing; the caller owns the pattern.
  */
 export function createDocumentSelectorPattern<T>(
   ctor: RelativePatternConstructor<T>,
@@ -483,6 +564,15 @@ export function createDocumentSelectorPattern<T>(
  *   agreement between server arguments and middleware. Purpose, conditions
  *   and reasons use separate native paragraphs under the documentation skill;
  *   member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It hashes one short key once.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It is recomputed where used and keeps no cache.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing.
  */
 export function executeCommandIDPrefix(root: string): string {
   const key = createHash("sha256")
@@ -525,6 +615,16 @@ export function executeCommandIDPrefix(root: string): string {
  *   survivor resolution order. Purpose, conditions and reasons use separate
  *   native paragraphs under the documentation skill; member comments remain
  *   beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   The cost belongs to filterCandidatesByPhysicalRoots.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It creates one identity context per call and passes it down; nothing is
+  *   shared across calls.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   The context it creates is released when the call returns.
  */
 export function filterNonOverlappingCandidates(
   candidates: readonly ResolutionCandidate[],
@@ -570,6 +670,16 @@ export function filterNonOverlappingCandidates(
  *   ordering, alias collapse and the absence of client lifecycle effects.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   The cost belongs to planRootsByPhysicalIdentity.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It creates or accepts one identity context per call; nothing is shared
+  *   across calls.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing; the caller owns the plan.
  */
 export function planNonOverlappingClientRoots(
   roots: readonly string[],
@@ -613,6 +723,18 @@ export function planNonOverlappingClientRoots(
  *   explaining why sibling string prefixes are insufficient. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   One scan over n roots does one containment check and at most one
+  *   key-length comparison each, O(n) checks.
+  *
+  * @evidence contracts/performance.md#reuse-equivalent-work
+  *   The default identity context is created once per call and shared by every
+  *   containment check and key comparison in the scan; no result is cached
+  *   across calls.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing after returning one root.
  */
 export function selectDeepestRootForPath(
   file: string,
@@ -670,6 +792,15 @@ export function selectDeepestRootForPath(
  *   aliases, explaining the consistent context boundary. Purpose, conditions
  *   and reasons use separate native paragraphs under the documentation skill;
  *   member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It performs one delegated containment check.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It uses the supplied context, which owns any memoization.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing.
  */
 export function isPathInsideRoot(
   file: string,
@@ -712,6 +843,15 @@ export function isPathInsideRoot(
  *   similarly spelled sibling prefixes. Purpose, conditions and reasons use
  *   separate native paragraphs under the documentation skill; member comments
  *   remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It performs at most two delegated containment checks.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It uses the supplied context, which owns any memoization.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing.
  */
 export function rootsOverlap(
   left: string,
@@ -758,6 +898,16 @@ export function rootsOverlap(
  *   before target startup; this helper computes the set only. Purpose,
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   One filter pass over n client roots does one overlap check each, O(n)
+  *   checks.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It uses one context per call and caches nothing across calls.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing; the caller owns the returned roots.
  */
 export function rootsToStopForTarget(
   roots: readonly string[],
@@ -803,6 +953,16 @@ export function rootsToStopForTarget(
  *   retention of equivalent planned aliases. Purpose, conditions and reasons
  *   use separate native paragraphs under the documentation skill; member
  *   comments remain beside their fields.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   It builds a Set of the p planned keys and does one key lookup per existing
+  *   root, O(n + p) keys.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It uses one context per call and caches nothing across calls.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   The Set is local and released on return.
  */
 export function rootsToStopForPlan(
   roots: readonly string[],
@@ -850,6 +1010,16 @@ export function rootsToStopForPlan(
  *   of sibling workspace clients. Purpose, conditions and reasons use
  *   separate native paragraphs under the documentation skill; member comments
  *   remain beside their fields.
+  *
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   One filter pass over n client roots does one containment check each, O(n)
+  *   checks.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It uses one context per call and caches nothing across calls.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing; the caller owns the returned roots.
  */
 export function rootsInsideRemovedWorkspace(
   roots: readonly string[],
@@ -895,6 +1065,15 @@ export function rootsInsideRemovedWorkspace(
  *   namespaces and deduplication instead of platform-wide lowercasing.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It delegates one identity resolution to the path-identity API.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It uses the supplied context, which owns any memoization.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing.
  */
 export function rootKey(
   root: string,
@@ -1002,6 +1181,15 @@ function quoteWindowsArg(arg: string): string {
  *   selection. Purpose, conditions and reasons use separate native paragraphs
  *   under the documentation skill; member comments remain beside their
  *   fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It does a fixed number of module resolutions and one existence check.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It keeps no cache, so each call observes the current installation.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   Its synchronous reads release their handles before returning.
  */
 export function resolveTsgoBinary(base: string): string | undefined {
   try {
@@ -1065,6 +1253,15 @@ export function resolveTsgoBinary(base: string): string | undefined {
  *   fallback.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   It does one binary resolution and one environment copy.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   It keeps no cache, so each call observes the current toolchain.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   It retains nothing; the caller owns the returned options.
  */
 export function serverProcessOptions(
   cwd?: string,
