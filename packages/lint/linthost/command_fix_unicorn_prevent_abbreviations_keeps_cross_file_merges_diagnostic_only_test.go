@@ -8,12 +8,12 @@ import (
 
 // TestCommandFixUnicornPreventAbbreviationsKeepsCrossFileMergesDiagnosticOnly verifies that public in-process fix dispatch checks diagnostic exit/output and both unchanged cross-file declarations.
 //
-// A merged declaration spanning source files independently requires conservative diagnostic-only handling to preserve joint identity.
+// The two authored interface Ctx declarations share one global identity across source files. A source-local automatic rename must not split that identity; literal original bytes in both files establish the conservative no-write result.
 //
-// @evidence contracts/testing.md#behavioral-verification Public in-process fix dispatch checks diagnostic exit/output and both unchanged cross-file declarations.
-// @evidence contracts/testing.md#independent-expectations A merged declaration spanning source files independently requires conservative diagnostic-only handling to preserve joint identity.
-// @evidence contracts/testing.md#distinguishing-cases Both interface Ctx files retain exact original text with the expected rule error exit; single-file merged renames belong to the merged-identity host.
-// @evidence contracts/testing.md#execution-ownership TestCommandFixUnicornPreventAbbreviationsKeepsCrossFileMergesDiagnosticOnly owns its explicit variants and named subcases where present as a discoverable Go unit entry; In-process public fix dispatch, checker-backed merged-binding analysis and unchanged-file assertions run in the shared Go process with isolated authored fixture files; no installed consumer, native producer or product child host runs.
+// @evidence contracts/testing.md#behavioral-verification Actual run(fix) returns status two with empty stdout and a unicorn/prevent-abbreviations diagnostic, while both complete interface Ctx source files remain unchanged.
+// @evidence contracts/testing.md#independent-expectations The two authored interface Ctx declarations share one global identity across source files. A source-local automatic rename must not split that identity; literal original bytes in both files establish the conservative no-write result.
+// @evidence contracts/testing.md#distinguishing-cases Both global interface Ctx files retain exact original text with the expected rule error exit; TestUnicornPreventAbbreviationsRenamesMergedTypeAndValueReferencesTogether owns the contrasting single-file merged rename.
+// @evidence contracts/testing.md#execution-ownership This single discoverable Go unit entry executes in-process fix dispatch, checker-backed merged-binding analysis and actual unchanged-file reads on two isolated authored files; no dynamic subcases, installed consumer, native producer or product child runs.
 func TestCommandFixUnicornPreventAbbreviationsKeepsCrossFileMergesDiagnosticOnly(t *testing.T) {
   const mainSource = "interface Ctx { first: string }\n"
   const otherSource = "interface Ctx { second: string }\n"
