@@ -12,10 +12,10 @@ import (
 // nested inside another function — its decorator line AND its `function f`
 // declaration line — from a fully flattened source. ttsc-only self-check.
 //
-// The parser attaches the leading `@Dec` to the FunctionDeclaration, so a
-// decorated nested function is a decorated declaration statement. The
-// statement pass must re-indent the declaration line of any decorated
-// declaration, not just classes, or `function f` would stay at column 0.
+// The fixture places `@Dec` above a nested function declaration. Whole-file
+// equality requires both lines to move together, distinguishing declaration
+// alignment beyond the separate class fixtures. This formatting check does
+// not assert that decorators on functions are accepted by typechecking.
 //
 //  1. Flatten a function-nested decorated function canonical to column 0.
 //  2. Run `ttsc format`.
