@@ -17,8 +17,8 @@
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains the declaring-config versus project base and the wrapper consumer, with paragraphs and tag separation following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation The explicit slash and Windows backslash spellings support OS-neutral classification; this operation detects relative syntax without pretending to canonicalize or compare physical paths.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources isRelativePluginSpecifier acquires no handle, buffer or cache and retains nothing after it returns.
- * @evidenceExclude contracts/performance.md#efficient-algorithms isRelativePluginSpecifier performs a fixed number of steps with no loop or recursion over caller data.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work isRelativePluginSpecifier computes one result per call, so there is no repeated work to share.
+ * @evidence contracts/performance.md#efficient-algorithms Two exact short-name checks and four fixed-width prefix checks inspect only the relative markers, with no suffix scan, normalization or result-string allocation; work is bounded by these marker widths rather than the full specifier length.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This lexical boolean observation coordinates no expensive producer or retained equivalent-answer state; it neither resolves the specifier nor caches mutable package or filesystem authority.
  */
 export function isRelativePluginSpecifier(specifier: string): boolean {
   return (
