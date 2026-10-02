@@ -8,7 +8,8 @@ import { collectProjectInputHashSnapshot } from "./collectProjectInputHashSnapsh
 
 /**
  * Return hashes of the project's admitted regular-file walk, keyed by
- * project-relative slash paths. Imported, linked and other out-of-walk inputs
+ * slash-encoded identity keys, relative when contained by the project root.
+ * Imported, linked and other out-of-walk inputs
  * need their separate reference-graph proofs. Exported so hosts without a
  * per-build boundary can fingerprint the same configured walk universe.
  *
