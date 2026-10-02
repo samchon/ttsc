@@ -7,9 +7,7 @@
  * @evidence contracts/common.md#clear-and-simple-design One witness carries classification and optional attribution; bounded aggregation and rendering remain separate responsibilities.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Witnesses report actual producer failures rather than expected test results or a boolean that hides which proof was absent.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains classification and optional context, and separated members document lexical path representation and producer detail.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   TtscGenerationProofFailure only declares a shape; it has no filesystem,
- *   path or process operation at runtime.
+ * @evidence contracts/portability.md#os-neutral-implementation Optional path carries the producer's absolute native lexical spelling; the diagnostic renderer owns native containment and display conversion, without treating this field as a portable identity key.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
  *   TtscGenerationProofFailure only declares a shape; it has no computation
  *   at runtime.

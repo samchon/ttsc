@@ -9,9 +9,7 @@ import type { TtscGenerationProofFailure } from "./TtscGenerationProofFailure";
  * @evidence contracts/common.md#clear-and-simple-design The carrier separates retained evidence from dropped occurrence accounting; the shared recorder enforces its bound and consistency.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Lost evidence remains visible through omitted rather than being silently discarded or claimed deduplicated without a retained identity.
  * @evidence contracts/common.md#meaningful-documentation Native prose states recorder ownership and duplicate-count limitations, while separated member comments explain each representation.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   TtscGenerationProofFailures only declares a shape; it has no filesystem,
- *   path or process operation at runtime.
+ * @evidence contracts/portability.md#os-neutral-implementation Entries preserve each witness's native lexical path unchanged; seen stores opaque recorder identities rather than interpreting path separators or filesystem equivalence.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
  *   TtscGenerationProofFailures only declares a shape; it has no computation
  *   at runtime.

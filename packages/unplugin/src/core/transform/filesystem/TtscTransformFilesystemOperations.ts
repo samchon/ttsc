@@ -180,8 +180,7 @@ export interface TtscTransformFilesystemOperations {
    * own `fs.watch` gives up what the broker provides: on Windows, containing
    * the native abort Node's fs-event backend can raise when a watched temporary
    * tree is deleted, and on macOS, one FSEventStream per watch whose dropped
-   * events are reported rather than lost silently (samchon/ttsc#1418,
-   * samchon/ttsc#1425).
+   * events are reported rather than lost silently.
    *
    * @evidence contracts/common.md#principled-implementation The watch capability reports actual directory changes and failure; its absence or failure cannot certify silence as unchanged inputs.
    * @evidence contracts/common.md#clear-and-simple-design One optional native operation exposes observation and a close handle, leaving broker selection and retained-generation proof in their owners.

@@ -12,13 +12,13 @@ import type { TtscTransformFilesystemOperations } from "./TtscTransformFilesyste
  * Identity decides when two spellings name one file: case folding on
  * case-insensitive volumes, and physical targets behind links. It must be
  * answered by the same operations that capture and validate a generation, so
- * the resolver is built from them. Failed realpath observations use the nearest
- * resolvable ancestor and preserve uncertain missing suffix spelling instead
- * of throwing.
+ * the resolver is built from them. Failed realpath observations try the nearest
+ * resolvable ancestor and preserve uncertain missing suffix spelling. If no
+ * ancestor can be resolved, lexical spelling is retained instead of throwing.
  *
  * @evidence contracts/common.md#principled-implementation Identity resolution uses the same lstat, listings, realpath, platform, and directory-case view as generation capture and validation, keeping equivalence within one observed filesystem.
  * @evidence contracts/common.md#clear-and-simple-design The adapter supplies the shared resolver's existing capability interface rather than implementing another realpath or case-folding algorithm.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed realpath retains the unresolved suffix under an observed ancestor rather than fabricating an existing target, and no foreign filesystem methods are replaced.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed realpath retains the unresolved suffix under an observed ancestor, or lexical spelling when no ancestor resolves, rather than fabricating an existing target; no foreign filesystem methods are replaced.
  * @evidence contracts/common.md#meaningful-documentation The native prose explains filesystem-view consistency and conservative failure semantics before the operation table wiring.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral identity follows actual directory case capability and native aliases through the supplied view, without assuming all Windows directories insensitive or all POSIX volumes sensitive.
  * @evidence contracts/performance.md#efficient-algorithms

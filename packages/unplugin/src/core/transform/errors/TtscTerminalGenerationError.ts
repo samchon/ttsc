@@ -14,7 +14,8 @@
  *   An error class that carries a message and fields only; it touches no
  *   filesystem, path or process.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   The constructor assigns its fields; constant work.
+ *   This abstract category supplies no constructor or processing strategy
+ *   beyond native Error; concrete verdicts own their added representation.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Computes nothing that could be reused.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources

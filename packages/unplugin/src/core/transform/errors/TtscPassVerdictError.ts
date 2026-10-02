@@ -36,8 +36,10 @@ import { TtscTerminalGenerationError } from "./TtscTerminalGenerationError";
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
  *   An error class that carries a message and fields only; it touches no
  *   filesystem, path or process.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   The constructor assigns its fields; constant work.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   An Error contributes its message and stack directly. Another thrown value
+ *   delegates one text conversion and CSI scan to formatUnknownError; that
+ *   work follows the produced text length and any user-defined conversion.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Computes nothing that could be reused.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources

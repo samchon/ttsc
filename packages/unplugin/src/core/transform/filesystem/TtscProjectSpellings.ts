@@ -1,8 +1,8 @@
 /**
  * The two spellings one project root carries: the one it was named by and the
  * physical one after every link. Equal where the root traverses no link; a
- * project reached through a link keeps both, and every macOS temporary
- * directory is one (`/var/…` to `/private/var/…`).
+ * project reached through a link keeps both. A macOS temporary root may use
+ * `/var` as its named prefix and `/private/var` as its physical prefix.
  *
  * The compiler reports its inputs under the physical spelling, the adapter's
  * own configuration reading, walk, and trackers under the one the project was

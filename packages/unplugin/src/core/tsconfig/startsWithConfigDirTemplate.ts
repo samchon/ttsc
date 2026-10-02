@@ -17,11 +17,10 @@
  *   The comment states prefix and case semantics, avoiding a claim that this
  *   predicate validates the complete target path or resolves an actual file.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation A case-insensitive prefix test on a configuration string, as TypeScript-Go does before substitution; it reads no filesystem.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ * @evidence contracts/performance.md#efficient-algorithms Only the fixed eleven-character prefix is sliced and lowercased, so the predicate's work and temporary strings do not grow with the remainder of the path.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Keeps no cache of its own and computes each value once.
+ *   This fixed-prefix syntax predicate coordinates no completed or in-flight
+ *   computation across requests.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Acquires no handle, timer or retained state of its own.
  */

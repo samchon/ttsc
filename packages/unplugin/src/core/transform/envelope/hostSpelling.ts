@@ -4,8 +4,7 @@ import type { TtscProjectSpellings } from "../filesystem/TtscProjectSpellings";
 
 /**
  * How a host is handed the compiler's inputs for one delivery: spelled under
- * the project as the host itself spelled the module it delivered
- * (samchon/ttsc#1451).
+ * the project as the host itself spelled the module it delivered.
  *
  * The compiler reports its inputs physically, after every link. A host names
  * the project one of two ways, and says which by the module it hands over: one
@@ -24,8 +23,7 @@ import type { TtscProjectSpellings } from "../filesystem/TtscProjectSpellings";
  * relations; physical identity was established when the roots were captured.
  * The wrapper tsconfig written for the compiler takes the same
  * function with the compiler's physical root as the delivered path, since the
- * compiler is the other party the adapter spells paths for
- * (samchon/ttsc#1456).
+ * compiler is the other party the adapter spells paths for.
  *
  * @param project The project root as configured and as the filesystem resolves
  *   it; equal where the root traverses no link, which makes the answer the
@@ -39,13 +37,18 @@ import type { TtscProjectSpellings } from "../filesystem/TtscProjectSpellings";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The mapping follows two actual project root spellings and delivery context, not a named-consumer exception or patched resolver; paths outside the selected root are not coerced into the project.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain physical/configured roots, delivery selection, external paths and compiler use, and parameter/return comments document the mapper's inputs with separated acknowledgments under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation path.relative, path.sep, path.isAbsolute and path.join handle native containment, parent escape and cross-volume paths; the function uses captured physical roots without hardcoding a platform's symlink or temporary-directory layout.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Keeps no cache of its own and computes each value once.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   Acquires no handle, timer or retained state of its own.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Equal roots return an identity mapper. Otherwise at most two lexical
+ *   comparisons choose orientation, then each mapped input uses one relative
+ *   path and optional join. Work scales with the involved path lengths.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   All inputs in one delivery reuse the chosen from/to orientation. The
+ *   supplied captured roots and delivered module establish that orientation;
+ *   a different delivery creates its own mapper rather than sharing stale choice.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The returned closure retains only its two root strings when mapping is
+ *   needed. The caller owns this fixed population until it releases the mapper;
+ *   no input history, filesystem descriptor or watcher is acquired.
  */
 export function hostSpelling(
   project: TtscProjectSpellings,

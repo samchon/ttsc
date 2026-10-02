@@ -17,7 +17,9 @@ import { stripTerminalEscapes } from "./stripTerminalEscapes";
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
  *   Performs no filesystem, path or process operation of its own.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Maps the diagnostics once; each message is stripped once.
+ *   One projection visits each diagnostic and scans each message once for
+ *   CSI escapes. Total work and output space scale with the diagnostic count
+ *   and rendered text lengths; supplied order and coordinates are retained.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources

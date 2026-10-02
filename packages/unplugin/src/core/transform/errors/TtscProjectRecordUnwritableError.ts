@@ -1,6 +1,6 @@
 /**
  * A watching session's delivery refused because no project record could be
- * handed to the host with it (samchon/ttsc#1480).
+ * handed to the host with it.
  *
  * A build host watches a module and its project's record, and hears a type the
  * module's output consulted change only as the record moving. Handed over
@@ -14,11 +14,14 @@
  * @evidence contracts/common.md#clear-and-simple-design The value owns failure context only; directory selection, record writing and watching-session policy remain with their respective operations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The failure exposes missing invalidation capability instead of letting watcher silence stand in for evidence the host never received.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain why a watching delivery must fail and when one-shot builds remain valid; constructor parameter comments identify the record and cause.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   An error class that carries a message and fields only; it touches no
- *   filesystem, path or process.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   The constructor assigns its fields; constant work.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The record field carries the refused native file spelling unchanged.
+ *   Native write capability and fallback directory selection belong to the
+ *   record owner; the error introduces no case or separator interpretation.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One message combines record-path text with the native error code or
+ *   JavaScript cause conversion. Cost follows those text lengths and any
+ *   caller-defined conversion, rather than merely the number of field assignments.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Computes nothing that could be reused.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources

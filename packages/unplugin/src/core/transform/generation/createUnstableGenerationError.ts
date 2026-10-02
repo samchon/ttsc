@@ -34,7 +34,7 @@ function formatGenerationFailurePath(
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unstable proof is reported rather than converted into reusable output; dropped witnesses remain visible and diagnostic control characters cannot create fictitious lines.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes shared terminal error data from released live resources and explains bounded witnesses and escaped producer input.
  * @evidence contracts/portability.md#os-neutral-implementation Native relative-path classification uses Node path semantics; slash rendering is only diagnostic presentation and does not change filesystem identity or project ownership.
- * @evidence contracts/performance.md#efficient-algorithms Rendering visits each retained bounded witness once and joins the resulting lines; text cost follows actual diagnostic lengths without reading source contents.
+ * @evidence contracts/performance.md#efficient-algorithms Rendering visits each attempt and retained witness once, with native path processing and escaping driven by diagnostic text lengths; delegated disposal also closes the final attempt's retained watchers without rescanning source contents.
  * @evidence contracts/performance.md#reuse-equivalent-work transformProject creates one terminal verdict for its failed attempt sequence, and cache waiters share that error instead of separately rerendering or recompiling the same unchanged environment.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The shared disposer closes watchers and releases clock probes before the terminal error retains comparison data; error lifetime belongs to the generation cache rather than a new resource owner here.
  */
