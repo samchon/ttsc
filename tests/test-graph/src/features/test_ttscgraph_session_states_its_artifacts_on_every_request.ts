@@ -11,9 +11,11 @@ import { admitted, emptyResponse, sessionState } from "./internal/sessionState";
  * serve argv builder must add no --artifacts flag for a null artifact path.
  *
  * 1. Build the serve argv with a null artifact path and require no --artifacts.
- * 2. Complete an initial request, then issue and complete an unchanged request on
- *    the same port.
- * 3. Require one port, two recorded writes, and artifacts equal to "" in each.
+ * 2. Complete initial and unchanged requests on the same port, requiring each
+ *    of their two writes to carry artifacts equal to "".
+ * 3. Publish "artifact path.json", then withdraw it with "", completing each
+ *    request with an unchanged reply and checking its written artifacts field.
+ * 4. Require all four requests to use the same port.
  *
  * @evidence contracts/testing.md#behavioral-verification TtscGraphNativeArguments.serve("/fixture", "tsconfig.json", null) must not include "--artifacts"; four graph() requests must stay on one port and forward host artifacts "", "", "artifact path.json", "" in order, after an initial response and then unchanged responses.
  * @evidence contracts/testing.md#independent-expectations The expected artifact answers, the absence of the flag and the port count of one are authored literals; the first two writes are counted before the host answer changes. The host stub supplies every answer, so the test verifies forwarding rather than real artifact discovery.

@@ -205,5 +205,15 @@ export async function test_ttscgraph_viewer_reducers_preserve_legacy_absolute_fi
         [1, 1, 1],
         `${reducer.name} reducer drops ignored nodes and reports the drop`,
       );
+      assert.deepEqual(
+        result.nodes.map(({ id, file }) => ({ id, file })),
+        [{ id: "authored.ts#authored:function", file: "authored.ts" }],
+        `${reducer.name} retains the authored node rather than the generated one`,
+      );
+      assert.deepEqual(
+        result.links?.map(({ source, target }) => [source, target]),
+        [["authored.ts#authored:function", "authored.ts#authored:function"]],
+        `${reducer.name} retains the authored self-edge`,
+      );
     }
 }
