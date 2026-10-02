@@ -17,7 +17,13 @@ Apply the [contracts skill](../contracts/SKILL.md) before changing maintained pr
 - Plugin descriptors are JS; transform logic is Go. JS transform functions (e.g. `transformSource`, `transformOutput`) are not part of the public contract.
 - `shim.go` files marked `gen_shims:hand-maintained` are not regenerated.
 - When code behavior changes, update the matching page under `website/src/content/docs/` in the same change.
-- For a pull request, run `pnpm format` once on the complete change before the final CI-validated merge head is pushed, then commit its result in that pull request. Do not run it for individual commits or after each correction. If a later correction is necessary, keep it formatted by inspection and the CI format check without another formatter run. A task that does not include a pull request has no formatter invocation from this rule.
+- Follow [final formatting](#final-formatting) for a pull request's formatter invocation.
+
+## Final Formatting
+
+Run `pnpm format` once in the pull request's final preparation for merge, after all known implementation, CI and review corrections are complete. Commit its output in the same pull request and push that head. Individual commits, intermediate validation, Individual Self-Review and repair passes do not invoke it. A task that does not include a pull request has no formatter invocation from this rule.
+
+Complete the required final validation, Overall Self-Review and CI checks on the formatted head before merging. If they reveal another defect, correct it in the same pull request and inspect the correction's formatting without running `pnpm format` again. Repeat the required final gates on the new head; earlier green checks or a clean review do not cover that correction.
 
 ## Source Structure
 
