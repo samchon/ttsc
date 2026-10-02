@@ -12,11 +12,6 @@ import { createSyntheticGraph } from "../internal/resolverGraph";
  * available for the rest. A node without a signature gets none rather than an
  * invented one.
  *
- * Known limitation, deliberately not asserted: the cut leaves no marker in the
- * result, and the details audit still says a symbol's signature is complete, so
- * a reader cannot tell a cut head from a whole one. That is a product
- * discrepancy to correct in the audit or the result, not behavior to pin.
- *
  * 1. Build functions whose signature has six lines, exactly four lines, one line,
  *    only whitespace and none.
  * 2. Request `details` for each and read the returned signature.
@@ -24,7 +19,7 @@ import { createSyntheticGraph } from "../internal/resolverGraph";
  *
  * @evidence contracts/testing.md#behavioral-verification TtscGraphApplication.inspect_typescript_graph details must return the first four lines for a six-line signature, the whole signature for four lines and for one line, and no signature field for a whitespace-only or absent signature.
  * @evidence contracts/testing.md#independent-expectations The expected strings are the first four authored lines of the authored signature, written as literals from the four-line display cap, not read from the product's constant.
- * @evidence contracts/testing.md#distinguishing-cases Six lines against exactly four distinguishes a cut at the cap from a cut one line early or late; one line, whitespace-only and absent signatures are the non-cut and no-signature negatives; whether the audit or result marks the cut is not asserted because the product does not mark it.
+ * @evidence contracts/testing.md#distinguishing-cases Six lines against exactly four distinguishes a cut at the cap from a cut one line early or late; one line, whitespace-only and absent signatures are the non-cut and no-signature negatives.
  * @evidence contracts/testing.md#execution-ownership The src/features export calls the application over an in-memory synthetic dump in the unit process; no producer, session or host is started.
  */
 export async function test_ttscgraph_details_cuts_a_long_signature_at_four_lines(): Promise<void> {
