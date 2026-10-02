@@ -17,7 +17,7 @@ import "testing"
 //  3. Require the file byte-identical.
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on an interface property typed as a broken `string & tags.Format<"uuid"> & tags.JsonSchemaPlugin<{ ... }>` intersection whose literal members sit one level past the opening line, and requires the file byte-identical.
-// @evidence contracts/testing.md#independent-expectations The source is an authored literal in Prettier's typia-tag layout and is its own expected output.
+// @evidence contracts/testing.md#independent-expectations The complete authored literal independently preserves the local namespace aliases, intersection order, uuid string type, generic argument and true-valued member with their existing indentation; it does not invoke Prettier or an installed typia consumer.
 // @evidence contracts/testing.md#distinguishing-cases One fixed-point case where the literal opens on an indented `&` line, so a depth-only indent model would de-indent the members and closing brace; no wrongly indented input is repaired here.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatPreservesIntersectionGenericTypeLiteralIndent(t *testing.T) {
