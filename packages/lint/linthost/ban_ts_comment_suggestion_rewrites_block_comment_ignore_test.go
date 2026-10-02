@@ -10,7 +10,7 @@ import (
 // ignore-to-expect-error suggestion inside a CRLF block comment.
 //
 // Upstream's suggestion rebuilds `/*` + rewritten value + `*/`; the edit
-// here must be equivalent — replace only the directive token and keep the
+// here must be equivalent: replace only the directive token and keep the
 // block delimiters and spacing byte-identical.
 //
 //  1. Lint a block comment whose last line contains the directive and description.
