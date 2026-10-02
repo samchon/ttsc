@@ -12,8 +12,7 @@ import (
 //
 // With an empty contributor set the aggregation is vacuously satisfied for
 // every file, which is what lets a plugin-free project's consumer stop
-// revalidating each delivered module's whole reference closure
-// (samchon/ttsc#1259).
+// revalidating each delivered module's whole reference closure.
 func TestTransformDependenciesDeclaresEveryFileWithoutAContributor(t *testing.T) {
   keys := []string{"src/main.ts", "src/types.ts"}
 

@@ -4,7 +4,7 @@ import "testing"
 
 // TestAuthoredRegionMapsPositionsAroundThePreamble verifies the source-map
 // correction for a source preamble moves each parsed-text position to the
-// authored text, wherever the preamble was inserted (samchon/ttsc#1392).
+// authored text, wherever the preamble was inserted.
 //
 // A preamble is parsed as part of the file, so a map printed from the Program
 // records positions in the preamble-bearing text. ApplySourcePreamble inserts

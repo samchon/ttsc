@@ -9,7 +9,7 @@ import "testing"
 // This is the compatibility half of the contract: every producer written before
 // the declaration existed keeps the host-owned bound exactly, and a plugin whose
 // output depends on the type graph cannot have that bound narrowed on its
-// behalf (samchon/ttsc#1263).
+// behalf.
 func TestTransformDependenciesStaysSilentForAnUndeclaredContributor(t *testing.T) {
   out := aggregateTransformDependencies(
     []string{"src/main.ts"},

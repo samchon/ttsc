@@ -12,7 +12,7 @@ import (
 //
 // It also pins that reporting and declaring are separate acts: a plugin's
 // dependency list widens what consumers invalidate on even while the file
-// itself stays unlisted (samchon/ttsc#1263).
+// itself stays unlisted.
 func TestTransformDependenciesRequiresEveryContributorToDeclare(t *testing.T) {
   declarations := newPluginFileDeclarations()
   first := declarations.forPlugin(0)
