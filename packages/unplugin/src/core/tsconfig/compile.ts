@@ -14,7 +14,8 @@ import type { IRootPattern } from "./IRootPattern";
  * file.
  *
  * The filesystem view's platform selects path grammar; the compiler's
- * comparison policy independently selects case sensitivity.
+ * comparison policy independently selects case sensitivity. Resolved specs
+ * use the compiler's slash-normalized representation, not native identity.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Component compilation preserves literal-file versus include semantics,
@@ -36,13 +37,22 @@ import type { IRootPattern } from "./IRootPattern";
  * @evidence contracts/portability.md#os-neutral-implementation
  *   Explicit filesystem-view platform selects Node's win32 or posix grammar,
  *   while compiler case policy remains a separate input rather than inferred
- *   from the operating-system name. Omitted platform uses the native host.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   Splits the path once and compiles each component once.
+ *   from the operating-system name. Omitted platform uses the native host;
+ *   relative specs also use that path implementation's current-directory base.
+ *   Separator normalization is compiler spelling, not physical canonicalization.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Resolution, separator conversion and splitting scale with path text.
+ *   Component compilation maps each code point to a fixed wildcard or escaped
+ *   literal fragment, joins the fragments and constructs one RegExp where
+ *   needed. Temporary components/fragments and retained pattern text scale
+ *   with the specification; this does not bound later matcher traversal.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Keeps no cache of its own and computes each value once.
+ *   Compiles one spec. matchesProjectRootFile owns sharing complete pattern
+ *   lists by immutable policy and filesystem-view platform; rootSpellings uses
+ *   a transient reconstruction for its current location query.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   Acquires no handle, timer or retained state of its own.
+ *   Transfers the pattern to its caller and owns no handle or historical cache;
+ *   the membership matcher owns retention of shared pattern lists.
  */
 export function compile(
   spec: string,
