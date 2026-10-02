@@ -14,16 +14,24 @@ import { derivationIdentity } from "./derivationIdentity";
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies the supported key maps and duplicate precedence, with a blank line before acknowledgments following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Keys use native project-relative resolution and the supplied physical identity context, preserving filesystem-specific alias and case semantics without string-based OS guesses.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Visits each keyed entry once and tests the index in O(1).
+ *   Materializes the input's entry pairs, then resolves each producer spelling
+ *   once in iteration order. Path text and uncached native identity/ancestor/
+ *   case observations precede expected-constant Map operations, whose key
+ *   hashing/comparison still processes text. Temporary pairs follow all keys;
+ *   the output holds at most one referenced value per resolved identity.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   The index lets callers look entries up by identity without rescanning the
- *   keyed record.
+ *   The immutable generation's callers retain the completed index instead of
+ *   rescanning the same keyed record/root; native observations share its
+ *   identity context. This builder retains no separate cross-call index.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   The index is local to the call and handed to the caller.
  */
 export function createEnvelopeKeyIndex<T>(
+  /** Generation state whose identity observation memo qualifies producer keys. */
   state: TtscEnvelopeDerivation,
+  /** Stable native root used to expand this producer's relative keys. */
   projectRoot: string,
+  /** Immutable producer record; own enumeration order determines alias precedence. */
   keyed: Record<string, T>,
 ): Map<string, T> {
   const index = new Map<string, T>();
