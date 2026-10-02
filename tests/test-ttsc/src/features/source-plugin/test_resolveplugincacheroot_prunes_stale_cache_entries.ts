@@ -28,7 +28,7 @@ import {
  * @evidence contracts/testing.md#behavioral-verification Calls resolvePluginCacheRoot on owned filesystem fixtures and asserts stale eviction, fresh and uncertain-lock retention, unchanged external hardlink contents and no traversal through the cache-root link.
  * @evidence contracts/testing.md#independent-expectations The 30-day retention and owned default-root contracts independently specify the authored old/fresh dates and protected external sentinel bytes.
  * @evidence contracts/testing.md#distinguishing-cases Evictable old entry versus a fresh entry and an old entry held by an ownerless legacy lock (kept), version-two coordination and a retired-lock directory left in place, a future-dated GC marker hard-linked to an outside file (that file must not change), and a plugins directory replaced by a junction to an outside cache whose stale entry must survive. No live lock holder or build process is exercised.
- * @evidence contracts/testing.md#execution-ownership A unit test calling resolvePluginCacheRoot (which runs the opportunistic prune) over disposable workspaces under the temp directory, with TTSC_CACHE_DIR and TTSC_GO_CACHE_DIR cleared and restored; no consumer is installed, no native code is built and no host is started.
+ * @evidence contracts/testing.md#execution-ownership A unit test calling resolvePluginCacheRoot (which runs the opportunistic prune) over disposable workspaces under the temp directory, with an explicitly supplied empty invocation environment; global process.env remains unchanged. No consumer is installed, no native code is built and no host is started.
  */
 export const test_resolveplugincacheroot_prunes_stale_cache_entries = () => {
   const root = TestProject.tmpdir("ttsc-cache-gc-");
@@ -36,13 +36,7 @@ export const test_resolveplugincacheroot_prunes_stale_cache_entries = () => {
   // parent happens to contain another test's node_modules installation.
   fs.writeFileSync(path.join(root, "pnpm-workspace.yaml"), "packages: []\n");
   fs.mkdirSync(path.join(root, "node_modules"), { recursive: true });
-  const saved = {
-    cache: process.env.TTSC_CACHE_DIR,
-    goCache: process.env.TTSC_GO_CACHE_DIR,
-  };
-  delete process.env.TTSC_CACHE_DIR;
-  delete process.env.TTSC_GO_CACHE_DIR;
-  try {
+  {
     const pluginCache = path.join(
       root,
       "node_modules",
@@ -84,7 +78,7 @@ export const test_resolveplugincacheroot_prunes_stale_cache_entries = () => {
     fs.writeFileSync(externalMarker, futureMarker, "utf8");
     fs.linkSync(externalMarker, path.join(pluginCache, ".gc-last-run"));
 
-    assert.equal(resolvePluginCacheRoot(root), pluginCache);
+    assert.equal(resolvePluginCacheRoot(root, undefined, {}), pluginCache);
     assert.equal(fs.existsSync(evictable), false);
     assert.equal(fs.existsSync(stale), true);
     assert.equal(fs.existsSync(fresh), true);
@@ -129,16 +123,17 @@ export const test_resolveplugincacheroot_prunes_stale_cache_entries = () => {
       process.platform === "win32" ? "junction" : "dir",
     );
 
-    resolvePluginCacheRoot(linkedRoot);
+    const outsideMtime = fs.statSync(outsidePluginCache).mtimeMs;
+    resolvePluginCacheRoot(linkedRoot, undefined, {});
     assert.equal(
       fs.existsSync(outsideEntry),
       true,
       "plugin cache GC escaped through its root junction",
     );
-  } finally {
-    if (saved.cache === undefined) delete process.env.TTSC_CACHE_DIR;
-    else process.env.TTSC_CACHE_DIR = saved.cache;
-    if (saved.goCache === undefined) delete process.env.TTSC_GO_CACHE_DIR;
-    else process.env.TTSC_GO_CACHE_DIR = saved.goCache;
+    assert.equal(fs.readFileSync(path.join(outsideEntry, "plugin"), "utf8"), "outside\n");
+    assert.equal(fs.readFileSync(path.join(outsideEntry, ".last-used"), "utf8"), `${now - 31 * 24 * 60 * 60 * 1000}\n`);
+    assert.equal(fs.statSync(outsidePluginCache).mtimeMs, outsideMtime);
+    assert.equal(fs.existsSync(path.join(outsidePluginCache, ".gc-last-run")), false);
+    assert.equal(fs.lstatSync(path.join(linkedParent, "plugins")).isSymbolicLink(), true);
   }
 };

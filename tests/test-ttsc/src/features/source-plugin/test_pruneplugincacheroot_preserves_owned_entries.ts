@@ -44,16 +44,16 @@ export const test_pruneplugincacheroot_preserves_owned_entries = (): void => {
     return directory;
   };
   const activeLegacy = seed("active-legacy");
-  const activeV2 = seed("active-v2");
+  const activeV3 = seed("active-v3");
   const returned = seed("returned");
   const evictable = seed("evictable");
 
-  // A young metadata-less legacy holder cannot yet be disproven alive.
+  // Missing legacy ownership metadata cannot establish that its task ended.
   fs.mkdirSync(`${activeLegacy}.lock`);
   const legacyNow = new Date(now);
   fs.utimesSync(`${activeLegacy}.lock`, legacyNow, legacyNow);
-  const lease = acquirePluginBuildLock(`${activeV2}.lock`);
-  assert.ok(lease, "fixture failed to acquire an active v2 generation");
+  const lease = acquirePluginBuildLock(`${activeV3}.lock`);
+  assert.ok(lease, "fixture failed to acquire an active v3 generation");
   try {
     prunePluginCacheRoot(root, {
       force: true,
@@ -64,10 +64,10 @@ export const test_pruneplugincacheroot_preserves_owned_entries = (): void => {
       targetBytes: 0,
     });
     assert.equal(fs.existsSync(activeLegacy), true);
-    assert.equal(fs.existsSync(activeV2), true);
+    assert.equal(fs.existsSync(activeV3), true);
     assert.equal(fs.existsSync(returned), true);
     assert.equal(fs.existsSync(evictable), false);
   } finally {
-    releasePluginBuildLock(`${activeV2}.lock`, lease);
+    releasePluginBuildLock(`${activeV3}.lock`, lease);
   }
 };
