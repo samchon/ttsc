@@ -10,7 +10,7 @@ import (
  * A digest excludes every position a tag can occupy, and this position was the
  * exception. A variable unit is created from its binding identifier, whose span
  * starts where the previous token ended and therefore arrives carrying the
- * block above it , while an identifier reports no documentation of its own, so
+ * block above it, while an identifier reports no documentation of its own, so
  * the exclusion had no span to cut. The declarator does report it, and taking
  * the identity's content from the declarator is what puts the block back inside
  * the exclusion.
