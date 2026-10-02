@@ -6,12 +6,11 @@ import (
   "testing"
 )
 
-// TestCommandFormatExpressionNestedBlockHonorsCRLF verifies every hard line
-// inserted for #922 uses the configured file ending.
+// TestCommandFormatExpressionNestedBlockHonorsCRLF verifies the two breaks
+// inserted around this callback statement use the configured CRLF ending.
 //
 // The block printer creates both the line after `{` and the line before `}`.
-// A bare LF in either position would reintroduce the mixed-ending defect #616
-// fixed.
+// A bare LF in either position violates this fixture's explicit ending policy.
 //
 //  1. Seed a one-line callback with CRLF output configured.
 //  2. Run `ttsc format`.
