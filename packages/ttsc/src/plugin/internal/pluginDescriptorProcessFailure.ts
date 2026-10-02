@@ -7,11 +7,9 @@
  * something outside killed it, or it exited non-zero after printing its own
  * reason.
  *
- * Nothing is bounded here — not time, not output. Both were the compiler
- * deciding, on numbers nobody chose for this machine, that a user's own
- * descriptor had run too long or said too much. Neither is this process's
- * memory to spend either, because the child's streams are no longer collected
- * into it.
+ * Nothing is bounded here, neither time nor output: a user's own descriptor
+ * decides how long it runs and how much it says, and this process spends no
+ * memory on it because the child's streams are not collected into it.
  *
  * @evidence contracts/common.md#principled-implementation Launch error, signal and nonzero status are classified in causal order from the child-process result; only a zero-status run without either earlier failure has no process error.
  * @evidence contracts/common.md#clear-and-simple-design The classifier returns an error without owning spawning, streamed diagnostics or descriptor decoding, keeping those responsibilities with the loader.

@@ -28,17 +28,16 @@ export namespace CapabilityResolutionFormat {
    * Cache format tag.
    *
    * Moves when the entry shape or the validation rule changes, so an older
-   * entry is discarded rather than read under new rules. The second format
-   * proves the directories the binaries were keyed on by the build's own rule,
-   * where the first fingerprinted each plugin's `source` alone
-   * (samchon/ttsc#1492). The third records only the answer of a load whose
-   * descriptors declared every file they read (samchon/ttsc#1561). The fourth
-   * includes the complete descriptor environment and runtime content identity
-   * in the key, since either can change a factory's capability declarations.
-   * The fifth additionally requires an explicit completed runtime observation
-   * envelope; a partial side channel cannot authorize an answer for reuse. The
-   * sixth also requires the shared module recorder's independent completion
-   * proof, including its public require.resolve hook capability.
+   * entry is discarded rather than read under new rules. The current format
+   * proves the directories the binaries were keyed on by the build's own rule
+   * (samchon/ttsc#1492) and records only the answer of a load whose
+   * descriptors declared every file they read (samchon/ttsc#1561). Its key
+   * includes the complete descriptor environment and runtime content identity,
+   * since either can change a factory's capability declarations. It requires
+   * an explicit completed runtime observation envelope, so a partial side
+   * channel cannot authorize an answer for reuse, and the shared module
+   * recorder's independent completion proof, including its public
+   * require.resolve hook capability.
    */
   const FORMAT = "ttsc-capability-resolution-v6";
 

@@ -6,7 +6,7 @@
  *
  * The state is what the cached binary path stands for, and a read proves it by
  * the build's own rule (`pluginSourceStateHolds`). Reading every file of a
- * plugin's module costs half a second for `@ttsc/lint`'s, on every read, so a
+ * plugin's module is costly for a large module, on every read, so a
  * read whose signature still matches, and is still separable from a clock
  * reference minted then, hands the recorded digest to the proof instead, and
  * only the build environment is read again. `digest` and `signature` are

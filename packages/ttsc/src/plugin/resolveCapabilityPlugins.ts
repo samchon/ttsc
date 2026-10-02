@@ -18,12 +18,12 @@ import { writeCapabilityResolution } from "./internal/writeCapabilityResolution"
  * The built sidecars of a project's configured plugins that declare one
  * capability.
  *
- * This is the seam a consumer outside the compiler needs to ask a plugin a
- * question the plugin declared it can answer. `ttscserver` already does this
- * for `capabilities.lsp`, but it does it from inside the launcher; a separate
- * tool — `@ttsc/graph`, an editor integration, a script — had no way to reach
- * the same answer without reimplementing plugin discovery, descriptor
- * evaluation, and the Go source build cache.
+ * This is the seam a consumer outside the compiler uses to ask a plugin a
+ * question the plugin declared it can answer. `ttscserver` asks for
+ * `capabilities.lsp` from inside the launcher; a separate tool — `@ttsc/graph`,
+ * an editor integration, a script — reaches the same answer here without
+ * reimplementing plugin discovery, descriptor evaluation, and the Go source
+ * build cache.
  *
  * It is contributor-agnostic by construction: the caller names a capability,
  * not a package. A project that configures no plugin, or none declaring that
