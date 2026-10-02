@@ -14,16 +14,18 @@ import { resolveSourceBuildCachePaths } from "./resolveSourceBuildCachePaths";
  * `SourceBuildCacheLayout.CACHE_FILE_DIRNAMES`), a safely named nested
  * `go-build/`, a ttsc-owned Go build cache that lives OUTSIDE that root
  * (`TTSC_GO_CACHE_DIR`), and the two legacy project-local caches. A
- * user-provided `GOCACHE` is protected even when it overlaps an owned
- * candidate. Workspace discovery reads the filesystem; environment selection
+ * user-provided `GOCACHE` filters candidates whose reported identity keys
+ * overlap in either direction. This query does not pin those paths or certify
+ * unresolved case/alias relationships; the cleanup transaction validates the
+ * complete deletion set separately. Workspace discovery reads the filesystem; environment selection
  * uses `env` so a programmatic caller can supply its effective environment.
  *
- * @evidence contracts/common.md#principled-implementation Candidate directories encode owned layout parts and dedicated Go provenance; actual identity overlap with external GOCACHE is excluded in either ancestor direction.
+ * @evidence contracts/common.md#principled-implementation Candidate directories encode owned layout parts and dedicated Go provenance; reported identity-key overlap with external GOCACHE is excluded in either ancestor direction, without converting unresolved identity into a physical-ownership certificate.
  * @evidence contracts/common.md#clear-and-simple-design Candidate enumeration is followed by one external-ownership filter; physical deletion and project-root protection remain the cleanup transaction's responsibility.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy paths are supported migration targets; external Go storage is protected by identity rather than guessed different spellings.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state candidate ownership, filesystem discovery and injected environment semantics rather than claiming a pure query.
  * @evidence contracts/portability.md#os-neutral-implementation Native path APIs construct candidates; environment lookup honors Windows case-insensitive names, and the shared identity context resolves aliases and actual directory case semantics for overlap protection.
- * @evidence contracts/performance.md#efficient-algorithms A fixed candidate population uses one memoizing identity context to share common-ancestor resolution across overlap checks.
+ * @evidence contracts/performance.md#efficient-algorithms The candidate count is fixed, but delegated default root discovery walks ancestors, reads manifest bytes and inspects layout entry populations. Path/environment text and native identity/case observations contribute cost; one call-local identity context shares repeated resolution across overlap checks without a constant-cost filesystem claim.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Cleanup candidate selection does not establish equivalence for computed build answers.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The query returns candidates; the cleanup transaction owns deletion and no retained handle is acquired here.
