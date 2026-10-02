@@ -53,15 +53,16 @@ export namespace GoSourceInputs {
 
   /**
    * The environment of a `go` invocation: `GOWORK=auto`, ttsc's own `GOCACHE`
-   * when a cache root is given (only the real build writes it), and `GOROOT`
-   * inferred from the binary's location when the environment does not set one.
+   * when a cache root is given, and `GOROOT` inferred from the binary's location
+   * when the copied environment's value is absent or empty. Build callers
+   * supply the managed cache; metadata callers retain their ambient GOCACHE.
    *
-   * @evidence contracts/common.md#principled-implementation A copied environment receives the build's explicit workspace/cache settings and an inferred SDK root only when the caller did not supply one.
+   * @evidence contracts/common.md#principled-implementation A copied environment receives explicit workspace/cache settings and an inferred SDK root only when its existing GOROOT value is absent or empty; nonempty caller values remain unchanged.
    * @evidence contracts/common.md#clear-and-simple-design One constructor serves build and metadata invocations; omitting the cache root intentionally keeps read-only probes separate from owned-cache writes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The caller's environment is preserved rather than mutating process globals, and documented Go variables express supported invocation policy.
    * @evidence contracts/common.md#meaningful-documentation Native prose states override precedence and why only actual builds receive managed GOCACHE; tags have separate presentation.
    * @evidence contracts/portability.md#os-neutral-implementation Native SDK inference delegates to path APIs, and Go's environment variables carry process configuration across supported operating systems.
-   * @evidence contracts/performance.md#efficient-algorithms Copying E environment entries costs O(E) space/time and SDK inference performs a fixed number of path/existence operations.
+   * @evidence contracts/performance.md#efficient-algorithms Environment enumeration copies E property references and processes key names; values are not deep-copied. SDK inference also performs native path-text construction and an existence query, whose filesystem/path costs are not bounded by E alone.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation needs its effective environment copy; no retained computation is coordinated here.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only a call-local environment object is created.
@@ -75,8 +76,8 @@ export namespace GoSourceInputs {
     env.GOWORK = "auto";
     // Only the actual `go build` needs ttsc's GOCACHE; read-only metadata spawns
     // (`go mod edit`, `go env`, `go version`) call goBuildEnv with no cache root
-    // and inherit the ambient GOCACHE, which they never write to anyway. GOCACHE
-    // is not part of the plugin cache key, so this cannot affect it.
+    // and inherit ambient GOCACHE rather than receiving the managed build
+    // cache here. This constructor does not certify child-side effects.
     if (goBuildCacheRoot) {
       env.GOCACHE = goBuildCacheRoot;
     }
@@ -98,7 +99,7 @@ export namespace GoSourceInputs {
    * @evidence contracts/common.md#meaningful-documentation Native prose documents the recognized layout and null meaning rather than merely repeating the return type.
    * @evidence contracts/portability.md#os-neutral-implementation Node absolute/dirname/join operations use native path syntax; the Go SDK's bin and src/runtime components are distribution-defined names.
    *
-   * @evidenceExclude contracts/performance.md#efficient-algorithms Fixed path operations and one existence check do not choose a scaling workload algorithm.
+   * @evidence contracts/performance.md#efficient-algorithms A fixed sequence of native absolute/dirname/basename/join operations and one existence query checks the layout without enumerating a source tree. Path text and native lookup still contribute cost; fixed operation count is not a constant-byte filesystem bound.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Existence is checked for the current invocation rather than memoized independently of SDK changes.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The function retains no state or native handle.
    */
@@ -121,7 +122,7 @@ export namespace GoSourceInputs {
    *
    * @evidenceExclude contracts/portability.md#os-neutral-implementation This name-membership predicate performs no native lookup or path interpretation.
    *
-   * @evidence contracts/performance.md#efficient-algorithms A prebuilt set supplies expected constant-time membership for each traversed directory instead of rebuilding policy on every visit.
+   * @evidence contracts/performance.md#efficient-algorithms A prebuilt three-name set avoids rebuilding policy per directory; lookup still compares/hashes the supplied name under native JavaScript string/Set behavior and does not inspect directory content.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Static policy lookup does not coordinate a completed or in-flight computation.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The fixed module policy has constant population and owns no external resource.
