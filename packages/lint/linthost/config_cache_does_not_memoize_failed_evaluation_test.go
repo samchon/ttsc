@@ -11,10 +11,10 @@ import (
 // that errors is not cached, so a later load retries instead of replaying a
 // stale failure.
 //
-// A subprocess failure — a transient ttsx crash, a dependency missing during a
-// cold install — must not poison the cache: the next `ttsc` invocation should
-// get a fresh attempt. loadCachedConfigFile memoizes only successful
-// evaluations; this locks that the error path stores nothing.
+// Authored failing and recovering evaluators exercise the cache policy without
+// spawning a script child. Error-sentinel identity and call counts require a
+// fresh attempt after each failure and reuse after successful recovery; actual
+// subprocess failure and cross-process disk reuse are separate boundaries.
 //
 //  1. Load a config through an evaluator that always returns an error.
 //  2. Load it again; assert both loads surfaced the error.
