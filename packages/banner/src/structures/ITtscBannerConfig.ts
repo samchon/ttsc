@@ -29,14 +29,6 @@
  *   separated into native paragraphs under the documentation skill; the type
  *   acknowledgment covers its field without duplicating a checklist on that
  *   property.
- *
- * @evidenceExclude contracts/portability.md#os-neutral-implementation The type declares one string field and performs no filesystem, path or process operation.
- *
- * @evidenceExclude contracts/performance.md#efficient-algorithms The type is a one-field value shape with no algorithm to analyze.
- *
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The type computes nothing, so no equivalent work exists to reuse.
- *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The type acquires no resource and retains nothing.
  */
 export interface ITtscBannerConfig {
   /**

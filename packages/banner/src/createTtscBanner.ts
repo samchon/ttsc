@@ -124,32 +124,6 @@ const FRAMEWORK_KEYS = new Set<string>([
  *   unknown inline keys are rejected. Context and descriptor fields document
  *   host anchoring and observed inputs. Paragraphs and reasons follow the
  *   documentation skill; the exported factory is documented as a host entry.
- *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   Node path operations resolve the host anchors and stop discovery at the
- *   filesystem root, where a directory is its own parent. realpathSync.native reports physical
- *   targets independently of byte hashes; unresolved targets remain null.
- *   No OS name determines case policy and no path becomes a shell command.
- *
- * @evidence contracts/performance.md#efficient-algorithms
- *   For ancestor depth H and total readable candidate bytes B, discovery performs seven
- *   candidate probes per ancestor and hashes O(B) bytes, stopping at the first
- *   matching ancestor. Its maps retain O(H) candidate entries. An explicit
- *   config path probes only that file. Reading bytes is necessary to distinguish
- *   edits that preserve size and timestamps; an existence index cannot replace
- *   those content observations.
- *
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   This factory produces one descriptor and its filesystem observations. It
- *   owns no cache or coordination across calls. The host owns descriptor reuse;
- *   native configuration is evaluated once at the Program's preamble boundary.
- *
- * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   Each synchronous filesystem operation acquires and closes its own handle.
- *   Candidate maps are transferred in the returned descriptor, whose lifetime
- *   the host owns. Discovery retains no module-level history, watcher or child
- *   task; candidate entries grow with ancestor depth and transient file bytes
- *   with candidate size, without an independent byte limit.
  */
 export default function createTtscBanner(
   context: TtscPluginFactoryContext<ITtscBannerPluginConfig>,
