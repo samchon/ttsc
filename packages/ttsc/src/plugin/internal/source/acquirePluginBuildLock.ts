@@ -12,8 +12,9 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
  *
  * A non-empty candidate is renamed to `current`. Directory rename cannot
  * replace a non-empty `current`, so exactly one contender wins without an
- * empty-owner publication window. `null` means either another v3 holder won or
- * the path is a legacy lock that must be observed before it can be reclaimed.
+ * empty-owner publication window. `null` means admission was unavailable:
+ * a legacy path, contention or a missing rename pathname can produce it. It
+ * does not identify which peer won or prove another producer completed.
  *
  * The caller releases the returned lease in finally after its actual payload
  * callback ends. Its independent completion nonce qualifies that task's marker.
@@ -27,9 +28,9 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A lost publication race returns null; it never force-removes a holder or substitutes uncoordinated success for failed acquisition.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain atomic publication, null, lease cleanup and the actual older-version serialization limits before the tags.
  * @evidence contracts/portability.md#os-neutral-implementation Node paths and directory operations preserve native naming, reject symlink legacy lock paths and distinguish rename contention through the platform error adapter.
- * @evidence contracts/performance.md#efficient-algorithms Acquisition performs a fixed number of metadata operations and writes bounded owner records; it does not scan sibling generations or enumerate processes.
+ * @evidence contracts/performance.md#efficient-algorithms Acquisition uses a fixed number of metadata operations without scanning sibling generations or enumerating processes. Work includes native path construction/resolution, protocol marker bytes and host/PID/generation JSON construction and writes; initialization and attempt cleanup recursively remove their candidate contents.
  * @evidence contracts/performance.md#reuse-equivalent-work A cache-key lock selects one producer among v3 consumers; binary identity and under-lock publication rechecking remain the build caller's responsibility, not assumptions made by a matching lock path.
- * @evidence contracts/performance.md#bound-retention-and-release-resources One candidate belongs to this attempt and is removed in finally; a winning lease transfers generation ownership to the caller, while persistent roots remain per historical cache key to preserve fencing.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Candidates have finally-based removal, which can fail or override the result. Successful return transfers a winning generation to the caller; cleanup failure after publication can leave ownership without a returned lease. Persistent roots remain per historical key for fencing, with no constant historical-key bound here.
  */
 export function acquirePluginBuildLock(
   lockDir: string,
