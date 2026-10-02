@@ -13,7 +13,6 @@ import type { TtscProjectDiscoveryFilesystem } from "./TtscProjectDiscoveryFiles
  *   Extending the smaller discovery view preserves one stat contract while
  *   adding only operations needed to descend and cut link cycles.
  *
- *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Linked traversal uses the supplied identity operation, not a guessed
  *   directory-name cycle rule or patched fs exports.
@@ -25,14 +24,16 @@ import type { TtscProjectDiscoveryFilesystem } from "./TtscProjectDiscoveryFiles
  *   Native entry kinds and physical spelling are explicit callback capabilities;
  *   callers can represent links and junctions without a universal OS case rule.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   TtscProjectTreeDiscoveryFilesystem only declares a shape; it has no
- *   computation at runtime.
+ *   findProjectTsconfigs owns frames, entry/path processing and sorting; supplied
+ *   callbacks own native enumeration/metadata/realpath work. This view specifies
+ *   those observations rather than choosing their algorithms.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   TtscProjectTreeDiscoveryFilesystem only declares a shape; it has no work
- *   to reuse at runtime.
+ *   The caller owns current traversal/reproof and branch identity comparisons;
+ *   callback presence grants no cached tree or stable native identity authority.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   TtscProjectTreeDiscoveryFilesystem only declares a shape; it has no
- *   handle or retained state at runtime.
+ *   Callback implementations own native access handles and traversal callers
+ *   own temporary frames/returned lists; this view defines no retained watcher
+ *   or independent resource-release operation.
  */
 export interface TtscProjectTreeDiscoveryFilesystem extends TtscProjectDiscoveryFilesystem {
   /**
