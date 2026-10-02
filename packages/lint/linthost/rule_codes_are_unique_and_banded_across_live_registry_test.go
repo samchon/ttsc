@@ -3,8 +3,6 @@ package linthost
 import (
   "sort"
   "testing"
-
-  "github.com/samchon/ttsc/packages/lint/internal/rulecode"
 )
 
 // TestRuleCodesAreUniqueAndBandedAcrossLiveRegistry verifies the built-in code
@@ -28,7 +26,7 @@ import (
 func TestRuleCodesAreUniqueAndBandedAcrossLiveRegistry(t *testing.T) {
   ledgerCodes := make(map[int32]string, len(builtInRuleCodes))
   for name, code := range builtInRuleCodes {
-    if code < rulecode.Minimum || code >= rulecode.MaximumExclusive {
+    if code < 9000 || code >= 18000 {
       t.Fatalf("built-in rule %q has out-of-range code %d", name, code)
     }
     if previous, exists := ledgerCodes[code]; exists {
@@ -65,7 +63,7 @@ func TestRuleCodesAreUniqueAndBandedAcrossLiveRegistry(t *testing.T) {
     }
     seenNames[name] = struct{}{}
     code := RuleCode(name)
-    if code < rulecode.Minimum || code >= rulecode.MaximumExclusive {
+    if code < 9000 || code >= 18000 {
       t.Fatalf("rule %q has out-of-range code %d", name, code)
     }
     if previous, exists := activeCodes[code]; exists {
