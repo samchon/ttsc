@@ -45,7 +45,9 @@ import path from "node:path";
  *   meaning for each adapter, with tag separation per documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Node's native join preserves the actual host root's volume and spelling; records stay under that root to satisfy filesystem-root, same-drive and Windows watched-directory constraints.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Naming the directory acquires and retains no handle, task or state.
- * @evidenceExclude contracts/performance.md#efficient-algorithms One path.join; no algorithm or data structure is chosen.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Native join scans and normalizes the supplied root's text and creates the
+ *   returned spelling. It performs no filesystem access or directory walk.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The directory is joined from its argument on every call; no computation is shared.
  */
 export function hostToolDirectory(root: string): string {
