@@ -6,15 +6,13 @@ import (
   "testing"
 )
 
-// TestCommandFormatAppliesFormatBlockReflow verifies the `ttsc format`
-// subcommand applies edits driven entirely by a `format` block in the
-// discovered lint config file — no `format/*` entries in `rules`.
+// TestCommandFormatAppliesFormatBlockReflow verifies that a discovered config
+// containing only a format block supplies the explicit print-width option.
 //
-// This is the headline command-level test for the format surface, and the
-// regression guard for the dropped-`format` bug: a config file whose
-// only key is `format` must round-trip from `lint.config.json` through the
-// loader, expansion, and engine. A regression at any of those layers would
-// surface here.
+// The authored one-line object exceeds width twenty and must become the exact
+// multiline form. Its members, values and declaration remain intact. The test
+// observes this configured object reflow, without claiming every loader or
+// expansion failure is distinguishable or covering under-width objects.
 //
 //  1. Seed a project plus a lint.config.json carrying only
 //     `format: { printWidth: 20 }`.
