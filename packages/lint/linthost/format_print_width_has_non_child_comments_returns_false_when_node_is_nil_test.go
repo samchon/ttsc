@@ -19,7 +19,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification hasNonChildComments must identify a real sibling-gap comment while ignoring empty/plain objects and comment-like string bytes owned by a child.
 // @evidence contracts/testing.md#independent-expectations The literal block comment is trivia between property token ranges; the quoted lookalike is string content. Independent lexical meaning determines the expected booleans.
 // @evidence contracts/testing.md#distinguishing-cases Nil and empty objects, ordinary adjacent members, one actual gap comment and a quoted lookalike distinguish abstention from safe child-owned bytes; this host owns the named table rows.
-// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthHasNonChildCommentsReturnsFalseWhenNodeIsNil is selected as a public Go unit by TestSelectedLintUnits; its local cases call the owning operation in the shared process without a consumer install, native artifact build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthHasNonChildCommentsReturnsFalseWhenNodeIsNil is selected as a public Go unit by the lint semantic-unit Evidence claim; its local cases call the owning operation in the shared process without a consumer install, native artifact build or product host.
 func TestFormatPrintWidthHasNonChildCommentsReturnsFalseWhenNodeIsNil(t *testing.T) {
   if got := hasNonChildComments(nil, "source", 0, 6); got {
     t.Fatalf("hasNonChildComments(nil, ...): want false, got true")

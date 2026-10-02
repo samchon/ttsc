@@ -17,7 +17,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/brace-continuation must push a statement-body else onto a new line using the configured CRLF ending without introducing any bare LF.
 // @evidence contracts/testing.md#independent-expectations The literal output retains both calls and condition and uses CRLF on every line; the helper compares the entire fixed source and separately rejects lone LF bytes in the actual output.
 // @evidence contracts/testing.md#distinguishing-cases This configured-EOL positive complements default-LF pushing and the already-split negative; it owns a synthesized CRLF boundary rather than merely checking the input endings.
-// @evidence contracts/testing.md#execution-ownership TestFormatBraceContinuationHonorsCRLFEndOfLine is a public Go unit selected by TestSelectedLintUnits. This host owns the source and independent literal output; the shared syntax-only harness invokes the rule and applies its edits in process without a consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatBraceContinuationHonorsCRLFEndOfLine is a public Go unit selected by the lint semantic-unit Evidence claim. This host owns the source and independent literal output; the shared syntax-only harness invokes the rule and applies its edits in process without a consumer install, native product build or product host.
 func TestFormatBraceContinuationHonorsCRLFEndOfLine(t *testing.T) {
   assertFixCRLFConsistentWithOptions(
     t,

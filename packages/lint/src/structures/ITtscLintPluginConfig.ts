@@ -21,7 +21,8 @@ export interface ITtscLintPluginConfig {
    * extensions (`.ts`, `.cts`, `.mts`, `.js`, `.cjs`, `.mjs`, `.json`).
    *
    * When omitted, `@ttsc/lint` discovers a `lint.config.*` /
-   * `ttsc-lint.config.*` file by walking upward from the tsconfig directory.
+   * `ttsc-lint.config.*` file by walking upward from the tsconfig directory and,
+   * when that finds none, from the working directory.
    *
    * ```jsonc
    * {

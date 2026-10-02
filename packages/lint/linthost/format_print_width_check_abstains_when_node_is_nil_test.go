@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification formatPrintWidth.Check must return without panicking or collecting a finding for a nil node in a real source context and for a parsed node when Context.File is absent.
 // @evidence contracts/testing.md#independent-expectations The absent-node safety contract requires an empty finding population; a collector observes any unexpected emission.
 // @evidence contracts/testing.md#distinguishing-cases This host executes nil node and absent File arms; nil Context and out-of-range source guards have separate hosts.
-// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthCheckAbstainsWhenNodeIsNil is a public Go unit selected by TestSelectedLintUnits. It calls Check directly with isolated fixture source and a collector, without installing a consumer or starting a host.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthCheckAbstainsWhenNodeIsNil is a public Go unit selected by the lint semantic-unit Evidence claim. It calls Check directly with isolated fixture source and a collector, without installing a consumer or starting a host.
 func TestFormatPrintWidthCheckAbstainsWhenNodeIsNil(t *testing.T) {
   root := t.TempDir()
   filePath := filepath.Join(root, "src", "main.ts")

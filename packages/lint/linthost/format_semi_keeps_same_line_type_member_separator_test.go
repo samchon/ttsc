@@ -19,7 +19,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must keep the same-line type-member semicolon while removing the safe outer alias terminator under never.
 // @evidence contracts/testing.md#independent-expectations The independent full literal output retains the separator needed between a:number and b:string but drops only the alias-ending punctuation.
 // @evidence contracts/testing.md#distinguishing-cases A required interior separator and optional exterior terminator share one changed/unchanged fixture, contrasting with broken newline-separated member stripping.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiKeepsSameLineTypeMemberSeparator is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only harness invokes the owning semicolon rule and applies edits for exact output in the same Go process, without consumer installation, a native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiKeepsSameLineTypeMemberSeparator is a public Go unit selected by the lint semantic-unit Evidence claim. The shared syntax-only harness invokes the owning semicolon rule and applies edits for exact output in the same Go process, without consumer installation, a native product build or host execution.
 func TestFormatSemiKeepsSameLineTypeMemberSeparator(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

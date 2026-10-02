@@ -23,7 +23,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must normalize required commas to semicolons for a flat type list and before a call signature while removing the safe outer alias terminator under never.
 // @evidence contracts/testing.md#independent-expectations The independently authored full output preserves the flat-list and call-signature separation required for type syntax while retaining every annotation and callable member.
 // @evidence contracts/testing.md#distinguishing-cases One flat-list separator and one call-signature hazard separator must remain but change spelling; the safe statement terminator disappears and the broken-interface comma-removal case owns the opposing decision.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiPreferNeverNormalizesACommaItMustKeep is a public Go unit selected by TestSelectedLintUnits. This entry owns every literal declaration in its fixture; the shared syntax-only harness invokes the semicolon rule and applies edits for its complete output comparison in the same process without a consumer install, native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiPreferNeverNormalizesACommaItMustKeep is a public Go unit selected by the lint semantic-unit Evidence claim. This entry owns every literal declaration in its fixture; the shared syntax-only harness invokes the semicolon rule and applies edits for its complete output comparison in the same process without a consumer install, native product build or host execution.
 func TestFormatSemiPreferNeverNormalizesACommaItMustKeep(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

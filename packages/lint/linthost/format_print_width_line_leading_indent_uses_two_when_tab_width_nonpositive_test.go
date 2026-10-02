@@ -19,7 +19,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification lineLeadingIndent must default nonpositive tab widths, honor explicit tab stops and count indentation rather than all text before the node.
 // @evidence contracts/testing.md#independent-expectations Two literal tabs imply four columns under the documented default or eight under explicit width four; one space then tab lands at the next stop, and two initial spaces remain the indent after text starts.
 // @evidence contracts/testing.md#distinguishing-cases Zero/negative widths contrast with explicit width four, mixed spaces/tabs, a position inside content and the file-start empty indent.
-// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthLineLeadingIndentUsesTwoWhenTabWidthNonpositive is a selected public Go unit under TestSelectedLintUnits. This entry owns every local assertion and table row, invoking the column or source predicate in the shared process without consumer installation, a native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthLineLeadingIndentUsesTwoWhenTabWidthNonpositive is a selected public Go unit under the lint semantic-unit Evidence claim. This entry owns every local assertion and table row, invoking the column or source predicate in the shared process without consumer installation, a native product build or host execution.
 func TestFormatPrintWidthLineLeadingIndentUsesTwoWhenTabWidthNonpositive(t *testing.T) {
   // "\t\tconst x = 1;\n" — two leading tabs, then the statement.
   src := "\t\tconst x = 1;\n"

@@ -18,7 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/declaration-header must break before extends but keep its three heritage types inline when the new keyword line fits, preserving x:number.
 // @evidence contracts/testing.md#independent-expectations The independently authored width-eighty output literal specifies the first-tier layout and unchanged declaration/heritage/member payload.
 // @evidence contracts/testing.md#distinguishing-cases This changed flat-overflow but keyword-line-fit case contrasts with the six-type second-tier explosion and already-fitting flat-header collapse.
-// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderKeepsMultiTypeInlineAfterBreak is selected by TestSelectedLintUnits as a public Go unit. The shared syntax-only harness calls the owning declaration-header rule on temporary fixture source and applies reported edits for the literal output assertion without consumer installation, native product build or a host process.
+// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderKeepsMultiTypeInlineAfterBreak is selected by the lint semantic-unit Evidence claim as a public Go unit. The shared syntax-only harness calls the owning declaration-header rule on temporary fixture source and applies reported edits for the literal output assertion without consumer installation, native product build or a host process.
 func TestFormatDeclarationHeaderKeepsMultiTypeInlineAfterBreak(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

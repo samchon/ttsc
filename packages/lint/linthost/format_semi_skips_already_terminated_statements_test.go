@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification format/semi must emit no findings for an already-terminated declaration and expression call rather than inserting duplicate semicolons.
 // @evidence contracts/testing.md#independent-expectations The literal source already has one terminator per statement under the default contract; zero findings is independently specified canonical behavior.
 // @evidence contracts/testing.md#distinguishing-cases The unchanged declaration/call pair complements missing-terminator insertion and the fourteen-kind changed edit matrix, so idempotency does not stand alone.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiSkipsAlreadyTerminatedStatements is a selected public Go unit under TestSelectedLintUnits. The entry parses literal fixture source and directly calls Engine.Run with the owning semicolon rule, observing its findings and edits in the same Go process without a consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiSkipsAlreadyTerminatedStatements is a selected public Go unit under the lint semantic-unit Evidence claim. The entry parses literal fixture source and directly calls Engine.Run with the owning semicolon rule, observing its findings and edits in the same Go process without a consumer install, native product build or product host.
 func TestFormatSemiSkipsAlreadyTerminatedStatements(t *testing.T) {
   file := parseTS(t, "const value = 1;\nJSON.stringify(value);\n")
   findings := NewEngine(RuleConfig{"format/semi": SeverityError}).

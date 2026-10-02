@@ -14,7 +14,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/declaration-header must emit no finding for already-broken Serializer type arguments rather than disturbing the multiline generic heritage.
 // @evidence contracts/testing.md#independent-expectations The independently authored canonical literal supplies the preserved union argument and method body; zero findings is the documented abstention for this already-multiline structure.
 // @evidence contracts/testing.md#distinguishing-cases This unchanged generic-heritage layout is paired with the actual flat-to-broken two-argument transformation and its CRLF counterpart.
-// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderIdempotentOnBrokenHeritageTypeArgs is selected by TestSelectedLintUnits as a public Go unit. The shared syntax-only harness calls the owning declaration-header rule on temporary fixture source and observes zero findings without consumer installation, native product build or a host process.
+// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderIdempotentOnBrokenHeritageTypeArgs is selected by the lint semantic-unit Evidence claim as a public Go unit. The shared syntax-only harness calls the owning declaration-header rule on temporary fixture source and observes zero findings without consumer installation, native product build or a host process.
 func TestFormatDeclarationHeaderIdempotentOnBrokenHeritageTypeArgs(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,

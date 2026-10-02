@@ -17,7 +17,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/statement-split must insert CRLF between shared-line declarations when configured crlf, preserving both declarations and the existing terminal CRLF.
 // @evidence contracts/testing.md#independent-expectations The explicit endOfLine contract and literal escaped CRLF output determine separator bytes independently of the layout loader.
 // @evidence contracts/testing.md#distinguishing-cases This CRLF changed positive contrasts with default LF splitting and unchanged line-separated declarations; exact bytes reject a mixed bare-LF insertion.
-// @evidence contracts/testing.md#execution-ownership TestFormatStatementSplitHonorsCRLFEndOfLine is a public Go unit selected by TestSelectedLintUnits. Its shared syntax-only harness invokes the owning formatter on temporary fixture source and applies its reported edits for exact output assertions in the same process, without a consumer install, native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatStatementSplitHonorsCRLFEndOfLine is a public Go unit selected by the lint semantic-unit Evidence claim. Its shared syntax-only harness invokes the owning formatter on temporary fixture source and applies its reported edits for exact output assertions in the same process, without a consumer install, native product build or host execution.
 func TestFormatStatementSplitHonorsCRLFEndOfLine(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

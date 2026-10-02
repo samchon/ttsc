@@ -18,7 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must remove both newline-separated interface member terminators under never while retaining the number/string annotations and member order.
 // @evidence contracts/testing.md#independent-expectations The independently authored full output records semi:false broken-interface layout with identical member declarations and braces.
 // @evidence contracts/testing.md#distinguishing-cases The changed broken two-member interface complements flat-body separators that must remain and canonical already-stripped interface negatives.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiStripsInterfaceMemberSemicolons is a selected public Go unit under TestSelectedLintUnits. The shared syntax-only fixture harness calls the owning semicolon rule and applies edits for the complete literal output assertion in the same Go process without a consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiStripsInterfaceMemberSemicolons is a selected public Go unit under the lint semantic-unit Evidence claim. The shared syntax-only fixture harness calls the owning semicolon rule and applies edits for the complete literal output assertion in the same Go process without a consumer install, native product build or product host.
 func TestFormatSemiStripsInterfaceMemberSemicolons(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

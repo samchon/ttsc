@@ -20,7 +20,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must offer no removal of the separator between a=1 and b=2 on the same line under never.
 // @evidence contracts/testing.md#independent-expectations The literal source has no intervening line terminator, so removing its sole semicolon would make two assignments invalid; the no-finding oracle follows grammar independently.
 // @evidence contracts/testing.md#distinguishing-cases This same-line negative complements safe newline-separated stripping and separate statement-split positives; this host does not claim to execute the full cascade.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiPreferNeverKeepsSameLineStatementSeparator is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only harness invokes the owning semicolon rule and observes zero findings in the same Go process, without consumer installation, a native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiPreferNeverKeepsSameLineStatementSeparator is a public Go unit selected by the lint semantic-unit Evidence claim. The shared syntax-only harness invokes the owning semicolon rule and observes zero findings in the same Go process, without consumer installation, a native product build or host execution.
 func TestFormatSemiPreferNeverKeepsSameLineStatementSeparator(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,

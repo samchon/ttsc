@@ -18,7 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must emit no findings for already-terminated interface signatures, a broken type-literal property and a class index signature, preventing duplicate insertion.
 // @evidence contracts/testing.md#independent-expectations The independently authored canonical literal already gives each required member its semicolon; the no-finding result follows default semi policy rather than a previous run.
 // @evidence contracts/testing.md#distinguishing-cases Five interface signature shapes plus the alias property and class index signature share this host; broken-interface/type-literal insertion positives distinguish correctness from mere idempotency.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiIdempotentOnTerminatedMembers is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only fixture harness invokes the owning semicolon rule and observes zero findings in the same Go process without consumer installation, a native product build or a product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiIdempotentOnTerminatedMembers is a public Go unit selected by the lint semantic-unit Evidence claim. The shared syntax-only fixture harness invokes the owning semicolon rule and observes zero findings in the same Go process without consumer installation, a native product build or a product host.
 func TestFormatSemiIdempotentOnTerminatedMembers(t *testing.T) {
   assertRuleSkipsSource(
     t,

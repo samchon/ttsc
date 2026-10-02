@@ -15,7 +15,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification Clause-join must return no findings for an empty statement after while or for. The registered cases detect applying its gap-to-space rewrite where the supported empty form has no space before the semicolon.
 // @evidence contracts/testing.md#independent-expectations The local rule abstention follows supported empty-statement ownership; Prettier prints while (x); rather than while (x) ;. The oracle asserts no findings rather than deriving a replacement from the implementation.
 // @evidence contracts/testing.md#distinguishing-cases The while and for subtests each supply a bare-semicolon negative. JoinsForAndWhileBodies provides the same header kinds with nonempty positive bodies, and SkipsEmptyElseAndDoBodies covers keyword anchors.
-// @evidence contracts/testing.md#execution-ownership TestFormatClauseJoinSkipsEmptyStatementBody is the public Go unit host selected by TestSelectedLintUnits and owns both dynamically registered while and for cases, including their separate failure names and fixtures. The shared syntax-only harness runs the owning rule in process without a consumer install, native artifact build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatClauseJoinSkipsEmptyStatementBody is the public Go unit host selected by the lint semantic-unit Evidence claim and owns both dynamically registered while and for cases, including their separate failure names and fixtures. The shared syntax-only harness runs the owning rule in process without a consumer install, native artifact build or product host.
 func TestFormatClauseJoinSkipsEmptyStatementBody(t *testing.T) {
   t.Run("while", func(t *testing.T) {
     assertRuleSkipsSourceWithOptions(

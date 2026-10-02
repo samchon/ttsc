@@ -20,7 +20,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/declaration-header must explode a long constrained/defaulted type parameter with CRLF at the angle-list and equals-default breaks while preserving a=1.
 // @evidence contracts/testing.md#independent-expectations The full independently authored escaped CRLF output specifies the default hang and trailing comma; the helper additionally rejects every lone LF.
 // @evidence contracts/testing.md#distinguishing-cases This changed CRLF defaulted-parameter case complements its LF positive and generic/multi-clause abstention, exercising both list explosion and nested default indentation.
-// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderTypeParamExplodeHonorsCRLFEndOfLine is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only fixture harness invokes the owning declaration-header rule and applies edits for complete literal output comparison in the same Go process without consumer installation, a native product build or a product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderTypeParamExplodeHonorsCRLFEndOfLine is a public Go unit selected by the lint semantic-unit Evidence claim. The shared syntax-only fixture harness invokes the owning declaration-header rule and applies edits for complete literal output comparison in the same Go process without consumer installation, a native product build or a product host.
 func TestFormatDeclarationHeaderTypeParamExplodeHonorsCRLFEndOfLine(t *testing.T) {
   assertFixCRLFConsistentWithOptions(
     t,

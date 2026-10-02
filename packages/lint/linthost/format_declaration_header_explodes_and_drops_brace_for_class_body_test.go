@@ -15,7 +15,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/declaration-header must compose one-type-per-line heritage explosion with a standalone brace for a nonempty class, retaining four implemented types and x=1.
 // @evidence contracts/testing.md#independent-expectations The literal full output independently specifies the second-tier width-eighty class layout and unchanged declaration/body payload, without using the implementation to generate an oracle.
 // @evidence contracts/testing.md#distinguishing-cases This changed header still exceeds width after a simple clause break; the three-type first-tier case and empty-class brace case own adjacent layout decisions.
-// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderExplodesAndDropsBraceForClassBody is a public Go unit selected by TestSelectedLintUnits. Its shared syntax-only harness invokes the owning formatter on temporary fixture source and applies its reported edits for exact output assertions in the same process, without a consumer install, native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderExplodesAndDropsBraceForClassBody is a public Go unit selected by the lint semantic-unit Evidence claim. Its shared syntax-only harness invokes the owning formatter on temporary fixture source and applies its reported edits for exact output assertions in the same process, without a consumer install, native product build or host execution.
 func TestFormatDeclarationHeaderExplodesAndDropsBraceForClassBody(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

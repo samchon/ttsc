@@ -8,7 +8,7 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  * `"warning"`, `"off"`) or as a single-element tuple containing the same
  * severity. Both forms are equivalent at runtime; the tuple form exists so that
  * severity-only rules and options-bearing rules look uniform when read
- * top-to-bottom in a `ttsc.lint.config.ts` file.
+ * top-to-bottom in a `lint.config.ts` file.
  *
  * Use {@link TtscLintRuleOptionsSetting} when the rule accepts a typed options
  * object.
@@ -37,8 +37,8 @@ export type TtscLintRuleSetting =
  * dedicated setting type instead.
  *
  * This is the tuple form ESLint users know — `[severity, options]` — kept
- * strongly typed by way of the rule's dedicated options interface (see
- * `TtscLintRuleOptions.ts`). The bare {@link TtscLintRuleSetting} forms remain
+ * strongly typed by way of the rule's dedicated options interface (declared
+ * beside its rule family under `structures/rules`). The bare {@link TtscLintRuleSetting} forms remain
  * accepted; omitting the options object means "use the rule's default
  * options".
  *
@@ -53,7 +53,7 @@ export type TtscLintRuleSetting =
  *   };
  *
  * @typeParam TOptions - The rule's options shape. Each rule supplies its own
- *   interface from `TtscLintRuleOptions.ts` (for example
+ *   interface from its family's `*RuleOptions.ts` file (for example
  *   `ITtscLintBoundariesElementTypesRuleOptions`).
  *
  * @evidence contracts/common.md#principled-implementation The generic tuple preserves the rule's options type while accepting severity-only forms for default options.

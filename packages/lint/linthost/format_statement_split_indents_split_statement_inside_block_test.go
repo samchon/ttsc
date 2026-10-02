@@ -19,7 +19,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/statement-split must break the second function-body declaration at depth-one indentation while preserving the function, first declaration and braces.
 // @evidence contracts/testing.md#independent-expectations The literal output gives the default two-space block indent and retains a=1 and b=2; zero-column insertion would fail independently of its computed depth.
 // @evidence contracts/testing.md#distinguishing-cases The changed nested pair complements top-level no-indent splitting and already-separated statements; exact body output verifies both indentation and unchanged tokens.
-// @evidence contracts/testing.md#execution-ownership TestFormatStatementSplitIndentsSplitStatementInsideBlock is a public Go unit selected by TestSelectedLintUnits. Its shared syntax-only harness invokes the owning formatter on temporary fixture source and applies its reported edits for exact output assertions in the same process, without a consumer install, native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatStatementSplitIndentsSplitStatementInsideBlock is a public Go unit selected by the lint semantic-unit Evidence claim. Its shared syntax-only harness invokes the owning formatter on temporary fixture source and applies its reported edits for exact output assertions in the same process, without a consumer install, native product build or host execution.
 func TestFormatStatementSplitIndentsSplitStatementInsideBlock(t *testing.T) {
   assertFixSnapshot(
     t,

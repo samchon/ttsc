@@ -25,7 +25,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must keep a flat-opened type-list interior separator while removing both broken-list member separators and both alias terminators under never.
 // @evidence contracts/testing.md#independent-expectations The independent full output distinguishes list wrap at its opening brace and preserves both alpha:number/bravo:string member pairs; a member newline alone cannot determine retention.
 // @evidence contracts/testing.md#distinguishing-cases Flat-opened later-split and genuinely broken type lists share one fixture as retained/removed interior twins, with safe trailing statement punctuation removed in both.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiPreferNeverKeepsAFlatObjectTypesSeparator is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only harness invokes the owning semicolon rule and applies edits for exact output in the same Go process, without consumer installation, a native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiPreferNeverKeepsAFlatObjectTypesSeparator is a public Go unit selected by the lint semantic-unit Evidence claim. The shared syntax-only harness invokes the owning semicolon rule and applies edits for exact output in the same Go process, without consumer installation, a native product build or host execution.
 func TestFormatSemiPreferNeverKeepsAFlatObjectTypesSeparator(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

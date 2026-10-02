@@ -22,7 +22,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification leadingColumn must return file-start column zero, default nonpositive tab widths to two and measure the current line using actual tab stops.
 // @evidence contracts/testing.md#independent-expectations Literal byte offsets identify two tabs, one space followed by a tab, and two spaces after LF; their expected visual columns follow tab-stop and line-origin contracts.
 // @evidence contracts/testing.md#distinguishing-cases Zero/negative position, zero/negative tab width, explicit four-column stops and a second-line origin distinguish early guards from valid nonzero results.
-// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthLeadingColumnReturnsZeroWhenPosIsNonpositive is selected as a public Go unit by TestSelectedLintUnits; its local cases call the owning operation in the shared process without a consumer install, native artifact build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthLeadingColumnReturnsZeroWhenPosIsNonpositive is selected as a public Go unit by the lint semantic-unit Evidence claim; its local cases call the owning operation in the shared process without a consumer install, native artifact build or product host.
 func TestFormatPrintWidthLeadingColumnReturnsZeroWhenPosIsNonpositive(t *testing.T) {
   src := "const x = 1;\n"
   if got := leadingColumn(src, 0, 2); got != 0 {

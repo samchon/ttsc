@@ -87,6 +87,10 @@ func DiscoverConfigFile(base string, names []string) ConfigDiscovery {
       case err == nil:
         probed = append(probed, ConfigCandidate{Directory: true, Path: candidate})
       default:
+        // Any stat failure (absent, permission-denied, not-a-directory
+        // ancestor) is reported as absent: the compiler's own filesystem
+        // exposes existence as a boolean, so its observer records the same
+        // state for the same path and the two proofs agree.
         probed = append(probed, ConfigCandidate{Path: candidate})
       }
     }

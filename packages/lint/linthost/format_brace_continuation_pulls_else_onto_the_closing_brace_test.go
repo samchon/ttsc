@@ -15,7 +15,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/brace-continuation must join else onto the closing brace of its block consequent while preserving both branches.
 // @evidence contracts/testing.md#independent-expectations The complete literal output preserves condition a and calls x/y and changes only the continuation gap to the independently specified } else shape.
 // @evidence contracts/testing.md#distinguishing-cases This multiline pull-up positive complements the zero-width insertion and canonical joined negative; a statement-body positive owns the opposite direction.
-// @evidence contracts/testing.md#execution-ownership TestFormatBraceContinuationPullsElseOntoTheClosingBrace is a public Go unit selected by TestSelectedLintUnits. This host owns the source and independent literal output; the shared syntax-only harness invokes the rule and applies its edits in process without a consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatBraceContinuationPullsElseOntoTheClosingBrace is a public Go unit selected by the lint semantic-unit Evidence claim. This host owns the source and independent literal output; the shared syntax-only harness invokes the rule and applies its edits in process without a consumer install, native product build or product host.
 func TestFormatBraceContinuationPullsElseOntoTheClosingBrace(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

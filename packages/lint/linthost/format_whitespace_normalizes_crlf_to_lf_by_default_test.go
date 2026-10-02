@@ -17,7 +17,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/whitespace must convert both CRLF separators to LF under default EOL while preserving both declarations.
 // @evidence contracts/testing.md#independent-expectations The independent escaped output specifies the exact LF separators and unchanged a=1/b=2 payload.
 // @evidence contracts/testing.md#distinguishing-cases This changed default-CRLF source complements explicit crlf preservation and canonical LF negatives.
-// @evidence contracts/testing.md#execution-ownership TestFormatWhitespaceNormalizesCRLFToLFByDefault is a public Go unit selected by TestSelectedLintUnits. This host owns every literal input and assertion; the shared syntax-only harness invokes the whitespace rule and applies edits for complete output comparisons in the same process without a consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatWhitespaceNormalizesCRLFToLFByDefault is a public Go unit selected by the lint semantic-unit Evidence claim. This host owns every literal input and assertion; the shared syntax-only harness invokes the whitespace rule and applies edits for complete output comparisons in the same process without a consumer install, native product build or product host.
 func TestFormatWhitespaceNormalizesCRLFToLFByDefault(t *testing.T) {
   assertFixSnapshot(
     t,

@@ -27,7 +27,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/print-width must fix the outer object indentation and break its nested opts object at width thirty.
 // @evidence contracts/testing.md#independent-expectations The full expected source was measured independently on pinned Prettier 3.8.3; it retains the svc argument, property names and numeric values while changing only layout.
 // @evidence contracts/testing.md#distinguishing-cases The changed width-thirty case complements the identical source at width eighty, where the nested object must remain flat.
-// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthReflowsCallWithNestedObjectArgument is a public format unit selected by TestSelectedLintUnits. The snapshot harness calls the owning rule through the Go engine and applies real edits to isolated fixture source. It retains this case identity and does not start a consumer or native product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthReflowsCallWithNestedObjectArgument is a public format unit selected by the lint semantic-unit Evidence claim. The snapshot harness calls the owning rule through the Go engine and applies real edits to isolated fixture source. It retains this case identity and does not start a consumer or native product host.
 func TestFormatPrintWidthReflowsCallWithNestedObjectArgument(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

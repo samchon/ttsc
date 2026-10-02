@@ -23,7 +23,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must offer no insertion for the last member of either singleton or two-member flat interface bodies, preserving their existing interior separator.
 // @evidence contracts/testing.md#independent-expectations The literal one-line type lists follow the ifBreak terminator convention: the interior semicolon separates members while the final member stays bare until the body breaks.
 // @evidence contracts/testing.md#distinguishing-cases This flat singleton/pair negative contrasts with the seven-kind broken-interface insertion positive; it observes zero findings rather than claiming to perform body breaking.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiKeepsOneLineInterfaceBodyBare is a selected public Go unit under TestSelectedLintUnits. The shared syntax-only fixture harness calls the owning semicolon rule and observes zero findings in the same Go process without a consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiKeepsOneLineInterfaceBodyBare is a selected public Go unit under the lint semantic-unit Evidence claim. The shared syntax-only fixture harness calls the owning semicolon rule and observes zero findings in the same Go process without a consumer install, native product build or product host.
 func TestFormatSemiKeepsOneLineInterfaceBodyBare(t *testing.T) {
   assertRuleSkipsSource(
     t,

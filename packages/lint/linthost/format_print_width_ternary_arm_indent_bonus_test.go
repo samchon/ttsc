@@ -18,7 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification ternaryArmIndentBonus must recognize a leading question/colon marker followed by a space and assign exactly two columns, leaving ordinary or differently followed markers unchanged.
 // @evidence contracts/testing.md#independent-expectations Literal arm prefixes define the continuation-indent convention; expected zero/two values are specified independently from the scanning algorithm.
 // @evidence contracts/testing.md#distinguishing-cases Both marker kinds, ordinary/first lines, missing or tab separators, whitespace-prefixed ordinary text, empty text and a tab-indented valid arm distinguish the literal-prefix condition.
-// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthTernaryArmIndentBonus is a selected public Go unit under TestSelectedLintUnits. This entry owns every local assertion and table row, invoking the column or source predicate in the shared process without consumer installation, a native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthTernaryArmIndentBonus is a selected public Go unit under the lint semantic-unit Evidence claim. This entry owns every local assertion and table row, invoking the column or source predicate in the shared process without consumer installation, a native product build or host execution.
 func TestFormatPrintWidthTernaryArmIndentBonus(t *testing.T) {
   src := "x\n  ? foo()\n  : bar()\nplain\n"
   if got := ternaryArmIndentBonus(src, 6); got != 2 {

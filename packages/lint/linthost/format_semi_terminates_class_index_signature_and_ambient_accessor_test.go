@@ -19,7 +19,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must append terminators to a class index signature and a bodiless ambient getter while preserving their string annotations and declarations.
 // @evidence contracts/testing.md#independent-expectations The independently authored full output gives each broken type-shaped class member its required terminator; neither fixture has a braced accessor body.
 // @evidence contracts/testing.md#distinguishing-cases The index signature and ambient getter positives complement interface signature insertion and class/object braced-getter negatives, distinguishing member shape from shared kind.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiTerminatesClassIndexSignatureAndAmbientAccessor is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only harness invokes the owning semicolon rule and applies edits for exact output in the same Go process, without consumer installation, a native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiTerminatesClassIndexSignatureAndAmbientAccessor is a public Go unit selected by the lint semantic-unit Evidence claim. The shared syntax-only harness invokes the owning semicolon rule and applies edits for exact output in the same Go process, without consumer installation, a native product build or host execution.
 func TestFormatSemiTerminatesClassIndexSignatureAndAmbientAccessor(t *testing.T) {
   assertFixSnapshot(
     t,

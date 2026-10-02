@@ -16,7 +16,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/statement-split must decline to split trailing empty statements after const a rather than multiplying content-free lines.
 // @evidence contracts/testing.md#independent-expectations The literal extra semicolons are empty statements with no payload; preserving them without a split follows the rule contract independently of the AST visitor.
 // @evidence contracts/testing.md#distinguishing-cases The adjacent empty-statement negative complements real two/three-statement splitting positives. This case asserts zero findings, not a source-read comparison.
-// @evidence contracts/testing.md#execution-ownership TestFormatStatementSplitAbstainsOnEmptyStatements is selected by TestSelectedLintUnits as a public Go unit. The owning formatter rule runs through the shared syntax-only rule harness on temporary fixture source; this entry owns its assertions and any named subtests without consumer installation, native product build or host process.
+// @evidence contracts/testing.md#execution-ownership TestFormatStatementSplitAbstainsOnEmptyStatements is selected by the lint semantic-unit Evidence claim as a public Go unit. The owning formatter rule runs through the shared syntax-only rule harness on temporary fixture source; this entry owns its assertions and any named subtests without consumer installation, native product build or host process.
 func TestFormatStatementSplitAbstainsOnEmptyStatements(t *testing.T) {
   assertRuleSkipsSource(
     t,

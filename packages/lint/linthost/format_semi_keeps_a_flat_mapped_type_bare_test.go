@@ -23,7 +23,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must offer no insertion for flat-opened mapped clauses, including a later closing brace, and no duplicate insertion for an already-terminated broken clause.
 // @evidence contracts/testing.md#independent-expectations The independent literal fixtures specify wrap at the opening brace and canonical termination; a closing-brace newline alone does not make the clause broken.
 // @evidence contracts/testing.md#distinguishing-cases Flat singleton, flat-opened/later-closed and broken-already-terminated cases share this host; broken unterminated mapped-type positives ensure this is not an unconditional no-op oracle.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiKeepsAFlatMappedTypeBare is a public Go unit selected by TestSelectedLintUnits. This entry owns every literal declaration in its fixture; the shared syntax-only harness invokes the semicolon rule and observes zero findings in the same process without a consumer install, native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiKeepsAFlatMappedTypeBare is a public Go unit selected by the lint semantic-unit Evidence claim. This entry owns every literal declaration in its fixture; the shared syntax-only harness invokes the semicolon rule and observes zero findings in the same process without a consumer install, native product build or host execution.
 func TestFormatSemiKeepsAFlatMappedTypeBare(t *testing.T) {
   assertRuleSkipsSource(
     t,

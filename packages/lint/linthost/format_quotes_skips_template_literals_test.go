@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The engine must emit no quote-style findings for both no-substitution templates and a template expression with a real interpolation.
 // @evidence contracts/testing.md#independent-expectations The source literals retain backticks and the ${name} substitution because template grammar is outside the ordinary string-delimiter operation; zero findings is the independent unchanged-source oracle.
 // @evidence contracts/testing.md#distinguishing-cases The original two no-substitution literals remain asserted, and the added interpolation exercises TemplateExpression rather than merely claiming it. Ordinary quoted-string positives own actual conversion.
-// @evidence contracts/testing.md#execution-ownership TestFormatQuotesSkipsTemplateLiterals is a public Go unit selected by TestSelectedLintUnits. This host owns the parsed source fixtures and direct in-process Engine assertions; it starts no consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatQuotesSkipsTemplateLiterals is a public Go unit selected by the lint semantic-unit Evidence claim. This host owns the parsed source fixtures and direct in-process Engine assertions; it starts no consumer install, native product build or product host.
 func TestFormatQuotesSkipsTemplateLiterals(t *testing.T) {
   file := parseTS(t, "const greeting = `hello`;\nconst name = `world`;\n")
   findings := NewEngine(RuleConfig{"format/quotes": SeverityError}).

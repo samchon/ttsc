@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification format/semi must remove a redundant interface member semicolon separated from its number annotation by a space, retaining that space and the annotation.
 // @evidence contracts/testing.md#independent-expectations The independently authored full output removes only the literal punctuation byte and leaves all preceding whitespace unchanged; the finding count is supplemented by exact fixed source.
 // @evidence contracts/testing.md#distinguishing-cases One whitespace-separated member is the changed positive beside ordinary adjacent-terminator stripping and required-separator negatives; this fixture does not establish parser-recovery fallback coverage.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiPreferNeverStripsMemberWithSpace is a public Go unit selected by TestSelectedLintUnits. This entry parses literal source and directly invokes Engine.Run with the owning semicolon rule; it also uses the syntax-only fixer harness for the exact output in the same Go process, without consumer installation, a native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiPreferNeverStripsMemberWithSpace is a public Go unit selected by the lint semantic-unit Evidence claim. This entry parses literal source and directly invokes Engine.Run with the owning semicolon rule; it also uses the syntax-only fixer harness for the exact output in the same Go process, without consumer installation, a native product build or host execution.
 func TestFormatSemiPreferNeverStripsMemberWithSpace(t *testing.T) {
   const optionsJSON = `{"prefer":"never"}`
   source := "interface I {\n" +

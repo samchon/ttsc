@@ -18,7 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/brace-continuation must emit no finding while an if shares its physical line with a preceding foo statement and has no independent indentation.
 // @evidence contracts/testing.md#independent-expectations The fixed literal requires this single rule to preserve the shared-line source; its supported deferral policy leaves statement splitting to the cascade rather than inventing an incorrect else column.
 // @evidence contracts/testing.md#distinguishing-cases This direct-rule negative is paired with the command-level shared-line cascade positive that proves eventual splitting and placement; the nested standalone-if positive owns a known nonzero column.
-// @evidence contracts/testing.md#execution-ownership TestFormatBraceContinuationWaitsForAStatementToOwnItsLine is a public Go unit selected by TestSelectedLintUnits. This host owns its parsed literal sources and no-finding assertions; the shared syntax-only harness runs the owning rule in process without a consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatBraceContinuationWaitsForAStatementToOwnItsLine is a public Go unit selected by the lint semantic-unit Evidence claim. This host owns its parsed literal sources and no-finding assertions; the shared syntax-only harness runs the owning rule in process without a consumer install, native product build or product host.
 func TestFormatBraceContinuationWaitsForAStatementToOwnItsLine(t *testing.T) {
   assertRuleSkipsSourceWithOptions(
     t,

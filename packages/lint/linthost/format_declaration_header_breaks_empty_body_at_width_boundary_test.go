@@ -14,7 +14,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/declaration-header must count the empty-body closing brace in its fit budget, breaking the eighty-one-column header while retaining heritage and the empty body.
 // @evidence contracts/testing.md#independent-expectations The literal complete line has eighty-one columns including both braces, while the adjacent shorter literal has exactly eighty; independently authored expected layout prevents a missing-brace fit charge.
 // @evidence contracts/testing.md#distinguishing-cases The over-limit changed header and exact-limit unchanged twin distinguish the one-column boundary rather than merely testing a broadly oversized declaration.
-// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderBreaksEmptyBodyAtWidthBoundary is a public Go unit selected by TestSelectedLintUnits. Its shared syntax-only harness invokes the owning formatter on temporary fixture source and applies its reported edits for exact output assertions in the same process, without a consumer install, native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderBreaksEmptyBodyAtWidthBoundary is a public Go unit selected by the lint semantic-unit Evidence claim. Its shared syntax-only harness invokes the owning formatter on temporary fixture source and applies its reported edits for exact output assertions in the same process, without a consumer install, native product build or host execution.
 func TestFormatDeclarationHeaderBreaksEmptyBodyAtWidthBoundary(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

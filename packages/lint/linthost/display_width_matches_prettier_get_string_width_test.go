@@ -22,7 +22,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification displayWidth must reproduce the frozen Prettier width corpus, including complete versus incomplete emoji sequences, combining code points and the documented one-column tab deviation.
 // @evidence contracts/testing.md#independent-expectations Each named literal width was measured independently on Prettier 3.8.3, as the native prose records. Range shape checks run as prerequisites; they do not establish installed-version agreement.
 // @evidence contracts/testing.md#distinguishing-cases The named matrix retains empty/control, assigned/unassigned, text versus emoji, combining marks, lone selectors, ASCII fast-path DEL and mixed lines. Each t.Run case keeps its name and assertion.
-// @evidence contracts/testing.md#execution-ownership TestDisplayWidthMatchesPrettierGetStringWidth is a public format unit selected by TestSelectedLintUnits. It directly calls the width operation in the shared Go process; named t.Run rows remain individually identified, and the main corpus calls its private table-precondition helper. No formatter child or consumer artifact is executed.
+// @evidence contracts/testing.md#execution-ownership TestDisplayWidthMatchesPrettierGetStringWidth is a public format unit selected by the lint semantic-unit Evidence claim. It directly calls the width operation in the shared Go process; named t.Run rows remain individually identified, and the main corpus calls its private table-precondition helper. No formatter child or consumer artifact is executed.
 func TestDisplayWidthMatchesPrettierGetStringWidth(t *testing.T) {
   assertDisplayWidthOraclePreconditions(t)
   for _, tc := range []struct {

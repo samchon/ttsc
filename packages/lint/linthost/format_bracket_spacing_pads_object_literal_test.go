@@ -13,7 +13,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/bracket-spacing must add the configured single inner space at each side of the nonempty object literal.
 // @evidence contracts/testing.md#independent-expectations The full literal outputs add exactly the two ASCII spaces demanded by spacing:true to `{x: 1}`, and, for the second input whose brace-adjacent trivia is only NBSP characters, replace each NBSP with one ASCII space while leaving the NBSP inside the string value byte-for-byte.
 // @evidence contracts/testing.md#distinguishing-cases The unpadded `{x: 1}` positive pairs with TestFormatBracketSpacingIdempotentOnPadded; the NBSP-trivia input distinguishes brace-adjacent whitespace from the identical significant NBSP inside the string literal. The spacing:false inverse and the empty object are owned by other tests.
-// @evidence contracts/testing.md#execution-ownership TestFormatBracketSpacingPadsObjectLiteral is a public Go unit selected by TestSelectedLintUnits. This host owns its literal inputs and complete output assertions; the shared syntax-only harness invokes the owning rule and applies source edits in process without a consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatBracketSpacingPadsObjectLiteral is a public Go unit selected by the lint semantic-unit Evidence claim. This host owns its literal inputs and complete output assertions; the shared syntax-only harness invokes the owning rule and applies source edits in process without a consumer install, native product build or product host.
 func TestFormatBracketSpacingPadsObjectLiteral(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

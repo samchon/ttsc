@@ -17,7 +17,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/statement-split must move the second same-line declaration onto a new top-level line while retaining a=1, b=2 and their declaration kinds.
 // @evidence contracts/testing.md#independent-expectations The independent complete source literal specifies one statement per LF line; the const and let payloads are unchanged by the expected whitespace edit.
 // @evidence contracts/testing.md#distinguishing-cases This two-statement changed positive complements the already-one-per-line negative and gap-comment guard; the three-statement case owns multiple simultaneous splits.
-// @evidence contracts/testing.md#execution-ownership TestFormatStatementSplitBreaksStatementsSharingALine is a public Go unit selected by TestSelectedLintUnits. Its shared syntax-only harness invokes the owning formatter on temporary fixture source and applies its reported edits for exact output assertions in the same process, without a consumer install, native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatStatementSplitBreaksStatementsSharingALine is a public Go unit selected by the lint semantic-unit Evidence claim. Its shared syntax-only harness invokes the owning formatter on temporary fixture source and applies its reported edits for exact output assertions in the same process, without a consumer install, native product build or host execution.
 func TestFormatStatementSplitBreaksStatementsSharingALine(t *testing.T) {
   assertFixSnapshot(
     t,

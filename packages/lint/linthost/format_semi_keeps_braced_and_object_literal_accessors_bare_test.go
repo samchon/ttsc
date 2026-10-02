@@ -21,7 +21,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must offer no terminator for class and object-literal getters carrying bodies, keeping their braced members and the object comma valid.
 // @evidence contracts/testing.md#independent-expectations The independent source uses complete getter bodies whose return statements are already terminated; a braced accessor is not a bodiless type signature and the object list requires commas.
 // @evidence contracts/testing.md#distinguishing-cases Class-bodied and object-bodied getter negatives complement bodiless interface and ambient-class accessor insertion positives.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiKeepsBracedAndObjectLiteralAccessorsBare is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only harness invokes the owning semicolon rule and observes zero findings in the same Go process, without consumer installation, a native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiKeepsBracedAndObjectLiteralAccessorsBare is a public Go unit selected by the lint semantic-unit Evidence claim. The shared syntax-only harness invokes the owning semicolon rule and observes zero findings in the same Go process, without consumer installation, a native product build or host execution.
 func TestFormatSemiKeepsBracedAndObjectLiteralAccessorsBare(t *testing.T) {
   assertRuleSkipsSource(
     t,

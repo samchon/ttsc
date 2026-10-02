@@ -13,7 +13,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification formatCommandResolver.ResolveRules must promote only reachable format severities and preserve matching tuples without leaking tests-only options into src.
 // @evidence contracts/testing.md#independent-expectations Explicit ConfigStore entries and literal warn/off and JSON tuple expectations follow entry files scoping, independently of the resolver fold.
 // @evidence contracts/testing.md#distinguishing-cases The same entries are resolved for nonmatching src and matching tests paths, distinguishing severity-only global promotion from scoped tuple promotion.
-// @evidence contracts/testing.md#execution-ownership TestFormatCommandResolverKeepsConfiguredOptionsInsideMatchingEntry is a public format unit selected by TestSelectedLintUnits. It calls the resolver directly on authored entries in the shared Go process, without consumer installation, building a native product artifact or starting a product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatCommandResolverKeepsConfiguredOptionsInsideMatchingEntry is a public format unit selected by the lint semantic-unit Evidence claim. It calls the resolver directly on authored entries in the shared Go process, without consumer installation, building a native product artifact or starting a product host.
 func TestFormatCommandResolverKeepsConfiguredOptionsInsideMatchingEntry(t *testing.T) {
   store := &ConfigStore{entries: []ConfigEntry{
     {

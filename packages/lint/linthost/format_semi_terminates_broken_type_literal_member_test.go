@@ -19,7 +19,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must terminate the broken type-literal member while leaving the same annotated member in an inline literal bare.
 // @evidence contracts/testing.md#independent-expectations The independently authored full output expresses layout-dependent trailing termination and preserves both string-typed properties and alias terminators.
 // @evidence contracts/testing.md#distinguishing-cases Broken and inline singleton type bodies share one fixture as changed/unchanged twins; the half-wrapped mapped-type case owns the related opening-brace decision separately.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiTerminatesBrokenTypeLiteralMember is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only fixture harness invokes the owning semicolon rule and applies edits for complete literal output comparison in the same Go process without consumer installation, a native product build or a product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiTerminatesBrokenTypeLiteralMember is a public Go unit selected by the lint semantic-unit Evidence claim. The shared syntax-only fixture harness invokes the owning semicolon rule and applies edits for complete literal output comparison in the same Go process without consumer installation, a native product build or a product host.
 func TestFormatSemiTerminatesBrokenTypeLiteralMember(t *testing.T) {
   assertFixSnapshot(
     t,

@@ -19,7 +19,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/quotes must remove the now-unnecessary apostrophe escape when converting the single-quoted phrase to double quotes.
 // @evidence contracts/testing.md#independent-expectations The complete literal output retains the cooked don't value, declaration and JSON.stringify call; double delimiters require no apostrophe escape.
 // @evidence contracts/testing.md#distinguishing-cases This escaped-apostrophe positive owns escape removal without an embedded double quote; the mixed conversion owns simultaneous removal and insertion, while canonical-double negatives own no edits.
-// @evidence contracts/testing.md#execution-ownership TestFormatQuotesUnescapesApostropheWhenConverting is a public Go unit selected by TestSelectedLintUnits. This host owns its literal inputs and complete output assertions; the shared syntax-only harness invokes the owning rule and applies source edits in process without a consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatQuotesUnescapesApostropheWhenConverting is a public Go unit selected by the lint semantic-unit Evidence claim. This host owns its literal inputs and complete output assertions; the shared syntax-only harness invokes the owning rule and applies source edits in process without a consumer install, native product build or product host.
 func TestFormatQuotesUnescapesApostropheWhenConverting(t *testing.T) {
   assertFixSnapshot(
     t,

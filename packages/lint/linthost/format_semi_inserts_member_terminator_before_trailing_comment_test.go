@@ -18,7 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must insert the broken interface member terminator before its trailing line comment while retaining note and all source lines.
 // @evidence contracts/testing.md#independent-expectations The independently authored full output places the semicolon after the string annotation and before the line-comment bytes, following ordinary member comment ownership.
 // @evidence contracts/testing.md#distinguishing-cases This changed line-comment member contrasts with bare-member insertion and mapped-type comment placement; the latter owns both line and block attachment differences.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiInsertsMemberTerminatorBeforeTrailingComment is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only fixture harness invokes the owning semicolon rule and applies edits for complete literal output comparison in the same Go process without consumer installation, a native product build or a product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiInsertsMemberTerminatorBeforeTrailingComment is a public Go unit selected by the lint semantic-unit Evidence claim. The shared syntax-only fixture harness invokes the owning semicolon rule and applies edits for complete literal output comparison in the same Go process without consumer installation, a native product build or a product host.
 func TestFormatSemiInsertsMemberTerminatorBeforeTrailingComment(t *testing.T) {
   assertFixSnapshot(
     t,

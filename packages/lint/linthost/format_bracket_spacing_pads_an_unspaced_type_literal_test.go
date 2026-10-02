@@ -19,7 +19,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/bracket-spacing must pad the outer braces of the unspaced type literal while retaining its alpha:number;bravo:string interior exactly.
 // @evidence contracts/testing.md#independent-expectations The full literal output follows this rule's supported partial-normalization boundary: only brace-adjacent spaces change, and both member names and types remain intact. It is deliberately not a claim of complete Prettier normalization.
 // @evidence contracts/testing.md#distinguishing-cases This unpadded type-literal positive complements the already-Prettier-shaped negative; object and mapped-type positives own distinct AST surfaces for the same brace policy.
-// @evidence contracts/testing.md#execution-ownership TestFormatBracketSpacingPadsAnUnspacedTypeLiteral is a public Go unit selected by TestSelectedLintUnits. This host owns its literal inputs and complete output assertions; the shared syntax-only harness invokes the owning rule and applies source edits in process without a consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatBracketSpacingPadsAnUnspacedTypeLiteral is a public Go unit selected by the lint semantic-unit Evidence claim. This host owns its literal inputs and complete output assertions; the shared syntax-only harness invokes the owning rule and applies source edits in process without a consumer install, native product build or product host.
 func TestFormatBracketSpacingPadsAnUnspacedTypeLiteral(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

@@ -13,7 +13,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The engine must exclude JSX attribute literals from format/quotes while still returning the exact prefer:single edit for an ordinary JavaScript string in the same TSX file.
 // @evidence contracts/testing.md#independent-expectations The JSX specification permits both quote delimiters, but JSX spelling belongs to a separate JSX option. The literal expected edit changes only the ordinary foo string to single quotes; its positions exclude the attribute.
 // @evidence contracts/testing.md#distinguishing-cases The original attribute-only negative is retained. The paired TSX input adds an adjacent ordinary-string positive with exactly one format/quotes finding and exact replacement, preventing a rule that skips all TSX strings from passing.
-// @evidence contracts/testing.md#execution-ownership TestFormatQuotesSkipsJsxAttributeStrings is a public Go unit selected by TestSelectedLintUnits. This host owns the parsed source fixtures and direct in-process Engine assertions; it starts no consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatQuotesSkipsJsxAttributeStrings is a public Go unit selected by the lint semantic-unit Evidence claim. This host owns the parsed source fixtures and direct in-process Engine assertions; it starts no consumer install, native product build or product host.
 func TestFormatQuotesSkipsJsxAttributeStrings(t *testing.T) {
   source := "const el = <div className=\"foo\" />;\n"
   file := parseTSXFile(t, "/virtual/main.tsx", source)

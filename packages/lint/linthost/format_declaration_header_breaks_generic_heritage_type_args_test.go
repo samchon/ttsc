@@ -16,7 +16,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/declaration-header must break the two Serializer type arguments while keeping implements inline and preserving export, the union argument and serialize method.
 // @evidence contracts/testing.md#independent-expectations The literal full output independently expresses the generic-heritage layout at width eighty; any, KafkaRequest and its Promise union retain their type relationships.
 // @evidence contracts/testing.md#distinguishing-cases This changed two-argument heritage list complements the single-argument no-op and already-broken generic-heritage no-finding twin.
-// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderBreaksGenericHeritageTypeArgs is selected by TestSelectedLintUnits as a public Go unit. The shared syntax-only harness calls the owning declaration-header rule on temporary fixture source and applies reported edits for the literal output assertion without consumer installation, native product build or a host process.
+// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderBreaksGenericHeritageTypeArgs is selected by the lint semantic-unit Evidence claim as a public Go unit. The shared syntax-only harness calls the owning declaration-header rule on temporary fixture source and applies reported edits for the literal output assertion without consumer installation, native product build or a host process.
 func TestFormatDeclarationHeaderBreaksGenericHeritageTypeArgs(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

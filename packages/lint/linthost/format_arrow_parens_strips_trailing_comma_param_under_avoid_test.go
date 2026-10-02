@@ -21,7 +21,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/arrow-parens must remove both parentheses and the parameter trailing comma for eligible singleton arrows under avoid, retaining modifier and body meaning.
 // @evidence contracts/testing.md#independent-expectations The three independently authored complete output literals are legal bare-identifier arrows; leaving the comma would yield invalid x-comma-arrow syntax.
 // @evidence contracts/testing.md#distinguishing-cases This host owns single_line, async and multiline transformations. Matching always-mode no-op twins and ineligible/commented comma cases prevent eligibility expansion.
-// @evidence contracts/testing.md#execution-ownership TestFormatArrowParensStripsTrailingCommaParamUnderAvoid is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only harness calls the owning arrow rule on temporary fixture source and applies reported edits for snapshots; this host owns every named case without a consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatArrowParensStripsTrailingCommaParamUnderAvoid is a public Go unit selected by the lint semantic-unit Evidence claim. The shared syntax-only harness calls the owning arrow rule on temporary fixture source and applies reported edits for snapshots; this host owns every named case without a consumer install, native product build or product host.
 func TestFormatArrowParensStripsTrailingCommaParamUnderAvoid(t *testing.T) {
   t.Run("single_line", func(t *testing.T) {
     assertFixSnapshotWithOptions(

@@ -19,7 +19,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/whitespace must remove the first-line stray space while retaining every CRLF pair under crlf.
 // @evidence contracts/testing.md#independent-expectations The escaped full output literal preserves both declarations and all CRLF bytes, deleting only the pre-terminator space.
 // @evidence contracts/testing.md#distinguishing-cases The changed CRLF tail contrasts with default CRLF-to-LF conversion and ordinary LF trimming.
-// @evidence contracts/testing.md#execution-ownership TestFormatWhitespacePreservesCRLFUnderCRLFEndOfLine is a public Go unit selected by TestSelectedLintUnits. This host owns every literal input and assertion; the shared syntax-only harness invokes the whitespace rule and applies edits for complete output comparisons in the same process without a consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatWhitespacePreservesCRLFUnderCRLFEndOfLine is a public Go unit selected by the lint semantic-unit Evidence claim. This host owns every literal input and assertion; the shared syntax-only harness invokes the whitespace rule and applies edits for complete output comparisons in the same process without a consumer install, native product build or product host.
 func TestFormatWhitespacePreservesCRLFUnderCRLFEndOfLine(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

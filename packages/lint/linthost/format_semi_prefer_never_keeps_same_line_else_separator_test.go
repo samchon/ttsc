@@ -20,7 +20,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must retain the then-branch call terminator before same-line else while removing only the final branch EOF terminator.
 // @evidence contracts/testing.md#independent-expectations The independently authored literal output keeps valid if/else separation and identical condition/calls; no line break exists to replace the semicolon before else.
 // @evidence contracts/testing.md#distinguishing-cases The required internal and safe final semicolons form a changed/retained pair, contrasting with closing-brace removal and ordinary newline-separated stripping.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiPreferNeverKeepsSameLineElseSeparator is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only harness invokes the owning semicolon rule and applies edits for exact output in the same Go process, without consumer installation, a native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiPreferNeverKeepsSameLineElseSeparator is a public Go unit selected by the lint semantic-unit Evidence claim. The shared syntax-only harness invokes the owning semicolon rule and applies edits for exact output in the same Go process, without consumer installation, a native product build or host execution.
 func TestFormatSemiPreferNeverKeepsSameLineElseSeparator(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

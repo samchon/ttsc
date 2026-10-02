@@ -20,7 +20,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must append the outer interface member terminator after its nested object-type brace while retaining the already-terminated inner property.
 // @evidence contracts/testing.md#independent-expectations The independently authored full output preserves the nested type and distinguishes its closing type brace from an accessor body brace; the outer member still requires punctuation.
 // @evidence contracts/testing.md#distinguishing-cases The changed nested-type-ending-brace case complements braced-accessor no-insertion negatives, rejecting a last-byte-is-brace abstention heuristic.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiTerminatesAMemberWhoseTypeEndsInABrace is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only harness invokes the owning semicolon rule and applies edits for exact output in the same Go process, without consumer installation, a native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiTerminatesAMemberWhoseTypeEndsInABrace is a public Go unit selected by the lint semantic-unit Evidence claim. The shared syntax-only harness invokes the owning semicolon rule and applies edits for exact output in the same Go process, without consumer installation, a native product build or host execution.
 func TestFormatSemiTerminatesAMemberWhoseTypeEndsInABrace(t *testing.T) {
   assertFixSnapshot(
     t,

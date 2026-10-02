@@ -18,7 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/declaration-header must break extends, implements and the class brace with CRLF while retaining Base, four implemented types and a=1.
 // @evidence contracts/testing.md#independent-expectations The full literal expected source and explicit crlf option independently determine exact separators; the additional no-lone-LF check rejects mixed output.
 // @evidence contracts/testing.md#distinguishing-cases This changed CRLF multi-clause class is the separator counterpart to the LF positive and canonical broken-clause no-op, exercising every synthesized clause/brace break.
-// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderMultiClauseHonorsCRLFEndOfLine is selected by TestSelectedLintUnits as a public Go unit. The shared syntax-only harness calls the owning declaration-header rule on temporary fixture source and applies reported edits for the literal output assertion without consumer installation, native product build or a host process.
+// @evidence contracts/testing.md#execution-ownership TestFormatDeclarationHeaderMultiClauseHonorsCRLFEndOfLine is selected by the lint semantic-unit Evidence claim as a public Go unit. The shared syntax-only harness calls the owning declaration-header rule on temporary fixture source and applies reported edits for the literal output assertion without consumer installation, native product build or a host process.
 func TestFormatDeclarationHeaderMultiClauseHonorsCRLFEndOfLine(t *testing.T) {
   assertFixCRLFConsistentWithOptions(
     t,

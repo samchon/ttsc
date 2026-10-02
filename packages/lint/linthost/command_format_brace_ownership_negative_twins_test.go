@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The format command must leave each canonical empty, inline-type, else/catch/finally and commented-brace fixture byte-identical and converge successfully.
 // @evidence contracts/testing.md#independent-expectations These literals record the supported canonical shapes; comparing full source preserves statements, comments and brace placement instead of merely checking idempotency.
 // @evidence contracts/testing.md#distinguishing-cases Eight named subcases distinguish empty bodies, inline types, canonical chained braces and comments. The stranded-brace CRLF sibling owns an input that must change.
-// @evidence contracts/testing.md#execution-ownership TestCommandFormatBraceOwnershipNegativeTwins is a public format unit selected by TestSelectedLintUnits. The isolated fixture filesystem feeds the actual Go command entry in the shared process. This verifies command semantics without compiling or launching a native artifact or installing a consumer.
+// @evidence contracts/testing.md#execution-ownership TestCommandFormatBraceOwnershipNegativeTwins is a public format unit selected by the lint semantic-unit Evidence claim. The isolated fixture filesystem feeds the actual Go command entry in the shared process. This verifies command semantics without compiling or launching a native artifact or installing a consumer.
 func TestCommandFormatBraceOwnershipNegativeTwins(t *testing.T) {
   for _, tc := range []struct {
     name   string

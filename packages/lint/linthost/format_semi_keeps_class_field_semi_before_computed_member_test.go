@@ -20,7 +20,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must keep the field terminator before a computed method while removing the later safe field terminator, preserving both initializers and the method.
 // @evidence contracts/testing.md#independent-expectations The independently authored exact output preserves the semicolon separating a=1 from the computed name; removing it would change the initializer parse while b=2 at the end is safe.
 // @evidence contracts/testing.md#distinguishing-cases The hazardous first field and safe last field form a changed/unchanged pair within one class, complementing the ordinary two-field removal positive.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiKeepsClassFieldSemiBeforeComputedMember is a selected public Go unit under TestSelectedLintUnits. The shared syntax-only fixture harness calls the owning semicolon rule and applies edits for the complete literal output assertion in the same Go process without a consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiKeepsClassFieldSemiBeforeComputedMember is a selected public Go unit under the lint semantic-unit Evidence claim. The shared syntax-only fixture harness calls the owning semicolon rule and applies edits for the complete literal output assertion in the same Go process without a consumer install, native product build or product host.
 func TestFormatSemiKeepsClassFieldSemiBeforeComputedMember(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

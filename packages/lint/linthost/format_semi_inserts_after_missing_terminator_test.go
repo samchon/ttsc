@@ -17,7 +17,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must append a missing semicolon to JSON.stringify(1) without changing the call or its LF ending.
 // @evidence contracts/testing.md#independent-expectations The independent full source literal specifies the default statement terminator and identical call payload; an unchanged or displaced insertion fails the exact output comparison.
 // @evidence contracts/testing.md#distinguishing-cases This simple changed expression positive complements already-terminated statement negatives and the fourteen-kind exact insertion matrix.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiInsertsAfterMissingTerminator is a selected public Go unit under TestSelectedLintUnits. The shared syntax-only fixture harness calls the owning semicolon rule and applies edits for the complete literal output assertion in the same Go process without a consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiInsertsAfterMissingTerminator is a selected public Go unit under the lint semantic-unit Evidence claim. The shared syntax-only fixture harness calls the owning semicolon rule and applies edits for the complete literal output assertion in the same Go process without a consumer install, native product build or product host.
 func TestFormatSemiInsertsAfterMissingTerminator(t *testing.T) {
   assertFixSnapshot(
     t,

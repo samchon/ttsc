@@ -1400,7 +1400,8 @@ func LoadRuleConfig(entry *PluginEntry, cwd, tsconfigPath string) (RuleConfig, e
 // `configFile`, a path (relative to the tsconfig directory, or absolute) to
 // the lint config file. When `configFile` is set, that file is loaded; when it
 // is absent, a `lint.config.*` / `ttsc-lint.config.*` file is discovered by
-// walking upward from the tsconfig directory.
+// walking upward from the tsconfig directory and then from the working
+// directory (see discoveryConfigBaseDirs for the embedder-declared origin).
 //
 // All rules, format options, and contributor plugins live in the config file
 // itself — the tsconfig entry has no inline rule/format/plugin surface.

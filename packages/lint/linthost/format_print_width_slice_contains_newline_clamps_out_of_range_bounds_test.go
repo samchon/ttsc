@@ -24,7 +24,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification sliceContainsNewline must clamp out-of-bounds ranges while detecting supported line separators only within the half-open slice.
 // @evidence contracts/testing.md#independent-expectations Literal LF at byte five and CR/U+2028/U+2029 fixtures supply lexical newline expectations independently; range endpoints five and six distinguish exclusion and inclusion.
 // @evidence contracts/testing.md#distinguishing-cases Negative start, excessive end, flat text, empty/reversed spans, adjacent LF endpoint and three other supported separators expose safety and actual classification.
-// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthSliceContainsNewlineClampOutOfRangeBounds is a selected public Go unit under TestSelectedLintUnits. This entry owns every local assertion and table row, invoking the column or source predicate in the shared process without consumer installation, a native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthSliceContainsNewlineClampOutOfRangeBounds is a selected public Go unit under the lint semantic-unit Evidence claim. This entry owns every local assertion and table row, invoking the column or source predicate in the shared process without consumer installation, a native product build or host execution.
 func TestFormatPrintWidthSliceContainsNewlineClampOutOfRangeBounds(t *testing.T) {
   src := "hello\nworld"
 

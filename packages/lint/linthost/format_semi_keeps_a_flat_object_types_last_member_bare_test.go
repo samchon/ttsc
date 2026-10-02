@@ -24,7 +24,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must leave a flat-opened type literal last member bare, add an interior member separator, and terminate an outer interface member without terminating its inner flat literal.
 // @evidence contracts/testing.md#independent-expectations The independently authored full output specifies list ownership at each opening brace; retained flat last members and inserted outer/interior semicolons preserve all nested type annotations.
 // @evidence contracts/testing.md#distinguishing-cases Three literal declarations distinguish flat trailing, flat interior and outer broken-interface punctuation within one batch, rejecting a member-newline-only heuristic.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiKeepsAFlatObjectTypesLastMemberBare is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only harness invokes the owning semicolon rule and applies edits for exact output in the same Go process, without consumer installation, a native product build or host execution.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiKeepsAFlatObjectTypesLastMemberBare is a public Go unit selected by the lint semantic-unit Evidence claim. The shared syntax-only harness invokes the owning semicolon rule and applies edits for exact output in the same Go process, without consumer installation, a native product build or host execution.
 func TestFormatSemiKeepsAFlatObjectTypesLastMemberBare(t *testing.T) {
   assertFixSnapshot(
     t,

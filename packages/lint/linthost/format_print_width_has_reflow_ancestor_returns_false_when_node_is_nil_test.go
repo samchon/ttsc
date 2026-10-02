@@ -20,7 +20,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification hasReflowAncestor must reject nil, unparented and non-reflow-only chains, and recognize a call ancestor beyond an intermediate statement.
 // @evidence contracts/testing.md#independent-expectations Public parent links and independently chosen statement/call kinds encode the documented duplicate-reflow ownership rule; expected booleans do not repeat the ancestry walk.
 // @evidence contracts/testing.md#distinguishing-cases Nil, empty ancestry, adjacent non-reflow parent and a qualifying grandparent distinguish safety, category and full-chain traversal.
-// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthHasReflowAncestorReturnsFalseWhenNodeIsNil is selected as a public Go unit by TestSelectedLintUnits; its local cases call the owning operation in the shared process without a consumer install, native artifact build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthHasReflowAncestorReturnsFalseWhenNodeIsNil is selected as a public Go unit by the lint semantic-unit Evidence claim; its local cases call the owning operation in the shared process without a consumer install, native artifact build or product host.
 func TestFormatPrintWidthHasReflowAncestorReturnsFalseWhenNodeIsNil(t *testing.T) {
   if got := hasReflowAncestor(nil); got {
     t.Fatalf("hasReflowAncestor(nil): want false, got true")

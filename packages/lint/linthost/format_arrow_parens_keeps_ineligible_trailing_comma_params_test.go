@@ -20,7 +20,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/arrow-parens must emit no finding for typed, defaulted, destructured and generic singleton parameters carrying a trailing comma under avoid.
 // @evidence contracts/testing.md#independent-expectations The independently supplied binding/type/default syntax makes parentheses mandatory regardless of comma tolerance; the default value one and generic annotation must survive.
 // @evidence contracts/testing.md#distinguishing-cases This host owns typed, defaulted, destructured and generic subtests. Eligible untyped comma-bearing positive transformations and comment-bearing negatives remain separate owners.
-// @evidence contracts/testing.md#execution-ownership TestFormatArrowParensKeepsIneligibleTrailingCommaParams is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only harness calls the owning arrow rule on temporary fixture source and observes zero findings without applying any edit; this host owns every named case without a consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatArrowParensKeepsIneligibleTrailingCommaParams is a public Go unit selected by the lint semantic-unit Evidence claim. The shared syntax-only harness calls the owning arrow rule on temporary fixture source and observes zero findings without applying any edit; this host owns every named case without a consumer install, native product build or product host.
 func TestFormatArrowParensKeepsIneligibleTrailingCommaParams(t *testing.T) {
   t.Run("typed", func(t *testing.T) {
     assertRuleSkipsSourceWithOptions(

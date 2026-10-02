@@ -31,7 +31,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification formatPrintWidth.Check must abstain when a parsed object ends beyond the separate context source length.
 // @evidence contracts/testing.md#independent-expectations The independently constructed short and long source literals establish the invalid range; zero findings is the safety contract.
 // @evidence contracts/testing.md#distinguishing-cases The fixture range is required rather than skipped if construction changes; valid reflows and other missing-context guards live in sibling cases.
-// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthCheckAbstainsWhenNodeRangeExceedsContextSource is a public Go unit selected by TestSelectedLintUnits. It calls Check directly with isolated fixture source and a collector, without installing a consumer or starting a host.
+// @evidence contracts/testing.md#execution-ownership TestFormatPrintWidthCheckAbstainsWhenNodeRangeExceedsContextSource is a public Go unit selected by the lint semantic-unit Evidence claim. It calls Check directly with isolated fixture source and a collector, without installing a consumer or starting a host.
 func TestFormatPrintWidthCheckAbstainsWhenNodeRangeExceedsContextSource(t *testing.T) {
   root := t.TempDir()
 

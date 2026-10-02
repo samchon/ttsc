@@ -16,7 +16,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/brace-continuation must join both catch and finally to their preceding closing braces while retaining all try/catch/finally bodies.
 // @evidence contracts/testing.md#independent-expectations The complete literal output preserves calls x/y/z and the error binding and follows supported } catch and } finally placement; finally follows a CatchClause holder rather than a Block node.
 // @evidence contracts/testing.md#distinguishing-cases This two-keyword positive exercises try-to-catch and catch-to-finally edges together; the no-catch finally test separately owns the direct try-block edge.
-// @evidence contracts/testing.md#execution-ownership TestFormatBraceContinuationPullsCatchAndFinallyOntoTheirBraces is a public Go unit selected by TestSelectedLintUnits. This host owns the source and independent literal output; the shared syntax-only harness invokes the rule and applies its edits in process without a consumer install, native product build or product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatBraceContinuationPullsCatchAndFinallyOntoTheirBraces is a public Go unit selected by the lint semantic-unit Evidence claim. This host owns the source and independent literal output; the shared syntax-only harness invokes the rule and applies its edits in process without a consumer install, native product build or product host.
 func TestFormatBraceContinuationPullsCatchAndFinallyOntoTheirBraces(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,

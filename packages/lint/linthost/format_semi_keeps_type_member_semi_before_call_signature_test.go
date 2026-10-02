@@ -20,7 +20,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification format/semi must keep the separator before a callable interface member while removing its safe final terminator under never.
 // @evidence contracts/testing.md#independent-expectations The independently authored literal output preserves a:number followed by the call signature as distinct members; the separator prevents type continuation while the closing-brace boundary is safe.
 // @evidence contracts/testing.md#distinguishing-cases One hazardous inter-member separator stays and one safe trailing terminator changes within the same interface, contrasting with ordinary property-only removal.
-// @evidence contracts/testing.md#execution-ownership TestFormatSemiKeepsTypeMemberSemiBeforeCallSignature is a public Go unit selected by TestSelectedLintUnits. The shared syntax-only fixture harness invokes the owning semicolon rule and applies edits for complete literal output comparison in the same Go process without consumer installation, a native product build or a product host.
+// @evidence contracts/testing.md#execution-ownership TestFormatSemiKeepsTypeMemberSemiBeforeCallSignature is a public Go unit selected by the lint semantic-unit Evidence claim. The shared syntax-only fixture harness invokes the owning semicolon rule and applies edits for complete literal output comparison in the same Go process without consumer installation, a native product build or a product host.
 func TestFormatSemiKeepsTypeMemberSemiBeforeCallSignature(t *testing.T) {
   assertFixSnapshotWithOptions(
     t,
