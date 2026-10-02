@@ -30,16 +30,16 @@ export interface DirectoryWatcher {
   close(): void;
 
   /**
-   * Hear the watch fail; it delivers nothing afterwards.
+   * Subscribe to failure notification so the owner can retire the watch.
    *
    * @evidence contracts/common.md#principled-implementation The failure subscription communicates observation loss so the owner can reconcile its watch set.
    * @evidence contracts/common.md#clear-and-simple-design One error event avoids exposing unrelated backend event channels.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Failure is not replaced with a fabricated healthy watcher result.
-   * @evidence contracts/common.md#meaningful-documentation The native comment explains failure notification and subsequent observation loss following the documentation skill.
+   * @evidence contracts/common.md#meaningful-documentation The native comment explains failure notification and caller retirement responsibility following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native backend failures share an Error callback rather than OS-specific result shapes.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources on acquires no handle, buffer or cache and retains nothing after it returns.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms on performs a fixed number of steps with no loop or recursion over caller data.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work on computes one result per call, so there is no repeated work to share.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This method signature acquires no runtime resource; backend implementations own listener storage and the watcher owner closes the subscription.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This method signature defines no processing algorithm; the backend implements event subscription.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This method signature coordinates no runtime work; backend event distribution owns any sharing.
    */
   on(event: "error", listener: (error: Error) => void): unknown;
 }
