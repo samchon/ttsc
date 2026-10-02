@@ -26,8 +26,8 @@ export * from "./typings/index";
  * - `"evidence/singular"` — one public identity per TypeScript file, named after
  *   the file. Takes no options, so it carries a bare severity.
  * - `"evidence/documented"` — a JSDoc block on every selected export, which is
- *   the only place an `@evidence` tag is ever read from. Takes an
- *   {@link ITtscEvidenceDocumentedConfig}.
+ *   the only place a TypeScript declaration's `@evidence` tag is ever read
+ *   from. Takes an {@link ITtscEvidenceDocumentedConfig}.
  * - `"evidence/todo"` — no remaining JSDoc `@todo` tag anywhere in a checked
  *   file, exported or not. Each tag is an unrealized contract reported with its
  *   own text, so the diagnostics read as the ledger of what remains to realize.

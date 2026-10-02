@@ -252,7 +252,10 @@ const operationsOf = (document: OpenApi.IDocument): ISwaggerOperation[] => {
   operations.sort((left, right) => {
     const leftTarget: string = `${left.method}:${left.path}`;
     const rightTarget: string = `${right.method}:${right.path}`;
-    return leftTarget.localeCompare(rightTarget);
+    // Code-unit order, never locale order: collation treats canonically
+    // equivalent spellings as equal, which can leave two identical targets
+    // apart and hide the duplicate the next loop looks for.
+    return leftTarget < rightTarget ? -1 : leftTarget > rightTarget ? 1 : 0;
   });
   for (let index: number = 1; index < operations.length; index++) {
     const previous: ISwaggerOperation = operations[index - 1]!;
@@ -368,7 +371,14 @@ const withResolvedReferences = (
 
 const COMPONENT_REFERENCE_PREFIX = "#/components/";
 
-/** Reads one `#/components/<section>/<name>` pointer, or nothing. */
+/**
+ * Reads one `#/components/<section>/<name>` pointer, or nothing.
+ *
+ * Only own properties count, so a name such as `constructor` that no document
+ * declares does not resolve to something inherited. A segment whose percent
+ * escape is malformed is read as written rather than failing the document,
+ * because a pointer that names nothing is left as written by the caller.
+ */
 const componentAt = (
   components: Record<string, unknown>,
   reference: string,
@@ -378,7 +388,7 @@ const componentAt = (
     .slice(COMPONENT_REFERENCE_PREFIX.length)
     .split("/")
     .map((segment) =>
-      decodeURIComponent(segment).replaceAll("~1", "/").replaceAll("~0", "~"),
+      percentDecoded(segment).replaceAll("~1", "/").replaceAll("~0", "~"),
     );
   let current: unknown = components;
   for (const segment of segments) {
@@ -388,10 +398,19 @@ const componentAt = (
       Array.isArray(current)
     )
       return undefined;
-    if (!(segment in (current as Record<string, unknown>))) return undefined;
+    if (!Object.hasOwn(current as Record<string, unknown>, segment))
+      return undefined;
     current = (current as Record<string, unknown>)[segment];
   }
   return current;
+};
+
+const percentDecoded = (segment: string): string => {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
 };
 
 const isInventory = (

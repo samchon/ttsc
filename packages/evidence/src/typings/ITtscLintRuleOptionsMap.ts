@@ -20,8 +20,8 @@ declare module "@ttsc/lint" {
     /**
      * Requires a JSDoc block on every selected export.
      *
-     * A JSDoc block is the only place an `@evidence` tag is read from, so an
-     * export without one cannot participate in the graph at all.
+     * A JSDoc block is the only place a TypeScript declaration's `@evidence`
+     * tag is read from, so an export without one cannot cite anything.
      */
     "evidence/documented": ITtscEvidenceDocumentedConfig;
   }

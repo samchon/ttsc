@@ -113,12 +113,12 @@ One claim: the components under `src` implement the docs, so every H2 and H3 und
 
 The configuration is written once. The tags are written forever: `@evidence` cites, `@evidenceReview` verifies, and `@evidenceExclude` declines. [The tag reference](https://ttsc.dev/docs/evidence/tags) has the full grammar.
 
-A false tag removes the error, not the problem. `@evidenceReview` resolves it:
+A false tag removes the error, not the problem. `@evidenceReview` asks for a separate statement of what was verified, which a human then judges:
 
 ```ts
 /**
  * @evidence docs/discount.md#coupon-stacking States the per-issuer limit.
- * @evidenceReview docs/discount.md#coupon-stacking #a1b2c3d4e5f6
+ * @evidenceReview docs/discount.md#coupon-stacking #a1b2c3d
  *                 Verified against policy section 3.
  */
 ```
@@ -174,7 +174,7 @@ Make them a checklist:
 }
 ```
 
-`checklist` changes the denominator from principles to functions times principles. Every selected function must answer every principle, as `CouponStackingNotice` does above.
+`checklist` changes the denominator from principles to functions times principles. Every selected function must answer every principle, with `@evidence` as `CouponStackingNotice` does for `no-hard-coding` or with `@evidenceExclude` as it does for `fix-root-causes-not-symptoms`; the two principles it leaves unanswered above would fail the build.
 
 One missing answer fails the build. Adding a principle creates a new obligation on every selected function, and `requireReview` expires every affected review when that principle changes.
 
