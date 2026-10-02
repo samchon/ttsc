@@ -423,15 +423,16 @@ type Suggestion struct {
 // the surrounding indentation. A finding is silently dropped if the
 // configured severity is `off` (defensive: the engine already filters
 // by severity before calling Check, but Report is the final gate).
+// A nil node is also dropped. Use an engine-bound Context for collection.
 //
 // @evidence contracts/common.md#principled-implementation Delegating to ReportFix without edits preserves node range normalization and the current rule's severity gate.
 // @evidence contracts/common.md#clear-and-simple-design The diagnostic-only convenience shares the node reporting implementation instead of duplicating collection policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Reports use compiler positions and the bound collector; no guessed location or special expected diagnostic is inserted.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains trivia trimming and disabled-rule behavior, with tags separated from the description.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.Report performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.Report has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.Report keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.Report acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Delegation clamps the node range in constant work and scans t leading-trivia bytes before collection, O(t) plus the rule-name and collector callbacks. No edit list is copied for this diagnostic-only call.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Collection emits a new finding for this invocation; equal messages or nodes alone do not prove that suppressing a later report preserves effects.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The new finding transfers to the bound collector, whose host owns the per-file/run population. This wrapper retains no separate history, handle or task.
 func (c *Context) Report(node *shimast.Node, message string) {
   c.ReportFix(node, message)
 }
@@ -439,15 +440,16 @@ func (c *Context) Report(node *shimast.Node, message string) {
 // ReportFix records a node-scoped finding with optional autofix edits.
 // The diagnostic range is bounded to File and trimmed past leading trivia.
 // Edits are copied but their ranges are validated by the edit application path.
+// A nil node or off severity drops the report; collection requires an engine-bound Context.
 //
 // @evidence contracts/common.md#principled-implementation nodeFindingRange bounds positions before reading trivia; collection preserves the configured severity and copies caller-owned edits.
 // @evidence contracts/common.md#clear-and-simple-design One operation owns node diagnostics with automatic edits; the helper owns coordinate normalization independently of edit applicability.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The operation reports the actual node under the bound rule, leaving invalid edit rejection to its supported application boundary.
 // @evidence contracts/common.md#meaningful-documentation The native comment distinguishes diagnostic normalization, edit copying and application-time validation before its tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ReportFix performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ReportFix has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ReportFix keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ReportFix acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Range clamping is constant work; trivia scanning examines t source bytes and edit cloning copies m records, O(t+m) plus the rule-name and collector callbacks. The finding stores O(m) copied edit records while immutable replacement strings remain shared.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Reporting mutates the bound collector for one invocation; this operation owns no identity or protocol for sharing or suppressing equivalent reporting effects.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The finding and copied edit slice transfer to the bound collector; the host owns the accumulated population. This method retains no separate historical result, handle or task.
 func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdit) {
   if c.Severity == SeverityOff || node == nil {
     return
