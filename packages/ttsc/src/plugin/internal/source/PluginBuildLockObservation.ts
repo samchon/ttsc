@@ -8,9 +8,10 @@ import type { PluginBuildLockFence } from "./PluginBuildLockFence";
  *   caller's admission budget.
  * - `abandoned`: the lock has a qualified, provably absent same-host owner. The
  *   returned fence permits an attempt to retire that observed generation.
- * - `released`: the observed generation no longer exists. In v3 the persistent
- *   coordination root remains while `current` is absent. This is a routine
- *   handoff, never an infinitely old abandoned lock.
+ * - `released`: observation found a released or unavailable handoff and carries
+ *   no fence. V3 coordination roots persist independently of `current`; these
+ *   sequential observations do not guarantee that no successor exists by return.
+ *   This is never an infinitely old abandoned lock.
  *
  * A v3 active or abandoned result records the observer before returning its
  * fence. Reclamation is still a separate action that may lose a retirement
