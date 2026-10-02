@@ -10,18 +10,10 @@ import (
 // finds the requested file even when --file contains a redundant "dir/../dir"
 // round-trip.
 //
-// samchon/ttsc#319 is this same class of gap in ttsc's resident serve host:
-// tsgo normalizes SourceFile.FileName() by resolving "."/".." segments as
-// well as separators. Before this fix, RunTransform built --file's absolute
-// form with a native filepath.Join (which does not touch an already-absolute
-// path) and findSourceFile compared it with only a filepath.ToSlash swap,
-// which never collapses "."/".." — so a syntactically-absolute but
-// not-yet-normalized request could fail to match a real project file even
-// though it names it correctly. A plain backslash-only path does not
-// reproduce this on a Windows test runner (Go's own filepath.ToSlash already
-// swaps separators for the host OS there); the "."/".." round-trip is what
-// filepath.ToSlash never resolves on any host OS, so it isolates the actual
-// gap tspath.NormalizePath/ResolvePath closes.
+// The request is deliberately assembled without cleaning its dot segment.
+// RunTransform resolves it through tspath before project-source lookup; merely
+// swapping host separators would leave the round-trip unresolved. This unit
+// observes target emission in the shared process, not a resident serve host.
 //
 //  1. Create a clean project with one TypeScript source file at src/main.ts.
 //  2. Run transform with --file pointing at src/../src/main.ts — the same
