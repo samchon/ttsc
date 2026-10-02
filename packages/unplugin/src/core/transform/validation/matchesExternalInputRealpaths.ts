@@ -19,10 +19,16 @@ import { sameHostInputRealpath } from "../inputs/sameHostInputRealpath";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the fallback's legacy scope and why predicate-bearing inputs are excluded.
  * @evidence contracts/portability.md#os-neutral-implementation Native realpath is compared through actual filesystem identity policy rather than lowercasing paths or inferring case sensitivity from Windows.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The pass borrows generation records and retains no map, handle or historical result.
- * @evidence contracts/performance.md#efficient-algorithms One scan of external spellings performs realpath only for entries with a legacy witness; no source content or directory tree is reread here.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Materializes recorded target keys for the empty check, then scans external
+ *   spellings until a mismatch. Predicate spellings skip legacy proof; other
+ *   entries pay native identity lookup and selected realpath observation/key
+ *   comparison, including uncached native components/case and path text.
+ *   No source content or recursive directory enumeration is performed here.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Complete snapshot admission owns shared proof and adoption; this pass contributes one physical-target verdict.
  */
 export function matchesExternalInputRealpaths(
+  /** Generation retaining legacy target witnesses and separately replayed predicates. */
   cached: TtscCachedProjectTransform,
 ): boolean {
   const expected = cached.externalInputRealpaths;
