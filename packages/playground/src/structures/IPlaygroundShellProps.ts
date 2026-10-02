@@ -43,13 +43,16 @@ export interface IPlaygroundShellProps {
 
   /**
    * Static extra .d.ts entries to mount in Monaco (e.g. a pre-packed typia type
-   * pack). Merged with dependencies installed at runtime.
+   * pack). Merged with dependencies installed at runtime. Keep the object
+   * identity stable across renders: a new object makes the editor dispose and
+   * register every declaration again.
    */
   staticEditorLibs?: Record<string, string>;
 
   /**
    * Packages the site has already pre-mounted into the wasm. These are skipped
-   * by the runtime npm dependency installer.
+   * by the runtime npm dependency installer. Keep the array identity stable
+   * across renders: a new array restarts the pending compile debounce.
    */
   preinstalledPackages?: readonly string[];
 
