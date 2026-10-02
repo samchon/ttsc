@@ -12,10 +12,9 @@ import (
 // block braces from a fully flattened source. ttsc-only self-check against
 // the canonical answer key; Prettier is not used.
 //
-// A `case`/`default` label is not a statement, so the statement walk never
-// visited it; and the closing-brace pass skipped the case-body block's `}`.
-// Before the fix a flattened switch left labels and case-block braces at
-// column 0 while the bodies were re-indented.
+// A `case`/`default` label is not a statement. A formatter that moved only
+// body statements could leave labels and case-block braces at column 0;
+// full-file equality distinguishes that incomplete transformation.
 //
 //  1. Flatten a switch canonical (block-bodied cases) to column 0.
 //  2. Run `ttsc format`.
