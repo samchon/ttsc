@@ -674,14 +674,13 @@ func evaluateEvidenceGraph(
       continue
     }
     candidates := declarationCandidates(declaration.Target, targets, markdownTargets)
-    // The configuration guard refuses a code population to a claim that
-    // cannot address one, but the address map is built from every claim at
-    // once — so a Markdown claim could still land on a symbol materialized
-    // by some *other* claim's TypeScript reference. Measured: it resolved
-    // silently, which left repository-wide name uniqueness load-bearing
-    // through a door the guard does not cover. Closing it here rather than
-    // by scoping the whole map keeps resolution global for the artifacts
-    // that are addressed by path, where a shared map costs nothing.
+    // The address map is built from every claim at once, so a claim that
+    // addresses code only through a file-qualified link, such as a Markdown
+    // claim, could still land on a symbol materialized by some *other* claim's
+    // TypeScript reference through a plain token. That would resolve silently
+    // and make repository-wide name uniqueness load-bearing. Refusing it here
+    // rather than scoping the whole map keeps resolution global for the
+    // artifacts that are addressed by path, where a shared map costs nothing.
     if declaration.Type != artifactTypeScript {
       addressable, code := splitCodeCandidates(candidates)
       if len(addressable) == 0 && len(code) != 0 {

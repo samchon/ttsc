@@ -9,18 +9,17 @@ import "testing"
  * has nothing to resolve against, and the author needs to hear the reason
  * rather than a generic failure.
  *
- * The reference here is Markdown rather than TypeScript, and deliberately so:
- * a TypeScript reference is now refused to this claim at configuration decode,
- * and that rejection happens to carry the same sentence. The case would have
- * kept passing while testing nothing — so the fixture cites a document, where
- * the braced form is still the author's mistake to hear about.
+ * The reference here is Markdown, so the case isolates the inline-link
+ * rejection, which depends on the artifact of the citing comment and not on the
+ * reference, from any resolution of a code population. The fixture cites a
+ * document, where the braced form is still the author's mistake to hear about.
  *
  *  1. Cite a Markdown section from a Markdown claim, braced.
  *  2. Evaluate the graph.
  *  3. Assert the explanatory rejection names the inline link itself.
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a Markdown claim over docs/reader.md (symbol file), which cites `<!-- @evidence {@link pricing} ... -->`, against a Markdown reference over docs/spec.md; the diagnostics must contain `Inline link target '{@link pricing}'` and `a markdown comment has none`.
  * @evidence contracts/testing.md#independent-expectations The expected wording is authored from the diagnostic contract: a braced target in a Markdown comment has no import scope to resolve against, so the author must be told why it cannot be used rather than given a generic failure.
- * @evidence contracts/testing.md#distinguishing-cases A Markdown reference is used on purpose, because a TypeScript reference is refused to a Markdown claim at configuration decode with the same sentence and would leave the resolver untested; only containment of the two fragments is asserted.
+ * @evidence contracts/testing.md#distinguishing-cases A Markdown reference is used on purpose, so the rejection is observed without any code population to resolve against; only containment of the two fragments is asserted.
  * @evidence contracts/testing.md#execution-ownership TestGraphRejectsInlineLinksInMarkdownClaims is a Go unit entry in the native test process; runIndexRule writes the fixtures to a temp directory and calls the graph rule directly, with no consumer install or product host.
  */
 func TestGraphRejectsInlineLinksInMarkdownClaims(t *testing.T) {

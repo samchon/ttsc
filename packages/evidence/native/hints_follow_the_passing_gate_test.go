@@ -5,8 +5,8 @@ import (
   "testing"
 )
 
-// hintsTypeScriptConfig cites a TypeScript population from TypeScript, which
-// is the only claim kind that can address one.
+// hintsTypeScriptConfig cites a TypeScript population from TypeScript, whose
+// inline link is the grammar the corpus routes the author into.
 const hintsTypeScriptConfig = `{"claims":[{
   "type":"typescript",
   "files":["src/ledger.ts"],
