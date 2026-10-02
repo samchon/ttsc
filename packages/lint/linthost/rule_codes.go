@@ -4,7 +4,6 @@ import (
   _ "embed"
   "encoding/json"
   "fmt"
-  "sort"
   "sync"
 
   "github.com/samchon/ttsc/packages/lint/internal/rulecode"
@@ -53,15 +52,18 @@ func invalidateRuntimeRuleCodes() {
 // Built-in assignments come from the append-only ledger. Runtime contributor
 // assignments are recomputed over the complete sorted contributor set, so the
 // same set receives the same codes regardless of registration order.
+// An unregistered name receives a provisional allocation with that name added;
+// this temporary set never replaces the registered-set cache. Registration
+// must finish before concurrent readers; the registry itself is not synchronized.
 //
-// @evidence contracts/common.md#principled-implementation Frozen built-in assignments are preserved while complete sorted contributor names receive collision-free assignments from the same reserved code interval.
+// @evidence contracts/common.md#principled-implementation Frozen built-in assignments are preserved while complete sorted contributor names receive collision-free assignments from the same reserved code interval; temporary unregistered lookups do not publish a different membership into the registered cache.
 // @evidence contracts/common.md#clear-and-simple-design One public lookup centralizes the compatibility ledger and invalidated runtime allocation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The append-only ledger is explicit diagnostic compatibility data; contributors use the allocator instead of name-specific code exceptions.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains built-in stability and registration-order independence; separated tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation RuleCode maps rule names to diagnostic codes and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms A built-in name is one map lookup; a runtime-registered name triggers one sort and one rulecode.Allocate over the registered names.
-// @evidence contracts/performance.md#reuse-equivalent-work Runtime assignments are cached under a mutex and recomputed only when the table is marked dirty or the queried name is not yet registered.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The table keeps one entry per registered rule and is rebuilt wholesale on recomputation, so no stale entry survives; the mutex is released by defer.
+// @evidence contracts/performance.md#efficient-algorithms A built-in or valid cached contributor is one keyed lookup plus name hashing, with a mutex for contributors. Rebuild scans all file/project registrations, then Allocate validates f frozen entries, sorts n requested contributor names and examines p collision-probe slots: O(registry size+f+n log n+p) map/comparison operations plus name hashing bytes, with O(f+n) temporary entries. Allocate owns the only required sort.
+// @evidence contracts/performance.md#reuse-equivalent-work The mutex-protected registered-set cache is reused until accepted file/project contributor registration marks it dirty. An unregistered lookup allocates an augmented temporary set without publishing its codes or clearing that dirty flag; its different membership is not equivalent to the registered set.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The process-wide table retains one code per distinct registered contributor name after rebuild and is replaced wholesale on membership invalidation; registrations have no public unregister or cardinality cap. Temporary unknown-name assignments are not retained, and the mutex is released by defer on return or allocation panic.
 func RuleCode(name string) int32 {
   if code, exists := builtInRuleCodes[name]; exists {
     return code
@@ -92,10 +94,13 @@ func RuleCode(name string) int32 {
   if !isRegistered {
     names = append(names, name)
   }
-  sort.Strings(names)
   assigned, err := rulecode.Allocate(builtInRuleCodes, names)
   if err != nil {
     panic(fmt.Sprintf("@ttsc/lint: allocate diagnostic code for %q: %v", name, err))
+  }
+
+  if !isRegistered {
+    return assigned[name]
   }
 
   runtimeRuleCodes.codes = make(map[string]int32, len(names))

@@ -53,6 +53,8 @@ The ledger introduction preserved every legacy code that was already unique. For
 
 Rules contributed by another Go package share the same collision-free band. Their codes are deterministic for an unchanged complete set of loaded contributors and do not depend on registration order. Adding or removing a contributor recomputes assignments for that complete contributor set and can change contributor codes, but never changes a built-in assignment.
 
+The Go host API `RuleCode` also accepts an unregistered name and returns a provisional assignment for the loaded set plus that name. This lookup does not register the name or change the cached codes of loaded contributors; register the rule before using its code as a loaded diagnostic identity.
+
 ## Setup
 
 ```bash
