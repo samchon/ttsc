@@ -21,8 +21,8 @@ import type { ValueValidator } from "./ValueValidator";
 export interface FlagSpec {
   /**
    * Canonical flag name including leading dashes (`"--singleThreaded"`). The
-   * generator uses this as the map key in the Go allow-list and as the first
-   * column of the docs table.
+   * generator normalizes canonical names and aliases to dash-free lowercase
+   * Go allow-list keys; the docs table retains this spelling in its first column.
    */
   readonly name: string;
 
@@ -106,8 +106,10 @@ export interface FlagSpec {
 
   /**
    * Native sidecar capability that must be declared before ttsc sends this flag
-   * as a bare CLI argument. Everything else routes through the
-   * `TTSC_TSGO_ARGS` environment payload or stays in the JS launcher.
+   * as a bare optional compiler-control argument to a check-stage host.
+   * This does not describe the host's required subcommand/project/plugin
+   * protocol fields. Other forwarded compiler argv uses `TTSC_TSGO_ARGS`;
+   * launcher-owned options stay with their JavaScript consumer.
    */
   readonly nativeCapability?: "diagnosticsTiming" | "threadingArgs";
 

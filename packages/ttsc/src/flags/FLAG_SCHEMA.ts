@@ -1,9 +1,10 @@
 import type { FlagSpec } from "./FlagSpec";
 
 /**
- * Single source of truth for every flag the ttsc / ttsx CLI accepts. New flags
- * are added here and only here; the generator rebuilds the parsers and the Go
- * allow-lists from this table.
+ * Shared routing schema for flags ttsc / ttsx consumes, classifies or shadows.
+ * Unknown compiler options can still be forwarded without a schema row.
+ * Runtime parsing reads this table; generation emits native allow-lists and
+ * documentation, while pinned native declarations supply compiler grammar.
  *
  * One declaration per flag, consumed by every layer that needs to know about
  * it:
@@ -28,9 +29,9 @@ import type { FlagSpec } from "./FlagSpec";
  * 2. A flag listed in `consumedBy: ["launcher"]` without a `forwardTo`
  *    consumes-not-forwards. The generator flags this in the docs and the Go
  *    allow-list so the boundary is explicit.
- * 3. A flag with `subcommands` covering `clean` or `prepare` is parsed by the
- *    project-args lane; the parsing engine accepts the same flag in build /
- *    check / fix / format without a separate parser.
+ * 3. The project-args and build lanes use the same parsing engine, but each
+ *    command accepts only rows whose `subcommands` include its identity and
+ *    whose `consumedBy` includes the launcher.
  */
 export const FLAG_SCHEMA: readonly FlagSpec[] = [
   // -------------------------------------------------------------------------
@@ -59,14 +60,16 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
   // Solution build mode — declared so the launcher can refuse it in its own
   // voice instead of forwarding it.
   //
-  // `createTsgoBuildArgs` opens the forwarded argv with `-p <tsconfig>` because
+  // Project-dependent `createTsgoBuildArgs` opens forwarded argv with `-p`
+  // and the selected config because
   // ttsc resolves the project itself (extends chains, plugin config discovery,
-  // cache keys, resident session identity) and pins the result. A forwarded
-  // `--build` therefore always lands after `-p`, and tsgo answers with TS6369
+  // cache keys, resident session identity) and pins the result. In that lane,
+  // a forwarded `--build` lands after `-p`, and tsgo answers with TS6369
   // "Option '--build' must be the first command line argument" — a diagnostic
   // that contradicts the command line the user actually typed. ttsc's plugin,
   // cache, and emit architecture is built around one resolved project, so
-  // solution mode is unsupported rather than merely misordered.
+  // solution mode is unsupported rather than merely misordered. The separate
+  // project-free terminal branch does not first resolve or inject a project.
   // -------------------------------------------------------------------------
   {
     name: "--build",
