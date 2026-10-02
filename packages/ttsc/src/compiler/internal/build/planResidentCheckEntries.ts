@@ -14,7 +14,7 @@ import type { ResidentCheckEntryPlan } from "./ResidentCheckEntryPlan";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Resident support comes from declared capabilities rather than binary-name guesses; duplicate entries are not silently skipped.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes process sharing, environment-carried compiler arguments and separate configured executions.
  * @evidence contracts/portability.md#os-neutral-implementation Binary and argv remain separate native process inputs; JSON encodes argument boundaries without shell quoting or path case assumptions.
- * @evidence contracts/performance.md#efficient-algorithms Planning visits plugins once and serializes only check argv; cost scales with plugin count and total selected argument bytes.
+ * @evidence contracts/performance.md#efficient-algorithms Filtering scans all plugins, then mapping visits selected checks and calls the argument composer once per entry. Cost includes those composer calls and resident-key string/JSON bytes; the current composer serializes the full plugin manifest separately for every configured check. Returned storage scales with selected entries and their argument/key bytes.
  * @evidence contracts/performance.md#reuse-equivalent-work Equivalent resident startup selections receive the same key; the session additionally requires stable execution context and resets topology before reuse.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Plans describe process selection but acquire no sidecars or retained requests themselves.
