@@ -19,16 +19,16 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  *
  * @param binary The plugin executable being used.
  *
- * @evidence contracts/common.md#principled-implementation An existing last-use marker identifies a source cache entry; atomic replacement refreshes that entry without changing an aliased old marker inode.
+ * @evidence contracts/common.md#principled-implementation An observed regular last-use marker selects the cache convention for refresh, rather than authenticating the binary or its producer. Atomic entry replacement avoids modifying an aliased marker inode; sequential checks do not pin the containing pathname.
  * @evidence contracts/common.md#clear-and-simple-design The binary's containing entry is projected directly, with a marker-presence gate before publication.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The marker is authored cache provenance, not a filename exception for a particular plugin or consumer.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains resident-use refresh, the absent-marker boundary and tolerated refresh failures.
  * @evidence contracts/portability.md#os-neutral-implementation Native dirname/join and metadata replacement handle platform paths; locked or missing files remain a tolerated refresh failure.
- * @evidence contracts/performance.md#efficient-algorithms A fixed-size timestamp replacement uses a constant number of metadata operations independent of binary bytes.
+ * @evidence contracts/performance.md#efficient-algorithms Containing-path construction, marker stat and atomic timestamp replacement use a fixed operation count without reading binary bytes; costs still include native path resolution and timestamp/pending-name text.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This helper does not validate the resident binary's build inputs or coordinate its production.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources Resident usage refreshes disk-entry last use while the collector owns byte bounds and actual eviction; this operation retains no worker or handle.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Refresh changes recency priority, not reader ownership or a storage bound. The collector owns eviction attempts and retained history; refresh failures are swallowed and atomic writer cleanup is best-effort. This operation retains no worker or handle.
  */
 export function touchPluginCacheEntryInUse(binary: string): void {
   const record = path.join(
