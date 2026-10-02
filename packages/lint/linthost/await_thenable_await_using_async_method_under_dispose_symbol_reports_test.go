@@ -9,12 +9,10 @@ import (
 // `async [Symbol.dispose]()` method does not pass for the async-dispose
 // protocol.
 //
-// Upstream's sharpest invalid case: the resource DOES have an async method —
-// but it hangs off the wrong well-known symbol. A capability check keyed on
-// "has some async-looking member" or on method return types would wrongly
-// accept it; only the resolved `[Symbol.asyncDispose]` property lookup
-// rejects it. Pins the one-property-away boundary against the
-// `async [Symbol.asyncDispose]()` allow case.
+// The async modifier does not change the method's well-known symbol: this
+// resource still has Symbol.dispose rather than Symbol.asyncDispose. The source
+// differs from the async-disposable clean fixture at that protocol key, and
+// requires one rule error on the initializer's declaration line.
 //
 //  1. Seed a project declaring `await using` over an object whose only
 //     member is `async [Symbol.dispose]()`.
@@ -23,7 +21,7 @@ import (
 //  4. Assert exactly one finding on the declaration line.
 //
 // @evidence contracts/testing.md#behavioral-verification An async method under the synchronous dispose symbol must not impersonate async-dispose.
-// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix exact rule/error rendered lines 3 with code 2 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#independent-expectations The authored async method under Symbol.dispose independently requires one rule-labelled error on line 3, code 2 and empty stdout. Label counting rejects extras, and the rendered-main.ts helper checks line 3 and error severity; exact columns and unrelated diagnostics are outside these assertions.
 // @evidence contracts/testing.md#distinguishing-cases Symbol spelling, rather than method async modifier, separates this source from AsyncDisposableAllows.
 // @evidence contracts/testing.md#execution-ownership TestAwaitThenableAwaitUsingAsyncMethodUnderDisposeSymbolReports executes the in-process check command with a real Program/Checker; the original separate no-plugin compiler-prerequisite check is retained before rule execution in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableAwaitUsingAsyncMethodUnderDisposeSymbolReports(t *testing.T) {

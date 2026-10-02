@@ -9,14 +9,11 @@ import (
 // arm of typescript/await-thenable fires when the resource only implements
 // the sync `[Symbol.dispose]` protocol.
 //
-// The rule historically visited only KindAwaitExpression, so `await using` of
-// a sync-only disposable never reported (#413). JavaScript permits the
-// fallback (the runtime wraps the sync disposer), which is exactly why only
-// the type-level `[Symbol.asyncDispose]` protocol check can catch the pointless
-// `await`. The standard `ESNext.Disposable` library supplies both the global
-// protocol types and their well-known symbols, keeping compiler prerequisites
-// distinct from the lint finding. The expected column pins the diagnostic to
-// the initializer expression.
+// A resource with only Symbol.dispose lacks the async-dispose protocol this
+// rule requires for await using. The standard ESNext.Disposable library supplies
+// the protocol types and symbols. A separate no-plugin check establishes the
+// compiler prerequisite, while the rule-enabled check pins one finding to the
+// initializer expression at line 3, column 26.
 //
 //  1. Seed a project declaring `await using` over a `[Symbol.dispose]`-only
 //     object literal.
@@ -26,7 +23,7 @@ import (
 //     upstream message text.
 //
 // @evidence contracts/testing.md#behavioral-verification Await-using a sync-only disposable must report at its initializer.
-// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix exact rule/error rendered lines 3 with code 2 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#independent-expectations The authored sync-only symbol independently requires one rule-labelled error, the literal message and initializer anchor main.ts:3:26, code 2 and empty stdout. Label counting rejects extras; the rendered-main.ts helper checks line 3 and error severity, without certifying unrelated diagnostics.
 // @evidence contracts/testing.md#distinguishing-cases Original upstream message and line3 column26 remain required; AsyncDisposableAllows provides the async protocol counterpart.
 // @evidence contracts/testing.md#execution-ownership TestAwaitThenableAwaitUsingSyncDisposableReports executes the in-process check command with a real Program/Checker; the original separate no-plugin compiler-prerequisite check is retained before rule execution in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableAwaitUsingSyncDisposableReports(t *testing.T) {
