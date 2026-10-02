@@ -14,6 +14,8 @@ import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH
  * search root it lies in, so Node's `imports` algorithm is not copied. A target
  * inside the importer's own package, or one no search root selects, visits
  * nothing.
+ * Expansion also visits possible manifest target spellings; this conservative
+ * input population can exceed the spellings the completed Node resolver used.
  *
  * The rule is the resolution input recorder's
  * (`RESOLUTION_INPUT_RECORDER_PATH`).
@@ -31,9 +33,9 @@ import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual selected targets and supplied probe extensions drive the recorder's exported visitor; this adapter neither modifies Node nor guesses one known package's missing paths.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains selected-root bounds, linked packages, witness timing and the moved flag in separated prose and parameter entries under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path/file-URL vocabulary and linked physical selection are handled by the shared recorder; this adapter forwards them without slash-only parsing or blanket case conversion.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources visitImportMappedCandidates declares a signature only; the implementation owns acquisition and release of resources.
- * @evidenceExclude contracts/performance.md#efficient-algorithms visitImportMappedCandidates declares a signature only; the implementation owns the processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work visitImportMappedCandidates declares a signature only; the implementation owns any shared work.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Witnesses are borrowed; delegated root/candidate arrays, manifest values and base deduplication are query-local, while emitted records belong to the callback. This adapter retains no watcher, handle or cross-query population.
+ * @evidence contracts/performance.md#efficient-algorithms Delegation includes importer-manifest ancestor search, lexical/physical selected-path lookup, root/name candidate scans and possible linked/scoped directory listings with native identity queries. Candidate expansion recursively reads/parses manifest target values with a normalized-base Set; path/extension/manifest bytes, root/entry counts and callback work drive cost, not merely the final selected-root prefix.
+ * @evidence contracts/performance.md#reuse-equivalent-work One delegated base Set prevents duplicate expansion across manifest targets, and supplied witnesses retain the earlier root observation for movement checks. No mutable filesystem lookup answer is reused across resolution windows.
  */
 export function visitImportMappedCandidates(
   parent: string | undefined,
