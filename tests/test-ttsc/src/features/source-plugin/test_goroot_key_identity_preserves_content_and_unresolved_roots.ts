@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { computeCacheKey } from "../../../../../packages/ttsc/src/plugin/internal/source/computeCacheKey";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies GOROOT key identity follows SDK content and unresolved root identity.
@@ -28,10 +29,13 @@ export function test_goroot_key_identity_preserves_content_and_unresolved_roots(
     fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-goroot-key-unit-")),
   );
   try {
+    const fixture = path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "goroot_key_identity_preserves_content_and_unresolved_roots");
+    TestProject.copyDirectory(path.join(fixture, "inputs-1"), root);
+    for (const relative of ["plugin/main.go", "a/go/src/fmt/print.go", "a/go/src/runtime/runtime.go", "b/go/src/fmt/print.go", "b/go/src/runtime/runtime.go", "c/go/src/fmt/print.go", "c/go/src/runtime/runtime.go"])
+      fs.renameSync(path.join(root, `${relative}.txt`), path.join(root, relative));
     const plugin = path.join(root, "plugin");
-    fs.mkdirSync(plugin);
-    fs.writeFileSync(path.join(plugin, "go.mod"), "module example.com/plugin\n\ngo 1.26\n");
-    fs.writeFileSync(path.join(plugin, "main.go"), "package main\n");
+    assert.equal(fs.readFileSync(path.join(plugin, "go.mod"), "utf8"), "module example.com/plugin\n\ngo 1.26\n");
+    assert.equal(fs.readFileSync(path.join(plugin, "main.go"), "utf8"), "package main\n");
     const sdkA = path.join(root, "a", "go");
     const sdkB = path.join(root, "b", "go");
     const sdkC = path.join(root, "c", "go");
@@ -41,8 +45,8 @@ export function test_goroot_key_identity_preserves_content_and_unresolved_roots(
       fs.mkdirSync(path.join(sdk, "pkg", "tool", "linux_amd64"), { recursive: true });
       fs.writeFileSync(path.join(sdk, "VERSION"), "go1.26.0\n");
       fs.writeFileSync(path.join(sdk, "go.env"), "GOTOOLCHAIN=auto\n");
-      fs.writeFileSync(path.join(sdk, "src", "fmt", "print.go"), `package fmt\nconst marker = ${JSON.stringify(marker)}\n`);
-      fs.writeFileSync(path.join(sdk, "src", "runtime", "runtime.go"), "package runtime\n");
+      assert.equal(fs.readFileSync(path.join(sdk, "src", "fmt", "print.go"), "utf8"), `package fmt\nconst marker = ${JSON.stringify(marker)}\n`);
+      assert.equal(fs.readFileSync(path.join(sdk, "src", "runtime", "runtime.go"), "utf8"), "package runtime\n");
       fs.writeFileSync(path.join(sdk, "pkg", "tool", "linux_amd64", "compile"), "compile\n");
     }
     const key = (goroot: string): string => computeCacheKey({
@@ -53,7 +57,8 @@ export function test_goroot_key_identity_preserves_content_and_unresolved_roots(
     assert.equal(key(sdkB), original, "equal content must ignore installation path");
     assert.notEqual(key(sdkC), original, "different SDK bytes must invalidate");
     assert.equal(key(sdkA), original, "unchanged SDK identity must remain stable");
-    fs.writeFileSync(path.join(sdkA, "src", "fmt", "print.go"), 'package fmt\nconst marker = "bravo"\n');
+    fs.copyFileSync(path.join(fixture, "inputs-2", "a", "go", "src", "fmt", "print.go.txt"), path.join(sdkA, "src", "fmt", "print.go"));
+    assert.equal(fs.readFileSync(path.join(sdkA, "src", "fmt", "print.go"), "utf8"), 'package fmt\nconst marker = "bravo"\n');
     assert.notEqual(key(sdkA), original, "same-process in-place edits must invalidate");
     assert.notEqual(
       key(path.join(root, "missing-a")), key(path.join(root, "missing-b")),
