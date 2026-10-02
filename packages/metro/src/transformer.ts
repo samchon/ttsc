@@ -14,6 +14,11 @@
  * generation hit. Cross-file invalidation also rides the project fingerprint
  * {@link getCacheKey} folds into Metro's static transformer key (see
  * `core/fingerprint.ts`).
+ *
+ * The adapter passes no `watching` declaration in its hooks, so a project whose
+ * plugin observations are unavailable (a generation the core can only serve
+ * fresh) fails the transform with an explicit error instead of caching it: the
+ * core refuses fresh-only output unless the host states it is not watching.
  */
 import {
   createTtscTransformCache,

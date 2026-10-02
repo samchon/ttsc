@@ -237,8 +237,9 @@ export function resolveFingerprintBase(
 /**
  * The directories whose walk universes the fingerprint hashes. Implicit
  * selection searches from the base upward, so a config at the base uses that
- * walk and a config above it adds its directory. An explicit project inside
- * the base uses the base walk; one outside adds its directory. The separate
+ * walk and a config above it replaces the base walk with its own directory,
+ * which contains the base. An explicit project inside the base uses the base
+ * walk; one above the base replaces it; one elsewhere adds its directory. The separate
  * per-file project view can select a nested config below the base. Matching
  * the transform core's validation universe keeps the invariant simple:
  * everything it treats as an input is fingerprinted by the walk, the recorded
@@ -248,8 +249,10 @@ export function resolveFingerprintBase(
  *   The shared project resolver owns tsconfig selection; lexical path
  *   containment is separate from program membership.
  *   Blank explicit options mean implicit discovery. An in-root config avoids a
- *   duplicate whole-tree walk; an out-of-root config adds its directory
- *   because it can supply transform inputs.
+ *   duplicate whole-tree walk; a config above the base walks its own directory,
+ *   which contains the base, instead of hashing the base subtree twice; an
+ *   unrelated out-of-root config adds its directory because it can supply
+ *   transform inputs.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   Project selection delegates to the shared resolver and containment to
@@ -311,7 +314,14 @@ function projectViewRoots(
   if (explicitProject === undefined && inside && directory !== resolvedBase) {
     return [directory];
   }
-  return inside ? [resolvedBase] : [resolvedBase, directory];
+  if (inside) return [resolvedBase];
+  // A config above the base owns a walk that already contains the base
+  // subtree under the same membership policy, so walking the base as well would
+  // hash every file below it twice on each key. A config beside or elsewhere
+  // does not contain the base, so both roots stay.
+  return pathIsWithin(resolvedBase, directory)
+    ? [directory]
+    : [resolvedBase, directory];
 }
 
 /**
@@ -1274,6 +1284,13 @@ export function prepareSnapshot(projectRoot: string | undefined): string {
  * while holding a reusable run identity. A contending process therefore
  * degrades immediately to a nonce. The owner retires the directory atomically
  * after every success or failure path has persisted its verdict.
+ *
+ * A lock is reaped only when its recorded process is proven gone. An owner that
+ * died and whose process id now belongs to a live process, or a lock with an
+ * unreadable owner record, is treated as held: every run that meets it takes a
+ * nonce key and no reuse is lost silently, but the cache stays unusable until
+ * that process exits or `node_modules/.cache/ttsc-metro/snapshot-compaction.lock`
+ * is deleted by hand. Readers also treat a held lock as unsettled state.
  */
 function acquireSnapshotCompactionLock(
   directory: string,
@@ -1435,7 +1452,8 @@ function listExpiredKeyBaselines(directory: string): string[] {
  * Read the unioned snapshot state, or `undefined` when the main snapshot is
  * missing, any snapshot file is corrupt (a torn or foreign write means the
  * recorded set cannot be trusted, so the caller degrades to a nonce), or a
- * concurrent compaction keeps renaming worker files so the listing never settles.
+ * concurrent compaction keeps renaming worker files so the listing never settles
+ * or a compaction lock stays held.
  *
  * The result contains sorted absolute file and tree paths, the epoch identity,
  * and tainted/volatile flags. It reads persisted evidence without revalidating
@@ -1447,6 +1465,9 @@ function listExpiredKeyBaselines(directory: string): string[] {
  *   main publication, retaining file/tree/volatile/tainted state without
  *   replaying already compacted claims. This is the owned persisted-input
  *   protocol, not a separate compiler dependency model.
+ *   A pass is accepted only when no compaction lock existed before or after
+ *   it and the main file is unchanged, because a listing concurrent with a
+ *   rename can return the renamed entry under neither name.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   This reader validates persisted documents and unions their paths without
@@ -1481,6 +1502,39 @@ function listExpiredKeyBaselines(directory: string): string[] {
  *   boundary matters; field comments retain their own useful facts.
  */
 export function readSnapshotState(base: string): SnapshotState | undefined {
+  const directory = snapshotDirectory(base);
+  const lock = path.join(directory, SNAPSHOT_COMPACTION_LOCK);
+  // A directory listing taken while another process renames entries of that
+  // same directory is not guaranteed to return each renamed entry once: POSIX
+  // leaves it unspecified and NTFS orders entries by name, so a claimed worker
+  // file can appear under neither name, with its inputs not yet in the main
+  // file. A compaction holds the lock from its first claim until after it
+  // publishes the main file, so a pass counts only when no lock existed before
+  // or after it and the main file read the same on both sides. A compaction
+  // wholly inside the pass still changes the main file it publishes.
+  for (let attempt = 0; attempt < SNAPSHOT_LISTING_ATTEMPTS; ++attempt) {
+    if (!fs.existsSync(lock)) {
+      const before = readMainText(directory);
+      const state = readSnapshotStateOnce(base);
+      if (!fs.existsSync(lock) && readMainText(directory) === before) {
+        return state;
+      }
+    }
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
+  }
+  return undefined;
+}
+
+/** The main snapshot's text, or `undefined` when it cannot be read. */
+function readMainText(directory: string): string | undefined {
+  try {
+    return fs.readFileSync(path.join(directory, MAIN_SNAPSHOT), "utf8");
+  } catch {
+    return undefined;
+  }
+}
+
+function readSnapshotStateOnce(base: string): SnapshotState | undefined {
   if (unhealthySnapshots.has(base)) {
     return undefined;
   }

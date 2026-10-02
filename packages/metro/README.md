@@ -112,6 +112,8 @@ The granularity is project-level by necessity: Metro evaluates the transformer k
 ## Caveats (v1)
 
 - **Cost model.** This release reuses `@ttsc/unplugin`'s transform core, which type-checks the whole `tsconfig` project. Metro runs transforms in a multi-process worker pool, and the workers share each compile: `withTtsc` opens a session in the Metro process, and the first worker to need a project state compiles it while the others wait and adopt it, after proving it against their own filesystem. So a cold build and each edit compile the project once, not once per worker. The session's store lives under the system temporary directory, one per user, and outlives Metro: a restarted Metro's workers adopt what the last one compiled, after the same proof, and a compile is named by the ttsc, TypeScript-Go, and adapter versions it ran under. A resident, incremental, per-file compiler is the next step, tracked in [samchon/ttsc#255](https://github.com/samchon/ttsc/issues/255).
+- **Unobservable plugin inputs fail the build.** `@ttsc/metro` does not tell the shared core whether Metro is watching, so a compile whose plugin input observation is unavailable on the host fails the transform with an error naming that, rather than being cached.
+- **A stale compaction lock keeps the cache cold.** If the process that held `node_modules/.cache/ttsc-metro/snapshot-compaction.lock` died and its process id now belongs to a live process, every run takes a non-reusable key until that process exits or you delete the lock directory.
 - **Type errors fail the build.** The `ttsc` pass type-checks; a project type error surfaces as a Metro build error, matching the other `ttsc` bundler integrations.
 
 ## Sponsors
