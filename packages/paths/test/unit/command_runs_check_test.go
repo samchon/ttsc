@@ -16,7 +16,7 @@ import (
 // JavaScript. That separates diagnostic-only host execution from transform and build output
 // contracts.
 //
-// 1. Materialize a project with baseUrl and paths aliases.
+// 1. Materialize a project with paths aliases.
 // 2. Run check through the package command wrapper.
 // 3. Assert success and verify no output directory was written.
 // @evidence contracts/testing.md#behavioral-verification The alias fixture runs check --quiet with the paths manifest and must succeed with empty streams while dist does not exist.

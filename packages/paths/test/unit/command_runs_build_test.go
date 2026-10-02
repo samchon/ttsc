@@ -21,7 +21,7 @@ import (
 // 3. Assert the emitted JavaScript imports the relative output target.
 // @evidence contracts/testing.md#behavioral-verification The alias project runs build --emit --quiet; status and streams are zero/empty, main.js excludes @lib/message and contains require("./lib/message.js").
 // @evidence contracts/testing.md#independent-expectations The authored @lib/* to src/lib/* mapping and JS output suffix imply the literal relative runtime import independently of the rewriter.
-// @evidence contracts/testing.md#distinguishing-cases This entry checks rewritten JavaScript written to outDir. It does not execute that JS; command_rewrites_only_unshadowed_require owns runtime preservation and command_runs_transform owns the returned source payload.
+// @evidence contracts/testing.md#distinguishing-cases This entry checks rewritten JavaScript written to outDir. It does not execute that JS; the paths_rewrites_only_unshadowed_require scene in tests/test-e2e owns runtime preservation and command_runs_transform owns the returned source payload.
 // @evidence contracts/testing.md#execution-ownership The named entry is in test/unit and calls utility.RunCommandWithIO, the dispatch the standalone main delegates to, in this Go process with the paths plugin linked by the driver import and a t-owned fixture project; no built binary or child process is started.
 func TestCommandRunsBuild(t *testing.T) {
   // Scenario setup: the shared fixture has rootDir/outDir so the utility host

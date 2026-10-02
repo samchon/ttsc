@@ -6,7 +6,7 @@ import (
   "testing"
 )
 
-// Verifies paths: source lookup follows the compiler host's case sensitivity.
+// TestRewriterLookupSourceHonorsHostCaseSensitivity verifies source lookup follows the compiler host's case sensitivity.
 //
 // The rewriter once stored and queried case-preserving keys even when the host
 // treated case-only paths as identical. Canonical keys must still return the
@@ -18,7 +18,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Builds exact and strings.ToLower indexes and asserts uppercase exact, extensionless, explicit MTS and index candidates resolve only with insensitive identity.
 // @evidence contracts/testing.md#independent-expectations The host policy may equate case while preserving source spelling; literal indexed sources supply expected identities. pathsSourceKey participates in setup, so coherent key/lookup defects are not independently excluded.
-// @evidence contracts/testing.md#distinguishing-cases Owns four lookup forms under both case policies; actual compiler host assembly is boundary coverage and does not follow from this synthetic policy check.
+// @evidence contracts/testing.md#distinguishing-cases Owns four lookup forms under both case policies. The linked Program case owns propagation of its supplied FS policy; installation E2E owns agreement with a real volume, which this synthetic policy check does not prove.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestRewriterLookupSourceHonorsHostCaseSensitivity is selected from test/unit by the utility runner unit overlay. Runs pathsSourceKey and pathsLookupSource on synthetic maps in the Go process; strings.ToLower models the host policy without requiring a case-insensitive volume.
 func TestRewriterLookupSourceHonorsHostCaseSensitivity(t *testing.T) {
   root := filepath.ToSlash(filepath.Join(t.TempDir(), "Repo"))

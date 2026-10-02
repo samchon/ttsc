@@ -12,8 +12,8 @@ import (
 // TestCommandPreservesGlobalAmbientModule verifies paths does not make a global ambient module relative.
 //
 // A string-named declaration is an augmentation only inside an external module.
-// Rewriting the same declaration in a script creates TS2436, so this reaches the
-// sidecar and re-checks its returned source rather than only inspecting text.
+// Rewriting the same declaration in a script creates TS2436, so this runs the
+// linked transform and re-checks its returned source rather than only inspecting text.
 //
 // 1. Transform a script that declares an aliased ambient module.
 // 2. Assert the returned declaration keeps its non-relative name.

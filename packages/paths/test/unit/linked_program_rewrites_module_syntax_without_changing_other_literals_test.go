@@ -105,8 +105,13 @@ void messageModule;`,
     }
     seen[name] = true
     after := collect(file)
-    if !reflect.DeepEqual(after, before[name]) {
+    if len(after) != len(before[name]) {
       t.Fatalf("%s replaced or reordered original literal nodes", name)
+    }
+    for i, node := range after {
+      if node != before[name][i] {
+        t.Fatalf("%s replaced or reordered original literal node %d", name, i)
+      }
     }
     got := make([]string, len(after))
     for i, node := range after {

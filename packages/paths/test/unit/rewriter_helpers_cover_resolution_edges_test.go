@@ -9,7 +9,7 @@ import (
 
 // TestRewriterHelpersCoverResolutionEdges verifies path matching and output math.
 //
-// Command tests prove the sidecar rewrites real source text. These pure helper
+// Command tests exercise the linked plugin on real source text. These pure helper
 // checks pin the resolver edge cases that are difficult to force through a
 // single TypeScript fixture: exact patterns, extension fallbacks, index files,
 // out-of-root sources, and empty path configuration.
