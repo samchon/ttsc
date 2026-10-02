@@ -473,15 +473,16 @@ func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdi
 // fix is advertised.
 //
 // An empty title also omits the action. Edits are copied when retained.
+// A nil node or off severity drops the report; use an engine-bound Context.
 //
 // @evidence contracts/common.md#principled-implementation The node range is normalized independently of newSuggestions, which retains only titled actions with copied edits while preserving the diagnostic.
 // @evidence contracts/common.md#clear-and-simple-design The single-action method separates user-selected edits from automatic fixes and delegates action construction to one helper.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Optional edits are explicitly suggestions and never promoted to automatic fixes to satisfy a consumer.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains diagnostic retention, omitted actions and edit copying, with separate descriptive and tag blocks.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ReportSuggestion performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ReportSuggestion has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ReportSuggestion keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ReportSuggestion acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Range clamping is constant work; scanning t trivia bytes and copying m retained edit records costs O(t+m) plus rule-name and collector callbacks. Empty titles or edits allocate no action, and immutable strings remain shared.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation emits a diagnostic with opt-in actions; equal inputs alone do not permit suppressing its collector effect.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The finding and copied action edits transfer to the host collector. This operation owns no separate history, handle or task; the host owns the accumulated findings.
 func (c *Context) ReportSuggestion(node *shimast.Node, message string, title string, edits ...TextEdit) {
   if c.Severity == SeverityOff || node == nil {
     return
@@ -504,15 +505,16 @@ func (c *Context) ReportSuggestion(node *shimast.Node, message string, title str
 // automatic fix and any number of opt-in editor suggestions. Each slice is
 // cloned before collection so a rule cannot mutate a previously reported
 // finding through retained backing storage.
+// A nil node or off severity drops the report; use an engine-bound Context.
 //
 // @evidence contracts/common.md#principled-implementation One normalized node range anchors the diagnostic, while independent copies preserve automatic and opt-in edits under their distinct application semantics.
 // @evidence contracts/common.md#clear-and-simple-design The combined report assembles one Finding using shared normalization and cloning helpers instead of emitting duplicate diagnostics.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Fix and suggestion channels remain explicit; optional actions are not hidden in automatic rewrite data.
 // @evidence contracts/common.md#meaningful-documentation The comment explains the combined diagnostic and caller-slice ownership; Suggestion documents which empty actions cloning omits.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ReportFixSuggestions performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ReportFixSuggestions has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ReportFixSuggestions keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ReportFixSuggestions acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms With t trivia bytes, f fix records, s supplied suggestions and e retained suggestion edit records, normalization and cloning cost O(t+f+s+e) plus callbacks. Storage is O(f+s+e), including capacity reserved for omitted actions; immutable strings remain shared.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The collector receives one effectful diagnostic per invocation; no operation-owned identity or protocol establishes that repeated reports may be shared or suppressed.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Copied fix and suggestion records transfer with the finding to the host collector. This operation retains no separate history or native resource; the host owns the per-file/run population.
 func (c *Context) ReportFixSuggestions(
   node *shimast.Node,
   message string,
