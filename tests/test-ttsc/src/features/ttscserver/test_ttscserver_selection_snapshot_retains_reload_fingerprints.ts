@@ -173,8 +173,7 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
       });
 
       if (process.platform !== "win32") {
-        verify("POSIX backslash directory identity", () => verifyBackslashDirectoryIdentity(root));
-        verify("POSIX raw directory identity", () => verifyRawDirectoryIdentity(root));
+        verifyRawDirectoryIdentity(root, verify);
       }
 
       verify("native target-byte file framing", () => {
@@ -245,8 +244,9 @@ export const test_ttscserver_selection_snapshot_retains_reload_fingerprints =
     }
   };
 
-function verifyBackslashDirectoryIdentity(root: string): void {
+function verifyRawDirectoryIdentity(root: string, verify: (name: string, run: () => void) => void): void {
   const topology = createHash("sha256").update(Buffer.alloc(0)).digest("hex");
+  verify("POSIX backslash directory identity", () => {
   const backslashDirectory = path.join(root, String.raw`back\slash`);
   fs.mkdirSync(backslashDirectory);
   const backslashSnapshot = fingerprintInitialLSPProjectInputSnapshot({
@@ -270,10 +270,9 @@ function verifyBackslashDirectoryIdentity(root: string): void {
     expectedBackslash,
     "POSIX backslash filename was rewritten as a path separator",
   );
-}
+  });
 
-function verifyRawDirectoryIdentity(root: string): void {
-  const topology = createHash("sha256").update(Buffer.alloc(0)).digest("hex");
+  verify("POSIX raw directory identity", () => {
   const rawTarget = Buffer.concat([
     Buffer.from(root),
     Buffer.from(path.sep),
@@ -305,4 +304,5 @@ function verifyRawDirectoryIdentity(root: string): void {
     expectedRaw,
     "POSIX physical directory identity lost non-UTF-8 bytes",
   );
+  });
 }
