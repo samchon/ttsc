@@ -16,7 +16,7 @@ import { createAliasPaths } from "../../../../../packages/unplugin/src/core/tran
  *    sub-alias to stay undefined.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls createAliasPaths for duplicates, overlapping prefixes and asymmetric trailing-slash declarations.
- * @evidence contracts/testing.md#independent-expectations The first and second absolute replacement directories are authored; literal mappings express the independent Vite first-match contract.
+ * @evidence contracts/testing.md#independent-expectations The first and second absolute replacement directories are authored; literal mappings express the independent Vite first-match contract, except the find-only trailing-slash row: `@x//*` is the implementation's own documented choice (the bare key and `@x/*` are withheld) and matches no real specifier, so that one assertion pins a deliberate non-translation rather than a Vite contract.
  * @evidence contracts/testing.md#distinguishing-cases Duplicate, short-first/long-first, find-only/both trailing slash, and unsupported first-match declarations distinguish precedence and over-admission.
  * @evidence contracts/testing.md#execution-ownership Unit test: one synchronous function calls createAliasPaths directly on in-memory alias lists (absolute replacements built with path.resolve plus one relative replacement) and compares the returned paths records. No Vite config, filesystem access, consumer or native producer is involved; the relative-replacement case also makes createAliasPaths write a one-time notice to stderr.
  */
