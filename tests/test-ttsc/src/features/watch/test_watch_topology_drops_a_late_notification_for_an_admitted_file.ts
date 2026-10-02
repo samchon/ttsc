@@ -106,7 +106,10 @@ export async function test_watch_topology_drops_a_late_notification_for_an_admit
       [value],
       "an edit after admission was not reported",
     );
+    assert.deepEqual(changes, [{ kind: "compiler", path: value }]);
+    assert.equal(topologyChanges, 1);
   } finally {
     topology.close();
   }
+  assert.ok(watchers.every((watcher) => !watcher.active));
 }
