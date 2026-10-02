@@ -19,9 +19,9 @@ import assert from "node:assert/strict";
  * 2. Parse text using each form the compiler reports.
  * 3. Assert the accepted values and a positioned failure for each rejection.
  *
- * @evidence contracts/testing.md#behavioral-verification parseJsonc is called on 15 accepted texts (CR-only and U+2028 comments, no-break and ideographic spaces, a mid-file BOM, hex/octal/binary/fractional/separated numbers, escapes, trailing commas, duplicate keys, empty and comment-only text), compared by deepEqual with literal values; 16 rejected texts must throw a SyntaxError ending in '(line N column M)', and a CRLF case must report line 4 column 8.
- * @evidence contracts/testing.md#independent-expectations Literal expected values follow the TypeScript-Go scanner and JSON-value grammar; no product parse supplies an expected value. Diagnostic labels appear only in assertion messages: rejection assertions check a positioned SyntaxError and do not certify the corresponding compiler code.
- * @evidence contracts/testing.md#distinguishing-cases Accepted rows contrast with rejected rows by lexical form: line terminators in comments, Unicode whitespace, number radices/separators/fractions, escapes, trailing commas, duplicate and __proto__ keys versus single-quoted strings, bare identifiers, signs, legacy octals, bad separators, missing commas, trailing text, an unterminated comment and an unterminated string; position counting is checked for one CRLF input.
+ * @evidence contracts/testing.md#behavioral-verification parseJsonc is called on accepted texts (CR-only and U+2028 comments, no-break and ideographic spaces, a mid-file BOM, hex/octal/binary/fractional/separated numbers, valid escapes, raw U+2028/U+2029 string data, trailing commas, duplicate keys, empty and comment-only text), compared by deepEqual with literal values; rejected texts including legacy octal, 8/9 and malformed hexadecimal/Unicode escapes must throw a SyntaxError ending in '(line N column M)', and a CRLF case must report line 4 column 8.
+ * @evidence contracts/testing.md#independent-expectations Literal expected values follow the pinned TypeScript-Go scanner and JSON-value grammar; no product parse supplies an expected value. scanString permits raw U+2028/U+2029 data but reports invalid escape diagnostics, propagated through parser scanError and config parsing diagnostics. Diagnostic labels appear only in assertion messages: rejection assertions check a positioned SyntaxError and do not certify the corresponding compiler code.
+ * @evidence contracts/testing.md#distinguishing-cases Accepted rows contrast with rejected rows by lexical form: line terminators in comments and raw Unicode separators inside strings, Unicode whitespace, number radices/separators/fractions, valid escapes, trailing commas, duplicate and __proto__ keys versus single-quoted strings, bare identifiers, signs, legacy octal numbers and escapes, 8/9 escapes, malformed x/u escapes, bad separators, missing commas, trailing text, an unterminated comment and an unterminated string; position counting is checked for one CRLF input.
  * @evidence contracts/testing.md#execution-ownership A unit test calling parseJsonc directly with strings; no files, compiler process or ttsc host.
  */
 export function test_parsejsonc_reads_the_config_grammar_typescript_go_reads(): void {
@@ -40,10 +40,10 @@ export function test_parsejsonc_reads_the_config_grammar_typescript_go_reads(): 
       ['{"a": - 1, "b": -0x2}', { a: -1, b: -2 }],
       [`{"a": "${B}x61${B}u0062${B}u{63}${B}0"}`, { a: "abc\0" }],
       [
-        `{"a": "x${B}\ny", "b": "${B}q", "c": "${B}101"}`,
-        { a: "xy", b: "q", c: "A" },
+        `{"a": "x${B}\ny", "b": "${B}q"}`,
+        { a: "xy", b: "q" },
       ],
-      [`{"a": "${B}xZ1"}`, { a: `${B}xZ1` }],
+      ['{"a": "x\u2028y", "b": "x\u2029y"}', { a: "x\u2028y", b: "x\u2029y" }],
       ['{"a": [1, 2,], "b": {"c": null,},}', { a: [1, 2], b: { c: null } }],
       ['{"a": 1, "a": 2}', { a: 2 }],
       ["", {}],
@@ -74,6 +74,17 @@ export function test_parsejsonc_reads_the_config_grammar_typescript_go_reads(): 
       ['{"a": 1} x', "TS1012"],
       ["{/* open", "TS1010"],
       ['{"a": "x\ny"}', "unterminated string"],
+      [`{"a": "${B}101"}`, "legacy octal escape"],
+      [`{"a": "${B}01"}`, "legacy octal escape"],
+      [`{"a": "${B}8"}`, "invalid 8 escape"],
+      [`{"a": "${B}9"}`, "invalid 9 escape"],
+      [`{"a": "${B}xZ1"}`, "hexadecimal digit expected"],
+      [`{"a": "${B}x1"}`, "hexadecimal digit expected"],
+      [`{"a": "${B}u12Z4"}`, "hexadecimal digit expected"],
+      [`{"a": "${B}u123"}`, "hexadecimal digit expected"],
+      [`{"a": "${B}u{}"}`, "hexadecimal digit expected"],
+      [`{"a": "${B}u{61"}`, "unterminated Unicode escape"],
+      [`{"a": "${B}u{110000}"}`, "Unicode escape out of range"],
     ];
     for (const [text, diagnostic] of rejected)
       assert.throws(
