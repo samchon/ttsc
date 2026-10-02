@@ -24,15 +24,15 @@ const subscriptions = new WeakMap<WatchTopology, IRecordedWatcher[]>();
  * that exclusion there leaves no per-file watcher on POSIX and no tracked-file
  * match behind the recursive watcher on Windows.
  *
- * 1. Emit into the project root and prove source edits remain live.
- * 2. Emit into the project's parent and prove the same boundary.
+ * 1. Model output at the project root and prove source edits remain live.
+ * 2. Model output at the project's parent and prove the same boundary.
  * 3. Put a source inside a descendant output directory and retain it.
  * 4. Keep a product-only output subtree unchanged.
  * 5. Keep the no-emit lane unchanged.
- * 6. In every case, prove a predicted JavaScript product stays quiet.
+ * 6. In every case, keep an authored JavaScript output-shaped path quiet.
  *
- * @evidence contracts/testing.md#behavioral-verification Drives the real WatchTopology through five authored output layouts (outDir equal to the project root, equal to its parent, equal to a source-overlapping src subtree, a proper dist subtree, and a no-emit lane): a source edit must reach the compiler lane, a written JavaScript product must not add a compiler change, and a declared project input inside the output tree must still report after setProjectInputs.
- * @evidence contracts/testing.md#independent-expectations The authored tsconfig outDir values and the authored source and declared-input paths decide which files are compiler inputs and which are products; the expectations are literal: the compiler change count must stay equal after the predicted .js product is written, and the project change count must rise after the declared input is edited. They are not taken from topology output.
+ * @evidence contracts/testing.md#behavioral-verification Actual WatchTopology consumes five authored output layouts and explicitly supplied source membership: a source edit reaches the compiler lane, authored JavaScript attention adds no compiler change, and declared project inputs inside overlapping output trees still report. No compiler emits these files; the no-emit control has no inferred JavaScript product.
+ * @evidence contracts/testing.md#independent-expectations Authored outDir values, explicit main.ts membership and literal declared-input/output-shaped paths define the source-unit inputs. Compiler change count stays equal after the JavaScript write and project count rises after the declared edit, independently of topology output.
  * @evidence contracts/testing.md#distinguishing-cases The five layouts differ only in where the output tree sits relative to the project: containing the project root, containing its parent, overlapping the source directory, a product-only subtree and no emit. The product-only subtree and the no-emit lane are the controls that must behave as before; a case without a declared project input skips the project lane assertion.
  * @evidence contracts/testing.md#execution-ownership Actual source WatchTopology consumes the explicitly authored main.ts compiler member and actual config/output/physical-path decisions. Recorded source-adapter operations own notification and handle lifetimes without a native subscription or compiler child. The retained E2E owns native population and delivery until a shared corpus replaces it.
  */
@@ -171,6 +171,7 @@ export const test_watch_topology_keeps_compiler_inputs_when_outdir_contains_proj
         } finally {
           topology.close();
         }
+        assert.ok(observed.watchers.every((watcher) => !watcher.active));
       } catch (error) {
         failures.push(error);
       }

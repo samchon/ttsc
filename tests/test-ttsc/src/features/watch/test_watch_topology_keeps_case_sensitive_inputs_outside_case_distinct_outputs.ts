@@ -10,7 +10,6 @@ import {
   type IRecordedWatcher,
   deliverWatchEvent,
   recordWatchers,
-  settleWatchEvents,
 } from "../../../../utils/src/RecordedWatchers";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -25,11 +24,11 @@ const subscriptions = new WeakMap<WatchTopology, readonly IRecordedWatcher[]>();
  *
  * @evidence contracts/testing.md#behavioral-verification Actual source topology retains the original exact/glob registration and project callback assertions using supplied notifications.
  * @evidence contracts/testing.md#independent-expectations Authored case-distinct paths, actual filesystem identities and literal compiler membership establish input and output expectations independently.
- * @evidence contracts/testing.md#distinguishing-cases Case-distinct roots or output twins must not collapse; original host guards and partial-return behavior remain unchanged, with no coverage claimed when initial capabilities are unavailable.
+ * @evidence contracts/testing.md#distinguishing-cases Native case-distinct directory and file spellings separate authored inputs from predicted output twins. Missing required native capability is a preparation failure, never a skipped or successful case.
  * @evidence contracts/testing.md#execution-ownership This source unit owns manually supplied project declarations and actual path/content decisions through recorded observers. No compiler process or native observer runs; the original platform capability operation remains actual.
  */
 export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distinct_outputs =
-  async (): Promise<void | false> => {
+  async (): Promise<void> => {
     const root = TestProject.physicalPath(
       TestProject.tmpdir("ttsc-project-input-output-project-"),
     );
@@ -40,18 +39,18 @@ export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distin
     const external = TestProject.physicalPath(
       TestProject.tmpdir("ttsc-project-input-output-external-"),
     );
-    if (enableWindowsCaseSensitivity(external) === false) return false;
+    enableWindowsCaseSensitivity(external);
     const outputRoot = path.join(external, "Output");
     const inputRoot = path.join(external, "output");
     fs.mkdirSync(outputRoot);
-    if (createCaseDistinctDirectory(inputRoot) === false) return false;
+    createCaseDistinctDirectory(inputRoot);
     assert.notEqual(realpath(outputRoot), realpath(inputRoot));
     const exactRoot = path.join(external, "Exact");
     const exactDirectory = path.join(exactRoot, "nested");
     const exactOutput = path.join(exactDirectory, "State.json");
     const exactInput = path.join(exactDirectory, "state.json");
     fs.mkdirSync(exactDirectory, { recursive: true });
-    if (enableWindowsCaseSensitivity(exactDirectory) === false) return false;
+    enableWindowsCaseSensitivity(exactDirectory);
     fs.writeFileSync(
       path.join(root, "tsconfig.json"),
       JSON.stringify({
@@ -117,6 +116,14 @@ export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distin
         exactInput,
         "case-distinct output\n",
       );
+      assert.equal(fs.existsSync(exactOutput), false);
+      const previous = changes.length;
+      fs.writeFileSync(exactOutput, "predicted output\n", "utf8");
+      assert.notEqual(realpath(exactInput), realpath(exactOutput));
+      assert.equal(fs.readFileSync(exactInput, "utf8"), "case-distinct output\n");
+      notify(topology, exactOutput);
+      await delay();
+      assert.equal(changes.length, previous, "the actual output twin was reported");
       await writeAndWait(
         topology,
         changes,
@@ -126,6 +133,7 @@ export const test_watch_topology_keeps_case_sensitive_inputs_outside_case_distin
     } finally {
       topology.close();
     }
+    assert.ok(watchers.every((watcher) => !watcher.active));
   };
 
 async function writeAndWait(
@@ -170,8 +178,8 @@ function pathMatchesOrContains(changed: string, target: string): boolean {
   );
 }
 
-function enableWindowsCaseSensitivity(directory: string): boolean {
-  if (process.platform !== "win32") return true;
+function enableWindowsCaseSensitivity(directory: string): void {
+  if (process.platform !== "win32") return;
   const result = childProcess.spawnSync(
     "fsutil.exe",
     ["file", "setCaseSensitiveInfo", directory, "enable"],
@@ -180,16 +188,22 @@ function enableWindowsCaseSensitivity(directory: string): boolean {
       windowsHide: true,
     },
   );
-  return result.status === 0;
+  assert.equal(
+    result.status,
+    0,
+    `native case-sensitive fixture preparation failed for ${directory}: ${result.error?.message ?? result.stderr}`,
+  );
 }
 
-function createCaseDistinctDirectory(directory: string): boolean {
+function createCaseDistinctDirectory(directory: string): void {
   try {
     fs.mkdirSync(directory);
-    return true;
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "EEXIST") {
-      return false;
+      throw new Error(
+        `native case-distinct fixture preparation failed at ${directory}`,
+        { cause: error },
+      );
     }
     throw error;
   }
