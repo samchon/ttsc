@@ -5,25 +5,20 @@ import (
   "testing"
 )
 
-// TestCommandFormatLaysOutAStatementBody verifies every statement kind named
-// by #928 is laid out inside a reflowed block rather than frozen at its source
-// width.
+// TestCommandFormatLaysOutAStatementBody verifies nine authored statement
+// layouts inside a reflowed callback body.
 //
-// `dispatchNode` handled expression and return statements only. The three
-// `for` forms, `while`, `if`, `try`, `switch`, `throw`, and a variable
-// statement fell through to `verbatim`, so `printBlock` expanded a body while
-// one of those statements stayed on one line. That half-expanded shape is one
-// of the three causes #922's first attempt was reverted for.
-//
-// Every expectation was measured on the pinned Prettier 3.8.3 with the exact
-// input beside it.
+// Control-flow bodies, variable initializers and thrown expressions must use
+// structured child layouts while preserving their headers and surrounding
+// syntax. Complete authored literals specify the intended first result;
+// a second invocation must preserve that same result.
 //
 //  1. Put each statement kind on one line inside a reflowed callback body.
-//  2. Run `ttsc format` and compare with the Prettier answer key.
+//  2. Run format and compare with the authored complete expected source.
 //  3. Run a second pass and require idempotence.
 //
 // @evidence contracts/testing.md#behavioral-verification Nine subcases (for-of, for-in, while, for, if-else, try-catch-finally, switch, variable with callback, throw) run the in-process `format` command on a callback whose body statement is on one line and require the exact expanded text, then a second run that must leave it unchanged.
-// @evidence contracts/testing.md#independent-expectations Each expected output is an authored literal that the test comments say was measured on Prettier 3.8.3 (not re-verified by this unit); the second pass is an additional idempotence check.
+// @evidence contracts/testing.md#independent-expectations The nine complete authored literals preserve loop headers, conditions, bindings, calls, clause structure and throw syntax while expanding nested blocks. First-result equality does not derive expectations from the formatter; the second call separately checks stability. No independent Prettier process runs in this unit.
 // @evidence contracts/testing.md#distinguishing-cases Each statement kind is its own input that must change from half-frozen one-line form to fully laid-out form. All cases sit inside a callback body, so top-level placement and statements beyond the nine listed are not covered.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase seeds a temp-dir project and calls run with the format subcommand through formatOnceForBrace; no child process, built binary or installed consumer.
 func TestCommandFormatLaysOutAStatementBody(t *testing.T) {
