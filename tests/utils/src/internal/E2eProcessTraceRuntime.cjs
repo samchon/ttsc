@@ -94,6 +94,8 @@ function record(event, invocation, fields = {}) {
   const owner = sink();
   if (!owner || !invocation) return;
   try {
+    if (typeof invocation !== "string" || !invocation.startsWith(owner.instance + ":"))
+      throw new Error("trace invocation belongs to another writer instance");
     const bytes = Buffer.from(JSON.stringify({ ...fields, schema: 1, event,
       writerPid: process.pid, instance: owner.instance,
       sequence: ++owner.sequence, at: new Date().toISOString(), invocation }) + "\n");
@@ -115,7 +117,7 @@ function capture(invocation, label, bytes) {
     return { capture: "too-large", observedBytes };
   }
   const ordinal = invocation.slice(invocation.lastIndexOf(":") + 1);
-  if (!/^\d+$/.test(ordinal) || !/^[a-z0-9-]+$/i.test(label)) {
+  if (!invocation.startsWith(owner.instance + ":") || !/^\d+$/.test(ordinal) || !/^[a-z0-9-]+$/i.test(label)) {
     integrity(owner, new Error("invalid trace payload identity"));
     return { capture: "IO-failed", observedBytes };
   }
