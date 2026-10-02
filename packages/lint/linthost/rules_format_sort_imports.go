@@ -50,15 +50,16 @@ var defaultImportOrder = []string{
 
 // formatSortImports safely sorts named specifiers and erased type-only import
 // blocks. Runtime-bearing declarations retain source order unless the user
-// explicitly enables `unsafeSortRuntimeImports`; only then are they grouped,
-// alphabetized, and merged. When that unsafe mode and `combineTypeAndValue`
+// explicitly enables `unsafeSortRuntimeImports`. Erased type-only declarations
+// can be grouped, alphabetized, and merged without that permission. When unsafe
+// mode and `combineTypeAndValue`
 // are both on, a type-only import may fold into a value import of the same
 // module. Groups are user-configurable via the `order` option; when omitted,
-// the rule falls back to {@link defaultImportOrder}.
+// the rule falls back to defaultImportOrder.
 //
 // Within each group, declarations are sorted by their module-specifier text
-// (ASCII order, or case-insensitive unless `caseSensitive: true`). Named
-// specifiers inside each declaration are always sorted.
+// (raw lexicographic order, or lowercased unless `caseSensitive: true`). Named
+// specifiers are sorted when their intervening trivia contains no comments.
 //
 // Safety policy: if any byte between the contiguous imports is not
 // whitespace, the rule bails. Comments anchored to specific imports would
@@ -258,29 +259,40 @@ func matchGroup(groups []sortImportsGroup, specifier string, typeOnly bool) int 
   return thirdPartyIdx
 }
 
-// nodeBuiltinModules is the set of Node.js built-in module names recognized by
-// the `<BUILTIN_MODULES>` group. A `node:` prefix and a `pkg/subpath` suffix
-// are both stripped before the lookup.
+// nodeBuiltinModules contains the exact Node.js built-in identifiers available
+// without the node: prefix. Subpaths are distinct modules, not arbitrary
+// descendants of a built-in basename. Prefix-only modules are handled separately.
 var nodeBuiltinModules = map[string]struct{}{
+  "_http_agent": {}, "_http_client": {}, "_http_common": {},
+  "_http_incoming": {}, "_http_outgoing": {}, "_http_server": {},
+  "_stream_duplex": {}, "_stream_passthrough": {}, "_stream_readable": {},
+  "_stream_transform": {}, "_stream_wrap": {}, "_stream_writable": {},
+  "_tls_common": {}, "_tls_wrap": {},
   "assert": {}, "async_hooks": {}, "buffer": {}, "child_process": {},
+  "assert/strict": {},
   "cluster": {}, "console": {}, "constants": {}, "crypto": {},
   "dgram": {}, "diagnostics_channel": {}, "dns": {}, "domain": {},
-  "events": {}, "fs": {}, "http": {}, "http2": {}, "https": {},
+  "dns/promises": {}, "events": {}, "fs": {}, "fs/promises": {},
+  "http": {}, "http2": {}, "https": {},
   "inspector": {}, "module": {}, "net": {}, "os": {}, "path": {},
+  "inspector/promises": {}, "path/posix": {}, "path/win32": {},
   "perf_hooks": {}, "process": {}, "punycode": {}, "querystring": {},
   "readline": {}, "repl": {}, "stream": {}, "string_decoder": {},
-  "sys": {}, "test": {}, "timers": {}, "tls": {}, "trace_events": {},
+  "readline/promises": {}, "stream/consumers": {}, "stream/promises": {},
+  "stream/web": {}, "sys": {}, "timers": {}, "timers/promises": {},
+  "tls": {}, "trace_events": {},
   "tty": {}, "url": {}, "util": {}, "v8": {}, "vm": {}, "wasi": {},
-  "worker_threads": {}, "zlib": {},
+  "util/types": {}, "worker_threads": {}, "zlib": {},
 }
 
 // isBuiltinModule reports whether the specifier names a Node.js built-in
 // module. `node:fs`, `fs`, and `fs/promises` all qualify.
 func isBuiltinModule(specifier string) bool {
-  name := strings.TrimPrefix(specifier, "node:")
-  if slash := strings.IndexByte(name, '/'); slash >= 0 {
-    name = name[:slash]
+  switch specifier {
+  case "node:sea", "node:sqlite", "node:test", "node:test/reporters":
+    return true
   }
+  name := strings.TrimPrefix(specifier, "node:")
   _, ok := nodeBuiltinModules[name]
   return ok
 }

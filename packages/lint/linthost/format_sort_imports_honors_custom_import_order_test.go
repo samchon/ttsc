@@ -4,7 +4,6 @@ import (
   "encoding/json"
   "os"
   "path/filepath"
-  "strings"
   "testing"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
@@ -13,8 +12,8 @@ import (
 // TestFormatSortImportsHonorsCustomImportOrder verifies user-supplied `order`
 // regexes drive the group sequence and "" entries inject blank-line separators.
 //
-// The fixture has three import classes — `@api/*`, plain third-party, and
-// relative — in shuffled source order. With
+// The fixture has three import classes, `@api/*`, plain third-party, and
+// relative, in shuffled source order. With
 // `order: ["<THIRD_PARTY_MODULES>", "", "@api(.*)$", "", "^[./]"]` the expected
 // output is third-party first, then `@api/*`, then relative, with one blank
 // line between each group. This pins the custom-order + separator path through
@@ -25,9 +24,9 @@ import (
 //  3. Assert the rewritten file has the imports laid out per the spec.
 //
 // @evidence contracts/testing.md#behavioral-verification Custom order must produce alpha, the api request, then local-a/local-b, with exactly two blank group separators and unchanged bindings/body. Applying and reparsing fixes must converge within the existing four-pass cap.
-// @evidence contracts/testing.md#independent-expectations The supported order array assigns third-party, api-regex and relative groups in that sequence. A separately authored whole-file literal pins both separators, within-relative order and all preserved use bytes beyond the original substring assertions.
+// @evidence contracts/testing.md#independent-expectations The supported order array assigns third-party, api-regex and relative groups in that sequence. A separately authored whole-file literal pins both separators, within-relative order and all preserved use bytes.
 // @evidence contracts/testing.md#distinguishing-cases All three groups are populated here, contrasting the empty-middle-group separator host. Default group-order and CRLF hosts cover distinct options; the final zero-edit pass distinguishes oscillation.
-// @evidence contracts/testing.md#execution-ownership TestFormatSortImportsHonorsCustomImportOrder directly owns its literal source, InlineRuleResolver, engine/fixer/reparse loop, final complete file and retained original ordering assertions. These filesystem-backed owning functions execute in one Go process without consumer installation, native building or product-host children.
+// @evidence contracts/testing.md#execution-ownership TestFormatSortImportsHonorsCustomImportOrder directly owns its literal source, InlineRuleResolver, engine/fixer/reparse loop and final complete-file assertion. These filesystem-backed owning functions execute in one Go process without consumer installation, native building or product-host children.
 func TestFormatSortImportsHonorsCustomImportOrder(t *testing.T) {
   root := t.TempDir()
   filePath := filepath.Join(root, "src", "main.ts")
@@ -85,18 +84,5 @@ func TestFormatSortImportsHonorsCustomImportOrder(t *testing.T) {
     "JSON.stringify({ reduce, request, alpha, x });\n"
   if string(got) != expected {
     t.Fatalf("custom-order full output mismatch:\nwant:\n%s\ngot:\n%s", expected, got)
-  }
-  // Verify group ordering: alpha (third-party) before request (@api)
-  // before x/reduce (relative).
-  alphaIdx := strings.Index(string(got), "alpha")
-  apiIdx := strings.Index(string(got), "@api/http")
-  localIdx := strings.Index(string(got), "./local-")
-  if !(alphaIdx >= 0 && apiIdx > alphaIdx && localIdx > apiIdx) {
-    t.Fatalf("group ordering wrong: alpha=%d api=%d local=%d\nsource:\n%s",
-      alphaIdx, apiIdx, localIdx, got)
-  }
-  // Retain the original check for the first group separator.
-  if !strings.Contains(string(got), "\"alpha\";\n\nimport") {
-    t.Fatalf("missing blank line after third-party group:\n%s", got)
   }
 }
