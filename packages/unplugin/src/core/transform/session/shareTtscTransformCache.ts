@@ -18,10 +18,10 @@ import { TRANSFORM_CACHE_SESSIONS } from "./TRANSFORM_CACHE_SESSIONS";
  * @evidence contracts/common.md#clear-and-simple-design One WeakMap update declares the capability; actual claiming and adoption proof remain in their owning operations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The declaration does not treat cached output as proven or patch the cache's methods.
  * @evidence contracts/common.md#meaningful-documentation The native comment explains pooled-worker usage, later proof, and explicit withdrawal rather than suggesting immediate adoption.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The WeakMap entry follows the cache's own lifetime.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A WeakMap set or delete.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work It declares a capability; adoption and its proof stay in claimSharedCompile.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Stores an opaque store path string; it reads no filesystem and parses no path.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The association retains one current store-address string per cache without keeping its object key alive. Set replaces the old value and undefined deletes it; address bytes have no cap. Withdrawal releases only this declaration, not native store files or another owner's session lifecycle.
+ * @evidence contracts/performance.md#efficient-algorithms One object-keyed WeakMap set or delete changes the association without scanning cache generations or store contents. The address string is retained unchanged rather than parsed or hashed here; this operation performs no native I/O.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This update declares which store a cache may consult. claimSharedCompile owns store claiming, while captureTransformGeneration owns publication adoption proof; storing the address supplies no completed compile or filesystem validity certificate.
+ * @evidence contracts/portability.md#os-neutral-implementation The caller supplies the session's native store address, commonly through readTtscTransformSession's absolute-directory check. This boundary preserves that address unchanged and withdraws undefined; actual interpretation, availability and process publication handling belong to the store owner. It guesses no platform path or directory capacity and does not validate a custom address here.
  */
 export function shareTtscTransformCache(
   cache: TtscTransformCache,
