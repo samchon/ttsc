@@ -6,18 +6,10 @@ import "testing"
 // StartingColumn option charges its column count against the printWidth
 // budget while BaseIndent controls where continuation lines align.
 //
-// The rule wiring renders interior nodes (object literals nested in a
-// `const foo = …` declaration) starting at a non-zero column. Without
-// the option, fit measurement would lie about the available width and
-// the broken continuation lines would dedent to column 0. The case
-// pins both effects in one fixture by deliberately choosing a doc
-// whose flat form would fit at column 0 but breaks once StartingColumn
-// eats the prefix; BaseIndent then drives the continuation alignment.
-//
-//  1. Build Group("foo", Line(), "bar") whose flat width is 7.
-//  2. Set printWidth=10, StartingColumn=5, BaseIndent=2.
-//  3. Assert the group breaks and the continuation line aligns to
-//     column 2.
+// The authored seven-column foo bar group has only five columns left when
+// StartingColumn is five and PrintWidth is ten. Its first fragment receives
+// no generated indentation; BaseIndent two independently supplies the two
+// spaces on the broken continuation. This direct case uses no AST reflow.
 //
 // @evidence contracts/testing.md#behavioral-verification Print must break foo bar and align bar to BaseIndent two when StartingColumn five consumes the width-ten budget.
 // @evidence contracts/testing.md#independent-expectations Seven flat columns exceed the five remaining; the literal two-space continuation follows BaseIndent independently.
