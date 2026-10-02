@@ -45,6 +45,9 @@ export interface IMemFSHost {
   /**
    * Decode file bytes as UTF-8; return null for an absent path or directory.
    *
+   * Decoding follows `TextDecoder`: a leading byte-order mark is dropped and a
+   * malformed sequence becomes U+FFFD. `readFile` returns the exact bytes.
+   *
    * @evidence contracts/common.md#principled-implementation Text decoding adapts the same byte store using TextDecoder's UTF-8 behavior.
    * @evidence contracts/common.md#clear-and-simple-design A text view shares the stored file identity and hides decoding/cache details from callers.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The text view does not introduce a separately mutable source cache.

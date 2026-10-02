@@ -21,7 +21,10 @@ export interface ITtscVersion {
   /** Linker-supplied source revision, or the development placeholder. */
   commit: string;
 
-  /** Linker-supplied build date, or unknown for an unannotated build. */
+  /**
+   * Linker-supplied date, or unknown for an unannotated build. The base binary
+   * stamps the date of its source commit rather than the time it was built.
+   */
   date: string;
 
   /** Go runtime's toolchain version. */

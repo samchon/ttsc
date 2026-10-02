@@ -153,7 +153,8 @@ type NodeInfo struct {
   // KindName is its human-readable Stringer name.
   KindName string `json:"kindName"`
 
-  // Pos is the inclusive UTF-8 byte offset.
+  // Pos is the inclusive UTF-8 byte offset of the token's first byte, after any
+  // leading whitespace and comments.
   Pos      int    `json:"pos"`
 
   // End is the exclusive UTF-8 byte offset.
@@ -210,7 +211,8 @@ type SymbolDeclaration struct {
   // File is a project-relative or outside absolute path, nil for source-less nodes.
   File *string `json:"file"`
 
-  // Pos is the declaration's inclusive UTF-8 byte offset.
+  // Pos is the inclusive UTF-8 byte offset of the declaration's first token,
+  // after any leading whitespace, comments and JSDoc.
   Pos  int     `json:"pos"`
 
   // End is the declaration's exclusive UTF-8 byte offset.
@@ -400,7 +402,7 @@ func jsGetDiagnostics(this js.Value, args []js.Value) any {
 func jsGetNodeAtPosition(this js.Value, args []js.Value) any {
   return withSnapshotPosition(args, func(_ *snapshotEntry, file *ast.SourceFile, pos int) any {
     node := tokenAtPosition(file, pos)
-    return fountainOK(GetNodeAtPositionResult{Node: nodeInfoOf(node)})
+    return fountainOK(GetNodeAtPositionResult{Node: nodeInfoOf(file, node)})
   })
 }
 
@@ -572,14 +574,18 @@ func fountainOK(payload any) any {
 }
 
 // nodeInfoOf converts a *ast.Node into the JSON-serializable NodeInfo.
-func nodeInfoOf(node *ast.Node) *NodeInfo {
+//
+// Pos is the token's first byte, after leading whitespace and comments.
+// TypeScript-Go's Node.Pos is the full start, which includes that trivia, so
+// reporting it would give an interval wider than the Text it describes.
+func nodeInfoOf(file *ast.SourceFile, node *ast.Node) *NodeInfo {
   if node == nil {
     return nil
   }
   info := &NodeInfo{
     Kind:     int(node.Kind),
     KindName: astKindName(node.Kind),
-    Pos:      node.Pos(),
+    Pos:      tokenStart(file, node),
     End:      node.End(),
   }
   if text := shimscanner.GetTextOfNode(node); text != "" {
@@ -619,6 +625,7 @@ func symbolInfoOf(entry *snapshotEntry, sym *ast.Symbol) *SymbolInfo {
       }
       item := SymbolDeclaration{Pos: d.Pos(), End: d.End()}
       if file := ast.GetSourceFileOfNode(d); file != nil {
+        item.Pos = tokenStart(file, d)
         key := snapshotFileKey(entry.cwd, file.FileName())
         item.File = &key
       }
@@ -628,6 +635,14 @@ func symbolInfoOf(entry *snapshotEntry, sym *ast.Symbol) *SymbolInfo {
     info.DeclarationCount = n
   }
   return info
+}
+
+// tokenStart returns the byte offset of node's first token. It skips the leading
+// whitespace and comments that TypeScript-Go's Node.Pos includes; JSDoc attached
+// to a declaration is such a comment, so a declaration starts at its own first
+// token rather than at its documentation.
+func tokenStart(file *ast.SourceFile, node *ast.Node) int {
+  return shimscanner.GetTokenPosOfNode(node, file, false)
 }
 
 // astKindName renders an ast.Kind to its string representation. ast.Kind has

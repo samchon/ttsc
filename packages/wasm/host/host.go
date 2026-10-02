@@ -3,8 +3,9 @@
 // JS-side bindings for the host package.
 //
 // `Expose` installs `globalThis[apiName]` with the base ttsc endpoints
-// (version, build, check, transform) plus `plugin({ name, command, ...opts })`,
-// routing into the consumer's registered plugins. Every async endpoint returns
+// (version, build, check, transform), the retained-program verbs of
+// fountain.go, and `plugin({ name, command, ...opts })`, routing into the
+// consumer's registered plugins. Every async endpoint returns
 // the JS result envelope so callers can build a single boot helper that works
 // against any host-built binary.
 package host
@@ -14,6 +15,7 @@ import (
   "fmt"
   "os"
   "runtime"
+  "strconv"
   "sync/atomic"
   "syscall/js"
   "time"
@@ -40,12 +42,17 @@ var exposed atomic.Bool
 //
 // The contract:
 //
-//   - globalThis[apiName].version()                        → version banner
+//   - globalThis[apiName].version()                        → { version, commit, date, go, goos, goarch }
 //   - globalThis[apiName].build({ cwd, tsconfig })         → Promise<ITtscResult>
 //   - globalThis[apiName].check({ cwd, tsconfig })         → Promise<ITtscResult>
 //   - globalThis[apiName].transform({ cwd, tsconfig })     → Promise<ITtscResult>
 //   - globalThis[apiName].plugin({ name, command, ...opts}) → Promise<ITtscResult>
 //   - globalThis[apiName].plugins()                        → string[] of registered names
+//
+// The retained-program verbs (snapshot, releaseSnapshot, snapshots,
+// getSourceFiles, getSourceFileText, getDiagnostics, getNodeAtPosition,
+// getTypeAtPosition, getSymbolAtPosition) are installed beside them and return
+// the same envelope.
 //
 // build/check/transform encode their structured payloads as JSON in
 // ITtscResult.result. Plugin stdout/stderr are captured in the envelope streams.
@@ -267,7 +274,9 @@ func buildPluginArgv(opts js.Value) []string {
         out = append(out, "--"+key)
       }
     case js.TypeNumber:
-      out = append(out, fmt.Sprintf("--%s=%v", key, value.Float()))
+      // 'f' with the shortest precision that round-trips keeps an integer such
+      // as 1234567 as "1234567"; `%v` would spell it "1.234567e+06".
+      out = append(out, "--"+key+"="+strconv.FormatFloat(value.Float(), 'f', -1, 64))
     }
   }
   return out

@@ -377,24 +377,65 @@ export function createMemFS(): IMemFSHost {
   }
 
   /**
+   * Allocate zero-filled storage for a file of `length` bytes.
+   *
+   * The engine refuses a length it cannot allocate with a `RangeError`, which
+   * carries no POSIX code and would escape a callback that promises one. That
+   * refusal is the virtual filesystem's maximum file size, so it is reported as
+   * `EFBIG`; the caller has not yet changed any node when this throws.
+   */
+  function allocateFileData(
+    length: number,
+    syscall: string,
+    path: string,
+  ): Uint8Array {
+    try {
+      return new Uint8Array(length);
+    } catch (error) {
+      if (error instanceof RangeError)
+        throw new MemFSError("EFBIG", syscall, path);
+      throw error;
+    }
+  }
+
+  /**
    * Grow or shrink a file's byte buffer to exactly `length`, zero-filling any
    * extension. Callers validate `length >= 0` first.
    */
-  function resizeFileData(data: Uint8Array, length: number): Uint8Array {
-    const next = new Uint8Array(length);
+  function resizeFileData(
+    data: Uint8Array,
+    length: number,
+    syscall: string,
+    path: string,
+  ): Uint8Array {
+    const next = allocateFileData(length, syscall, path);
     next.set(data.subarray(0, Math.min(length, data.byteLength)));
     return next;
   }
 
   /** Grow writes geometrically; the public view still exposes only file bytes. */
-  function growFileData(data: Uint8Array, length: number): Uint8Array {
+  function growFileData(
+    data: Uint8Array,
+    length: number,
+    syscall: string,
+    path: string,
+  ): Uint8Array {
     const capacity = data.buffer.byteLength - data.byteOffset;
     if (length <= capacity) {
       const next = new Uint8Array(data.buffer, data.byteOffset, length);
       next.fill(0, data.byteLength);
       return next;
     }
-    const next = new Uint8Array(Math.max(length, data.byteLength * 2));
+    // Spare capacity is only an optimization: when the engine refuses the
+    // doubled size, the exact length still satisfies the write.
+    let next: Uint8Array;
+    if (data.byteLength * 2 > length) {
+      try {
+        next = allocateFileData(data.byteLength * 2, syscall, path);
+      } catch {
+        next = allocateFileData(length, syscall, path);
+      }
+    } else next = allocateFileData(length, syscall, path);
     next.set(data);
     return next.subarray(0, length);
   }
@@ -438,7 +479,8 @@ export function createMemFS(): IMemFSHost {
     const end = start + view.byteLength;
     if (!Number.isSafeInteger(end))
       throw new MemFSError("EINVAL", syscall, entry.path);
-    if (end > node.data.byteLength) node.data = growFileData(node.data, end);
+    if (end > node.data.byteLength)
+      node.data = growFileData(node.data, end, syscall, entry.path);
     node.data.set(view, start);
     node.text = undefined;
     node.mtimeMs = Date.now();
@@ -546,7 +588,7 @@ export function createMemFS(): IMemFSHost {
   }
 
   /**
-   * Return immediate children of directory `p`, sorted alphabetically.
+   * Return immediate children of directory `p`, sorted by UTF-16 code unit.
    *
    * The maintained child index limits work to this directory's entries. Sorting
    * provides deterministic output without scanning unrelated project files.
@@ -1014,7 +1056,12 @@ export function createMemFS(): IMemFSHost {
         callback(new MemFSError("EINVAL", "truncate", norm));
         return;
       }
-      node.data = resizeFileData(node.data, length);
+      try {
+        node.data = resizeFileData(node.data, length, "truncate", norm);
+      } catch (err) {
+        callback(err as NodeJS.ErrnoException);
+        return;
+      }
       node.text = undefined;
       node.mtimeMs = Date.now();
       callback(null);
@@ -1047,7 +1094,12 @@ export function createMemFS(): IMemFSHost {
         callback(new MemFSError("EINVAL", "ftruncate", entry.path));
         return;
       }
-      node.data = resizeFileData(node.data, length);
+      try {
+        node.data = resizeFileData(node.data, length, "ftruncate", entry.path);
+      } catch (err) {
+        callback(err as NodeJS.ErrnoException);
+        return;
+      }
       node.text = undefined;
       node.mtimeMs = Date.now();
       callback(null);

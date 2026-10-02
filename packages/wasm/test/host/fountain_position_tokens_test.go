@@ -11,15 +11,13 @@ import (
   "syscall/js"
   "testing"
   "time"
-
-  "github.com/samchon/ttsc/packages/wasm/host"
 )
-
-const fountainPositionAPI = "ttscFountainPositionTest"
 
 type fountainNode struct {
   KindName string `json:"kindName"`
   Text     string `json:"text"`
+  Pos      int    `json:"pos"`
+  End      int    `json:"end"`
 }
 
 type fountainType struct {
@@ -27,7 +25,11 @@ type fountainType struct {
 }
 
 type fountainSymbol struct {
-  Name string `json:"name"`
+  Name         string `json:"name"`
+  Declarations []struct {
+    Pos int `json:"pos"`
+    End int `json:"end"`
+  } `json:"declarations"`
 }
 
 // TestFountainPositionVerbsResolveTouchingTokens exercises the public wasm
@@ -35,7 +37,7 @@ type fountainSymbol struct {
 // declarations through references, literals, punctuation, trivia, UTF-8 byte
 // offsets, position errors, and release lifecycle errors.
 func TestFountainPositionVerbsResolveTouchingTokens(t *testing.T) {
-  api := startFountainAPI(t)
+  api := startSharedAPI(t)
   root := os.Getenv("TTSC_WASM_TEST_ROOT")
   if root == "" || !filepath.IsAbs(root) {
     t.Fatalf("TTSC_WASM_TEST_ROOT must be an absolute wasm path, got %q", root)
@@ -51,6 +53,7 @@ const recordValue: Point = { x: 1 };
 const copy = recordValue;
 const text = "ok";
 const café = recordValue; // trailing comment
+/** lead */ type Alias = Point;
 `
   if err := os.WriteFile(filepath.Join(root, "src", "index.ts"), []byte(source), 0o644); err != nil {
     t.Fatal(err)
@@ -93,6 +96,17 @@ const café = recordValue; // trailing comment
   assertNode(t, query("getNodeAtPosition", nthIndex(t, source, "Point", 2)), "KindIdentifier", "Point")
   assertSymbol(t, query("getSymbolAtPosition", nthIndex(t, source, "Point", 2)), "Point")
   assertType(t, query("getTypeAtPosition", nthIndex(t, source, "Point", 2)), "Point")
+
+  // pos is the token start, not the full start that includes leading trivia.
+  recordValue := nthIndex(t, source, "recordValue", 1)
+  assertSpan(t, query("getNodeAtPosition", recordValue), recordValue, recordValue+len("recordValue"))
+  literal := strings.Index(source, "\"ok\"")
+  assertSpan(t, query("getNodeAtPosition", literal), literal, literal+len("\"ok\""))
+  typeKeyword := strings.Index(source, "type Alias")
+  assertNode(t, query("getNodeAtPosition", typeKeyword), "KindTypeKeyword", "type")
+  assertSpan(t, query("getNodeAtPosition", typeKeyword), typeKeyword, typeKeyword+len("type"))
+  alias := strings.Index(source, "Alias")
+  assertDeclarationStart(t, query("getSymbolAtPosition", alias), "Alias", typeKeyword)
 
   assertNode(t, query("getNodeAtPosition", strings.Index(source, "1 }")), "KindNumericLiteral", "1")
   assertType(t, query("getTypeAtPosition", strings.Index(source, "1 }")), "number")
@@ -143,21 +157,6 @@ const café = recordValue; // trailing comment
   if code != 2 {
     t.Fatalf("released snapshot query returned code %d: %s", code, result)
   }
-}
-
-func startFountainAPI(t *testing.T) js.Value {
-  t.Helper()
-  go host.Expose(fountainPositionAPI, host.Config{})
-  deadline := time.Now().Add(30 * time.Second)
-  for time.Now().Before(deadline) {
-    api := js.Global().Get(fountainPositionAPI)
-    if api.Type() == js.TypeObject {
-      return api
-    }
-    time.Sleep(time.Millisecond)
-  }
-  t.Fatalf("%s did not become available", fountainPositionAPI)
-  return js.Undefined()
 }
 
 func callFountain(t *testing.T, api js.Value, verb string, opts map[string]any) (int, string) {
@@ -228,6 +227,38 @@ func assertNode(t *testing.T, result json.RawMessage, kind, text string) {
   }
   if payload.Node.KindName != kind || payload.Node.Text != text {
     t.Fatalf("node = %#v, want kind=%q text=%q", payload.Node, kind, text)
+  }
+}
+
+func assertSpan(t *testing.T, result json.RawMessage, pos, end int) {
+  t.Helper()
+  var payload struct {
+    Node *fountainNode `json:"node"`
+  }
+  if err := json.Unmarshal(result, &payload); err != nil {
+    t.Fatal(err)
+  }
+  if payload.Node == nil {
+    t.Fatal("node is null")
+  }
+  if payload.Node.Pos != pos || payload.Node.End != end {
+    t.Fatalf("node span = [%d,%d), want [%d,%d)", payload.Node.Pos, payload.Node.End, pos, end)
+  }
+}
+
+func assertDeclarationStart(t *testing.T, result json.RawMessage, name string, pos int) {
+  t.Helper()
+  var payload struct {
+    Symbol *fountainSymbol `json:"symbol"`
+  }
+  if err := json.Unmarshal(result, &payload); err != nil {
+    t.Fatal(err)
+  }
+  if payload.Symbol == nil || payload.Symbol.Name != name || len(payload.Symbol.Declarations) != 1 {
+    t.Fatalf("symbol = %#v, want one declaration of %q", payload.Symbol, name)
+  }
+  if got := payload.Symbol.Declarations[0].Pos; got != pos {
+    t.Fatalf("declaration starts at %d, want the declaration keyword at %d", got, pos)
   }
 }
 

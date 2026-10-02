@@ -74,7 +74,7 @@ func TestPluginInvocationOutputOwnership(t *testing.T) {
         <-childRelease
         fmt.Fprint(invocation.Stderr, "child")
       }) {
-        t.Fatal("child registration was rejected while Run was active")
+        t.Error("child registration was rejected while Run was active")
       }
       return 7
     }}

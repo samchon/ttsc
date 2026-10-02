@@ -351,6 +351,7 @@ export interface IWasmExecFS {
 
   /**
    * Resize a file to a nonnegative integer byte length, zero-filling extensions.
+   * A length the engine cannot allocate reports `EFBIG` and changes nothing.
    *
    * @evidence contracts/common.md#principled-implementation Path-based resize operates on the stored node and preserves open-descriptor identity.
    * @evidence contracts/common.md#clear-and-simple-design The path variant resolves a node then uses shared resize semantics rather than composing reads and writes.
@@ -364,7 +365,8 @@ export interface IWasmExecFS {
   ): void;
 
   /**
-   * Resize a writable open file without changing its descriptor cursor.
+   * Resize a writable open file without changing its descriptor cursor. A
+   * length the engine cannot allocate reports `EFBIG` and changes nothing.
    *
    * @evidence contracts/common.md#principled-implementation Descriptor resize uses retained inode identity and its access grant.
    * @evidence contracts/common.md#clear-and-simple-design Descriptor validation is separate from the shared byte resize; cursor ownership remains with read/write operations.

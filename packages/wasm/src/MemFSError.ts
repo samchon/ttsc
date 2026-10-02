@@ -57,6 +57,8 @@ function errnoForCode(code: string): number {
       return -21;
     case "EINVAL":
       return -22;
+    case "EFBIG":
+      return -27;
     case "ESPIPE":
       return -29;
     case "EPIPE":

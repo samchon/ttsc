@@ -21,7 +21,7 @@ export interface ITtscNodeInfo {
   /** Human-readable name of `kind`. */
   kindName: string;
 
-  /** Byte offset where the node begins (inclusive). */
+  /** Byte offset of the token's first byte (inclusive), after leading whitespace and comments. */
   pos: number;
 
   /** Byte offset where the node ends (exclusive). */
