@@ -2,15 +2,14 @@ package linthost
 
 import "testing"
 
-// TestCommandFormatSingleSpecifierStaysInline covers the full case matrix for
-// the print-width single-specifier abstain. Every source is already
-// Prettier-3-canonical at printWidth 80, so format must leave it byte-identical
-// (idempotent). Cases split into: single-specifier clauses that stay inline
-// even past 80 (the fix), and multi-specifier / default-combined clauses that
-// stay broken (the negatives the fix must NOT collapse).
+// TestCommandFormatSingleSpecifierStaysInline covers twelve authored fixed
+// points for print-width single-specifier abstention at width 80. Nine
+// single-specifier clauses stay inline despite their width; three broken
+// multi-specifier or default-combined declarations remain broken. This
+// concrete population does not certify every clause grammar or external parity.
 //
 // @evidence contracts/testing.md#behavioral-verification Twelve subcases run the in-process `format` command on authored import and export declarations over 80 columns and require each unchanged: nine single-specifier clauses (plain, type-only, aliased, with or without `from`, long name or long module tail) stay inline, and three already-broken multi-specifier and default-plus-named clauses stay broken.
-// @evidence contracts/testing.md#independent-expectations Sources are authored literals in the Prettier layout the test names and serve as their own expected output; nothing is derived from the formatter.
+// @evidence contracts/testing.md#independent-expectations Complete sources are independent authored expected literals preserving import/export kind, type-only markers, original and aliased names, default bindings, specifier order and module paths; nothing is derived from formatter output or an external invocation.
 // @evidence contracts/testing.md#distinguishing-cases Single-specifier inputs that a width-based formatter would break are contrasted with multi-specifier or default-combined clauses that must not be collapsed. All are fixed points; the changed-input twins live in TestCommandFormatSingleSpecifierAbstainDoesNotBlockMultiBreak.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatSingleSpecifierStaysInline(t *testing.T) {

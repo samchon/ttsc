@@ -5,10 +5,10 @@ import "testing"
 // TestCommandFormatSingleSpecifierAbstainDoesNotBlockMultiBreak proves the
 // abstain is scoped to one specifier: a two-specifier import or re-export
 // still breaks when flat and over width. Inputs are
-// the flat (mangled) forms; wants are the Prettier-canonical broken forms.
+// flat forms; wants are independently authored complete broken forms.
 //
 // @evidence contracts/testing.md#behavioral-verification Three subcases run the in-process `format` command on flat over-width declarations (a two-specifier import, a two-specifier re-export, and a two-short-specifier re-export with a long module tail) and require the exact broken output with one specifier per line.
-// @evidence contracts/testing.md#independent-expectations Each expected output is an authored literal that keeps the same bindings, order and module path and changes only braces, separators and breaks to the Prettier layout.
+// @evidence contracts/testing.md#independent-expectations Each complete expected literal preserves bindings, their order and the exact module path while changing only layout and adding the permitted final separator. No external formatter is invoked and no expected text is derived from actual formatter output.
 // @evidence contracts/testing.md#distinguishing-cases These are the changed-input twins of the single-specifier inline cases: a clause with two specifiers must still break past 80 columns, including when only the `from` tail overflows. The unchanged single-specifier and default-plus-single clauses are owned by TestCommandFormatSingleSpecifierStaysInline.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatResult; no child process, built binary or installed consumer.
 func TestCommandFormatSingleSpecifierAbstainDoesNotBlockMultiBreak(t *testing.T) {
@@ -36,8 +36,8 @@ func TestCommandFormatSingleSpecifierAbstainDoesNotBlockMultiBreak(t *testing.T)
 `,
     },
     // multi specifier whose names fit but whose from-path overflows: the
-    // declaration line is over 80, so the brace breaks (Prettier measures the
-    // whole line, and ttsc charges the `from "..."` tail as trailing width).
+    // declaration line is over 80, so the brace breaks: the printer charges
+    // the complete `from "...";` tail when selecting the grouped layout.
     {
       "export_two_short_from_overflow_breaks",
       `export { ShortA, ShortB } from "./very/long/path/here/exceeding/the/eighty/cols";
