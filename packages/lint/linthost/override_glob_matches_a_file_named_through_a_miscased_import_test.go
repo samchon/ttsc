@@ -17,23 +17,30 @@ import (
 // and the file was linted as if the glob did not exist (samchon/ttsc#1589).
 // The remainder is now also tried as the tree stores it.
 //
-// It runs wherever the temporary directory ignores case: macOS's default
-// volume and Windows. On a case-sensitive volume the miscased path names no
-// file, and the case does not apply.
+// The negative predicate runs on every volume. The alias positive applies
+// wherever the temporary directory ignores case; on a case-sensitive volume
+// the miscased path names no file and that positive case does not apply.
 //
 //  1. Create `src/directory/index.ts` below a base directory.
-//  2. Match `src/directory/**` against the file spelled `SRC/DIRECTORY/index.ts`.
-//  3. Assert it matches.
+//  2. Reject a neighboring directory glob against the canonical fixture path.
+//  3. Where the alias exists, match `src/directory/**` against `SRC/DIRECTORY/index.ts`.
 //
-// @evidence contracts/testing.md#behavioral-verification matchAnyPattern is called with the base directory, the lowercase glob src/directory/** and the miscased path SRC/DIRECTORY/index.ts of an existing file, and must report a match. The test skips itself where the temporary directory distinguishes case, so it executes only on case-insensitive volumes such as Windows and default macOS.
-// @evidence contracts/testing.md#independent-expectations The literal uppercase target and lowercase authored glob define the supported case-folding expectation independently of the matcher.
-// @evidence contracts/testing.md#distinguishing-cases There is a single positive case: a directory glob in lowercase against an uppercase spelling of the same existing directory. A glob that must not match a different directory is not covered, and the character-class sibling test owns the stored-case range.
-// @evidence contracts/testing.md#execution-ownership Calls matchAnyPattern directly on a temporary directory tree; the miscased path exists only on case-insensitive volumes, so the test skips elsewhere, and no host is started.
+// @evidence contracts/testing.md#behavioral-verification matchAnyPattern must reject src/neighbor/** against the canonical fixture before the case-capability check. If the uppercase alias exists, src/directory/** must match it; otherwise only that alias case is inapplicable and the test skips after the negative assertion.
+// @evidence contracts/testing.md#independent-expectations The authored directory fixture and src/neighbor/** describe different directories; the uppercase alias and lowercase src/directory/** describe the same existing directory where case is ignored. These literal relations do not call the matcher to derive expected answers.
+// @evidence contracts/testing.md#distinguishing-cases A neighboring src/neighbor/** glob must not match the canonical directory on every volume; the lowercase directory glob must match its existing uppercase alias on case-insensitive volumes. The character-class sibling owns the stored-case range.
+// @evidence contracts/testing.md#execution-ownership This Go unit calls matchAnyPattern on a temporary tree before checking alias availability. No host is started; an unavailable alias causes a capability skip after the negative predicate has run.
 func TestOverrideGlobMatchesAFileNamedThroughAMiscasedImport(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "src", "directory", "index.ts"), "var x = 1;\n")
+  canonical := filepath.Join(root, "src", "directory", "index.ts")
+  if matchAnyPattern(root, []string{"src/neighbor/**"}, canonical) {
+    t.Fatal("a neighboring directory glob matched the fixture directory")
+  }
   miscased := filepath.Join(root, "SRC", "DIRECTORY", "index.ts")
   if _, err := os.Stat(miscased); err != nil {
+    if !os.IsNotExist(err) {
+      t.Fatalf("checking the miscased fixture alias: %v", err)
+    }
     t.Skip("the temporary directory distinguishes case")
   }
   if !matchAnyPattern(root, []string{"src/directory/**"}, miscased) {

@@ -9,22 +9,30 @@ import (
 // TestOverrideGlobStoredCasePreservesCharacterClass verifies that a glob's
 // character class keeps its original range when a miscased Program path needs
 // the spelling the tree stores. Lowercasing `[A-z]` to `[a-z]` would lose `_`,
-// which the original range admits. This case runs where the volume ignores
-// case; on a case-sensitive volume the miscased Program path does not exist.
+// which the original range admits. The negative predicate runs on every volume;
+// the alias positive applies where case is ignored, while on a case-sensitive
+// volume the miscased Program path does not exist.
 //
 //  1. Create `src/_directory/index.ts` below a base directory.
-//  2. Match `src/[A-z]directory/**` against the miscased `SRC/_DIRECTORY/index.ts`.
-//  3. Assert it matches, which holds only if the glob was not lowercased.
+//  2. Reject `src/[a-z]directory/**` against the canonical underscore directory.
+//  3. Where the alias exists, match `src/[A-z]directory/**` against `SRC/_DIRECTORY/index.ts`.
 //
-// @evidence contracts/testing.md#behavioral-verification matchAnyPattern is called with the glob src/[A-z]directory/** and the miscased path SRC/_DIRECTORY/index.ts of an existing file, and must report a match; lowercasing the glob to [a-z] would exclude the underscore and fail. The test skips where the temporary directory distinguishes case, so it runs only on case-insensitive volumes.
-// @evidence contracts/testing.md#independent-expectations The authored character-class pattern and fixture targets determine membership independently of stored-case normalization.
-// @evidence contracts/testing.md#distinguishing-cases The single positive case uses an underscore directory name, which [A-z] admits but [a-z] does not, so only an implementation that preserves the glob's original range matches. The plain miscased directory glob is owned by the neighboring miscased-import test, and no negative glob case is included.
-// @evidence contracts/testing.md#execution-ownership Calls matchAnyPattern directly on a temporary directory tree; the miscased path exists only on case-insensitive volumes, so the test skips elsewhere, and no host is started.
+// @evidence contracts/testing.md#behavioral-verification matchAnyPattern must reject src/[a-z]directory/** against the canonical underscore fixture before the case-capability check. If the uppercase alias exists, src/[A-z]directory/** must match it; lowercasing the range loses underscore. Otherwise the alias case is inapplicable and the test skips after the negative assertion.
+// @evidence contracts/testing.md#independent-expectations The literal underscore is outside a-z but within A-z; the fixture and authored ranges specify rejection and acceptance independently of stored-case normalization.
+// @evidence contracts/testing.md#distinguishing-cases The canonical underscore directory must not match [a-z] on any volume; its existing uppercase alias must match the preserved [A-z] range on case-insensitive volumes. The neighboring miscased-import test owns the plain directory glob.
+// @evidence contracts/testing.md#execution-ownership This Go unit calls matchAnyPattern on a temporary tree before checking alias availability. No host is started; an unavailable alias causes a capability skip after the negative predicate has run.
 func TestOverrideGlobStoredCasePreservesCharacterClass(t *testing.T) {
   root := t.TempDir()
   writeFile(t, filepath.Join(root, "src", "_directory", "index.ts"), "var x = 1;\n")
+  canonical := filepath.Join(root, "src", "_directory", "index.ts")
+  if matchAnyPattern(root, []string{"src/[a-z]directory/**"}, canonical) {
+    t.Fatal("the underscore directory matched a lowercase-only character class")
+  }
   miscased := filepath.Join(root, "SRC", "_DIRECTORY", "index.ts")
   if _, err := os.Stat(miscased); err != nil {
+    if !os.IsNotExist(err) {
+      t.Fatalf("checking the miscased fixture alias: %v", err)
+    }
     t.Skip("the temporary directory distinguishes case")
   }
   if !matchAnyPattern(root, []string{"src/[A-z]directory/**"}, miscased) {

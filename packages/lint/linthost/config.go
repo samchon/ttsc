@@ -919,12 +919,12 @@ type ConfigEntry struct {
 // A later severity-only declaration retains the most recent options from a matching entry.
 //
 // @evidence contracts/common.md#principled-implementation Global ignores precede ordered entry matching; paired maps are folded only from matching entries, retaining inherited tuples when a later matching declaration has no options.
-// @evidence contracts/common.md#clear-and-simple-design One pass owns file scope and inheritance, while ConfigEntry owns its pattern predicates and the result distinguishes ignored from out-of-scope.
+// @evidence contracts/common.md#clear-and-simple-design A global-ignore phase precedes the ordered file-scope fold; ConfigEntry owns pattern predicates and the result distinguishes ignored from out-of-scope.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No options are borrowed from nonmatching entries and no consumer name bypasses selection.
 // @evidence contracts/common.md#meaningful-documentation Native prose documents global-ignore ordering, precedence and severity-only inheritance before a separate tag paragraph.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation ResolveRules matches a file name against entry selectors held as data and opens no file; the matching helpers own any path comparison.
-// @evidence contracts/performance.md#efficient-algorithms Ignore-only entries are checked first with an early return; otherwise one pass over the entries merges each matching entry's rules, so cost is O(entries times rules per entry) plus the selector matching.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ResolveRules does not memoize per file; every call rebuilds its result from the store's entries.
+// @evidence contracts/portability.md#os-neutral-implementation Selector helpers use native filepath identities and symlink/junction ancestor resolution, then slash-normalized glob spelling. Stored-case fallback requires the actual path to exist and a unique on-disk case-fold match; it does not infer case policy from the OS name. Relative paths escaping the resolved base are rejected; resolution failures preserve lexical spelling, and a failed relative-path calculation disables stored-case fallback.
+// @evidence contracts/performance.md#efficient-algorithms Up to two passes inspect e entries and merge q matching rule declarations, with name hashing/normalization and b copied payload bytes. Selector work includes pattern matching, native ancestor resolution and eligible stored-case directory scans; output holds u distinct rules and their final payload bytes. Global ignores return early.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This call projects current entries and filesystem identities; it has no cross-call invalidation proof for memoizing matching after native topology changes.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned maps are new and owned by the caller and option bytes are copied; no handle or task is acquired.
 func (s *ConfigStore) ResolveRules(fileName string) ResolvedRuleConfig {
   if s == nil {
