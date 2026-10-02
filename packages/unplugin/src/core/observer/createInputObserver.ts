@@ -34,7 +34,7 @@ import { realpath } from "./realpath";
 import { someSet } from "./someSet";
 
 /**
- * The adapter's own bounded observer of compiler inputs, keyed by owner: each
+ * The adapter's observer of compiler inputs, keyed by owner: each
  * owner registers the inputs one delivery depended on, and hears which owners'
  * inputs changed.
  *
@@ -76,7 +76,8 @@ import { someSet } from "./someSet";
  * @param onChanged Told, once per settled batch of events, which owners' inputs
  *   changed: `reload` for a changed input, and `invalidate` for a membership
  *   change alone.
- * @param operations Native watch seams, replaceable for tests.
+ * @param operations Watch/poll and identity-case capabilities. These do not
+ *   replace the native filesystem used to read input conditions or paths.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Owned registration maps and callbacks separate compiler-input conditions
@@ -102,8 +103,10 @@ import { someSet } from "./someSet";
  *   Filesystem identity comes from ttsc/path-identity and directory
  *   capabilities rather than a universal lowercase path. Unknown case policy
  *   keeps exact identity, routes both case candidates and requires polling;
- *   only a measured insensitive directory folds identity. Windows and macOS
- *   native scopes use an isolated broker; other hosts use recursive watches.
+ *   an observed or supplied insensitive-directory answer folds event keys.
+ *   The actual host chooses the default broker on Windows/macOS and Linux
+ *   recursive backend otherwise; the injected platform selects identity grammar,
+ *   not a foreign filesystem implementation. Native path reads remain native.
  *   Native failures and uncovered link topology motivate the shared polling
  *   boundary, whose behavior remains owned by the observer.
  *
@@ -111,22 +114,34 @@ import { someSet } from "./someSet";
  *   Identity maps index entries and their owners; settled events deduplicate
  *   pending entries before rechecking all reporting-scope conditions. This
  *   input-proportional validation is needed because lexical names cannot exclude
- *   native aliases; unrelated scopes are not selected. Directory admission counts
- *   contributions from live entries, and one prune per changed scope releases
- *   unneeded backend subscriptions. Polling remains necessary
- *   for scopes where native notifications cannot establish unchanged inputs.
+ *   native aliases; unrelated scopes are not selected. Registration also builds
+ *   ancestor aliases/contributions and serializes nonmembership evidence. Native
+ *   identity queries, owner/condition fanout, membership walks, predicate lists
+ *   and plugin-tree proofs retain path/content/entry costs. Admission scans live
+ *   membership/tree conditions; one prune per changed scope avoids repeated
+ *   retirement scans. Poll slices bound selected probes, not dependent fanout,
+ *   native read bytes or proof duration.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   Owners share subscriptions and input conditions through filesystem
- *   identity. One project scope and a capped external set observe multiple
- *   inputs rather than opening a native watcher for each consumer and input.
+ *   Owners with the same resolved lexical input and recorded condition key
+ *   share one entry/condition; event aliases help route native spellings but do
+ *   not merge every physical alias into one entry. Scopes and linked topology
+ *   probes are shared across contributors. Changed condition keys lose their
+ *   previous ownership, and rename/removal/reanchor boundaries retire stale
+ *   path memos. One clock reference is minted per selected plugin-tree batch.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   Last-owner removal and dispose release watch scopes and polling. Conditions
+ *   Last-owner removal and dispose attempt watch/poll cleanup, suppressing close
+ *   failures; a thrown backend close is not certified as released. Conditions
  *   remove their directory contributions when they leave; root or polling
  *   policy changes rebuild scopes without retaining old admission history.
  *   Conditions and owners still require input-proportional memory, and a capped
- *   scope count does not bound the number of admitted descendant subscriptions.
+ *   scope count does not bound the number of admitted descendant subscriptions
+ *   or input/path/evidence bytes. Change history clears above 100,000 keys;
+ *   unknown-case ancestor memos live until their reset boundary. Dispose clears
+ *   registrations/timers but retains the opened root and permits later delivery
+ *   to reacquire scopes. Callback/proof/poll-construction exceptions can escape;
+ *   this operation provides no general rollback of effects already performed.
  */
 export function createInputObserver(
   onChanged: (change: InputObserverChange) => void,
