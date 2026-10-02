@@ -47,7 +47,8 @@ export function projectInputReloadEventShouldNotify(input: {
   //
   // Data can only carve out strictly below a resolution directory. A glob
   // rooted on that directory, or above it -- `literalGlobRoot` answers with the
-  // volume root for a pattern with no literal prefix -- would otherwise exempt
+  // volume root when a wildcard follows that resolved root directly -- would
+  // otherwise exempt
   // everything the directory exists to classify, and the selection lane would
   // retire in silence. Its role predates any glob drawn around it.
   //
