@@ -10,8 +10,9 @@ import type { ResidentCheckResult } from "./ResidentCheckResult";
  *
  * A watch session serializes cycles, but the client still queues replies so a
  * caller cannot accidentally pair a late response with the next request. Any
- * framing failure retires the process; the launcher then falls back to the
- * ordinary one-shot command for that cycle.
+ * framing failure retires the process; the launcher can fall back to an
+ * ordinary one-shot command after joining the original child. An unjoined
+ * child cannot authorize that replacement.
  *
  * The caller owns disposal. Requests have no deadline, and outstanding request
  * count and reply-line size are not capped; a slow live check remains pending.
@@ -19,17 +20,20 @@ import type { ResidentCheckResult } from "./ResidentCheckResult";
  * starts after stdin finishes, followed by forced termination and a one-second
  * join deadline. Pending stdin writes have a one-second flush deadline once
  * the retiring call stack yields. An unjoined deadline releases this client's
- * pipes, listeners, timers and process reference while keeping joining failed;
- * it neither kills unrelated descendants nor certifies their termination.
+ * pipes, request listeners, timers and event-loop process reference while
+ * keeping joining failed; the client object still holds its ChildProcess.
+ * It neither kills unrelated descendants nor certifies their termination.
  * A forced or unjoined process is not a graceful shutdown.
+ * These delays are event-loop timer policies, not hard elapsed-time bounds;
+ * synchronous blocking or callback starvation can postpone their delivery.
  *
  * @evidence contracts/common.md#principled-implementation One positional reply consumes one queued cycle; invalid framing or shape retires the stream so a delayed reply cannot answer a different cycle.
  * @evidence contracts/common.md#clear-and-simple-design One client owns its child, line reader, FIFO and failure state; private parsing and settlement keep transport policy separate from the watch coordinator's fallback.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Protocol validation uses the declared reply fields, and transport failure is rejection rather than a fabricated successful check or a consumer-specific recovery.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain FIFO ownership, retirement, caller disposal and the absence of request bounds, following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Node spawns the supplied native executable with an argv array and pipe streams, without shell quoting; cwd and environment retain caller-provided native semantics.
- * @evidence contracts/performance.md#efficient-algorithms A head cursor consumes replies in constant amortized queue work; prefix compaction costs no more than the consumed population, and failure drains outstanding requests once.
- * @evidence contracts/performance.md#reuse-equivalent-work One fixed-configuration child retains its Program across FIFO cycles; changed and external paths travel with each request, while the watch owner replaces the process when configuration or plugin identity changes.
+ * @evidence contracts/performance.md#efficient-algorithms A head cursor consumes replies with amortized constant queue work and failure drains outstanding requests once. Encoding/decoding visit data and text bytes; caller-defined serialization can add arbitrary work. Stderr decoding and concatenation scan the new chunk plus retained tail before truncation. Native spawn, check execution and shutdown completion remain delegated and event-loop scheduled.
+ * @evidence contracts/performance.md#reuse-equivalent-work One startup-selected child is shared across FIFO cycles, but its native session can update or reconstruct Program generations. Changed/external paths travel with each request and the watch owner replaces the process on configuration/plugin identity changes; the client does not reuse a response or certify every custom host's internal Program cache.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Each settled slot releases its request; retirement clears the queue and drains replies until actual close or the failed join deadline. That deadline releases owned transport handles and callbacks without claiming the physical child or unrelated descendants joined; live request count and line bytes have no fixed cap.
  */
 export class ResidentCheckProcess {
@@ -123,15 +127,16 @@ export class ResidentCheckProcess {
    * that retired the process, so the caller can fall back to a one-shot check
    * for that cycle.
    *
-   * Serialization errors reject only this call before it enters the stream. A
-   * closed input retires the shared host and rejects its other pending calls.
+   * Serialization precedes enqueueing and normally rejects only this call;
+   * exceptional thrown-value conversion can itself fail during normalization.
+   * A closed input retires the host and rejects its other pending calls.
    *
    * @evidence contracts/common.md#principled-implementation Serialization precedes enqueueing, and each successfully enqueued call keeps its own FIFO slot until a validated reply or shared retirement settles it.
    * @evidence contracts/common.md#clear-and-simple-design Pre-write validation remains local; write failures use the same settlement and retirement operations as pipe and protocol failure.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed serialization cannot consume a reply slot, and a closed pipe is not treated as a healthy host with one exceptional caller.
    * @evidence contracts/common.md#meaningful-documentation Separate paragraphs document reply ordering, rejection scope and closed-input effects, applying the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation JSON lines pass native change paths as data over Node's stdin stream, without constructing a shell command or converting native separators.
-   * @evidence contracts/performance.md#efficient-algorithms Encoding costs the payload's serialized size, enqueueing is constant time, and reply settlement is amortized constant queue work plus parsing the reply bytes.
+   * @evidence contracts/performance.md#efficient-algorithms Encoding visits supplied properties and output bytes, with caller-defined conversion not bounded by final JSON size; enqueueing and settlement have amortized constant queue work plus reply parsing. Native check work is delegated rather than bounded by transport cost.
    * @evidence contracts/performance.md#reuse-equivalent-work Each cycle is sent to the existing fixed-configuration Program owner; changes are effectful transitions and are not coalesced merely because request values match.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The client retains one resolver pair per outstanding call until reply or retirement; serialization allocates one request line, and live requests wait without an implicit timeout or population limit.
    */
@@ -179,7 +184,7 @@ export class ResidentCheckProcess {
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Disposal ends the owner and produces no computation that another request may reuse.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Disposal clears pending callbacks and sends EOF while draining replies until actual close or a failed bounded join; the failed deadline releases this client's handles without signalling unrelated descendants or reporting graceful completion.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Disposal clears pending callbacks and requests stdin EOF while preserving output until actual close or a failed join timer. Failed join destroys/unrefs owned transport and removes request listeners without proving child/descendant termination; timer delivery depends on the event loop, and the client object can still retain its ChildProcess.
    */
   public dispose(): void {
     this.fail(new Error("ttsc: resident check host disposed"));
@@ -196,7 +201,7 @@ export class ResidentCheckProcess {
    * @evidence contracts/portability.md#os-neutral-implementation Native stdin EOF and child close events work through Node's process API; forced signalling is a failure rather than a portable graceful-stop assumption.
    * @evidence contracts/performance.md#efficient-algorithms Closing performs one retirement traversal and constant-time exit validation; no polling population grows over the lifetime.
    * @evidence contracts/performance.md#reuse-equivalent-work Repeated closes reuse the single actual-exit promise but never reuse an earlier process's exit as proof for another child.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Actual close clears termination timers; a failed bounded join releases this client's transport and process reference while remaining a terminal failure, independent of later physical child or descendant termination.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Actual close clears termination timers. A failed event-loop-scheduled join deadline destroys/unrefs transport and removes request listeners while retaining terminal failure; unref releases event-loop liveness, not the client object's ChildProcess reference or proof of physical child/descendant termination.
    */
   public async close(): Promise<void> {
     this.dispose();
@@ -216,9 +221,9 @@ export class ResidentCheckProcess {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts An elapsed deadline rejects instead of treating a still-live process as retired.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes recovery's known failed exit from shutdown's graceful success requirement.
    * @evidence contracts/portability.md#os-neutral-implementation The actual close event, rather than a signal result or native PID spelling, establishes retirement on each platform.
-   * @evidence contracts/performance.md#efficient-algorithms Joining adds one promise subscription and no filesystem or process polling.
+   * @evidence contracts/performance.md#efficient-algorithms This accessor returns the existing promise without adding a child listener or polling filesystem/process state; subscriber work belongs to the caller.
    * @evidence contracts/performance.md#reuse-equivalent-work Every waiter shares this child's terminal event; a replacement always owns a new promise.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Waiters settle on close or the bounded termination deadline; an unknown live owner remains failure.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Waiters share actual close or, after retirement begins, its event-loop-scheduled failed join deadline. Waiting alone starts no termination timer; a live unretired child can remain pending without a deadline, and an unjoined owner remains failure.
    */
   public waitForExit(): Promise<void> {
     return this.exited;
