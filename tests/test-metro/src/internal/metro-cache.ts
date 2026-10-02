@@ -2026,3 +2026,122 @@ export async function assertSnapshotReaderKeepsInputsAcrossConcurrentCompaction(
     "a trusted state must hold every input recorded before the read began",
   );
 }
+
+/**
+ * Asserts the snapshot reader accepts a pass only when no compaction lock
+ * existed on either side of it and the main snapshot read identically on both.
+ *
+ * A directory listing taken while a compactor renames entries can return a
+ * claimed worker file under neither its original nor its claimed name, with its
+ * input not yet in the main file. The three reads the reader makes are driven
+ * through injected operations over a real project, so each interleaving is
+ * scripted rather than raced: the first pass lists no worker file while the lock
+ * appears after it, the first pass lists none while the main text changes
+ * between its two reads, and a lock that never clears. No second process runs.
+ */
+export async function assertSnapshotReaderRejectsAPassInterleavedWithCompaction(): Promise<void> {
+  const fingerprint = await TestMetroRuntime.loadFingerprint();
+  const external = path.join(
+    TestProject.tmpdir("ttsc-metro-listing-race-"),
+    "recorded.d.ts",
+  );
+  fs.writeFileSync(external, "declare const recorded: true;\n", "utf8");
+  const project = () => {
+    const root = createBareProject();
+    fingerprint.prepareSnapshot(root);
+    fingerprint.createSnapshotRecorder().record({
+      input: external,
+      project: fingerprint.resolveProjectView({ projectRoot: root }),
+    });
+    return root;
+  };
+  const isWorkerName = (name: string) =>
+    name.startsWith("graph-inputs.worker-") && name.endsWith(".json");
+  const isWorkerDirectory = (directory: string) =>
+    path.basename(directory) === "ttsc-metro";
+  const isLock = (file: string) =>
+    path.basename(file) === "snapshot-compaction.lock";
+  const isMain = (file: string) => path.basename(file) === "graph-inputs.json";
+
+  // The real directory holds a worker file naming the input, so a settled read
+  // must contain it.
+  const settled = project();
+  assert.ok(fingerprint.readSnapshotState(settled)?.files.includes(external));
+
+  // 1. Neither name is listed in the first pass and the lock appears after it.
+  {
+    const root = project();
+    let listings = 0;
+    let lockChecks = 0;
+    const state = fingerprint.readSnapshotState(root, {
+      existsSync: (file: string) => {
+        if (!isLock(file)) return fs.existsSync(file);
+        lockChecks += 1;
+        return lockChecks === 2 ? true : fs.existsSync(file);
+      },
+      readFileSync: (file: string, encoding: "utf8") =>
+        fs.readFileSync(file, encoding),
+      readdirSync: (directory: string) => {
+        const names = fs.readdirSync(directory);
+        if (!isWorkerDirectory(directory)) return names;
+        listings += 1;
+        return listings === 1 ? names.filter((n) => !isWorkerName(n)) : names;
+      },
+    });
+    assert.equal(listings, 2, "the first pass is discarded and one is retried");
+    assert.ok(
+      state?.files.includes(external),
+      "a trusted state holds the recorded input",
+    );
+  }
+
+  // 2. The lock never appears, but the main text differs between the reads
+  // around a pass that listed neither name.
+  {
+    const root = project();
+    let listings = 0;
+    let mainReads = 0;
+    const state = fingerprint.readSnapshotState(root, {
+      existsSync: (file: string) => fs.existsSync(file),
+      readFileSync: (file: string, encoding: "utf8") => {
+        const text = fs.readFileSync(file, encoding);
+        if (!isMain(file)) return text;
+        mainReads += 1;
+        // Reads of the main text per pass: before, inside, after.
+        return mainReads === 3 ? `${text}\n` : text;
+      },
+      readdirSync: (directory: string) => {
+        const names = fs.readdirSync(directory);
+        if (!isWorkerDirectory(directory)) return names;
+        listings += 1;
+        return listings === 1 ? names.filter((n) => !isWorkerName(n)) : names;
+      },
+    });
+    assert.equal(listings, 2, "a changed main text discards the pass");
+    assert.equal(mainReads, 6, "each accepted or rejected pass reads it thrice");
+    assert.ok(state?.files.includes(external));
+  }
+
+  // 3. A lock that never clears leaves the state untrusted after every pass.
+  {
+    const root = project();
+    let lockChecks = 0;
+    let listings = 0;
+    const state = fingerprint.readSnapshotState(root, {
+      existsSync: (file: string) => {
+        if (!isLock(file)) return fs.existsSync(file);
+        lockChecks += 1;
+        return true;
+      },
+      readFileSync: (file: string, encoding: "utf8") =>
+        fs.readFileSync(file, encoding),
+      readdirSync: (directory: string) => {
+        if (isWorkerDirectory(directory)) listings += 1;
+        return fs.readdirSync(directory);
+      },
+    });
+    assert.equal(state, undefined, "a held lock is never read through");
+    assert.equal(lockChecks, 8, "the attempts are bounded at eight");
+    assert.equal(listings, 0, "a pass is not even started under a lock");
+  }
+}
