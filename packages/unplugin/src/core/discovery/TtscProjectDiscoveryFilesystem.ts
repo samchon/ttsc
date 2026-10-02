@@ -11,7 +11,6 @@ import type fs from "node:fs";
  *   The smallest discovery boundary supports both the host and explicit
  *   alternate filesystem views; tree enumeration extends this interface.
  *
- *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Callers replace an explicit observation boundary rather than patching
  *   global filesystem methods or synthesizing consumer-specific selection.
@@ -23,14 +22,14 @@ import type fs from "node:fs";
  *   Platform syntax is explicit for non-host views and stat supplies observed
  *   link-following capabilities; the type makes no filesystem case-policy claim.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   TtscProjectDiscoveryFilesystem only declares a shape; it has no
- *   computation at runtime.
+ *   Ancestor-walk implementations own candidate/path work and native stat cost;
+ *   this boundary specifies predicates without selecting their processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   TtscProjectDiscoveryFilesystem only declares a shape; it has no work to
- *   reuse at runtime.
+ *   Discovery callers own observation timing and any valid reuse; this boundary
+ *   grants no cached or stable-result capability.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   TtscProjectDiscoveryFilesystem only declares a shape; it has no handle or
- *   retained state at runtime.
+ *   Supplied stat implementations own native access resources, and callers own
+ *   retained candidate records; this boundary specifies no acquired handle.
  */
 export interface TtscProjectDiscoveryFilesystem {
   /** Override path parsing when the observed filesystem is not the host. */
@@ -45,7 +44,6 @@ export interface TtscProjectDiscoveryFilesystem {
    *
    * @evidence contracts/common.md#clear-and-simple-design
    *   The callback returns only metadata predicates discovery actually consumes.
-   *
    *
    * @evidence contracts/common.md#prohibited-implementation-shortcuts
    *   The callback is an explicit dependency rather than a patched global stat.

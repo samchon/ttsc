@@ -6,7 +6,9 @@ import { findNearestProjectTsconfigImpl } from "./findNearestProjectTsconfigImpl
 
 /**
  * Find the nearest config and retain the exact predicate observations used to
- * select it. A cache host must not rediscover these candidates later: a file
+ * select it. False means not proven a regular file, including failed stat;
+ * it is not an independent absence fact. A cache host must not rediscover
+ * these candidates later as a replacement for the selection observation: a file
  * can disappear only for selection and return before that second observation.
  *
  * @evidence contracts/common.md#principled-implementation
@@ -28,13 +30,15 @@ import { findNearestProjectTsconfigImpl } from "./findNearestProjectTsconfigImpl
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains the transient disappearance hazard that makes retained
  *   observations necessary, with prose separated from tags.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Delegated ancestor traversal resolves/joins/parent-scans each reached path
+ *   and performs one stat per D levels. This result additionally retains D
+ *   ordered candidate objects/path strings; no tree listing or byte read occurs.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   Acquires no handle, timer or retained state of its own.
+ *   Synchronous stat handles belong to the supplied implementation; the ordered
+ *   candidate array and selected spelling transfer to the result's caller.
  */
 export function discoverNearestProjectTsconfig(
   startDirectory: string,

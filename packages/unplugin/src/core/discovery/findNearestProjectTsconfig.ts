@@ -28,9 +28,10 @@ import { findNearestProjectTsconfigImpl } from "./findNearestProjectTsconfigImpl
  * @evidence contracts/common.md#meaningful-documentation
  *   Native documentation distinguishes file-kind proof, link following and
  *   lexical result spelling in separate purpose and boundary paragraphs.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   The delegated parent walk visits D candidate levels, paying native stat
+ *   plus path resolution/join/dirname text work at each reached prefix. It
+ *   retains no candidate history in this selection-only entry point.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
