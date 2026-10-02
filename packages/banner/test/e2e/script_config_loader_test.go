@@ -44,7 +44,7 @@ func TestScriptConfigLoader(t *testing.T) {
   if !ok || object["text"] != "from cjs" {
     t.Fatalf("cjs config mismatch: %#v", raw)
   }
-  raw, err = bannerLoadBannerScriptConfigFile(mjs)
+  raw, err = shared.BannerLoadBannerScriptConfigFile(mjs)
   if err != nil {
     t.Fatal(err)
   }
@@ -58,13 +58,13 @@ func TestScriptConfigLoader(t *testing.T) {
 
   badExport := filepath.Join(root, "bad", "banner.config.cjs")
   shared.WriteFile(t, badExport, `module.exports = 1;`)
-  if _, err := bannerLoadBannerScriptConfigFile(badExport); err == nil || !strings.Contains(err.Error(), "config file must export") {
+  if _, err := shared.BannerLoadBannerScriptConfigFile(badExport); err == nil || !strings.Contains(err.Error(), "config file must export") {
     t.Fatalf("expected invalid export error, got %v", err)
   }
 
   invalidJSONNode := writeDirectLauncher(t, filepath.Join(root, "fake-node-invalid-json"), "not-json", "", 0)
   t.Setenv("TTSC_NODE_BINARY", invalidJSONNode)
-  if _, err := bannerLoadBannerScriptConfigFile(cjs); err == nil || !strings.Contains(err.Error(), "parse config file") {
+  if _, err := shared.BannerLoadBannerScriptConfigFile(cjs); err == nil || !strings.Contains(err.Error(), "parse config file") {
     t.Fatalf("expected invalid stdout error, got %v", err)
   }
 
@@ -75,7 +75,7 @@ func TestScriptConfigLoader(t *testing.T) {
   stderrNode := writeDirectLauncher(t, filepath.Join(root, "fake-node-stderr"), "", "loader failed", 7)
   t.Setenv("TTSC_NODE_BINARY", stderrNode)
   stderrErr := error(nil)
-  if _, stderrErr = bannerLoadBannerScriptConfigFile(cjs); stderrErr == nil ||
+  if _, stderrErr = shared.BannerLoadBannerScriptConfigFile(cjs); stderrErr == nil ||
     !strings.Contains(stderrErr.Error(), "load config file") ||
     !strings.Contains(stderrErr.Error(), "exit status 7") {
     t.Fatalf("expected a named non-zero exit, got %v", stderrErr)
@@ -92,7 +92,7 @@ func TestScriptConfigLoader(t *testing.T) {
   } {
     bareNode := writeDirectLauncher(t, filepath.Join(root, "fake-node-"+name), payload, "", 0)
     t.Setenv("TTSC_NODE_BINARY", bareNode)
-    if _, err := bannerLoadBannerScriptConfigFile(cjs); err == nil || !strings.Contains(err.Error(), "dependency observations") {
+    if _, err := shared.BannerLoadBannerScriptConfigFile(cjs); err == nil || !strings.Contains(err.Error(), "dependency observations") {
       t.Fatalf("%s: expected missing observations error, got %v", name, err)
     }
   }
@@ -101,13 +101,13 @@ func TestScriptConfigLoader(t *testing.T) {
   // though the process exits non-zero.
   reasonNode := writeDirectLauncher(t, filepath.Join(root, "fake-node-reason"), `{"__ttscLoaderError":"custom reason"}`, "", 1)
   t.Setenv("TTSC_NODE_BINARY", reasonNode)
-  if _, err := bannerLoadBannerScriptConfigFile(cjs); err == nil || !strings.Contains(err.Error(), "load config file") || !strings.Contains(err.Error(), "custom reason") {
+  if _, err := shared.BannerLoadBannerScriptConfigFile(cjs); err == nil || !strings.Contains(err.Error(), "load config file") || !strings.Contains(err.Error(), "custom reason") {
     t.Fatalf("expected the envelope reason in the error, got %v", err)
   }
 
   silentNode := writeDirectLauncher(t, filepath.Join(root, "fake-node-silent"), "", "", 7)
   t.Setenv("TTSC_NODE_BINARY", silentNode)
-  if _, err := bannerLoadBannerScriptConfigFile(cjs); err == nil || !strings.Contains(err.Error(), "exit status") {
+  if _, err := shared.BannerLoadBannerScriptConfigFile(cjs); err == nil || !strings.Contains(err.Error(), "exit status") {
     t.Fatalf("expected silent exit error, got %v", err)
   }
 }

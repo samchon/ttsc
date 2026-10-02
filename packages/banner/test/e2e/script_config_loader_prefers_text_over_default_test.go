@@ -32,7 +32,7 @@ func TestScriptConfigLoaderPrefersTextOverDefault(t *testing.T) {
   config := filepath.Join(t.TempDir(), "banner.config.cjs")
   shared.WriteFile(t, config, `module.exports = { text: "outer", default: { text: "inner" } };`)
 
-  raw, err := bannerLoadBannerScriptConfigFile(config)
+  raw, err := shared.BannerLoadBannerScriptConfigFile(config)
   if err != nil {
     t.Fatal(err)
   }

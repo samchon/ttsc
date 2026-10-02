@@ -77,7 +77,7 @@ const TOUR_SEED_KINDS = new Set<ITtscGraphNode["kind"]>([
  * @evidence contracts/common.md#clear-and-simple-design Existing entrypoint, trace and detail operations own their projections; this composer owns seed selection, flow overlap and orientation anchors.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Ranking is an explicit heuristic over graph facts, not a fabricated completeness claim or a lexical patch for the user's question.
  * @evidence contracts/common.md#meaningful-documentation Native prose names the composition and body-free output; centrality documentation states the implemented heuristic rather than claiming PageRank.
- * @evidence contracts/performance.md#efficient-algorithms Centrality scans graph candidates once, with per-candidate reach capped at depth four and 400 nodes; sorting costs O(V log V), while returned flows have fixed seed and trace budgets.
+ * @evidence contracts/performance.md#efficient-algorithms Centrality scans graph candidates once, with per-candidate reach limited to four levels and not deepened once 400 nodes have been seen, so a single dense level can exceed 400 and the reach work is bounded by depth rather than by that budget; sorting costs O(V log V), while returned flows have fixed seed and trace budgets.
  * @evidence contracts/performance.md#reuse-equivalent-work Centrality is shared through a WeakMap keyed by the owned frozen graph generation; a new graph computes its own ranks, while request-specific query alignment remains separate.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Cached rank maps remain reachable only while their graph key is reachable; request-local candidate sets and bounded flows are returned or released at completion.
  */
@@ -477,20 +477,6 @@ function flowStartOf(node: ITtscGraphTrace.INode): ITtscGraphTour.INode {
   };
 }
 
-function flowAnchorsOf(
-  trace: ITtscGraphTrace,
-  hops: ITtscGraphTrace.IHop[],
-  reached: ITtscGraphTrace.INode[],
-): ITtscGraphTour.IAnchor[] {
-  return uniqueAnchors([
-    ...anchorFromNode("flow start", trace.start),
-    ...reached.flatMap((node) => anchorFromNode("flow node", node)),
-    ...hops.flatMap((hop) =>
-      anchorFromEvidence("flow edge", `${hop.from} -> ${hop.to}`, hop.evidence),
-    ),
-  ]);
-}
-
 /**
  * Identifier terms from the caller's symbol guesses used to align ranking.
  *
@@ -560,6 +546,10 @@ function tourSeedScore(
 const CENTRALITY_SCALE = 100;
 /** Execution reach is walked this deep and no further. */
 const REACH_DEPTH = 4;
+/**
+ * Reach stops descending to another level once this many nodes are seen. The
+ * check runs between levels, so one level may add more than this budget.
+ */
 const REACH_NODE_BUDGET = 400;
 /** Invocation: the edges that mean "this makes that run". */
 const INVOKE_KINDS = new Set<string>(["calls", "instantiates", "renders"]);
@@ -764,6 +754,25 @@ function isTourTraceNode(
 }
 
 /**
+ * The nodes a flow reached, derived from the hops that survived.
+ *
+ * Deriving it rather than filtering it beside them is what makes a dangling
+ * step impossible: a step can only name endpoints of a kept hop, and every such
+ * endpoint is here. Filtering the two independently is what let a step narrate
+ * a chain from a node the same flow reported it had never reached.
+ */
+function reachedOf(
+  graph: TtscGraphMemory,
+  trace: ITtscGraphTrace,
+  hops: readonly ITtscGraphTrace.IHop[],
+): ITtscGraphTrace.INode[] {
+  const touched = new Set(hops.flatMap((hop) => [hop.from, hop.to]));
+  return trace.reached.filter(
+    (node) => touched.has(node.id) && isTourTraceNode(graph, node),
+  );
+}
+
+/**
  * The hops a flow keeps, and the hops it would keep if the cut were not
  * applied.
  *
@@ -784,25 +793,6 @@ function isTourTraceNode(
  * logger never displaces a real chain and a lone terminal action is never
  * erased.
  */
-/**
- * The nodes a flow reached, derived from the hops that survived.
- *
- * Deriving it rather than filtering it beside them is what makes a dangling
- * step impossible: a step can only name endpoints of a kept hop, and every such
- * endpoint is here. Filtering the two independently is what let a step narrate
- * a chain from a node the same flow reported it had never reached.
- */
-function reachedOf(
-  graph: TtscGraphMemory,
-  trace: ITtscGraphTrace,
-  hops: readonly ITtscGraphTrace.IHop[],
-): ITtscGraphTrace.INode[] {
-  const touched = new Set(hops.flatMap((hop) => [hop.from, hop.to]));
-  return trace.reached.filter(
-    (node) => touched.has(node.id) && isTourTraceNode(graph, node),
-  );
-}
-
 function tourHops(
   graph: TtscGraphMemory,
   hops: readonly ITtscGraphTrace.IHop[],
@@ -895,16 +885,6 @@ function executionDegree(
 }
 
 /**
- * What the declaration is, scored by what it does rather than how it was
- * written. `export const parse = (input) => ...` is a function that happens to
- * be bound to a name, and the checker sees it call things; scoring it eight
- * points against a method's twenty-eight is a bias toward one syntax, and it
- * cost zod its own public API — `parse` and `safeParse`, both const arrows,
- * lost their tour seats to `ZodType.safeParse`, a method of the previous
- * major.
- */
-
-/**
  * How many modules put a symbol on the wire — counting the one that owns it.
  *
  * A method is not exported; its class is. `Observable.subscribe` and
@@ -935,25 +915,6 @@ function ownerOf(graph: TtscGraphMemory, id: string): string | undefined {
   }
   return undefined;
 }
-
-/**
- * What a user of this package can call, as the graph knows it.
- *
- * This used to pay for an English verb anywhere in the name — `create`,
- * `parse`, `render`, `subscribe` — and for a class whose name contained `app`,
- * `server` or `factory`. Neither is a fact about the code. They are a guess
- * about the language its authors happened to write in, and a codebase that
- * names its entry `起動` or `mk` or `boot` is one the guess is simply wrong
- * about. It was also wrong in English: `onRenderTracked` is a devtools hook and
- * it took the bonus for the "render" inside it, outranking `track`, the
- * function it is named after.
- *
- * Two facts say the same thing without reading a word of the name. The package
- * _publishes_ this symbol — that is its export surface, counted in
- * {@link exportFanIn} — and it is a _callable_, so publishing it is publishing
- * something to run. A user calls what a package exports and what a package
- * exports to be called.
- */
 
 function queryMatchScore(node: ITtscGraphNode, terms: string[]): number {
   return (
@@ -997,8 +958,9 @@ function matchedTerms(words: string[], terms: string[]): Set<string> {
  * It picks `count` of them, not all of them. Ordering every candidate cost
  * O(n²) — on VS Code, where tens of thousands of symbols score above zero, one
  * tour spent six minutes ranking seeds it then threw away, because the caller
- * keeps only the first few. Stopping at `count` makes the cover O(count · n),
- * and the picks it does make are the same ones.
+ * keeps only the first few. Stopping at `count` makes the cover O(count · n)
+ * candidate visits, each comparing against the picks so far, and the picks it
+ * does make are the same ones.
  */
 function diverseTourSeeds<
   T extends {

@@ -12,9 +12,6 @@ import (
   _ "github.com/samchon/ttsc/packages/banner/driver"
 )
 
-//go:linkname bannerParseBanner github.com/samchon/ttsc/packages/banner/driver.parseBanner
-func bannerParseBanner(config map[string]any, cwd, tsconfigPath string) (string, error)
-
 //go:linkname bannerValidateBannerConfig github.com/samchon/ttsc/packages/banner/driver.validateBannerConfig
 func bannerValidateBannerConfig(config map[string]any) error
 
@@ -32,9 +29,6 @@ func bannerTsconfigBaseDir(cwd, tsconfigPath string) string
 
 //go:linkname bannerIsBannerConfigFileName github.com/samchon/ttsc/packages/banner/driver.isBannerConfigFileName
 func bannerIsBannerConfigFileName(name string) bool
-
-//go:linkname bannerLoadBannerJSONConfigFile github.com/samchon/ttsc/packages/banner/driver.loadBannerJSONConfigFile
-func bannerLoadBannerJSONConfigFile(location string) (any, error)
 
 //go:linkname bannerResolveTtsxLauncher github.com/samchon/ttsc/packages/banner/driver.resolveTtsxLauncher
 func bannerResolveTtsxLauncher(anchors []string) string

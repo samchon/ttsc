@@ -32,7 +32,7 @@ func TestScriptConfigLoaderPrefersDefaultExportOverNamedText(t *testing.T) {
   config := filepath.Join(t.TempDir(), "banner.config.mjs")
   shared.WriteFile(t, config, `export const text = "named"; export default { text: "default" };`)
 
-  raw, err := bannerLoadBannerScriptConfigFile(config)
+  raw, err := shared.BannerLoadBannerScriptConfigFile(config)
   if err != nil {
     t.Fatal(err)
   }

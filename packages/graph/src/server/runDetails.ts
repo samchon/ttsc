@@ -13,7 +13,8 @@ import { IRunnerOutput, resultNext } from "./resultNext";
 type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
 
 // A signature is the declaration head up to the body brace: a handful of lines.
-const MAX_SIGNATURE_LINES = 4;
+// A longer head is cut at this many lines, and the details audit says so.
+export const MAX_SIGNATURE_LINES = 4;
 // A doc summary is one sentence; the rest of the comment is the file's to keep.
 const MAX_DOC_CHARS = 200;
 // A symbol's fan-out — what it calls, what names it in a type, what depends on

@@ -53,7 +53,7 @@ process.stdout.write(JSON.stringify({ complete: true, inputs: [], hashes: {}, re
   config := filepath.Join(root, "banner.config.ts")
   shared.WriteFile(t, config, "export default { text: \"never read, the launcher is fake\" };\n")
 
-  raw, err := bannerLoadBannerTypeScriptConfigFile(config, root)
+  raw, err := shared.BannerLoadBannerTypeScriptConfigFile(config, root)
   if err != nil {
     t.Fatalf("TypeScript config load failed with no tool variables set: %v", err)
   }

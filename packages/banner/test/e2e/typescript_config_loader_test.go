@@ -39,7 +39,7 @@ func TestTypeScriptConfigLoader(t *testing.T) {
   nodeLauncher := writeExecutable(t, filepath.Join(root, "fake-ttsx.mjs"), `process.stdout.write(JSON.stringify({ complete: true, inputs: [], hashes: {}, realpaths: {}, value: { text: "from ts" } }));`+"\n")
   t.Setenv("TTSC_TTSX_BINARY", nodeLauncher)
   t.Setenv("TTSC_TSGO_BINARY", filepath.Join(root, "tsgo"))
-  raw, err := bannerLoadBannerTypeScriptConfigFile(config, root)
+  raw, err := shared.BannerLoadBannerTypeScriptConfigFile(config, root)
   if err != nil {
     t.Fatal(err)
   }
@@ -58,7 +58,7 @@ func TestTypeScriptConfigLoader(t *testing.T) {
 
   directLauncher := writeDirectLauncher(t, filepath.Join(root, "fake-ttsx"), `{"complete":true,"inputs":[],"hashes":{},"realpaths":{},"value":{"text":"from direct"}}`, "", 0)
   t.Setenv("TTSC_TTSX_BINARY", directLauncher)
-  raw, err = bannerLoadBannerTypeScriptConfigFile(filepath.Join(root, "banner.config.mts"), root)
+  raw, err = shared.BannerLoadBannerTypeScriptConfigFile(filepath.Join(root, "banner.config.mts"), root)
   if err != nil {
     t.Fatal(err)
   }
@@ -104,13 +104,13 @@ func TestTypeScriptConfigLoader(t *testing.T) {
   if _, err := bannerRelativeImportSpecifier("", filepath.Join(root, "banner.config.ts")); err == nil {
     t.Fatal("expected invalid relative import base to fail")
   }
-  if _, err := bannerLoadBannerTypeScriptConfigFile("banner.config.ts", root); err == nil || !strings.Contains(err.Error(), "resolve relative config import") {
+  if _, err := shared.BannerLoadBannerTypeScriptConfigFile("banner.config.ts", root); err == nil || !strings.Contains(err.Error(), "resolve relative config import") {
     t.Fatalf("expected relative import error, got %v", err)
   }
 
   invalidJSONLauncher := writeDirectLauncher(t, filepath.Join(root, "fake-ttsx-invalid"), "not-json", "", 0)
   t.Setenv("TTSC_TTSX_BINARY", invalidJSONLauncher)
-  if _, err := bannerLoadBannerTypeScriptConfigFile(config, root); err == nil || !strings.Contains(err.Error(), "parse TypeScript config file") {
+  if _, err := shared.BannerLoadBannerTypeScriptConfigFile(config, root); err == nil || !strings.Contains(err.Error(), "parse TypeScript config file") {
     t.Fatalf("expected invalid stdout error, got %v", err)
   }
   // A loader that writes to stderr sends that text straight to this process's
@@ -120,7 +120,7 @@ func TestTypeScriptConfigLoader(t *testing.T) {
   stderrLauncher := writeDirectLauncher(t, filepath.Join(root, "fake-ttsx-stderr"), "", "ts failed", 8)
   t.Setenv("TTSC_TTSX_BINARY", stderrLauncher)
   err = nil
-  if _, err = bannerLoadBannerTypeScriptConfigFile(config, root); err == nil ||
+  if _, err = shared.BannerLoadBannerTypeScriptConfigFile(config, root); err == nil ||
     !strings.Contains(err.Error(), "load TypeScript config file") ||
     !strings.Contains(err.Error(), config) ||
     !strings.Contains(err.Error(), "exit status 8") {
@@ -131,7 +131,7 @@ func TestTypeScriptConfigLoader(t *testing.T) {
   }
   silentLauncher := writeDirectLauncher(t, filepath.Join(root, "fake-ttsx-silent"), "", "", 8)
   t.Setenv("TTSC_TTSX_BINARY", silentLauncher)
-  if _, err := bannerLoadBannerTypeScriptConfigFile(config, root); err == nil || !strings.Contains(err.Error(), "exit status") {
+  if _, err := shared.BannerLoadBannerTypeScriptConfigFile(config, root); err == nil || !strings.Contains(err.Error(), "exit status") {
     t.Fatalf("expected silent exit error, got %v", err)
   }
   badTmp := filepath.Join(root, "not-a-directory")
@@ -143,7 +143,7 @@ func TestTypeScriptConfigLoader(t *testing.T) {
   } else {
     t.Setenv("TMPDIR", badTmp)
   }
-  if _, err := bannerLoadBannerTypeScriptConfigFile(config, root); err == nil || !strings.Contains(err.Error(), "create config loader tempdir") {
+  if _, err := shared.BannerLoadBannerTypeScriptConfigFile(config, root); err == nil || !strings.Contains(err.Error(), "create config loader tempdir") {
     t.Fatalf("expected tempdir error, got %v", err)
   }
 }

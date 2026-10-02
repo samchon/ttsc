@@ -12,12 +12,6 @@ import (
   _ "github.com/samchon/ttsc/packages/banner/driver"
 )
 
-//go:linkname bannerLoadBannerScriptConfigFile github.com/samchon/ttsc/packages/banner/driver.loadBannerScriptConfigFile
-func bannerLoadBannerScriptConfigFile(location string) (any, error)
-
-//go:linkname bannerLoadBannerTypeScriptConfigFile github.com/samchon/ttsc/packages/banner/driver.loadBannerTypeScriptConfigFile
-func bannerLoadBannerTypeScriptConfigFile(location, resolutionRoot string) (any, error)
-
 //go:linkname bannerRelativeImportSpecifier github.com/samchon/ttsc/packages/banner/driver.relativeImportSpecifier
 func bannerRelativeImportSpecifier(fromDir, location string) (string, error)
 

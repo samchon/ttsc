@@ -56,9 +56,9 @@ const DISPATCH_HUB = 12;
  * @evidence contracts/common.md#clear-and-simple-design Handle resolution, eligible edges, dispatch, path search and coordinate summaries have helper owners; this function assembles open or requested-path results.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Ambiguity remains candidates and dispatch follows checker implementation relations; shared references are never inserted as guessed execution edges.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains direction, structural exclusion and impact roles; request documentation states bounds and focus meanings.
- * @evidence contracts/performance.md#efficient-algorithms A visited set prevents repeated node expansion; indexed adjacency bounds work to inspected frontier edges, though dense degrees and reverse dispatch can exceed the returned node cap.
+ * @evidence contracts/performance.md#efficient-algorithms A visited set prevents repeated node expansion; indexed adjacency bounds work to inspected frontier edges, though dense degrees and reverse dispatch can exceed the returned node cap and path mode expands every node within its depth bound, O(V + E) in the worst case, because only open traces have a node cap.
  * @evidence contracts/performance.md#reuse-equivalent-work Forward/reverse operations share immutable generation indexes and resolution helpers; completed trace memoization is not implemented because each request currently creates a mutable result.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Visited/frontier sets and omitted dispatch candidates exist only during the request; node/depth caps bound selected output, not every dense frontier edge inspected.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Visited/frontier sets and omitted dispatch candidates exist only during the request; node/depth caps bound selected output, not every dense frontier edge inspected, and path mode has no node cap, so its visited set and parent map grow with the nodes reachable within its 12-hop depth bound until the call returns.
  */
 export function runTrace(
   graph: TtscGraphMemory,

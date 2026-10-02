@@ -12,10 +12,10 @@ const STRUCTURAL_KINDS = new Set<string>(["contains", "exports"]);
 
 /**
  * Project a compact, source-read-free architecture map: counts by kind, folder
- * layering with export density, the highest-dependency symbols (ranked by real
+ * layering with exported-symbol counts, the highest-dependency symbols (ranked by real
  * fan-in/out, excluding structural edges so nesting does not masquerade as
- * dependency), and the export surface by file. Output is bounded so a model
- * reads structure cheaply.
+ * dependency), and the exported API symbols ranked by the same dependency
+ * count. Output is bounded so a model reads structure cheaply.
  *
  * @evidence contracts/common.md#principled-implementation Counts derive from resident nodes/edges; facet helpers distinguish folder population from non-structural dependency connectivity and exported declarations.
  * @evidence contracts/common.md#clear-and-simple-design The aspect selector assembles only requested facets, sharing coordinate and path policies across their helpers.
