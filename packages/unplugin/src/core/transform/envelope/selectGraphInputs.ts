@@ -24,7 +24,12 @@ import { selectReachableEdges } from "./selectReachableEdges";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why flat bundler inputs are derived at this boundary, the exact completeness effect and empty outcomes; acknowledgment spacing follows the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Graph paths are already native absolute spellings from the shared builder, and physical reachability identity belongs to its filesystem context; this selector introduces no additional separator or case policy.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Appends each reachable edge, global and config once.
+ *   Complete declarations copy only the config list. Otherwise the delegated
+ *   closure scans every reached adjacency entry and queries native identities,
+ *   then this function copies reached targets, globals and configs. Cost
+ *   includes key/path text and cold native observations, not just returned
+ *   members. The closure's temporary state and this output grow with their
+ *   respective visited and selected populations.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
