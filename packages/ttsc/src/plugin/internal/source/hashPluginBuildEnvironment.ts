@@ -18,10 +18,16 @@ import { spawnGoTool } from "./spawnGoTool";
  * source state both distinguish the artifact policy used by native
  * compilation.
  *
- * A plugin binary is a function of its sources and of this environment, so both
+ * The declared source/build identity uses these selected observations, so both
  * the plugin cache key (`computeCacheKey`) and the state a transform reports
  * for each source directory (`pluginSourceState`) take it from here, one rule
- * for the build and for every consumer that proves the build's output.
+ * for the build and consumers comparing that selected identity. Failed Go env
+ * queries or normalization can fall back to available effective environment
+ * values; this is not proof that every Go-reported setting was observed.
+ * Command tokens are inspected against the current process cwd and executable
+ * search environment; programs a launcher selects by other means remain outside
+ * the named-token observation. Native reads and metadata-qualified memos are
+ * sequential, not an atomic toolchain snapshot.
  *
  * @param hash What the environment's framed values enter: the key's hash, or
  *   one that digests the environment alone, or both at once.
@@ -35,14 +41,14 @@ import { spawnGoTool } from "./spawnGoTool";
  *   variable carries: the Go tool, the Go environment file `go env -w` writes,
  *   the executables the C toolchain commands name, and GOROOT. A consumer that
  *   keeps the reading compares their metadata before reusing it.
- * @evidence contracts/common.md#principled-implementation Fixed artifact flags, compiler bytes/version, selected Go build values, command executables and contributing SDK files enter a deterministic digest; source-state reporting uses this same serialization rather than a second definition of toolchain identity.
+ * @evidence contracts/common.md#principled-implementation Fixed artifact flags, observed compiler bytes/version, selected reported-or-fallback build values, named command executables and selected SDK files enter the same framed identity used by source-state reporting. Fallback values and metadata-qualified reuse are explicit premises, not complete observation of arbitrary toolchain inputs.
  * @evidence contracts/common.md#clear-and-simple-design Private helpers separate compiler identity, Go-reported settings, external variables and SDK content while sharing one hash sink and optional pre-read witness.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cache signatures include real identity/change metadata and effective invocation context; failed SDK witnessing refuses reuse rather than accepting a VERSION-only proxy.
  * @evidence contracts/common.md#meaningful-documentation Native documentation names the input classes and witness purpose; private comments explain context-sensitive compiler memoization and SDK exclusions without treating a passing check as proof.
  * @evidence contracts/portability.md#os-neutral-implementation Node path/stat/process APIs resolve native tool identities; platform-specific executable suffixes and environment lookup are isolated in GoToolResolution, and Go supplies its own effective build settings.
- * @evidence contracts/performance.md#efficient-algorithms SDK traversal observes E entries in D reached directories, sorts each directory population and F selected files, and frames link topology; changed manifests read B selected bytes while matching manifests reuse their aggregate. Compiler/context misses additionally execute Go version probing and read compiler or command bytes; effective environment framing scales with its values.
- * @evidence contracts/performance.md#reuse-equivalent-work Compiler identity shares only matching realpath, file signature and invocation cwd/environment; the SDK aggregate identity reuses only an identical ordered metadata and target-topology manifest. Physical directories expand once per selection policy while aliases retain explicit edges, and every reached SDK dependency enters the caller's witness.
- * @evidence contracts/performance.md#bound-retention-and-release-resources This module retains compiler, Go-environment-path and SDK identity maps for process lifetime. Existing entries can be replaced but historical distinct tool/context/root keys have no eviction bound; no subprocess handle remains after synchronous probing.
+ * @evidence contracts/performance.md#efficient-algorithms SDK traversal sorts reached entry names and selected file paths, performs native stat/realpath/link queries and serializes topology/metadata/path text. Matching manifests share aggregate hashes; changes read full selected files via the caller adapter, retaining file buffers with population/topology data. Compiler misses probe version/read bytes, Go env can run up to three times for its file witness, and command tokens can each perform executable searches/full reads. Environment sorting/framing and command substring parsing also process name/value/command bytes; E/D/F/B alone do not capture native lookup or text comparison costs.
+ * @evidence contracts/performance.md#reuse-equivalent-work Compiler memo identity includes selected path/file metadata and invocation cwd/environment; SDK aggregate reuse requires matching complete ordered metadata/topology. Both rely on native metadata distinguishability and sequential observation premises, not independently rehashed content on each hit. Physical directories expand once per selection policy while aliases retain edges; optional caller witnesses receive reached selected dependencies.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Compiler, Go-environment-path and SDK maps retain historical distinct tool/context/root keys without eviction. SDK population/topology and full individual file reads contribute transient bytes; synchronous probes delegate process/capture lifetime to their owner and do not certify arbitrary descendants are gone. No independent entry/record/file/output byte ceiling is imposed here.
  */
 export function hashPluginBuildEnvironment(
   hash: { update(data: string): unknown },
@@ -147,15 +153,14 @@ const EXTERNAL_GO_BUILD_ENV_KEYS: readonly string[] = [
 
 // Per-process memo for the Go compiler identity. `computeCacheKey` runs once
 // per source plugin, so an N-plugin project that points every plugin at the
-// same toolchain would otherwise pay N `go version` spawns plus N ~150MB
-// binary hashes for a value that does not change between plugins. The result
-// is a pure function of the go binary's resolved real path plus its on-disk
-// content; the memo key therefore mixes the resolved real path with a cheap
+// same toolchain would otherwise repeat version probes and compiler-byte
+// hashes. Identity includes the selected binary and version result under its
+// invocation context; the memo key mixes resolved path with a native
 // content signature (filesystem identity, mode, byte size, and nanosecond
 // change/modify times). That signature changes if a long-lived host rewrites
 // or atomically replaces the binary between calls, so the memo re-derives the
-// identity exactly as an unmemoized read would and the cache-key bytes are the
-// same with or without it. The selected compiler
+// identity under the metadata-distinguishability premise. A hit does not
+// independently reread binary content. The selected compiler
 // path is shared by every build subprocess, while `go version` uses
 // the same effective cwd and environment as the cache-key `go env` query. The
 // memo key includes that context so an environment-sensitive wrapper cannot
@@ -199,9 +204,9 @@ function resolveGoCompilerIdentity(
   return identity;
 }
 
-// Build a memo key that pins both the resolved binary path and its current
-// content. Returns null (skip caching, recompute) when the binary cannot be
-// stat-ed, so the rare unstattable case never serves a stale identity.
+// Build a memo key from resolved path, native metadata and invocation context,
+// not a retained handle or fresh content hash. Unavailable stat returns null
+// and skips memo reuse.
 function goCompilerIdentityMemoKey(
   goBinary: string,
   resolved: string,
