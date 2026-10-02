@@ -11,12 +11,10 @@ import (
 
 // TestPublicRuleContextReportFixForwardsToFixReporter verifies contributor fix path.
 //
-// The positive path of `rule.Context.ReportFix` — host implements `FixReporter`,
-// contributor emits one or more edits, the edits land on the host with order and
-// payload preserved — is required by contributors that ship fixers. This test
-// pins the contract so a future refactor
-// of the unexported assertion site at `rule.go::ReportFix` cannot silently
-// downgrade the call to the diagnostic-only path.
+// An observing FixReporter receives the public Context's node, message and
+// ordered edit payload once, without ordinary Report fallback. This case
+// establishes capability selection; it does not run the internal adapter or
+// apply edits to a file.
 //
 //  1. Build a fake reporter implementing Reporter + FixReporter and capture every
 //     invocation.

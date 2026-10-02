@@ -798,9 +798,9 @@ func (c *Context) Report(node *shimast.Node, message string) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy degradation addresses an actual supported reporter difference without patching foreign methods or suppressing the finding.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains best-effort edits and legacy fallback; the tag boundary follows documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ReportFix performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ReportFix has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ReportFix keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ReportFix acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Guards, edit presence and one capability assertion choose no edit-processing algorithm. The selected reporter owns range work, edit conversion/copy and collection cost; this wrapper passes the slice through without certifying fixed total work.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This is an effectful reporting call, not a request coordinator. The reporter owns finding identity and edit collection; matching node/message/edit values do not authorize suppressing a separate invocation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This wrapper stores no report history or new handle/task and forwards the caller edit slice synchronously. A reporter that retains edits owns copying and collection lifetime; the hosted adapter converts records and its collector owns resulting finding/edit storage.
 func (c *Context) ReportFix(node *shimast.Node, message string, edits ...TextEdit) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
     return
@@ -845,9 +845,9 @@ func (c *Context) ReportRange(pos, end int, message string) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The supported legacy fallback preserves diagnostics rather than hiding a failed fix or replacing reporter internals.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains optional edits and fallback; separated tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ReportRangeFix performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ReportRangeFix has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ReportRangeFix keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ReportRangeFix acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Guards and one optional-capability branch select delegation, not an edit-processing algorithm. Reporter-side coordinate normalization, edit conversion/copy and collection remain that owner's cost; passing through a variadic slice is not a fixed-total-cost guarantee.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Range-fix reporting performs an observable collection effect and coordinates no shared request result. The reporter owns identity/deduplication; equal range/message/edit inputs alone do not permit suppressing another call.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The wrapper adds no stored finding history, handle or task and forwards the supplied edit slice synchronously. Retained edit/finding storage and copying belong to the reporter; the hosted adapter converts records before handing them to its run-owned collector.
 func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff {
     return
