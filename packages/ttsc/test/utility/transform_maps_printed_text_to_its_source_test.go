@@ -12,8 +12,7 @@ import (
 
 // TestUtilityTransformMapsPrintedTextToItsSource verifies the transform
 // envelope carries a source map from each changed file's printed text back to
-// the text its author wrote, and none for a file printed unchanged
-// (samchon/ttsc#1392).
+// the text its author wrote, and none for a file printed unchanged.
 //
 // The utility host reprints every transformed file. A bundler handed that text
 // without a map attributes every later position to the reprint: a Rollup build

@@ -51,7 +51,7 @@ func rewriteSpecifierLiterals(node *shimast.Node, from, to string) {
 // literals the graph's edge resolution reads through the checker. If the host
 // computed the graph after ApplyLinkedPlugins, a rewritten specifier would
 // resolve to nothing and the edge would silently vanish — exactly the class
-// of missing invalidation edge samchon/ttsc#716 exists to close. The graph is
+// of missing invalidation edge the graph exists to close. The graph is
 // therefore computed before plugin hooks run: edges are transform inputs, the
 // mutated text is transform output.
 //

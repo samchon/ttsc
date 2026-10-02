@@ -31,7 +31,7 @@ func serveRequestLine(t *testing.T, file string) string {
 // the same file requested twice returns the identical cached transform, and a
 // file outside the program is reported not-found.
 //
-// This is the resident transform host of samchon/ttsc#255: one warm process
+// This is the resident transform host: one warm process
 // answers per-file requests without recompiling the project per call. The host
 // keys its cache exactly like the transform envelope (project-relative paths)
 // and accepts absolute request paths.

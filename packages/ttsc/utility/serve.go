@@ -58,8 +58,7 @@ type serveUpdateResponse struct {
 //
 // One resident process answers a request stream without recompiling the project
 // per call and reflects edits without respawning the host. Sharing one host
-// across separate worker processes (a Metro worker pool) is tracked in
-// samchon/ttsc#255.
+// across separate worker processes (a Metro worker pool) is not supported.
 //
 // in and out are explicit so the request loop is testable; the utility-host
 // command wires them to os.Stdin and os.Stdout.
@@ -194,8 +193,7 @@ func buildServeCache(opts hostOptions) (map[string]string, bool) {
 // same form TypeScript-Go's own SourceFile.FileName() and the OverlayFS key
 // already use, so apiOutputKey and overlay lookups match regardless of how the
 // caller spelled the path. tspath.ResolvePath discards cwd and normalizes in
-// place when file is already rooted, so one call covers both request cases
-// (samchon/ttsc#319).
+// place when file is already rooted, so one call covers both request cases.
 func resolveServePath(cwd, file string) string {
   return shimtspath.ResolvePath(cwd, file)
 }

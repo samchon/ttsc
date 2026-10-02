@@ -15,18 +15,14 @@ import (
 // and a spelling that can otherwise reach this host on any OS (a
 // Windows-authored fixture, a request forwarded from a different machine).
 //
-// samchon/ttsc#319: TypeScript-Go always normalizes SourceFile.FileName() to
-// forward slashes, and buildServeCache keys its per-file cache off that
-// normalized name. Before this fix, resolveServePath passed a caller-supplied
-// path through unchanged (filepath.Join/pass-through). On a POSIX host, Go's
-// path/filepath treats backslash as an ordinary filename character rather
-// than a separator, so the old code's apiOutputKey computation split the path
-// in the wrong place and missed the cache entry; tspath.ResolvePath
-// normalizes separators independent of the host OS, matching what
-// TypeScript-Go itself does. On Windows this exact input already round-trips
-// through Go's own filepath package either way — the dot-segment case in
-// packages/lint (same issue) is what reproduces the gap on any host OS,
-// including Windows.
+// TypeScript-Go always normalizes SourceFile.FileName() to forward slashes, and
+// buildServeCache keys its per-file cache off that normalized name. A
+// caller-supplied path passed through unchanged would, on a POSIX host, reach
+// Go's path/filepath, which treats backslash as an ordinary filename character
+// rather than a separator, so apiOutputKey would split the path in the wrong
+// place and miss the cache entry. resolveServePath therefore normalizes with
+// tspath.ResolvePath, which handles separators independent of the host OS, as
+// TypeScript-Go itself does.
 //
 //  1. Build a single-file project.
 //  2. Request the file using a path whose final segment is joined with "\"

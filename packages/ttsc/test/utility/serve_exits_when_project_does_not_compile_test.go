@@ -23,7 +23,7 @@ func (failingReader) Read([]byte) (int, error) {
 // RunServe exit non-zero before serving any request, rather than coming up and
 // answering with empty transforms.
 //
-// This is the startup half of the diagnostics contract (samchon/ttsc#255): the
+// This is the startup half of the diagnostics contract: the
 // JS client surfaces the non-zero exit (and the stderr diagnostics) as a
 // rejected transformFile, so the build error reaches the caller instead of
 // silently producing nothing.

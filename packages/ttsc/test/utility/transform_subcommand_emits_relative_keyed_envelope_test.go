@@ -9,8 +9,8 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/utility"
 )
 
-// TestTransformSubcommandEmitsRelativeKeyedEnvelope guards regression #3 beyond
-// the single-file preamble case: a multi-source project must export *every*
+// TestTransformSubcommandEmitsRelativeKeyedEnvelope guards the keying of the
+// envelope beyond the single-file preamble case: a multi-source project must export *every*
 // in-project file under a cwd-relative slash key, and the returned typescript
 // map must be non-empty so the JS launcher never sees a "no output" envelope.
 //

@@ -57,7 +57,7 @@ type hostOptions struct {
 // so cache layers can register every file whose content can influence a
 // transformed module without per-plugin reporting. SourceMaps carries, keyed
 // like TypeScript, a version 3 source map from each printed file whose text
-// differs from its source back to that source (samchon/ttsc#1392).
+// differs from its source back to that source.
 type transformResult struct {
   // Dependencies and DependenciesComplete carry what the linked plugins
   // declared about their own contribution to each file; the host prints the

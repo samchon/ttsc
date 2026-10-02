@@ -29,7 +29,7 @@ func serveUpdateLine(t *testing.T, file, content string) string {
 // an in-memory edit and re-transforms, so a later transform request returns the
 // edited content without restarting the host.
 //
-// This is the incremental half of the resident host (samchon/ttsc#255): an
+// This is the incremental half of the resident host: an
 // editor or watch consumer feeds an unsaved buffer through an update request and
 // the next transform must reflect it. The host keys the overlay so the edit
 // shadows the on-disk file, rebuilds the transform over the new content, and
@@ -99,7 +99,7 @@ func TestUtilityServeReflectsOverlayUpdate(t *testing.T) {
 // update to a DIFFERENT file still succeeds rather than staying wedged on the
 // broken buffer.
 //
-// This is the load-bearing half of the update contract (samchon/ttsc#255): an
+// This is the load-bearing half of the update contract: an
 // editor sends a transient broken buffer mid-keystroke, and the resident host
 // must neither crash nor corrupt the cache, and must recover on the next good
 // edit. The recovery edit targets b.ts, not the broken a.ts, so it can only

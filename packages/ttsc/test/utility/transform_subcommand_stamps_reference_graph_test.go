@@ -26,7 +26,7 @@ type utilityTransformResultWithGraph struct {
 // TestTransformSubcommandStampsReferenceGraph verifies the linked-plugin
 // generic host's transform envelope carries the host-owned reference graph.
 //
-// Implements samchon/ttsc#716: producing the `graph` section must not be
+// Producing the `graph` section must not be
 // per-plugin work — every plugin that routes its envelope through the driver
 // SDK host emits it automatically, so the stale-bundler-cache bug class is
 // closed by default. The section's keys must match the typescript map's keys
