@@ -15,9 +15,11 @@ import type { ViteModuleNodeLike } from "./ViteModuleNodeLike";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains versioned graph ownership; spaced member comments name
  *   fast lookup and fallback scanning per documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   ViteModuleGraphLike only declares a shape; it has no filesystem, path or
- *   process operation at runtime.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   File keys and the lookup parameter represent host file paths at Vite's
+ *   normalized graph boundary, not module URLs or query-qualified IDs. Physical
+ *   alias/case comparison belongs to the selector's filesystem identity owner;
+ *   this type does not equate slash spelling with native file identity.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
  *   ViteModuleGraphLike only declares a shape; it has no computation at
  *   runtime.
@@ -30,8 +32,8 @@ import type { ViteModuleNodeLike } from "./ViteModuleNodeLike";
  */
 export interface ViteModuleGraphLike {
   /**
-   * Every file with its module nodes, scanned when the fast lookup misses a
-   * spelling.
+   * Exposed file mappings with their module nodes, scanned when the fast lookup
+   * misses a spelling. The shape does not certify map completeness.
    */
   fileToModulesMap?: Map<string, Set<ViteModuleNodeLike>>;
 
@@ -48,9 +50,10 @@ export interface ViteModuleGraphLike {
    * @evidence contracts/common.md#meaningful-documentation
    *   The comment states normalized path spelling; parent member docs explain
    *   fallback purpose, with native spacing per documentation guidance.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation
-   *   Only the signature of getModulesByFile is declared here; the platform
-   *   behaviour belongs to its implementation.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   The parameter is a host file spelling at the normalized graph boundary;
+   *   URL/query parsing and guessed OS-wide filesystem case are not its meaning.
+   *   An absent exact mapping leaves physical alias resolution to the caller.
    * @evidenceExclude contracts/performance.md#efficient-algorithms
    *   Only the signature of getModulesByFile is declared here; the cost belongs
    *   to its implementation.
@@ -64,7 +67,8 @@ export interface ViteModuleGraphLike {
   getModulesByFile?(file: string): Set<ViteModuleNodeLike> | undefined;
 
   /**
-   * Drop a node's cached transform so the next request retransforms it.
+   * Request the owning graph to invalidate an opaque node's cached transform.
+   * The optional operation does not itself certify the next request's behavior.
    *
    * @evidence contracts/common.md#principled-implementation
    *   The opaque node is returned to its owning graph, which owns transform
@@ -74,7 +78,7 @@ export interface ViteModuleGraphLike {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts
    *   Callers use Vite's operation instead of replacing or clearing foreign internals.
    * @evidence contracts/common.md#meaningful-documentation
-   *   The native comment explains the next-request effect and separates tags,
+   *   The native comment explains the host-owned invalidation request and separates tags,
    *   following the documentation skill's member presentation guidance.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation
    *   Only the signature of invalidateModule is declared here; the platform
