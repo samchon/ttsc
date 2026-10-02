@@ -11,7 +11,9 @@ import { runLookup } from "./runLookup";
 type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
 
 const DEFAULT_LIMIT = 4;
-const MAX_LIMIT = 8;
+// The hits come from `runLookup`, which returns at most six, so a larger limit
+// could only ever be ignored.
+const MAX_LIMIT = 6;
 const DEFAULT_NEIGHBORS = 0;
 const MAX_NEIGHBORS = 2;
 const MAX_SEEDS = 3;
