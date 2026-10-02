@@ -12,13 +12,10 @@ import (
 // trace records the ancestor it actually observed instead of fingerprinting the
 // directory that contains it.
 //
-// The collector walks path components from the filesystem root and holds
-// `current` at that root through the whole first iteration, so every early
-// return there published `/` as a watch input and digested it by enumerating
-// the entire root. Four branches reach that state -- an ancestor that fails
-// `lstat`, a symlink ancestor, an ancestor that is not a directory, and a
-// candidate whose last component sits directly on the root -- so proving only
-// the reported macOS `/var` case would leave the rest publishing the record.
+// Two absent manifest-main paths observe an exact root-level entry instead of
+// the filesystem root. An ordinary in-project parent remains a directory watch
+// input. These fixtures do not directly exercise root-level symlink or
+// non-directory ancestors, nor do they count directory enumeration calls.
 //
 // The parent digest is not the defect and must survive. It is how a sibling
 // that would win extension resolution invalidates the cache, so only the root
@@ -57,6 +54,9 @@ func TestConfigDependencyGraphNeverPublishesTheFilesystemRoot(t *testing.T) {
   // 1. An absolute main whose very first component is absent. The collector
   //    fails `lstat` on that component while `current` is still the root.
   absentAncestor := filepath.Join(filesystemRoot, "ttsc-lint-absent-ancestor")
+  if _, err := os.Lstat(absentAncestor); !os.IsNotExist(err) {
+    t.Fatalf("fixture requires an absent root ancestor: %s error=%v", absentAncestor, err)
+  }
   absentMain := filepath.Join(absentAncestor, "main.cjs")
   absentPackage := filepath.Join(root, "node_modules", "absent-main")
   write(
@@ -86,6 +86,9 @@ func TestConfigDependencyGraphNeverPublishesTheFilesystemRoot(t *testing.T) {
   //    reaches its last component while `current` is still the root, so the
   //    parent-digest reasoning would enumerate the root one more way.
   rootLevelMain := filepath.Join(filesystemRoot, "ttsc-lint-absent-root-main.js")
+  if _, err := os.Lstat(rootLevelMain); !os.IsNotExist(err) {
+    t.Fatalf("fixture requires an absent root-level main: %s error=%v", rootLevelMain, err)
+  }
   rootLevelPackage := filepath.Join(root, "node_modules", "root-level-main")
   write(
     filepath.Join(rootLevelPackage, "package.json"),
