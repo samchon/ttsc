@@ -10,6 +10,7 @@ import { isPossibleProgramFileName } from "./isPossibleProgramFileName";
  * carries an extension the resolved configuration admits, which is what makes a
  * bundle emitted beside the sources invisible to a project that compiles no
  * JavaScript.
+ *
  * Non-file entries remain possible without proving that the walk follows them.
  * Directory admission and actual file hashing are separate decisions of the
  * walk; this predicate only supplies its membership-digest eligibility.
