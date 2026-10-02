@@ -12,10 +12,10 @@ import (
 // nested inside a `namespace` — its decorator line AND its `interface I`
 // declaration line — from a fully flattened source. ttsc-only self-check.
 //
-// The parser attaches the leading `@Dec` to the InterfaceDeclaration, so a
-// decorated interface is a decorated declaration statement just like a class.
-// The declaration-line re-indent must cover it, or `interface I` would stay at
-// column 0.
+// The fixture places `@Dec` above an interface declaration. Whole-file equality
+// requires both lines and the member to move together, extending the formatting
+// check beyond classes and functions. It does not assert that interface
+// decorators are accepted by typechecking.
 //
 //  1. Flatten a namespace-nested decorated interface canonical to column 0.
 //  2. Run `ttsc format`.
