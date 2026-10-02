@@ -530,8 +530,9 @@ type RelatedInformation struct {
 // group first, and accepts a group only when every member coexists with the
 // edits already accepted. If any member would be dropped, the whole group is
 // skipped, so a multi-edit fix never half-applies. The skipped finding is not
-// lost: the next cascade pass re-runs the rule against the rewritten source
-// and the fix applies then, or the cascade converges without it.
+// lost: a later cascade pass may re-evaluate it against rewritten source.
+// Application is not guaranteed; the cascade can finish without that edit or
+// reach its pass limit and report non-convergence.
 //
 // A finding's own edits must therefore not overlap each other either, or the
 // finding can never apply. Exact duplicates within one finding are collapsed
@@ -565,19 +566,16 @@ type TextEdit struct {
   Text string
 }
 
-// Suggestion is one of several candidate fixes offered for a finding, each with
-// its own title. It exists for the case `ReportFix` cannot serve: when a rule
-// knows more than one valid repair and cannot pick among them for the author.
+// Suggestion is one author-selected edit group with its own title. Use it when
+// a change needs an explicit choice, including a single repair that automatic
+// fixing must withhold or several alternatives among which the rule cannot
+// choose. Automatic fix and fix-all operations do not apply suggestions.
 //
-// The distinction is the same one the built-in rules already draw and, until
-// now, kept to themselves. A fix is imposed; a suggestion is chosen. A rule that
-// found three valid renames must either impose one arbitrarily through
-// `ReportFix` or describe the three in prose and offer none — both worse than
-// letting the editor present the choice, which is what the built-ins do through
-// this shape and contributors could not reach.
-//
-// Edits within one Suggestion follow the same non-overlap policy as `TextEdit`
-// in a `ReportFix` call.
+// The lint host omits choices with an empty title or no edits, while keeping
+// the primary diagnostic. Each advertised choice must contain distinct,
+// non-overlapping, in-bounds edits. The LSP application rejects a choice if
+// edit validation drops any member, including an exact duplicate; the
+// automatic-fix group's internal duplicate collapsing does not apply here.
 //
 // @evidence contracts/common.md#principled-implementation Title and edit group express one author-selected alternative rather than imposing an arbitrary valid repair.
 // @evidence contracts/common.md#clear-and-simple-design One value groups display text with the candidate's edits independently from the finding.
@@ -591,21 +589,20 @@ type Suggestion struct {
   // Title is what the editor shows for this choice, e.g. "Rename to `frames`".
   Title string
 
-  // Edits apply this suggestion. Empty means the suggestion is a label with no
-  // edit — a "did you mean" the author acts on by hand.
+  // Edits apply this choice after selection. The lint host omits a choice
+  // with no edits rather than advertising a label-only action.
   Edits []TextEdit
 }
 
-// SuggestionReporter is the optional half of the reporter a host implements to
-// carry suggestions. A host that does not implement it still receives the
-// finding through `Reporter`, without the choices — the same graceful
-// degradation `FixReporter` gives autofixes.
+// SuggestionReporter is the optional reporter extension that carries
+// author-selected edit choices. A host without it still receives the primary
+// finding through Reporter, without the choices.
 //
-// It is separate from `FixReporter` rather than folded into it because the two
-// answer different questions: `ReportFix` offers the one right rewrite, this
-// offers a choice among several. A rule reaches it through
-// `Context.ReportSuggestion` / `ReportRangeSuggestion`; it is not called
-// directly.
+// This channel is separate from FixReporter because explicit selection and
+// automatic application have different policies. One suggestion may require
+// consent even when it is the only available repair; several suggestions may
+// offer alternatives. Rules submit them through Context.ReportSuggestion or
+// ReportRangeSuggestion, and the host decides which choices it can publish.
 //
 // @evidence contracts/common.md#principled-implementation Optional suggestion reporting keeps multiple candidate repairs attached to the finding while legacy reporters retain the diagnostic alone.
 // @evidence contracts/common.md#clear-and-simple-design A separate extension represents author choice without conflating it with an automatic fix.
