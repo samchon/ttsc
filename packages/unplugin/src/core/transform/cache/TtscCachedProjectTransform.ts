@@ -147,10 +147,15 @@ export interface TtscCachedProjectTransform {
   inputSignatures?: Record<string, string>;
 
   /**
-   * Raw source hash of every readable key in the transform output, keyed by
-   * filesystem identity. Unlike {@link inputHashes}, this includes source
-   * outputs outside the project walk without adding arbitrary output keys to
-   * the complete project snapshot.
+   * Native host-state hashes for source paths named by transform outputs,
+   * keyed by filesystem identity, including paths outside the project walk.
+   * Failed reads of observed directories retain the host-state directory
+   * marker; other failed reads supply no entry. The current source identity is
+   * overwritten with its pre-compile disk hash when available, or its delivered
+   * text hash otherwise, even without an output key. That fallback is not
+   * compiler-observed disk proof and cannot grant generation completeness.
+   * Unlike {@link inputHashes}, this map does not add output names to the
+   * complete project-walk key universe.
    */
   sourceHashes?: Record<string, string>;
 
