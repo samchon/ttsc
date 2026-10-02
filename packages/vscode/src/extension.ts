@@ -31,6 +31,8 @@ import {
   type ExpectedServerRestartHandler,
   createExpectedServerRestartHandler,
 } from "./expectedServerRestart";
+import { findClientEntryByRoot } from "./findClientEntryByRoot";
+import { resolveWithDirectoryMemo } from "./resolveWithDirectoryMemo";
 import {
   type ResolutionCandidate,
   createDocumentSelectorPattern,
@@ -193,17 +195,17 @@ function resolveServerLaunchSpecForUri(
   const activeWorkspaceRoot =
     folder?.uri.scheme === "file" ? folder.uri.fsPath : undefined;
   const memoKey = `${path.dirname(uri.fsPath)}\0${activeWorkspaceRoot ?? ""}`;
-  if (memo.has(memoKey)) {
-    return memo.get(memoKey);
-  }
-  const spec = createServerLaunchSpecs(
-    createResolutionCandidates({
-      activeFile: uri.fsPath,
-      activeWorkspaceRoot,
-    }),
-  )[0];
-  memo.set(memoKey, spec);
-  return spec;
+  return resolveWithDirectoryMemo(
+    memoKey,
+    memo,
+    () =>
+      createServerLaunchSpecs(
+        createResolutionCandidates({
+          activeFile: uri.fsPath,
+          activeWorkspaceRoot,
+        }),
+      )[0],
+  );
 }
 
 function createServerOptions(
@@ -483,12 +485,9 @@ function clientEntryForUri(uri: Uri): ClientEntry | undefined {
  * directory behind a link is removed.
  */
 function findClientEntry(root: string): ClientEntry | undefined {
-  for (const entry of clients.values()) {
-    if (entry.root === root) {
-      return entry;
-    }
-  }
-  return clients.get(rootKey(root));
+  return findClientEntryByRoot(clients.values(), clients, root, (value) =>
+    rootKey(value),
+  );
 }
 
 async function ensureClientForUri(
