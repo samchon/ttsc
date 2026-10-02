@@ -45,7 +45,7 @@ export async function test_generation_diagnostics_follow_persistent_and_pass_del
       plugins: options.plugins,
       tsconfig: path.join(root, "tsconfig.json"),
     });
-    const marker = persistent ? "PERSISTENT-WARNING" : "PASS-WARNING";
+    const marker = persistent ? "TTSC-TEST-PERSISTENT-WARNING" : "TTSC-TEST-PROJECT-WIDE-WARNING";
     const line = `src/mod0.ts: 1:1: ${marker}\n`;
     const seed = (warning: boolean): void => {
       cache.set(key, Promise.resolve(observeValidationUnitGeneration(root, {
