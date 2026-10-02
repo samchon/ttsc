@@ -16,7 +16,7 @@ const ANSI_REGEXP = /\x1b\[[0-9;]*m/g;
  * Parse the lint plugin's stderr (tsgo-style pretty diagnostics) into the
  * playground's normalized diagnostic shape.
  *
- * @evidence contracts/common.md#principled-implementation The parser recognizes the supported pretty-diagnostic grammar after removing actual ANSI SGR escapes and converts its one-based coordinates to UI records.
+ * @evidence contracts/common.md#principled-implementation The parser recognizes the supported pretty-diagnostic grammar after removing actual ANSI SGR escapes and carries its one-based line and column unchanged into UI records.
  * @evidence contracts/common.md#clear-and-simple-design Matching and record construction stay in one pass; token-span inference remains a local helper rather than a second diagnostic protocol.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown lines are omitted as non-diagnostics; the owning pipeline separately reports plugin failure instead of treating every empty parse as success.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies producer format and normalization responsibility; nearby comments explain ANSI matching reasons under the documentation skill.

@@ -56,7 +56,8 @@ export interface IPlaygroundShellProps {
   /**
    * Optional execute hook. When provided, the shell renders an "Execute"
    * button; on click it calls `service.bundle(...)` to get the JS and passes it
-   * here. The returned messages are appended to the Console pane.
+   * here. Calls the hook makes on `sandbox.console` are appended to the Console
+   * pane in order; its returned promise carries no messages.
    *
    * `sandbox.runtimeFiles` is the current runtime-file map produced by
    * dependency installation in this session
@@ -66,10 +67,10 @@ export interface IPlaygroundShellProps {
    * sandbox cannot resolve any npm dependency the user installed.
    *
    * `sandbox.signal` aborts when source or compiler options change, a newer
-   * Execute starts, or the shell unmounts. Implementations must pass it through
-   * to cancellable setup such as runtime-pack fetches. Synchronous evaluated
-   * user code cannot be preempted and still requires an isolated executor when
-   * untrusted code is accepted.
+   * Execute starts, the compiler Worker is replaced, or the shell unmounts.
+   * Implementations must pass it through to cancellable setup such as
+   * runtime-pack fetches. Synchronous evaluated user code cannot be preempted
+   * and still requires an isolated executor when untrusted code is accepted.
    *
    * When omitted, the Execute UI is hidden.
    */
