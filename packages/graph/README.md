@@ -123,8 +123,8 @@ The interactive charts, every model, and the method are on the benchmark page: h
  *
  * Before source edits, compiler declaration facts retain the resolution of the
  * synchronized snapshot. The server derives `file` containers, `contains`
- * ownership, `property` kinds and `dispatches` hops from those declarations.
- * Lint plugins supply document, data-model and API-operation facts; `audit`
+ * ownership, `property` kinds, `dispatches` hops and path-convention `test`
+ * roles from those declarations. Lint plugins supply document, data-model and API-operation facts; `audit`
  * identifies these distinct producers. Never use extra graph calls,
  * repository search, or file reads to doubt,
  * fact-check, re-derive, re-narrate, or re-confirm a returned node, span, edge,

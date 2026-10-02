@@ -98,7 +98,7 @@ export default {
 };
 ```
 
-The adapter emits transformed **TypeScript**, not JavaScript, and plain Rollup does not compile TypeScript itself, so an esbuild- or swc-based plugin follows `ttsc()`; without it the build fails parsing type syntax. Bundlers that strip types on their own (Vite, Rolldown, esbuild, Farm, Bun, and webpack 5.110 or later) need no such step, and Rspack and older webpack need one too.
+The adapter emits transformed **TypeScript**, not JavaScript, and plain Rollup does not compile TypeScript itself, so an esbuild- or swc-based plugin follows `ttsc()`; without it the build fails parsing type syntax. Bundlers that strip types on their own (Vite, Rolldown, esbuild, Farm, Bun, and webpack 5.109 or later) need no such step, and Rspack and older webpack need one too.
 
 ## Rolldown
 
@@ -141,7 +141,7 @@ export default {
 };
 ```
 
-webpack 5.110 and later strip TypeScript on their own: `experiments.typescript` defaults to `"auto"`, which turns on when Node has `module.stripTypeScriptTypes` and no rule already handles `.ts`. An older webpack needs a TypeScript loader after the adapter, for example `module: { rules: [{ test: /\.[cm]?tsx?$/, loader: "esbuild-loader" }] }`.
+webpack 5.109 and later strip TypeScript on their own: `experiments.typescript` defaults to `"auto"`, which turns on when Node has `module.stripTypeScriptTypes` and no rule already handles `.ts`. An older webpack needs a TypeScript loader after the adapter, for example `module: { rules: [{ test: /\.[cm]?tsx?$/, loader: "esbuild-loader" }] }`.
 
 ## Rspack
 

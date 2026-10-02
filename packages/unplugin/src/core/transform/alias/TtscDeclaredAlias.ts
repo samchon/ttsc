@@ -26,8 +26,9 @@ export interface TtscDeclaredAlias {
 
   /**
    * The Vite root a replacement with a leading `/` is resolved against first,
-   * as `vite:resolve` does. Absent for a caller that passes raw aliases, which
-   * resolve against `process.cwd()`, Vite's own default root.
+   * as `vite:resolve` does. Absent for a caller that passes raw aliases, whose
+   * absolute replacement is then read as itself and never against a guessed
+   * root (`createAliasPaths`).
    */
   root?: string;
 }

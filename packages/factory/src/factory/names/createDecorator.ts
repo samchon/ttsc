@@ -6,7 +6,9 @@ import { make } from "../internal/make";
  *
  * The `expression` is the decorator body, commonly an identifier or a call
  * expression. The printer prefixes it with `@` and emits the expression as
- * given; it does not add the surrounding declaration.
+ * given, except that it adds parentheses when the decorator grammar would not
+ * accept the expression bare, such as a binary expression or an element access.
+ * It does not add the surrounding declaration.
  *
  * With `expression` of an identifier named `deco`, this prints:
  *

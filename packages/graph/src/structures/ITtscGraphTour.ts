@@ -75,8 +75,9 @@ export namespace ITtscGraphTour {
     reinterpretations: string[];
 
     /**
-     * Central entrypoints to seed the tour. Raise only when the question names
-     * several public paths that must all appear in one answer.
+     * Central entrypoints to seed the tour, from 1 to 5. The default is the
+     * maximum, so a larger value changes nothing and a smaller one narrows the
+     * tour.
      *
      * @default 5
      */

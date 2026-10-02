@@ -21,7 +21,7 @@ const (
 // catalogued on the ttsc website, as one level-3 heading per rule (the rule
 // name in a code span) in website/src/content/docs/lint/rules/<family>.mdx.
 //
-// `format` is deliberately absent. Its 17 rules have no page of their own: the
+// `format` is deliberately absent. Its rules have no page of their own: the
 // `lint/format` guide documents the configuration keys (`semi`, `printWidth`,
 // …), which do not correspond one-to-one with the rule names (`format/quotes`,
 // `format/clause-join`, `format/whitespace`, …). Emitting an anchor there would
