@@ -47,7 +47,7 @@ export function test_hashpluginbuildenvironment_hashes_every_program_a_c_command
     );
     return hash.digest("hex");
   };
-  const command = (flag: string) => `"${launcher}" ${flag} ${compiler}`;
+  const command = (flag: string) => `"${launcher}" ${flag} "${compiler}"`;
 
   const first = digest(command("-O2"));
   assert.equal(digest(command("-O2")), first, "an unchanged command");
@@ -56,9 +56,10 @@ export function test_hashpluginbuildenvironment_hashes_every_program_a_c_command
   assert.notEqual(replaced, first, "the delegated compiler is hashed");
   assert.notEqual(digest(command("-O3")), replaced, "a flag is command text");
   const plugin = path.join(root, "plugin");
-  fs.mkdirSync(plugin);
-  fs.writeFileSync(path.join(plugin, "go.mod"), "module example.com/plugin\n\ngo 1.26\n");
-  fs.writeFileSync(path.join(plugin, "main.go"), "package main\n");
+  TestProject.copyDirectory(path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "hashpluginbuildenvironment_hashes_every_program_a_c_command_names", "inputs-1"), root);
+  fs.renameSync(path.join(plugin, "main.go.txt"), path.join(plugin, "main.go"));
+  assert.equal(fs.readFileSync(path.join(plugin, "go.mod"), "utf8"), "module example.com/plugin\n\ngo 1.26\n");
+  assert.equal(fs.readFileSync(path.join(plugin, "main.go"), "utf8"), "package main\n");
   const toolName = process.platform === "win32" ? "mycc.exe" : "mycc";
   const firstToolDir = path.join(root, "first");
   const secondToolDir = path.join(root, "second");
