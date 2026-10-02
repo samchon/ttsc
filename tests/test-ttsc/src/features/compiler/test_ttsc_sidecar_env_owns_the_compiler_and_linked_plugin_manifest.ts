@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import os from "node:os";
+import path from "node:path";
 
 import { BuildExecution } from "../../../../../packages/ttsc/src/compiler/internal/build/BuildExecution";
 import { inheritedSidecarEnv } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/inheritedSidecarEnv";
@@ -40,14 +41,51 @@ export const test_ttsc_sidecar_env_owns_the_compiler_and_linked_plugin_manifest 
     process.env.TTSC_LINKED_PLUGINS_JSON = "{not json";
     process.env.TTSC_NODE_BINARY = "/outer/node";
     try {
-      const execution = {
+      const projectRoot = os.tmpdir();
+      const tsconfig = path.join(projectRoot, "tsconfig.json");
+      const execution: Parameters<
+        typeof BuildExecution.composeNativePluginEnv
+      >[2] = {
+        cwd: projectRoot,
         nativePlugins: [],
         pluginConfigDir: undefined,
-        projectRoot: os.tmpdir(),
-        tsgo: { binary: "/selected/tsgo" },
-      } as unknown as Parameters<typeof BuildExecution.nativePluginEnv>[1];
-      const plugin = (stage: "check" | "transform") =>
-        ({ stage }) as Parameters<typeof BuildExecution.nativePluginEnv>[2];
+        pluginSetupFailure: undefined,
+        project: {
+          configPaths: [tsconfig],
+          compilerOptions: { plugins: [] },
+          identity: {
+            invocationCwd: projectRoot,
+            logicalConfigPath: tsconfig,
+            logicalProjectRoot: projectRoot,
+            physicalConfigPath: tsconfig,
+            physicalProjectRoot: projectRoot,
+          },
+          path: tsconfig,
+          pluginBaseDirs: [],
+          root: projectRoot,
+        },
+        projectNoEmit: false,
+        projectRoot,
+        rewriteRelativeImportExtensionsForEmit: false,
+        tsgo: {
+          binary: "/selected/tsgo",
+          packageJson: "",
+          packageRoot: "/selected",
+          version: "custom",
+        },
+        tsconfig,
+      };
+      const plugin = (
+        stage: "check" | "transform",
+      ): NonNullable<
+        Parameters<typeof BuildExecution.composeNativePluginEnv>[4]
+      > => ({
+        binary: "/selected/host",
+        config: {},
+        kind: "executable",
+        source: "/selected/source",
+        stage,
+      });
 
       for (const stage of ["check", "transform"] as const) {
         const env = BuildExecution.composeNativePluginEnv(
@@ -89,8 +127,15 @@ export const test_ttsc_sidecar_env_owns_the_compiler_and_linked_plugin_manifest 
 
       const own: NodeJS.ProcessEnv = { TTSC_LINKED_PLUGINS_JSON: "{not json" };
       publishLinkedTransformPlugins(own, undefined, [
-        { config: { transform: "x" }, name: "linked", stage: "transform" },
-      ] as never);
+        {
+          binary: "/selected/linked-host",
+          source: "/selected/linked-source",
+          kind: "linked",
+          config: { transform: "x" },
+          name: "linked",
+          stage: "transform",
+        },
+      ]);
       assert.deepEqual(JSON.parse(own.TTSC_LINKED_PLUGINS_JSON!), [
         { config: { transform: "x" }, name: "linked", stage: "transform" },
       ]);
