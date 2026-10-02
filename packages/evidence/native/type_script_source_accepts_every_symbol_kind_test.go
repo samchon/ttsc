@@ -21,6 +21,7 @@ import (
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs graphRule.Check with a TypeScript reference selecting type, function and property; the ledger cites Shape, draw and version and the graph must produce no diagnostic, so all three links resolve under the symbol union. Removing only the version citation must report exactly one missing acknowledgement, for version.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the contract that a source symbol union admits every listed kind: Shape (type), draw (callable const) and version (module-level property) are addressable, and the cited Shape also discharges its width descendant. The uncited version is owed because it is a selected property unit outside any cited scope.
  * @evidence contracts/testing.md#distinguishing-cases The fully cited ledger is the positive case and the same ledger without the version citation is the negative twin that differs in one link, so a union that dropped the property selector fails both arms.
+ * @evidence contracts/testing.md#execution-ownership TestTypeScriptSourceAcceptsEverySymbolKind runs as a Go unit entry in the native package. runIndexRule executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */
 func TestTypeScriptSourceAcceptsEverySymbolKind(t *testing.T) {
   contracts := `
