@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestRuleCorpusNoRestrictedImports verifies that enabling no-restricted-imports without
-// options does not infer a project policy from the corpus fixture.
+// options does not infer a project policy.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine requires no findings for every original import and re-export with no configured restriction policy.
 // @evidence contracts/testing.md#independent-expectations The empty-options contract supplies an independently empty result; neither lodash nor underscore is forbidden by name without a user policy.

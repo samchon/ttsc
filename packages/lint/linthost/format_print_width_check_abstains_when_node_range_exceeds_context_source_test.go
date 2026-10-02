@@ -22,8 +22,8 @@ import (
 // passed to Check with a context wired to file1. The `end > len(src)` branch
 // fires and Check returns without emitting a finding.
 //
-//  1. Parse a short file (file1, 14 bytes) as the context's source.
-//  2. Parse a longer file (file2, 30+ bytes) and locate an object literal
+//  1. Parse a short file (file1, 13 bytes) as the context's source.
+//  2. Parse a longer file (file2, 46 bytes) and locate an object literal
 //     whose End offset overflows file1's byte length.
 //  3. Call Check directly with ctx.File=file1, node from file2.
 //  4. Assert no findings are collected (the guard fires and returns early).
@@ -35,7 +35,7 @@ import (
 func TestFormatPrintWidthCheckAbstainsWhenNodeRangeExceedsContextSource(t *testing.T) {
   root := t.TempDir()
 
-  // file1 is short — 14 bytes total.
+  // file1 is short — 13 bytes total.
   file1Path := filepath.Join(root, "short.ts")
   file1Src := "const x = 1;\n"
   writeFile(t, file1Path, file1Src)
@@ -49,7 +49,7 @@ func TestFormatPrintWidthCheckAbstainsWhenNodeRangeExceedsContextSource(t *testi
 
   node := firstNodeOfKind(t, file2, shimast.KindObjectLiteralExpression)
   if node.End() <= len(file1Src) {
-    t.Fatalf("fixture must exceed the context source: file2 node End=%d does not exceed len(file1)=%d; skip", node.End(), len(file1Src))
+    t.Fatalf("fixture must exceed the context source: file2 node End=%d does not exceed len(file1)=%d", node.End(), len(file1Src))
   }
 
   // Build a context pointing at file1 but visiting a node from file2.

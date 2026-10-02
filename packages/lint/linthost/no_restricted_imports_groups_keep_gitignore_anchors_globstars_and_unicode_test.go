@@ -9,7 +9,8 @@ import (
 // group patterns follow gitignore semantics for root anchors, double stars that
 // are not path globstars, trailing stars, Unicode negation and unusable ranges.
 //
-// The Test runs six rule invocations, each with its own source and group:
+// The Test runs six rule invocations, each with its own group (two of them share
+// a source):
 // "/root", "foo**bar", "foo/*", "foo/**", ["패키지/*", "!패키지/공개"] and "[z-a]".
 //
 // 1. Run each group over its two small sources and compare the reported ranges.

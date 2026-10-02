@@ -7,12 +7,11 @@ import "testing"
 // no-options form.
 //
 // Some YAML and TOML-to-JSON serializers spell "no options" as a
-// literal `null`. Pre-Cycle-1, the parser called `json.Marshal(nil)`
-// and ended up storing the four-byte string `"null"` as the options
-// blob — harmless today (rule structs unmarshal `null` into the zero
-// value) but a future `*bool` field would silently misbehave. Cycle-1
-// special-cased the nil sentinel so the options map stays clean.
-// This test pins that behavior at the contract boundary.
+// literal `null`. Marshaling the nil sentinel would store the four-byte
+// text `null` as the options blob. That is harmless today (rule structs
+// unmarshal `null` into the zero value) but a future `*bool` field would
+// silently misbehave, so the parser special-cases the nil sentinel and keeps
+// the options map clean. This test pins that behavior at the contract boundary.
 //
 // 1. Parse a `[severity, null]` tuple through the external parser.
 // 2. Assert severity is captured.

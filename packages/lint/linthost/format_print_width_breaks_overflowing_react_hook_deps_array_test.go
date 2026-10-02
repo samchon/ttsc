@@ -2,15 +2,17 @@ package linthost
 
 import "testing"
 
-// TestFormatPrintWidthBreaksOverflowingReactHookDepsArray pins the negative twin
-// of the first-argument deps-array hug: when the deps array overflows the close
+// TestFormatPrintWidthBreaksOverflowingReactHookDepsArray verifies the negative
+// twin of the first-argument deps-array hug: when the deps array overflows the close
 // line, Prettier keeps the callback hugged but breaks the deps array
 // one-element-per-line (its dedicated isReactHookCallWithDepsArray path prints
 // the array through a normal breakable group). The short-deps case stays flat
-// (covered elsewhere); this case must break.
+// (covered elsewhere); this case pins the broken form as a fixed point.
 //
-//  1. Exercise the authored format print width breaks overflowing react hook deps array fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Seed a `useEffect` call whose callback is hugged and whose deps array is
+//     already broken one element per line.
+//  2. Run `ttsc format` with the default format block.
+//  3. Require the file byte-identical.
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on a `useEffect(() => {...}, [...])` call whose callback body is hugged and whose deps array is already broken one element per line (the flat array would overflow), and requires the file byte-identical.
 // @evidence contracts/testing.md#independent-expectations The source is an authored literal in the layout the test comment attributes to Prettier's React-hook handling (callback hugged, deps array broken); it is its own expected output. It is a fixed point, so it does not show a flat input being rewritten into this layout.
