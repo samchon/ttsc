@@ -1,5 +1,6 @@
 import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 
@@ -12,11 +13,10 @@ import { runExternalEmitProvenance } from "../../../../../packages/ttsc/src/comp
  * producer exactly once with the original arguments, and a failure it throws
  * belongs to the caller and must escape unchanged.
  *
- * 1. Create response files that reference each other and a plain one, and select
- *    an unavailable compiler.
- * 2. Run the provenance adapter for a cyclic response file, a plain response file
- *    and a plain option pair with a producer that records its arguments and throws
- *    a caller-owned error.
+ * 1. Author cyclic, plain, missing-operand and unknown-option response files;
+ *    independently require the selected compiler path to be absent.
+ * 2. Call the adapter for those four frames plus plain module, missing rootDir
+ *    and composite option records with a callback that records argv and throws.
  * 3. Require one producer call with unchanged arguments, the same error identity
  *    and an unmodified caller argument array.
  *
@@ -33,6 +33,9 @@ export function test_external_response_refusal_preserves_the_supplied_operation_
     "missing.rsp": "--rootDir\n",
     "unknown.rsp": "--unknown-native-option\n",
   });
+  const binary = path.join(root, "unavailable-selected-compiler");
+  assert.equal(fs.existsSync(binary), false);
+  const failures: Error[] = [];
   for (const args of [
     ["@a.rsp"],
     ["@plain.rsp"],
@@ -48,7 +51,7 @@ export function test_external_response_refusal_preserves_the_supplied_operation_
     const invoke = () =>
       runExternalEmitProvenance({
         args,
-        binary: path.join(root, "unavailable-selected-compiler"),
+        binary,
         cwd: root,
         env: {},
         run: (actual) => {
@@ -57,11 +60,17 @@ export function test_external_response_refusal_preserves_the_supplied_operation_
           throw failure;
         },
       });
-    assert.throws(
-      () => vm.runInNewContext("invoke()", { invoke }, { timeout: 500 }),
-      (error) => error === failure,
-    );
-    assert.equal(calls, 1);
-    assert.deepEqual(args, original);
+    try {
+      assert.throws(
+        () => vm.runInNewContext("invoke()", { invoke }, { timeout: 500 }),
+        (error) => error === failure,
+      );
+      assert.equal(calls, 1);
+      assert.deepEqual(args, original);
+    } catch (cause) {
+      failures.push(new Error(args.join(" "), { cause }));
+    }
   }
+  if (failures.length)
+    throw new AggregateError(failures, "external refusal argument matrix failed");
 }
