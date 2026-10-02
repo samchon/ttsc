@@ -12,14 +12,14 @@ import type { ITtscEvidenceGraphReference } from "./ITtscEvidenceGraphReference"
  * kinds are a property of the language rather than of the claim.
  *
  * Swagger is deliberately absent. An API operation grounds a claim but cannot
- * host `@evidence`, so it extends {@link ITtscEvidenceGraphReferenceBase}
+ * host `@evidence`, so it belongs to {@link ITtscEvidenceGraphReference}
  * instead and never this one.
  *
  * @evidence contracts/common.md#principled-implementation The generic artifact discriminator preserves each derived claim's kind while shared fields express population ownership, diagnostic inheritance and independently complete references.
  * @evidence contracts/common.md#clear-and-simple-design Fields common to all claiming artifacts have one owner here; each derived interface supplies only its artifact-specific selection semantics.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Disabled claims and exclusion carriers are explicit supported configuration mechanisms, not hidden consumer-specific coverage substitutions.
  * @evidence contracts/common.md#meaningful-documentation Member comments explain defaults, glob ordering, root identity and exclusion restrictions with blank lines between documented members and before the tags.
-* @evidence contracts/portability.md#os-neutral-implementation Root and file patterns describe a native filesystem boundary with stable absolute or project-relative roots, portable glob separators and explicit rejection of Windows drive-relative paths; identity case sensitivity is a graph policy, not an inferred filesystem capability.
+ * @evidence contracts/portability.md#os-neutral-implementation Root and file patterns describe a native filesystem boundary with stable absolute or project-relative roots, portable glob separators and explicit rejection of Windows drive-relative paths; identity case sensitivity is a graph policy, not an inferred filesystem capability.
  */
 export interface ITtscEvidenceGraphClaimBase<Type extends string> {
   /** Identifies the artifact kind making this claim. */
