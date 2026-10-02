@@ -2,22 +2,23 @@ package linthost
 
 import "testing"
 
-// TestCommandFormatMultipleCallbacks pins Prettier 3's function-composition
-// rule: a call carrying two or more function/arrow arguments explodes onto
-// one-argument-per-line even when the whole call fits on a single line
-// (`promise.then(() => a, () => b)`). The boundary is exactly two functions,
-// a single callback (with any number of plain trailing/leading args) stays
-// inline, and a decorator hugging a huggable trailing argument is exempt.
+// TestCommandFormatMultipleCallbacks preserves sixteen authored layouts
+// around function composition, single callbacks and decorator calls. The
+// composition predicate forces a multi-argument call with two direct function
+// arguments or an argument that is itself a callback-carrying call to break.
+// Decorators are exempt from that force-break, but ordinary width and hugging
+// decisions still apply. These fixtures do not assert that every call with
+// just one callback remains inline regardless of its size or shape.
 //
-// Every source is the Prettier-canonical output at printWidth 80, so format
-// must keep it byte-identical (the exploded forms carry the trailing comma).
+// Each complete source is its independently authored unchanged expectation
+// at printWidth 80; no independent Prettier invocation establishes these bytes.
 //
 //  1. Seed 16 call layouts: two or three function arguments, single
 //     callbacks, composed calls and decorator forms.
 //  2. Run `ttsc format` on each and require the file to stay byte-identical.
 //
 // @evidence contracts/testing.md#behavioral-verification Sixteen subcases run the in-process `format` command on authored call layouts and require each file unchanged: two or three function arguments exploded one per line even when they would fit, single callbacks and plain calls kept inline, composed-call arguments exploded, and decorator cases.
-// @evidence contracts/testing.md#independent-expectations Every source is an authored literal that the test describes as Prettier-canonical at width 80 (exploded forms carry trailing commas); expectations equal the inputs and are not derived from the implementation.
+// @evidence contracts/testing.md#independent-expectations Sixteen complete authored source literals independently require their argument, callback and decorator bytes to be preserved at width 80, including the written trailing commas. Expectations equal the inputs and are not derived from the implementation or an independent Prettier invocation.
 // @evidence contracts/testing.md#distinguishing-cases Explode cases (two arrows, two function expressions, three arrows, call-with-callback argument, composed map call, composition overriding last-arg hug, decorator without huggable last argument) are paired with stay-inline cases (single leading, trailing or sole arrow, no function, single composed call, call without callback, new with callback, fitting decorator, decorator hug). All are fixed points, so none shows a flat input being rewritten.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatMultipleCallbacks(t *testing.T) {
