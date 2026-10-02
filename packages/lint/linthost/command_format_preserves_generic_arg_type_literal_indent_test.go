@@ -14,7 +14,7 @@ import "testing"
 //  3. Require the file byte-identical.
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on an interface property `id: tags.Plugin<{ a: true; }>` whose literal opens on the property's own line, and requires the file byte-identical, keeping the member at depth times tab width.
-// @evidence contracts/testing.md#independent-expectations The source is an authored literal in Prettier's layout and is its own expected output.
+// @evidence contracts/testing.md#independent-expectations The complete authored literal independently preserves the namespace alias, interface property, generic argument and true-valued member type with its existing indentation; no independent Prettier invocation establishes these bytes.
 // @evidence contracts/testing.md#distinguishing-cases One fixed-point case where block depth equals the visual indent, the counterpart of the intersection and multi-line generic-argument cases that must be ceded. No wrongly indented input is repaired here.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatPreservesGenericArgTypeLiteralIndent(t *testing.T) {

@@ -15,7 +15,7 @@ import "testing"
 //  3. Require the file byte-identical.
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on `type T = Record<string, { a: number; b: string; }>` written with one type argument per line and the literal opening on its own continuation line, and requires the file byte-identical.
-// @evidence contracts/testing.md#independent-expectations The source is an authored literal in Prettier's layout (members indented relative to the continuation line) and is its own expected output.
+// @evidence contracts/testing.md#independent-expectations The complete authored literal independently preserves the continuation-line type argument and its two member types, with member indentation relative to the literal's opening line; no independent Prettier invocation establishes these bytes.
 // @evidence contracts/testing.md#distinguishing-cases One fixed-point case where block depth differs from the visual indent, so a depth*tabWidth re-indent would change it. The single-line generic-argument case is a separate test; no mis-indented input is repaired here.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatPreservesGenericArgMultilineTypeLiteralIndent(t *testing.T) {
