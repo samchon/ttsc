@@ -72,8 +72,7 @@ export function test_lint_diagnostic_parser_accepts_tsx_source_paths(): void {
     // the trailing message whitespace trimmed.
     assert.deepEqual(
       TestLint.parseDiagnostics(
-        "[96msrc/color.ts[0m:3:4 - [91merror[0m TS9001: [no-var] Unexpected var.  
-",
+        "\u001b[96msrc/color.ts\u001b[0m:3:4 - \u001b[91merror\u001b[0m TS9001: [no-var] Unexpected var.  \r\n",
       ),
       [
         {
@@ -86,6 +85,5 @@ export function test_lint_diagnostic_parser_accepts_tsx_source_paths(): void {
         },
       ],
     );
-    assert.deepEqual(TestLint.parseDiagnostics("not a diagnostic line
-"), []);
+    assert.deepEqual(TestLint.parseDiagnostics("not a diagnostic line\n"), []);
 }
