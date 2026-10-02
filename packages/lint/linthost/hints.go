@@ -14,7 +14,7 @@ import (
 // Program, not a document. It loads a Program only when the resolved config
 // declares a rule that can publish one, because a corpus is a projection of what
 // a project rule's Check found — which is why the caller is expected to cache
-// the answer and ask again only when the Program's inputs changed, never per
+// the answer only while project and rule/config inputs remain valid, never per
 // editor request.
 //
 // An empty corpus is a successful answer. A project with no hint-publishing rule
@@ -25,10 +25,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design Parsing, shared corpus computation and JSON output remain separate so resident sessions reuse the same computation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Empty nonpublishing projects are real supported outcomes; contributor metadata panics lose only that corpus through the existing protected publication boundary.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains Program scope, demand-driven work, caller caching and successful emptiness; paragraphs and tags follow documentation guidance.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation RunLSPHints performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms RunLSPHints has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunLSPHints keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunLSPHints acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/portability.md#os-neutral-implementation RunLSPHints carries native cwd/config/source identity through shared LSP parsing, rule and conditional Program acquisition. Hint trigger/completion protocol strings are distinct from those native paths; JSON/error output uses process streams. The entry constructs no shell text and introduces no OS-name file-case assumption.
+// @evidence contracts/performance.md#efficient-algorithms Options/config and active publisher metadata are processed before conditional Program/project evaluation. Each passed stateful provider adds its own projection work, then h hints are tested for nonempty insertion/scope/after and accumulated. Temporary kept/output slices scale with published hint records, with nested string/slice backing shared with provider values; final JSON adds payload bytes. The nonpublisher gate avoids Program work but not flags/config checks, so no complete constant-cost or unmeasured speedup is claimed.
+// @evidence contracts/performance.md#reuse-equivalent-work acquireRules validates recorded config dependencies before resident memo reuse, while acquireProgram applies its host's current Program policy. Project-cycle invalidation remains with the request/Program owner; this command adds no independent corpus-response cache. Caller reuse must establish unchanged project and rule/config inputs and valid passed published state, not merely an unchanged document or quiet watcher.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The computation defers its acquisition callback; one-shot close drops standalone checker state while a resident host retains its warm Program. Hint records and JSON buffers are temporary here, with nested backing potentially retained by publisher state. The current project cycle and config/Program caches can outlive this response under their separate owners; this entry sets no hint/payload-byte cap, cache eviction or caller deadline.
 func RunLSPHints(args []string) int {
   opts, ok := parseLSPCommandOptions("lsp-hints", args)
   if !ok {
