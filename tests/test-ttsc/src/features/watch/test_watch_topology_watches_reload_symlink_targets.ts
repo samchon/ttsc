@@ -8,12 +8,11 @@ import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/l
 import {
   deliverWatchEvent,
   recordWatchers,
-  settleWatchEvents,
 } from "../../../../utils/src/RecordedWatchers";
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verifies lexical and target anchors for manually declared reload symlinks.
+ * Verifies lexical and target anchors for native reload link declarations.
  *
  * 1. Author an external target and its project-local symbolic declaration.
  * 2. Verify both actual registration arguments and deliver a target byte edit.
@@ -21,11 +20,11 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Actual source topology, directory adapter and fingerprint decisions consume supplied target and lexical notifications, reporting config transitions for both original stimuli.
  * @evidence contracts/testing.md#independent-expectations Authored target, replacement and declaration paths establish independent subscription arguments and byte changes; positional compiler listing throws if reached.
- * @evidence contracts/testing.md#distinguishing-cases External target content differs from lexical link replacement; both anchors are checked separately, and unsupported symlinks return false.
+ * @evidence contracts/testing.md#distinguishing-cases Target byte editing differs from lexical link retargeting, and both anchors are independently checked. POSIX retains the original file symlink declaration. Windows declares an actual leaf directory junction for entry retargeting and its child selection.json for byte editing: a parent junction alone misses the link-anchor predicate, while a directory fingerprint alone does not read child bytes. These are distinct supported native inputs, not identical file-link framing; preparation failure is explicit and not product coverage.
  * @evidence contracts/testing.md#execution-ownership This unit owns manually supplied reload declarations and their actual source decisions through recorded observers. It performs no compiler query or native observer registration; the retained native cases own actual OS delivery.
  */
 export const test_watch_topology_watches_reload_symlink_targets =
-  async (): Promise<void | false> => {
+  async (): Promise<void> => {
     const root = TestProject.physicalPath(
       TestProject.tmpdir("ttsc-watch-reload-symlink-"),
     );
@@ -39,18 +38,21 @@ export const test_watch_topology_watches_reload_symlink_targets =
     fs.writeFileSync(target, '{"plugin":"first"}\n', "utf8");
     fs.writeFileSync(replacement, '{"plugin":"second"}\n', "utf8");
 
-    const declaration = path.join(root, "selection.json");
-    try {
-      fs.symlinkSync(target, declaration, "file");
-    } catch (error) {
-      // The filesystem cannot express the alias this case is about: a file
-      // symlink needs a privilege Windows may withhold, and no junction or
-      // hard link has the same lexical-versus-target identity.
-      console.warn(
-        `SKIPPED reload symlink targets: ${(error as NodeJS.ErrnoException).code ?? String(error)}`,
-      );
-      return false;
-    }
+    const windows = process.platform === "win32";
+    const declaration = path.join(
+      root,
+      windows ? "selection-link" : "selection.json",
+    );
+    const selectedFile = windows
+      ? path.join(declaration, "selection.json")
+      : declaration;
+    fs.symlinkSync(
+      windows ? path.dirname(target) : target,
+      declaration,
+      windows ? "junction" : "file",
+    );
+    assert.equal(fs.lstatSync(declaration).isSymbolicLink(), true);
+    assert.equal(fs.realpathSync.native(selectedFile), target);
 
     const source = path.join(root, "src", "main.ts");
     fs.mkdirSync(path.dirname(source), { recursive: true });
@@ -69,6 +71,7 @@ export const test_watch_topology_watches_reload_symlink_targets =
       watchDirectoryThroughFsWatch,
     );
     const changes: WatchInputChange[] = [];
+    const failures: Error[] = [];
     const topology = new WatchTopology(
       {
         cwd: root,
@@ -96,7 +99,7 @@ export const test_watch_topology_watches_reload_symlink_targets =
         root,
         files: [],
         globs: [],
-        reloadFiles: [declaration],
+        reloadFiles: windows ? [declaration, selectedFile] : [declaration],
       });
 
       assert.ok(
@@ -112,15 +115,35 @@ export const test_watch_topology_watches_reload_symlink_targets =
         watchers.some((watcher) => watcher.active && watcher.location === root),
         "the lexical declaration must keep its parent anchor",
       );
-      await waitForConfigChange(changes, "target edit", () => {
-        fs.writeFileSync(target, '{"plugin":"first-edited"}\n', "utf8");
-        deliverWatchEvent(watchers, target, "change");
-      });
-      await waitForConfigChange(changes, "link retarget", () => {
-        fs.rmSync(declaration, { force: true });
-        fs.symlinkSync(replacement, declaration, "file");
-        deliverWatchEvent(watchers, declaration, "rename");
-      });
+      for (const [label, stimulus] of [
+        [
+          "target edit",
+          () => {
+            fs.writeFileSync(target, '{"plugin":"first-edited"}\n', "utf8");
+            deliverWatchEvent(watchers, target, "change");
+          },
+        ],
+        [
+          "link retarget",
+          () => {
+            assert.equal(fs.lstatSync(declaration).isSymbolicLink(), true);
+            fs.unlinkSync(declaration);
+            fs.symlinkSync(
+              windows ? path.dirname(replacement) : replacement,
+              declaration,
+              windows ? "junction" : "file",
+            );
+            assert.equal(fs.realpathSync.native(selectedFile), replacement);
+            deliverWatchEvent(watchers, declaration, "rename");
+          },
+        ],
+      ] as const) {
+        try {
+          await waitForConfigChange(changes, label, stimulus);
+        } catch (cause) {
+          failures.push(new Error(label, { cause }));
+        }
+      }
       assert.ok(
         watchers.some(
           (watcher) =>
@@ -132,7 +155,10 @@ export const test_watch_topology_watches_reload_symlink_targets =
       );
     } finally {
       topology.close();
+      assert.ok(watchers.every((watcher) => watcher.active === false));
     }
+    if (failures.length !== 0)
+      throw new AggregateError(failures, "native reload link scenarios failed");
   };
 
 async function waitForConfigChange(
@@ -145,13 +171,13 @@ async function waitForConfigChange(
   await new Promise((resolve) => setTimeout(resolve, 250));
   const deadline = Date.now() + 30_000;
   changes.length = 0;
+  stimulus();
   while (!changes.some((change) => change.kind === "config")) {
     if (Date.now() >= deadline) {
       assert.fail(
         `expected a cold config transition after a ${label}: ${JSON.stringify(changes)}`,
       );
     }
-    stimulus();
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
 }
