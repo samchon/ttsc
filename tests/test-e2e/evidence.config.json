@@ -4,28 +4,18 @@
     {
       "name": "TypeScript E2E experiments",
       "type": "typescript",
-      "root": "../..",
       "files": [
-        "tests/test-e2e/src/features/**/test_*.ts",
-        "tests/test-e2e/src/features/**/case_*.ts"
+        "src/features/**/test_*.ts",
+        "src/features/**/case_*.ts"
       ],
       "symbol": "function",
-      "reference": [
-        {
-          "type": "markdown",
-          "root": "../../.agents/skills",
-          "files": ["contracts/testing.md"],
-          "symbol": "h2",
-          "checklist": true
-        },
-        {
-          "type": "markdown",
-          "root": "../../.agents/skills",
-          "files": ["contracts/e2e.md"],
-          "symbol": "h2",
-          "checklist": true
-        }
-      ]
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": ["contracts/testing.md", "contracts/e2e.md"],
+        "symbol": "h2",
+        "checklist": true
+      }
     }
   ]
 }

@@ -14,10 +14,6 @@
  * @evidence contracts/common.md#clear-and-simple-design One pure predicate owns the exact receipt classification used by the actual readonly launcher before its next request or input transition.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts It reads supplied metadata without replacing TestProject.spawn, fabricating process execution, querying private runtime state or claiming descendant joins from a PID.
  * @evidence contracts/common.md#meaningful-documentation States the classification authority and explicitly separates kernel/process descendants, permission restoration and actual compiler behavior.
- * @evidence contracts/portability.md#os-neutral-implementation Uses Node's portable spawn-result fields and integer process identity, without platform-specific errno guesses or native path spelling assumptions.
- * @evidence contracts/performance.md#efficient-algorithms A fixed number of scalar tests costs constant time and storage; no process, source tree, binary or filesystem is read.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each actual returned receipt is classified afresh, and the function stores or shares no previous completion result.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This predicate acquires or retains no handles, processes, fixture roots or state; the owning readonly flow retains unresolved roots and releases its permission overlays.
  * @evidence contracts/testing.md#behavioral-verification The direct source unit calls this actual exported predicate for twelve independently authored ordinary, error, signal and invalid-identity tuples; the private launcher uses the same operation for its actual result.
  * @evidence contracts/testing.md#independent-expectations Literal booleans specify the expected authority of each tuple independently of this predicate; no expected value is derived from a native result or the implementation.
  * @evidence contracts/testing.md#distinguishing-cases Statuses 0, 2 and 1 contrast with null status, signal presence, error presence, zero/negative/noninteger/infinite PIDs and error despite a normal status.
