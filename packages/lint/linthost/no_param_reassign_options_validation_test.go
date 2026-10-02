@@ -5,6 +5,17 @@ import (
   "testing"
 )
 
+// TestNoParamReassignOptionsValidatorAcceptsThePublicSchema verifies the
+// no-param-reassign options validator accepts the public schema.
+//
+// Valid options must configure the rule at error severity with its checker
+// requirement intact.
+//
+//  1. Build five option payloads: omitted, empty, props false, props true with
+//     unique ignore arrays and regexes, and ignores without props.
+//  2. Bind each through the engine.
+//  3. Assert configuration succeeds, the rule is enabled at error severity and the
+//     checker is requested.
 //
 // @evidence contracts/testing.md#behavioral-verification Five named inputs require successful configuration, enabled error severity and the real rule checker requirement.
 // @evidence contracts/testing.md#independent-expectations Authored public-schema objects specify valid defaults/booleans/unique ignore arrays and regexes independently of validator output.

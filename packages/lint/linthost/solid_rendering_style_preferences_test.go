@@ -2,17 +2,16 @@ package linthost
 
 import "testing"
 
-/**
- * Verifies solid rendering style preferences: list, conditional, class, style, and empty JSX forms are flagged.
- *
- * Pins the stylistic TSX rules that are still high-signal in a native AST pass.
- * Each violation is a direct JSX or call expression pattern, so the test does
- * not require scope or type services.
- *
- * 1. Import Solid and define one component returning JSX.
- * 2. Use `Array#map`, conditional JSX, `classnames`, camel-cased style, and an empty element.
- * 3. Assert each preference rule reports once.
- */
+// TestSolidRenderingStylePreferences verifies solid rendering style preferences:
+// list, conditional, class, style, and empty JSX forms are flagged.
+//
+// Pins the stylistic TSX rules that are still high-signal in a native AST pass.
+// Each violation is a direct JSX or call expression pattern, so the test does
+// not require scope or type services.
+//
+//  1. Import Solid and define one component returning JSX.
+//  2. Use `Array#map`, conditional JSX, `classnames`, camel-cased style, and an empty element.
+//  3. Assert each preference rule reports once.
 //
 // @evidence contracts/testing.md#behavioral-verification The actual owning engine verifies five exact findings identify map, conditional JSX, clsx class, camel-case style and explicit empty element; the assertions below retain the observable identity of every expected result.
 // @evidence contracts/testing.md#independent-expectations The supported preference contract selects Solid For/Show/classList, CSS property names and self-closing empty JSX; literal rule/line triples pin each authored violation.

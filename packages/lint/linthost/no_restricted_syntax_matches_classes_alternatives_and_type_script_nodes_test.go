@@ -5,6 +5,18 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxMatchesClassesAlternativesAndTypeScriptNodes verifies
+// class and alternative selectors cover TypeScript assertion nodes.
+//
+// Alternatives and the :function and :expression classes must follow the
+// authored AST forms.
+//
+//  1. Parse as and satisfies expressions, a function with a return, and true and
+//     null literals beside typed declarations.
+//  2. Run alternatives, a case-insensitive FUNCTION:function selector and
+//     Literal:expression.
+//  3. Assert both assertion forms, the returning function and the true and null
+//     literals report and unrelated typed declarations do not.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine compares both TS assertion/satisfies alternative ranges, the return-bearing function class and true/null Literal expression ranges.
 // @evidence contracts/testing.md#independent-expectations Authored AST forms independently satisfy alternatives and function/expression class aliases; fixed source snippets specify complete matches.

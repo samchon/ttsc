@@ -6,6 +6,18 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxMatchesIndexedPathsLiteralTypesAndPrefix verifies
+// indexed paths, literal type coercion, prefix and Program length selectors.
+//
+// Canonical index spelling, UTF-16 length and JavaScript Number and BigInt
+// coercion define the expectations.
+//
+//  1. Parse sources holding indexed members, numeric, string and BigInt literals,
+//     overflow values and prefix versus postfix updates.
+//  2. Run selectors over indexed paths, coerced comparisons, prefix and the Program
+//     body length.
+//  3. Assert each exact target and message and that non-canonical or invalid
+//     coercions stay empty.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine compares every original exact target/message across indexed, numeric, string, BigInt, overflow, prefix and Program-length selectors.
 // @evidence contracts/testing.md#independent-expectations Hand-authored constants follow canonical indexed paths, UTF-16 length and JavaScript Number/BigInt coercion contracts; expected ranges and messages are independent of selector evaluation.

@@ -2,7 +2,18 @@ package linthost
 
 import "testing"
 
-// Boolean coercion must not invoke a lexical or replaced global Boolean.
+// TestNoUnneededTernaryUsesIntrinsicBooleanCoercion verifies the
+// no-unneeded-ternary fix coerces with double negation, never a named Boolean.
+//
+// A lexical or replaced global Boolean must not change the rewrite, and
+// assignment or logical conditions keep their precedence.
+//
+//  1. Fix ternaries over sources that shadow Boolean by a function declaration or a
+//     parameter.
+//  2. Fix ternaries over low-precedence assignment and logical conditions and over
+//     inverted false-then-true branches.
+//  3. Assert each complete rewritten output uses !! or ! with the required
+//     parentheses.
 //
 // @evidence contracts/testing.md#behavioral-verification Real ternary edits use intrinsic coercion for function/parameter shadowing and preserve assignment/logical precedence and false/true inversion.
 // @evidence contracts/testing.md#independent-expectations Double negation performs ECMAScript ToBoolean once on the evaluated condition and resolves no named binding; complete authored outputs preserve its grouping.

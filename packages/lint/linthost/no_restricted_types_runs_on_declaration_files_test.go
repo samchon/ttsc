@@ -5,6 +5,15 @@ import (
   "encoding/json"
 )
 
+// TestNoRestrictedTypesRunsOnDeclarationFiles verifies no-restricted-types
+// inspects declaration files.
+//
+// Declaration-file annotations are type syntax the rule must reach.
+//
+//  1. Parse a types.d.ts file using a banned Banned type.
+//  2. Run the rule with Banned restricted.
+//  3. Assert one exact-range error with the default message.
+//
 // @evidence contracts/testing.md#behavioral-verification Restrictions must inspect declaration-file annotations.
 // @evidence contracts/testing.md#independent-expectations The authored Banned span in types.d.ts fixes one exact-range error and default message.
 // @evidence contracts/testing.md#distinguishing-cases The d.ts path exercises declaration syntax; ordinary source is independently covered in the configured surface corpus.

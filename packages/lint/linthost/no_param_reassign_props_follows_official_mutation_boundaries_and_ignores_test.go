@@ -5,6 +5,20 @@ import (
   "testing"
 )
 
+// TestNoParamReassignPropsFollowsOfficialMutationBoundariesAndIgnores verifies
+// props:true reports property mutations rooted at a parameter and honors the
+// ignore lists.
+//
+// With props enabled, writes whose target chain is rooted at the parameter
+// report, while reads, aliases and ignored parameter names do not; rebinding an
+// ignored parameter still reports.
+//
+//  1. Parse a function writing the parameter by assignment, update, delete,
+//     destructuring targets, loop targets, call-callee and conditional-result
+//     chains.
+//  2. Run the rule under props:true with each ignore list.
+//  3. Assert the exact line, target and message of every rooted write and none for
+//     reads, aliases or ignored properties.
 //
 // @evidence contracts/testing.md#behavioral-verification Checker-backed findings compare each property/direct assignment line, target and exact message under both ignore lists.
 // @evidence contracts/testing.md#independent-expectations Authored props/ignore inputs and fixed target names independently distinguish rooted parameter-property mutation from reads, alias effects and ignored-property writes; direct ignored-parameter writes remain forbidden.

@@ -8,7 +8,7 @@ import (
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
-// Verifies type-instantiation mappers reach real checker endpoints at runtime.
+// TestTypeInstantiationMappersReachRuntimeEndpoints verifies type-instantiation mappers reach real checker endpoints at runtime.
 //
 // This is a shim-completeness probe, not a lint test: it runs a real Checker
 // over a ttsc-owned fixture and asserts the newly exposed instantiation surface

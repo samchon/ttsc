@@ -2,6 +2,18 @@ package linthost
 
 import "testing"
 
+// TestNoParamReassignUsesCheckerIdentityAcrossNestedScopes verifies
+// no-param-reassign resolves parameter identity through the checker across
+// nested scopes.
+//
+// A same-spelled local, catch variable or class member is a different binding
+// than the parameter.
+//
+//  1. Parse closures, classes and merged var declarations that write captured
+//     parameters, beside block, catch, local and static-field shadows.
+//  2. Run no-param-reassign on the type-checked program.
+//  3. Assert captured and merged parameter writes report with exact line, target and
+//     message and every shadow stays silent.
 //
 // @evidence contracts/testing.md#behavioral-verification Checker-backed findings compare exact line/target/message triples for captured and merged parameter writes while requiring unrelated shadows to stay silent.
 // @evidence contracts/testing.md#independent-expectations Independently authored target identities distinguish lexical parameter references from same-spelled local/catch/class members; the literal finding list does not reuse checker symbols as its oracle.

@@ -8,7 +8,7 @@ import (
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
-// Verifies SignatureFlags exposes construct-signature abstractness through the
+// TestSignatureFlagsExposeConstructSignatureAbstractness verifies SignatureFlags exposes construct-signature abstractness through the
 // shim.
 //
 // Signature.Flags() was already reachable through the full Signature alias,

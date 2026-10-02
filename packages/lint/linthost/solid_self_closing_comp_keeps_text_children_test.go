@@ -2,17 +2,16 @@ package linthost
 
 import "testing"
 
-/**
- * Verifies solid self-closing-comp: JSX text children make an element non-empty.
- *
- * Locks the source-text branch for `JsxText` children. The rule must ignore
- * whitespace-only JSX text, but a real text node keeps `<div>text</div>` from
- * being rewritten as an empty element.
- *
- * 1. Import Solid so the Solid rule family is active.
- * 2. Return a DOM element with a non-empty JSX text child.
- * 3. Assert `solid/self-closing-comp` reports no findings.
- */
+// TestSolidSelfClosingCompKeepsTextChildren verifies solid self-closing-comp:
+// JSX text children make an element non-empty.
+//
+// Locks the source-text branch for `JsxText` children. The rule must ignore
+// whitespace-only JSX text, but a real text node keeps `<div>text</div>` from
+// being rewritten as an empty element.
+//
+//  1. Import Solid so the Solid rule family is active.
+//  2. Return a DOM element with a non-empty JSX text child.
+//  3. Assert `solid/self-closing-comp` reports no findings.
 //
 // @evidence contracts/testing.md#behavioral-verification The actual owning engine verifies nonempty JSX text remains free of self-closing-comp findings; the assertions below retain the observable identity of every expected result.
 // @evidence contracts/testing.md#independent-expectations Deleting real text would change the rendered child meaning, so this element is not empty.

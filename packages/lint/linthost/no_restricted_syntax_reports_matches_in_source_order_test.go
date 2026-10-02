@@ -5,6 +5,14 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxReportsMatchesInSourceOrder verifies matches report in
+// source order rather than configuration order.
+//
+// Output order follows the file, not the order of the configured selectors.
+//
+//  1. Configure a with selector before a debugger selector.
+//  2. Run the rule over source with the debugger statement first.
+//  3. Assert debugger then with report with their ranges and canonical messages.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine compares debugger then with ranges and canonical messages despite reverse selector configuration order.
 // @evidence contracts/testing.md#independent-expectations Authored source order independently precedes option enumeration; the literal target sequence detects configuration-order output.

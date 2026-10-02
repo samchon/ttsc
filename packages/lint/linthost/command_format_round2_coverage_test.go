@@ -2,10 +2,11 @@ package linthost
 
 import "testing"
 
-// TestCommandFormatRound2Coverage closes coverage gaps the round-2 review found:
-// branches and trailing-arg kinds with no existing assertion. Each expected
-// output is the pinned prettier 3.8.3 canonical form (idempotency = parity), so
-// format must leave it byte-identical.
+// TestCommandFormatRound2Coverage verifies that `ttsc format` leaves four
+// Prettier-canonical call layouts byte-identical: the three-argument test-call
+// branch with its positive and negative gate, and trailing-argument kinds that
+// hug. Each source is the pinned Prettier 3.8.3 canonical form, so idempotency
+// is parity. The cases are the named subtests below.
 //
 //  1. Seed four Prettier-canonical call layouts.
 //  2. Run `ttsc format` with the default format block on each.
@@ -17,8 +18,7 @@ import "testing"
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatRound2Coverage(t *testing.T) {
   // The THREE-argument test call (numeric timeout) hugs its block callback past
-  // an overflowing description — the entire 3-arg branch of isTestCall was
-  // previously untested.
+  // an overflowing description, which is the 3-arg branch of isTestCall.
   t.Run("test_call_three_arg_timeout_hugs", func(t *testing.T) {
     assertFormatUnchanged(t, `test("a description that is long enough to overflow eighty columns easily here", () => {
   run();
@@ -38,7 +38,7 @@ func TestCommandFormatRound2Coverage(t *testing.T) {
 `)
   })
   // First-arg hug over an ELEMENT-access trailing arg (`lookup["k"]`): hugs —
-  // isSimpleTrailingArg lists KindElementAccessExpression but it was untested.
+  // isSimpleTrailingArg lists KindElementAccessExpression.
   t.Run("first_arg_element_access_trailing_hugs", func(t *testing.T) {
     assertFormatUnchanged(t, `const z = source.reduce((acc, value) => {
   acc.push(value);

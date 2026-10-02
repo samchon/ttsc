@@ -6,6 +6,17 @@ import (
   "strings"
 )
 
+// TestNoRestrictedTypesUsesConfiguredSurfaceSpellingAcrossSymbols verifies
+// matching uses the configured spelling rather than declaration identity.
+//
+// A local and an imported type are banned by their written names, not by the
+// symbol they resolve to.
+//
+//  1. Parse shadowed and imported types and an import renamed from Remote.
+//  2. Run the rule banning Shadowed and Imported, then Remote.
+//  3. Assert the written names report with their counts and default message and the
+//     renamed export stays clean.
+//
 // @evidence contracts/testing.md#behavioral-verification Type matching must use configured source spelling rather than unrelated declaration identity.
 // @evidence contracts/testing.md#independent-expectations Local and imported spellings have authored counts; the authored final type-name occurrence fixes its complete range and default message, rule and error severity.
 // @evidence contracts/testing.md#distinguishing-cases Shadowed and Imported are banned by their written names; configuring original export Remote leaves Imported clean.

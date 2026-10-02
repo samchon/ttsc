@@ -2,17 +2,15 @@ package linthost
 
 import "testing"
 
-/**
- * Verifies testing-library no-render-in-lifecycle: lifecycle hook renders are rejected.
- *
- * Locks the ancestor walk from a `render()` call back to test lifecycle
- * callbacks. The rule must report only when a Testing Library render happens
- * inside hooks such as `beforeEach`.
- *
- * 1. Import `render` from Testing Library.
- * 2. Call `render()` inside a `beforeEach` callback.
- * 3. Assert `no-render-in-lifecycle` reports the render call.
- */
+// TestNoRenderInLifecycle verifies testing-library no-render-in-lifecycle
+// reports render inside a lifecycle hook.
+//
+// render must belong to an individual test rather than a hook.
+//
+//  1. Import render and call it inside beforeEach.
+//  2. Run only the rule through the testing-library assertion helper.
+//  3. Assert the exact finding, then that render inside an it callback reports
+//     nothing.
 //
 // @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify render inside beforeEach is reported; exact normalized findings reject extra or missing results.
 // @evidence contracts/testing.md#independent-expectations The policy requires render to belong to an individual test rather than a lifecycle hook.

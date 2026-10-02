@@ -5,6 +5,14 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxHasNoImplicitDenylist verifies no-restricted-syntax has
+// no implicit deny policy.
+//
+// Without a configured selector nothing is restricted.
+//
+//  1. Parse source holding a with statement and a labeled statement.
+//  2. Run the rule with absent options and with an empty list.
+//  3. Assert both configurations report nothing.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual Engine findings are empty for both absent options and an empty list on the original with/label source.
 // @evidence contracts/testing.md#independent-expectations No user selector means no deny policy; the independently authored empty expectation does not infer restrictions from syntax names.

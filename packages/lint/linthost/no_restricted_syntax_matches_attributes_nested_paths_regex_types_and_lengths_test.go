@@ -5,6 +5,18 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxMatchesAttributesNestedPathsRegexTypesAndLengths
+// verifies attribute selectors combine nested paths, case-insensitive regex,
+// type, length and operator predicates.
+//
+// Compound predicates must select the intended call and expression and exclude
+// look-alike nodes.
+//
+//  1. Parse a DANGER call, a JSON.stringify call and an in expression.
+//  2. Run compound selectors over callee regex and type, arguments length and
+//     operator.
+//  3. Assert the DANGER call and the in expression report with their messages and
+//     the other nodes do not.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine compares the original DANGER call and in expression ranges/messages under independent compound selectors.
 // @evidence contracts/testing.md#independent-expectations Authored case-insensitive regex, string type, argument length and operator literal predicates independently select the call and binary expression, excluding other original nodes.

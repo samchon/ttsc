@@ -5,6 +5,14 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxCoercesEmptyNodeListsForNumericComparisons verifies an
+// empty node list coerces to zero in numeric selector comparisons.
+//
+// Under JavaScript comparison semantics an empty argument list is 0.
+//
+//  1. Parse a call with no arguments.
+//  2. Run selectors comparing the arguments length against one and zero.
+//  3. Assert arguments < 1 reports and arguments > 0 reports nothing.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine reports empty() for arguments < 1 and reports nothing for arguments > 0 on the same source.
 // @evidence contracts/testing.md#independent-expectations Under the supported JavaScript-style comparison contract an empty argument list coerces to zero; fixed selector inequalities independently distinguish the results.

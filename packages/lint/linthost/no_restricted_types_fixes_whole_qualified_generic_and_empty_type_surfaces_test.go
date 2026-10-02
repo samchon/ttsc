@@ -5,6 +5,18 @@ import (
   "encoding/json"
 )
 
+// TestNoRestrictedTypesFixesWholeQualifiedGenericAndEmptyTypeSurfaces verifies
+// fixes replace the complete qualified, generic and empty type surface.
+//
+// An identifier-only replacement would corrupt spaced qualified or generic
+// names, empty objects and empty tuples.
+//
+//  1. Configure replacements for a qualified name, a generic name, an empty object
+//     and an empty tuple.
+//  2. Apply the automatic fixes.
+//  3. Assert the four replacements, the exact rewritten program, a valid parse and a
+//     clean second pass.
+//
 // @evidence contracts/testing.md#behavioral-verification Fixes must replace complete qualified, generic and empty type surfaces.
 // @evidence contracts/testing.md#independent-expectations Four authored replacements determine the complete rewritten program and applied count, syntax validity and clean fixed point.
 // @evidence contracts/testing.md#distinguishing-cases Spaced qualified/generic names and empty objects/tuples reject identifier-only replacements.

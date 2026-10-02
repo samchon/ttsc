@@ -5,6 +5,15 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxAppliesEveryConfiguredEntryAndCustomMessage verifies
+// no-restricted-syntax applies every configured entry and its custom message.
+//
+// String and structured selector entries are independent policy entries.
+//
+//  1. Configure a string selector and a structured entry with a custom message.
+//  2. Run the rule over source holding a with statement and a labeled statement.
+//  3. Assert both complete ranges report at error severity, one with the default
+//     message template and one with the custom label message, and no edits.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine compares both complete with/label ranges, rule/error severity, default with message and authored custom label message with no edits.
 // @evidence contracts/testing.md#independent-expectations Literal selected AST kinds independently identify the two statements; the fixed custom message and supported default message template supply separate oracles.

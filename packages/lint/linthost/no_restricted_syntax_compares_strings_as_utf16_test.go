@@ -5,6 +5,15 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxComparesStringsAsUTF16 verifies selector string
+// comparison orders by UTF-16 code units.
+//
+// An astral character sorts before U+E000 because its high surrogate does,
+// although its code point is larger.
+//
+//  1. Parse an astral string literal and a literal equal to the BMP boundary.
+//  2. Run a less-than comparison selector against the boundary string.
+//  3. Assert the astral literal reports and the equal BMP literal does not.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine reports the original astral string under the BMP-boundary comparison and leaves an equal BMP-boundary string clean.
 // @evidence contracts/testing.md#independent-expectations ECMAScript string order uses UTF-16 code units; the astral high surrogate sorts before U+E000 even though its Unicode scalar is larger. The equal BMP twin independently fails strict less-than.

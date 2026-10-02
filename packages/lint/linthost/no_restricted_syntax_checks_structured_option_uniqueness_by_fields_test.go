@@ -5,6 +5,16 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxChecksStructuredOptionUniquenessByFields verifies
+// duplicate detection compares structured options field by field.
+//
+// Two options differing only where a delimiter-looking substring falls must stay
+// distinct, while an identical selector and message pair is a duplicate.
+//
+//  1. Decode two option sets whose selector and message contain NUL and
+//     delimiter-like text.
+//  2. Decode a set repeating one identical structured record.
+//  3. Assert the distinct records are accepted and the repeated record is rejected.
 //
 // @evidence contracts/testing.md#behavioral-verification The actual option decoder preserves both distinct NUL-containing field records and rejects a repeated identical structured record.
 // @evidence contracts/testing.md#independent-expectations Independently authored selector/message tuples stay distinct despite delimiter-looking substrings; exact tuple equality, not serialized concatenation, defines a duplicate.

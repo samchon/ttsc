@@ -2,19 +2,18 @@ package linthost
 
 import "testing"
 
-/**
- * Verifies solid validate-jsx-nesting: rejects HTML-illegal JSX nestings.
- *
- * The HTML parser restructures forbidden nestings at runtime, so the rendered
- * DOM no longer matches the JSX tree the component produced. The fixture
- * stacks one violation per container family — `<p>` with a `<div>` child,
- * `<a>` inside `<a>`, and `<button>` wrapping an `<input>` — so each finding
- * lands on its own line for stable assertions.
- *
- * 1. Import Solid so the family gate is active.
- * 2. Render `<p><div/></p>`, `<a><a/></a>`, `<button><input/></button>`.
- * 3. Assert one validate-jsx-nesting finding per inner element.
- */
+// TestSolidValidateJSXNesting verifies solid validate-jsx-nesting: rejects
+// HTML-illegal JSX nestings.
+//
+// The HTML parser restructures forbidden nestings at runtime, so the rendered
+// DOM no longer matches the JSX tree the component produced. The fixture
+// stacks one violation per container family — `<p>` with a `<div>` child,
+// `<a>` inside `<a>`, and `<button>` wrapping an `<input>` — so each finding
+// lands on its own line for stable assertions.
+//
+//  1. Import Solid so the family gate is active.
+//  2. Render `<p><div/></p>`, `<a><a/></a>`, `<button><input/></button>`.
+//  3. Assert one validate-jsx-nesting finding per inner element.
 //
 // @evidence contracts/testing.md#behavioral-verification The actual owning engine verifies three exact findings locate div in p, nested anchor and input in button; the assertions below retain the observable identity of every expected result.
 // @evidence contracts/testing.md#independent-expectations HTML content models disallow these nestings; literal line expectations identify the inner invalid elements independently of the rule.

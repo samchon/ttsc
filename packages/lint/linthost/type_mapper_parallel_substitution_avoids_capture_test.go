@@ -7,7 +7,7 @@ import (
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
-// Verifies type mappers substitute generic arguments in parallel without capture.
+// TestTypeMapperParallelSubstitutionAvoidsCapture verifies type mappers substitute generic arguments in parallel without capture.
 //
 // Combining independent simple mappers composes their substitutions. When a
 // reference permutes declaration parameters, composition can remap an argument

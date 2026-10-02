@@ -5,6 +5,15 @@ import (
   "encoding/json"
 )
 
+// TestNoRestrictedTypesHasNoImplicitDefaults verifies no-restricted-types
+// imposes no ban without configuration.
+//
+// Unconfigured restrictions must not report any type.
+//
+//  1. Parse source using a wrapper type and a local type.
+//  2. Run the rule with nil, empty, empty-map and false or null policies.
+//  3. Assert zero findings under every form.
+//
 // @evidence contracts/testing.md#behavioral-verification Unconfigured type restrictions must not impose implicit bans.
 // @evidence contracts/testing.md#independent-expectations The authored wrapper and Local types must yield zero findings under nil, empty, empty-map and false/null policies.
 // @evidence contracts/testing.md#distinguishing-cases Four policy forms share the same potentially banned source; explicit bans are independently exercised in MatchesEveryOfficialTypeSurfaceExactly.

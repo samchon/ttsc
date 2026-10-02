@@ -5,6 +5,18 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxDistinguishesAssignmentPatternsFromLiterals verifies
+// selectors distinguish destructuring assignment patterns from array and object
+// literals.
+//
+// The same TypeScript node kinds serve as ESTree patterns on the left of an
+// assignment and as expressions elsewhere.
+//
+//  1. Parse assignment array and object patterns with rest, and value array and
+//     object literals with spread.
+//  2. Run selectors for patterns, rest, spread and inner AssignmentExpression nodes.
+//  3. Assert each form matches only its own aliases and the outer assignment selects
+//     the whole array pattern.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine compares assignment array/object rest, value array/object spread and the outer assignment-pattern range with an internal-assignment negative.
 // @evidence contracts/testing.md#independent-expectations Destructuring assignment contexts independently establish Pattern aliases, while authored literals establish Expression aliases; default entries do not become ordinary nested AssignmentExpression nodes.

@@ -2,17 +2,16 @@ package linthost
 
 import "testing"
 
-/**
- * Verifies testing-library no-promise-in-fire-event: async helpers are rejected as event targets.
- *
- * Locks the `fireEvent` argument traversal that catches nested Promises without
- * type information. A regression here would let an awaited `findBy*` result be
- * passed directly to a synchronous event helper.
- *
- * 1. Import `fireEvent` and `screen` from Testing Library.
- * 2. Pass an awaited `findBy*` query into `fireEvent.click`.
- * 3. Assert `no-promise-in-fire-event` reports the `fireEvent` call.
- */
+// TestNoPromiseInFireEvent verifies testing-library no-promise-in-fire-event
+// reports an async query nested in a fireEvent argument.
+//
+// Event helpers take the element synchronously, so an awaited findBy query
+// inside the call is a defect.
+//
+//  1. Import fireEvent and screen and call fireEvent with an awaited findBy target.
+//  2. Run only the rule through the testing-library assertion helper.
+//  3. Assert the exact finding, then that the synchronous getBy form reports
+//     nothing.
 //
 // @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify fireEvent with an awaited findBy target is reported; exact normalized findings reject extra or missing results.
 // @evidence contracts/testing.md#independent-expectations The supported rule disallows async-query expressions nested in event-helper arguments.

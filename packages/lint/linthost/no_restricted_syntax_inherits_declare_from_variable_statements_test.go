@@ -5,6 +5,15 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxInheritsDeclareFromVariableStatements verifies the
+// declare attribute of a declarator comes from its variable statement.
+//
+// A declarator is ambient only through the enclosing declare statement; the
+// local initialized statement has no declare modifier.
+//
+//  1. Parse a declare var statement beside a local initialized var.
+//  2. Run selectors requiring declare true and declare false.
+//  3. Assert each selector reports exactly its own declarator range.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine compares exactly the ambient declarator under declare true and the local declarator under declare false.
 // @evidence contracts/testing.md#independent-expectations The enclosing declare variable statement independently marks its declarator ambient; the local initialized statement has no declare modifier.

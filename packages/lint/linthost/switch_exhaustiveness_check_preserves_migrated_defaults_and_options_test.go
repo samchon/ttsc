@@ -6,6 +6,19 @@ import (
   "testing"
 )
 
+// TestSwitchExhaustivenessCheckPreservesMigratedDefaultsAndOptions verifies
+// switch-exhaustiveness-check keeps its default and non-default option behavior.
+//
+// Scalar defaults and the four simultaneous non-default policies must report the
+// original missing branches while exhaustive, default-covered and custom-comment
+// controls stay silent.
+//
+//  1. Run two original consumer sources with default options and with the
+//     simultaneous option tuple, replacing the configuration between runs.
+//  2. Collect the findings and rendered code frames.
+//  3. Assert the five and three errors at their lines, the missing-case messages and
+//     that clean controls have no code frames.
+//
 // @evidence contracts/testing.md#behavioral-verification Scalar switch defaults and all four simultaneous non-default policies must report the original missing branches while exhaustive, default-covered and custom-comment controls remain silent after configuration replacement.
 // @evidence contracts/testing.md#independent-expectations The two original consumer sources independently prescribe five errors at lines 3/6/9/14/17 and three at 6/9/15, exact missing-case message populations, visible violation codeframes and absent clean-control codeframes; expectations are not derived from compiler output.
 // @evidence contracts/testing.md#distinguishing-cases Defaults cover incomplete unions with and without default, singleton, unique symbols and undefined versus an exhaustive switch; the simultaneous option tuple covers redundant default, open string, custom whitespace comment, rejected old comment and union covered by default.

@@ -6,7 +6,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// Verifies nil-entry detection distinguishes malformed and valid argument lists.
+// TestHasNilEntryDistinguishesMalformedAndValidLists verifies nil-entry detection distinguishes malformed and valid argument lists.
 //
 // This predicate supplies printer fallback guards. It must detect a missing
 // entry without treating a parsed, complete argument list as malformed.

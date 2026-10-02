@@ -6,6 +6,19 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxMatchesCombinatorsFieldsPseudosAndSubjects verifies
+// combinators, field paths, pseudo-classes and subject markers select the
+// authored nodes.
+//
+// Child fields, descendants, :has, :not, subjects and sibling positions are
+// defined by the authored declaration, argument and member order.
+//
+//  1. Parse functions, variable declarations, calls and a class with ordered
+//     siblings.
+//  2. Run selectors using field, descendant, has, not, subject, adjacent, general
+//     sibling and position forms.
+//  3. Assert every selector reports its exact target and a callee outside the
+//     argument child list stays unmatched.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine compares every original field/descendant/has/not/subject/adjacent/general-sibling/position target and retains the first-child callee negative.
 // @evidence contracts/testing.md#independent-expectations Authored declaration/argument/member orders independently define child fields and sibling positions; marking a selector subject changes which range is reported rather than matching output text.

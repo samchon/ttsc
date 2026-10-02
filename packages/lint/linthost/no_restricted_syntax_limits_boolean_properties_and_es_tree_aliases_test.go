@@ -5,6 +5,16 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxLimitsBooleanPropertiesAndESTreeAliases verifies absent
+// boolean attributes are not false and ESTree aliases keep their boundaries.
+//
+// A missing async attribute does not equal false, UnaryExpression excludes
+// update syntax and Property denotes object members rather than class methods.
+//
+//  1. Parse an identifier, void and ++ expressions, and an object method beside a
+//     class method.
+//  2. Run selectors for async false, UnaryExpression and Property.
+//  3. Assert only the void expression and the object method report.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine keeps absent Identifier async false clean and reports only the original unary expression and object-method Property alias.
 // @evidence contracts/testing.md#independent-expectations Missing boolean attributes are not false; ESTree UnaryExpression excludes update syntax and Property denotes object rather than class methods. These authored differences define the oracle.

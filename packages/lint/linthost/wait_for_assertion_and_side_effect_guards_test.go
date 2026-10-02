@@ -2,17 +2,16 @@ package linthost
 
 import "testing"
 
-/**
- * Verifies testing-library waitFor guards: assertions, side effects, snapshots, and getBy waits are rejected.
- *
- * Locks the callback-body traversal shared by the `waitFor` rules. The scenario
- * keeps all violations in one callback so the rules must inspect descendants,
- * not only the immediate arrow expression.
- *
- * 1. Import `fireEvent`, `screen`, and `waitFor`.
- * 2. Put two assertions, a fire event, a snapshot matcher, and `getBy*` queries inside one callback.
- * 3. Assert each enabled `waitFor` rule reports the callback violation.
- */
+// TestWaitForAssertionAndSideEffectGuards verifies testing-library waitFor
+// guards: assertions, side effects, snapshots, and getBy waits are rejected.
+//
+// Locks the callback-body traversal shared by the `waitFor` rules. The scenario
+// keeps all violations in one callback so the rules must inspect descendants,
+// not only the immediate arrow expression.
+//
+//  1. Import `fireEvent`, `screen`, and `waitFor`.
+//  2. Put two assertions, a fire event, a snapshot matcher, and `getBy*` queries inside one callback.
+//  3. Assert each enabled `waitFor` rule reports the callback violation.
 //
 // @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify one waitFor callback produces four exact reports for repeated assertions, snapshot, side effect and getBy waiting; exact normalized findings reject extra or missing results.
 // @evidence contracts/testing.md#independent-expectations A retry callback must avoid side effects and snapshots, limit assertions, and use the supported async-query pattern.

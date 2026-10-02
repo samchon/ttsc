@@ -5,6 +5,17 @@ import (
   "encoding/json"
 )
 
+// TestNoRestrictedTypesRejectsOnlyExactTypeSyntax verifies bans do not leak into
+// runtime code or partially matching names.
+//
+// Only the exact banned type syntax is restricted.
+//
+//  1. Parse runtime expressions and look-alike types such as qualified prefixes and
+//     suffixes, wrong generic arguments, nonempty tuples and objects and runtime
+//     heritage.
+//  2. Run the rule with explicit bans.
+//  3. Assert zero findings.
+//
 // @evidence contracts/testing.md#behavioral-verification Type bans must not leak into runtime expressions or partially matching names.
 // @evidence contracts/testing.md#independent-expectations Explicit bans applied to the authored runtime and mismatching type program must yield zero findings.
 // @evidence contracts/testing.md#distinguishing-cases Qualified prefixes/suffixes, wrong generic arguments, nonempty tuple/object and runtime heritage distinguish exact syntax from lookalikes.

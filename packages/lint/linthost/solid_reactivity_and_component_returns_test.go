@@ -2,17 +2,16 @@ package linthost
 
 import "testing"
 
-/**
- * Verifies solid reactivity rules: components keep reactive reads in tracked JSX.
- *
- * Pins high-confidence Solid component mistakes that are visible without a type
- * service: destructured props, early returns, missing JSX component bindings,
- * async tracked scopes, and bare signal accessors in JSX.
- *
- * 1. Import Solid primitives and define one component with JSX.
- * 2. Mix destructured props, an early return, an async effect, an undefined JSX tag, and a bare signal accessor.
- * 3. Assert each enabled `solid/*` rule reports its matching pattern.
- */
+// TestSolidReactivityAndComponentReturns verifies solid reactivity rules:
+// components keep reactive reads in tracked JSX.
+//
+// Pins high-confidence Solid component mistakes that are visible without a type
+// service: destructured props, early returns, missing JSX component bindings,
+// async tracked scopes, and bare signal accessors in JSX.
+//
+//  1. Import Solid primitives and define one component with JSX.
+//  2. Mix destructured props, an early return, an async effect, an undefined JSX tag, and a bare signal accessor.
+//  3. Assert each enabled `solid/*` rule reports its matching pattern.
 //
 // @evidence contracts/testing.md#behavioral-verification The actual owning engine verifies five exact findings identify props destructuring, early return, async effect, missing component and bare signal; the assertions below retain the observable identity of every expected result.
 // @evidence contracts/testing.md#independent-expectations Solid props and signal reads must remain reactive; tracked effects are synchronous, components render once and JSX component names resolve. Literal triples correspond to those independent source meanings.

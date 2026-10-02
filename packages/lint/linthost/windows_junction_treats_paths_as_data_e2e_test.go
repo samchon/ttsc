@@ -11,6 +11,17 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
 
+// TestWindowsJunctionTreatsPathsAsData verifies a junction is created with shell
+// metacharacters treated as data.
+//
+// Ampersand, caret, exclamation, percent and parentheses in a path must not be
+// expanded.
+//
+//  1. Create a junction whose path contains the metacharacters.
+//  2. Read the sentinel file through the link.
+//  3. Assert the content is exact and the environment-expanded alternate path does
+//     not exist.
+//
 // @evidence contracts/testing.md#behavioral-verification windowsjunction.Create creates a real link whose sentinel reads safe and whose literal percent sequence does not create an environment-expanded alternate path.
 // @evidence contracts/testing.md#independent-expectations The authored sentinel safe and literal metacharacter paths independently require exact content and absence of the expanded spelling.
 // @evidence contracts/testing.md#distinguishing-cases Owns ampersand, caret, exclamation, percent and parentheses in actual junction paths, contrasting the literal link with the environment-expanded alternate; ordinary junction fingerprinting has its separate kernel case.

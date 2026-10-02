@@ -2,6 +2,20 @@ package linthost
 
 import "testing"
 
+// TestNoParamReassignResolvesEveryParameterBindingAndWriteForm verifies
+// no-param-reassign reports every write form against every parameter binding
+// shape.
+//
+// The default props:false policy forbids rebinding a parameter, including
+// through destructured and rest bindings; the checker resolves each write to its
+// parameter symbol.
+//
+//  1. Parse one function with simple, object-destructured, nested,
+//     array-destructured and rest parameters, each written by assignment, compound,
+//     logical, update, destructuring, rest, loop and closure-captured forms.
+//  2. Run no-param-reassign with default options on the type-checked program.
+//  3. Assert the fifteen exact line, target and message triples and that no finding
+//     carries an edit.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual Checker-backed rule findings must match all fifteen authored line/target/message triples and offer no edits.
 // @evidence contracts/testing.md#independent-expectations Fixed line numbers and binding names independently follow the default prohibition on modifying parameter references, including destructured and rest bindings.

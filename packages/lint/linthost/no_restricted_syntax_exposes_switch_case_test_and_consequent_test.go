@@ -5,6 +5,15 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxExposesSwitchCaseTestAndConsequent verifies selectors
+// expose a switch case test and consequent.
+//
+// A tested case and the default clause differ in test presence and consequent
+// length.
+//
+//  1. Parse a switch with a two-statement case one and a one-statement default.
+//  2. Run a selector requiring test value one and consequent length two.
+//  3. Assert only the case-one clause reports.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine compares the exact original case-one clause under test value one and consequent length two.
 // @evidence contracts/testing.md#independent-expectations The authored clause has assignment plus break and numeric test one; the default clause has no test and only one consequent statement.

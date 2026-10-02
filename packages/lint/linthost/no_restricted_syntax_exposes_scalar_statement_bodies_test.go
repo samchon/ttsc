@@ -5,6 +5,14 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxExposesScalarStatementBodies verifies selectors expose a
+// scalar Block body on labeled, catch and static-block parents.
+//
+// These parents hold their block through body rather than a statement list.
+//
+//  1. Parse a labeled statement, a catch clause and a class static block.
+//  2. Run one body-field selector per parent.
+//  3. Assert each selector reports its own block range and no other parent matches.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine compares all three authored labeled/catch/static-block body ranges under their respective field selectors.
 // @evidence contracts/testing.md#independent-expectations Each parent independently exposes a scalar Block through body rather than a statement-list sibling array; literal target blocks supply range oracles.

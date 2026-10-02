@@ -5,6 +5,15 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxExposesComputedKeysAndPropertyValuePaths verifies
+// selectors expose a property computed flag, key and value type.
+//
+// A computed key arrow property differs from the plain arrow property beside it.
+//
+//  1. Parse one object with a computed arrow property and one plain arrow property.
+//  2. Run a selector requiring computed true, a named key expression and an
+//     ArrowFunction value.
+//  3. Assert only the computed property reports.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine reports only the authored computed key arrow property under the three nested attribute predicates.
 // @evidence contracts/testing.md#independent-expectations Literal computed=true, key-expression name key and ArrowFunction value independently distinguish the computed property from plain: () => 0.

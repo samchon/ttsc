@@ -2,17 +2,16 @@ package linthost
 
 import "testing"
 
-/**
- * Verifies solid JSX attribute guards: DOM prop shapes stay Solid-specific.
- *
- * Covers the direct JSX attribute rules that prevent React carry-over and unsafe
- * DOM behavior. The fixture imports Solid so the family is active, then keeps
- * every violation on separate JSX attributes for stable line-level assertions.
- *
- * 1. Render one DOM element with duplicate, React-style, unsafe, namespaced, and array handler props.
- * 2. Enable the JSX attribute rules.
- * 3. Assert each rule reports its own high-confidence attribute pattern.
- */
+// TestSolidJSXAttributeGuards verifies solid JSX attribute guards: DOM prop
+// shapes stay Solid-specific.
+//
+// Covers the direct JSX attribute rules that prevent React carry-over and unsafe
+// DOM behavior. The fixture imports Solid so the family is active, then keeps
+// every violation on separate JSX attributes for stable line-level assertions.
+//
+//  1. Render one DOM element with duplicate, React-style, unsafe, namespaced, and array handler props.
+//  2. Enable the JSX attribute rules.
+//  3. Assert each rule reports its own high-confidence attribute pattern.
 //
 // @evidence contracts/testing.md#behavioral-verification The actual owning engine verifies ten exact findings identify duplicate/React/unsafe/namespaced/array-handler attributes; the assertions below retain the observable identity of every expected result.
 // @evidence contracts/testing.md#independent-expectations Solid DOM prop meanings establish class/for instead of className/htmlFor, callable event handlers and no unsafe innerHTML/script URLs; exact triples pin each actual offending attribute.

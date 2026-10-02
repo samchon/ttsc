@@ -10,7 +10,7 @@ import (
   shimprinter "github.com/microsoft/typescript-go/shim/printer"
 )
 
-// Verifies checked alias metadata reaches a reference node in a borrowed context.
+// TestTypeAliasReferenceNodeUsesBorrowedBuilderContext verifies checked alias metadata reaches a reference node in a borrowed context.
 //
 // A builder pointer alone cannot serialize an alias: symbol naming and argument
 // conversion need the checker host and an entered enclosing-file context.

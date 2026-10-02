@@ -5,6 +5,16 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxUsesTheLastMessageForARepeatedSelector verifies the last
+// message wins for a repeated selector.
+//
+// Repeating one selector yields a single finding carrying the final configured
+// message.
+//
+//  1. Configure structured, string and structured entries for the same debugger
+//     selector.
+//  2. Run the rule over a debugger statement.
+//  3. Assert one finding carrying exactly the final message.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine requires one debugger finding carrying exactly Final message rather than duplicate findings or superseded/default text.
 // @evidence contracts/testing.md#independent-expectations The authored ordered entries establish the last-selector-message precedence contract independently of dispatch output.

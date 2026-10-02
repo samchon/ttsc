@@ -6,6 +6,18 @@ import (
   "strings"
 )
 
+// TestNoRestrictedTypesLaterWhitespaceEquivalentKeyWins verifies the later of
+// two whitespace-equivalent keys wins.
+//
+// Keys that differ only in spacing normalize to one policy and the final entry
+// decides.
+//
+//  1. Configure Banned twice with differing inner spacing, enabled then disabled and
+//     the reverse.
+//  2. Run the rule over a Banned type.
+//  3. Assert the final disable is clean and the final enable reports one exact-span
+//     error.
+//
 // @evidence contracts/testing.md#behavioral-verification Whitespace-normalized duplicate keys must retain the final policy.
 // @evidence contracts/testing.md#independent-expectations The same authored Banned type must be clean for final disable and yield one exact-span rule error for final enable.
 // @evidence contracts/testing.md#distinguishing-cases Reversed enabled/disabled order and spaces inside the equivalent key distinguish precedence from normalization.

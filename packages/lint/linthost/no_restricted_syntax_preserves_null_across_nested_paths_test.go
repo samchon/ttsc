@@ -5,6 +5,16 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxPreservesNullAcrossNestedPaths verifies a null alternate
+// survives nested path traversal and is typeof object.
+//
+// JavaScript typeof null is object, unlike an absent undefined value.
+//
+//  1. Parse an if statement with a null alternate.
+//  2. Run selectors comparing the nested alternate path with type(object) and
+//     type(undefined).
+//  3. Assert the object selector reports the full range and the undefined selector
+//     reports nothing.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine reports the original if under nested-path type(object) and stays clean for type(undefined).
 // @evidence contracts/testing.md#independent-expectations The selector safe-path contract retains an existing null alternate through deeper traversal; JavaScript typeof null is object, independently differing from an absent undefined value.

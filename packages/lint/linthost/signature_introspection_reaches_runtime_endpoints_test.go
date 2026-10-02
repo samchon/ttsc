@@ -16,7 +16,7 @@ type signatureObservation struct {
   returnType string
 }
 
-// Verifies signature introspection reaches real checker endpoints at runtime.
+// TestSignatureIntrospectionReachesRuntimeEndpoints verifies signature introspection reaches real checker endpoints at runtime.
 //
 // A compile-only composition cannot prove that the public producer yields
 // usable signatures or that the arity, parameter, rest, and return wrappers

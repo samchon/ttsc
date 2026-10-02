@@ -5,6 +5,18 @@ import (
   "encoding/json"
 )
 
+// TestNoRestrictedTypesMatchesEveryOfficialTypeSurfaceExactly verifies each
+// supported type surface is matched exactly and runtime heritage is not.
+//
+// Keywords, empty types, nested tuples, names and type heritage are banned
+// surfaces; a runtime extends clause is not a type.
+//
+//  1. Parse a source with twenty-four marked type surfaces and a runtime extends
+//     clause.
+//  2. Run the rule with a ban on each surface.
+//  3. Assert the exact ranges and messages at error severity with no edits and
+//     nothing for the runtime clause.
+//
 // @evidence contracts/testing.md#behavioral-verification Configured restrictions must cover supported type surfaces without matching runtime heritage.
 // @evidence contracts/testing.md#independent-expectations Twenty-four authored marker/text spans fix complete ranges and messages; exact rule, error severity and absent edits are required.
 // @evidence contracts/testing.md#distinguishing-cases Keywords, empty types, nested tuples, names and type heritage are positive cases; runtime extends stays clean.

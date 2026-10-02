@@ -5,6 +5,18 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxStringifiesRegularExpressionValues verifies regular
+// expression values stringify with sorted flags while raw keeps the source
+// order.
+//
+// The normalized value orders flags as im, the raw text keeps the authored mi,
+// and type is object.
+//
+//  1. Parse the literal /danger/mi.
+//  2. Run a conjunction over value, raw and type, and a variant with swapped flag
+//     order in the value.
+//  3. Assert the matching conjunction reports the literal and the swapped value
+//     reports nothing.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine compares the exact /danger/mi literal range under normalized value, raw text and object-type attributes, with a mismatched normalized-value control remaining clean.
 // @evidence contracts/testing.md#independent-expectations RegExp value stringification orders flags as im while source raw text retains mi; fixed authored strings independently define these separate attributes.

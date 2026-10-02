@@ -2,6 +2,18 @@ package linthost
 
 import "testing"
 
+// TestNoParamReassignDefaultPropsLeavesPropertyWritesAlone verifies the default
+// props:false policy ignores writes to parameter properties and reports only
+// rebinding.
+//
+// Mutating the object a parameter refers to is allowed by default while
+// replacing the parameter itself is not.
+//
+//  1. Parse a function whose parameter has property assignment, update, delete,
+//     destructuring and loop writes, then a final rebinding.
+//  2. Run no-param-reassign with default options.
+//  3. Assert only the final rebinding reports, at line seven, with the parameter
+//     named.
 //
 // @evidence contracts/testing.md#behavioral-verification Checker-backed findings require exactly the one direct target reassignment, with its independent line/target/message triple.
 // @evidence contracts/testing.md#independent-expectations Default props false permits mutation of the referenced object while forbidding replacement of the parameter binding; line seven independently identifies that distinction.

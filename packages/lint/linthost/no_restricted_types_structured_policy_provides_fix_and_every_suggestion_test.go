@@ -5,6 +5,16 @@ import (
   "encoding/json"
 )
 
+// TestNoRestrictedTypesStructuredPolicyProvidesFixAndEverySuggestion verifies a
+// structured policy yields its automatic fix and every suggestion.
+//
+// The message, fix and suggestions fields are independently optional.
+//
+//  1. Configure custom, empty, fix-only and suggestion-only policies.
+//  2. Collect the findings and apply the fix and each suggestion separately.
+//  3. Assert the exact edits, titles, rewritten outputs, valid parses and clean
+//     fixed points.
+//
 // @evidence contracts/testing.md#behavioral-verification Structured policies must preserve automatic fixes and every independent suggestion.
 // @evidence contracts/testing.md#independent-expectations Authored ranges, replacement strings and titles determine exact edits and complete rewritten outputs, parsing and clean fixed points.
 // @evidence contracts/testing.md#distinguishing-cases Custom, empty, fix-only and suggestion-only policies distinguish optional fields; alternatives are applied independently.

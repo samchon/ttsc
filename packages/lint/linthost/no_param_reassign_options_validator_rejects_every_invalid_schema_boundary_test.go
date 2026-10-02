@@ -6,6 +6,18 @@ import (
   "testing"
 )
 
+// TestNoParamReassignOptionsValidatorRejectsEveryInvalidSchemaBoundary verifies
+// the no-param-reassign options validator rejects each invalid schema boundary
+// before linting.
+//
+// Invalid options must fail configuration, leave the rule undispatched and never
+// request a checker.
+//
+//  1. Build twelve invalid payloads: malformed, null, array, unknown key, wrong
+//     types, duplicate entries, invalid regex and ignore settings with props
+//     disabled.
+//  2. Bind each through the engine.
+//  3. Assert the expected error fragment, disabled dispatch and no checker request.
 //
 // @evidence contracts/testing.md#behavioral-verification Twelve named inputs require the expected error, disabled dispatch and no checker request for invalid configuration.
 // @evidence contracts/testing.md#independent-expectations Literal error fragments follow the public schema: object options, boolean props, unique string arrays, valid regexes and compatible ignore/props settings.

@@ -6,6 +6,17 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxRejectsInvalidConfigurationBeforeDispatch verifies
+// invalid no-restricted-syntax configuration fails before rule dispatch.
+//
+// Malformed options must produce a configuration error and leave the rule out of
+// the dispatch table.
+//
+//  1. Build fourteen invalid inputs: malformed JSON, wrong or null fields, unknown,
+//     empty and duplicate entries, and malformed attribute, regex and class
+//     selectors.
+//  2. Bind each through the engine.
+//  3. Assert the expected error and that no dispatch entry exists.
 //
 // @evidence contracts/testing.md#behavioral-verification Fourteen named invalid inputs require their expected configuration errors and an absent rule dispatch entry.
 // @evidence contracts/testing.md#independent-expectations Hand-authored malformed/type/field/duplicate/selector/regexp/class errors follow the public schema and grammar; validation errors are not inferred from findings.

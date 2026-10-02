@@ -5,6 +5,15 @@ import (
   "testing"
 )
 
+// TestNoRestrictedSyntaxKeepsTemplateAndLiteralAliasesDistinct verifies a
+// no-substitution template literal is a TemplateLiteral and not a Literal.
+//
+// A backtick expression has template identity even without substitutions.
+//
+//  1. Parse a source holding a no-substitution template literal.
+//  2. Run a Literal selector and a TemplateLiteral selector.
+//  3. Assert the Literal selector reports nothing and the TemplateLiteral selector
+//     reports the exact range.
 //
 // @evidence contracts/testing.md#behavioral-verification Engine requires no Literal matches for the original template and one exact TemplateLiteral range.
 // @evidence contracts/testing.md#independent-expectations An independently authored backtick expression has template AST identity even without substitution; it is not the supported ordinary Literal alias.

@@ -2,7 +2,18 @@ package linthost
 
 import "testing"
 
-// Re-entering an uninitialized var declaration retains its prior value.
+// TestNoVarPreservesLoopBodyRetainedValues verifies no-var does not rewrite a
+// body var that retains its value across iterations.
+//
+// A var is one function binding, so re-entering an uninitialized declaration
+// keeps the prior value; a fresh let would change the result from [0,0] to
+// [0,1].
+//
+//  1. Fix for, while and do loop bodies that declare an uninitialized var and assign
+//     it conditionally.
+//  2. Fix an initialized body declaration and a for-of header var assigned a value.
+//  3. Assert the uninitialized declarations stay as var and the initialized ones
+//     become let.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual no-var edits retain uninitialized repeated body declarations and still rewrite an initialized body declaration and assigned for-of header.
 // @evidence contracts/testing.md#independent-expectations Var is one function binding; fresh let bindings would change the authored two-iteration result from [0,0] to [0,1]. Initializers and for-of assignments reset values independently.

@@ -2,17 +2,16 @@ package linthost
 
 import "testing"
 
-/**
- * Verifies solid import and call-shape rules: canonical modules and non-React APIs are enforced.
- *
- * Locks the source-aware rules that only need import declarations and call
- * expressions. They catch wrong Solid module imports, React dependency arrays,
- * and Proxy-backed APIs without using type information.
- *
- * 1. Import Solid APIs from the wrong modules and the store package.
- * 2. Call `createEffect` with a dependency array and construct `Proxy`.
- * 3. Assert import, dependency, and proxy diagnostics are reported.
- */
+// TestSolidImportProxyAndDependencyRules verifies solid import and call-shape
+// rules: canonical modules and non-React APIs are enforced.
+//
+// Locks the source-aware rules that only need import declarations and call
+// expressions. They catch wrong Solid module imports, React dependency arrays,
+// and Proxy-backed APIs without using type information.
+//
+//  1. Import Solid APIs from the wrong modules and the store package.
+//  2. Call `createEffect` with a dependency array and construct `Proxy`.
+//  3. Assert import, dependency, and proxy diagnostics are reported.
 //
 // @evidence contracts/testing.md#behavioral-verification The actual owning engine verifies exact findings identify misrouted render/createStore, store produce, React dependency arrays and Proxy construction; the assertions below retain the observable identity of every expected result.
 // @evidence contracts/testing.md#independent-expectations The supported Solid module routes, non-Proxy policy and automatically tracked effect semantics determine the authored rule/line triples.
