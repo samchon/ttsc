@@ -804,16 +804,18 @@ var registered = &registry{rules: map[string]Rule{}}
 // `init()`. Duplicate names are a programmer error and panic.
 //
 // Registration must finish before engines or registry readers run; the
-// registry does not synchronize concurrent mutation.
+// registry does not synchronize concurrent mutation. A nil rule interface panics.
+// Registered implementations and names remain in this process-wide registry;
+// there is no public unregister operation.
 //
 // @evidence contracts/common.md#principled-implementation Checking and inserting the same captured name establishes unique rule identity; new contributor names invalidate the derived diagnostic-code table.
 // @evidence contracts/common.md#clear-and-simple-design The init-time registry owns identity and cache invalidation together, leaving per-run configuration to Engine.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Registration is the declared extension boundary, with duplicate identities rejected rather than silently replacing an implementation.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain initialization ownership, duplicate panic and the absence of concurrent mutation support before the tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Register performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Register has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Register keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Register acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Capturing Name once and using keyed membership/insertion avoids a registry scan. Hashing costs depend on name bytes; map insertion is amortized, with the contributor Name callback and optional diagnostic-table mutex acquisition as additional work.
+// @evidence contracts/performance.md#reuse-equivalent-work A new name absent from the frozen built-in code ledger marks runtime assignments dirty. RuleCode reuses its table only while the registered contributor set remains equivalent; invalidation does not replace the unsupported-concurrent-registry-mutation premise.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The process-wide registry retains one implementation and name per accepted identity for process lifetime, with no public removal or cardinality cap. Derived runtime codes retain registered contributor entries and are replaced on recomputation; the invalidation mutex is unlocked immediately, and this function creates no handle or task.
 func Register(rule Rule) {
   if rule == nil {
     panic("@ttsc/lint: Register called with nil rule")
@@ -837,9 +839,9 @@ func Register(rule Rule) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts It consults the owned registry rather than translating consumer-specific names or patching foreign implementations.
 // @evidence contracts/common.md#meaningful-documentation Native prose supplies absence, shared implementation and registration-lifetime semantics before the tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation LookupRule performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms LookupRule has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work LookupRule keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources LookupRule acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms One keyed registry lookup avoids enumeration; string hashing depends on name bytes, with no rule construction or copied output population.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This accessor retrieves an already-registered implementation; it coordinates no request computation or invalidation protocol of its own.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned implementation remains owned by the process-wide registry; this accessor retains no separate history and acquires no handle or task.
 func LookupRule(name string) Rule { return registered.rules[name] }
 
 // AllRuleNames returns the registry sorted alphabetically. Useful for
@@ -853,8 +855,8 @@ func LookupRule(name string) Rule { return registered.rules[name] }
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Names come from actual registrations rather than a copied list of known rules or expected snapshots.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs state ordering, caller ownership and the frozen-registry premise before the tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation AllRuleNames lists registered rule names and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms The registry names are copied once and sorted once, O(rules log rules).
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work AllRuleNames keeps no cache; every call lists the registry.
+// @evidence contracts/performance.md#efficient-algorithms For r registrations, one key scan and O(r log r) lexical comparisons produce the sorted output, with comparison cost depending on shared name prefixes. The new slice stores O(r) string headers and shares immutable name bytes.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Enumeration owns no registration-generation key or request coordination; each call returns an independently mutable slice for the current stable registry.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned slice is new and owned by the caller; no handle or task is acquired.
 func AllRuleNames() []string {
   names := make([]string, 0, len(registered.rules))
