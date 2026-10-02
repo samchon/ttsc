@@ -103,7 +103,8 @@ func isAwaitUsingDeclarationList(node *shimast.Node) bool {
 // Members are deduplicated by their (name, static) identity: an
 // instance property and a static property of the same name coexist, as
 // do a getter and a setter for the same property, but a getter and a
-// regular method on the same key do not.
+// regular method on the same key do not. Bodiless method declarations are
+// TypeScript overload signatures and are not counted.
 type noDupeClassMembers struct{}
 
 func (noDupeClassMembers) Name() string { return "no-dupe-class-members" }
@@ -122,6 +123,12 @@ func (noDupeClassMembers) Check(ctx *Context, node *shimast.Node) {
   seen := map[slot]map[string]bool{}
   for _, member := range members {
     if member == nil {
+      continue
+    }
+    // A bodiless method is an overload signature (or an abstract or ambient
+    // declaration). Overload sets legitimately repeat one name before their
+    // single implementation, so only members with a body take part.
+    if member.Kind == shimast.KindMethodDeclaration && member.Body() == nil {
       continue
     }
     name, kind, ok := classMemberSlot(member)
