@@ -113,10 +113,10 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
 // @evidence contracts/common.md#clear-and-simple-design This wrapper selects process output without duplicating transformation orchestration.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Transformation remains compiler-owned rather than a special source-text substitute.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains whole-program lint context and the target-only emit boundary.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation RunTransform only selects the process standard streams and forwards to RunTransformWithIO; it resolves no path and builds no executable or argument list.
-// @evidenceExclude contracts/performance.md#efficient-algorithms RunTransform is one delegating call with no loop.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunTransform keeps no cache and shares no computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunTransform retains nothing; the process owns its standard streams.
+// @evidence contracts/portability.md#os-neutral-implementation RunTransform passes process standard writers to RunTransformWithIO without constructing shell text or rewriting paths. Its delegated operation owns native project/target/output representation and filesystem capabilities; stream selection does not remove that boundary.
+// @evidence contracts/performance.md#efficient-algorithms Fixed stream selection is added to RunTransformWithIO config/Program/diagnostic/target-emit work and output bytes. The complete command retains that input-dependent cost and temporary storage despite this wrapper's lack of a loop.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This adapter selects stream defaults, not a cross-request producer. Program/config/resident reuse and effectful output premises remain those of RunTransformWithIO and its owners.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Standard streams belong to the process and are not closed by this adapter. RunTransformWithIO owns acquired checker/command/captured-output state and delegates cache/evaluator lifetime to their owners; the stream wrapper controls no independent retained population.
 func RunTransform(args []string) int {
   return RunTransformWithIO(args, os.Stdout, os.Stderr)
 }
@@ -124,16 +124,17 @@ func RunTransform(args []string) int {
 // RunTransformWithIO runs transform with invocation-owned output streams.
 // Writers must be nonnil. Output goes to stdout unless --out selects a file;
 // returns 2 for configuration or diagnostics errors and 3 for failed emission
-// or output writes. A successful transformation returns 0.
+// or file output writes. A successful transformation returns 0. Writes to
+// the provided stdout do not propagate writer errors through the exit code.
 //
 // @evidence contracts/common.md#principled-implementation Parsed project context selects a normalized source file from the loaded program; compiler emission captures only JavaScript output for that target and surfaces missing output or write failures.
 // @evidence contracts/common.md#clear-and-simple-design Flag parsing, diagnostics, target lookup and output capture form one explicit command pipeline.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Supported emit callbacks and stream injection replace neither compiler globals nor generated content.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies stream ownership while the transform declaration explains project context and output scope.
-// @evidence contracts/portability.md#os-neutral-implementation The working directory and the --file argument are resolved through the cwd resolver and shimtspath.ResolvePath instead of string concatenation, the semantic-config path is read from an environment variable, and the output directory is created with filepath.Dir and os.MkdirAll before os.WriteFile. File mode bits apply only on operating systems that honor them.
-// @evidence contracts/performance.md#efficient-algorithms Flags are parsed once, one program is loaded and diagnosed once, and Emit is limited to the single target source file, so cost is dominated by the program load and lint pass rather than by the emit of the requested file.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunTransformWithIO is a single-shot command that loads one program per invocation and keeps no cache; reuse across requests belongs to the resident daemon.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The loaded program is released by a deferred close on every return after a successful load; the captured output is one string held only until it is written or printed.
+// @evidence contracts/portability.md#os-neutral-implementation The working directory and --file use the cwd resolver and shimtspath.ResolvePath, while semantic config uses the environment channel. Config/source loading retains the compiler host native boundary. The --out path is passed to filepath.Dir/os.MkdirAll/os.WriteFile: a relative output path follows the process cwd, not the --cwd override. Mode bits depend on the filesystem; paths are not inferred from URL spelling or OS-based case policy.
+// @evidence contracts/performance.md#efficient-algorithms Flags and their bytes are parsed once; config policy and one Program supply project-wide compiler/lint diagnostics. Target lookup scans source files and path bytes, while Emit selects one target but retains compiler-chosen transform work and generated byte cost. The last JavaScript output is captured and optional file writes convert it to bytes. All config/dependency, Program, diagnostics and target/output dimensions contribute; no universal dominant stage or unmeasured speedup is claimed.
+// @evidence contracts/performance.md#reuse-equivalent-work One invocation uses the same Program for compiler/lint diagnostics and target emission. Config evaluation and any installed resident rule memo retain their separate dependency/equivalence premises; this command adds no cross-invocation Program or emitted-output cache. Matching flags or target bytes alone do not justify replaying diagnostics or file writes.
+// @evidence contracts/performance.md#bound-retention-and-release-resources After successful Program acquisition a deferred close drops the standalone lint checker; Program and ordinary command references become reclaimable after their owners release them. The capture retains the last JavaScript string until output and return, and a file write adds a temporary byte conversion. Writers remain caller-owned, config/resident caches retain their own state, and no Program/output-size cap or caller cancellation deadline is established here.
 func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
   semanticConfigPath := os.Getenv(semanticConfigPathEnv)
   fs := flag.NewFlagSet("transform", flag.ContinueOnError)
