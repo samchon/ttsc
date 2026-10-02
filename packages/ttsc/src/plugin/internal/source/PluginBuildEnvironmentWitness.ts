@@ -36,7 +36,7 @@ export namespace PluginBuildEnvironmentWitness {
    * use qualified internal keys so link spelling and followed target state
    * remain separate dependencies.
    *
-   * @evidence contracts/common.md#principled-implementation A path-to-signature map preserves the first observation for each dependency so later reads cannot overwrite evidence of a race.
+   * @evidence contracts/common.md#principled-implementation Capture operations preserve first observations in this map, with explicit refusal replacing a value by an unusable sentinel. The mutable Map type itself does not prevent arbitrary caller overwrites or validate provenance.
    * @evidence contracts/common.md#clear-and-simple-design The record carries only dependencies and their signatures; witness operations own interpretation and consumers own retention.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The representation stores observed native state rather than predeclared expected results.
    * @evidence contracts/common.md#meaningful-documentation The native description identifies first-read provenance, which is the nonobvious meaning of this otherwise ordinary map.
@@ -57,7 +57,7 @@ export namespace PluginBuildEnvironmentWitness {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Observation uses native stat state; absent witnessing does not alter the content read or fake validity.
    * @evidence contracts/common.md#meaningful-documentation Native prose states first-observation semantics and the provenance required for the optional stat, with a blank line before tags.
    * @evidence contracts/portability.md#os-neutral-implementation Metadata comes from Node bigint stat for the actual path; callers can reuse precisely that native observation.
-   * @evidence contracts/performance.md#efficient-algorithms Map membership is expected constant time; one metadata probe occurs only for a previously unseen dependency without an already-observed stat.
+   * @evidence contracts/performance.md#efficient-algorithms Map membership/set processes path keys; an unseen dependency without supplied metadata performs native stat/path lookup, then formats bigint fields. Native/key/numeric-text costs remain despite expected constant-time map indexing; supplied stat provenance is a caller premise.
    * @evidence contracts/performance.md#reuse-equivalent-work Repeated dependencies reuse the first signature and a caller's pre-read stat avoids repeating the equivalent syscall.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns the witness map and its release; this operation adds one dependency without retaining another handle.
@@ -75,12 +75,12 @@ export namespace PluginBuildEnvironmentWitness {
    * Witness a link itself before following it, including a missing target.
    * Target metadata remains a separate observation through add.
    *
-   * @evidence contracts/common.md#principled-implementation First-observation retention records native link identity and target spelling separately from followed-target metadata; retargeting a stable missing link cannot preserve this witness.
+   * @evidence contracts/common.md#principled-implementation First-observation retention records native link metadata and target spelling separately from followed-target state. A successfully observed changed spelling changes this witness; unavailable lstat/readlink yields the helper's missing marker, which does not distinguish every failure cause.
    * @evidence contracts/common.md#clear-and-simple-design Qualified keys keep link and target observations in the same caller-owned record, and holds dispatches to their respective native observations.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A link's existence does not certify its target; native lstat and readlink preserve missing-target and retargeting distinctions without replacing filesystem operations.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes the link observation from add's target observation and states pre-follow timing.
    * @evidence contracts/portability.md#os-neutral-implementation Node lstat and readlink inspect the native link or junction and its target spelling without an OS-based case or existence assumption.
-   * @evidence contracts/performance.md#efficient-algorithms One unseen link performs a metadata probe and a target-name read; framing costs scale with the target spelling.
+   * @evidence contracts/performance.md#efficient-algorithms Qualified-key construction/map indexing process path text; an unseen link uses native lstat/readlink and serializes bigint/target spelling. Native component/link lookup and all numeric/path/target bytes contribute work; no file content is read.
    * @evidence contracts/performance.md#reuse-equivalent-work Repeated link observations retain their first signature in this record rather than replacing evidence of a race.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns the record; the operation retains no native handle.
@@ -93,15 +93,16 @@ export namespace PluginBuildEnvironmentWitness {
 
   /**
    * Retain an ambient native lookup variable at the exact lookup that used it.
-   * A different repeated observation refuses the reading, including an ABA
-   * interval that the request's initial and final snapshots cannot reveal.
+   * A different repeated observation refuses the reading. A captured transient
+   * value can reveal an ABA interval hidden by initial/final snapshots; a value
+   * never observed here is not detected by this record.
    *
    * @evidence contracts/common.md#principled-implementation First observed native lookup inputs remain paired with the digest and are compared with current host inputs before publication and reuse.
    * @evidence contracts/common.md#clear-and-simple-design Disjoint environment keys share the existing caller-owned witness and validation boundary.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual observed variables qualify native selection without writing the parent's shared environment or inventing a tool identity.
    * @evidence contracts/common.md#meaningful-documentation The prose distinguishes lookup-time authority from request and final snapshots.
-   * @evidence contracts/portability.md#os-neutral-implementation Native executable selection supplies the exact variable it used; holds compares host environment names with Windows case-insensitive lookup semantics.
-   * @evidence contracts/performance.md#efficient-algorithms A map lookup and one serialized optional string capture each distinct native lookup variable.
+   * @evidence contracts/portability.md#os-neutral-implementation Native executable selection supplies the variable value it observed; holds uses lowercase-name matching on Windows and direct name lookup elsewhere, without writing host variables.
+   * @evidence contracts/performance.md#efficient-algorithms Name qualification/map indexing and JSON serialization process supplied name/value bytes on every observation, including repeats. Equal observations keep the first value; a different value sets the refusal sentinel, with no native subprocess or file-content read here.
    * @evidence contracts/performance.md#reuse-equivalent-work Repeated equal observations reuse the first signature; a different observation refuses the complete reading.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns and releases the record; this operation retains no process or environment handle.
    */
@@ -123,7 +124,7 @@ export namespace PluginBuildEnvironmentWitness {
    * @evidence contracts/common.md#meaningful-documentation Native prose states the effect on every consumer of the record, not merely the stored value.
    *
    * @evidenceExclude contracts/portability.md#os-neutral-implementation This operation stores a sentinel and performs no native path lookup.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms One optional map write does not choose a workload-processing algorithm.
+   * @evidence contracts/performance.md#efficient-algorithms An optional supplied-map write processes the key and replaces its value with a fixed sentinel; it performs no native observation, content scan or separate dependency traversal.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work It invalidates a witness rather than sharing a computation.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Record lifetime belongs to the caller.
    */
@@ -139,7 +140,7 @@ export namespace PluginBuildEnvironmentWitness {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts All dependencies are inspected; a quiet parent or unchanged VERSION cannot stand in for nested SDK inputs.
    * @evidence contracts/common.md#meaningful-documentation Native prose states the universal unchanged-metadata condition and tags remain separated from it.
    * @evidence contracts/portability.md#os-neutral-implementation Validation reads actual Node metadata using the same link-following semantics as capture.
-   * @evidence contracts/performance.md#efficient-algorithms Validation performs O(P) path or environment observations probes for P dependencies, additionally reading each witnessed link's target spelling, and stops on the first mismatch; file contents are not read.
+   * @evidence contracts/performance.md#efficient-algorithms Validation iterates dependencies until mismatch and performs native stat/link queries or ambient-variable serialization. Windows environment matching enumerates names and lowercases text per witnessed variable, so P alone does not bound that work. Native path/link/name/value/numeric bytes contribute cost; file content is not read and unavailable native observations share the helper's missing marker.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call must establish current validity; caching that answer would conceal external changes.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Validation retains no handles or additional historical state.
@@ -189,7 +190,7 @@ export namespace PluginBuildEnvironmentWitness {
 
   /**
    * The metadata a replacement moves: identity, size, and modification and
-   * change times, following links; `missing` for a path that is not there.
+   * change times, following links; `missing` when the native stat is unavailable.
    */
   function signature(file: string, observed?: fs.BigIntStats): string {
     try {
