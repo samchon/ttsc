@@ -16,8 +16,8 @@ import { resolveRealPath } from "./resolveRealPath";
  * last `extends` entry that resolves to an array, so a later entry holding
  * `null` does not erase an earlier entry's list (`tsconfigparsing.go`,
  * `applyExtendedConfig`). `findDeclaredValue` stops at the first config that
- * has the key, which differs from that rule only for `null`, so this list is
- * resolved on its own.
+ * supplies a selected declaration, whereas inherited non-arrays must not erase
+ * an earlier array here, so this list is resolved on its own.
  *
  * `specs` drops non-string entries, as `validateSpecs` does. `rawSpecs` keeps
  * them for generated overlays that must preserve compiler diagnostics. The
@@ -50,11 +50,15 @@ import { resolveRealPath } from "./resolveRealPath";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains own versus inherited null and the three return states;
  *   the distinction has a compiler basis and a documented consequence.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   The recursive search visits inherited branches until their last usable
+ *   array is known. Resolution/parsing follows config occurrences and source
+ *   bytes; copied ancestor sets cost the sum of depths, and array filtering
+ *   and raw copying follow the winning and intermediate list lengths.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   Takes the shared configs map so the callers parse each config once.
+ *   An optional lexical-keyed configs map shares decoded and failed source
+ *   observations within the caller's read transaction; selections and anchors
+ *   remain branch-specific. Changed inputs require a new transaction map.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   The ancestor set is local to the call; the collect and configs maps
  *   belong to the caller.

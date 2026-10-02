@@ -21,11 +21,10 @@ import fs from "node:fs";
  * @evidence contracts/common.md#meaningful-documentation
  *   Documentation says any unavailable realpath retains spelling, including
  *   failures other than missing paths; it does not overclaim a successful probe.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ * @evidence contracts/performance.md#efficient-algorithms One synchronous Node realpath operation owns component and link traversal; its work depends on the path spelling and native resolution, rather than a constant count of wrapper statements. Failure returns the original string without another probe.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Keeps no cache of its own and computes each value once.
+ *   This best-effort observation coordinates no completed or in-flight work;
+ *   config-walk callers own transaction scope and physical cycle guards.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Acquires no handle, timer or retained state of its own.
  */

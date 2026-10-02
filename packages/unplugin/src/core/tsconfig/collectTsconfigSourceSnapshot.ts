@@ -36,8 +36,9 @@ import { resolveRealPath } from "./resolveRealPath";
  *   Native paragraphs explain lexical anchoring, cycle identity and unavailable
  *   content, rather than presenting a null observation as successful parsing.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Reads each config once because the output map and the ancestor set stop
- *   repeat visits and cycles.
+ *   The lexical output map stops repeat source reads and physical branch
+ *   ancestry cuts cycles. Native resolution/parsing follows sources, graph
+ *   edges and source bytes; copied ancestor sets cost the sum of visited depths.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   The output map is shared across the extends chain, so a config already
  *   read is not read again.
