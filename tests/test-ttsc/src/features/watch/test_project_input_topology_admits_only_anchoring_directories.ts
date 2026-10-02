@@ -4,6 +4,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { projectInputTopologyMayAffect } from "../../../../../packages/ttsc/src/launcher/internal/watch/projectInputTopologyMayAffect";
+import { createProjectInputPathIdentityContext } from "../../../../../packages/ttsc/src/internal/pathIdentity/createProjectInputPathIdentityContext";
+import { ProjectInputWatchRules } from "../../../../../packages/ttsc/src/launcher/internal/watch/ProjectInputWatchRules";
+import { WatchPaths } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchPaths";
 
 /**
  * Verifies a directory event is admitted from where it happened.
@@ -18,12 +21,13 @@ import { projectInputTopologyMayAffect } from "../../../../../packages/ttsc/src/
  * 2. Admit the sibling directory an atomic replacement leaves behind.
  * 3. Admit the dependency root beside it and reject everything below that root,
  *    which is the pair the rule turns on.
- * 4. Reject an unrelated ordinary file and keep a missing glob root admissible.
+ * 4. Keep a missing glob root admissible and contrast previous members beneath
+ *    a missing child with previous members beneath its sibling.
  *
- * @evidence contracts/testing.md#behavioral-verification projectInputTopologyMayAffect admits only events that may re-anchor declared inputs.
- * @evidence contracts/testing.md#independent-expectations an atomic replacement can move a declared ancestor while unrelated dependency descendants cannot move any declaration.
- * @evidence contracts/testing.md#distinguishing-cases replaced siblings, declared ancestors and the top dependency root are admitted; deeper dependency trees and ordinary files are rejected; missing glob roots remain admitted.
- * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it calls the actual admission predicate with default native identity and an empty previous population over TestProject-owned directories/files. Native stat/identity and any read-only case query classify the supplied paths; no watcher, compiler or product host starts. The case observes admission only, not a corpus rehash or actual atomic replacement.
+ * @evidence contracts/testing.md#behavioral-verification projectInputTopologyMayAffect preserves the seven original admission decisions and admits a missing non-anchoring glob child only when the previous population contains a member beneath that child.
+ * @evidence contracts/testing.md#independent-expectations An atomic replacement can move a declared ancestor while unrelated dependency descendants cannot move any declaration. Removing api/removed can affect the authored previous api/removed/x.json member, but cannot affect the sibling api/other/x.json member; these true/false expectations do not come from the predicate's result.
+ * @evidence contracts/testing.md#distinguishing-cases Replaced siblings, declared ancestors and the top dependency root are admitted; deeper dependency trees and ordinary files are rejected; missing glob roots remain admitted. The same absent child below the declared glob root is non-anchoring and not a directory: previous removed/x.json admits it, while previous other/x.json does not.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it calls the actual admission predicate with default native identity, the original empty previous populations and two supplied previous-member populations over TestProject-owned directories/files. Native stat/identity and any read-only case query classify the supplied paths; no watcher, compiler or product host starts. The case observes admission only, not a corpus rehash or actual atomic replacement.
  */
 export function test_project_input_topology_admits_only_anchoring_directories(): void {
     const root = TestProject.tmpdir("ttsc-project-input-admission-");
@@ -67,4 +71,35 @@ export function test_project_input_topology_admits_only_anchoring_directories():
         `${label} must ${expected ? "be admitted" : "stay outside"} the rescan`,
       );
     }
+    const removed = path.join(root, "api", "removed");
+    assert.equal(path.relative(path.join(root, "api"), removed), "removed");
+    assert.equal(fs.existsSync(removed), false, "the changed child is absent");
+    assert.equal(WatchPaths.isDirectory(removed), false);
+    assert.equal(
+      ProjectInputWatchRules.projectInputAnchorsDeclaration(
+        snapshot,
+        removed,
+        createProjectInputPathIdentityContext(),
+      ),
+      false,
+      "the missing child does not anchor any declaration",
+    );
+    assert.equal(
+      projectInputTopologyMayAffect(
+        snapshot,
+        removed,
+        new Map([["removed input", path.join(removed, "x.json")]]),
+      ),
+      true,
+      "a previous member beneath the missing child admits that topology change",
+    );
+    assert.equal(
+      projectInputTopologyMayAffect(
+        snapshot,
+        removed,
+        new Map([["other input", path.join(root, "api", "other", "x.json")]]),
+      ),
+      false,
+      "a previous sibling member cannot admit the missing child",
+    );
   }
