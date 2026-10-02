@@ -12,8 +12,8 @@ import { ITtscGraphApplication } from "../structures/ITtscGraphApplication";
  * input and output schemas and its argument validator, with no hand-written
  * schema: the interface's JSDoc becomes the handshake instructions, the
  * method's becomes the tool description, and every property's becomes the
- * description of that field — including `audit`, whose JSDoc is how a caller
- * learns what the server checked before it answered.
+ * description of that field — including `audit`, whose JSDoc explains fact
+ * provenance and coverage without claiming a second compiler check.
  *
  * The library owns registration and sends structured results once by default.
  * Its version option identifies this graph server in the handshake without

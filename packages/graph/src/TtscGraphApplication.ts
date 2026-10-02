@@ -32,7 +32,7 @@ export type TtscGraphSource =
  * The MCP tool surface as a plain class over the resident
  * {@link TtscGraphMemory}.
  *
- * Its public method is the MCP tool: `typia.llm.application` reflects
+ * Its public method is the MCP tool: `typia.llm.controller` reflects
  * {@link ITtscGraphApplication} to generate the tool's JSON schema and argument
  * validator from the signature and JSDoc, with no hand-written schema, and
  * `@typia/mcp`'s `createMcpServer` registers it (see `./server/createServer`).

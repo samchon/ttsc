@@ -104,27 +104,21 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  */
 export interface ITtscGraphApplication {
   /**
-   * Answer a TypeScript question from the compiler's own index of this
-   * repository.
+   * Answer a TypeScript question from the synchronized source snapshot.
+   * Submit one request:
    *
-   * The graph holds every symbol, call, type, decorator and test, each with its
-   * file and line, resolved from the source on disk now. Submit exactly one
-   * request:
+   * - `tour`: architecture, runtime flow and nearby tests in one orientation
+   * - `trace`: calls, callers or the path from A to B
+   * - `details`: signatures, members and interface implementations
+   * - `lookup`: named declarations
+   * - `entrypoints`: where execution starts
+   * - `overview`: project layers and folders
+   * - `escape`: source bodies, span text or evidence outside the graph
    *
-   * - `tour`: architecture, the runtime flow from the public API to the code that
-   *   does the work, nearby paths, and the tests to read — a whole orientation
-   *   in one call
-   * - `trace`: what a symbol calls, what calls it, or the path from A to B
-   * - `details`: signatures, members, and what implements an interface
-   * - `lookup`: where a named symbol is declared
-   * - `entrypoints`: where execution starts, when the entry is unknown
-   * - `overview`: the project's layers and folder structure
-   *
-   * The result projects compiler declaration facts, server-derived structure
-   * and plugin-supplied artifact facts; `audit` distinguishes their provenance.
-   * For the ranked operations (`lookup`, `entrypoints`, `tour`), judge whether
-   * the shortlist covers your question.
-   * Read a file for what the graph does not carry: a body, the text in a span.
+   * `audit` identifies compiler declaration facts, server-derived structure
+   * and plugin artifact facts; it does not claim a second compiler check.
+   * Judge the coverage of ranked `lookup`, `entrypoints` and `tour` shortlists.
+   * Follow `next`; read source for omitted body text or missed coverage.
    *
    * @param props Reasoning plus one graph request
    * @returns Matching `result` union member
