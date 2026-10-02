@@ -35,14 +35,18 @@ import { fileURLToPath } from "node:url";
 import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
 
 import { prepareSnapshot } from "./core/fingerprint";
-import type { TtscMetroOptions } from "./core/options";
+import type {
+  ResolvedTtscMetroOptions as ResolvedTtscMetroOptionsDeclaration,
+  TtscMetroOptions as TtscMetroOptionsDeclaration,
+} from "./core/TtscMetroOptions";
 import { ENV_KEY, serializeOptions } from "./core/options";
 import { locateProjectUpstreamTransformer } from "./core/upstream";
 
-export type {
-  ResolvedTtscMetroOptions,
-  TtscMetroOptions,
-} from "./core/options";
+/** Options accepted by {@link withTtsc}; see the interface it names. */
+export type TtscMetroOptions = TtscMetroOptionsDeclaration;
+
+/** Options after the worker resolves them; see the interface it names. */
+export type ResolvedTtscMetroOptions = ResolvedTtscMetroOptionsDeclaration;
 
 /**
  * Minimal structural type for a Metro config object, avoids a hard dependency

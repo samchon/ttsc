@@ -81,6 +81,9 @@ import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import type { SnapshotReadOperations } from "./SnapshotReadOperations";
+import type { TtscMetroProjectView } from "./TtscMetroProjectView";
+
 /** Bumped when the snapshot JSON shape changes; mismatches read as corrupt. */
 const SNAPSHOT_VERSION = 4;
 
@@ -106,129 +109,6 @@ const CLAIMED_WORKER_SNAPSHOT_PREFIX = "graph-inputs.worker-claimed-";
  * and the state cannot be proven.
  */
 const SNAPSHOT_LISTING_ATTEMPTS = 8;
-
-/**
- * The filesystem reads the snapshot reader performs, injectable so a test can
- * drive the interleaving of a listing with a concurrent compaction. Production
- * passes nothing and reads the real filesystem.
- *
- * @evidence contracts/common.md#principled-implementation
- *   A structural record of the three Node filesystem reads the snapshot reader
- *   makes; the default delegates to node:fs unchanged.
- *
- * @evidence contracts/common.md#clear-and-simple-design
- *   One optional parameter carries the read boundary instead of a test mode
- *   flag, mirroring the repository's injectable filesystem operations.
- *
- * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   Production code never branches on the injection; no fs method is patched.
- *
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   The record carries calls to the host filesystem and defines no path or
- *   process representation of its own.
- *
- * @evidence contracts/common.md#meaningful-documentation
- *   The native JSDoc states why the boundary exists and that production uses
- *   the real filesystem.
- *
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   This declaration performs no processing; the reader that uses it owns the
- *   bounded retry.
- *
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   It coordinates no shared computation.
- *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   It retains nothing and opens no handle.
- */
-export interface SnapshotReadOperations {
-  /**
-   * Whether a path exists, as `fs.existsSync`.
-   *
-   * @evidence contracts/common.md#principled-implementation
-   *   Signature of the Node call it replaces; the default delegates to it.
-   *
-   * @evidence contracts/common.md#clear-and-simple-design
-   *   One call per member, no behavior of its own.
-   *
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts
-   *   The reader never branches on whether it was injected.
-   *
-   * @evidence contracts/portability.md#os-neutral-implementation
-   *   Delegates path interpretation to the host filesystem on every OS.
-   *
-   * @evidence contracts/common.md#meaningful-documentation
-   *   States which read this member stands for.
-   *
-   * @evidenceExclude contracts/performance.md#efficient-algorithms
-   *   A single delegated call; no processing strategy.
-   *
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-   *   Coordinates no shared computation.
-   *
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-   *   Retains nothing and opens no handle.
-   */
-  existsSync: (file: string) => boolean;
-
-  /**
-   * Text of a file, as `fs.readFileSync`; throws a missing-file error when absent.
-   *
-   * @evidence contracts/common.md#principled-implementation
-   *   Signature of the Node call it replaces; the default delegates to it.
-   *
-   * @evidence contracts/common.md#clear-and-simple-design
-   *   One call per member, no behavior of its own.
-   *
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts
-   *   The reader never branches on whether it was injected.
-   *
-   * @evidence contracts/portability.md#os-neutral-implementation
-   *   Delegates path interpretation to the host filesystem on every OS.
-   *
-   * @evidence contracts/common.md#meaningful-documentation
-   *   States which read this member stands for.
-   *
-   * @evidenceExclude contracts/performance.md#efficient-algorithms
-   *   A single delegated call; no processing strategy.
-   *
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-   *   Coordinates no shared computation.
-   *
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-   *   Retains nothing and opens no handle.
-   */
-  readFileSync: (file: string, encoding: "utf8") => string;
-
-  /**
-   * Entry names of a directory, as `fs.readdirSync`.
-   *
-   * @evidence contracts/common.md#principled-implementation
-   *   Signature of the Node call it replaces; the default delegates to it.
-   *
-   * @evidence contracts/common.md#clear-and-simple-design
-   *   One call per member, no behavior of its own.
-   *
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts
-   *   The reader never branches on whether it was injected.
-   *
-   * @evidence contracts/portability.md#os-neutral-implementation
-   *   Delegates path interpretation to the host filesystem on every OS.
-   *
-   * @evidence contracts/common.md#meaningful-documentation
-   *   States which read this member stands for.
-   *
-   * @evidenceExclude contracts/performance.md#efficient-algorithms
-   *   A single delegated call; no processing strategy.
-   *
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-   *   Coordinates no shared computation.
-   *
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-   *   Retains nothing and opens no handle.
-   */
-  readdirSync: (directory: string) => string[];
-}
 
 const HOST_SNAPSHOT_READ_OPERATIONS: SnapshotReadOperations = {
   existsSync: (file) => fs.existsSync(file),
@@ -451,78 +331,6 @@ function projectViewRoots(
   return pathIsWithin(resolvedBase, directory)
     ? [directory]
     : [resolvedBase, directory];
-}
-
-/**
- * One project, and the membership policy that describes it.
- *
- * The recorder's question is whether the project walk already covers an input,
- * so it needs both the walk's roots and the policy that walk used, and it is
- * wrong exactly when those two describe different projects. Passing them
- * separately made that mismatch expressible — the policy for one project
- * alongside the root of another — and passing the policy alone made it
- * expressible in a quieter way still, since a recorder that resolved its own
- * could describe a different program than the walk hashed. Both halves travel
- * together so neither can be supplied without the other (samchon/ttsc#1316).
- *
- * @evidence contracts/common.md#principled-implementation
- *   A readonly structural interface carries the selected config, discovery
- *   observations, membership policy and walk roots as one view.
- *   resolveProjectView supplies that coherent view to the recorder instead of
- *   independently resolving its parts.
- *
- * @evidence contracts/common.md#clear-and-simple-design
- *   The view groups config, policy, roots and discovery observations so a
- *   recorder receives one selected project rather than independently chosen
- *   pieces. Readonly members prevent replacement through this interface.
- *
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   This data contract declares the view, not an algorithm or processing path.
- *
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Sharing the view is owned by callers; this interface coordinates no work.
- *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   The view carries values; its consumers own retention and native lifetimes.
- *
- * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   The type does not structurally prohibit an inconsistent manually
- *   constructed value; it introduces no executable branches, consumer
- *   exceptions or foreign mutation.
- *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   Its strings retain lexical filesystem paths and its discovery entries
- *   retain identity predicates from the host. The interface does not
- *   normalize paths, invoke processes or equate filesystem paths with URLs.
- *
- * @evidence contracts/common.md#meaningful-documentation
- *   The native JSDoc explains each readonly field, one selected project and
- *   the reason policy and roots travel together. Checked against the
- *   documentation skill: separate paragraphs state the contract and why its
- *   nonobvious boundary matters; field comments retain their own useful
- *   facts.
- */
-export interface TtscMetroProjectView {
-  /** The base directory both fingerprint sides agree on. */
-  readonly base: string;
-
-  /** Config candidates observed while selecting this transform's project. */
-  readonly discoveryInputs: readonly TtscWatchInput[];
-
-  /** The caller's explicit `project`, if any. */
-  readonly explicitProject: string | undefined;
-
-  /** The membership policy resolved for that project. */
-  readonly policy: ReturnType<typeof readProjectMembershipPolicy>;
-
-  /** The policy used by the routed static walk. */
-  readonly walkPolicy: ReturnType<typeof readProjectMembershipPolicy>;
-
-  /** Lexical roots whose fingerprint uses this project's policy. */
-  readonly roots: readonly string[];
-
-  /** The exact config selected for this project. */
-  readonly tsconfig: string;
 }
 
 /** One stable implicit-project view and the config graph that produced it. */

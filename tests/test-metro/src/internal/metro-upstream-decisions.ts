@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import type { UpstreamTransformer } from "../../../../packages/metro/src/core/UpstreamTransformer";
 import * as upstream from "../../../../packages/metro/src/core/upstream";
 
 /** Run `fn`, returning the error it throws (fails the test if it does not). */
@@ -38,7 +39,7 @@ function tagged(name: string): {
   return { transform: async () => ({ ast: { name } }) };
 }
 
-async function nameOf(value: upstream.UpstreamTransformer): Promise<string> {
+async function nameOf(value: UpstreamTransformer): Promise<string> {
   const result = await value.transform({
     src: "",
     filename: "",

@@ -38,7 +38,7 @@ import {
   resolveProjectView,
   stableStringify,
 } from "./core/fingerprint";
-import type { ResolvedTtscMetroOptions } from "./core/options";
+import type { ResolvedTtscMetroOptions } from "./core/TtscMetroOptions";
 import { resolveOptionsFromEnv } from "./core/options";
 import { remapAstLocations } from "./core/remapAstLocations";
 import { resolveUpstreamTransformer } from "./core/upstream";
