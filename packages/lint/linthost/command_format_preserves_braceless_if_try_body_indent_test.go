@@ -12,7 +12,7 @@ import "testing"
 //  2. Run `ttsc format` and require the file to stay byte-identical.
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on a function whose braceless `if` body is a `try`/`catch`, and requires the whole file byte-identical.
-// @evidence contracts/testing.md#independent-expectations The source is an authored literal in the layout Prettier keeps and is its own expected output.
+// @evidence contracts/testing.md#independent-expectations The complete authored literal independently requires the braceless if's nested try/catch layout, condition and calls to survive unchanged; no independent Prettier invocation establishes these bytes.
 // @evidence contracts/testing.md#distinguishing-cases One fixed-point case for the braceless-if frame, complementing the braceless-for test. No mis-indented input is repaired here.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatPreservesBracelessIfTryBodyIndent(t *testing.T) {
