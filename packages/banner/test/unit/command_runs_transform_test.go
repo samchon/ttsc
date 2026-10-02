@@ -25,7 +25,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The real banner transform command returns parseable JSON and status zero with empty stderr; typescript[src/main.ts] must contain transform banner.
 // @evidence contracts/testing.md#independent-expectations The authored config text and cwd-relative source key define the expected transport result; substring matching does not pin complete JSDoc or emitted JavaScript.
 // @evidence contracts/testing.md#distinguishing-cases This case owns returned TypeScript source rather than disk emit; the invocation does not pass --file and does not prove single-file targeting.
-// @evidence contracts/testing.md#execution-ownership The discoverable TestCommandRunsTransform unit runs the sidecar command dispatch (utility.RunCommandWithIO with the banner registration) in the Go test process; runPlugin captures its exit status and separate streams. No compiled sidecar binary or child process is started, and the one-line process entry in plugin/main.go is not exercised.
+// @evidence contracts/testing.md#execution-ownership TestCommandRunsTransform calls utility.RunCommandWithIO in the Go test process, but its CJS config starts the real Node loader. No compiled sidecar entry runs. This remaining executable-config boundary belongs in the shared TypeScript E2E population; the existing case retains its assertions until that owner verifies their transfer, while JSON config can isolate portable command dispatch.
 func TestCommandRunsTransform(t *testing.T) {
   // Scenario setup: transform mode returns in-memory source text, so the test
   // does not need outDir or emitted files.
