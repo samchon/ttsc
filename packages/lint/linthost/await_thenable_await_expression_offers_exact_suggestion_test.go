@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestAwaitThenableAwaitExpressionOffersExactSuggestion verifies an ordinary
-// non-thenable await keeps its diagnostic but exposes only upstream's token
+// non-thenable await keeps its diagnostic but exposes an opt-in token
 // removal suggestion.
 //
 // @evidence contracts/testing.md#behavioral-verification await-thenable reports await 0 while withholding autofix; its single suggestion removes exactly the await token and retains the trivia.

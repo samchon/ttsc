@@ -5,24 +5,17 @@ import (
   "testing"
 )
 
-// TestAwaitThenableAwaitUnionWithPromiseAllows verifies an ordinary `await`
-// over a maybe-thenable union stays clean after the rule's multi-construct
-// dispatch split.
-//
-// Regression guard for the pre-existing await arm: upstream intentionally
-// distinguishes always/never/maybe-thenable operands, so
-// `Promise<number> | number` must not report. Extending the rule to
-// `for await...of` and `await using` restructured `Check` into a kind
-// switch; this pins that the tri-state awaitability classifier still accepts
-// a union with a Promise constituent and the new arms did not turn the rule
-// into a blanket ban on mixed unions.
+// TestAwaitThenableAwaitUnionWithPromiseAllows verifies ordinary await accepts
+// the authored Promise<number> | number operand. The Promise constituent makes
+// this union possibly awaitable; scalar-only reporting is owned by
+// TestAwaitThenableAwaitabilityTypeParameterBoundaries.
 //
 //  1. Seed a project awaiting a `Promise<number> | number` value.
 //  2. Run `check` with typescript/await-thenable enabled as error.
 //  3. Assert a clean exit with no await-thenable finding.
 //
 // @evidence contracts/testing.md#behavioral-verification A union containing a Promise must remain maybe-awaitable.
-// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix zero rule findings with code 0 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#independent-expectations The authored Promise-containing union specifies the clean result independently: code 0, empty stdout and no rule-labelled stderr. The rendered-main.ts helper also requires zero matches; it does not certify unrelated diagnostics or other file anchors.
 // @evidence contracts/testing.md#distinguishing-cases The Promise<number>|number input is clean; scalar-constrained await in AwaitabilityTypeParameterBoundaries is the positive counterpart.
 // @evidence contracts/testing.md#execution-ownership TestAwaitThenableAwaitUnionWithPromiseAllows executes the in-process check command with a real Program/Checker in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableAwaitUnionWithPromiseAllows(t *testing.T) {
