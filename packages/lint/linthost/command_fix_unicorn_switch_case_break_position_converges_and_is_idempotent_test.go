@@ -22,8 +22,8 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification The in-process public fix command executes twice and checks its exit/output and exact fixture file after each pass.
 // @evidence contracts/testing.md#independent-expectations The authored canonical source and successful silent command contract independently establish the first-pass transform and unchanged second pass, rather than relying only on idempotency.
-// @evidence contracts/testing.md#distinguishing-cases The original command fixture must reach exact parse-valid output on pass one and remain identical on pass two; rule-level hosts own individual terminator and no-fix boundaries.
-// @evidence contracts/testing.md#execution-ownership TestCommandFixUnicornSwitchCaseBreakPositionConvergesAndIsIdempotent owns these literal cases as a discoverable Go unit entry, retaining named subcase identities where present; actual engine/fix/command functions run in the shared process with isolated fixture files, without installation, native producer or product child host.
+// @evidence contracts/testing.md#distinguishing-cases The multiline case-block/sibling-break fixture must move only break inside the block, preserve void key and the switch, then remain byte-identical on the second command call. This entry does not cover other terminators or comment/no-fix guards.
+// @evidence contracts/testing.md#execution-ownership This single discoverable Go unit entry runs the actual compiler, engine, fix cascade and two command calls in the shared process against one isolated project, with file equality after each call; no dynamic subcases, installation, native producer or product child runs.
 func TestCommandFixUnicornSwitchCaseBreakPositionConvergesAndIsIdempotent(t *testing.T) {
   source := `declare const key: string;
 switch (key) {
