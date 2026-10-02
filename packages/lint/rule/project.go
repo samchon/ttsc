@@ -440,7 +440,7 @@ type ProjectSeverityReporter interface {
   ReportSeverity(severity Severity, message string)
 }
 
-// ProjectContext contains the immutable inputs for one project-rule check.
+// ProjectContext contains a resolved input snapshot for one project-rule check.
 //
 // Sources is a defensive copy of the user sources the host read for this cycle:
 // the project's own tsconfig-selected files plus every TypeScript source the
@@ -458,7 +458,7 @@ type ProjectSeverityReporter interface {
 // @evidence contracts/common.md#clear-and-simple-design Public check inputs are separated from private state publication and reporting capabilities.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Program sources come from the host rather than an artificial population chosen to make project validation pass.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains source population and the format-run exception; members document ownership and tags follow documentation guidance.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectContext is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidence contracts/portability.md#os-neutral-implementation Identity preserves host-resolved logical and physical native path channels, cwd and optional origins. Sources and Checker refer to the actual Program; ProjectIdentity and the host own native resolution and spelling policy, with no URL conversion, inferred case folding or fabricated source population in this container.
 // @evidenceExclude contracts/performance.md#efficient-algorithms ProjectContext is a declaration of data shape and chooses no algorithm or processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectContext is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectContext is a declaration of data shape; the code that holds its values owns their lifetime.
@@ -493,10 +493,10 @@ type projectStateSetter interface {
 // @evidence contracts/common.md#clear-and-simple-design One constructor establishes the public input snapshot and private reporting capabilities together.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Supported interface assertion supplies state publication without mutating foreign reporter methods.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes host construction from contributor consumption; member ownership and separated tags follow documentation guidance.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation NewProjectContext performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms NewProjectContext has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewProjectContext keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewProjectContext acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Host-owned ProjectIdentity and Program inputs already establish native representation and resolution. This constructor preserves identity strings and opaque source/checker pointers, copies in-memory slices, and selects no independent path, filesystem case or process policy.
+// @evidence contracts/performance.md#efficient-algorithms Defensive copies take O(s+b) work and output storage for s source pointers and b option bytes; identity, checker and reporter references use fixed field copies and one state-publication capability assertion without traversing ASTs.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each context owns independently mutable slice storage for one supplied check snapshot, so sharing source or options backing arrays could let one contributor alter another input. Host resolution and projectSources own shared upstream computation; checker, AST objects and cycle reporter deliberately remain shared references.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned owner retains one context plus O(s+b) copied source slots and option bytes. Source ASTs, checker and reporter remain host-owned shared references and can keep their reachable data alive while a caller retains the context; the host closes the reporter at cycle finalization. The constructor adds no historical cache, native handle or task.
 func NewProjectContext(
   identity ProjectIdentity,
   sources []*shimast.SourceFile,
