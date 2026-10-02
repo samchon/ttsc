@@ -79,11 +79,13 @@ type Rule interface {
   // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Rule.Visits is a method signature without a body; each implementation owns any retained state.
   Visits() []shimast.Kind
 
-  // Check is invoked once per relevant node. Use `ctx.Report` to emit
-  // findings.
+  // Check is invoked once per subscribed node while this file/rule binding
+  // remains active. Use `ctx.Report` to emit findings.
   //
-  // The host contains a panic to this rule's current file. A rule must not
-  // rewrite the shared AST or replace the engine-owned Context fields.
+  // The host reports a panic and quarantines this rule for the rest of the
+  // current file, including its other subscribed kinds. The next file starts
+  // with a fresh binding. A rule must not rewrite the shared AST or replace
+  // the engine-owned Context fields.
   // Checker access must use its supported query operations.
   //
   // @evidence contracts/common.md#principled-implementation Check receives an actual subscribed AST node and its file-resolved Context, so reports retain compiler positions and rule policy.
