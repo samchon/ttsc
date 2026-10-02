@@ -8,8 +8,7 @@ import { PLUGIN_INPUT_OBSERVATION_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH"
  * check characters no consumer ever sees — and a dropped backslash turns an
  * escape into the character it was escaping: a raw line terminator inside a
  * string literal, which stops the shim parsing and takes every descriptor load
- * with it. Its `@ttsc/lint` twin has carried that guard since the same defect
- * shipped there.
+ * with it.
  */
 export const PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `// @ts-nocheck`,

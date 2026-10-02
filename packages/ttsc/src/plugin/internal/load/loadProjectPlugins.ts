@@ -1678,8 +1678,8 @@ function loadDescriptorViaTtsx(
       },
       // Both child streams are human output, and they go straight to this
       // process's stderr as they are written. The descriptor itself travels
-      // through a file, so nothing here needs collecting — and collecting it
-      // only to replay it afterwards is what forced an invented output ceiling.
+      // through a file, so nothing here needs collecting, and streaming the
+      // human output needs no output ceiling.
       stdio: ["ignore", 2, 2],
       windowsHide: true,
     });

@@ -130,8 +130,7 @@ export namespace PluginPackageResolution {
    * selects the entry (`moduleResolutionBaseSelects`), the rule every
    * resolution input of a load stops at. The manifest nearest the entry is not
    * it: a dual package keeps `dist/cjs/package.json` beside its CommonJS build,
-   * and reading that one lost the package's own `ttsc` declaration, so a
-   * hoisted plugin package of that shape was never discovered
+   * and reading that one would miss the package's own `ttsc` declaration
    * (samchon/ttsc#1499).
    *
    * @evidence contracts/common.md#principled-implementation Direct manifest lookup precedes Node manifest resolution and selected-entry search-root ownership, so exports-hidden manifests and nested dual-build package.json files do not change package owner identity.
@@ -347,7 +346,7 @@ export namespace PluginPackageResolution {
    *
    * Returns `null` to fall back to the normal `require.resolve` when the
    * package does not opt in — no `exports`, or no `ttsc` branch for the
-   * requested subpath — so such a package resolves exactly as it did before. A
+   * requested subpath — so such a package resolves as an ordinary package. A
    * package that opts in gets Node's answer for its target: the file it
    * selects, or the rejection Node would report for it.
    */
