@@ -14,7 +14,7 @@ import { graphInputReadHash } from "./graphInputReadHash";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The sentinel is the declared directory state encoding, not a fabricated file hash or an assertion that directory membership stayed unchanged.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes content, directory kind and failed reads, using a separated acknowledgment block under documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral stat and read observations share the supplied filesystem; directory status comes from native capability rather than separators or extensions.
- * @evidence contracts/performance.md#efficient-algorithms One stat is passed into the text reader rather than repeated; hashing costs O(B) bytes and directory fallback does no enumeration.
+ * @evidence contracts/performance.md#efficient-algorithms One stat is passed into the text reader rather than repeated. Native observations retain their path/component resolution costs, decoded text hashing scans B bytes, and directory fallback hashes only the fixed kind marker without enumeration or a source read.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The operation returns a fresh state fingerprint; saved fingerprint equivalence is governed by generation proof owners.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the returned digest escapes; temporary buffers and hash state are owned by the read operation and no historical state is kept here.
  */

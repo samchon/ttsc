@@ -11,7 +11,7 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
  * @evidence contracts/common.md#meaningful-documentation Native prose explains non-directory success and the readability boundary, with a separated acknowledgment block following documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral kind observation uses the supplied filesystem's following stat and native directory predicate; special non-directory nodes follow compiler semantics rather than host-specific guesses.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The call returns before the function does; no handle is retained.
- * @evidenceExclude contracts/performance.md#efficient-algorithms One following stat.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The fixed scalar adapter classifies one supplied following stat and chooses no population-processing strategy. Native component/link resolution cost remains with that filesystem operation; one call does not certify constant native work.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work It classifies the filesystem now by design, so nothing is shared.
  */
 export function compilerStatKind(
