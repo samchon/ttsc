@@ -21,6 +21,11 @@ const qd = () => factory.createToken(SyntaxKind.QuestionDotToken);
  */
 export const test_optional_chaining = (): void => {
   TestValidator.equals(
+    "non-null continuation of optional access",
+    print(factory.createNonNullChain(factory.createPropertyAccessChain(id("a"), qd(), "b"))),
+    "a?.b!",
+  );
+  TestValidator.equals(
     "property",
     print(factory.createPropertyAccessChain(id("a"), qd(), "b")),
     "a?.b",

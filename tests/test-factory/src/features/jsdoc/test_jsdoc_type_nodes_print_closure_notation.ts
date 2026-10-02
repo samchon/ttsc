@@ -16,8 +16,8 @@ import { kw, print, ref } from "../../internal/helpers";
  * 3. Print optional, variadic, namepath, function and type-expression nodes.
  *
  * @evidence contracts/testing.md#behavioral-verification Prints each JSDoc type builder and compares the text with an authored literal.
- * @evidence contracts/testing.md#independent-expectations Literals follow Closure Compiler type notation (`?string`, `string?`, `string=`, `...string`, `{string}`) and the pinned legacy printer agrees for the prefix, optional, variadic, all and unknown forms.
- * @evidence contracts/testing.md#distinguishing-cases Prefix and postfix positions contrast for both nullable kinds, and a function type with a return contrasts with the bare name path.
+ * @evidence contracts/testing.md#independent-expectations Authored literals follow the documented Closure-style notation (`?string`, `string?`, `string=`, `...string`, `{string}`); no differential printer expectation is used.
+ * @evidence contracts/testing.md#distinguishing-cases Prefix and postfix positions contrast for both nullable kinds; a typed function with a return contrasts with an empty function without a return and the bare name path.
  * @evidence contracts/testing.md#execution-ownership Factory unit entry calling the builders and TsPrinter.print in process. Tag printing is owned by the test_jsdoc_tags_* entries.
  */
 export const test_jsdoc_type_nodes_print_closure_notation = (): void => {
@@ -76,6 +76,11 @@ export const test_jsdoc_type_nodes_print_closure_notation = (): void => {
       ),
     ),
     "function(a: string): string",
+  );
+  TestValidator.equals(
+    "function without a return type",
+    print(factory.createJSDocFunctionType([], undefined)),
+    "function()",
   );
   TestValidator.equals(
     "type expression",

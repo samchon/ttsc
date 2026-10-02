@@ -13,10 +13,21 @@ import { id, print } from "../../internal/helpers";
  *
  * @evidence contracts/testing.md#behavioral-verification Named imports preserve the ordinary identifier and renamed binding.
  * @evidence contracts/testing.md#independent-expectations The explicit brace-delimited import literal independently fixes alias direction and comma separation.
- * @evidence contracts/testing.md#distinguishing-cases Unaliased versus aliased specifiers detect reversal or omitted as; default and namespace forms belong to sibling cases.
+ * @evidence contracts/testing.md#distinguishing-cases Unaliased versus aliased and per-specifier type-only imports detect reversal, omitted as or missing type; default and namespace forms belong to sibling cases.
  * @evidence contracts/testing.md#execution-ownership Factory unit TestExecutor discovers test_import_named. Calls createNamedImports/createImportSpecifier and TsPrinter.print in the unit process.
  */
 export const test_import_named = (): void => {
+  TestValidator.equals(
+    "type-only aliased specifier",
+    print(factory.createImportDeclaration(
+      undefined,
+      factory.createImportClause(undefined, undefined, factory.createNamedImports([
+        factory.createImportSpecifier(true, id("Original"), "Renamed"),
+      ])),
+      "mod",
+    )),
+    'import { type Original as Renamed } from "mod";',
+  );
   TestValidator.equals(
     "named",
     print(
