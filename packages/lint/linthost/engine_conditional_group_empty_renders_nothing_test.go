@@ -5,10 +5,8 @@ import "testing"
 // TestEngineConditionalGroupEmptyRendersNothing verifies the engine
 // treats an option-less ConditionalGroup as a layout no-op.
 //
-// A printer should never build an empty ConditionalGroup, but the
-// engine's option loop reads `Children[len-1]` as the fallback; the
-// length guard in front of it keeps a zero-option group from indexing
-// out of range.
+// Zero alternatives contribute no bytes. The length guard leaves an empty
+// group inert instead of indexing a nonexistent final fallback.
 //
 //  1. Build a ConditionalGroup with no options.
 //  2. Print it.
