@@ -17,9 +17,9 @@ import { createFilesystemPathIdentityContext } from "./createFilesystemPathIdent
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failure preserves the original usable spelling rather than fabricating a proved identity, and no foreign filesystem behavior is patched.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the absolute-path premise and total fallback, keeping use meaning separate from tags.
  * @evidence contracts/portability.md#os-neutral-implementation Realpath and case semantics come from the shared native boundary; unavailable case policy preserves missing spelling, and the total error fallback remains best-effort rather than a proved alias guarantee.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources resolvePhysicalPath acquires no handle, buffer or cache and retains nothing after it returns.
- * @evidenceExclude contracts/performance.md#efficient-algorithms resolvePhysicalPath performs a fixed number of steps with no loop or recursion over caller data.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work resolvePhysicalPath computes one result per call, so there is no repeated work to share.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One fresh identity context owns call-local path/ancestor/case maps during resolution; native observations and any Windows case-query child belong to that delegated boundary. The context becomes reclaimable after success or caught failure, and only the returned path string escapes; this wrapper retains no historical registry or held directory handle.
+ * @evidence contracts/performance.md#efficient-algorithms Delegated resolution traverses path ancestors and text and can scan native case-probe directory entries or invoke a Windows query; fixed wrapper steps do not bound that native work. Temporary context maps and returned spelling grow with observed paths and ancestors.
+ * @evidence contracts/performance.md#reuse-equivalent-work The fresh context memoizes equivalent realpath/case observations within this call only. Later calls resolve current filesystem state again rather than reuse historical physical answers; the best-effort fallback is not an identity certificate.
  */
 export function resolvePhysicalPath(location: string): string {
   try {
