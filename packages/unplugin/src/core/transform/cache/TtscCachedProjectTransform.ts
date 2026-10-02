@@ -8,20 +8,28 @@ import type { TtscHostInputValidation } from "../validation/TtscHostInputValidat
 /**
  * A single entry in the project transform cache.
  *
- * Stores the full compiler result together with SHA-256 hashes of every project
- * input file. In a cache with an explicit build lifecycle, the first delivery
- * of each compiled module compares its supplied source with the generation
- * snapshot in constant time. Later graph-bearing deliveries validate only the
- * requested file's derived inputs plus exact host descriptor/config inputs;
- * graph-free envelopes retain complete-snapshot validation.
+ * Stores a compiler result with admitted project-walk hashes, external and
+ * universal proofs, and optional native notification owners. The walk is not
+ * the complete compiler program: imported, linked and excluded-tree inputs
+ * retain their separate recorded authority.
+ *
+ * In an explicit delivery epoch, the first delivery proves the complete stable
+ * generation before later first deliveries may share that proof. Each delivered
+ * source still costs a text hash and may require disk comparison when it
+ * diverges. Persistent graph-bearing requests may use derived-input validation
+ * only with qualified membership and universal authority; unavailable narrow
+ * proof uses the complete recorded snapshot.
  *
  * @evidence contracts/common.md#principled-implementation Compiler output travels with generation-time hashes, membership policy, physical identities, and proof completeness, preventing a later delivery's reading from silently replacing compile-time evidence.
  * @evidence contracts/common.md#clear-and-simple-design One generation owns its proof snapshots, reporting state, and tracker handles; separate fields represent distinct content, spelling, identity, and lifecycle responsibilities.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional proof fields represent unavailable evidence rather than implied success; consumers must select the complete validation path when narrow proof is unsupported.
  * @evidence contracts/common.md#meaningful-documentation Member comments explain why hashes and signatures differ, why lexical spellings remain separate from identity, and which owner controls each delivery and resource lifetime.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   TtscCachedProjectTransform only declares a shape; it has no filesystem,
- *   path or process operation at runtime.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   This native boundary carrier keeps lexical spellings, physical identity
+ *   keys, compiler comparison policy, metadata signatures and actual tracker
+ *   capabilities distinct. Producers and validators own platform-specific
+ *   resolution and notification authority; a retained handle alone proves no
+ *   unchanged state, and this representation applies no OS-name casing rule.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
  *   TtscCachedProjectTransform only declares a shape; it has no computation
  *   at runtime.
@@ -40,19 +48,19 @@ export interface TtscCachedProjectTransform {
   >;
 
   /**
-   * SHA-256 hash of every input the compiler reported outside the project walk
-   * (keyed by filesystem identity), captured at the time of the transform.
+   * Content or kind/missing fingerprints for external inputs represented by a
+   * hash baseline, keyed by filesystem identity. Predicate-bearing speculative
+   * spellings instead retain {@link externalInputObservations}; not every
+   * external path has a hash entry.
    *
    * The project walk cannot see files outside the project root or under ignored
    * directories (`node_modules` declarations, monorepo sibling sources,
    * out-of-root tsconfig `extends` ancestry), yet the host-owned reference
-   * graph proves they are transform inputs. Every host keeps its generation
-   * across builds, so without these hashes it would replay a project transform
-   * computed against a stale out-of-walk input: Metro workers and the Turbopack
-   * loader for the whole process lifetime, and a host with a build boundary on
-   * every rebuild. A host with a boundary proves them once per pass, at the
-   * pass's first delivery (samchon/ttsc#1300); one without proves them on every
-   * delivery its notifications cannot vouch for.
+   * graph can prove they are transform inputs. A retained generation must keep
+   * their authority independently of project hashes. The first delivery of a
+   * new epoch proves the complete snapshot; persistent deliveries select their
+   * required scope or complete fallback rather than inferring freshness from
+   * an adapter's process lifetime.
    */
   externalInputHashes?: Record<string, string>;
 
@@ -72,18 +80,18 @@ export interface TtscCachedProjectTransform {
   externalDependencyInputs?: string[];
 
   /**
-   * Original absolute spellings of {@link externalInputHashes} inputs. These
-   * stay separate from their identity keys so validation reads the paths the
-   * compiler reported rather than a normalized replacement spelling.
+   * Original absolute spellings of selected external inputs, including paths
+   * represented by predicate observations rather than hashes. These stay
+   * separate from identity keys so validation replays each reported alias.
    */
   externalInputPaths?: string[];
 
   /**
-   * Metadata signature of each out-of-walk input, captured around the read that
-   * proved its {@link externalInputHashes} entry and recorded only once the
-   * observed filesystem's clock provably left the stamp's tick
-   * (`stampSeparable`). An input whose signature still holds carries the
-   * recorded content, so revalidation may skip the read.
+   * Optional metadata signature earned around a successful external content or
+   * predicate comparison and recorded only once the observed filesystem's
+   * clock provably left the stamp's tick
+   * (`stampSeparable`). Qualified matching metadata may replace that input's
+   * recorded content or predicate comparison; other authority remains separate.
    *
    * Keyed by lexical spelling rather than by physical identity, for the reason
    * {@link TtscHostInputValidation} states: a symlink or junction spelling and
@@ -94,13 +102,15 @@ export interface TtscCachedProjectTransform {
   externalInputSignatures?: Record<string, string>;
 
   /**
-   * SHA-256 hash of each project-relative input path at the time of the
-   * transform.
+   * Raw byte hashes of admitted regular files observed by the project walk.
+   * Keys are project-relative physical identities or full outside-root identity
+   * addresses under the compiler slash protocol; completeness is separate.
    */
   inputHashes: Record<string, string>;
 
   /**
-   * What the resolved configuration admitted into this generation's program.
+   * Root-file discovery policy under the resolved configuration and recorded
+   * compiler comparison answer, not a complete list of imported program files.
    *
    * Recorded per generation rather than read per validation because it is a
    * property of the configuration the compile ran under, so a later delivery
@@ -136,8 +146,8 @@ export interface TtscCachedProjectTransform {
   tsconfig: string;
 
   /**
-   * Metadata signature of each {@link inputHashes} entry whose hash was proven
-   * against an unracing read of the file on disk, in a tick the observed
+   * Optional metadata signature of an {@link inputHashes} entry earned around
+   * a metadata-bracketed disk read, in a tick the observed
    * filesystem's clock had provably left (`stampSeparable`).
    *
    * The generation's own current file is no exception. The compile reads it
@@ -159,7 +169,7 @@ export interface TtscCachedProjectTransform {
    */
   sourceHashes?: Record<string, string>;
 
-  /** Metadata snapshot of every directory in the stable generation walk. */
+  /** Observed directory membership signatures; completeness remains separate. */
   projectDirectories?: TtscProjectDirectorySnapshot[];
 
   /** Live notification state for universal host-input changes. */
@@ -169,24 +179,19 @@ export interface TtscCachedProjectTransform {
    * Live notification state for the generation's absent resolution candidates
    * and the directories that carry them.
    *
-   * Separate from the universal-input tracker because it listens for a
-   * different thing. Every event that can make an absent candidate present is a
-   * rename — the file appearing, a component of the path being created,
-   * replaced, or retargeted — so a change event on one of these names is never
-   * evidence this tracker exists to collect. What it is, on a backend that
-   * reports a write below a directory as a change to that directory's own entry
-   * (Windows does), is a dev server's steady traffic: listening for every event
-   * would replace the generation each time a bundler wrote inside
-   * `node_modules`. The filter therefore drops noise without dropping proof.
-   * The one appearance it cannot see is a Windows junction retargeted in place
-   * through `FSCTL_SET_REPARSE_POINT`, which no mainstream tool does; every
-   * package manager replaces the entry instead, which is a rename.
+   * Capture opens it with rename selection, independently of universal content
+   * tracking. Exact coverage, native backend content authority, event overlap,
+   * drainage and watched-directory identity qualify whether silence can replace
+   * a direct candidate probe. Unavailable or uncertain authority leaves the
+   * recorded candidate on direct validation; a platform or package-manager
+   * assumption cannot certify every possible native alias or retarget.
    */
   candidateMutationTracker?: TtscProjectMutationTracker;
 
   /**
-   * Universal descriptor/config inputs proven once at generation time, then by
-   * metadata.
+   * Universal descriptor/config, absent-path and plugin-tree authority.
+   * Each validator chooses content, native absence/kind/identity or qualified
+   * tree/environment proof; metadata alone cannot replace every obligation.
    *
    * Recorded state of the generation, like the input hashes and the directory
    * snapshot beside it, rather than state derived from the envelope: an entry
@@ -202,9 +207,10 @@ export interface TtscCachedProjectTransform {
   configStateComplete?: boolean;
 
   /**
-   * Whether the project and its configuration held still across the compile, as
-   * `projectWalkStable` decides from the walks before and after it and the
-   * tracker opened before it.
+   * Whether the project/config walk verdict held through the compile and the
+   * capture's external dependency or adopted-publication evidence did not
+   * withdraw that verdict. The project half uses before/after observations and
+   * any tracker opened before the compile, not an atomic filesystem freeze.
    *
    * A failed compile whose project moved is a verdict about a state already
    * gone, so it is compiled again like a success whose proof was lost; so is a
@@ -214,9 +220,10 @@ export interface TtscCachedProjectTransform {
   projectHeldStill?: boolean;
 
   /**
-   * Whether the generation-time project walk observed every directory and file
-   * it attempted to snapshot. An incomplete walk may never authorize narrow
-   * validation; a later complete walk must be allowed to replace it.
+   * Combined reusable-generation proof: stable project/config observations,
+   * compiler graph proofs, complete external authority, successful adoption
+   * comparison and universal manifest admission. A complete walk alone does
+   * not set this flag; false cannot authorize narrow or first-delivery reuse.
    */
   projectSnapshotComplete?: boolean;
 
@@ -280,19 +287,19 @@ export interface TtscCachedProjectTransform {
 
   /**
    * Absolute path of the adapter-owned scratch directory used for this
-   * generation. It is disposed after compilation, so none of its compiler,
-   * resolver, or plugin artifacts can be a persistent cache or watch input. An
-   * adopted publication carries the publisher's, since that is the directory
-   * its envelope names.
+   * generation. Capture attempts owned cleanup after compilation and excludes
+   * its artifacts from persistent cache/watch inputs by ownership, even when
+   * native removal fails. An adopted publication carries the publisher's,
+   * since that is the directory its envelope names.
    */
   scratchDirectory?: string;
 
   /**
    * Absolute path of the generated temp-dir tsconfig this compile ran against,
    * when an alias/compiler-options overlay required one. The compiler reports
-   * it in the envelope's `graph.configs` chain, but it is disposed right after
-   * the compile, so registering it as a watch input would invalidate every
-   * bundler cache snapshot on the next build; watch derivation must skip this
+   * it in the envelope's `graph.configs` chain, but it belongs to disposed
+   * capture scratch rather than persistent inputs, so registering it would
+   * invalidate later snapshots after removal; watch derivation must skip this
    * path. {@link scratchDirectory} owns the wider disposable-input bound. An
    * adopted publication carries the publisher's, as with that directory.
    */
