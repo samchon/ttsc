@@ -10,11 +10,11 @@ import (
 // malformed NDJSON line ends the stream with a diagnostic on stderr instead of
 // answering with a reply nobody can read.
 //
-// The server used to answer an unparseable line with an error carrying the zero
-// ID, because none could be parsed. That reply had no addressee: the launcher
+// Answering an unparseable line with an error carrying the zero ID, because none
+// could be parsed, would have no addressee: the launcher
 // matches a response to a pending request by id and drops anything else, and its
-// ids start at 1, so the frame was discarded and the caller's promise never
-// settled — a graph call hung forever on a line the client itself sent. There is
+// ids start at 1, so the frame would be discarded and the caller's promise never
+// settle — a graph call would hang forever on a line the client itself sent. There is
 // no recoverable reading of a line the protocol cannot address, so failing the
 // stream is the honest outcome: the exit carries this stderr to the client,
 // which rejects every pending request with it.

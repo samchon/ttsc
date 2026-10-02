@@ -15,9 +15,9 @@ import (
 // closed when a node names a file the manifest does not carry — a guard that is
 // right for a declaration, whose file is always a program source. A published
 // artifact has no such file: it is a Markdown document, a Prisma schema, or, for
-// an operation named by method and path, nothing at all. So the guard rejected
-// it and the resident session failed to start for any project that publishes
-// one, which is the whole product surface.
+// an operation named by method and path, nothing at all. The guard has to
+// leave it alone, or the resident session would fail to start for any project
+// that publishes one, which is the whole product surface.
 //
 // The metadata shard is where facts no source owns belong, and the client
 // exempts it from the ownership check for that reason.

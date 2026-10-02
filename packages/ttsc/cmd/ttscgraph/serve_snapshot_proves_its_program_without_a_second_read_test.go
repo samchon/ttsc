@@ -15,9 +15,9 @@ import (
 // TestServeSnapshotProvesItsProgramWithoutASecondRead verifies a single serve
 // response carries everything needed to prove which program produced it.
 //
-// This is the contract the envelope exists for. A consumer used to be handed
-// paths and nothing else, so proving that the nodes, edges, and the file bytes
-// it was about to read all belonged to one Program meant re-reading the disk
+// This is the contract the envelope exists for. A consumer handed paths and
+// nothing else could only prove that the nodes, edges, and the file bytes it
+// was about to read all belonged to one Program by re-reading the disk
 // afterwards and asking the server a second time whether anything had moved —
 // which narrows the race without closing it, and never proves the bytes read are
 // the bytes the checker resolved against. Everything below has to come out of

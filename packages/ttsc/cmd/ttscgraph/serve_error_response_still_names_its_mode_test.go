@@ -12,10 +12,10 @@ import (
 // TestServeErrorResponseStillNamesItsMode verifies a failed snapshot answers
 // with a mode and a protocol version rather than dropping them.
 //
-// This is the negative twin of the successful snapshot. Mode used to be
-// omitempty, so it vanished on exactly the path where a consumer most needs to
-// say what happened: the error path serves no dump and set no mode, leaving
-// "what did the compiler do" unanswerable and the field unrelied-upon. A field
+// This is the negative twin of the successful snapshot. An omitempty mode would
+// vanish on exactly the path where a consumer most needs to say what happened:
+// the error path serves no dump, leaving "what did the compiler do"
+// unanswerable and the field unrelied-upon. A field
 // that is present only when things go well is not a field a consumer can branch
 // on.
 //
@@ -65,7 +65,7 @@ func TestServeErrorResponseStillNamesItsMode(t *testing.T) {
   }
 
   // The wire keys, not the Go fields: mode must survive serialization, which is
-  // the whole regression — omitempty dropped it there and nowhere else.
+  // where an omitempty tag would drop it and nowhere else.
   var raw map[string]any
   if err := json.Unmarshal(line, &raw); err != nil {
     t.Fatal(err)
