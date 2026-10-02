@@ -79,7 +79,7 @@ func newLintTraceInvocation() *lintTraceInvocation {
   return &lintTraceInvocation{
     writer: writer,
     ordinal: ordinal,
-    id: fmt.Sprintf("%d-%s-%d", os.Getpid(), writer.instance, ordinal),
+    id: fmt.Sprintf("%s:%d", writer.instance, ordinal),
   }
 }
 

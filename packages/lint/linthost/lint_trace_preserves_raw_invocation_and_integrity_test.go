@@ -20,7 +20,7 @@ import (
 func TestLintTracePreservesRawInvocationAndIntegrity(t *testing.T) {
   root := t.TempDir()
   writer := &lintTraceWriter{root: root, instance: "authored-instance"}
-  invocation := &lintTraceInvocation{writer: writer, ordinal: 7, id: "authored-invocation"}
+  invocation := &lintTraceInvocation{writer: writer, ordinal: 7, id: "authored-instance:7"}
   raw := []byte{'{', 0, 0xff, '}', '\n'}
   metadata := invocation.capture("loader-raw", raw)
   if metadata["outcome"] != "complete" || metadata["length"] != len(raw) {
@@ -66,7 +66,7 @@ func TestLintTracePreservesRawInvocationAndIntegrity(t *testing.T) {
   if event.Schema != 1 || event.Event != "config-loader-result" ||
     event.WriterPID != os.Getpid() || event.PID != os.Getpid() ||
     event.Instance != "authored-instance" || event.Sequence != 1 ||
-    event.Invocation != "authored-invocation" || event.Data.NormalizationAccepted == nil || *event.Data.NormalizationAccepted ||
+    event.Invocation != "authored-instance:7" || event.Data.NormalizationAccepted == nil || *event.Data.NormalizationAccepted ||
     event.Data.Raw.Path != payloadPath || event.Data.Raw.Outcome != "complete" || event.Data.Raw.Length != len(raw) {
     t.Fatalf("event mismatch: %+v", event)
   }
@@ -101,7 +101,7 @@ func TestLintTracePreservesRawInvocationAndIntegrity(t *testing.T) {
   if err := json.Unmarshal(lines[1], &integrity); err != nil {
     t.Fatalf("integrity event parse: %v", err)
   }
-  if integrity.Event != "trace-integrity-failure" || integrity.Invocation != "authored-invocation" ||
+  if integrity.Event != "trace-integrity-failure" || integrity.Invocation != "authored-instance:7" ||
     integrity.Sequence != 2 || integrity.Data.Operation != "payload-capture" ||
     integrity.Data.Payload.Outcome != "IO-failed" || integrity.Data.Payload.Error == "" {
     t.Fatalf("integrity event mismatch: %+v", integrity)
