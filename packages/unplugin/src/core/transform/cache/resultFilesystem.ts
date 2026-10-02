@@ -22,7 +22,9 @@ import { TRANSFORM_RESULT_FILESYSTEM } from "./TRANSFORM_RESULT_FILESYSTEM";
  * @evidence contracts/common.md#meaningful-documentation The comment explains why capture and validation must use the same filesystem view and states the unregistered-result default.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing; the table is weakly keyed by the result.
  * @evidenceExclude contracts/performance.md#efficient-algorithms One WeakMap lookup.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The lookup returns the view a result was captured through; there is no computation to share.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This selects an already registered operations table. Capture and delivery
+ *   owners govern registration and proof equivalence; no verdict is cached here.
  * @evidence contracts/portability.md#os-neutral-implementation
  *   Selects the registered native filesystem capability boundary, including its
  *   path grammar, case policy and observation methods. Only unregistered results

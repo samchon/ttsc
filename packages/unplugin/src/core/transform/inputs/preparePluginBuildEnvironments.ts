@@ -21,9 +21,9 @@ const asyncResults = new WeakSet<object>();
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing observations stay unproved; reported binary state never substitutes for native environment preparation or source comparison.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies off-thread work, mismatch refresh and preserved downstream failure ownership.
  * @evidence contracts/portability.md#os-neutral-implementation The same native toolchain/environment reader and caller filesystem source digest qualify each directory without platform guesses.
- * @evidence contracts/performance.md#efficient-algorithms Reported directories are visited once; qualified process readings avoid native preparation and only a mismatch asks for refresh.
+ * @evidence contracts/performance.md#efficient-algorithms The envelope selector builds its directory map once per result, and preparation visits each reported directory once. Environment requests build keys from effective variables and qualify native dependencies; source comparison enumerates and sorts files, checks metadata and hashes bytes when its digest cannot be reused. A mismatch requests one environment refresh rather than a second source comparison here.
  * @evidence contracts/performance.md#reuse-equivalent-work The environment owner shares equivalent in-flight requests and still-qualified readings; each generation retains its own source-state comparison.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The helper awaits owned requests and retains no observer or history; the environment worker owner releases request listeners.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources This module records asynchronous execution ownership in a WeakSet before preparation, including failures, so disposed results are not retained. Requests and worker lifetimes remain with the environment owner; this sequential operation awaits each request and acquires no native observer or independent cancellation handle.
  */
 export async function preparePluginBuildEnvironments(
   result: TtscCachedProjectTransform["result"],
@@ -51,9 +51,9 @@ export async function preparePluginBuildEnvironments(
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed preparation also records async ownership, preventing an accidental cold synchronous fallback or fabricated successful proof.
  * @evidence contracts/common.md#meaningful-documentation Native prose separates execution responsibility from reading validity.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Identity membership performs no native operation.
- * @evidence contracts/performance.md#efficient-algorithms Weak-set membership takes expected constant time with no toolchain probe.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The fixed identity query selects an existing execution policy; it chooses no traversal or processing strategy and performs no toolchain probe.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The query selects an execution policy, not a reusable native observation.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Weak result identities cannot retain disposed generations or native request history.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The preparation operation owns weak identity registration; this query borrows that record and acquires or retains no additional resource.
  */
 export function usesPreparedPluginBuildEnvironments(
   result: TtscCachedProjectTransform["result"],

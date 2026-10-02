@@ -29,7 +29,7 @@ import * as pluginSource from "ttsc/plugin-source";
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral state observes the shared source and Go/toolchain environment boundaries used by native builds instead of inferring equivalence from one platform name or assumed tool location.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing; a failure becomes null.
  * @evidenceExclude contracts/performance.md#efficient-algorithms The digest and its cost belong to ttsc's pluginSourceState; this wrapper only turns a failure into null.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ttsc's state owner already shares readings and digests; this wrapper adds no caching.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This observation adapter adds no sharing. The shared state owner reads source bytes for each call and can reuse qualified process-environment readings; a supplied environment remains the caller's current authority rather than a source-digest cache.
  */
 export function pluginSourceState(
   directory: string,
