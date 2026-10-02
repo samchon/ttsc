@@ -6,10 +6,10 @@ import "testing"
 // noImportTypeSideEffects fixer hoists per-specifier `type` modifiers
 // into a single import-clause `type`.
 //
-// The fix emits one insertion (`" type"` after `import`) and one deletion
-// per specifier (`type ` prefix). All edits must be non-overlapping. This
-// test pins the multi-edit happy path that the round-1 infrastructure
-// changes opened up.
+// Hoisting requires one clause insertion and one deletion per specifier.
+// The full source expectation verifies that these edits compose without
+// leaving an inline modifier, losing a type name or changing the later
+// type annotations and value expressions.
 //
 // 1. Parse `import { type A, type B } from "./mod"`.
 // 2. Apply the finding through the disk-backed fixer.

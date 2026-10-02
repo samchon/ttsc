@@ -5,15 +5,10 @@ import "testing"
 // TestFixNoImportTypeSideEffectsPreservesLeadingComment verifies the
 // multi-edit fix skips trivia when locating each specifier modifier.
 //
-// The per-specifier `type` keyword was located via the
-// raw byte-scanner `findKeyword`, which is identifier-aware but NOT
-// comment-aware. A specifier preceded by a block comment containing
-// the word `type` (e.g. `/* type alias for Foo */ type Foo`) matched
-// inside the comment and the fix deleted 4–5 bytes from the comment
-// while leaving the actual modifier in place — corrupting the source
-// to an invalid `import type { /* */ type Foo, type Bar }`. The
-// round-2 fix uses `shimscanner.SkipTrivia` to land on the first
-// token byte, which honors comments as trivia.
+// Each deletion must start at the actual inline type modifier after its
+// leading trivia. Matching the word type inside a block comment would damage
+// that comment and leave the modifier in place. The authored result keeps
+// both comments and both type names while hoisting one clause modifier.
 //
 //  1. Parse a source file whose specifiers carry leading block comments
 //     containing the word `type` plus inline `type` modifiers.

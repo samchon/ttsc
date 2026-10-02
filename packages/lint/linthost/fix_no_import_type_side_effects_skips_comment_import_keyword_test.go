@@ -5,12 +5,11 @@ import "testing"
 // TestFixNoImportTypeSideEffectsSkipsCommentImportKeyword verifies the
 // `import` keyword anchor ignores the word `import` in leading trivia.
 //
-// The keyword position was found via a raw byte scan from node.Pos(), which
-// includes leading trivia. A leading comment containing the word `import`
-// (`// re-import below`) matched first, so the ` type` insertion landed inside
-// the comment while the specifier loop still stripped each `type ` — silently
-// converting the type-only imports back into value imports. Anchoring at
-// keywordStart (SkipTrivia past comments) lands on the real `import` token.
+// The clause insertion must follow the real import token while the separate
+// specifier edits remove each inline type modifier. A keyword lookalike in
+// leading trivia must not redirect that insertion into the comment or leave
+// a value import. The expected full source checks both the retained comment
+// and the resulting type-only declaration.
 //
 //  1. Parse a leading line comment containing `import` before
 //     `import { type Foo, type Bar } from "./mod";`.

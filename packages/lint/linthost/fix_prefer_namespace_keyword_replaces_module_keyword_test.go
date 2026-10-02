@@ -6,10 +6,10 @@ import "testing"
 // preferNamespaceKeyword fixer swaps the legacy `module` keyword for
 // `namespace`.
 //
-// The replacement is length-changing (6 → 9). `keywordStart` is the same
-// helper the existing `no-var` fixer uses to anchor a keyword swap, so
-// the only thing this test pins beyond the existing infrastructure is the
-// rule wiring.
+// The replacement grows module to namespace. Its original byte range must
+// stay separate from the namespace name, exported member and later use.
+// Comparing the complete rewritten source catches an incorrect anchor or
+// length adjustment even when the desired keyword appears somewhere.
 //
 // 1. Parse a source file declaring `module Foo {}`.
 // 2. Apply the finding through the disk-backed fixer.
