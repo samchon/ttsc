@@ -6,8 +6,8 @@ import (
 )
 
 // TestAwaitThenableForAwaitOfAsyncIterableAllows verifies the `for await...of`
-// arm of typescript/await-thenable stays silent on every valid shape from the
-// upstream regression suite.
+// arm of typescript/await-thenable stays silent on the four authored loop
+// forms below.
 //
 // These are the negative twins of the sync-iterable positives: an async
 // generator (the canonical async iterable), a union with at least one
@@ -22,7 +22,7 @@ import (
 //  3. Assert a clean exit with no await-thenable finding.
 //
 // @evidence contracts/testing.md#behavioral-verification Supported async iteration and unknown-any boundaries must not report.
-// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix zero rule findings with code 0 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#independent-expectations The authored async generator, mixed async/sync union, any source and ordinary sync loop independently require code 0, empty stdout and no rule-labelled stderr. The rendered-main.ts helper also requires zero matches, without certifying unrelated diagnostics.
 // @evidence contracts/testing.md#distinguishing-cases Async generator, mixed async/sync union and any remain clean alongside an ordinary synchronous loop; SyncIterableReports provides async-loop-over-sync positives.
 // @evidence contracts/testing.md#execution-ownership TestAwaitThenableForAwaitOfAsyncIterableAllows executes the in-process check command with a real Program/Checker in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableForAwaitOfAsyncIterableAllows(t *testing.T) {

@@ -6,16 +6,10 @@ import (
 )
 
 // TestAwaitThenableForAwaitOfSyncIterableReports verifies the `for await...of`
-// arm of typescript/await-thenable fires on every merely-sync iterable shape
-// under a real Program.
-//
-// The rule historically visited only KindAwaitExpression, so `for await` over
-// a sync iterable never reported (#413). This locks the three upstream
-// positive shapes at once: a sync array, a sync generator, and — the case a
-// naive "does it yield Promises?" heuristic would wrongly accept — a sync
-// array OF Promises, which typescript-eslint still rejects because the
-// container itself has no `[Symbol.asyncIterator]`. The expected columns pin
-// the diagnostic to the iterable expression, not the whole statement.
+// arm of typescript/await-thenable reports the three authored sync iterable
+// forms under a real Program: a number array, a sync generator and a sync array
+// of Promises. None exposes Symbol.asyncIterator, even when its yielded values
+// are Promises. Exact columns anchor each finding on the iterable expression.
 //
 //  1. Seed a project with three `for await` loops over sync iterables.
 //  2. Run `check` with typescript/await-thenable enabled as error.
@@ -23,7 +17,7 @@ import (
 //     expression, with the upstream message text.
 //
 // @evidence contracts/testing.md#behavioral-verification For-await over definitely synchronous iterables must report the supported upstream lint policy.
-// @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix the complete rule/error line list 2,8,12 with code 2 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#independent-expectations The supported sync-iterator lint policy and authored three loops independently require errors at main.ts:2:29, main.ts:8:27 and main.ts:12:32, code 2, empty stdout and the literal protocol message. Rule-label count rejects extras; the rendered-main.ts helper checks lines 2,8,12 and error severity without certifying unrelated diagnostics.
 // @evidence contracts/testing.md#distinguishing-cases Number array, sync generator and even a synchronous array of Promises report with original iterable-expression columns; AsyncIterableAllows supplies async protocol controls. JavaScript execution legality is not the oracle.
 // @evidence contracts/testing.md#execution-ownership TestAwaitThenableForAwaitOfSyncIterableReports invokes the in-process check command with a real Program/Checker in the shared Go unit population; original source/configuration and all assertions remain, with no child compiler, installed consumer or native artifact build.
 func TestAwaitThenableForAwaitOfSyncIterableReports(t *testing.T) {
