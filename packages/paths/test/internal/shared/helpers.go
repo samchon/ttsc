@@ -7,7 +7,7 @@ import (
 )
 
 // SeedProject creates a project-shaped fixture tree for command-frontdoor
-// tests. The sidecar is intentionally tested through real files and tsconfig.
+// tests. The linked plugin reads these real files and tsconfig in the test process.
 func SeedProject(t *testing.T, files map[string]string) string {
   t.Helper()
   root := t.TempDir()
