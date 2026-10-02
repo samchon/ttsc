@@ -14,8 +14,7 @@ import (
  * file of the set answered the same globs. A set now spans populations whose
  * roots spell its files differently, and filing such a unit under the first
  * source's spelling alone would hand it to that population and drop it from the
- * others with nothing said; the silent shortfall this campaign exists to
- * remove. The state is reached whenever a file the digest read a moment earlier
+ * others with nothing said. The state is reached whenever a file the digest read a moment earlier
  * cannot be read again, which one Windows lock is enough to do.
  *
  *  1. Compose a set of two files under two roots, neither present to be read.

@@ -17,7 +17,7 @@ import (
  * `/srv/contracts`, is absolute on POSIX and relative on Windows, where
  * `filepath.Join` composes the project root into it, and a drive-lettered path
  * is the reverse. A predicate written from the spelling instead would invert
- * both, which is the defect this cycle removed, so the expectations are per
+ * both, so the expectations are per
  * platform and the same table supplies each platform's answer without skipping one.
  *
  *  1. Ask the predicate for six spellings, with the answers this platform owes.

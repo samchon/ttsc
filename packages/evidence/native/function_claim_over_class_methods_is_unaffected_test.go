@@ -5,7 +5,7 @@ import "testing"
 /**
  * Verifies a function claim over class methods is unaffected by the class unit.
  *
- * The adoption promise of this change is that an existing configuration keeps
+ * The adoption promise of the class unit is that an existing configuration keeps
  * working. A `symbol: "function"` claim selects the methods and not the class,
  * so the class adds no obligation beside them.
  *

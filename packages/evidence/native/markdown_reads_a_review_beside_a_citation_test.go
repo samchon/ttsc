@@ -8,13 +8,12 @@ import (
  * Verifies a Markdown review closes the citation above it without making every
  * `@tag` a boundary.
  *
- * An Individual Self-Review caught the first half: a review written under a
- * citation inside one HTML comment was swallowed into that citation's reason, so
- * the review vanished and the reason grew a sentence its author addressed to a
- * different question.
+ * A review written under a citation inside one HTML comment must not be
+ * swallowed into that citation's reason, or the review would vanish and the
+ * reason would grow a sentence its author addressed to a different question.
  *
- * The obvious repair, turning tag boundaries on for Markdown, is wrong and CI
- * said so by breaking `TestMarkdownDeclarationReasonMayBeginWithAtSign`. That
+ * Turning tag boundaries on for Markdown would be wrong, as
+ * `TestMarkdownDeclarationReasonMayBeginWithAtSign` shows. That
  * flag answers whether *another tool's* `@tag` ends a reason, which is a property
  * of the host's comment grammar: an HTML comment has no field syntax, so
  * `@architecture approved this` is prose the reason keeps. A review is not

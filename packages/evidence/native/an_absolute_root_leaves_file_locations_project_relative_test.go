@@ -10,8 +10,8 @@ import (
  * opens.
  *
  * Only the name of the configuration property moved. A file's location is
- * derived from `Display`, which this change deliberately leaves alone, so the
- * repair must be invisible to a reader who is opening files rather than editing
+ * derived from `Display`, which does not follow the declared spelling, so the
+ * root spelling must be invisible to a reader who is opening files rather than editing
  * configuration; and the two spellings now legitimately differ in one message.
  *
  *  1. Root a Markdown reference at an absolute directory holding one document.

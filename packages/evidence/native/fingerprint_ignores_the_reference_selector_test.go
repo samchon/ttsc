@@ -8,17 +8,15 @@ import (
  * Verifies a fingerprint covers the cited scope's subtree even when the
  * reference selects none of it.
  *
- * This is the defect an Individual Self-Review caught, and it made the feature's
- * central documented claim false. The digest was composed from
- * `reference.Units` and `reference.Scopes`, and both are narrowed by the
- * reference's `symbol` selector: an unselected descendant appears in neither. A
- * Markdown reference selecting only `h2` therefore fingerprinted a cited section
- * without the H3 bodies inside it, so rewriting that subtree expired nothing and
- * the review stayed green forever.
+ * `reference.Units` and `reference.Scopes` are both narrowed by the reference's
+ * `symbol` selector, so an unselected descendant appears in neither. A digest
+ * composed from them would fingerprint a cited section without the H3 bodies
+ * inside it when the reference selects only `h2`, and rewriting that subtree
+ * would expire nothing.
  *
- * The earlier subtree case hid it by selecting `["h2","h3"]`, which put the
- * descendants back into the selection. This one keeps the selector at `h2`,
- * which is what a consumer who only wants H2 obligations actually writes.
+ * The subtree case selects `["h2","h3"]`, which puts the descendants back into the
+ * selection. This one keeps the selector at `h2`, which is what a consumer who
+ * only wants H2 obligations writes.
  *
  *  1. Select only `h2`, cite an H2 that contains an H3, review it with the
  *     expected value.

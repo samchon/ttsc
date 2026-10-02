@@ -11,8 +11,8 @@ import (
  *
  * The negative twin. A permission this population never needed is not its
  * finding, and reporting it would turn an unrelated directory beside the
- * documents into a build error. The guard predates this change and has to
- * survive it.
+ * documents into a build error. The relevance guard has to hold for an entry
+ * under a declared root as well.
  *
  *  1. Hand the decision a path the population does not read.
  *  2. Read what it returns.

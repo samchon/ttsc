@@ -8,14 +8,14 @@ import (
  * Verifies a review on one half of a merged identity answers a citation on the
  * other, under requireReview.
  *
- * Overall Self-Review round 6 caught this, and it was the two rules of this
- * package disagreeing about the same file. `evidence/review` judges an identity,
- * so it accepts a citation on `interface ISale` reviewed from `namespace ISale`.
- * The graph matched reviews by `HostID`, which is a source position, so the two
- * halves carried different keys and `requireReview` reported the same file
- * unreviewed. `model.go` states the hazard where it defines the field: HostID is
- * the position identity and policy must not confuse it with the public symbol
- * identity it represents. Matching is by semantic host identity now.
+ * The two rules of this package must agree about the same file.
+ * `evidence/review` judges an identity, so it accepts a citation on
+ * `interface ISale` reviewed from `namespace ISale`. Matching reviews by
+ * `HostID`, which is a source position, would give the two halves different keys
+ * and `requireReview` would report the same file unreviewed. `model.go` states
+ * the hazard where it defines the field: HostID is the position identity and
+ * policy must not confuse it with the public symbol identity it represents.
+ * Matching is by semantic host identity.
  *
  *  1. Declare `interface ISale` beside `namespace ISale` in a claim file.
  *  2. Put the citation on the interface and its review, with the expected

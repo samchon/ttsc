@@ -15,9 +15,9 @@ import (
  * The product shape #1262 exists for, at the level an adopter meets it: a
  * package installed under `node_modules` and rooted again at its workspace
  * source is one schema owned by two claims, each answering to its own
- * documents. Before this pull request the whole set was rejected for a model
- * declared twice and neither claim owed anything. Both must now owe exactly
- * their own, and the host they name must be a path that opens; which for a
+ * documents. A set that listed the file twice would be rejected for a model
+ * declared twice and neither claim would owe anything. Both claims must owe
+ * exactly their own, and the host they name must be a path that opens; which for a
  * file both claims reached is one of its two spellings rather than each
  * claim's own, and this is where that becomes visible.
  *

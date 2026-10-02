@@ -21,9 +21,8 @@ func markdownUnitDigest(t *testing.T, content string, target string) string {
  * Verifies a region under an unaddressable heading belongs to its enclosing unit,
  * not to whichever unit the walk saw last.
  *
- * Overall Self-Review round 3 caught this, and it is the opposite failure from the
- * one round 2 fixed. Folding such a region into "the previous real unit" is right
- * only while the skipped heading is deeper than that unit. When it is shallower —
+ * Folding such a region into "the previous real unit" is right only while the
+ * skipped heading is deeper than that unit. When it is shallower —
  * an anchorless H2 following an H3 — the previous unit is a *sibling*, so editing
  * text the H3 does not contain expired a review of the H3. A false expiry is not a
  * smaller fault than a missing one; it teaches authors that the rule cries wolf.

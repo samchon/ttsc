@@ -85,8 +85,8 @@ func TestMarkdownReportsScanProblemsToClaims(t *testing.T) {
   // The mechanism is the reporter, not this predicate: the scan runs twice, once
   // over the declared claim populations and once over the activated config, and
   // each pass appends the same message. `reportProblems` sorts and drops the
-  // adjacent duplicate. That reliance predates this change, since an unreadable
-  // tag is already appended by both passes; the case is a regression guard on
+  // adjacent duplicate. An unreadable tag is appended by both passes in the same
+  // way; the case is a regression guard on
   // the reporter rather than on the line above it.
   both := runIndexRule(t, map[string]string{
     "plans/alpha.md": "## ---\n\n<!-- @evidence plans/alpha.md#kept Self. -->\n\n## Kept {#kept}\n\nBody.\n",

@@ -8,8 +8,7 @@ import (
  * Verifies `requireReview` judges an exclusion, and names the exclusion review tag
  * in its repair.
  *
- * The Individual Self-Review found this untested and it is the half that can
- * silently regress: `reviewProblems` has no tag filter, so an `@evidenceExclude`
+ * This is the half that can silently regress: `reviewProblems` has no tag filter, so an `@evidenceExclude`
  * under a reviewing reference reaches it, and nothing exercised
  * `reviewMarkerFor(declaration.Tag)` with an exclusion or the ledger key with
  * `"evidenceExclude"` in it. A missed `Reviews` field at any construction site

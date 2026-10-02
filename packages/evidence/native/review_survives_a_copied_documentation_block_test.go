@@ -7,11 +7,10 @@ import (
 /**
  * Verifies one review per declaration of an identity is not a duplicate.
  *
- * An Individual Self-Review caught this. Citations were deduplicated across the
- * blocks of one identity and reviews were not, so an overload set written the
- * normal way — by copying the documentation block onto each signature — reported
- * `Duplicate @evidenceReview` while every citation was in fact reviewed exactly
- * once. The asymmetry was the defect; a duplicate is two reviews inside one
+ * Citations are deduplicated across the blocks of one identity, so reviews are
+ * too: an overload set written the normal way, by copying the documentation
+ * block onto each signature, must not report `Duplicate @evidenceReview` while
+ * every citation is reviewed exactly once. A duplicate is two reviews inside one
  * block, not one review on each half of an identity.
  *
  *  1. Declare two overload signatures, each carrying the same citation and the

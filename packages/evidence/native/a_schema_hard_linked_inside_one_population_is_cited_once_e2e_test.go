@@ -14,13 +14,12 @@ import (
  *
  * A hard link is a second directory entry for one file, so a single walk of a
  * single base enumerates both; which is the one shape where a claim's own
- * globs select two spellings of one schema. Parsing it once and serving both
- * entries is what this pull request added, and it made that shape reachable:
- * the parse's declarations are one object filed into both inventories, and a
- * claim that appended each inventory's list saw one citation twice. Every
- * message that follows names a repair the author cannot perform; one tag, on
- * one line, reported as its own duplicate; which is why the correct
- * configuration is what this asserts.
+ * globs select two spellings of one schema. The schema is parsed once and both
+ * entries are served from that parse: its declarations are one object filed into
+ * both inventories, so a claim that appended each inventory's list would see one
+ * citation twice and report a tag, on one line, as its own duplicate, naming a
+ * repair the author cannot perform. The correct configuration is what this
+ * asserts.
  *
  *  1. Hard-link one schema inside a single claim's base.
  *  2. Cite the reference from the model, correctly and exactly once.
