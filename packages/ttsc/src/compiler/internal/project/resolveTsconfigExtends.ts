@@ -110,7 +110,7 @@ function resolvePackageManifestTsconfig(
   } catch (error) {
     // Node parses a package's manifest while resolving into it, so a malformed
     // preset manifest fails here rather than at the read below. Swallowing it
-    // is what turned a broken manifest into the confusing downstream
+    // would turn a broken manifest into a confusing downstream
     // "Cannot find module 'example-preset.json'" from the `extends` fallback,
     // which names a file that was never the problem. Node's own message names
     // the real one, so report it in ttsc's voice instead of continuing.

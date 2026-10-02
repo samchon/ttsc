@@ -6,9 +6,9 @@ import { ConfigJsonText } from "./ConfigJsonText";
  * Read and parse a strict-JSON configuration file (`package.json`), naming it
  * on failure.
  *
- * A leading UTF-8 BOM is accepted, matching the tsconfig reader that closed
- * issue #216: the two readers are consulted for the same project and
- * disagreeing about a byte order mark would only surprise the user who hit it.
+ * A leading UTF-8 BOM is accepted, matching the tsconfig reader (issue #216):
+ * the two readers are consulted for the same project and disagreeing about a
+ * byte order mark would only surprise the user who hit it.
  *
  * The parsed value remains unknown; its consuming contract validates root
  * shape.

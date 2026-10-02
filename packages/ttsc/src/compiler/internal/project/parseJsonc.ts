@@ -11,8 +11,8 @@
  * all, which reads as an empty object. It rejects what its conversion reports:
  * a key or string that is not double-quoted (TS1327), a value that is not a
  * literal (TS1328), a legacy octal number (TS1121), a missing comma, and text
- * after the root value. Layering comment stripping over `JSON.parse` left a
- * narrower grammar that refused CR-only line comments and every form above.
+ * after the root value. Layering comment stripping over `JSON.parse` would give
+ * a narrower grammar that refuses CR-only line comments and every form above.
  *
  * The one reading of that grammar in the workspace. ttsc's own project reader
  * reads every config through it (`readJsoncFile`), and `@ttsc/unplugin` reads
