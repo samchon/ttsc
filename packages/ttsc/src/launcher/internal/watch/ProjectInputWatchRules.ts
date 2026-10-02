@@ -84,8 +84,9 @@ export namespace ProjectInputWatchRules {
     if (identities.isWithin(resolvedProjectRoot, resolvedTarget)) {
       return WatchPaths.nearestExistingDirectory(resolvedProjectRoot);
     }
-    // An external anchor rises to the declared parent so a tree that does not
-    // exist yet is still observed, and so siblings under it share one handle. It
+    // An external anchor prefers the declared parent so missing trees and
+    // sibling declarations can select the same observation root. Installation
+    // and actual delivery remain with the topology owner. The root
     // may not rise strictly past the project: a containing root can displace
     // its distinct root selection when roots are merged. Declining avoids that
     // broader selection; it does not establish what a shared ancestor watcher
@@ -115,14 +116,15 @@ export namespace ProjectInputWatchRules {
   /**
    * Whether `directory` contains any declaration of the snapshot: a declared
    * file, a reload file, a reload directory strictly below it, or the literal
-   * root of a declared glob. A watch root that anchors nothing can be dropped.
+   * root of a declared glob. This predicate classifies declaration ancestry;
+   * watcher retirement and native delivery remain the topology owner's decisions.
    *
-   * @evidence contracts/common.md#principled-implementation Files and glob roots anchor containing coverage; reload-directory fingerprints cover immediate membership, so a directory does not anchor itself recursively.
+   * @evidence contracts/common.md#principled-implementation Files and glob roots anchor containing coverage; reload-directory membership alone requires a strict containing directory. Other declaration categories can independently anchor the same path.
    * @evidence contracts/common.md#clear-and-simple-design Four short-circuited declaration categories remain visible under one anchor predicate.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No project directory is treated as an anchor without an actual declaration, and reload membership is not widened to its whole subtree.
    * @evidence contracts/common.md#meaningful-documentation Native prose states each category and the strict reload-directory relation following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation All ancestry and equal-root distinctions use the supplied actual filesystem identity transaction.
-   * @evidence contracts/performance.md#efficient-algorithms At most F files, R reload declarations and G globs require O(F+R+G) short-circuited containment checks without enumerating corpus contents.
+   * @evidence contracts/performance.md#efficient-algorithms At most F files, R reload declarations and G globs are visited with short-circuiting. Each containment/equality query can resolve native identities and inspect key text; globs additionally compute their literal root. Costs include declaration spelling, ancestor/entry/case observations and native queries, not just F+R+G. No declared corpus contents are enumerated.
    * @evidence contracts/performance.md#reuse-equivalent-work The caller's shared transaction caches repeated identity lookups across anchor and root-selection questions for one native state.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The predicate borrows declarations and the transaction; it opens no watcher and retains no history.
@@ -139,11 +141,10 @@ export namespace ProjectInputWatchRules {
       ) ||
       (snapshot.reloadDirectories ?? []).some(
         (entry) =>
-          // A reload directory anchors the directory that contains it, never
-          // itself. Its own fingerprint is a digest of its immediate entries, so
-          // nothing below it can reach the corpus, and treating it as its own
-          // anchor would rearm for every entry created directly inside it —
-          // including `node_modules`, which contributors publish as one.
+          // This category anchors a strict containing directory, not the reload
+          // directory itself. Its immediate membership does not by itself
+          // declare a descendant corpus; other file/glob declarations above or
+          // below this branch can still anchor that same directory.
           identities.isWithin(directory, entry) &&
           identities.resolve(directory).key !== identities.resolve(entry).key,
       ) ||
