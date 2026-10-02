@@ -8,8 +8,9 @@ import type { TtscProjectInputHashSnapshot } from "./TtscProjectInputHashSnapsho
 import { collectProjectInputSnapshot } from "./collectProjectInputSnapshot";
 
 /**
- * Hash the project walk and retain whether every attempted directory and file
- * was observed coherently. Cache-key hosts must reject an incomplete set.
+ * Hash admitted regular files and retain whether every attempted directory and
+ * selected file was observed coherently. Cache-key hosts must reject an
+ * incomplete set; this walk does not replace separate out-of-walk input proof.
  *
  * @evidence contracts/common.md#principled-implementation File-read and directory-enumeration completeness are jointly required before the hashes represent a reusable snapshot.
  * @evidence contracts/common.md#clear-and-simple-design The wrapper projects the detailed snapshot into the hash-plus-completeness shape needed by cache-key consumers rather than implementing another walk.

@@ -7,10 +7,10 @@ import { createHostPathIdentityContext } from "../filesystem/createHostPathIdent
 import { collectProjectInputHashSnapshot } from "./collectProjectInputHashSnapshot";
 
 /**
- * Hash every input file under `projectRoot` (the same walk universe
- * `matchesCachedSource` validates against), keyed by project-relative slash
- * path. Exported so hosts without a per-build boundary (`@ttsc/metro`) can fold
- * the identical input universe into their own cache fingerprints.
+ * Return hashes of the project's admitted regular-file walk, keyed by
+ * project-relative slash paths. Imported, linked and other out-of-walk inputs
+ * need their separate reference-graph proofs. Exported so hosts without a
+ * per-build boundary can fingerprint the same configured walk universe.
  *
  * This convenience view discards completeness. A consumer deciding reuse must
  * use `collectProjectInputHashSnapshot` and check its flag instead.

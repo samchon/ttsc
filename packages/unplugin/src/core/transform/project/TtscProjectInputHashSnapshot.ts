@@ -1,13 +1,14 @@
 /**
  * One project-walk hash set together with its completeness proof.
  *
- * @evidence contracts/common.md#principled-implementation The completeness flag prevents a partial hash dictionary from representing a coherent project snapshot; slash-relative keys define its comparison namespace.
+ * @evidence contracts/common.md#principled-implementation The completeness flag carries the rejection evidence for partial admitted-file observations; consumers must check it, and slash-relative identity keys define the walk's comparison namespace rather than all compiler dependencies.
  * @evidence contracts/common.md#clear-and-simple-design The container separates observation completeness from collected hashes without introducing another snapshot owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts An unreadable input cannot disappear into an apparently complete successful snapshot merely because other file hashes were available.
  * @evidence contracts/common.md#meaningful-documentation The native field comments identify the rejection requirement and hash-key encoding rather than restating their TypeScript types.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   TtscProjectInputHashSnapshot only declares a shape; it has no filesystem,
- *   path or process operation at runtime.
+ *   This container carries completeness and already encoded comparison keys;
+ *   it defines no native address, path grammar, identity capability or backend
+ *   boundary. Key construction belongs to the snapshot producer.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
  *   TtscProjectInputHashSnapshot only declares a shape; it has no computation
  *   at runtime.
@@ -25,6 +26,6 @@ export interface TtscProjectInputHashSnapshot {
    */
   complete: boolean;
 
-  /** SHA-256 of every walked input, keyed by project-relative slash path. */
+  /** SHA-256 of admitted regular-file reads, keyed by slash-relative identity. */
   hashes: Record<string, string>;
 }
