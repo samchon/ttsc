@@ -713,9 +713,10 @@ func (r InlineRuleResolver) ResolveProjectRules(names []string) (map[string]Proj
 // https://eslint.org/docs/latest/use/configure/rules#using-configuration-files
 //
 // A config file is a single `ITtscLintConfig` object. Its `extends` field
-// names another config file to fold in first; the extends chain produces one
-// ConfigEntry per file, the extends-target entries declared before the
-// extending file's own entry so local rules win on collision.
+// names another config file to fold in first. A file may contribute a
+// global-ignore entry and a scoped rule entry, or no entry when it has neither.
+// Extends-target entries precede the extending file's entries so local rules
+// win on collision; format settings join the same scoped rule entry.
 // Duplicate aliases within one rules object are rejected before entries are stored.
 //
 // @evidence contracts/common.md#principled-implementation Ordered entries preserve extends precedence and matching-file ownership of severities and options; global-ignore entries distinguish whole-file exclusion from local selection.
@@ -735,7 +736,8 @@ type ConfigStore struct {
   resolutionRoot    string
 }
 
-// ConfigPaths returns the config and extends files that produced this store.
+// ConfigPaths returns the config, extends and evaluated public dependency files
+// that produced this store. Private resident-cache fingerprints remain separate.
 // The paths are retained as exact dependencies even when no rule declares
 // additional project inputs.
 // The returned slice is a copy, so callers can change its membership.
@@ -873,7 +875,7 @@ func (s *ConfigStore) RuleOptionsVariants(name string) []json.RawMessage {
   return variants
 }
 
-// ConfigEntry is the parsed form of one config file in the extends chain.
+// ConfigEntry is one parsed selection or global-ignore entry from a config file.
 // BaseDir anchors glob resolution; Files and Ignores are the pattern lists.
 // IgnoreOnly represents a global-ignore entry derived from an ignores list
 // without a nonempty files restriction. These entries are evaluated first in
