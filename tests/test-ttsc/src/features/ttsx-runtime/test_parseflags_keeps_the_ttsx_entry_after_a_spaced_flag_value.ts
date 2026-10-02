@@ -22,11 +22,11 @@ const isEntry = (token: string): boolean =>
  *    the entry predicate and `forwardAfterFirstPositional`.
  * 2. Assert the entry is the only positional and the two forwarded pairs keep
  *    their order in `passthrough`.
- * 3. Assert the post-entry tokens are the program `tail`, never forwarded to tsgo.
- * 4. Parse two genuinely unknown spaced option pairs before the entry with the
+ *    Assert the post-entry tokens are the program `tail`, never forwarded to tsgo.
+ * 3. Parse two genuinely unknown spaced option pairs before the entry with the
  *    predicate and assert the pairs stay in `passthrough` and only the entry is
  *    positional.
- * 5. Parse `--notACompilerOption es2020 entry.ts` without a predicate and assert
+ * 4. Parse `--notACompilerOption es2020 entry.ts` without a predicate and assert
  *    the unknown option's value becomes the positional sentinel and the entry
  *    falls into the tail (the behavior the predicate exists to avoid).
  *

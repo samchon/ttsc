@@ -7,8 +7,12 @@ import { readCompilerOptionOccurrence } from "../../../../../packages/ttsc/src/f
 import { parseTtsxCLI } from "../../../../../packages/ttsc/src/launcher/internal/parseTtsxCLI";
 
 /**
- * Keeps native option operands out of launcher requests and preserves retained
+ * Verifies native option operands stay out of launcher requests and preserves retained
  * option ownership when internal boolean options are removed.
+ *
+ * Scalar dash operands and empty list operands have different native consumption
+ * rules. Removing an internal flag must preserve those boundaries so a retained
+ * option cannot acquire a different value or swallow the program entry.
  *
  * 1. Read literal scalar, list, configuration-only, null and Unicode boundaries.
  * 2. Classify actual forwarded argv and remove timing/emit booleans without
@@ -17,9 +21,9 @@ import { parseTtsxCLI } from "../../../../../packages/ttsc/src/launcher/internal
  *    and watch requests from dash-prefixed scalar operands.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual occurrence reading, passthrough classification/removal and launcher parsing preserve native scalar operands, reset tokens and entry/tail ownership.
- * @evidence contracts/testing.md#independent-expectations Literal widths and argv arrays follow pinned native ParseCommandLine witnesses; expectations do not derive from the generated metadata or production cursor.
+ * @evidence contracts/testing.md#independent-expectations Literal widths follow the pinned native commandlineparser.go parseOptionValue/ParseListTypeOption contract: scalars consume dash operands, configuration-only resets have separate rules, and list consumption depends on elements or diagnostics. Its IsWhiteSpaceLike enum trimming differs from Go TrimSpace. Authored retained argv arrays specify deletion fences independently of the generated metadata and TypeScript cursor.
  * @evidence contracts/testing.md#distinguishing-cases Scalar dash operands contrast with list lookahead, config-only false/null contrasts with rejected true, empty tokens contrast with FEFF and Unicode White_Space, and removal fences distinguish both list and implicit-boolean rebinding.
- * @evidence contracts/testing.md#execution-ownership One discoverable source unit calls the maintained TypeScript operations directly; native oracle runs independently validate the literal grammar without rebuilding shared SDK/lib artifacts here.
+ * @evidence contracts/testing.md#execution-ownership One discoverable source unit calls the maintained TypeScript operations directly with in-memory arguments. The expectation basis is the separately maintained pinned native parser contract; this body starts no native oracle, compiler, SDK build or program process.
  */
 export const test_compiler_option_cursor_preserves_native_operand_boundaries = () => {
   const widths: readonly [readonly string[], 1 | 2][] = [
