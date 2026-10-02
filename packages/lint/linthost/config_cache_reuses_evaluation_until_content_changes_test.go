@@ -7,13 +7,12 @@ import (
 )
 
 // TestConfigCacheReusesEvaluationUntilContentChanges verifies loadCachedConfigFile
-// memoizes a config evaluation and re-runs it only when the file content changes.
+// reuses an unchanged config evaluation and retries after an authored content edit.
 //
-// Evaluating a .ts/.js lint config spawns a ttsx/node subprocess. A monorepo
-// build invokes `ttsc` once per package and would otherwise re-pay that cost
-// for the same shared config every time. This pins the cache: a second load of
-// unchanged bytes must not call the evaluator, and an edit must invalidate
-// cleanly so stale rules are never served.
+// The counting evaluator runs in the Go process, independently returning a new
+// generation per call. Three loads require first evaluation, unchanged reuse
+// and content invalidation; no real script child, separate compiler invocation
+// or dependency-graph policy is observed.
 //
 //  1. Write a config file and load it through a call-counting evaluator.
 //  2. Load it again unchanged; assert the evaluator did not run a second time.
