@@ -26,7 +26,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification An unchanged named event stays quiet, while a same-size rewrite with restored mtime produces exactly the tracked source path.
  * @evidence contracts/testing.md#independent-expectations Independent fixed timestamps and unequal equal-length source bytes require the named-event content comparison.
- * @evidence contracts/testing.md#distinguishing-cases An unchanged named event stays quiet, while a same-size rewrite with restored mtime produces exactly the tracked source path; the native observer's uncontrolled event scheduling remains exercised by the separate actual fs.watch watch boundaries.
+ * @evidence contracts/testing.md#distinguishing-cases An unchanged named event stays quiet, while unequal bytes with independently equal native size and restored mtime produce exactly one compiler report for the tracked source. This unit does not observe native event scheduling.
  * @evidence contracts/testing.md#execution-ownership Actual source WatchTopology and directory adapters consume recorded notifications and explicitly supplied absolute compiler membership. This unit starts no compiler process or native watcher; retained native E2E cases own compiler population and physical delivery. Every original semantic assertion remains in this unit.
  */
 export async function test_watch_topology_reports_a_same_size_rewrite_within_the_timestamp_granularity() {
@@ -74,8 +74,10 @@ export async function test_watch_topology_reports_a_same_size_rewrite_within_the
     await settleWatchEvents();
     assert.equal(changes.length, 0, "unchanged bytes caused a rebuild");
 
+    const before = fs.statSync(source);
     fs.writeFileSync(source, "export const value = 2;\n", "utf8");
     fs.utimesSync(source, stamp, stamp);
+    assert.equal(fs.statSync(source).size, before.size);
     assert.equal(fs.statSync(source).mtimeMs, stamp.getTime());
     deliverWatchEvent(watchers, source, "change");
     await settleWatchEvents();
@@ -83,7 +85,9 @@ export async function test_watch_topology_reports_a_same_size_rewrite_within_the
       changes.map((change) => change.path),
       [source],
     );
+    assert.deepEqual(changes, [{ kind: "compiler", path: source }]);
   } finally {
     topology.close();
+    assert.ok(watchers.every((watcher) => watcher.active === false));
   }
 }

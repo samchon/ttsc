@@ -21,23 +21,23 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * @evidence contracts/testing.md#behavioral-verification Actual source WatchTopology and directory adapter register physical paths and reconstruct a lexical source callback from a supplied observer event.
  * @evidence contracts/testing.md#independent-expectations Authored physical and alias roots establish the independently expected registration and report paths; a throwing compiler reader pins the positional branch.
- * @evidence contracts/testing.md#distinguishing-cases Physical subscription spelling and lexical report spelling differ. Unavailable aliases return false; the canonical CLI positional alias boundary separately owns actual OS delivery.
+ * @evidence contracts/testing.md#distinguishing-cases Physical subscription spelling and lexical report spelling differ under an independently checked native directory alias. Alias preparation must succeed; its failure is not product behavior or successful coverage. This unit does not observe OS delivery.
  * @evidence contracts/testing.md#execution-ownership This source unit executes actual path planning and callback classification through recorded subscriptions, with no compiler process or native observer.
  */
 export const test_watch_topology_registers_physical_watch_paths =
-  async (): Promise<void | false> => {
+  async (): Promise<void> => {
     const physicalRoot = TestProject.tmpdir("ttsc-watch-physical-");
     const aliasParent = TestProject.tmpdir("ttsc-watch-alias-");
     const root = path.join(aliasParent, "project");
-    try {
-      fs.symlinkSync(physicalRoot, root, "junction");
-    } catch {
-      // The filesystem cannot express a directory alias; the invariant this
-      // case pins is unobservable here, so leave it to the platforms that can.
-      return false;
-    }
+    fs.symlinkSync(
+      physicalRoot,
+      root,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.equal(fs.lstatSync(root).isSymbolicLink(), true);
     const physical = fs.realpathSync.native?.(root) ?? fs.realpathSync(root);
-    if (physical === path.resolve(root)) return false;
+    assert.equal(physical, fs.realpathSync.native(physicalRoot));
+    assert.notEqual(physical, path.resolve(root));
 
     const source = path.join(root, "src", "main.ts");
     fs.mkdirSync(path.dirname(source), { recursive: true });
@@ -111,7 +111,9 @@ export const test_watch_topology_registers_physical_watch_paths =
         true,
         `declared spelling expected, got ${JSON.stringify(reported)}`,
       );
+      assert.deepEqual(changes, [{ kind: "compiler", path: source }]);
     } finally {
       topology.close();
+      assert.ok(watchers.every((watcher) => watcher.active === false));
     }
   };

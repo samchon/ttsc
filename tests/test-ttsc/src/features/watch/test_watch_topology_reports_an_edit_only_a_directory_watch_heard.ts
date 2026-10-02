@@ -20,12 +20,11 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * 1. Admit the authored config and compiler member through recorded observers.
  * 2. Change strict mode and notify only the containing directory subscription.
- * 3. Repeat admitted-byte delivery where a file subscription exists and retain one
- *    report.
+ * 3. Repeat admitted-byte directory delivery on every platform and retain one report.
  *
  * @evidence contracts/testing.md#behavioral-verification A changed config heard only by its directory produces one report; duplicate delivery of the admitted bytes produces none.
  * @evidence contracts/testing.md#independent-expectations The independent strict true-to-false config edit and literal single report establish directory-first ownership.
- * @evidence contracts/testing.md#distinguishing-cases A changed config heard only by its directory produces one report; duplicate delivery of the admitted bytes produces none; the native observer's uncontrolled event scheduling remains exercised by the separate actual fs.watch watch boundaries.
+ * @evidence contracts/testing.md#distinguishing-cases A changed config heard only by its directory produces one config report; duplicate directory delivery of the admitted bytes produces none, including directory-only backends. This unit does not observe native event scheduling.
  * @evidence contracts/testing.md#execution-ownership Actual source WatchTopology and directory adapters consume recorded notifications and explicitly supplied absolute compiler membership. This unit starts no compiler process or native watcher; retained native E2E cases own compiler population and physical delivery. Every original semantic assertion remains in this unit.
  */
 export async function test_watch_topology_reports_an_edit_only_a_directory_watch_heard() {
@@ -74,6 +73,7 @@ export async function test_watch_topology_reports_an_edit_only_a_directory_watch
   const deliverToDirectoryWatchers = (): void => {
     const directories = watchers.filter(
       (watcher) =>
+        watcher.active &&
         watcher.location !== config &&
         path.relative(watcher.location, config) === "tsconfig.json",
     );
@@ -105,7 +105,6 @@ export async function test_watch_topology_reports_an_edit_only_a_directory_watch
     // Where the file has a watcher of its own, both decide from the bytes, so
     // hearing the same bytes again reports nothing. A backend with directory
     // watches alone uses the same fingerprint decision.
-    if (!watchers.some((watcher) => watcher.location === config)) return;
     deliverToDirectoryWatchers();
     await settleWatchEvents();
     assert.equal(
@@ -113,7 +112,9 @@ export async function test_watch_topology_reports_an_edit_only_a_directory_watch
       1,
       `the same bytes were reported again: ${JSON.stringify(changes)}`,
     );
+    assert.deepEqual(changes, [{ kind: "config", path: config }]);
   } finally {
     topology.close();
+    assert.ok(watchers.every((watcher) => watcher.active === false));
   }
 }
