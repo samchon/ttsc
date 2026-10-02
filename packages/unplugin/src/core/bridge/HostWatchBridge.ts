@@ -1,8 +1,9 @@
 import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
 
 /**
- * The watching build session's observer of the compiler's inputs, which tells
- * the host of a change by moving the project's record (`openHostWatchBridge`).
+ * A watching build session's input-observation boundary, which requests host
+ * invalidation by moving the project's record (`openHostWatchBridge`). A move
+ * is not itself proof that the host observed or rebuilt that project.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Sequence capture, input registration and owed-state queries represent the
@@ -14,17 +15,22 @@ import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native member paragraphs explain capture timing, persistence and retry scope;
  *   documented members and tags are separated per documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   HostWatchBridge only declares a shape; it has no filesystem, path or
- *   process operation at runtime.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Record/input arguments and dependency callbacks carry absolute native
+ *   spellings handed to the host; sequence tokens and pass windows are separate
+ *   from native timestamps. The implementing observer owns actual case/path
+ *   capability and reproof; this boundary does not infer them from an OS name.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   HostWatchBridge only declares a shape; it has no computation at runtime.
+ *   This boundary organizes capture/query/registration/lifecycle operations.
+ *   Record scans, timer scheduling and input condition proofs are selected and
+ *   costed by openHostWatchBridge and its observer, not by this representation.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   HostWatchBridge only declares a shape; it has no work to reuse at
- *   runtime.
+ *   Immutable delivery arrays/tokens permit the implementation's registration
+ *   reuse; this shape supplies no independent cache key or validity mechanism.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   HostWatchBridge only declares a shape; it has no handle or retained state
- *   at runtime.
+ *   openHostWatchBridge owns records, retry timers and its observer; the close
+ *   member specifies cleanup attempts and persisted-file behavior. This shape
+ *   does not independently acquire those resources or bound their populations.
  */
 export interface HostWatchBridge {
   /**

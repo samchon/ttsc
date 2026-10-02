@@ -4,9 +4,11 @@ import { hashText } from "../transform/utils/hashText";
  * The digest of a project record's bytes (`projectRecordFile`), which stands
  * for the record's state wherever a host keeps no snapshot of the file itself.
  *
- * A record's bytes move exactly when the project's state does
- * (`writeProjectRecordFile`, `signalProjectRecordFile`), so two digests are
- * equal exactly when nothing moved the record between the two reads. Rollup's
+ * Deliveries and repeated retry signals can move record bytes
+ * (`writeProjectRecordFile`, `signalProjectRecordFile`). The digest compares
+ * sampled content, not every intermediate write; equal samples do not prove
+ * no intervening change, and SHA-256 is a fingerprint rather than equality
+ * without collision assumptions. Rollup's
  * cache is the host that needs it: a module it restores from the cache it was
  * handed carries the digest its delivery wrote, and the adapter compares it
  * with the record's bytes now (`createRollupCachedModuleProof`).
