@@ -20,10 +20,11 @@ import { planCompilerDirectoryWatchEvent } from "../../../../../packages/ttsc/sr
  * 3. Plan a filename-less rename after an input disappeared (only the survivor
  *    changes) and a named change of an untracked file (no change, refresh
  *    only).
+ * 4. Contrast Windows named rename, missing/empty members and an outside root.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the actual directory-event planner for named content changes, replacements and unnamed notifications, checking exact change, rearm and refresh plans.
  * @evidence contracts/testing.md#independent-expectations Literal arrays and booleans specify event policy independently of the planner; supplied membership, existence and virtual identity describe the input authority only.
- * @evidence contracts/testing.md#distinguishing-cases POSIX content change differs from rename, Windows unnamed change does not rearm, a vanished member is excluded and an unrelated named event refreshes without inventing a candidate.
+ * @evidence contracts/testing.md#distinguishing-cases POSIX named content change differs from rename; Windows named rename and unnamed change never rearm. Named missing, empty membership and unrelated named events refresh without a candidate; unnamed events exclude a surviving member outside the subscribed root. Physical/case-alias policy is separately owned by identity units, not simulated as native watch delivery here.
  * @evidence contracts/testing.md#execution-ownership Executes planner and identity policy in one source-unit process with supplied virtual filesystem operations; no native watch, filesystem case query, compiler or child process is needed.
  */
 export const test_compiler_directory_watch_event_planning_is_backend_complete =
@@ -119,5 +120,55 @@ export const test_compiler_directory_watch_event_planning_is_backend_complete =
         trackedFiles,
       }),
       { changes: [], rearm: [], refresh: true },
+    );
+    assert.deepEqual(
+      planCompilerDirectoryWatchEvent({
+        changed: source,
+        event: "rename",
+        exists,
+        identities,
+        location: root,
+        platform: "win32",
+        trackedFiles,
+      }),
+      { changes: [source], rearm: [], refresh: false },
+    );
+    assert.deepEqual(
+      planCompilerDirectoryWatchEvent({
+        changed: source,
+        event: "change",
+        exists: () => false,
+        identities,
+        location: root,
+        platform: "linux",
+        trackedFiles,
+      }),
+      { changes: [], rearm: [], refresh: true },
+    );
+    assert.deepEqual(
+      planCompilerDirectoryWatchEvent({
+        event: "rename",
+        exists,
+        identities,
+        location: root,
+        platform: "linux",
+        trackedFiles: new Map(),
+      }),
+      { changes: [], rearm: [], refresh: true },
+    );
+    const outside = path.join(path.dirname(root), "outside.ts");
+    assert.deepEqual(
+      planCompilerDirectoryWatchEvent({
+        event: "rename",
+        exists: () => true,
+        identities,
+        location: root,
+        platform: "linux",
+        trackedFiles: new Map([
+          [source, source],
+          [outside, outside],
+        ]),
+      }),
+      { changes: [source], rearm: [source], refresh: true },
     );
   };
