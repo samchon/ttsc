@@ -10,15 +10,11 @@ import (
 // `ttsc format` command leaves a file alone when the active lint config entry
 // has both a `rules` block and an `ignores` list that names it.
 //
-// `ConfigStore.ResolveRules` only flips `Ignored` for entries that contain
-// nothing but `ignores`. An entry that carries both `rules` and `ignores`
-// has its rule contributions filtered per file via
-// `ConfigEntry.matchesFile`, but the engine still hands the file to the
-// resolver with `Ignored = false`. Before this fix, the format resolver
-// re-upgraded every registered format rule to warn anyway, so the typeorm
-// fixture's lint config ignored `src/driver/mongodb/typings.ts` for lint
-// purposes yet still saw `ttsc format` rewrite it. This command-level test pins
-// the integrated behavior on the smallest possible project.
+// This config object has no files selector, so its ignores list creates a
+// global-ignore entry alongside the ordinary format/rule entry. ResolveRules
+// returns Ignored for the matched source and the format resolver must preserve
+// that exclusion. Removing only the ignores list permits the same source to
+// gain semicolons. This does not isolate entry-scoped ignores under files.
 //
 //  1. Seed a project whose only source file is missing trailing semicolons.
 //  2. Write a lint.config.json with one entry that has a `format` block,
@@ -27,7 +23,7 @@ import (
 //  4. Run the same configuration without the `ignores` glob on a second copy
 //     and assert the semicolons are added.
 //
-// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on `var legacy = 1` plus an unterminated call, with a config whose single entry has a format block, a rules block and an `ignores` glob naming src/main.ts, and requires exit 0, empty output and the file untouched.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process format command on var plus an unterminated call with one authored config object containing format, rules and an ignores glob, without files. The matched globally ignored file remains byte-identical with status zero and empty streams; the no-ignore control gains both semicolons.
 // @evidence contracts/testing.md#independent-expectations The expectation is the original literal source, which follows from the contract that an ignored file is not rewritten; nothing is derived from formatter output.
 // @evidence contracts/testing.md#distinguishing-cases The ignored file stays unchanged (negative case) while the identical configuration without the ignores glob adds both semicolons (control), so the ignore alone separates the two outcomes.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project and JSON config; no child process, built binary or installed consumer.
