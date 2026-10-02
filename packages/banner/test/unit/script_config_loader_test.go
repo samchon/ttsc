@@ -1,5 +1,3 @@
-//go:build e2e
-
 package banner_test
 
 import (
@@ -25,10 +23,6 @@ import (
 // @evidence contracts/testing.md#independent-expectations Authored from cjs/from mjs literals establish actual export evaluation; fixed malformed stdout and status-7 fixture programs independently establish protocol failure inputs.
 // @evidence contracts/testing.md#distinguishing-cases Actual valid CJS/MJS contrast with numeric export and wrong basename. Fake child invalid JSON, loud exit and silent exit exercise different parent decoding/error paths.
 // @evidence contracts/testing.md#execution-ownership TestScriptConfigLoader calls the owning loader and real child programs: Node for valid imports, authored direct launchers for failure protocol. Fake failures do not execute the loader script.
-// @evidence contracts/e2e.md#necessary-boundary Actual Node import/async export and parent stdout/exit decoding cross process boundaries. Validation semantics remain direct concerns; fake binaries establish parent protocol handling, not JS evaluator failure internals.
-// @evidence contracts/e2e.md#shared-execution One fixture root contains valid config and failure launchers. Each load currently starts an independent process without a native Go producer or resident Node batch.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.Setenv restores TTSC_NODE_BINARY and t.TempDir releases fixture programs/configs. The parent waits for child exit; assertions deliberately reject stderr text being repeated in the error.
-// @evidence contracts/e2e.md#preserved-coverage The body asserts the CJS and MJS texts, the invalid-name and numeric-export errors, the malformed-stdout parse error, the rejection of a payload missing its dependency observations (no observations at all, and everything but the realpaths), the failure-envelope reason carried into the error of a non-zero exit, the exit-status-7 error naming the config without repeating the child's stderr, and the silent exit-status error; stderr itself is not captured as an oracle.
 func TestScriptConfigLoader(t *testing.T) {
   root := t.TempDir()
   cjs := filepath.Join(root, "banner.config.cjs")

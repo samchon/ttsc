@@ -2,10 +2,12 @@
   "severity": "error",
   "claims": [
     {
-      "name": "maintained TypeScript declarations and native boundaries",
+      "name": "TypeScript production declarations",
       "type": "typescript",
       "files": [
-        "src/**/*.ts"
+        "src/**/*.ts",
+        "!src/index.ts",
+        "!src/createTtscBanner.ts"
       ],
       "symbol": [
         "type",
@@ -13,14 +15,34 @@
       ],
       "reference": {
         "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/common.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "TypeScript declarations owning filesystem discovery",
+      "type": "typescript",
+      "files": [
+        "src/createTtscBanner.ts"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
         "files": [
           "contracts/common.md",
           "contracts/portability.md",
           "contracts/performance.md"
         ],
         "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
+        "checklist": true
       }
     },
     {
@@ -47,10 +69,10 @@
       }
     },
     {
-      "name": "Go utility plugin semantic units",
+      "name": "Go tests",
       "type": "go",
       "files": [
-        "test/unit/**/*_test.go"
+        "test/**/*_test.go"
       ],
       "symbol": "function",
       "reference": {

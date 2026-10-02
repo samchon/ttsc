@@ -53,3 +53,18 @@ func bannerSanitizeJSDocLine(line string) string
 
 //go:linkname bannerPrepareTypeScriptConfigLoader github.com/samchon/ttsc/packages/banner/driver.prepareBannerTypeScriptConfigLoader
 func bannerPrepareTypeScriptConfigLoader(tempDir, location string, link func(string, string) error, write func(string, []byte, os.FileMode) error) (string, string, error)
+
+//go:linkname bannerRelativeImportSpecifier github.com/samchon/ttsc/packages/banner/driver.relativeImportSpecifier
+func bannerRelativeImportSpecifier(fromDir, location string) (string, error)
+
+//go:linkname bannerTypeScriptConfigLoaderSource github.com/samchon/ttsc/packages/banner/driver.bannerTypeScriptConfigLoaderSource
+func bannerTypeScriptConfigLoaderSource(importLiteral, recorderLiteral string) string
+
+//go:linkname bannerLoaderTempBase github.com/samchon/ttsc/packages/banner/driver.loaderTempBase
+func bannerLoaderTempBase(location, systemTemp string) string
+
+//go:linkname bannerShouldRunTtsxThroughNode github.com/samchon/ttsc/packages/banner/driver.shouldRunTtsxThroughNode
+func bannerShouldRunTtsxThroughNode(binary string) bool
+
+//go:linkname bannerPhysicalHostInput github.com/samchon/ttsc/packages/banner/driver.physicalHostInput
+func bannerPhysicalHostInput(location string) *string

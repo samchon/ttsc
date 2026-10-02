@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Exercises banner base-dir/path helpers, ancestor/nearer discovery, duplicate errors and allowed filename recognition.
 // @evidence contracts/testing.md#independent-expectations Literal root/project paths establish tsconfig-relative resolution and nearest-directory precedence; the seven config names and configFile remedy follow the banner contract.
 // @evidence contracts/testing.md#distinguishing-cases Owns relative/empty tsconfig, relative/absolute config path, ancestor/nearer candidate, ambiguity, no candidate, accepted seven suffixes and rejected TOML. Located scripts are not evaluated.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigPathDiscovery is selected from test/unit by the root test:go command (`go test ./packages/banner/...`, which excludes the e2e-tagged test/e2e). Runs bannerTsconfigBaseDir, bannerResolveBannerConfigPath, bannerFindBannerConfigFile and bannerIsBannerConfigFileName through Go linkname adapters using path/stat fixtures only.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigPathDiscovery is selected from test/unit by the root test:go command (`go test ./packages/banner/...`). Runs bannerTsconfigBaseDir, bannerResolveBannerConfigPath, bannerFindBannerConfigFile and bannerIsBannerConfigFileName through Go linkname adapters using path/stat fixtures only.
 func TestConfigPathDiscovery(t *testing.T) {
   root := t.TempDir()
   project := filepath.Join(root, "packages", "demo")

@@ -1,5 +1,3 @@
-//go:build e2e
-
 package banner_test
 
 import (
@@ -10,7 +8,7 @@ import (
 
 // TestCommandRunsCheck verifies the banner sidecar can run a no-emit project check.
 //
-// The banner sidecar is intentionally tested through its package-local command front door.
+// The banner sidecar command dispatch is intentionally tested through its command front door, in process.
 // These cases prove the small wrapper package can parse host commands, hand project work to the
 // shared utility host, and place documentation text without relying on tests inside the plugin
 // implementation directory.
@@ -19,20 +17,16 @@ import (
 // This distinguishes diagnostic-only execution from build and transform behavior.
 //
 // 1. Materialize a strict TypeScript project and banner manifest.
-// 2. Run the check command through the real sidecar.
+// 2. Run the check command through the sidecar command dispatch.
 // 3. Assert success and verify no JavaScript output was emitted.
 //
 // @evidence contracts/testing.md#behavioral-verification The strict banner project runs check --quiet with its CJS manifest; status zero, empty streams and absent src/main.js distinguish the no-emit branch.
 // @evidence contracts/testing.md#independent-expectations The check contract is successful validation without JavaScript emission; the absence assertion uses the original source location, not every possible output path.
 // @evidence contracts/testing.md#distinguishing-cases A valid manifest is loaded without outDir; build owns positive publication and transform owns returned source payload. This case does not assert banner text during check.
-// @evidence contracts/testing.md#execution-ownership The discoverable TestCommandRunsCheck entry runs in the banner E2E population and calls the real compiled package sidecar; runPlugin captures its native exit and separate streams. This classification does not move its portable assertions into units.
-// @evidence contracts/e2e.md#necessary-boundary The native check dispatch loads the project and banner manifest while returning silent success and leaving the asserted output absent. It verifies no-emit command wiring, not banner transformation semantics.
-// @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts one check process over one freshly seeded project from that binary and shares no loaded project or running session with any other entry.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity seedProject writes the fixture project under t.TempDir, which the test framework removes at cleanup; the single check process exits before src/main.js is stat-ed. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
-// @evidence contracts/e2e.md#preserved-coverage The status/stream check and the src/main.js absence check are made in this body; banner text is not asserted here and no assertion is delegated elsewhere.
+// @evidence contracts/testing.md#execution-ownership The discoverable TestCommandRunsCheck unit runs the sidecar command dispatch (utility.RunCommandWithIO with the banner registration) in the Go test process; runPlugin captures its exit status and separate streams. No compiled sidecar binary or child process is started, and the one-line process entry in plugin/main.go is not exercised.
 func TestCommandRunsCheck(t *testing.T) {
   // Scenario setup: the project is intentionally minimal because check only
-  // needs to prove the sidecar can parse the manifest and load the program.
+  // needs to prove the dispatch can parse the manifest and load the program.
   root := seedProject(t, map[string]string{
     "tsconfig.json": `{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true},"include":["src"]}`,
     "src/main.ts":   `export const value = "ok";` + "\n",

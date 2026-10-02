@@ -1,5 +1,3 @@
-//go:build e2e
-
 package banner_test
 
 import (
@@ -27,10 +25,6 @@ import (
 // @evidence contracts/testing.md#independent-expectations Authored child programs emit distinct literal from-ts/from-direct values or intentional invalid bytes/statuses; config path and supported diagnostic labels determine expectations independently, and these launchers do not evaluate the authored TypeScript config.
 // @evidence contracts/testing.md#distinguishing-cases Node-routed versus direct launchers, dispatcher versus direct loading, environment-pinned versus bare command arguments, same/parent/invalid imports, malformed payload, stderr versus silent exit and non-directory tempbase remain; injected preparation failures belong to the direct preparation unit.
 // @evidence contracts/testing.md#execution-ownership The function runs the real loader's filesystem preparation and spawns fixture launchers as child processes (a node-routed .mjs and direct executables); it also calls pure helpers directly (launcher extension classification, ttsxCommand arguments, loader tsconfig files, relative import specifiers). TestTypeScriptConfigLoaderPrecedence runs the generated loader source.
-// @evidence contracts/e2e.md#necessary-boundary Files written by the native preparation adapter, launcher selection, real process status and stdout-envelope decoding must cooperate; source-unit I/O outcomes do not establish this transport or that user-facing stderr is separate from the returned error.
-// @evidence contracts/e2e.md#shared-execution The Go test process shares compiled driver source and fixture launchers; each actual loader invocation owns its temporary project and child because selected launcher, payload or exit state changes, without rebuilding a native plugin for each branch.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir and t.Setenv isolate files and tool/temp variables; the actual loader releases its temporary tree after each invocation and waits for its child. Global link/write replacement is absent; the production caller supplies native operations explicitly.
-// @evidence contracts/e2e.md#preserved-coverage The body asserts node-routed, dispatcher and direct-launcher loads, launcher extension classification, ttsxCommand argument layout for node-routed, direct and bare launchers, loader tsconfig files, same-dir/parent/invalid relative specifiers, the relative-import load error, invalid-stdout, exit-status-8 (without echoing child stderr), silent-exit and temp-directory-creation errors; link/write failure injection lives in the unit TestTypeScriptConfigLoaderPreparationReportsIOFailures.
 func TestTypeScriptConfigLoader(t *testing.T) {
   root := t.TempDir()
   config := filepath.Join(root, "banner.config.ts")

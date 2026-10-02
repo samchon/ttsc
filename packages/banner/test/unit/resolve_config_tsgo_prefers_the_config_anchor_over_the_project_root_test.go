@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Seeds root and nested workspace compilers, then asserts bannerResolveConfigTsgo chooses the config-local compiler and rejects the root compiler as its answer.
 // @evidence contracts/testing.md#independent-expectations Config-first tool lookup gives the config its own toolchain. Distinct seeded executable paths expose reversed anchor order.
 // @evidence contracts/testing.md#distinguishing-cases Owns two successful competing anchors; root fallback after an unresolved config anchor and explicit override are separate cases.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoPrefersTheConfigAnchorOverTheProjectRoot is selected from test/unit by the root test:go command (`go test ./packages/banner/...`, which excludes the e2e-tagged test/e2e). Runs bannerConfigToolAnchors and bannerResolveConfigTsgo in the Go process over manifest/stat fixtures; no compiler executes.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoPrefersTheConfigAnchorOverTheProjectRoot is selected from test/unit by the root test:go command (`go test ./packages/banner/...`). Runs bannerConfigToolAnchors and bannerResolveConfigTsgo in the Go process over manifest/stat fixtures; no compiler executes.
 func TestResolveConfigTsgoPrefersTheConfigAnchorOverTheProjectRoot(t *testing.T) {
   shared.ShedConfigToolEnvironment(t)
   root := shared.BannerRealpathIfPossible(t.TempDir())

@@ -1,5 +1,3 @@
-//go:build e2e
-
 package banner_test
 
 import (
@@ -25,10 +23,6 @@ import (
 // @evidence contracts/testing.md#independent-expectations Literal pointer/key errors and authored explicit/discovered text are independent expected results. Fake TS empty envelopes specify transport output rather than evaluating TypeScript source.
 // @evidence contracts/testing.md#distinguishing-cases Framework keys contrast with text/config rejection; numeric/blank configFile differ from valid pointers. Explicit/discovered routes exercise missing text, bare string, empty text and ambiguous configs.
 // @evidence contracts/testing.md#execution-ownership TestResolveBannerTextBranches mixes direct resolver decisions with actual Node CJS imports and fake ttsx process payloads. No native sidecar producer executes.
-// @evidence contracts/e2e.md#necessary-boundary CJS evaluation needs the real Node connection. Key/pointer/discovery decisions are portable, and fake TS cases do not prove real compiler/evaluator behavior; mixed-layer consolidation remains unresolved.
-// @evidence contracts/e2e.md#shared-execution Multiple fixture subtrees share one root and actual CJS/fake-TS loads use independent children. This entry has no shared resident evaluator and no native build.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns explicit/discovery/error layouts; t.Setenv restores the fake launcher variable and child evaluation ends before the next assertion.
-// @evidence contracts/e2e.md#preserved-coverage The body asserts both unsupported-key rejections, the framework-key loop (which only requires that no 'unsupported key' error is returned, not success), configFile type/blank rejections, explicit and discovered CJS texts, the ambiguous-directory, missing, bad-export and empty-text errors, and two TypeScript no-text errors driven by a fake launcher whose envelope carries an empty value.
 func TestResolveBannerTextBranches(t *testing.T) {
   root := t.TempDir()
   project := filepath.Join(root, "project")

@@ -21,7 +21,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Constructs a command with bannerTtsxCommand after clearing tool variables and asserts count and ordered launcher, --no-plugins, loader.mts argument suffix.
 // @evidence contracts/testing.md#independent-expectations A project .js launcher occupies the first argument after the Node executable and preserves caller arguments. The expected suffix is listed independently; executable identity itself is not asserted.
 // @evidence contracts/testing.md#distinguishing-cases Owns construction from a discovered project script launcher; direct-executable routing and actual child output/status are owned by loader boundary cases.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestTtsxCommandSpawnsTheProjectLauncher is selected from test/unit by the root test:go command (`go test ./packages/banner/...`, which excludes the e2e-tagged test/e2e). Runs bannerTtsxCommand, launcher resolution and exec.Cmd construction in the Go process. This entry never calls Run, Output or Start and proves no spawn.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestTtsxCommandSpawnsTheProjectLauncher is selected from test/unit by the root test:go command (`go test ./packages/banner/...`). Runs bannerTtsxCommand, launcher resolution and exec.Cmd construction in the Go process. This entry never calls Run, Output or Start and proves no spawn.
 func TestTtsxCommandSpawnsTheProjectLauncher(t *testing.T) {
   shared.ShedConfigToolEnvironment(t)
   root := shared.BannerRealpathIfPossible(t.TempDir())

@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls bannerRealpathIfPossible on an existing temp directory and a missing descendant; the first result must remain nonempty and the missing path must return unchanged.
 // @evidence contracts/testing.md#independent-expectations The fallback contract preserves the input when EvalSymlinks cannot resolve it. The missing path is constructed independently; the positive assertion only checks nonempty identity.
 // @evidence contracts/testing.md#distinguishing-cases Contrasts existing-directory success with missing-path fallback. Linked-install and Windows junction identity are owned by boundary cases.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestRealpathIfPossibleKeepsAnUnevaluablePath is selected from test/unit by the root test:go command (`go test ./packages/banner/...`, which excludes the e2e-tagged test/e2e). Calls bannerRealpathIfPossible in the Go process on ordinary paths; it creates no link or subprocess.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestRealpathIfPossibleKeepsAnUnevaluablePath is selected from test/unit by the root test:go command (`go test ./packages/banner/...`). Calls bannerRealpathIfPossible in the Go process on ordinary paths; it creates no link or subprocess.
 func TestRealpathIfPossibleKeepsAnUnevaluablePath(t *testing.T) {
   root := t.TempDir()
   if real := shared.BannerRealpathIfPossible(root); real == "" {

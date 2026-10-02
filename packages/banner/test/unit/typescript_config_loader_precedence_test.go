@@ -1,5 +1,3 @@
-//go:build e2e
-
 package banner_test
 
 import (
@@ -30,10 +28,6 @@ import (
 // @evidence contracts/testing.md#independent-expectations Deliberately conflicting named/default and outer/inner literal texts determine expected precedence independently of generated source; JSON decoding reads real stdout and never derives expected results from loader substrings.
 // @evidence contracts/testing.md#distinguishing-cases ESM default competes with a named text, a CJS banner object competes with its nested default, nested defaults require unwrapping, and an object without text is rejected; this does not independently verify compiler emit or launcher argument transport.
 // @evidence contracts/testing.md#execution-ownership The function generates loader source with bannerTypeScriptConfigLoaderSource in the test process and runs the generated modules with the embedded resolutioninputs recorder in real node children (one for the three positive fixtures, one for the invalid fixture); it builds no native artifact.
-// @evidence contracts/e2e.md#necessary-boundary Generated code must remain executable and implement the export policy in the JavaScript runtime; source-string inspection and pure config-option units cannot detect an executable precedence regression.
-// @evidence contracts/e2e.md#shared-execution The three positive fixtures share one recorder artifact and one Node lifetime; the invalid control has a separate lifetime because its actual failure handler exits the process and would hide positive results if combined.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity Unique module filenames and literal config inputs separate each positive import without clearing caches; t.TempDir owns all files, synchronous command completion owns each child, and the negative fixture uses a fresh child with independent recorder state.
-// @evidence contracts/e2e.md#preserved-coverage The body asserts that the three positive loaders report default, outer and nested texts (population counts compared) and that the invalid-export loader exits with status 1 and the exact error message; compiler and launcher argument transport are not asserted here.
 func TestTypeScriptConfigLoaderPrecedence(t *testing.T) {
   root := t.TempDir()
   recorder := filepath.Join(root, "recorder.cjs")

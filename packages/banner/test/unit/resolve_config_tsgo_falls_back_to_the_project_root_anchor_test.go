@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification With tool variables cleared, calls bannerResolveConfigTsgo over an uninstalled shared-config anchor and an installed project-root anchor; the root compiler path must win.
 // @evidence contracts/testing.md#independent-expectations The config and project install occupy separate fixture subtrees. The expected executable is independently placed in the npm layout before resolver lookup.
 // @evidence contracts/testing.md#distinguishing-cases Owns second-anchor fallback after an empty first lookup. requireNoAmbientInstall may skip polluted TypeScript ancestry; config-first precedence has a separate case.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoFallsBackToTheProjectRootAnchor is selected from test/unit by the root test:go command (`go test ./packages/banner/...`, which excludes the e2e-tagged test/e2e). Runs bannerResolveConfigTsgo, bannerConfigToolAnchors and manifest/stat lookup in the Go process; the seeded empty compiler file is never launched.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoFallsBackToTheProjectRootAnchor is selected from test/unit by the root test:go command (`go test ./packages/banner/...`). Runs bannerResolveConfigTsgo, bannerConfigToolAnchors and manifest/stat lookup in the Go process; the seeded empty compiler file is never launched.
 func TestResolveConfigTsgoFallsBackToTheProjectRootAnchor(t *testing.T) {
   shared.ShedConfigToolEnvironment(t)
   base := shared.BannerRealpathIfPossible(t.TempDir())

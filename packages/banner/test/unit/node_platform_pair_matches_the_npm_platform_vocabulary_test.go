@@ -26,7 +26,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls bannerNodePlatformPairFor for explicit OS/architecture pairs and checks literal npm names, then excludes untranslated windows, amd64 and 386 in the runtime wrapper result.
 // @evidence contracts/testing.md#independent-expectations The independent table uses npm win32, sunos, x64, ia32 and ppc64 spellings and preserves other names. It does not derive answers from platform fixture helpers.
 // @evidence contracts/testing.md#distinguishing-cases Owns Windows/macOS/Linux architectures, Solaris, ppc64le and FreeBSD/s390x passthrough. The runtime wrapper assertion excludes known untranslated names only.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestNodePlatformPairMatchesTheNpmPlatformVocabulary is selected from test/unit by the root test:go command (`go test ./packages/banner/...`, which excludes the e2e-tagged test/e2e). Runs bannerNodePlatformPairFor and bannerNodePlatformPair in the Go process with literal inputs; no install, artifact or subprocess is needed.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestNodePlatformPairMatchesTheNpmPlatformVocabulary is selected from test/unit by the root test:go command (`go test ./packages/banner/...`). Runs bannerNodePlatformPairFor and bannerNodePlatformPair in the Go process with literal inputs; no install, artifact or subprocess is needed.
 func TestNodePlatformPairMatchesTheNpmPlatformVocabulary(t *testing.T) {
   cases := []struct{ goos, goarch, platform, arch string }{
     {"windows", "amd64", "win32", "x64"},

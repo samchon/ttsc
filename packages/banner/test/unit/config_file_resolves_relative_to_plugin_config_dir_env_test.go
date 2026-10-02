@@ -25,7 +25,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls bannerResolveBannerConfigPath for banner.config.json with a wrapper tsconfig and project override; the result must join the project directory.
 // @evidence contracts/testing.md#independent-expectations Relative configFile follows TTSC_PLUGIN_CONFIG_DIR when set. The independently constructed project path differs from the wrapper path.
 // @evidence contracts/testing.md#distinguishing-cases Owns relative configFile resolution with an environment project anchor; absolute and no-override choices are covered by TestConfigPathDiscovery.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigFileResolvesRelativeToPluginConfigDirEnv is selected from test/unit by the root test:go command (`go test ./packages/banner/...`, which excludes the e2e-tagged test/e2e). Runs bannerResolveBannerConfigPath and PluginConfigBaseDir in the Go process with testing-restored environment; no config, compiler or launcher is loaded.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigFileResolvesRelativeToPluginConfigDirEnv is selected from test/unit by the root test:go command (`go test ./packages/banner/...`). Runs bannerResolveBannerConfigPath and PluginConfigBaseDir in the Go process with testing-restored environment; no config, compiler or launcher is loaded.
 func TestConfigFileResolvesRelativeToPluginConfigDirEnv(t *testing.T) {
   project := t.TempDir()
   wrapper := t.TempDir()

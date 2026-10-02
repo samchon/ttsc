@@ -13,7 +13,7 @@ import (
 // File preparation owns the decision to admit a loader only after dependency
 // linking and all three writes succeed. Invocation-owned I/O inputs exercise
 // those decisions without replacing foreign globals or launching a compiler.
-// The native adapters and executable loader remain verified by the E2E cases.
+// The native adapters and executable loader remain verified by TestTypeScriptConfigLoader.
 //
 // 1. Fail linking, recorder writing, loader writing and tsconfig writing separately.
 // 2. Verify the original error context and that later writes are not attempted.
@@ -22,7 +22,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The actual prepareBannerTypeScriptConfigLoader must propagate link failure, label recorder/loader failures as write config loader and tsconfig failure as write config loader tsconfig, return no admitted paths on failure and complete three ordered writes on success.
 // @evidence contracts/testing.md#independent-expectations Literal stage names and original diagnostic contexts define the expected protocol independently of the implementation; invocation-owned callbacks report supplied success or failure and count observable calls, rather than replacing a product global.
 // @evidence contracts/testing.md#distinguishing-cases Separate link, first-write, second-write and third-write failures prove short-circuit admission and preserve the original three error assertions; successful preparation is the adjacent control and no callback establishes actual kernel linking or runtime evaluation.
-// @evidence contracts/testing.md#execution-ownership This named Go source unit calls the actual owning preparation operation directly in the root test:go command (`go test ./packages/banner/...`, which excludes the e2e-tagged test/e2e); the callbacks model its explicit I/O input outcomes, while native adapters and generated-code execution remain in TestTypeScriptConfigLoader and TestTypeScriptConfigLoaderPrecedence.
+// @evidence contracts/testing.md#execution-ownership This named Go source unit calls the actual owning preparation operation directly in the root test:go command (`go test ./packages/banner/...`); the callbacks model its explicit I/O input outcomes, while native adapters and generated-code execution remain in TestTypeScriptConfigLoader and TestTypeScriptConfigLoaderPrecedence.
 func TestTypeScriptConfigLoaderPreparationReportsIOFailures(t *testing.T) {
   root := t.TempDir()
   config := filepath.Join(root, "banner.config.ts")

@@ -1,5 +1,5 @@
 // linkname_helpers.go exposes unexported symbols from the banner driver to
-// the unit and e2e test packages via go:linkname. Each declaration mirrors the
+// the unit test package via go:linkname. Each declaration mirrors the
 // private function or variable exactly so driver unit tests can reach package
 // internals without violating module boundaries.
 package shared
