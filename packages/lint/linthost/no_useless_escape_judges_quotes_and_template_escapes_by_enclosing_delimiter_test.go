@@ -14,7 +14,7 @@ import "testing"
 //  1. Run the rule over escapes that are required and assert nothing is reported.
 //  2. Run it over a single-quoted string escaping a double quote, a double-quoted
 //     string escaping a single quote, a template escaping either quote, a lone
-//     `\$`, a `\{` after a letter and a `\U`, and assert each reports once.
+//     `\$`, a `\{` after a letter and a `\U`, and assert each reports at least one finding.
 //
 // @evidence contracts/testing.md#behavioral-verification no-useless-escape must accept the enclosing quote, `\${`, `$\{` and a line continuation escape and must report the other quote kind, template quotes, a bare `\$`, a `\{` not after `$` and `\U`.
 // @evidence contracts/testing.md#independent-expectations ECMAScript defines which escapes change a string value: only the delimiter, the standard escape letters and line terminators do, and ESLint's rule documents the other quote kind as incorrect; the expectations are authored literals.

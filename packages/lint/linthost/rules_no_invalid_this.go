@@ -7,8 +7,8 @@
 // Arrow functions inherit `this` from their enclosing lexical scope, so
 // the rule walks past arrow boundaries when searching for a binding
 // site. Plain function declarations, function expressions, methods,
-// accessors, constructors, and class static blocks each create their
-// own `this` and stop the walk.
+// accessors, constructors, class static blocks, and class field
+// initializers each create their own `this` and stop the walk.
 // https://eslint.org/docs/latest/rules/no-invalid-this
 package linthost
 
@@ -40,7 +40,10 @@ func hasThisBindingAncestor(node *shimast.Node) bool {
       shimast.KindGetAccessor,
       shimast.KindSetAccessor,
       shimast.KindConstructor,
-      shimast.KindClassStaticBlockDeclaration:
+      shimast.KindClassStaticBlockDeclaration,
+      // A field initializer runs with `this` bound to the instance, or to
+      // the class for a static field.
+      shimast.KindPropertyDeclaration:
       return true
     }
   }
