@@ -1535,21 +1535,25 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
  * any volatile declaration, compares compiler-generation evidence with the
  * matching main-process run baseline, and marks any temporal mismatch tainted.
  * A clean transform also writes a document so it can clear a volatile
- * declaration from an earlier run. The first or changed delivery flushes one
- * cumulative document; the unique name makes worker writes race-free, and
- * `withTtsc` compacts the files on the next run.
+ * declaration from an earlier run. The first delivery, a delivery that adds a
+ * path, and every delivery once the state is tainted flush one cumulative
+ * document; the unique name makes worker writes race-free, and `withTtsc`
+ * compacts the files on the next run.
  *
  * `record` accepts one lexical path without generation evidence; `recordMany`
  * accepts a module's generation evidence; `recordVolatile` withdraws the file
  * proof for non-file inputs. Without a run identity every input is retained;
  * production passes the identity whose immutable baseline was keyed in the main
- * process. An unknown or mismatching baseline marks the snapshot tainted.
+ * process. An unknown or mismatching baseline marks the snapshot tainted, and
+ * since `record` carries no evidence, a run identity always reads it as a
+ * mismatch.
  * Listing predicates retain their paths for the next run's key observation; the
  * worker never adds a new disk read to its earlier immutable baseline.
  *
  * Sets and baseline maps live for the recorder's worker lifetime and grow with
- * observed projects and distinct inputs. The first delivery and each changed
- * batch serialize the cumulative recorded set once, not once per input. A
+ * observed projects and distinct inputs. A flushing delivery serializes the
+ * cumulative recorded set once, not once per input, but a tainted state flushes
+ * on every delivery, so its cost grows with the recorded set for each module. A
  * failed write remains dirty for retry and tries recovery storage. If both
  * stores fail, a reusable run throws rather than publishing output backed by
  * lost evidence.
@@ -1573,9 +1577,10 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
  *
  * @evidence contracts/performance.md#efficient-algorithms
  *   Sets insert distinct inputs and a cached static-input Set checks coverage
- *   without searching the whole baseline. One changed module serializes the
+ *   without searching the whole baseline. A flushing module serializes the
  *   cumulative paths once, costing their count and encoded bytes rather than
- *   one cumulative serialization for every input.
+ *   one cumulative serialization for every input. A tainted state flushes on
+ *   every module, so that cost recurs per delivery until the worker ends.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Each base loads its immutable run baseline once and shares it across

@@ -430,14 +430,18 @@ function upstreamCacheKey(
 /**
  * Decide whether a file should run through the ttsc pass. Only TypeScript
  * sources (`.ts`/`.tsx`/`.mts`/`.cts`, excluding every declaration form)
- * qualify; `exclude` substrings win over `include`, and an empty `include`
- * means "all TypeScript". Patterns use the supplied project-relative filename
- * literally; this operation does not normalize separators or filesystem case.
+ * qualify, and a file below a `node_modules` directory never does, whatever
+ * `include` says, because the shared `isTransformTarget` predicate rejects it
+ * first. `exclude` substrings win over `include`, and an empty `include` means
+ * "all eligible TypeScript". Patterns use the supplied project-relative
+ * filename literally; this operation does not normalize separators or
+ * filesystem case.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The shared isTransformTarget predicate owns supported TypeScript
- *   extensions and declaration exclusions. Literal substring filters apply to
- *   Metro's project-relative filename, with exclusion taking precedence.
+ *   extensions, declaration exclusions, virtual-module and node_modules
+ *   exclusions. Literal substring filters apply to Metro's project-relative
+ *   filename, with exclusion taking precedence.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   This predicate orders extension eligibility, exclusion and inclusion as
@@ -465,10 +469,11 @@ function upstreamCacheKey(
  *   normalization contract.
  *
  * @evidence contracts/common.md#meaningful-documentation
- *   The native JSDoc explains eligible extensions, declaration exclusion,
- *   empty include and exclusion precedence. Checked against the documentation
- *   skill: separate paragraphs state the contract and why its nonobvious
- *   boundary matters; field comments retain their own useful facts.
+ *   The native JSDoc explains eligible extensions, declaration and
+ *   node_modules exclusion, empty include and exclusion precedence. Checked
+ *   against the documentation skill: separate paragraphs state the contract
+ *   and why its nonobvious boundary matters; field comments retain their own
+ *   useful facts.
  */
 export function shouldTransform(
   filename: string,

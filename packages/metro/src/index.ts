@@ -78,6 +78,14 @@ interface MetroConfigLike {
  * succeeding (samchon/ttsc#1321). An explicit `upstreamTransformer` option
  * still wins, since that is the caller saying it outright.
  *
+ * The call also has side effects beyond the returned config, all before Metro
+ * forks its workers. It prepares the cache-key snapshot under
+ * `<projectRoot>/node_modules/.cache/ttsc-metro` (creating it, merging the
+ * previous workers' records into it under a lock, and sweeping stale files), and
+ * it opens the shared compile session whose path the workers inherit through
+ * the environment. A snapshot that cannot be prepared never fails the call: the
+ * run takes a private token that makes its cache key non-reusable.
+ *
  * @evidence contracts/common.md#principled-implementation
  *   Metro's supported babelTransformerPath boundary installs this adapter by
  *   cloning the config. Node project resolution preserves an existing upstream
