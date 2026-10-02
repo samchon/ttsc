@@ -33,7 +33,7 @@ export namespace WatchPaths {
    * @evidence contracts/common.md#meaningful-documentation Native prose states existence, kind and followed-link semantics following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Node stat owns native link following and directory semantics without an OS-name-derived file-kind rule.
    *
-   * @evidenceExclude contracts/performance.md#efficient-algorithms The standard native stat owns one path query; this adapter selects no collection algorithm.
+   * @evidence contracts/performance.md#efficient-algorithms One synchronous native stat plus kind inspection performs no collection traversal here. Work includes supplied path processing and native metadata/target lookup; a single boolean result does not cap those costs.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A fresh stat serves the event's current native state rather than a historical result.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The stat result is local with no retained handle or history.
    */
@@ -54,7 +54,7 @@ export namespace WatchPaths {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The answer derives from actual ancestor state instead of assumed temporary or project layouts.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains the missing-input anchor and undefined result following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Node resolve/dirname preserve native volume roots and stat provides actual accessibility/kind.
-   * @evidence contracts/performance.md#efficient-algorithms At most D ancestors require D native stats; only the current path is retained, without enumerating descendant contents.
+   * @evidence contracts/performance.md#efficient-algorithms At most D lexical ancestors each require a native stat, while repeated resolve/dirname and native lookup process their spelling lengths. Current-path storage is local; ancestor depth/path text are not capped here and descendant contents are not enumerated.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Event-time ancestor state may change; this helper owns no cross-request cache.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources One current path remains local and no watcher or resident index is acquired.
