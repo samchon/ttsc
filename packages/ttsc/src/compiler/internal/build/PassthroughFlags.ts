@@ -152,11 +152,11 @@ export namespace PassthroughFlags {
    * This unexpanded argv frame without visible occurrences of the named boolean
    * flags, each removed with the value token TypeScript-Go would consume for it.
    *
-   * Only an occurrence TypeScript-Go itself accepts is removed. A spelling it
-   * rejects (`--diagnostics=false`) or a value it does not consume
-   * (`--diagnostics TRUE`, whose `TRUE` is an input file to it) stays, so the
-   * compiler that receives the rest still reports the malformed argv instead of
-   * ttsc erasing it into a successful build.
+   * Only an occurrence TypeScript-Go itself accepts is removed. An inline
+   * spelling it rejects (`--diagnostics=false`) stays for native diagnosis.
+   * Unconsumed data also stays: `--diagnostics TRUE` removes the enabled option
+   * but leaves `TRUE` as a native input file. Its acceptance or failure belongs
+   * to the compiler, rather than being certified as a malformed boolean here.
    *
    * An empty token preserves an unconsumed lookahead boundary when deletion
    * would otherwise bind later data to a retained boolean, list or config-only
@@ -168,7 +168,7 @@ export namespace PassthroughFlags {
    * @evidence contracts/common.md#clear-and-simple-design One indexed argv walk uses the shared occurrence parser and builds a fresh output array without modifying caller tokens.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid argv is preserved for the compiler's real diagnostic instead of being normalized into a successful request.
    * @evidence contracts/common.md#meaningful-documentation Native examples explain inline rejection and unconsumed uppercase values, giving the reason preservation matters.
-   * @evidence contracts/performance.md#efficient-algorithms The cursor visits A argv tokens with linear membership checks over D supplied removal names, giving O(A times D) membership work plus visited token/lookahead text bytes. Current consumers supply one or two names; consumed operands are skipped. Returned references grow with A, and transient list parsing with the current value's bytes.
+   * @evidence contracts/performance.md#efficient-algorithms The cursor visits A argv tokens with linear membership checks over D supplied removal names, giving O(A times D) membership work plus visited token/lookahead text bytes. Production consumers supply one or two names; consumed operands are skipped. Returned references grow with A, and transient list parsing with the current value's bytes.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This transforms one argv sequence without retaining or coordinating equivalent computation across requests.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The new array is transferred to the caller and no token history or handle remains owned here.
