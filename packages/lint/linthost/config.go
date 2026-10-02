@@ -974,9 +974,9 @@ func (s *ConfigStore) ResolveRules(fileName string) ResolvedRuleConfig {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Activity follows supported config declarations instead of sampled source diagnostics.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains ignore-only exclusion, potential activity and the pre-file dispatch consumer before tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ActiveRuleNames collects rule names and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms One pass over the entries collecting non-off names, then one sort, so cost is O(rules log rules).
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ActiveRuleNames keeps no cache; every call reads the store's entries.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned slice is new and owned by the caller; no handle or task is acquired.
+// @evidence contracts/performance.md#efficient-algorithms Scanning e entries and q ordinary rule declarations builds u distinct active names, then sorts them: O(e+q+u log u) entry/name operations plus normalization, hashing and comparison bytes. The temporary union and returned slice hold O(u) entries; no file selectors or option payloads are evaluated.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This metadata projection owns no shared producer or cross-call invalidation identity; engine construction separately uses its result to build dispatch once.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The temporary union is local and the caller owns the returned name slice. No historical metadata, handle or task is retained by this call.
 func (s *ConfigStore) ActiveRuleNames() []string {
   if s == nil {
     return nil
@@ -1004,9 +1004,9 @@ func (s *ConfigStore) ActiveRuleNames() []string {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Error precedence is the documented aggregate policy, not a special case for a diagnostic fixture.
 // @evidence contracts/common.md#meaningful-documentation Native prose states global aggregation and sticky error semantics with a separate acknowledgment paragraph.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation EnabledRuleConfig merges rule severities and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms One pass over the entries and their rules, O(entries times rules per entry).
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work EnabledRuleConfig keeps no cache; every call reads the store's entries.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned map is new and owned by the caller; no handle or task is acquired.
+// @evidence contracts/performance.md#efficient-algorithms Scanning e entries and q ordinary rule declarations writes u distinct non-off canonical names, O(e+q) entry/name operations plus normalization/hashing bytes and O(u) returned entries. No file selectors or payload bytes are evaluated.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This metadata projection owns no shared producer or cross-call invalidation identity; engine construction separately retains the aggregate reporting state it needs.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns the new severity map, including the empty nil-store result. This call retains no historical metadata, handle or task.
 func (s *ConfigStore) EnabledRuleConfig() RuleConfig {
   out := RuleConfig{}
   if s == nil {
