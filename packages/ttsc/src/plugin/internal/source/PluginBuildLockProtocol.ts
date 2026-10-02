@@ -193,16 +193,16 @@ export namespace PluginBuildLockProtocol {
   }
 
   /**
-   * Whether a failed rename means the destination already exists. Windows
-   * reports an occupied directory destination as `EACCES` or `EPERM`, so those
-   * count only when the destination is actually present.
+   * Whether a native rename failure is treated as destination contention.
+   * EACCES/EPERM require an observed destination, but its existence does not
+   * prove it caused the failure; unrelated permissions can produce those codes.
    *
-   * @evidence contracts/common.md#principled-implementation Explicit occupied-destination codes establish contention; ambiguous Windows permission codes additionally require an observed destination.
+   * @evidence contracts/common.md#principled-implementation Explicit occupied-destination codes select contention; ambiguous permission codes select the same policy only with observed destination existence. That extra observation is a contention policy rather than a causal permission diagnosis.
    * @evidence contracts/common.md#clear-and-simple-design One adapter distinguishes destination occupation from other rename failures for protocol initialization and observer publication.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Permission errors alone are not relabeled as a successful peer race, so unexpected failures remain visible.
-   * @evidence contracts/common.md#meaningful-documentation Native prose explains the extra destination observation for Windows codes before the tags.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states the native-error classification and the existence observation's causal limit before the tags.
    * @evidence contracts/portability.md#os-neutral-implementation Node error codes plus an actual destination lookup represent Windows and POSIX rename outcomes through one boundary.
-   * @evidence contracts/performance.md#efficient-algorithms Constant code classification performs at most one destination existence lookup and no parent scan.
+   * @evidence contracts/performance.md#efficient-algorithms Fixed code comparisons perform at most one native destination existence lookup and no explicit parent scan; lookup costs include the destination path and native filesystem resolution.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Destination occupancy is observed at the failed operation and cannot be cached as a later ownership decision.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The adapter owns no retained handle or task.
@@ -310,13 +310,14 @@ export namespace PluginBuildLockProtocol {
 
   /**
    * Block the synchronous thread for ms without polling the clock in a loop.
-   * Callers supply a finite protocol interval and own their overall wait
-   * budget.
+   * Protocol callers supply a finite interval. This primitive imposes no
+   * overall retry budget; admission waiters manage one, while retirement's
+   * eligible native retries can continue without a deadline.
    *
    * @evidence contracts/common.md#principled-implementation Atomics.wait suspends the thread on an unchanged shared cell until its supplied timeout, providing the synchronous protocol yield.
-   * @evidence contracts/common.md#clear-and-simple-design The primitive waits once; polling and overall deadlines remain with the caller.
+   * @evidence contracts/common.md#clear-and-simple-design The primitive waits once; callers own polling and whether an overall deadline exists.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A standard waiting primitive replaces busy-spinning without a host-specific command or invented completion signal.
-   * @evidence contracts/common.md#meaningful-documentation Native prose states blocking behavior, finite-interval input and caller-owned overall budget before the tags.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states blocking behavior, protocol interval inputs and the distinction between budgeted admission and unbounded eligible retirement retries before the tags.
    *
    * @evidenceExclude contracts/portability.md#os-neutral-implementation The JavaScript shared-memory wait performs no filesystem or process-launch boundary operation.
    *
