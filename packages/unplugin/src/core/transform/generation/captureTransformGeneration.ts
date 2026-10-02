@@ -204,11 +204,9 @@ export async function captureTransformGeneration(props: {
     const materializesConfig =
       Object.keys(props.compilerOptions).length !== 0 ||
       Object.keys(props.aliasPaths).length !== 0;
-    // The project as the compiler will see it: it resolves the config and the
-    // root to their physical paths, and everything written for it, the
-    // wrapper's paths and the plugin config anchor, is spelled that way
-    // (samchon/ttsc#1456). A config the compiler cannot locate is left as
-    // named; the compile then reports it.
+    // The shared selector's current config address anchors wrapper values and
+    // the plugin config. Physical lookup is best effort; lexical fallback or
+    // a later retarget is not ruled out by this projection (samchon/ttsc#1456).
     const compilerProject = compilerProjectSpelling(
       props.tsconfig,
       projectRoot,

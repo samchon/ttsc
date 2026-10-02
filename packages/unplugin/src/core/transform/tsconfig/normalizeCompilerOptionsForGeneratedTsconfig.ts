@@ -8,10 +8,10 @@ import { resolveConfigDirTemplatePath } from "../../tsconfig/resolveConfigDirTem
 import { readPaths } from "../alias/readPaths";
 
 /**
- * Resolve all relative paths inside `compilerOptions` against `tsconfigDir`.
+ * Reanchor recognized compiler and plugin path fields against `tsconfigDir`.
  *
  * The generated tsconfig lives in a temporary directory outside the project, so
- * any relative path (e.g. `"outDir": "../dist"`) that was meaningful relative
+ * a supported relative path (e.g. `"outDir": "../dist"`) that was meaningful relative
  * to the original tsconfig must be converted to an absolute path before writing
  * the generated file. Otherwise TypeScript-Go resolves it against the temp
  * dir.
@@ -21,19 +21,24 @@ import { readPaths } from "../alias/readPaths";
  * has removed `baseUrl` (TS5102), so anchoring them as absolute paths is the
  * only temp-dir-safe encoding. No synthetic `baseUrl` is ever written.
  *
- * @param spell The spelling every absolute path takes in the generated file:
- *   the compiler's, which spells the project physically, where the adapter's
- *   own reading spelled it as named (samchon/ttsc#1456). Identity by default.
+ * @param spell Translation of recognized absolute path fields to the selected
+ *   compiler spelling, which can be best-effort lexical fallback. Arbitrary
+ *   payload fields are not translated. Identity by default (samchon/ttsc#1456).
  *
  * @evidence contracts/common.md#principled-implementation Known compiler path options, paths targets and plugin descriptor/config-file addresses are anchored to the original config directory before the compiler reads a scratch wrapper; unrecognized payload fields are preserved.
  * @evidence contracts/common.md#clear-and-simple-design A shallow overlay copy separates scalar, list, alias and plugin path boundaries, with existing template and path-specifier helpers owning their grammars.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No unsupported baseUrl or arbitrary plugin-field rewriting compensates for a moved wrapper; only documented path-typed keys are reanchored.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain scratch-relative drift and TypeScript-Go paths constraints, while the private helper documents the plugin keys whose addresses legitimately require normalization.
- * @evidence contracts/portability.md#os-neutral-implementation Shared config-directory and relative-plugin helpers interpret native path forms; compiler-supplied spelling translates physical anchors, and forward slashes are used only for TypeScript path-target protocol encoding.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   Visits the fixed option key lists once and each paths target once.
+ * @evidence contracts/portability.md#os-neutral-implementation Shared config-directory and relative-plugin helpers and Node path interpret supported native forms at the supplied anchor. The supplied spell callback translates recognized addresses without certifying physical lookup; forward slashes encode compiler path-target protocol values.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   The shallow copy scans K option keys; fixed path-key lists still map L list
+ *   entries, A alias keys/T targets and P plugin entries with four recognized
+ *   plugin fields. String/path resolution, target filtering and each supplied
+ *   spell callback add their own costs; output keeps unrelated payload references.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Keeps no cache of its own and computes each value once.
+ *   One current overlay projection coordinates no cross-request result. Equal
+ *   path text alone does not permit suppressing a supplied effectful spell
+ *   callback; generation reading/materialization owners establish broader reuse.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Acquires no handle, timer or retained state of its own.
  */

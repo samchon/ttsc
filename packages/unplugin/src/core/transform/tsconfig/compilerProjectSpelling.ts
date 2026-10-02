@@ -5,11 +5,9 @@ import { resolveProjectIdentity } from "ttsc/path-identity";
  * The project's config path and config directory as the compiler spells them
  * (samchon/ttsc#1456).
  *
- * The compiler resolves the selected config and the project root to their
- * physical paths before it loads the program or hands a plugin its root, so
- * every path the adapter writes for the compiler, the wrapper tsconfig's
- * absolutized values and the plugin config anchor among them, is anchored where
- * the shared identity selector anchors it at this observation. Failed realpath
+ * The compiler host's shared selector attempts physical config and root paths.
+ * The adapter uses that selected config directory for wrapper values and the
+ * plugin anchor at this observation. Failed realpath
  * can retain lexical spelling inside a successful identity result; a thrown
  * selection preserves the original tsconfig and its dirname. Neither fallback
  * proves physical resolution or guards against later native retargeting.
