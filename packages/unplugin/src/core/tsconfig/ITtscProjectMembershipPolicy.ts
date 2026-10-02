@@ -40,11 +40,11 @@
 export interface ITtscProjectMembershipPolicy {
   /**
    * Absolute root-file specifications. The reader materializes the default
-   * recursive include when neither list is declared; matching still applies its
-   * extension, hidden/package and JSON admission rules.
+   * recursive include when neither list is declared. Pattern matching keeps
+   * hidden/package and JSON rules; the walk also applies extension admission.
    *
-   * Absent only when the configuration could not be read, in which case every
-   * path is a possible root and only the walk's ignored names bound it.
+   * Absent when the reader cannot establish root specifications. Root matching
+   * then admits every possible root; other walk admission rules still apply.
    */
   readonly rootFileSpecs?: Readonly<{
     files: readonly string[];
