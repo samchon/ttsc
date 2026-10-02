@@ -44,10 +44,6 @@ import (
 // @evidence contracts/testing.md#independent-expectations Literal generations, three attempts, independently SHA256-encoded directory records and restored optional-file digests define the cache protocol.
 // @evidence contracts/testing.md#distinguishing-cases Owns unchanged/changed/unstable dependencies, empty/single/UTF-8/link directories, optional absent-present-absent, retargeting, transient A-B-A and invalid envelope classes.
 // @evidence contracts/testing.md#execution-ownership The lint E2E entry calls nativeLintConnections, which selects TestConfigCacheInvalidatesTransitiveDependencyDigests by exact name through GoBoundary.run with the e2e build tag in packages/lint/linthost. Go test retains this entry and its subcase failure identities; ordinary Go unit execution does not select this tagged file.
-// @evidence contracts/e2e.md#necessary-boundary Real Node hook evaluation and its Go fingerprint reader must agree; an injected evaluator alone cannot prove that wire agreement.
-// @evidence contracts/e2e.md#shared-execution Intentional mutations require fresh evaluator sessions while unchanged real-loader input must reuse one evaluation; no cache is deleted wholesale.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns each mutable fixture and t.Setenv restores changed environment; the production evaluator waits for each child and defers scratch removal and context cancellation on return; an external process kill cannot guarantee deferred cleanup. Distinct absolute config identities prevent cross-case cached answers, while intentional mutation and recovery states remain observable.
-// @evidence contracts/e2e.md#preserved-coverage Every original fixture, test-function body, assertion and helper is retained byte-for-byte; portable config units keep their separate selection and this move only makes the existing real boundary ownership physical.
 func TestConfigCacheInvalidatesTransitiveDependencyDigests(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
   root := t.TempDir()

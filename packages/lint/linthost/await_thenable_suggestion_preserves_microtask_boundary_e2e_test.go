@@ -23,10 +23,6 @@ import (
 // @evidence contracts/testing.md#independent-expectations ECMAScript await introduces an asynchronous continuation even for zero; literal observed orders establish why removal is a manual suggestion.
 // @evidence contracts/testing.md#distinguishing-cases This case owns the automatic path preserves the await boundary while an explicit suggestion changes observable ordering; portable rule decisions remain in the shared Go unit population.
 // @evidence contracts/testing.md#execution-ownership The lint E2E entry calls nativeLintConnections, which selects TestAwaitThenableSuggestionPreservesMicrotaskBoundary by exact name through GoBoundary.run with the e2e build tag in packages/lint/linthost. Go test retains this entry's failure identity; ordinary Go unit execution does not select this tagged file.
-// @evidence contracts/e2e.md#necessary-boundary The actual connection is the native await-thenable finding/fix operations and actual Node microtask execution; direct native operation calls cannot prove that separate evaluator, formatter, binary-stdin or JavaScript runtime behavior.
-// @evidence contracts/e2e.md#shared-execution One native Go test process computes both forms; two Node executions require separate microtask queues to prevent one program determining the other result.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each Node child owns and terminates its own event loop and receives only the corresponding source; the rule fixture is temporary and neither program shares retained globals.
-// @evidence contracts/e2e.md#preserved-coverage Keeps one suggestion, no automatic source change, one opt-in edit, original before/sync/after and rewritten before/after/sync order and every original input/control branch; preparation sharing changes no expected result or admitted case.
 func TestAwaitThenableSuggestionPreservesMicrotaskBoundary(t *testing.T) {
   source := `const log = [];
 async function run() {

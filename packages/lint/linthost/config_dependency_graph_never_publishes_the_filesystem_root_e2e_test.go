@@ -34,10 +34,6 @@ import (
 // @evidence contracts/testing.md#independent-expectations Literal error/warning modules and explicit root exclusion versus owned-parent directory requirements define the watch scope.
 // @evidence contracts/testing.md#distinguishing-cases Owns absent first ancestor, root-level absent candidate and ordinary in-project parent control.
 // @evidence contracts/testing.md#execution-ownership The lint E2E entry calls nativeLintConnections, which selects TestConfigDependencyGraphNeverPublishesTheFilesystemRoot by exact name through GoBoundary.run with the e2e build tag in packages/lint/linthost. Go test retains this entry and its subcase failure identities; ordinary Go unit execution does not select this tagged file.
-// @evidence contracts/e2e.md#necessary-boundary Actual Node package-main fallback and Go graph decoding must agree on observed candidates; isolated graph calculations cannot prove that connection.
-// @evidence contracts/e2e.md#shared-execution Three distinct package-main origins require evaluator requests; no native producer or consumer install is repeated.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns each mutable fixture and t.Setenv restores changed environment; the production evaluator waits for each child and defers scratch removal and context cancellation on return; an external process kill cannot guarantee deferred cleanup. Distinct absolute config identities prevent cross-case cached answers, while intentional mutation and recovery states remain observable.
-// @evidence contracts/e2e.md#preserved-coverage Every original fixture, test-function body, assertion and helper is retained byte-for-byte; portable config units keep their separate selection and this move only makes the existing real boundary ownership physical.
 func TestConfigDependencyGraphNeverPublishesTheFilesystemRoot(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
   t.Setenv("TTSC_LINT_DEBUG_CONFIG_GRAPH", "1")

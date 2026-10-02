@@ -25,10 +25,6 @@ import (
 // @evidence contracts/testing.md#independent-expectations ECMAScript binding imports execute modules in authored order; independent dependency modules append their own identities.
 // @evidence contracts/testing.md#distinguishing-cases This case owns default/named and namespace bindings are all effectful despite not being bare side-effect imports; portable rule decisions remain in the shared Go unit population.
 // @evidence contracts/testing.md#execution-ownership The lint E2E entry calls nativeLintConnections, which selects TestFormatSortImportsPreservesBindingImportEvaluationOrder by exact name through GoBoundary.run with the e2e build tag in packages/lint/linthost. Go test retains this entry and its subcase failure identities; ordinary Go unit execution does not select this tagged file.
-// @evidence contracts/e2e.md#necessary-boundary The actual connection is the native sort-imports rule followed by actual ESM dependency execution in Node; direct native operation calls cannot prove that separate evaluator, formatter, binary-stdin or JavaScript runtime behavior.
-// @evidence contracts/e2e.md#shared-execution One Go fixture and one Node module graph execute this binding-import boundary; direct rule units cover additional sorting decisions.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity Temporary files own the two modules and main source. The Node child starts a fresh global trace, terminates before comparison and has no cross-case module state.
-// @evidence contracts/e2e.md#preserved-coverage Keeps zero formatter findings and the literal b,a dependency evaluation trace and every original input/control branch; preparation sharing changes no expected result or admitted case.
 func TestFormatSortImportsPreservesBindingImportEvaluationOrder(t *testing.T) {
   source := `import bDefault, { bNamed } from "./b.mjs";
 import * as aNamespace from "./a.mjs";

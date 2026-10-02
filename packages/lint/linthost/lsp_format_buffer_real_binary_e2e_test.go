@@ -44,10 +44,6 @@ import (
 // @evidence contracts/testing.md#independent-expectations Literal buffer/disk texts differ deliberately, and the format/semi contract adds the missing semicolon.
 // @evidence contracts/testing.md#distinguishing-cases This case owns dirty stdin cannot be replaced by disk content and an already formatted buffer returns no edit; portable rule decisions remain in the shared Go unit population.
 // @evidence contracts/testing.md#execution-ownership The lint E2E entry calls nativeLintConnections, which selects TestLSPFormatBufferRealBinaryE2E by exact name through GoBoundary.run with the e2e build tag in packages/lint/linthost. Go test retains this entry and its subcase failure identities; ordinary Go unit execution does not select this tagged file.
-// @evidence contracts/e2e.md#necessary-boundary The actual connection is the compiled lint plugin command with proxy-shaped argv and dirty buffer stdin; direct native operation calls cannot prove that separate evaluator, formatter, binary-stdin or JavaScript runtime behavior.
-// @evidence contracts/e2e.md#shared-execution One real plugin binary and consumer project serve both named dirty/clean subcases; the second request reuses that binary without another Go build.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns the actual standalone binary and consumer project; each child exits before its result is decoded. Separate stdin bytes select each case and the original disk bytes remain fixed.
-// @evidence contracts/e2e.md#preserved-coverage Keeps successful exit, empty stderr, exactly one logical-URI edit containing formatted buffer text, literal null for a clean buffer, and unchanged disk text and every original input/control branch; preparation sharing changes no expected result or admitted case.
 func TestLSPFormatBufferRealBinaryE2E(t *testing.T) {
   bin := buildLintSidecarBinaryForTest(t)
 

@@ -23,10 +23,6 @@ import (
 // @evidence contracts/testing.md#independent-expectations The literal typed module independently exports error for the named rule.
 // @evidence contracts/testing.md#distinguishing-cases Owns basic typed default-export routing; spread, async factory and format-only cases exercise distinct typed outputs.
 // @evidence contracts/testing.md#execution-ownership The lint E2E entry calls nativeLintConnections, which selects TestLoadRuleConfigLoadsTypeScriptConfigFile by exact name through GoBoundary.run with the e2e build tag in packages/lint/linthost. Go test retains this entry and its subcase failure identities; ordinary Go unit execution does not select this tagged file.
-// @evidence contracts/e2e.md#necessary-boundary The actual ttsx transpilation/evaluation process must deliver its default export to Go; native map parsing alone cannot prove it.
-// @evidence contracts/e2e.md#shared-execution One typed evaluator request uses the existing ttsx/compiler artifact and the single compiled Go harness.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns each mutable fixture; the production evaluator waits for each child and defers scratch removal and context cancellation on return; an external process kill cannot guarantee deferred cleanup. Distinct absolute config identities prevent cross-case cached answers, while intentional mutation and recovery states remain observable.
-// @evidence contracts/e2e.md#preserved-coverage This fixture and its assertions run only under the e2e build tag, through the shared Go boundary entry; the portable config units keep their separate untagged selection.
 func TestLoadRuleConfigLoadsTypeScriptConfigFile(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

@@ -26,10 +26,6 @@ import (
 // @evidence contracts/testing.md#independent-expectations Literal shared config values, local ignore glob and explicitly named two source paths independently define all expected results.
 // @evidence contracts/testing.md#distinguishing-cases Owns logging async factory output, default wrapper composition, main versus ignored path, format transport and unchanged entry with changed helper.
 // @evidence contracts/testing.md#execution-ownership The lint E2E entry calls nativeLintConnections, which selects TestLoadRuleConfigTypeScriptFactoryMergesReturnedDefaultWrapper by exact name through GoBoundary.run with the e2e build tag in packages/lint/linthost. Go test retains this entry and its subcase failure identities; ordinary Go unit execution does not select this tagged file.
-// @evidence contracts/e2e.md#necessary-boundary Real async typed module evaluation, private output channel and dependency-aware Go cache must work together.
-// @evidence contracts/e2e.md#shared-execution The first request and helper-invalidated request intentionally differ; both reuse the existing ttsx/compiler artifact without sharing mutable project answers.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns each mutable fixture and t.Setenv restores changed environment; the production evaluator waits for each child and defers scratch removal and context cancellation on return; an external process kill cannot guarantee deferred cleanup. Distinct absolute config identities prevent cross-case cached answers, while intentional mutation and recovery states remain observable.
-// @evidence contracts/e2e.md#preserved-coverage This fixture and its assertions run only under the e2e build tag, through the shared Go boundary entry; the portable config units keep their separate untagged selection.
 func TestLoadRuleConfigTypeScriptFactoryMergesReturnedDefaultWrapper(t *testing.T) {
   // This case has reported a config's own import missing from the published
   // paths on Windows, where the temporary directory carries a short component.

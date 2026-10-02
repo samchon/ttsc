@@ -2,12 +2,12 @@
   "severity": "error",
   "claims": [
     {
-      "name": "maintained TypeScript production declarations",
+      "name": "TypeScript production declarations",
       "type": "typescript",
       "files": [
         "src/**/*.ts",
         "!src/index.ts",
-        "!src/createTtscPlugin.ts"
+        "!src/create*.ts"
       ],
       "symbol": [
         "type",
@@ -15,19 +15,19 @@
       ],
       "reference": {
         "type": "markdown",
+        "root": "../../.agents/skills",
         "files": [
           "contracts/common.md"
         ],
         "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
+        "checklist": true
       }
     },
     {
-      "name": "native contributor discovery and shared config evaluation",
+      "name": "TypeScript declarations that resolve paths and cache evaluated config",
       "type": "typescript",
       "files": [
-        "src/createTtscPlugin.ts"
+        "src/create*.ts"
       ],
       "symbol": [
         "type",
@@ -35,18 +35,18 @@
       ],
       "reference": {
         "type": "markdown",
+        "root": "../../.agents/skills",
         "files": [
           "contracts/common.md",
           "contracts/portability.md",
           "contracts/performance.md"
         ],
         "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
+        "checklist": true
       }
     },
     {
-      "name": "maintained Go production declarations",
+      "name": "Go production declarations",
       "type": "go",
       "files": [
         "internal/**/*.go",
@@ -54,11 +54,8 @@
         "rule/**/*.go",
         "plugin/**/*.go",
         "!**/*_test.go",
-        "!linthost/flags_gen.go",
-        "!linthost/grapheme_tables_gen.go",
-        "!linthost/width_tables_gen.go",
-        "!linthost/check_serve.go",
-        "!linthost/serve.go",
+        "!**/*_gen.go",
+        "!linthost/*serve.go",
         "!linthost/lsp.go"
       ],
       "symbol": [
@@ -67,41 +64,19 @@
       ],
       "reference": {
         "type": "markdown",
+        "root": "../../.agents/skills",
         "files": [
           "contracts/common.md"
         ],
         "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
+        "checklist": true
       }
     },
     {
-      "name": "native resident compiler protocol and resource ownership",
+      "name": "Go declarations that own the resident daemon and the language server",
       "type": "go",
       "files": [
-        "linthost/check_serve.go",
-        "linthost/serve.go"
-      ],
-      "symbol": [
-        "type",
-        "function"
-      ],
-      "reference": {
-        "type": "markdown",
-        "files": [
-          "contracts/common.md",
-          "contracts/portability.md",
-          "contracts/performance.md"
-        ],
-        "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
-      }
-    },
-    {
-      "name": "native LSP command and compiler boundary",
-      "type": "go",
-      "files": [
+        "linthost/*serve.go",
         "linthost/lsp.go"
       ],
       "symbol": [
@@ -110,23 +85,24 @@
       ],
       "reference": {
         "type": "markdown",
+        "root": "../../.agents/skills",
         "files": [
           "contracts/common.md",
           "contracts/portability.md",
           "contracts/performance.md"
         ],
         "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
+        "checklist": true
       }
     },
     {
-      "name": "Go lint semantic units",
+      "name": "Go tests",
       "type": "go",
       "files": [
-        "linthost/*_test.go",
-        "!linthost/*_e2e_test.go",
-        "!linthost/*_bench_test.go"
+        "internal/**/*_test.go",
+        "linthost/**/*_test.go",
+        "rule/**/*_test.go",
+        "plugin/**/*_test.go"
       ],
       "symbol": "function",
       "reference": {

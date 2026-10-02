@@ -25,10 +25,6 @@ import (
 // @evidence contracts/testing.md#independent-expectations The authored semi false fixture independently requires the never option contract.
 // @evidence contracts/testing.md#distinguishing-cases Owns typed format-only transport; CJS transport and rule severities are separate cases.
 // @evidence contracts/testing.md#execution-ownership The lint E2E entry calls nativeLintConnections, which selects TestLoadRuleConfigTypeScriptConfigFileRoundTripsFormatBlock by exact name through GoBoundary.run with the e2e build tag in packages/lint/linthost. Go test retains this entry and its subcase failure identities; ordinary Go unit execution does not select this tagged file.
-// @evidence contracts/e2e.md#necessary-boundary Actual typed evaluator serialization must preserve format through the Go resolver option channel.
-// @evidence contracts/e2e.md#shared-execution One typed format-only request shares existing ttsx/compiler artifacts and the one Go harness.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns each mutable fixture; the production evaluator waits for each child and defers scratch removal and context cancellation on return; an external process kill cannot guarantee deferred cleanup. Distinct absolute config identities prevent cross-case cached answers, while intentional mutation and recovery states remain observable.
-// @evidence contracts/e2e.md#preserved-coverage This fixture and its assertions run only under the e2e build tag, through the shared Go boundary entry; the portable config units keep their separate untagged selection.
 func TestLoadRuleConfigTypeScriptConfigFileRoundTripsFormatBlock(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

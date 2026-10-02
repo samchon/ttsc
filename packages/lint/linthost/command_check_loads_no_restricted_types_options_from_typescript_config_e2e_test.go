@@ -16,10 +16,6 @@ import (
 // @evidence contracts/testing.md#independent-expectations The literal TypeScript config maps Legacy to a replacement message, fix and suggestion; the type alias in source independently establishes the banned name.
 // @evidence contracts/testing.md#distinguishing-cases This case owns typed rule options survive executable configuration instead of merely preserving severity; portable rule decisions remain in the shared Go unit population.
 // @evidence contracts/testing.md#execution-ownership The lint E2E entry calls nativeLintConnections, which selects TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig by exact name through GoBoundary.run with the e2e build tag in packages/lint/linthost. Go test retains this entry's failure identity; ordinary Go unit execution does not select this tagged file.
-// @evidence contracts/e2e.md#necessary-boundary The actual connection is run(check) through the actual TypeScript config evaluator, option resolver and native diagnostic renderer; direct native operation calls cannot prove that separate evaluator, formatter, binary-stdin or JavaScript runtime behavior.
-// @evidence contracts/e2e.md#shared-execution The package-owned Go boundary test binary is compiled once; this isolated executable config needs one evaluator request because its project, module origin and option values define the connection.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns the project; captureCommandOutput owns temporary streams and the evaluator owns its child/scratch lifetime. The config has no changed dependencies or cross-case reusable answer.
-// @evidence contracts/e2e.md#preserved-coverage Keeps exit 2, empty stdout, the no-restricted-types rule marker and the configured Legacy/Safe message and every original input/control branch; preparation sharing changes no expected result or admitted case.
 func TestCommandCheckLoadsNoRestrictedTypesOptionsFromTypeScriptConfig(t *testing.T) {
   root := seedLintProject(t, "type Legacy = string;\nconst value: Legacy = \"value\";\nJSON.stringify(value);\n")
   writeFile(t, filepath.Join(root, "ttsc-lint.config.ts"), `const config = {
