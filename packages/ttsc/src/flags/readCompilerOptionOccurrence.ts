@@ -15,7 +15,7 @@ import { normalizeFlagToken } from "./normalizeFlagToken";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the unexpanded-frame scope and distinctions among scalar, list and config-only rules; the private result prose explains removal fences, unknown metadata and absent boolean assignments, while each member documents its role.
  * @evidence contracts/performance.md#efficient-algorithms Metadata lookup is constant-time after a token-name scan; list lookahead scans its value and components linearly. Temporary component/rune arrays grow with only that value, and callers advance by the returned width.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure lookahead reads current invocation argv; immutable generated tables are already shared by module identity, and no per-argv computation is coordinated or cached here.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only a returned occurrence and transient value components are created; no argv history, process, handle or persistent invocation state is retained.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned occurrence and transient normalized token-name strings, value components and rune arrays belong to this invocation; no argv history, process, handle or persistent invocation state is retained.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation This deterministic argv grammar reads generated metadata and Unicode trimming rules without interpreting operands as filesystem paths, expanding response files or probing a native executable; the spawning/compiler owners supply those OS capabilities.
  */
 export function readCompilerOptionOccurrence(
