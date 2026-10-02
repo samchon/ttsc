@@ -17,8 +17,9 @@ export type WatchInputChange = {
 
   /**
    * Which population the path belongs to. `config` and `plugin` changes force a
-   * full reload; `compiler` is a TypeScript input; `project` is a file a
-   * project rule declared as its own input.
+   * full reload; `compiler` belongs to the compiler input topology, including
+   * non-TypeScript files the compiler reports; `project` is a file a project
+   * rule declared as its own input.
    */
   kind: "compiler" | "config" | "plugin" | "project";
 

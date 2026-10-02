@@ -4,7 +4,8 @@ import { type ResidentCheckRequest } from "../ResidentCheckRequest";
 import type { ResidentCheckWatchChange } from "./ResidentCheckWatchChange";
 
 /**
- * Translate one watch change into the line a resident check sidecar receives.
+ * Translate one watch change into a resident check request payload.
+ * The process owner serializes this record into the sidecar's line protocol.
  *
  * Paths are resolved against `cwd`, deduplicated, and sorted, so two cycles
  * that observed the same edits in a different order send identical requests.

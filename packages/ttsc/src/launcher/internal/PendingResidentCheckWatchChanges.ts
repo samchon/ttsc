@@ -69,7 +69,7 @@ export class PendingResidentCheckWatchChanges {
    *
    * @evidence contracts/common.md#principled-implementation Optional fields encode only present signals, sorted arrays transfer set contents, and resetting every flag/set makes the next batch independent.
    * @evidence contracts/common.md#clear-and-simple-design Batch construction and complete state reset stay in the same synchronous operation, without exposing mutable sets to consumers.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Empty fields are omitted by the resident protocol rather than substituted with consumer-specific sentinels.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Absent fields remain omitted in this watch batch instead of using consumer-specific sentinels; the wire adapter separately selects protocol fields and handles coordinator-only reload.
    * @evidence contracts/common.md#meaningful-documentation The method documents deterministic path order and destructive drain semantics needed by callers.
    * @evidence contracts/performance.md#efficient-algorithms Each distinct path population is copied and sorted once, including path-string comparison costs; returned arrays scale with unique references and reset releases the accumulator's ownership.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Draining transfers delivery ownership and resets state; reusing an earlier batch would replay effects rather than share equivalent producer work.
