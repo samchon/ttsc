@@ -18,12 +18,12 @@ type formatApplicabilityFile struct {
 // glob logic through a concrete-type assertion.
 //
 //  1. Build a disposable project per subcase, with the config shape the subcase names.
-//  2. Run `ttsc format` twice, then resolve the file's rules and, for the first three subcases, format its LSP buffer.
+//  2. Run `ttsc format` twice, resolve rules in the three named cases, and format LSP buffers in the first and third.
 //  3. Require the authored file text, the resolver's Ignored, OutOfScope and format/semi state, and the LSP edit result.
 //
-// @evidence contracts/testing.md#behavioral-verification Five subcases (three named, plus no_config and empty_config generated in a loop) build disposable projects and run the in-process `format` command twice, comparing each file's whole text against the authored result; they also inspect the config resolver's Ignored, OutOfScope and format/semi state and compare the LSP buffer-format result for each file.
+// @evidence contracts/testing.md#behavioral-verification Five subcases (three named, plus no_config and empty_config generated in a loop) build disposable projects and run the in-process `format` command twice, comparing each file's whole text against the authored result. The three named cases inspect resolver state; only the first and third also compare LSP buffer-format results. The two default-config cases do not invoke the resolver or LSP helper directly.
 // @evidence contracts/testing.md#independent-expectations Expected file texts (semicolon added or source unchanged) are authored literals; the resolver-state and LSP-edit checks follow from the entry ignores/files contract, not from the format command's output.
-// @evidence contracts/testing.md#distinguishing-cases Distinguishes an ignore-only entry (unignored file still formatted), a scoped base entry ignoring a path that a global child still formats, overlapping extends entries that each match different files, a file outside every entry, and projects with no config or an empty config keeping defaults. The LSP half is applied only to the first three subcases; the no_config and empty_config subcases use the command check only.
+// @evidence contracts/testing.md#distinguishing-cases Distinguishes an ignore-only entry (unignored file still formatted), a scoped base entry ignoring a path that a global child still formats, overlapping extends entries that each match different files, a file outside every entry, and projects with no config or an empty config keeping defaults. LSP checks cover only the ignore-only and overlapping-extends cases; scoped-base and both default-config cases do not establish LSP behavior.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand, loadRules/ResolveRules and the lsp-execute-command entry (stdin-fed) on temp-dir projects; no child process, built binary or installed consumer.
 func TestCommandFormatRespectsResolvedEntryApplicability(t *testing.T) {
   t.Run("ignore_only_keeps_defaults_for_unignored_files", func(t *testing.T) {
