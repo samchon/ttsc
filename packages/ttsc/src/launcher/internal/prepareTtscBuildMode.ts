@@ -2,18 +2,17 @@ import type { parseTtscBuildArgs } from "./parseTtscBuildArgs";
 import type { TtscBuildMode } from "./TtscBuildMode";
 
 /**
- * Apply the original command constraints before any compiler lane is entered.
+ * Apply the command constraints before any compiler lane is entered.
  *
- * Watch constraints precede single-file constraints, as in the original
- * launcher. Watch keeps the parsed emit option for its own check-only adapter;
+ * Watch constraints precede single-file constraints. Watch keeps the parsed emit option for its own check-only adapter;
  * one-shot check, fix and format always pass emit false to their chosen lane.
- * The supplied invocation options retain the original fix/format mutation;
+ * Fix and format record their mode on the supplied invocation options in place;
  * one-shot non-build mode returns a shallow copy with emission suppressed.
  *
- * @evidence contracts/common.md#principled-implementation Preserves the launcher's emit, watch and single-file validation order and exact errors; the execution layer consumes this same decision before starting any host.
+ * @evidence contracts/common.md#principled-implementation Emit-conflict, watch and single-file validation run in that order with fixed error messages; the execution layer consumes this same decision before starting any host.
  * @evidence contracts/common.md#clear-and-simple-design One small mode adapter owns validation and mode flags; project normalization and actual watch/build execution stay with their existing owners.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Neither flags nor invalid combinations are ignored; watch validation is not reordered behind single-file validation and explicit emit conflicts retain their precedence.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains watch versus one-shot emit ownership and the original validation order, enabling direct unit verification of the maintained decision.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains watch versus one-shot emit ownership and the validation order, enabling direct unit verification of the maintained decision.
  */
 export function prepareTtscBuildMode(
   options: ReturnType<typeof parseTtscBuildArgs>,
