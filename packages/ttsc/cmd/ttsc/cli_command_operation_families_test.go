@@ -884,7 +884,7 @@ func observeTestCLICommandRejectsMissingProjectArgument(t *testing.T, root strin
 //
 // Testing behavioral-verification: demo returns status two with unknown command and --help diagnostic fragments.
 // Testing independent-expectations: An unsupported non-file command label is a usage error; literal diagnostic fragments distinguish dispatch from compiler diagnostics.
-// Testing distinguishing-cases: The former demo label stays rejected, while the distinct fly-to-mars unknown case additionally checks empty stdout.
+// Testing distinguishing-cases: A demo label is rejected, while the distinct fly-to-mars unknown case additionally checks empty stdout.
 // Testing execution-ownership: The named aggregate supplies the declared fixture and actual closure; this observer owns only original argv/result assertions. Preparation and borrowed semantic execution are explicitly separated by that owner, and no response is replayed.
 func observeTestCLICommandRejectsUnknown(t *testing.T, root string, invoke func(*testing.T, ...string) (int, string, string)) {
   code, out, errOut := invoke(t, "demo")
@@ -1017,7 +1017,7 @@ func observeTestCLIProjectBuildBlocksSemanticDiagnostics(t *testing.T, root stri
 //
 // Testing behavioral-verification: build --emit rejects const = ; with status two, Variable declaration expected and no index.js.
 // Testing independent-expectations: The malformed declaration violates TypeScript grammar and must block forced output; filesystem absence is observed after direct dispatch completes.
-// Testing distinguishing-cases: Valid preceding console code does not permit partial output. The removed BeforeEmit duplicate used the identical source, argv, returned status, diagnostic and output-absence assertions retained here.
+// Testing distinguishing-cases: Valid preceding console code does not permit partial output.
 // Testing execution-ownership: The named aggregate supplies the declared fixture and actual closure; this observer owns only original argv/result assertions. Preparation and borrowed semantic execution are explicitly separated by that owner, and no response is replayed.
 func observeTestCLIProjectBuildBlocksSyntacticDiagnostics(t *testing.T, root string, invoke func(*testing.T, ...string) (int, string, string)) {
 
@@ -1044,7 +1044,7 @@ func observeTestCLIProjectBuildBlocksSyntacticDiagnostics(t *testing.T, root str
 //
 // Testing behavioral-verification: build --emit rejects an unused implementation parameter with status two, an unused diagnostic and no index.js.
 // Testing independent-expectations: noUnusedParameters defines the negative compiler case; either supported diagnostic rendering is accepted without generating an expectation from the implementation.
-// Testing distinguishing-cases: The real unused implementation parameter differs from permitted overload type parameters. The removed BeforeEmit duplicate used the same project, argv, status, accepted diagnostic alternatives and output-absence assertion retained here.
+// Testing distinguishing-cases: The real unused implementation parameter differs from permitted overload type parameters.
 // Testing execution-ownership: The named aggregate supplies the declared fixture and actual closure; this observer owns only original argv/result assertions. Preparation and borrowed semantic execution are explicitly separated by that owner, and no response is replayed.
 func observeTestCLIProjectBuildBlocksUnusedParameters(t *testing.T, root string, invoke func(*testing.T, ...string) (int, string, string)) {
 

@@ -11,8 +11,8 @@ import (
 // TestPositionHelpersFollowECMALineTerminators verifies graph-backed LSP
 // positions use the compiler's LF, CRLF, CR, LS, and PS line boundaries.
 //
-// The old offset-to-position helper counted only LF while its inverse counted
-// CR too, so an editor cursor could map to a graph offset that returned on a
+// An offset-to-position helper that counted only LF while its inverse counted
+// CR too would map an editor cursor to a graph offset that returns on a
 // different line. The test walks every valid UTF-8 cursor boundary on each
 // logical line, including a surrogate-pair column, and requires a round trip.
 //
