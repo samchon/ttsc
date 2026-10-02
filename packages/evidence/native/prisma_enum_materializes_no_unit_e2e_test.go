@@ -11,7 +11,7 @@ import (
  * Verifies an enum materializes no unit and does not disturb the models beside
  * it.
  *
- * The campaign draws its boundary at models and their members, and an unpinned
+ * The graph draws its boundary at models and their members, and an unpinned
  * boundary is one a later change crosses without noticing. The risk is not that
  * an enum becomes citable — it is that its values are read as members of
  * whichever model was declared before it, which would put obligations on a

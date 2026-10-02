@@ -130,8 +130,8 @@ func isTypeScriptPath(path string) bool {
 // typeScriptMatchBase pairs a configured base with the directory a Program
 // source path is measured against.
 //
-// This kind walks nothing, so the link asymmetry #1258 removed from the two
-// walkers looked like a walk problem and was left here. It is not: `os.Stat`
+// This kind walks nothing, so link resolution can look like a problem for the
+// walkers alone. It is not: `os.Stat`
 // accepts a linked root as a directory, and a Program reports whatever path its
 // tsconfig resolved, so when the two disagree about the link every source fails
 // the comparison, the claim selects nothing, and it deactivates without a word.
@@ -901,8 +901,7 @@ func collectClassDeclarationNames(
 // Its own withdrawal tag is read here for a separate fault rather than the same
 // one: the statement wrapper's tag was taken for every declarator it holds, so
 // `@internal` written on an inner declarator withdrew nothing. Recording the
-// node closes the first two and leaves this one standing, which is why #1126
-// states them apart.
+// node closes the first two and leaves this one standing, which is why they are stated apart.
 func collectTypeScriptVariables(
   file *shimast.SourceFile,
   statement *shimast.Node,

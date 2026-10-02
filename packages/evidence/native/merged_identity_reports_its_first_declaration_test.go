@@ -7,12 +7,12 @@ import (
 /**
  * Verifies a merged identity reports the declaration encountered first.
  *
- * Every diagnostic that names a line for such an identity names this one, and
- * nothing pins it: `addTypeScriptUnit` creates the unit on the first
- * materialization and returns the existing one afterwards, so the reported line
- * is a consequence of statement order rather than a stated rule. Making a later
- * declaration win would be a one-line change with no failing test, and the
- * whole campaign now assumes the opposite.
+ * Every diagnostic that names a line for such an identity names this one.
+ * `addTypeScriptUnit` creates the unit on the first materialization and returns
+ * the existing one afterwards, so the reported line is a consequence of
+ * statement order rather than a stated rule, and only this case holds it.
+ * Making a later declaration win would be a one-line change, and the graph's
+ * diagnostics all assume the opposite.
  *
  *  1. Spell one identity through two declarations, in both orders.
  *  2. Materialize the inventory.

@@ -7,9 +7,8 @@ import (
 /**
  * Verifies the walkers answer an occupied root the same way.
  *
- * Repairing one artifact kind and leaving the others is the branch asymmetry
- * #1236 existed to remove, and this clause was deferred once precisely because
- * every branch had to move together. Markdown reaches the same predicate through
+ * Repairing one artifact kind and leaving the others would leave a branch
+ * asymmetry, so every branch has to move together. Markdown reaches the same predicate through
  * a loader rather than a claim-side pass, so its repair clause is what proves
  * the split is by artifact kind and not by call site.
  *

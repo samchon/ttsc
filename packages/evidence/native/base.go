@@ -511,8 +511,7 @@ func describeBaseDirectoryProblem(
 // Every component is resolved, not only the leaf. A link on an ancestor is
 // exactly what `os.Lstat` of the leaf cannot see, and it is the shape a package
 // manager installs: the workspace dependency is the link and the root an author
-// declares is a directory inside it. Resolving only the leaf left that silent,
-// which is what #1269 recorded.
+// declares is a directory inside it. Resolving only the leaf leaves that silent.
 //
 // The answer is verified rather than trusted, at every component and not only
 // at the last. `resolveLinkedDirectory` gives up after a fixed number of hops
@@ -565,8 +564,8 @@ func resolvedBaseDirectory(base populationBase) (string, bool) {
 //
 // A component whose chain outran the resolver ends the walk. Joining the rest
 // onto it would produce a path the filesystem opens and every string
-// comparison misses, which is #1269 exactly, one component further up than the
-// case that opened it.
+// comparison misses, which is the same silent failure as an unresolved leaf, one component
+// further up.
 func resolveLinkedPath(absolute string) (string, bool) {
   volume := filepath.VolumeName(absolute)
   rest := absolute[len(volume):]

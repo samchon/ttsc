@@ -12,7 +12,7 @@ import (
 /**
  * Verifies two roots differing only in case reach one schema, not two.
  *
- * #1262's acceptance names this beside the linked directory, and it is the one
+ * This is the companion of the linked-directory case, and it is the one
  * shape a comparison of spellings cannot even approximate: the two roots differ
  * by a letter's case, the filesystem calls them one directory, and no
  * normalization this rule could write would know which volumes agree. Asking

@@ -480,7 +480,7 @@ func (loader *typeScriptLoader) locateInstalledPackage(
 // The second answer is what separates an exhausted chain from a resolved
 // directory, which are one string without it: a caller comparing paths against
 // a link that still names another link cannot tell that it holds one, and that
-// is how the leaf case of #1269 stayed silent until the caller was told.
+// is how a leaf link stays silent unless the caller is told.
 //
 // The bound counts links followed, not answers given. A chain that ends exactly
 // on the last hop this rule follows has landed on its directory with no

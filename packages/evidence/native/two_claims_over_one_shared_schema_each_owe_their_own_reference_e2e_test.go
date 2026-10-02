@@ -12,7 +12,7 @@ import (
 /**
  * Verifies two claims over one shared schema each owe their own reference.
  *
- * The product shape #1262 exists for, at the level an adopter meets it: a
+ * The product shape this layout exists for, at the level an adopter meets it: a
  * package installed under `node_modules` and rooted again at its workspace
  * source is one schema owned by two claims, each answering to its own
  * documents. A set that listed the file twice would be rejected for a model

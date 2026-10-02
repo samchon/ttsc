@@ -14,8 +14,8 @@ import (
  * directory, so every stat of it answers directory and the leaf tells nobody
  * that the path reaching it is still a link. The filesystem opens it anyway,
  * the Program spells its sources through the other side, and the claim
- * deactivates in silence — which is what #1269 recorded and what asking every
- * component, rather than only the last, is for.
+ * deactivates in silence, which is what asking every component, rather than
+ * only the last, is for.
  *
  *  1. Build a chain longer than the resolver follows onto the workspace.
  *  2. Root a TypeScript claim at a real directory inside the chain's head.

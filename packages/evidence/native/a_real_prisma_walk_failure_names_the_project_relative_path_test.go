@@ -10,8 +10,7 @@ import (
  * Verifies a real Prisma walk failure answers exactly as the Markdown one does.
  *
  * The two walkers were the same decision written twice, and repairing one while
- * leaving the other reinstates by artifact kind the branch asymmetry #1236
- * removed. The Prisma half is exercised through its address collector rather
+ * leaving the other reinstates, by artifact kind, a branch asymmetry. The Prisma half is exercised through its address collector rather
  * than the whole rule, because the Prisma bridge needs a linked feature suite
  * that this question does not depend on.
  *
