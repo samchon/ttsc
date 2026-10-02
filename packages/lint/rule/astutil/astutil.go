@@ -22,7 +22,7 @@ import (
 // NodeText returns the source text under `node` with leading trivia
 // (whitespace + comments) stripped AND trailing ASCII whitespace
 // (` `, `\t`, `\r`, `\n`) trimmed. Mirrors `nodeText` in the built-in
-// engine — useful for rules that compare textual identity (the
+// engine. Useful for rules that compare textual identity (the
 // `no-self-assign` / `no-self-compare` shape) or that splice a
 // sub-node's text into a fix string.
 //
@@ -33,17 +33,16 @@ import (
 // directly.
 //
 // Returns "" when `file` or `node` is nil, or when the computed range
-// falls outside the file (defensive — shouldn't happen for engine-supplied
-// nodes).
+// falls outside the file, including malformed nodes supplied by callers.
 //
 // @evidence contracts/common.md#principled-implementation Compiler trivia skipping and ASCII trailing trimming preserve the documented source-text boundary; invalid node ranges yield an empty result.
 // @evidence contracts/common.md#clear-and-simple-design One helper owns the text extraction used by contributor comparisons and edits.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Source extraction uses the supported compiler scanner rather than comment-pattern special cases.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains trimmed versus literal ranges and defensive results; paragraphs and tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation NodeText performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms NodeText has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work NodeText keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NodeText acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Bounds checks are fixed work; compiler SkipTrivia scans l leading-trivia bytes and the fixed ASCII TrimRight scans t trailing bytes, giving O(1+l+t) boundary work without copying the selected source text. Trivia can extend beyond the node end before the post-scan range guard rejects it; delegation does not make scanning fixed-cost.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure extraction helper coordinates no requests or shared state. The caller owns source/node snapshot validity and reuse of extracted text; this operation introduces no cross-Program cache keyed only by mutable AST pointers or ranges.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned string is a view into the supplied source bytes, not an independent copy, so retaining it can retain the complete source allocation. The caller owns that retention and can copy when a separate lifetime is needed; this helper stores no historical results and acquires no native handle or task.
 func NodeText(file *shimast.SourceFile, node *shimast.Node) string {
   if file == nil || node == nil {
     return ""
