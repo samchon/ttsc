@@ -16,6 +16,7 @@ import (
   "sort"
   "strings"
   "sync"
+  "time"
 
   "github.com/samchon/ttsc/packages/ttsc/driver/windowsjunction"
 )
@@ -1891,6 +1892,8 @@ type evaluatedConfigFile struct {
   dependencyDirectories []string
   dependencyDigests     []configDependencyFingerprint
   dependenciesTracked   bool
+  // Private correlation only; cachedConfigEvaluation serializes none of it.
+  traceInvocation       *lintTraceInvocation
 }
 
 type cachedConfigEvaluation struct {
@@ -2039,7 +2042,12 @@ func loadCachedConfigEvaluationWithPolicy(
   cacheNamespace string,
 ) (evaluatedConfigFile, error) {
   if configCacheDisabled() {
-    return eval(location)
+    evaluated, err := eval(location)
+    evaluated.traceInvocation.record("config-cache-outcome", map[string]any{
+      "location": location, "outcome": "disabled", "success": err == nil,
+      "dependencies": evaluated.dependencyDigests,
+    })
+    return evaluated, err
   }
   content, err := os.ReadFile(location)
   if err != nil {
@@ -2064,6 +2072,10 @@ func loadCachedConfigEvaluationWithPolicy(
   if ok &&
     cached.DependenciesTracked == dependenciesRequired &&
     cachedConfigEvaluationIsCurrent(cached) {
+    newLintTraceInvocation().record("config-cache-outcome", map[string]any{
+      "location": location, "key": key, "outcome": "memory-hit",
+      "dependencies": cached.Dependencies, "dependenciesTracked": cached.DependenciesTracked,
+    })
     return evaluatedConfigFileFromCache(cached), nil
   }
   if disk, hit := readConfigDiskCache(key); hit &&
@@ -2072,6 +2084,10 @@ func loadCachedConfigEvaluationWithPolicy(
     configEvalCacheMu.Lock()
     configEvalCache[key] = disk
     configEvalCacheMu.Unlock()
+    newLintTraceInvocation().record("config-cache-outcome", map[string]any{
+      "location": location, "key": key, "outcome": "disk-hit",
+      "dependencies": disk.Dependencies, "dependenciesTracked": disk.DependenciesTracked,
+    })
     return evaluatedConfigFileFromCache(disk), nil
   }
 
@@ -2079,9 +2095,18 @@ func loadCachedConfigEvaluationWithPolicy(
   for attempt := 0; attempt < 3; attempt++ {
     evaluated, err = eval(location)
     if err != nil {
+      evaluated.traceInvocation.record("config-cache-outcome", map[string]any{
+        "location": location, "key": key, "attempt": attempt + 1,
+        "outcome": "evaluation-error", "error": err.Error(),
+      })
       return evaluatedConfigFile{}, err
     }
     if evaluated.dependenciesTracked != dependenciesRequired {
+      evaluated.traceInvocation.record("config-cache-outcome", map[string]any{
+        "location": location, "key": key, "attempt": attempt + 1,
+        "outcome": "tracking-policy-mismatch", "dependenciesTracked": evaluated.dependenciesTracked,
+        "dependenciesRequired": dependenciesRequired,
+      })
       return evaluatedConfigFile{}, fmt.Errorf(
         "@ttsc/lint: config evaluator for %s returned dependenciesTracked=%t, want %t",
         location,
@@ -2101,8 +2126,18 @@ func loadCachedConfigEvaluationWithPolicy(
       configEvalCache[key] = cached
       configEvalCacheMu.Unlock()
       writeConfigDiskCache(key, cached)
+      evaluated.traceInvocation.record("config-cache-outcome", map[string]any{
+        "location": location, "key": key, "attempt": attempt + 1,
+        "outcome": "memory-published", "diskWriteAttempted": true,
+        "dependencies": cached.Dependencies, "dependenciesTracked": cached.DependenciesTracked,
+      })
       return evaluated, nil
     }
+    evaluated.traceInvocation.record("config-cache-outcome", map[string]any{
+      "location": location, "key": key, "attempt": attempt + 1,
+      "outcome": "not-current", "returnedUncached": attempt == 2,
+      "dependencies": evaluated.dependencyDigests, "dependenciesTracked": evaluated.dependenciesTracked,
+    })
   }
   return evaluated, nil
 }
@@ -2405,29 +2440,102 @@ func serializableConfigKeysLiteral() string {
 // path for error messages; `label` is the human-readable subject (e.g. "config
 // file" or "TypeScript config file") spliced into the load/parse error
 // prefixes so each loader keeps its own wording.
+// Opt-in observation retains the exact bytes read and the actual normalized
+// dependencies under one invocation. It never supplies a replacement result.
 func runConfigLoaderCommand(
   cmd *exec.Cmd,
   location string,
   label string,
   outputPath string,
-) (evaluatedConfigFile, error) {
+) (evaluated evaluatedConfigFile, resultErr error) {
   // The child's stderr is human output and goes straight to this process's
   // stderr as it is written. Collecting it only to replay it afterwards is what
   // made a long evaluation print nothing at all, and what would make a loud one
   // grow this process's memory without bound.
   cmd.Stdout = io.Discard
   cmd.Stderr = os.Stderr
+  observation := newLintTraceInvocation()
+  var rawCapture map[string]any
+  readOutcome := "not-read"
+  normalizationAttempted := false
+  normalizationAccepted := false
+  if observation != nil {
+    defer func() {
+      data := map[string]any{
+        "location": location,
+        "label": label,
+        "raw": rawCapture,
+        "readOutcome": readOutcome,
+        "normalizationAttempted": normalizationAttempted,
+        "normalizationAccepted": normalizationAccepted,
+        "dependencies": evaluated.dependencyDigests,
+        "dependenciesTracked": evaluated.dependenciesTracked,
+        "success": resultErr == nil,
+      }
+      if resultErr != nil {
+        data["error"] = resultErr.Error()
+      }
+      evaluated.traceInvocation = observation
+      observation.record("config-loader-result", data)
+    }()
+  }
+  var lower time.Time
+  if observation != nil {
+    lower = time.Now().UTC()
+    observation.record("process-attempt", map[string]any{
+      "pid": 0, "argv": cmd.Args, "cwd": cmd.Dir, "cwdInherited": cmd.Dir == "",
+      "startLowerBound": lower.Format(time.RFC3339Nano), "owner": "lint-config-loader",
+    })
+  }
   err := cmd.Run()
+  if observation != nil {
+    upper := time.Now().UTC()
+    pid := 0
+    if cmd.Process != nil {
+      pid = cmd.Process.Pid
+    }
+    data := map[string]any{
+      "pid": pid, "started": pid > 0, "exitObserved": cmd.ProcessState != nil,
+      "argv": cmd.Args, "cwd": cmd.Dir, "cwdInherited": cmd.Dir == "",
+      "startLowerBound": lower.Format(time.RFC3339Nano),
+      "startUpperBound": upper.Format(time.RFC3339Nano), "owner": "lint-config-loader",
+      "method": "Run", "success": err == nil,
+    }
+    if cmd.ProcessState != nil {
+      data["exitCode"] = cmd.ProcessState.ExitCode()
+      data["stateSuccess"] = cmd.ProcessState.Success()
+      data["state"] = cmd.ProcessState.String()
+    }
+    if err != nil {
+      data["error"] = err.Error()
+    }
+    observation.record("process-result", data)
+  }
   if err != nil {
     // The loader's stack already reached the user's stderr as it was written.
     // What it could not put there is a reason a caller can act on, so that
     // arrives through the result file instead.
-    if reason := loaderFailureReason(outputPath); reason != "" {
+    if reason := loaderFailureReason(outputPath, func(raw []byte, readErr error) {
+      if observation != nil {
+        readOutcome = "complete"
+        if readErr != nil {
+          readOutcome = "IO-failed"
+        }
+        rawCapture = observation.capture("loader-raw", raw)
+      }
+    }); reason != "" {
       return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: load %s %s: %s", label, location, reason)
     }
     return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: load %s %s: %w", label, location, err)
   }
   output, err := os.ReadFile(outputPath)
+  if observation != nil {
+    readOutcome = "complete"
+    if err != nil {
+      readOutcome = "IO-failed"
+    }
+    rawCapture = observation.capture("loader-raw", output)
+  }
   if err != nil {
     return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: read %s %s result: %w", label, location, err)
   }
@@ -2449,6 +2557,8 @@ func runConfigLoaderCommand(
     return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: config file %s must export an ITtscLintConfig object", location)
   }
   normalized, ok := normalizeConfigDependencyFingerprints(envelope.Dependencies)
+  normalizationAttempted = true
+  normalizationAccepted = ok
   if !ok {
     return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: %s %s returned malformed dependency fingerprints", label, location)
   }
@@ -5983,8 +6093,11 @@ func (c RuleConfig) Severity(name string) Severity {
 // writes, and namespaced so it cannot collide with a payload field. This file
 // spends "error" on rule severity, which is exactly the confusion a shared,
 // prefixed key avoids.
-func loaderFailureReason(outputPath string) string {
+// observe receives this same read's bytes and error before envelope decoding;
+// it cannot substitute bytes or alter the returned failure reason.
+func loaderFailureReason(outputPath string, observe func([]byte, error)) string {
   raw, err := os.ReadFile(outputPath)
+  observe(raw, err)
   if err != nil {
     return ""
   }
