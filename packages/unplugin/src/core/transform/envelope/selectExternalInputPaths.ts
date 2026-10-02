@@ -15,8 +15,10 @@ import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
  * Derive the absolute out-of-walk input set of a whole project transform: the
  * union of every transformed source key, reference-graph member (edge keys and
  * targets, globals, the config chain), and plugin-reported dependency, minus
- * everything the project walk already hashes and the disposed transform scratch
- * tree. These are the inputs `matchesCachedSource`'s walk cannot see.
+ * regular-file paths currently eligible for the project walk and the disposable
+ * transform scratch tree. Eligibility is not a certificate that an earlier
+ * selected or incomplete snapshot actually read a file; capture and admission
+ * retain responsibility for that proof.
  * Resolution candidates that are still missing remain in this set even under
  * the project root: the first walk cannot hash a file that has not been created
  * yet.
@@ -27,17 +29,26 @@ import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
  * `selectWatchInputs`, while graph-free envelopes use this union as their
  * conservative fallback.
  *
- * @evidence contracts/common.md#principled-implementation Whole-generation input union retains out-of-walk sources and missing resolver candidates, because project hashes cannot witness them; completeness of one file cannot discard another file's input from this shared snapshot.
+ * @evidence contracts/common.md#principled-implementation Whole-generation union retains paths outside current regular-file walk eligibility and unavailable resolver candidates; completeness of one file cannot discard another file's shared input. The walk capture/admission owner must separately establish recorded hashes and completeness for eligible paths rather than treating this selector as an earlier-read certificate.
  * @evidence contracts/common.md#clear-and-simple-design Collection precedes one filtering pass over scratch, temporary input, lexical duplicates and project membership, with filesystem and membership semantics delegated to their shared helpers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing candidates remain observable rather than being dropped merely because no current project hash exists; the temporary-config exclusion refers to an actual generated input rather than a consumer-specific escape.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain whole-project scope, project-walk gaps, missing candidates and why completeness cannot narrow the stored union; separated tags follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Injected filesystem capabilities drive identity, existence and membership checks; lexical native spellings remain distinct for alias changes while physical identity excludes the temporary config consistently across host filesystems.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Collects the members in one pass, dedupes them through a seen set and
- *   sorts the output once.
+ *   Cold graph index construction precedes separate scans of output, graph,
+ *   candidate, dependency and host lists, followed by every collected member's
+ *   filter pass. Duplicate occurrences still pay path/identity and candidate
+ *   observations before seen rejection; rejected walk members are not added to
+ *   seen. Native path/ancestor/case, existence and walk policy/component checks
+ *   add costs to list/key text. Collected members, candidate/seen sets and
+ *   output allocate population-sized storage; final string sorting adds output
+ *   comparison work.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   The seen set and the resolution-candidate set keep a spelling from being
- *   classified twice.
+ *   Generation state shares completed graph parsing, while this call's native
+ *   identity context reuses its qualified path observations. The sets dedupe
+ *   emitted lexical names and mark candidate membership; they do not suppress
+ *   every repeated classification. Supplied filesystem, producer-derived state
+ *   and membership policy must represent the same stable generation view.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Its collections are local to the call and released on return; only the
  *   sorted output is handed back.
