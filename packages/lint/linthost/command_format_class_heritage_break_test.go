@@ -4,8 +4,9 @@ import "testing"
 
 // TestCommandFormatClassHeritageBreak checks the Prettier-3 shape for a class
 // header that overflows on its heritage clauses: each `extends`/`implements`
-// clause moves to its own line, the clause types stay inline, and the opening
-// `{` drops to its own line (a non-empty class body). Both the idempotency of
+// clause moves to its own line, types stay inline when that clause fits or
+// break one per line when it overflows, and the opening brace drops to its own
+// line for a non-empty class body. Both the idempotency of
 // the broken form and the flat -> broken reflow are covered, for the
 // extends+implements (two-clause) and implements-only (multi-type) cases.
 //
@@ -77,8 +78,8 @@ func TestCommandFormatClassHeritageBreak(t *testing.T) {
 }
 `)
   })
-  // both clauses carry a single type: each clause stays inline (Prettier never
-  // explodes a one-type clause) even though the flat header overflowed.
+  // Both clauses carry one type that fits on its own continuation line, so
+  // each clause stays inline even though the complete flat header overflowed.
   t.Run("extends_implements_single_types_stay_inline_idempotent", func(t *testing.T) {
     assertFormatUnchanged(t, `export class Foo
   extends VeryLongBaseClassNameThatIsQuite
