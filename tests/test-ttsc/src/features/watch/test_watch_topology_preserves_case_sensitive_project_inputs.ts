@@ -10,7 +10,6 @@ import {
   type IRecordedWatcher,
   deliverWatchEvent,
   recordWatchers,
-  settleWatchEvents,
 } from "../../../../utils/src/RecordedWatchers";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -19,17 +18,17 @@ const subscriptions = new WeakMap<WatchTopology, readonly IRecordedWatcher[]>();
 /**
  * Verifies authored case-sensitive project declarations with actual identities.
  *
- * 1. Create the original case-distinct physical paths under measured capabilities.
- * 2. Preserve literal input and output roles and assert their live observer roots.
+ * 1. Establish the required native case-distinct physical paths.
+ * 2. Preserve exact and glob input roles and assert their live observer roots.
  * 3. Deliver authored byte changes through the actual source directory adapter.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual source topology retains the original exact/glob registration and project callback assertions using supplied notifications.
- * @evidence contracts/testing.md#independent-expectations Authored case-distinct paths, actual filesystem identities and literal compiler membership establish input and output expectations independently.
- * @evidence contracts/testing.md#distinguishing-cases Case-distinct roots or output twins must not collapse; original host guards and partial-return behavior remain unchanged, with no coverage claimed when initial capabilities are unavailable.
+ * @evidence contracts/testing.md#independent-expectations Authored case-distinct paths, independently checked filesystem identities and literal compiler membership establish the exact and glob input expectations independently.
+ * @evidence contracts/testing.md#distinguishing-cases Case-distinct roots and nested glob roots must not collapse. Both exact inputs and both glob members report, then removing only the lower glob makes its next edit quiet. Native preparation must establish distinct identities; unavailable preparation fails explicitly and is not a product observation or successful coverage.
  * @evidence contracts/testing.md#execution-ownership This source unit owns manually supplied project declarations and actual path/content decisions through recorded observers. No compiler process or native observer runs; the original platform capability operation remains actual.
  */
 export const test_watch_topology_preserves_case_sensitive_project_inputs =
-  async (): Promise<void | false> => {
+  async (): Promise<void> => {
     const root = TestProject.physicalPath(
       TestProject.tmpdir("ttsc-project-input-case-project-"),
     );
@@ -51,16 +50,16 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
     const external = TestProject.physicalPath(
       TestProject.tmpdir("ttsc-project-input-case-external-"),
     );
-    if (enableWindowsCaseSensitivity(external) === false) return false;
+    enableWindowsCaseSensitivity(external);
     const upperRoot = path.join(external, "Project");
     const lowerRoot = path.join(external, "project");
     fs.mkdirSync(upperRoot);
-    if (createCaseDistinctDirectory(lowerRoot) === false) return false;
+    createCaseDistinctDirectory(lowerRoot);
     assert.notEqual(realpath(upperRoot), realpath(lowerRoot));
     const upperApi = path.join(upperRoot, "Api");
     const lowerApi = path.join(upperRoot, "api");
     fs.mkdirSync(upperApi);
-    if (createCaseDistinctDirectory(lowerApi) === false) return false;
+    createCaseDistinctDirectory(lowerApi);
     assert.notEqual(realpath(upperApi), realpath(lowerApi));
 
     const upperExact = path.join(upperRoot, "nested", "evidence.md");
@@ -130,6 +129,7 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
       assert.equal(changes.length, count, JSON.stringify(changes.slice(count)));
     } finally {
       topology.close();
+      assert.ok(watchers.every((watcher) => watcher.active === false));
     }
   };
 
@@ -175,8 +175,8 @@ function pathMatchesOrContains(changed: string, target: string): boolean {
   );
 }
 
-function enableWindowsCaseSensitivity(directory: string): boolean {
-  if (process.platform !== "win32") return true;
+function enableWindowsCaseSensitivity(directory: string): void {
+  if (process.platform !== "win32") return;
   const result = childProcess.spawnSync(
     "fsutil.exe",
     ["file", "setCaseSensitiveInfo", directory, "enable"],
@@ -185,16 +185,22 @@ function enableWindowsCaseSensitivity(directory: string): boolean {
       windowsHide: true,
     },
   );
-  return result.status === 0;
+  assert.equal(
+    result.status,
+    0,
+    `native case-sensitive fixture preparation failed: ${result.error?.message ?? result.stderr}`,
+  );
 }
 
-function createCaseDistinctDirectory(directory: string): boolean {
+function createCaseDistinctDirectory(directory: string): void {
   try {
     fs.mkdirSync(directory);
-    return true;
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "EEXIST") {
-      return false;
+      throw new Error(
+        `native case-distinct fixture preparation failed: ${directory}`,
+        { cause: error },
+      );
     }
     throw error;
   }
