@@ -9,7 +9,7 @@ import (
 )
 
 // dump.go projects a built graph onto the JSON wire contract `ttscgraph dump`
-// prints: the IGraphDump shape the @ttsc/graph engine loads (and the 3D viewer
+// prints: the ITtscGraphDump shape the @ttsc/graph engine loads (and the 3D viewer
 // reduces). The internal Node/Edge model stays narrow (so the resident MCP path
 // is untouched); the richer schema is produced here:
 //
@@ -204,7 +204,7 @@ type DumpEdge struct {
   Evidence *DumpEvidence `json:"evidence,omitempty"`
 }
 
-// Dump is the IGraphDump envelope: the project it was built for, the evidence
+// Dump is the ITtscGraphDump envelope: the project it was built for, the evidence
 // about the program that produced it, and the full node and edge sets with none
 // of the MCP response caps.
 //

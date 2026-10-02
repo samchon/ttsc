@@ -36,7 +36,7 @@ import (
 // self-describing even when read from a log.
 const serveProtocolVersion = 1
 
-// serveModes are the computation modes Snapshot can report, plus the error mode
+// The serveMode* constants are the computation modes Snapshot can report, plus the error mode
 // the transport adds. A consumer branches on these to report honestly what the
 // producer did rather than inferring it from a generation counter.
 const (

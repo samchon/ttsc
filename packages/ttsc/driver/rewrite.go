@@ -1,15 +1,14 @@
 // Package driver: post-emit rewriter.
 //
 // tsgo emits `.js` with plugin-owned call expressions preserved as-is because
-// the compile-time transformer stage is now hosted outside the native
-// compiler. This file implements the emit-time rewrite pattern pioneered by
-// tsgonest: we intercept tsgo's Emit() via its WriteFile callback, locate each
-// previously-recognized plugin call in the emitted JS, and replace the call
+// the compile-time transformer stage is hosted outside the native compiler.
+// This file implements an emit-time rewrite pattern: it intercepts tsgo's Emit() via its WriteFile callback, locates each
+// previously-recognized plugin call in the emitted JS, and replaces the call
 // expression with the JS the native consumer produced.
 //
 // The rewriter operates on the output text only — it relies on the caller
-// having already produced an ordered list of (file, call, emittedJS) triples.
-// Today we match by textual pattern (`<alias>.<method>(...)`), which is safe
+// having already registered an ordered list of Rewrite values per source file.
+// Calls are matched by textual pattern (`<alias>.<method>(...)`), which is safe
 // because the compiler-stripped call site is distinctive.
 package driver
 
@@ -31,8 +30,8 @@ import (
   shimparser "github.com/microsoft/typescript-go/shim/parser"
 )
 
-// Rewrite describes one emit-time patch. Produced by CollectCallSites after
-// the engine has generated a replacement JS fragment for the call. When
+// Rewrite describes one emit-time patch: the replacement JS fragment a linked
+// plugin generated for one recognized call. When
 // RootName names a default or namespace import, emit resolves it through the
 // matching emitted require declaration, including any collision suffix chosen
 // by TypeScript-Go.
@@ -916,7 +915,7 @@ func callPatternKey(aliases, namespaces []string, method string) string {
 
 // findCallMatch scans `text` from `searchFrom` for the next call expression
 // matched by the loose-match `pattern`, applying the same "must start outside
-// an identifier" rule as the old literal indexAtCallStart so generated locals
+// an identifier" rule as a literal call-start search would, so generated locals
 // like `mytypia.foo(` don't shadow `typia.foo(`. Returns the start byte of the
 // match and the length up to (but not including) the captured `(`.
 func findCallMatch(text string, pattern *regexp.Regexp, searchFrom int) (int, int) {

@@ -8,7 +8,7 @@ import (
 )
 
 // TestLSPProxyClearsPendingOnNormalizedCancelID Verifies the shared id
-// normalizer between rememberCodeActionRequest and
+// normalizer between handleCodeActionRequest and
 // forgetCancelledRequest. A cancel arriving with id `1.0` must drop
 // the pending entry stored under id `1`. otherwise
 // peers that disagree on numeric encoding leak pending entries across

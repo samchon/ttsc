@@ -10,7 +10,7 @@ import (
 )
 
 // TestMarshalDumpSerializesTheFullGraph verifies that MarshalDump projects a
-// built graph onto the IGraphDump wire contract the `ttscgraph dump` command
+// built graph onto the ITtscGraphDump wire contract the `ttscgraph dump` command
 // prints and the @ttsc/graph engine loads: the project envelope, every node and
 // edge, project-relative paths, line/col evidence, and the lowercase wire keys.
 //
@@ -26,7 +26,7 @@ import (
 //  3. Assert paths are project-relative, the wire keys are the lowercase json
 //     tags, every edge endpoint resolves to a dumped node, and --pretty indents.
 //
-// @evidence contracts/testing.md#behavioral-verification Verifies that MarshalDump projects a built graph onto the IGraphDump wire contract the `ttscgraph dump` command prints and the @ttsc/graph engine loads: the project envelope, every node and edge, project-relative paths, line/col evidence, and the lowercase wire keys.
+// @evidence contracts/testing.md#behavioral-verification Verifies that MarshalDump projects a built graph onto the ITtscGraphDump wire contract the `ttscgraph dump` command prints and the @ttsc/graph engine loads: the project envelope, every node and edge, project-relative paths, line/col evidence, and the lowercase wire keys.
 // @evidence contracts/testing.md#independent-expectations The expectations are literal wire facts over a two-function fixture: tsconfig coordinate tsconfig.json, node id src/main.ts#main:function with project-relative file and line evidence, a calls edge from main to helper whose evidence has a line and no repeated file, lowercase wire keys present and Go field names, confidence and text keys absent, every edge endpoint present among the dumped nodes, and indented output with pretty. The node and edge counts are compared with the built graph's own counts, so they only show that nothing is dropped in projection.
 // @evidence contracts/testing.md#distinguishing-cases Build a two-function fixture with one call, so the dump has a node set and a value-call edge; Marshal it with source texts and assert the envelope, counts, and that the call edge maps to kind "calls" with a line/col evidence span; Assert paths are project-relative, the wire keys are the lowercase json tags, every edge endpoint resolves to a dumped node, and --pretty indents.
 // @evidence contracts/testing.md#execution-ownership TestMarshalDumpSerializesTheFullGraph is a Go source-unit entry. Build, MarshalDump, SourceTexts execute directly over the authored source or explicit input facts. The owning operations stay in this test process, without installing a consumer or building or starting a native product binary.

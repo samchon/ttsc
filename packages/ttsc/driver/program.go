@@ -1061,8 +1061,8 @@ func isUnusedOverloadSignatureTypeParameterDiagnostic(d *ast.Diagnostic) bool {
 }
 
 // convertDiagnostics translates shim-specific diagnostics into the plain
-// Diagnostic struct with line/column populated via tsgo's ECMALineMap (the
-// same helper tsc uses for its "file:line:col: message" banner).
+// Diagnostic struct with line/column populated from tsgo's ECMA line model
+// (shimscanner.GetECMALineAndByteOffsetOfPosition).
 //
 // Diagnostics produced by a Program go through convertProgramDiagnostics
 // instead, which undoes a source preamble's position shift first.
