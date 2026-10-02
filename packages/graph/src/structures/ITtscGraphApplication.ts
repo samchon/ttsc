@@ -92,10 +92,11 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * - Follow the result's `next`: `answer` means stop and answer from it, `inspect`
  *   means make exactly the one request it names, `outside` means escape,
  *   `clarify` means restate the request.
- * - For a ranked shortlist (`lookup`, `entrypoints`, `tour`), `next` and
- *   `truncated` say whether coverage is settled; when it is not, one more
- *   request is the right move — not a file read to re-verify facts already
- *   given.
+ * - For a ranked shortlist (`lookup`, `entrypoints`, `tour`), `next` says what
+ *   the server checked, and only `lookup` flags matches its limit cut with
+ *   `truncated`; judge the coverage of `entrypoints` and `tour` yourself. When
+ *   it is not settled, one more request is the right move — not a file read to
+ *   re-verify facts already given.
  *
  * @evidence contracts/common.md#principled-implementation The single async tool maps the discriminated request union to graph outputs, with audit and next separated from returned facts.
  * @evidence contracts/common.md#clear-and-simple-design One tool owns graph dispatch; request branches keep their own shapes instead of independent nearly identical tools.

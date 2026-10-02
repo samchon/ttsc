@@ -19,8 +19,9 @@ export interface ITtscGraphLookup {
   /**
    * True when a match was left out by the limit.
    *
-   * The audit for the ranked operations already tells a reader that `truncated`
-   * marks where more was left out, and this result had no such field — so a cut
+   * The audit for the ranked operations tells a reader that a lookup's
+   * `truncated` marks matches the limit left out, and this result had no such
+   * field — so a cut
    * looked exactly like a complete answer. That is tolerable for a name query,
    * where the ranking is a shortlist by design, and it is not for a
    * documentation target: those hits are an exact match on an address, so a

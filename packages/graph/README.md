@@ -149,10 +149,11 @@ The interactive charts, every model, and the method are on the benchmark page: h
  * - Follow the result's `next`: `answer` means stop and answer from it, `inspect`
  *   means make exactly the one request it names, `outside` means escape,
  *   `clarify` means restate the request.
- * - For a ranked shortlist (`lookup`, `entrypoints`, `tour`), `next` and
- *   `truncated` say whether coverage is settled; when it is not, one more
- *   request is the right move — not a file read to re-verify facts already
- *   given.
+ * - For a ranked shortlist (`lookup`, `entrypoints`, `tour`), `next` says what
+ *   the server checked, and only `lookup` flags matches its limit cut with
+ *   `truncated`; judge the coverage of `entrypoints` and `tour` yourself. When
+ *   it is not settled, one more request is the right move — not a file read to
+ *   re-verify facts already given.
  */
 export interface ITtscGraphApplication {
   /**

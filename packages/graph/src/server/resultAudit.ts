@@ -142,7 +142,9 @@ A returned span is the citation, not a cue to open the file to confirm it.
 
 What was selected is heuristic, not exhaustive. This result was matched against your
 natural-language question, scored and ranked, held to a few hits per file, and cut to a
-limit; a \`score\` is that ranking, and \`truncated\` marks where more was left out. Each fact
+limit; a \`score\` is that ranking. A lookup's \`truncated\` marks matches the limit left out, while
+an entrypoints or tour \`truncated\` marks only the low-signal extras it capped, so hits cut by the
+limit are not flagged there. Each fact
 it returns is compiler-verified, but whether the shortlist covers what you asked is yours to
 judge — if the top of it does not, refining the query, raising the limit, or reading a cited
 span is a sound next step, not a failure to trust the result.
