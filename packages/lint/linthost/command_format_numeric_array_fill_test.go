@@ -3,10 +3,12 @@ package linthost
 import "testing"
 
 // TestCommandFormatNumericArrayFill covers Prettier's concise "fill" layout
-// for arrays. An array of more than one numeric literal packs as many elements
-// per line as fit; a string or identifier array stays one-per-line; a short
-// numeric array stays flat; a single-element array never fills. All sources are
-// Prettier-3-canonical at printWidth 60, so format must keep them byte-identical.
+// for arrays. The fill predicate accepts a nonempty array of numeric literals,
+// including signed literals and a single element. The overflowing numeric
+// fixture packs elements per line; string and identifier fixtures use ordinary
+// list breaking. Short numeric and singleton fixtures fit flat. Eight sources
+// are authored unchanged expectations and one has an authored rewrite; two
+// cases use the default width rather than 60. No independent formatter runs.
 //
 //  1. Format canonical numeric, signed-numeric, string, identifier, short and
 //     single-element arrays and `new Float32Array([...])` fills, and require
@@ -15,8 +17,8 @@ import "testing"
 //     packed fill layout.
 //
 // @evidence contracts/testing.md#behavioral-verification Nine subcases run the in-process `format` command at printWidth 60 (two at the default width): numeric and signed-numeric arrays packed several per line, string and identifier arrays one per line, a short and a single-element numeric array flat, an overflowing flat numeric array rewritten to packed form, a numeric fill hugged in `new Float32Array([...])`, and a long fill wrapping over several lines.
-// @evidence contracts/testing.md#independent-expectations Sources and the one rewrite expectation are authored literals described as Prettier 3 canonical layouts; expected text is never computed from the formatter.
-// @evidence contracts/testing.md#distinguishing-cases Positive fill cases are contrasted with negatives (string, identifier, short, single-element arrays). Only numeric_array_flat_reflows_to_fill starts from a layout that must change; the other eight are fixed points.
+// @evidence contracts/testing.md#independent-expectations The complete authored unchanged literals and the one independent packed-output literal preserve element values, order, signs and surrounding bindings. Expected text is never computed from the formatter or an independent Prettier invocation.
+// @evidence contracts/testing.md#distinguishing-cases Numeric packed layouts contrast with nonnumeric string/identifier lists and fitting short/singleton numeric layouts; a flat singleton does not imply exclusion from the fill predicate. Only numeric_array_flat_reflows_to_fill starts from a layout that must change; the other eight are fixed points.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via the assertFormat helpers; no child process, built binary or installed consumer.
 func TestCommandFormatNumericArrayFill(t *testing.T) {
   pw := map[string]any{"printWidth": 60}
@@ -54,7 +56,7 @@ func TestCommandFormatNumericArrayFill(t *testing.T) {
 ];
 `, pw)
   })
-  // short numeric array fits flat; single element never fills.
+  // Short numeric and single-element arrays fit flat in these fixtures.
   t.Run("small_numeric_array_flat", func(t *testing.T) {
     assertFormatUnchangedWithFormat(t, "const small = [1, 2, 3];\n", pw)
   })
