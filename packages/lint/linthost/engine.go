@@ -208,9 +208,9 @@ func validateRuleOptions(r Rule, options json.RawMessage) error {
 //
 // `Options` is the raw JSON payload resolved for this source file from the
 // same config entries as Severity. One option slot preserves its scalar or
-// object shape; multiple positional options are an array. It is nil for a
-// bare severity. Rules decode the payload according to their public option
-// type and fall back to defaults on nil.
+// object shape; multiple positional options are an array. A severity-only
+// override may retain a matching earlier entry's payload. Nil means no effective
+// payload was supplied; rules then use their supported defaults.
 //
 // Engine-owned fields are read-only to rules. The Context and its file memo
 // live for one file walk; Checker may be nil for an AST-only invocation.
@@ -219,7 +219,7 @@ func validateRuleOptions(r Rule, options json.RawMessage) error {
 // @evidence contracts/common.md#clear-and-simple-design Public inputs describe rule evaluation; private collector, capability flags and memo keep dispatch and retention ownership inside the engine.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts File-invariant data is shared through an owned memo, not patched onto foreign AST nodes or global compiler objects.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains options shape, read-only ownership and lifetime; member comments describe nil checker, directory origin and severity.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Context is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidence contracts/portability.md#os-neutral-implementation CurrentDirectory carries the host's native directory spelling, not a URL; path-consuming rules use native filepath abstractions and own identity/capability resolution. This handle preserves that input without inferring filesystem case policy from an OS name or constructing process arguments.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Context is a declaration of data shape and chooses no algorithm or processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Context is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context is a declaration of data shape; the code that holds its values owns their lifetime.
@@ -289,24 +289,23 @@ func (c *Context) setFileValue(key, value any) {
   c.fileMemo.values[key] = value
 }
 
-// DecodeOptions unmarshals the rule's options blob into `out`. Returns
-// nil with no side effect when the rule was configured with severity
-// alone, so callers can write
+// DecodeOptions unmarshals the effective options blob into out. A nil Context
+// or absent bytes returns nil without changing out, so initialized defaults
+// remain intact. A severity-only override may still have inherited bytes.
 //
-//  var opts myRuleOptions
-//  ctx.DecodeOptions(&opts)
-//  // opts now holds either the user's settings or the zero value.
-//
-// An invalid payload or destination returns encoding/json's error.
+// Decoding uses encoding/json semantics, including any destination unmarshaler;
+// this adapter does not validate the rule's option schema. An invalid payload
+// or destination returns the decoder's error. A type error may leave out partly
+// updated, so callers must handle the error before using the decoded result.
 //
 // @evidence contracts/common.md#principled-implementation encoding/json decodes the preserved payload into the rule's chosen schema; absent options leave initialized defaults intact.
 // @evidence contracts/common.md#clear-and-simple-design The adapter owns JSON transport only, leaving schema defaults and validation with the rule.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts It uses the ordinary decoder and propagates its error rather than rewriting malformed input to satisfy a particular rule.
-// @evidence contracts/common.md#meaningful-documentation The comment documents absent-payload behavior, a defaults example and decoder failures, separated from the tags.
+// @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish absent and inherited payloads, initialized defaults, supported decoding hooks, schema ownership and partial updates on errors before separate tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.DecodeOptions performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.DecodeOptions has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.DecodeOptions keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.DecodeOptions acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Absent bytes return immediately; otherwise encoding/json scans payload bytes and decodes destination fields, allocating required maps, slices and pointers. Custom unmarshaler work is additional; delegation is not fixed-step merely because this wrapper has no loop.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Decoding mutates a caller-supplied destination and may invoke its unmarshaler, so equivalent bytes alone do not establish a shareable completed effect.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Decoded values belong to the caller's destination, including partial updates on type errors. This wrapper retains no additional result, handle or task; any custom unmarshaler's resources remain its owner's responsibility.
 func (c *Context) DecodeOptions(out interface{}) error {
   if c == nil || len(c.Options) == 0 {
     return nil
