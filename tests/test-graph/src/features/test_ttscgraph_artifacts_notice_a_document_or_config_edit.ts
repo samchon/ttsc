@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { artifactsAreStale, fingerprintInputs, type IPublishedArtifacts, type IArtifactInputs } from "../../../../packages/graph/src/model/publishedArtifacts";
+import type { IArtifactInputs } from "../../../../packages/graph/src/model/IArtifactInputs";
+import type { IPublishedArtifacts } from "../../../../packages/graph/src/model/IPublishedArtifacts";
+import { artifactsAreStale, fingerprintInputs } from "../../../../packages/graph/src/model/publishedArtifacts";
 
 /**
  * Verifies the published artifact answer goes stale on the edits that move it,

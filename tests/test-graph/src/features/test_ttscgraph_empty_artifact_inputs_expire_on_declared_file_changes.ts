@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import type { IPublishedArtifacts } from "../../../../packages/graph/src/model/IPublishedArtifacts";
 import {
   artifactsAreStale,
   fingerprintInputs,
-  type IPublishedArtifacts,
 } from "../../../../packages/graph/src/model/publishedArtifacts";
 import { TestProject } from "../../../utils/src/TestProject";
 
