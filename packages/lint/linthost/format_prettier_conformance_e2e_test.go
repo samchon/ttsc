@@ -1,5 +1,3 @@
-//go:build e2e
-
 package linthost
 
 import (
@@ -35,10 +33,10 @@ import (
 //  4. Require byte equality, without letting a sibling rule's known divergence
 //     obscure the rule being measured.
 //
-// @evidence contracts/testing.md#behavioral-verification Exercises every named formatter corpus input through its owning native fix operation and the pinned Prettier formatter; asserts exact per-case bytes, required changing/canonical witnesses, registered rule coverage and each Visits node kind, distinguishing the named lost connection or changed behavior from valid execution.
+// @evidence contracts/testing.md#behavioral-verification Exercises every named formatter corpus input through its owning Go fix operation and the pinned independent Prettier oracle; asserts exact per-case bytes, required changing/canonical witnesses, registered rule coverage and presence of each declared Visits kind in the parsed corpus. Node-kind presence does not itself prove a rule callback ran for each kind.
 // @evidence contracts/testing.md#independent-expectations Pinned Prettier 3.8.3 is an independent formatter oracle; explicit canonical exceptions are jsdoc/sort-imports extensions or genuine public-option no-ops with complementary changing witnesses.
-// @evidence contracts/testing.md#distinguishing-cases This case owns all 61 original rule/name/source/options cases remain, including semicolon/member boundaries, ASI guards, width constructs, import effects and CRLF; portable rule decisions remain in the shared Go unit population.
-// @evidence contracts/testing.md#execution-ownership The lint E2E entry calls nativeLintConnections, which selects TestFormatPrettierConformance by exact name through GoBoundary.run with the e2e build tag in packages/lint/linthost. Go test retains this entry and its subcase failure identities; ordinary Go unit execution does not select this tagged file.
+// @evidence contracts/testing.md#distinguishing-cases This entry retains the 61 authored rule/name/source/options cases, including semicolon/member boundaries, ASI guards, width constructs, import effects and CRLF. Canonical jsdoc/sort-imports inputs preserve the authored bytes but do not independently establish those extensions' transformations.
+// @evidence contracts/testing.md#execution-ownership Ordinary Go unit selection includes TestFormatPrettierConformance and all named subcases. expandFormatBlock, runRuleFindingsSnapshot and applyFindingFixes exercise each target rule in the Go process against temporary files. One Node child computes only the independent Prettier oracle, resolving the installed workspace module unless TTSC_PRETTIER_MODULE supplies its existing explicit path; no installed SUT or product host is started.
 func TestFormatPrettierConformance(t *testing.T) {
   cases := []prettierConformanceCase{
     {"format/arrow-parens", "default", "const identity = value => value;\n", nil, false},
@@ -258,12 +256,10 @@ type prettierOracleResult struct {
 // formatWithPinnedPrettierBatch loads the pinned, stateless core formatter once.
 // Each source/options pair uses a fresh options object and keeps its own named
 // result, including errors, so one oracle rejection does not hide later cases.
+// Node resolves the installed workspace dependency when no explicit module path
+// is supplied, and the version guard rejects a different oracle version.
 func formatWithPinnedPrettierBatch(t *testing.T, cases []prettierConformanceCase) []prettierOracleResult {
   t.Helper()
-  module := os.Getenv("TTSC_PRETTIER_MODULE")
-  if module == "" {
-    t.Fatal("TTSC_PRETTIER_MODULE is required for the Prettier conformance corpus")
-  }
   type oracleInput struct {
     ID string `json:"id"`
     Source string `json:"source"`
@@ -283,10 +279,15 @@ func formatWithPinnedPrettierBatch(t *testing.T, cases []prettierConformanceCase
   }
   script := `
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 const inputs = JSON.parse(fs.readFileSync(0, "utf8"));
-const module = await import(pathToFileURL(process.env.TTSC_PRETTIER_MODULE).href);
+const modulePath = process.env.TTSC_PRETTIER_MODULE || createRequire(import.meta.url).resolve("prettier");
+const module = await import(pathToFileURL(modulePath).href);
 const prettier = module.default ?? module;
+if (prettier.version !== "3.8.3") {
+  throw new Error("Expected Prettier 3.8.3, got " + prettier.version);
+}
 const results = [];
 for (const input of inputs) {
   try {
