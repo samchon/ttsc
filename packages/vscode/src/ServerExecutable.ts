@@ -27,8 +27,11 @@ import type { ServerProcessOptions } from "./ServerProcessOptions";
  *   native paragraphs under the documentation skill; member comments remain
  *   beside their fields.
   *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   ServerExecutable only describes values and opens no file, path or process.
+  * @evidence contracts/portability.md#os-neutral-implementation
+  *   The command and argument vector retain the selected native launcher or
+  *   command processor. Prepared options carry the project cwd, environment
+  *   and Windows verbatim payload mode to the language-client spawn boundary;
+  *   absent options preserve that client's defaults.
   *
   * @evidenceExclude contracts/performance.md#efficient-algorithms
   *   ServerExecutable is a type definition with no computation to cost.

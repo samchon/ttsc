@@ -24,9 +24,11 @@
  *   reasons use separate native paragraphs under the documentation skill;
  *   member comments remain beside their fields.
   *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   RelativePatternConstructor only describes values and opens no file, path
-  *   or process.
+  * @evidence contracts/portability.md#os-neutral-implementation
+  *   Separate base and pattern arguments preserve the native workspace path
+  *   as a literal base while the glob uses VS Code's pattern semantics.
+  *   Filesystem separators and metacharacters in the base are not interpreted
+  *   as part of a combined glob string.
   *
   * @evidenceExclude contracts/performance.md#efficient-algorithms
   *   RelativePatternConstructor is a type definition with no computation to

@@ -24,9 +24,10 @@
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
   *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   ServerLaunchCommand only describes values and opens no file, path or
-  *   process.
+  * @evidence contracts/portability.md#os-neutral-implementation
+  *   command and args represent Node, native executables or the Windows
+  *   command processor. Shim environment and verbatim arguments travel
+  *   together so prequoted cmd payloads are not escaped as ordinary arguments.
   *
   * @evidenceExclude contracts/performance.md#efficient-algorithms
   *   ServerLaunchCommand is a type definition with no computation to cost.

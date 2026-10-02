@@ -24,9 +24,11 @@
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
   *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   ResolutionCandidate only describes values and opens no file, path or
-  *   process.
+  * @evidence contracts/portability.md#os-neutral-implementation
+  *   resolveFrom, cwd and optional tsconfig carry native filesystem paths,
+  *   separating Node package resolution from the server working directory.
+  *   The record preserves path spelling; the owning planner observes physical
+  *   identity rather than inferring equivalence from OS names or letter case.
   *
   * @evidenceExclude contracts/performance.md#efficient-algorithms
   *   ResolutionCandidate is a type definition with no computation to cost.

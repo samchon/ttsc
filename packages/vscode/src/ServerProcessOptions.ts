@@ -24,9 +24,11 @@
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
   *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   ServerProcessOptions only describes values and opens no file, path or
-  *   process.
+  * @evidence contracts/portability.md#os-neutral-implementation
+  *   cwd carries a native working directory and env carries Node's inherited
+  *   environment. The optional verbatim flag distinguishes prequoted Windows
+  *   command-shim payloads from argument vectors escaped by Node; it does not
+  *   infer filesystem case policy from the host OS.
   *
   * @evidenceExclude contracts/performance.md#efficient-algorithms
   *   ServerProcessOptions is a type definition with no computation to cost.
