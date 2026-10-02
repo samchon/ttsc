@@ -55,25 +55,22 @@ import "strings"
 // convention of indenting relative to the surrounding line's left
 // edge.
 //
-// Asymmetry on the first line: the engine never emits an indent for
-// the first character of the printed output. The first line uses
-// `StartingColumn` only — fit measurement charges it, but
-// `writeIndent` is not called. Every newline after that emits
-// `BaseIndent` plus any nested `Indent` contributions, which is what
-// makes the close brace of a reflowed list land at `BaseIndent`
-// while its children sit at `BaseIndent + indentUnit`.
+// The first printed character receives no generated indentation;
+// StartingColumn only charges fit measurement. Subsequent indented newlines
+// use BaseIndent plus nested Indent increments, unless Align replaces the
+// target with the current column. Literal lines intentionally emit no indent.
 //
-// TrailingComma mirrors Prettier's `trailingComma` setting and controls
-// which broken-list shapes the printer emits a trailing comma on:
+// TrailingComma selects the generated comma policy for supported node lists:
 //
-//   - "all"  (default)  every multi-line list gets one.
-//   - "es5"             arrays, objects, named imports / exports get one;
-//     call arguments, parameter lists, and type-level
-//     lists do not — those positions accepted trailing
-//     commas only in ES2017+, so es5 mode skips them
-//     to match Prettier and avoid oscillating against
-//     the formatter on every cascade pass.
-//   - "none"            no list gets one.
+//   - all (default) permits commas in supported broken lists where grammar
+//     allows them, including ordinary call and new arguments.
+//   - es5 permits them in supported arrays, objects and named imports/exports,
+//     but excludes call/new arguments.
+//   - none suppresses generated trailing commas.
+//
+// Node printers retain grammar-specific exclusions, including dynamic import
+// and rest assignment targets. This field is not a promise to reprint every
+// TypeScript list grammar or an exact replica of Prettier's es5 scope.
 //
 // An empty string is treated as "all", which keeps `DefaultPrintOptions()`
 // callers and tests that pre-date this field on their original behavior.
@@ -112,10 +109,10 @@ type PrintOptions struct {
   BaseIndent     int
 }
 
-// DefaultPrintOptions returns the Prettier defaults: 80-column lines,
-// 2-space indentation, LF line terminators, trailing commas on every
-// multi-line list (the `trailingComma: "all"` default Prettier adopted
-// in v3).
+// DefaultPrintOptions returns Prettier-aligned defaults: preferred width 80,
+// two-space indentation, LF generated breaks and trailingComma all, Prettier's
+// default since v3. Actual comma generation remains bounded by supported node
+// grammars and their exclusions.
 //
 // @evidence contracts/common.md#principled-implementation The returned values instantiate the documented Prettier-aligned layout policy without changing the caller's source geometry.
 // @evidence contracts/common.md#clear-and-simple-design One constructor centralizes defaults shared by context creation and rendering.
