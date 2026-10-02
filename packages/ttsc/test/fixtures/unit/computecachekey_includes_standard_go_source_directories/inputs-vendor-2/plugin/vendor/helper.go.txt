@@ -1,0 +1,2 @@
+package vendor
+const Value = 2

@@ -27,9 +27,17 @@ import {
  */
 export function test_computecachekey_includes_linked_contributor_sources_order_stably() {
   const root = TestProject.tmpdir("ttsc-source-cache-");
-  const host = writeGoPackage(root, "host", "main", "const Host = 1\n");
-  const left = writeGoPackage(root, "left", "left", "const Value = 1\n");
-  const right = writeGoPackage(root, "right", "right", "const Value = 2\n");
+  const fixture = path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "computecachekey_includes_linked_contributor_sources_order_stably");
+  TestProject.copyDirectory(path.join(fixture, "inputs-1"), root);
+  for (const [name, packageName, body] of [["host", "main", "const Host = 1\n"], ["left", "left", "const Value = 1\n"], ["right", "right", "const Value = 2\n"]] as const) {
+    const dir = path.join(root, name);
+    fs.renameSync(path.join(dir, "value.go.txt"), path.join(dir, "value.go"));
+    assert.equal(fs.readFileSync(path.join(dir, "go.mod"), "utf8"), `module example.com/${name}\n\ngo 1.26\n`);
+    assert.equal(fs.readFileSync(path.join(dir, "value.go"), "utf8"), `package ${packageName}\n${body}`);
+  }
+  const host = path.join(root, "host");
+  const left = path.join(root, "left");
+  const right = path.join(root, "right");
 
   const first = computeCacheKey({
     contributors: [
@@ -38,6 +46,7 @@ export function test_computecachekey_includes_linked_contributor_sources_order_s
     ],
     dir: host,
     entry: ".",
+    env: {},
     ttscVersion: "1.0.0",
     tsgoVersion: "7.0.0-dev",
   });
@@ -48,16 +57,14 @@ export function test_computecachekey_includes_linked_contributor_sources_order_s
     ],
     dir: host,
     entry: ".",
+    env: {},
     ttscVersion: "1.0.0",
     tsgoVersion: "7.0.0-dev",
   });
   assert.equal(reordered, first);
 
-  fs.writeFileSync(
-    path.join(right, "value.go"),
-    "package right\nconst Value = 3\n",
-    "utf8",
-  );
+  fs.copyFileSync(path.join(fixture, "inputs-2", "right", "value.go.txt"), path.join(right, "value.go"));
+  assert.equal(fs.readFileSync(path.join(right, "value.go"), "utf8"), "package right\nconst Value = 3\n");
   const changed = computeCacheKey({
     contributors: [
       { name: "left", source: left },
@@ -65,29 +72,9 @@ export function test_computecachekey_includes_linked_contributor_sources_order_s
     ],
     dir: host,
     entry: ".",
+    env: {},
     ttscVersion: "1.0.0",
     tsgoVersion: "7.0.0-dev",
   });
   assert.notEqual(changed, first);
-};
-
-function writeGoPackage(
-root: string,
-dirName: string,
-packageName: string,
-body: string,
-): string {
-const dir = path.join(root, dirName);
-fs.mkdirSync(dir, { recursive: true });
-fs.writeFileSync(
-  path.join(dir, "go.mod"),
-  `module example.com/${dirName}\n\ngo 1.26\n`,
-  "utf8",
-);
-fs.writeFileSync(
-  path.join(dir, "value.go"),
-  `package ${packageName}\n${body}`,
-  "utf8",
-);
-return dir;
 }

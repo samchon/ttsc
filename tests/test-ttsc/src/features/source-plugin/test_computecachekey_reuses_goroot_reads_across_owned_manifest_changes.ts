@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { computeCacheKey } from "../../../../../packages/ttsc/src/plugin/internal/source/computeCacheKey";
 import { ensureExecutableGoToolchain } from "../../../../../packages/ttsc/src/plugin/internal/source/ensureExecutableGoToolchain";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
  * Verifies SDK byte-reading reuse follows the actual selected file manifest.
@@ -23,6 +24,10 @@ export function test_computecachekey_reuses_goroot_reads_across_owned_manifest_c
     fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-goroot-read-reuse-")),
   );
   try {
+    const fixture = path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "computecachekey_reuses_goroot_reads_across_owned_manifest_changes");
+    TestProject.copyDirectory(path.join(fixture, "inputs-1"), root);
+    for (const relative of ["plugin/main.go", "go-root/src/fmt/print.go", "go-root/src/runtime/runtime.go"])
+      fs.renameSync(path.join(root, `${relative}.txt`), path.join(root, relative));
     const plugin = path.join(root, "plugin");
     const sdk = path.join(root, "go-root");
     const sourceFile = path.join(sdk, "src", "fmt", "print.go");
@@ -43,7 +48,8 @@ export function test_computecachekey_reuses_goroot_reads_across_owned_manifest_c
     ]);
     for (const [file, bytes] of authored) {
       fs.mkdirSync(path.dirname(file), { recursive: true });
-      fs.writeFileSync(file, bytes);
+      if (!file.endsWith(".go") && file !== path.join(plugin, "go.mod")) fs.writeFileSync(file, bytes);
+      assert.equal(fs.readFileSync(file, "utf8"), bytes);
     }
     // Establish permission repair's final state before the cold reading. A
     // repeated repair must not dirty the SDK manifest it has already repaired.
@@ -105,10 +111,15 @@ export function test_computecachekey_reuses_goroot_reads_across_owned_manifest_c
     for (const [name, mutate] of [
       [
         "content edit",
-        () =>
-          fs.writeFileSync(sourceFile, 'package fmt\nconst marker = "bravo"\n'),
+        () => {
+          fs.copyFileSync(path.join(fixture, "inputs-2", "go-root", "src", "fmt", "print.go.txt"), sourceFile);
+          assert.equal(fs.readFileSync(sourceFile, "utf8"), 'package fmt\nconst marker = "bravo"\n');
+        },
       ],
-      ["file addition", () => fs.writeFileSync(added, "package fmt\n")],
+      ["file addition", () => {
+        fs.copyFileSync(path.join(fixture, "inputs-3", "go-root", "src", "fmt", "added.go.txt"), added);
+        assert.equal(fs.readFileSync(added, "utf8"), "package fmt\n");
+      }],
       ["file rename", () => fs.renameSync(added, renamed)],
       ["file deletion", () => fs.unlinkSync(renamed)],
     ] as const) {
