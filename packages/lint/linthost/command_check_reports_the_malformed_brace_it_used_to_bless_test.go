@@ -5,14 +5,13 @@ import (
   "testing"
 )
 
-// TestCommandCheckReportsTheMalformedBraceItUsedToBless pins the second
-// invariant #856 states: `ttsc check` must not call a formatting state clean
-// that `ttsc format` would not produce.
+// TestCommandCheckReportsTheMalformedBraceItUsedToBless verifies that check
+// reports closing braces stranded after return statements in a multiline block.
 //
-// While the stranded brace had no owner, the mangled form was `ttsc format`'s
-// own fixed point, so `check` with `format.severity: "error"` exited 0 on it —
-// a CI job that ran `format` then `check` stayed green on a malformed tree.
-// Now that a rule owns the brace, the same input is a finding.
+// The authored source needs brace layout repair. Enabling format severity error
+// must produce a failing check and name format/indent in stderr. This test does
+// not compare fixed output, diagnostic count or locations; the brace restoration
+// and negative-twins format units own those complementary layout outcomes.
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `check` command over a project whose source has two closing braces stranded after `return` statements, with format.severity set to error, and asserts a non-zero exit code and a stderr report that names format/indent.
 // @evidence contracts/testing.md#independent-expectations The malformed source is an authored literal and the expectation (failure naming format/indent) comes from the stated contract that check must not call clean a tree format would repair; no output is derived from the implementation.
