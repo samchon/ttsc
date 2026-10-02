@@ -9,13 +9,15 @@ import { referenceLinuxWatchHelper } from "./referenceLinuxWatchHelper";
  * sync's answer arrives after every event read before it. The decision is a
  * table over what the line carries:
  *
- * - A malformed line, or one naming no live subscription or sync, is ignored.
+ * - Invalid JSON or a non-object value is ignored. Parsed objects mark output
+ *   receipt for startup policy; an unknown id invokes no owner callback.
  * - `overflow` means the kernel dropped events, so every subscription hears an
  *   unattributed event, which may concern anything it covers.
  * - `synced` releases the sync waiting on that id.
  * - `ready` makes a subscription live, and `error` refuses it.
  * - `gone` ends a subscription whose directory went away.
- * - Any other line is one named event, `change` or `rename`.
+ * - Another line with a live subscription id and string name is one named
+ *   event. Only an explicit `change` type is content; other types are `rename`.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Parsed protocol discriminants route live ids; overflow retains unknown
@@ -33,7 +35,7 @@ import { referenceLinuxWatchHelper } from "./referenceLinuxWatchHelper";
  *   OS-neutral owners receive callback semantics while Linux-specific JSON
  *   framing and overflow translation remain in this native transport boundary.
  * @evidence contracts/performance.md#bound-retention-and-release-resources It ends a subscription the helper reports gone or refused, and keeps no state of its own.
- * @evidence contracts/performance.md#efficient-algorithms One JSON parse and a table decision per line, with an overflow visiting each live subscription once.
+ * @evidence contracts/performance.md#efficient-algorithms Parsing and temporary decoded fields follow line text length. Ordinary routing uses expected-constant id-map lookup; overflow snapshots S live subscriptions and invokes each once, using O(S) temporary references. Owner callbacks retain their own classification/lifecycle cost. Without overflow, retired or malformed ids do not trigger a population scan.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A line is an event delivered once; there is no computation to share.
  */
 export function routeLinuxWatchHelperLine(
