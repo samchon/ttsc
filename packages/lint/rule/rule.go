@@ -327,7 +327,8 @@ type TypeAwareRule interface {
 // with the original public Context.Options contract. Return false for a
 // genuinely optionless rule so the host can reject accidental payloads before
 // linting. The domain-specific method name prevents an unrelated generic
-// AcceptsOptions method on an existing contributor from opting in by accident.
+// AcceptsOptions method on an existing contributor from changing its options
+// acceptance by accident.
 // ProjectRule implementations may use the same marker.
 //
 // @evidence contracts/common.md#principled-implementation The marker distinguishes a genuine options slot from an optionless rule so the host rejects unsupported payloads before checking.
