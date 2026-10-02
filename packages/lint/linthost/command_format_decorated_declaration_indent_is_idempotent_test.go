@@ -6,8 +6,8 @@ import (
   "testing"
 )
 
-// TestCommandFormatDecoratedDeclarationIndentIsIdempotent verifies the FIX C
-// decorated-declaration re-indent is a fixed point: an already-correct
+// TestCommandFormatDecoratedDeclarationIndentIsIdempotent verifies that
+// decorated-declaration indentation is a fixed point: an already-correct
 // decorated nested class declaration is left byte-for-byte unchanged, and a
 // second `ttsc format` pass produces the identical result (format twice ==
 // once). ttsc-only self-check.
@@ -23,7 +23,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command (semi false) twice on a function containing an already-indented `@Dec` decorated nested class and asserts each pass exits 0 and leaves the file byte-identical.
 // @evidence contracts/testing.md#independent-expectations The canonical decorated layout is an authored literal and is its own expected output on both passes; nothing is computed from formatter output.
-// @evidence contracts/testing.md#distinguishing-cases Only the unchanged case: it pins that the decorated-declaration re-indent is a no-op on correct input across two passes. Cases that must change (flat decorated declarations) are owned by the restores-from-flat tests.
+// @evidence contracts/testing.md#distinguishing-cases Only the unchanged case: both calls preserve the complete correct source. TestCommandFormatRestoresDecoratedNestedClassIndentFromFlat owns the contrasting flat nested-class input; this entry does not establish that transformation.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand twice against a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatDecoratedDeclarationIndentIsIdempotent(t *testing.T) {
   canonical := "function f() {\n" +
