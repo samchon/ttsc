@@ -2,8 +2,8 @@ import type { TtscTurbopackLoaderOptions } from "./TtscTurbopackLoaderOptions";
 
 /**
  * Subset of the webpack loader context Turbopack provides to loaders wired
- * through `turbopack.rules`. Turbopack has no JS plugin API, but it runs
- * webpack-compatible loaders: source string in, source string out, with
+ * through `turbopack.rules`. The adapter uses the webpack-compatible loader
+ * boundary: source string in, source string out, with
  * `async()` for asynchronous completion and `getOptions()` for the rule's
  * `options` object.
  *
@@ -18,9 +18,11 @@ import type { TtscTurbopackLoaderOptions } from "./TtscTurbopackLoaderOptions";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain asynchronous completion and optional capability
  *   effects; spaced members and tag separation follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   TtscTurbopackLoaderContext only declares a shape; it has no filesystem,
- *   path or process operation at runtime.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   resourcePath carries the host's absolute native module path, independently
+ *   of its query; rootContext carries the native bundler scope or is absent for
+ *   the adapter's cwd fallback. addDependency accepts native file spellings.
+ *   These fields define the boundary without imposing a separator or case rule.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
  *   TtscTurbopackLoaderContext only declares a shape; it has no computation
  *   at runtime.
@@ -61,7 +63,7 @@ export interface TtscTurbopackLoaderContext {
    */
   async(): (error?: unknown, content?: string, sourceMap?: object) => void;
 
-  /** Absolute path of the module being loaded. */
+  /** Absolute native module path; a query is separate, so ?/# here are literal. */
   resourcePath: string;
 
   /**
@@ -102,8 +104,8 @@ export interface TtscTurbopackLoaderContext {
    * Register an additional file the transformed module depends on. Part of the
    * webpack loader context contract Turbopack implements; a registered file
    * enters Turbopack's `fileDependencies` set so editing it re-runs this loader
-   * for the owning module. Optional so a minimal stub context (or a Turbopack
-   * build that predates the method) still loads.
+   * for the owning module under the host's dependency contract. When the host
+   * omits this capability, the adapter cannot install that dependency hook.
    *
    * @evidence contracts/common.md#principled-implementation
    *   Registering a file associates the module with that dependency's state;
@@ -115,9 +117,10 @@ export interface TtscTurbopackLoaderContext {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native prose explains re-run effects and optional capability, with tag/member
    *   spacing following the documentation skill.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation
-   *   Only the signature of addDependency is declared here; the platform
-   *   behaviour belongs to its implementation.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   The file parameter is a native dependency spelling supplied to the host,
+   *   not a URL or query-qualified module ID. The signature preserves that
+   *   boundary; resolution, identity and watch capability remain host-owned.
    * @evidenceExclude contracts/performance.md#efficient-algorithms
    *   Only the signature of addDependency is declared here; the cost belongs to
    *   its implementation.
@@ -133,8 +136,8 @@ export interface TtscTurbopackLoaderContext {
   /**
    * Toggle result cacheability. Part of the webpack loader context contract;
    * called with `false` when the ttsc plugin declared the module volatile
-   * (output depends on non-file inputs), so the bundler never replays a cached
-   * result for it. Optional so a minimal stub context still loads.
+   * (output depends on non-file inputs), requesting that the host not replay
+   * this loader result. When absent, that cacheability hook is unavailable.
    *
    * @evidence contracts/common.md#principled-implementation
    *   A boolean communicates whether host result replay is permitted, including
@@ -165,9 +168,9 @@ export interface TtscTurbopackLoaderContext {
   /**
    * Report an error for the module without failing the loader run. Part of the
    * webpack loader context contract, which Turbopack's loader runtime provides.
-   * A development session delivers a failed compile through it (see
-   * `turbopack`), since Turbopack discards a worker whose loader run failed.
-   * Optional so a minimal stub context still loads.
+   * The adapter uses it for a development compile failure before completing
+   * with failed module source (see `turbopack`). Without it, that failure goes
+   * through the asynchronous completion callback instead.
    *
    * @evidence contracts/common.md#principled-implementation
    *   An Error travels through the host's diagnostic channel separately from
@@ -177,7 +180,7 @@ export interface TtscTurbopackLoaderContext {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts
    *   The host receives the actual failure through its supported diagnostic API.
    * @evidence contracts/common.md#meaningful-documentation
-   *   Native paragraphs explain worker-discard behavior and optionality, with
+   *   Native paragraphs explain diagnostic/completion separation and absence, with
    *   blank tag/member separators following documentation guidance.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation
    *   Only the signature of emitError is declared here; the platform behaviour
