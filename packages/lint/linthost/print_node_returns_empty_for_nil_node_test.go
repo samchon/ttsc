@@ -3,7 +3,7 @@ package linthost
 import "testing"
 
 // TestPrintNodeReturnsEmptyForNilNode verifies that PrintNode returns a
-// zero Doc and covered=true when the supplied node pointer is nil.
+// no-op Doc and covered=true when the supplied node pointer is nil.
 //
 // The nil guard is the first statement in PrintNode. Without it, the
 // dispatcher would dereference a nil pointer to read node.Kind and panic.
@@ -12,7 +12,7 @@ import "testing"
 //
 //  1. Parse any valid TypeScript source so a PrintContext is available.
 //  2. Call PrintNode with a nil node.
-//  3. Assert both returns: Doc{} (zero value) and covered == true.
+//  3. Assert the no-op discriminant and covered == true.
 //
 // @evidence contracts/testing.md#behavioral-verification PrintNode must return a no-op Doc and covered true for an absent node.
 // @evidence contracts/testing.md#independent-expectations An absent subtree contributes no bytes and contains no unsupported multiline content, independently establishing both outputs.

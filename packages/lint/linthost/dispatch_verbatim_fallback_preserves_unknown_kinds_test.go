@@ -10,12 +10,9 @@ import (
 // dispatcher returns the original source bytes when no per-node
 // printer is registered for the encountered kind.
 //
-// Verbatim fallback is the safety net for the partial-coverage v1 of
-// `format/print-width`: a rule that ever lost bytes when encountering
-// an un-handled shape would be unfit for `ttsc format`. The case
-// passes a TypeScript-only node kind the dispatcher does not handle
-// (TypeAliasDeclaration) and asserts the rendered output equals the
-// trivia-trimmed original.
+// A TypeAliasDeclaration has no structured printer here. Its literal source
+// declaration must survive dispatch and rendering without reconstruction.
+// This case checks fallback bytes; it does not assert the coverage flag.
 //
 //  1. Parse `type Alias = number;`.
 //  2. Grab the TypeAliasDeclaration node.

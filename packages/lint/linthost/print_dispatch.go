@@ -82,26 +82,26 @@ func NewPrintContext(file *shimast.SourceFile, opts PrintOptions) *PrintContext 
 }
 
 // PrintNode is the dispatcher entry. It picks a per-node printer based
-// on `node.Kind` and falls back to the verbatim source slice when no
+// on `node.Kind` and falls back to the leading-trivia-trimmed source slice when no
 // printer is registered. Returns the printed Doc and a `covered`
 // boolean: `true` when the whole printed subtree is reflow-safe,
 // `false` when a multi-line verbatim node is buried inside it.
 //
 // The formatPrintWidth rule consults `covered` to decide whether to
-// emit an edit at all — see the coverage-signal note at the top of this
+// emit an edit at all; see the coverage-signal note at the top of this
 // file. A `false` reading is a hard abstain, not a soft hint.
 //
 // A nonnil node requires a nonnil context for that node's source file. A nil
 // node contributes an empty Doc and is covered.
 //
-// @evidence contracts/common.md#principled-implementation Supported node printers return a layout plus coverage; unsupported nodes preserve original bytes and mark multiline verbatim subtrees unsafe for surrounding reflow.
+// @evidence contracts/common.md#principled-implementation Supported node printers return a layout plus coverage; unsupported nodes retain their trivia-trimmed source slice and classify its multiline boundary. The selected printer owns recursive coverage propagation.
 // @evidence contracts/common.md#clear-and-simple-design One dispatcher owns grammar selection and one fallback retains unknown syntax without duplicating per-node policies.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Verbatim fallback is the supported partial-printer boundary, not an invented replacement for unknown grammar; the false coverage signal prevents applying an incomplete rewrite.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains partial grammar coverage, byte-preserving fallback and abstention; paragraphs and tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation PrintNode performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms PrintNode has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work PrintNode keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources PrintNode acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper selects a grammar branch but delegates the subtree algorithm, scans and Doc allocation to its printer. Fallback scans leading trivia twice and checks the remaining node slice for newlines; that cost grows with trivia and range bytes, so a loop-free wrapper does not certify fixed total work.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Dispatch owns no cross-request cache or coordinator. Context source/options and mutable AST/backing-storage identity determine valid Doc/coverage reuse; the caller establishes equivalence rather than this wrapper memoizing by node pointer.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned Doc may own printer-created child slices and keep original source string backing storage reachable through verbatim substrings. The caller owns resulting tree lifetime and printing immutability; selected printers establish child storage sharing. Dispatch keeps no historical Doc cache, handle or running task.
 func PrintNode(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if node == nil {
     return Doc{}, true
