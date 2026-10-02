@@ -425,11 +425,11 @@ export namespace BuildExecution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The caught resolution failure is legitimate only for commands not requiring a project; ordinary compilation failures do not enter this bypass.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain project-independent commands, existing-project behavior and null applicability; the catch comment states its deliberate broad premise.
    * @evidence contracts/portability.md#os-neutral-implementation Invocation cwd is resolved natively and spawnNative receives executable/argv separately with platform-aware environment merging.
-   * @evidence contracts/performance.md#efficient-algorithms Nonapplicable flag selection exits before config IO; an applicable lane performs one project probe and one selected compiler command.
+   * @evidence contracts/performance.md#efficient-algorithms Flag selection scans forwarded argument/name text before config IO. An applicable lane includes native cwd/config resolution, binary and runtime capability lookup, argv/env composition, complete captured output and diagnostic normalization; one requested command does not bound its native duration or output bytes.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A project probe and effectful terminal invocation establish no retained or shared cross-request result.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The synchronous terminal process completes before normalization and no process or project probe state is retained.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Returned output and diagnostics transfer to the caller without retaining a child handle or config history here. No timeout or output ceiling is supplied; delegated native capture/probe cleanup may be best effort and does not certify descendant release.
    */
   export function runProjectFreeTerminalFlag(
     options: RunBuildOptions,
@@ -908,13 +908,16 @@ export namespace BuildExecution {
    * Retain emitted-file metadata while displaying only user-selected listing.
    * The caller supplies the original effective option before internally added
    * reporting flags. Status, diagnostics and other producer facts are preserved.
+   * The supported tsgo producer reports absolute emitted paths. When listing
+   * is hidden, remaining stdout uses LF separators and loses trailing newlines;
+   * this transformation does not preserve every original output byte.
    *
    * @evidence contracts/common.md#principled-implementation TSFILE lines establish reported emitted files, while the original effective boolean alone owns their user-visible display; internal reporting does not enable the user's option.
    * @evidence contracts/common.md#clear-and-simple-design One pure operation separates metadata collection from display and is shared by the actual direct compiler build path.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No producer status or diagnostic is replaced, and option presence is not substituted for the effective config and ordered assignment value.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains original option ownership, internally added reporting and retained producer facts.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation This stream calculation acquires no native capability; compiler spawning and path representation remain with their existing owners.
-   * @evidence contracts/performance.md#efficient-algorithms Parsing and optional stripping each scan the captured output once; time and transient text/path storage are linear in the output bytes.
+   * @evidence contracts/portability.md#os-neutral-implementation Reported paths are interpreted with native path.resolve, not URL or inode identity. The supported tsgo TSFILE producer supplies normalized absolute paths from its Program cwd; relative malformed reports would instead use this process cwd and are not certified by that protocol. No filesystem capability or existence is queried here.
+   * @evidence contracts/performance.md#efficient-algorithms Parsing and optional stripping each scan complete captured output, with native path normalization for matched records, result property copying and intermediate line/path arrays. Processing and transient text/path storage follow output and reported path bytes; there is no output-size ceiling here.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each completed producer result has its own bytes and requested display value; no history or shared computation is retained.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The copied result and emitted-file array transfer to the caller without retaining a process or handle.
    */
