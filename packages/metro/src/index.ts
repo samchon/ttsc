@@ -35,18 +35,14 @@ import { fileURLToPath } from "node:url";
 import { createFilesystemPathIdentityContext } from "ttsc/path-identity";
 
 import { prepareSnapshot } from "./core/fingerprint";
-import type {
-  ResolvedTtscMetroOptions as ResolvedTtscMetroOptionsDeclaration,
-  TtscMetroOptions as TtscMetroOptionsDeclaration,
-} from "./core/TtscMetroOptions";
+import type { TtscMetroOptions } from "./core/TtscMetroOptions";
 import { ENV_KEY, serializeOptions } from "./core/options";
 import { locateProjectUpstreamTransformer } from "./core/upstream";
 
-/** Options accepted by {@link withTtsc}; see the interface it names. */
-export type TtscMetroOptions = TtscMetroOptionsDeclaration;
-
-/** Options after the worker resolves them; see the interface it names. */
-export type ResolvedTtscMetroOptions = ResolvedTtscMetroOptionsDeclaration;
+export type {
+  ResolvedTtscMetroOptions,
+  TtscMetroOptions,
+} from "./core/TtscMetroOptions";
 
 /**
  * Minimal structural type for a Metro config object, avoids a hard dependency
@@ -120,6 +116,15 @@ interface MetroConfigLike {
  *   documentation skill: separate paragraphs state the contract and why its
  *   nonobvious boundary matters; field comments retain their own useful
  *   facts.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   The compaction lock it takes is released in prepareSnapshot's finally block and the session store is owned by its opener; withTtsc retains no handle itself.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   Constant work per call besides the snapshot preparation that prepareSnapshot owns.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   Runs once per Metro config load; the snapshot and compile session it opens are what the workers share.
  */
 export function withTtsc<T extends MetroConfigLike>(
   config: T,

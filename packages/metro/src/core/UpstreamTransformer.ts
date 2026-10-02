@@ -26,6 +26,18 @@
  *   callback including forwarded arguments. Checked against the documentation
  *   skill: separate paragraphs state the contract and why its nonobvious
  *   boundary matters; field comments retain their own useful facts.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   Declares a shape only; it holds no state, handle or buffer.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   Declares a shape only; there is no loop or processing in it.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   Declares a shape only; it computes nothing to share.
+  *
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation
+  *   Describes the callbacks of a Babel transformer; it names no path or process.
  */
 export interface UpstreamTransformer {
   /**
@@ -54,6 +66,17 @@ export interface UpstreamTransformer {
    *   separate paragraphs state the contract and why its nonobvious boundary
    *   matters; field comments retain their own useful facts.
    *
+    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+    *   Declares a shape only; it holds no state, handle or buffer.
+    *
+    * @evidenceExclude contracts/performance.md#efficient-algorithms
+    *   Declares a shape only; there is no loop or processing in it.
+    *
+    * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+    *   Declares a shape only; it computes nothing to share.
+    *
+    * @evidenceExclude contracts/portability.md#os-neutral-implementation
+    *   The filename is Metro's own string, passed through to Babel unchanged.
    */
   transform(params: {
     src: string;
@@ -87,6 +110,17 @@ export interface UpstreamTransformer {
    *   separate paragraphs state the contract and why its nonobvious boundary
    *   matters; field comments retain their own useful facts.
    *
+    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+    *   Declares a shape only; it holds no state, handle or buffer.
+    *
+    * @evidenceExclude contracts/performance.md#efficient-algorithms
+    *   Declares a shape only; there is no loop or processing in it.
+    *
+    * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+    *   Declares a shape only; it computes nothing to share.
+    *
+    * @evidenceExclude contracts/portability.md#os-neutral-implementation
+    *   Metro's arguments are forwarded unchanged; no path is interpreted here.
    */
   getCacheKey?: (...args: unknown[]) => string;
 }

@@ -17,6 +17,18 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   The native JSDoc states why the boundary exists and that production uses
  *   the real filesystem.
+  *
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+  *   Declares a shape only; it holds no state, handle or buffer.
+  *
+  * @evidenceExclude contracts/performance.md#efficient-algorithms
+  *   Declares a shape only; there is no loop or processing in it.
+  *
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+  *   Declares a shape only; it computes nothing to share.
+  *
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation
+  *   Declares three call signatures; the host filesystem interprets every path it is given.
  */
 export interface SnapshotReadOperations {
   /**
@@ -33,6 +45,18 @@ export interface SnapshotReadOperations {
    *
    * @evidence contracts/common.md#meaningful-documentation
    *   States which read this member stands for.
+    *
+    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+    *   Declares a shape only; it holds no state, handle or buffer.
+    *
+    * @evidenceExclude contracts/performance.md#efficient-algorithms
+    *   Declares a shape only; there is no loop or processing in it.
+    *
+    * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+    *   Declares a shape only; it computes nothing to share.
+    *
+    * @evidenceExclude contracts/portability.md#os-neutral-implementation
+    *   Forwards its path to the host call unchanged; no path is interpreted here.
    */
   existsSync: (file: string) => boolean;
 
@@ -50,6 +74,18 @@ export interface SnapshotReadOperations {
    *
    * @evidence contracts/common.md#meaningful-documentation
    *   States which read this member stands for.
+    *
+    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+    *   Declares a shape only; it holds no state, handle or buffer.
+    *
+    * @evidenceExclude contracts/performance.md#efficient-algorithms
+    *   Declares a shape only; there is no loop or processing in it.
+    *
+    * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+    *   Declares a shape only; it computes nothing to share.
+    *
+    * @evidenceExclude contracts/portability.md#os-neutral-implementation
+    *   Forwards its path to the host call unchanged; no path is interpreted here.
    */
   readFileSync: (file: string, encoding: "utf8") => string;
 
@@ -67,6 +103,18 @@ export interface SnapshotReadOperations {
    *
    * @evidence contracts/common.md#meaningful-documentation
    *   States which read this member stands for.
+    *
+    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+    *   Declares a shape only; it holds no state, handle or buffer.
+    *
+    * @evidenceExclude contracts/performance.md#efficient-algorithms
+    *   Declares a shape only; there is no loop or processing in it.
+    *
+    * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+    *   Declares a shape only; it computes nothing to share.
+    *
+    * @evidenceExclude contracts/portability.md#os-neutral-implementation
+    *   Forwards its directory to the host call unchanged; no path is interpreted here.
    */
   readdirSync: (directory: string) => string[];
 }
