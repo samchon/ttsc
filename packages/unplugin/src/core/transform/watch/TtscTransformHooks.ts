@@ -26,11 +26,13 @@ export interface TtscTransformHooks {
    * `F`: the plugin-reported `dependencies[F]` list unioned with the host-owned
    * reference graph's contribution — the reachability closure of `graph.edges`
    * from `F`, the `graph.globals` files, the `graph.configs` chain, importer
-   * `graph.candidates`, and universal `graph.resolutionInputs`. For a file the
-   * envelope declared `dependenciesComplete`, only `dependencies[F]`,
-   * `graph.candidates`, `graph.resolutionInputs`, and the universal
-   * `graph.configs` chain remain. See `selectWatchInputs` for the exact
-   * derivation.
+   * `graph.candidates`, and universal `graph.resolutionInputs`, together with
+   * the universal host inputs and plugin source directories. For a file the
+   * envelope declared `dependenciesComplete`, the reachability closure and
+   * `graph.globals` are dropped; `dependencies[F]`, importer
+   * `graph.candidates`, `graph.resolutionInputs`, the universal host inputs,
+   * the plugin source directories and the universal `graph.configs` chain
+   * remain. See `selectWatchInputs` for the exact derivation.
    */
   addWatchFile?: TtscAddWatchFile;
 

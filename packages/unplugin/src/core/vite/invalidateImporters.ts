@@ -34,8 +34,11 @@ export function invalidateImporters(
           graph.invalidateModule?.(node);
         } catch {
           // A graph shape this structural view mispredicts must not crash the
-          // poll; the full-reload below still forces a refetch, and the
-          // transform cache's external-input hashes force the recompile.
+          // poll. As the fallback of `reloadImporters` the full reload sent
+          // after this still forces a refetch. On a membership-only
+          // invalidation nothing follows, so an importer whose node failed to
+          // invalidate keeps Vite's cached transform until something else
+          // invalidates it.
         }
       }
     }

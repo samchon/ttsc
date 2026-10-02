@@ -20,11 +20,12 @@ const DEFAULT_INCLUDE_SPEC = "**/*";
  * Read the membership policy the resolved tsconfig implies, following its
  * `extends` chain for every option the answer depends on.
  *
- * Root files follow TypeScript-Go's selection. `files` and `include` merge
- * across `extends` as {@link findDeclaredFileSpecs} resolves them, and a config
- * that declares neither gets the default include, every file below its own
- * directory, so tool output in package folders and hidden directories is never
- * mistaken for a program input (samchon/ttsc#1385).
+ * Root files follow TypeScript-Go's selection. `files` and `include` each
+ * resolve to one list across `extends` as {@link findDeclaredFileSpecs}
+ * decides, a declaring config replacing what it inherits rather than adding to
+ * it. A config that declares neither gets the default include, every file below
+ * its own directory, so tool output in package folders and hidden directories
+ * is never mistaken for a program input (samchon/ttsc#1385).
  *
  * `allowJs` and `resolveJsonModule` decide which extensions can enter the
  * program at all, so a `bundle.a1b2c3.js` emitted beside the sources is not a
