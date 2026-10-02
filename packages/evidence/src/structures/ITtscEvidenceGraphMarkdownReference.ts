@@ -14,6 +14,10 @@ import type { ITtscEvidenceGraphReferenceBase } from "./ITtscEvidenceGraphRefere
  * @evidence contracts/common.md#clear-and-simple-design Markdown population and checklist details stay together while ordinary reference policies remain inherited from the shared base.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Checklist mode explicitly rejects aggregate positive citations and incompatible cardinality policies instead of allowing one answer to impersonate every item's answer.
  * @evidence contracts/common.md#meaningful-documentation Separate property paragraphs explain rooted addresses, ordered glob selection, checklist denominator, exclusion behavior and policy incompatibilities without relying on these tags as instructions.
+* @evidence contracts/portability.md#os-neutral-implementation Root describes a stable native directory including links and junctions, while evidence addresses use root-relative protocol spelling; drive-relative paths are refused and graph identity does not guess host filesystem case rules.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no algorithm and performs no computation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration coordinates no computation across requests, so there is no result to share.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration owns no retained state, handle or running task.
  */
 export interface ITtscEvidenceGraphMarkdownReference extends ITtscEvidenceGraphReferenceBase<"markdown"> {
   /**

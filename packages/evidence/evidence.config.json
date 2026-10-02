@@ -2,26 +2,44 @@
   "severity": "error",
   "claims": [
     {
-      "name": "maintained TypeScript production declarations, except ambient module augmentations in src/typings (not analyzable by the adapter)",
+      "name": "maintained TypeScript production declarations",
       "type": "typescript",
       "files": [
-        "src/**/*.ts",
-        "!src/**/index.ts",
-        "!src/typings/**"
+        "src/**/*.ts"
       ],
       "symbol": [
         "type",
         "function"
       ],
-      "reference": {
-        "type": "markdown",
-        "files": [
-          "contracts/common.md"
-        ],
-        "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
-      }
+      "reference": [
+        {
+          "type": "markdown",
+          "files": [
+            "contracts/common.md"
+          ],
+          "symbol": "h2",
+          "checklist": true,
+          "root": "../../.agents/skills"
+        },
+        {
+          "type": "markdown",
+          "files": [
+            "contracts/portability.md"
+          ],
+          "symbol": "h2",
+          "checklist": true,
+          "root": "../../.agents/skills"
+        },
+        {
+          "type": "markdown",
+          "files": [
+            "contracts/performance.md"
+          ],
+          "symbol": "h2",
+          "checklist": true,
+          "root": "../../.agents/skills"
+        }
+      ]
     },
     {
       "name": "maintained Go production declarations",
@@ -34,15 +52,35 @@
         "type",
         "function"
       ],
-      "reference": {
-        "type": "markdown",
-        "files": [
-          "contracts/common.md"
-        ],
-        "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
-      }
+      "reference": [
+        {
+          "type": "markdown",
+          "files": [
+            "contracts/common.md"
+          ],
+          "symbol": "h2",
+          "checklist": true,
+          "root": "../../.agents/skills"
+        },
+        {
+          "type": "markdown",
+          "files": [
+            "contracts/portability.md"
+          ],
+          "symbol": "h2",
+          "checklist": true,
+          "root": "../../.agents/skills"
+        },
+        {
+          "type": "markdown",
+          "files": [
+            "contracts/performance.md"
+          ],
+          "symbol": "h2",
+          "checklist": true,
+          "root": "../../.agents/skills"
+        }
+      ]
     },
     {
       "name": "Go Evidence semantic units",

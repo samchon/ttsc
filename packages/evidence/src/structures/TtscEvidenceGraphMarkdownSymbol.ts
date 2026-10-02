@@ -34,6 +34,10 @@
  * @evidence contracts/common.md#clear-and-simple-design One shared outline vocabulary serves both declaration hosts and reference units without introducing a separate enum or parser-node facade.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unsupported heading forms and whitespace-containing source addresses are stated limitations rather than silently fabricated targets.
  * @evidence contracts/common.md#meaningful-documentation The comment gives supported headings, containment, anchor precedence, slug construction and address limitations in distinct paragraphs before the tags.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation This type lists Markdown unit kinds and names no path, file, filesystem or process.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no algorithm and performs no computation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration coordinates no computation across requests, so there is no result to share.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration owns no retained state, handle or running task.
  */
 export type TtscEvidenceGraphMarkdownSymbol =
   | "file"

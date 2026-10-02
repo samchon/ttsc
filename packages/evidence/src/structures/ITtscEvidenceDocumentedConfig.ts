@@ -19,6 +19,10 @@ import type { TtscEvidenceGraphTypeScriptSymbol } from "./TtscEvidenceGraphTypeS
  * @evidence contracts/common.md#clear-and-simple-design This rule has one selection option and reuses the shared symbol union rather than maintaining another vocabulary.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Selection is by declaration kind, with no consumer exceptions or prose-length trick presented as documentation quality.
  * @evidence contracts/common.md#meaningful-documentation The comment states that a block with text is the entire mechanical check, with an empty block reported separately, and explains the selector's default and cardinality separately from the acknowledgment tags.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation This type describes rule options and names no path, file, filesystem or process.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no algorithm and performs no computation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration coordinates no computation across requests, so there is no result to share.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration owns no retained state, handle or running task.
  */
 export interface ITtscEvidenceDocumentedConfig {
   /**

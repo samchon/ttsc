@@ -99,6 +99,10 @@
  * @evidence contracts/common.md#clear-and-simple-design A single literal union is shared by claims, references and documentation selection, avoiding divergent kind vocabularies across rules.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Classification follows declared syntax and public identity rather than guessing callable aliases with an unavailable checker or special-casing a consumer's declarations.
  * @evidence contracts/common.md#meaningful-documentation The native comment explains callable versus data classification, containment, export aliases, type-only visibility and exact addressing so users can select and cite contracts without inferring the parser.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation This type lists TypeScript unit kinds and names no path, file, filesystem or process.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no algorithm and performs no computation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration coordinates no computation across requests, so there is no result to share.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration owns no retained state, handle or running task.
  */
 export type TtscEvidenceGraphTypeScriptSymbol =
   | "type"
