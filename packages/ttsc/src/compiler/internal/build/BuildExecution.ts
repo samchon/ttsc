@@ -1022,9 +1022,9 @@ export namespace BuildExecution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unsupported hosts are not probed by guessed names, and invalid query output is rejected instead of silently dropping declared dependencies.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain dependency purpose, thrown query/validation failures and shared-root enforcement.
    * @evidence contracts/portability.md#os-neutral-implementation Native spawning preserves cwd/argv and the path classifier plus identity resolver distinguish valid native spelling from physical filesystem equality.
-   * @evidence contracts/performance.md#efficient-algorithms Selection is linear in plugins; each capable host runs once, and merging uses indexed identity/alias membership plus canonical sorting of contributed paths.
+   * @evidence contracts/performance.md#efficient-algorithms Selection scans P plugins; each capable check host runs once after argv/env publication and delegated runtime probes. Complete output read/JSON/path validation and identity resolution include native capability/ancestor lookup and path-text costs. Merging indexes identities/aliases and sorts unique plus declared spellings; native duration and report bytes are not capped here.
    * @evidence contracts/performance.md#reuse-equivalent-work A single merge identity context reuses repeated path resolution across hosts; each host query remains necessary because its rules may contribute distinct effect-dependent inputs.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Query processes complete synchronously; snapshots and identity memoization are scoped to discovery and the merged result transfers to the watch/cache owner.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Snapshots and identity memoization grow with contributed path/alias bytes during synchronous discovery; the result transfers to the watch/cache caller. No process timeout or report ceiling is supplied here. Native capture/probe cleanup remains delegated and may be best effort; returning a snapshot does not certify descendant release.
    */
   export function discoverNativeProjectInputs(
     options: TtscBuildOptions,
