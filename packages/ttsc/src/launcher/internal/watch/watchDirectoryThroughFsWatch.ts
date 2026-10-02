@@ -23,10 +23,10 @@ import type { DirectoryWatcher } from "./DirectoryWatcher";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs and parameters explain backend role, recursion and returned watch ownership following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Node owns native recursive-watch support and filename representation; this adapter preserves null names and converts present names through their native string boundary.
  *
- * @evidenceExclude contracts/performance.md#efficient-algorithms The native backend owns observation processing; this adapter only maps one event.
+ * @evidence contracts/performance.md#efficient-algorithms Subscription setup is delegated to the supplied native-compatible observer. Each callback selects one event category and converts present filename text through toString before invoking the listener; name-byte conversion and listener/native observer costs are not bounded by the fixed scalar mapping.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each requested subscription has its own listener and lifetime; registry sharing belongs to the selecting owner.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources One persistent FSWatcher is acquired and returned to the owner, which must close it on retirement, failure or shutdown.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The native default acquires one persistent FSWatcher; a supplied observer owns its corresponding subscription. The returned owner must close it on retirement, failure or shutdown. This adapter performs no close or release confirmation itself.
  */
 export function watchDirectoryThroughFsWatch(
   location: string,
