@@ -1153,13 +1153,15 @@ func ParseRules(raw any) (RuleConfig, error) {
 // contains entries for rules whose configuration carries option slots.
 // Keys retain their supplied spelling. Distinct keys for one canonical rule are
 // rejected, including duplicate aliases with equal severities or payloads.
+// JSON-loaded option slots retain nested object-entry order; an ordinary Go map
+// has no authored member order for this boundary to recover.
 //
 // @evidence contracts/common.md#principled-implementation Canonical identity validation rejects ambiguous maps before entry decoding separates severity and JSON option slots, preserving each tuple and one-slot shape.
 // @evidence contracts/common.md#clear-and-simple-design The boundary validates a raw object once and returns paired maps for existing severity and option consumers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Ambiguous aliases are errors regardless of equal values, rather than iteration-order precedence; invalid entries do not receive fabricated defaults.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains tuple shape, option-map population and preserved key spelling with a blank line before tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ParseRulesWithOptions decodes an already-loaded rules value and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms Rule names are validated once and each entry is parsed once, O(rules).
+// @evidence contracts/performance.md#efficient-algorithms Canonical-name validation sorts n rule names before a linear entry pass, requiring O(n log n) name comparisons plus hashing/name-byte work. Option encoding examines the supplied payload bytes and allocates the returned JSON; result maps scale with rule and option counts.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ParseRulesWithOptions keeps no cache; every call decodes its argument.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned maps are new and owned by the caller; no handle or task is acquired.
 func ParseRulesWithOptions(raw any) (RuleConfig, RuleOptionsMap, error) {
@@ -1940,7 +1942,8 @@ func loadConfigFileEvaluationWithin(
 // equal observations do not prove absence of intervening replacements.
 // v9 invalidates module graphs whose identity and package-boundary decisions
 // used lexical case folding instead of actual filesystem identity.
-const configCacheVersion = "v10"
+// v11 preserves rule option object-entry order through evaluation and disk reuse.
+const configCacheVersion = "v11"
 
 // configEvalCache memoizes evaluated .ts/.js lint config objects for the
 // lifetime of one process; the on-disk cache (configCacheDir) extends the
@@ -2282,9 +2285,22 @@ func readConfigDiskCache(key string) (cachedConfigEvaluation, bool) {
   if err != nil {
     return cachedConfigEvaluation{}, false
   }
-  var cached cachedConfigEvaluation
-  if err := json.Unmarshal(body, &cached); err != nil {
+  var envelope struct {
+    Value               json.RawMessage               `json:"value"`
+    Dependencies        []configDependencyFingerprint `json:"dependencies"`
+    DependenciesTracked bool                          `json:"dependenciesTracked"`
+  }
+  if err := json.Unmarshal(body, &envelope); err != nil {
     return cachedConfigEvaluation{}, false
+  }
+  value, err := decodeConfigJSON(envelope.Value)
+  if err != nil {
+    return cachedConfigEvaluation{}, false
+  }
+  cached := cachedConfigEvaluation{
+    Value:               value,
+    Dependencies:        envelope.Dependencies,
+    DependenciesTracked: envelope.DependenciesTracked,
   }
   if !isConfigObject(cached.Value) {
     return cachedConfigEvaluation{}, false
@@ -2346,8 +2362,8 @@ func loadJSONConfigFile(location string) (any, error) {
   // failure. Mirrors the equivalent JS-side guard in
   // `packages/lint/src/index.ts::readJsonConfigPlugins`.
   body = bytes.TrimPrefix(body, []byte{0xEF, 0xBB, 0xBF})
-  var out any
-  if err := json.Unmarshal(body, &out); err != nil {
+  out, err := decodeConfigJSON(body)
+  if err != nil {
     return nil, fmt.Errorf("@ttsc/lint: parse config file %s: %w", location, err)
   }
   if !isConfigObject(out) {
@@ -2411,12 +2427,19 @@ func runConfigLoaderCommand(
   }
   var envelope struct {
     Dependencies []configDependencyFingerprint `json:"dependencies"`
-    Value        any                           `json:"value"`
+    Value        json.RawMessage               `json:"value"`
   }
   if err := json.Unmarshal(output, &envelope); err != nil {
     return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: parse %s %s output: %w", label, location, err)
   }
-  if !isConfigObject(envelope.Value) {
+  var value any
+  if len(envelope.Value) != 0 {
+    value, err = decodeConfigJSON(envelope.Value)
+    if err != nil {
+      return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: parse %s %s output: %w", label, location, err)
+    }
+  }
+  if !isConfigObject(value) {
     return evaluatedConfigFile{}, fmt.Errorf("@ttsc/lint: config file %s must export an ITtscLintConfig object", location)
   }
   normalized, ok := normalizeConfigDependencyFingerprints(envelope.Dependencies)
@@ -2435,7 +2458,7 @@ func runConfigLoaderCommand(
     }
   }
   return evaluatedConfigFile{
-    value:                 envelope.Value,
+    value:                 value,
     dependencies:          dependencies,
     dependencyDirectories: directories,
     dependencyDigests:     normalized,

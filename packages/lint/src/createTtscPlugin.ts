@@ -2210,7 +2210,7 @@ function createCanonicalTempDirectory(prefix: string, parent: string): string {
  * Namespaces the on-disk config cache. Kept in lockstep with the Go sidecar's
  * `configCacheVersion`; bump both when the shape or evaluator semantics change.
  */
-const CONFIG_CACHE_VERSION = "v10";
+const CONFIG_CACHE_VERSION = "v11";
 
 /**
  * Directory shared by this factory and the Go sidecar for cached lint configs.
