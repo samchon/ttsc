@@ -12,9 +12,9 @@ import { readDependencyCache } from "../../../../../packages/ttsc/src/launcher/i
  * Ownership of a dependency file is decided against the record a build takes of
  * its own outputs, not against the disk at lookup time (samchon/ttsc#1382). A
  * marker written before the record existed says nothing about what its
- * generation compiled, and the persistent fallback cache under the system temp
- * directory outlives an upgrade, so such a marker can meet newer code. Reusing
- * it would decide ownership from nothing; rejecting it costs one rebuild.
+ * generation compiled. The reader must refuse that schema despite a real
+ * JavaScript-bearing generation. This unit observes miss/hit and returned
+ * output metadata, not a rebuild, cross-version reuse or actual emit provenance.
  *
  * 1. Seed a complete generation whose marker has no `outputs`, then one whose
  *    `outputs` is not a list of strings.
@@ -45,7 +45,7 @@ export function test_ttsx_dependency_cache_rejects_a_marker_without_an_output_re
         JSON.stringify({
           generation,
           moduleOptions: { module: "commonjs" },
-        emittedSources: {},
+          emittedSources: {},
           ...(outputs === undefined ? {} : { outputs }),
           rootDir: root,
         }),

@@ -5,15 +5,14 @@ import path from "node:path";
 import { readDependencyCache } from "../../../../../packages/ttsc/src/launcher/internal/runtime/readDependencyCache";
 
 /**
- * Verifies a cache reader never combines an old generation's metadata with a
- * newer generation's partially-written emit.
+ * Verifies the reader selects the advertised generation, ignores an unpublished
+ * sibling, and misses when the advertised directory has no JavaScript.
  *
- * Reproduces the issue's second race: a valid marker still names generation A
- * while a rebuilding holder populates generation B and has not yet published
- * B's marker. Because the marker is bound to one generation and B lands in its
- * own directory, `readDependencyCache` keeps returning the complete A until the
- * atomic marker swap points at B — never a mix of A's metadata and B's partial
- * files.
+ * Authored sequential snapshots model publication states: the marker names A
+ * while B already has JavaScript, then a fixture rename publishes B, then the
+ * marker advertises an empty C. The actual reader is exercised at each state;
+ * no rebuilding holder, product publisher, concurrent race or partial B write
+ * is executed.
  *
  * 1. Seed a complete generation A with a published marker.
  * 2. Seed generation B without publishing its marker; the reader observes A only.
@@ -43,7 +42,7 @@ export function test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_pa
         moduleOptions: { module: "commonjs" },
         emittedSources: {},
         outputs: ["index.js"],
-        rootDir: "/root",
+        rootDir: root,
       }),
       "utf8",
     );
@@ -61,7 +60,7 @@ export function test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_pa
     const temporaryMarker = metaPath + ".tmp";
     fs.writeFileSync(temporaryMarker, JSON.stringify({
       generation: genB, moduleOptions: { module: "commonjs" },
-      emittedSources: {}, outputs: ["index.js"], rootDir: "/root",
+      emittedSources: {}, outputs: ["index.js"], rootDir: root,
     }));
     fs.renameSync(temporaryMarker, metaPath);
 
@@ -81,7 +80,7 @@ export function test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_pa
         moduleOptions: { module: "commonjs" },
         emittedSources: {},
         outputs: ["index.js"],
-        rootDir: "/root",
+        rootDir: root,
       }),
       "utf8",
     );

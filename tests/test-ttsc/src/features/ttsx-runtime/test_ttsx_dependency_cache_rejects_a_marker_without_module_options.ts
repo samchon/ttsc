@@ -11,11 +11,10 @@ import { readDependencyCache } from "../../../../../packages/ttsc/src/launcher/i
  *
  * The marker gained `moduleOptions` when the format classifier started needing
  * `target` as well as `module`. A marker written before that says nothing about
- * either, and the persistent fallback cache under the system temp directory
- * outlives an upgrade, so an older marker can meet newer code. Treating its
- * silence as an empty option set would derive the modern default and classify a
- * CommonJS emit as an ES module — a wrong format taken from a complete, valid
- * looking generation. Rejecting it costs one rebuild and cannot be wrong.
+ * either. The reader must reject that missing schema even when the referenced
+ * generation contains JavaScript. This unit observes the cache miss and
+ * acceptance after the options object is supplied, without running a rebuild,
+ * format classification, or a cross-version process.
  *
  * 1. Seed a complete generation whose marker uses the superseded field name.
  * 2. Read the cache.
@@ -48,7 +47,7 @@ export function test_ttsx_dependency_cache_rejects_a_marker_without_module_optio
         moduleOption: "commonjs",
         emittedSources: {},
         outputs: ["index.js"],
-        rootDir: "/root",
+        rootDir: root,
       }),
       "utf8",
     );
@@ -65,7 +64,7 @@ export function test_ttsx_dependency_cache_rejects_a_marker_without_module_optio
         moduleOptions: { module: "commonjs" },
         emittedSources: {},
         outputs: ["index.js"],
-        rootDir: "/root",
+        rootDir: root,
       }),
       "utf8",
     );
@@ -76,4 +75,5 @@ export function test_ttsx_dependency_cache_rejects_a_marker_without_module_optio
       "the same generation must hit once described",
     );
     assert.equal(reused!.emitDir, generationDir);
+    assert.deepEqual(reused!.moduleOptions, { module: "commonjs" });
 }
