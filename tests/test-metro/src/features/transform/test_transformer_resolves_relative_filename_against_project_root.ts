@@ -11,7 +11,7 @@ import { assertResolvesRelativeFilenameAgainstProjectRoot } from "../../internal
  *
  * 1. Resolve a relative filename with an explicit `projectRoot`.
  * 2. Assert it joins against `projectRoot`.
- * 3. Assert it falls back to cwd only when `projectRoot` is absent.
+ * 3. Assert it falls back to cwd when `projectRoot` is absent or not a string.
  *
  * @evidence contracts/testing.md#behavioral-verification resolveAbsoluteFilename("src/app.ts") resolves against options.projectRoot when it is given, and against process.cwd() both when options is an empty object and when options is omitted.
  * @evidence contracts/testing.md#independent-expectations Expected values are computed with path.resolve, the same primitive the implementation uses, so the assertions pin the choice of base (projectRoot versus cwd) rather than the join itself.
