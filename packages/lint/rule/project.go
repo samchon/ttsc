@@ -253,7 +253,7 @@ type ProjectRule interface {
 // @evidence contracts/common.md#clear-and-simple-design One shared kind type selects the interpretation of a ProjectInput pattern.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Supported local dependency kinds do not fabricate remote watch support.
 // @evidence contracts/common.md#meaningful-documentation Native prose specifies the physical-root anchor and URL exclusion; tags follow documentation guidance.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectInputKind is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidence contracts/portability.md#os-neutral-implementation The file/glob discriminant defines exact native-file versus native-rooted population observation. ProjectInput carries the path representation and the host uses filepath plus actual ancestor resolution before publication; the kind itself does not infer filesystem case policy or invent remote polling support.
 // @evidenceExclude contracts/performance.md#efficient-algorithms ProjectInputKind is a declaration of data shape and chooses no algorithm or processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectInputKind is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectInputKind is a declaration of data shape; the code that holds its values owns their lifetime.
@@ -267,13 +267,14 @@ const (
 // ProjectInput declares one local filesystem dependency of a ProjectRule.
 // Pattern may be absolute or relative to the physical project root. Glob
 // patterns support path-segment `*`, `?`, and `**`; exact files remain
-// dependencies while missing.
+// dependencies while missing. Outer pattern whitespace is trimmed; names that
+// require trailing pattern whitespace are not represented by this channel.
 //
 // @evidence contracts/common.md#principled-implementation A kind and path pattern describe dependency topology even when exact files are missing or glob populations are empty.
 // @evidence contracts/common.md#clear-and-simple-design One declarative record separates dependency publication from filesystem observation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Dependencies are declared from configured topology rather than successful reads alone.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains root anchoring, glob grammar and missing-file persistence; member and tag spacing follow documentation guidance.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectInput is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidence contracts/portability.md#os-neutral-implementation Pattern carries a native absolute/relative path or supported path-segment glob, anchored to the physical project root; outer whitespace is trimmed and an empty pattern is rejected, so literal trailing pattern whitespace is not preserved. Host normalization converts slash spelling with filepath.FromSlash, resolves actual existing/symlink ancestors while retaining missing suffixes, and publishes slash-normalized native identities without lowercasing Windows paths. HTTP(S) URLs are rejected as non-filesystem dependencies; URL/protocol spelling does not define local case policy.
 // @evidenceExclude contracts/performance.md#efficient-algorithms ProjectInput is a declaration of data shape and chooses no algorithm or processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectInput is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectInput is a declaration of data shape; the code that holds its values owns their lifetime.
