@@ -34,11 +34,11 @@ import { spawnNative } from "./spawnNative";
 /**
  * Transform a project and capture TypeScript source output in memory.
  *
- * When no plugins are configured the fast path spawns the native ttsc compiler
+ * When no plugins are configured the native path spawns the native ttsc compiler
  * host (`cmd/ttsc api-transform`) which returns a JSON map of transformed
  * TypeScript sources. When plugins are present:
  *
- * 1. Check-stage plugins run first and abort on failure.
+ * 1. Check-stage plugins run first and stop on a nonzero accumulated status.
  * 2. If there are no transform-stage plugins the host is used as the transformer.
  * 3. If transform plugins exist they are dispatched through the shared-host binary
  *    with linked plugins passed via `TTSC_LINKED_PLUGINS_JSON`.
@@ -60,10 +60,10 @@ import { spawnNative } from "./spawnNative";
  * @evidence contracts/common.md#clear-and-simple-design One router composes built-in and plugin-backed transforms; envelope parsers, environment construction, proof merging and negative-only observation limits have separate shared helpers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing input proof cannot be repaired by a postcompile baseline; conventional deferred config reads accept only the actual native consumer's proof, while malformed required TypeScript output is a protocol error.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe transform lanes and stage ordering; separated result members distinguish output, advisory graph/dependency data, evaluation witnesses and unstable source markers under documentation guidance.
- * @evidence contracts/performance.md#efficient-algorithms Set-based host-input merging and single envelope parsing scale with declared inputs and output bytes; each evaluation stage is revalidated for its actual witnesses, with native compilation and source processing dominating work.
+ * @evidence contracts/performance.md#efficient-algorithms Stage filtering, declared-input Sets and proof maps scale with plugin/input counts; merged paths are sorted with path-text comparison costs. Each stage can rehash/re-realpath declared inputs, serialize plugin/config records and parse complete output; discovery, native capability probes, source builds and child execution remain delegated costs of this call. No byte/work ceiling or measured dominant-cost ranking is asserted.
  * @evidence contracts/performance.md#reuse-equivalent-work Source-plugin artifacts are shared by their owning loader; this transform intentionally produces a current generation and gives downstream consumers the graph, source states and host witnesses required to qualify reuse.
  *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Native execution owners dispose their captures and child tasks; returned envelope records transfer to the caller, while source-plugin cache lifetime remains with its owning builder.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources This router retains discovery records, per-stage proof maps and accumulated diagnostics/output until synchronous stage completion, then transfers the returned envelope. Native capture/observation owners attempt their own cleanup; suppressed cleanup failures and descendant release remain unconfirmed where those owners do not join them. Artifact-cache retention belongs to the builder, and no stage timeout or input/output byte ceiling is supplied here.
  *
  * @evidence contracts/portability.md#os-neutral-implementation Native paths remain filesystem coordinates, child argv are arrays, and environment helpers preserve Windows key equivalence and explicit Node/tsgo/config anchors without shell parsing or native method patching.
  */
