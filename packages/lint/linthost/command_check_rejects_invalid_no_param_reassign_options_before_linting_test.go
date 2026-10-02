@@ -10,9 +10,9 @@ import (
 // any source is linted.
 //
 // A rule that silently dropped a bad option would lint with a policy the user
-// did not write. Each configuration below would report `value.field = 1` if
-// linting ran, so a clean rejection with the exact configuration error and no
-// rule diagnostic shows validation happens first.
+// did not write. The enabled-props cases supply a reportable property write,
+// while the disabled-props case owns rejection of its incompatible ignore list.
+// Exact configuration errors and absent rule diagnostics pin validation failure.
 //
 //  1. Seed a project with a property write on a function parameter.
 //  2. For an unknown option, a `props: false` plus ignore-list combination and
@@ -22,7 +22,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Three named invalid configurations require exact stderr, code two, empty stdout and no rule diagnostic.
 // @evidence contracts/testing.md#independent-expectations Literal full command errors independently specify unknown option, incompatible disabled props and malformed regex rejection before any source finding.
-// @evidence contracts/testing.md#distinguishing-cases Each of the three subtests lints the same `value.field = 1` source; the unknown-option and invalid-regex cases set props true, so that source would be reported if linting ran, and the disabled-props case rejects a props:false plus ignore-list combination. All three must fail with the exact configuration error and no "[no-param-reassign]" diagnostic. HonorsPropsConfig owns the successful option-transport counterpart.
+// @evidence contracts/testing.md#distinguishing-cases Each subtest supplies the same value.field = 1 source. Unknown-option and invalid-regex cases enable props; the disabled-props case instead owns rejection of props:false combined with an ignore list, without claiming that source must report under disabled props. All require their exact configuration error and no rule diagnostic. HonorsPropsConfig owns the valid option-transport counterpart.
 // @evidence contracts/testing.md#execution-ownership TestCommandCheckRejectsInvalidNoParamReassignOptionsBeforeLinting is selected in the shared Go unit population. Each named subtest calls run(check) in-process on a real parsed fixture config with an explicit lint manifest; no consumer install, native artifact build or real host runs.
 func TestCommandCheckRejectsInvalidNoParamReassignOptionsBeforeLinting(t *testing.T) {
   cases := []struct {
