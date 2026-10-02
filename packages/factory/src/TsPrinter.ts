@@ -342,17 +342,17 @@ export class TsPrinter {
    * A comma the printer adds only because a group broke must never change
    * whether the text parses, nor what it parses to. After a rest element
    * (`...rest`) it changes the first: a trailing comma there is a syntax error
-   * (TS1013 / V8 `SyntaxError`). After a trailing elision it changes the
-   * second: `[a, ,]` has one more hole than `[a, ]`, so the flat and broken
-   * layouts of the same node would disagree. A binding pattern is the one place
-   * where dropping that hole is lossless, since a trailing hole binds nothing;
-   * {@link literalTrailingComma} materializes it instead, because in an array
-   * literal the hole is a value.
+   * (TS1013 / V8 `SyntaxError`). A trailing elision needs its comma in every
+   * layout: `[a, ,]` consumes one more iterator step than `[a, ]`, even though
+   * the hole binds no name. Dropping it can remove a next-call side effect or
+   * exception and change whether iterator closing runs. The same policy
+   * preserves authored holes in an array literal through
+   * {@link literalTrailingComma}.
    */
   private listTrailingComma(nodes: readonly Node[]): TrailingComma {
     const last: Node | undefined = nodes[nodes.length - 1];
     if (last === undefined) return "onBreak";
-    if (last.kind === "OmittedExpression") return "never";
+    if (last.kind === "OmittedExpression") return "always";
     return "dotDotDotToken" in last && last.dotDotDotToken !== undefined
       ? "never"
       : "onBreak";
