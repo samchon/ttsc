@@ -59,7 +59,7 @@ func TestMarkdownReadsAReviewBesideACitation(t *testing.T) {
     t.Fatalf("unexpected review description: %q", review.Description)
   }
 
-  // The negative twin, and the one CI had to teach me. Another tool's tag has no
+  // The negative twin: another tool's tag has no
   // field grammar inside an HTML comment, so it stays in the reason. Making the
   // review a boundary must not make every `@tag` one.
   foreign, foreignProblems := scanProjectMarkdown("docs/ref.md", `<!--

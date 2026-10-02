@@ -7,7 +7,7 @@ import (
 /**
  * Verifies a deeper unaddressable heading still folds upward.
  *
- * The companion to the first case, and the one round 2 was aimed at. An H5 is
+ * An H5 is
  * genuinely inside the H2 pricing section in this fixture, so its body belongs
  * to that unit and a rewrite there has to expire a review of it.
  *

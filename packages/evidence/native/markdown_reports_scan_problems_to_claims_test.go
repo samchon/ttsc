@@ -15,7 +15,7 @@ const scanProblemGraph = `{"claims":[{
 /**
  * Verifies a claim population hears the scan problems its own files raise.
  *
- * A scan problem says the file materialized less than it looks like it should, and that is a hole on either side: a reference loses evidence units, a claim loses the hosts that owe acknowledgements. Only the reference side was told. The claim side is the one that stayed silent in the worse direction, because a whitespace-named claim file forms no target at all, so it contributes no host, leaves the obligation, and reported nothing on its way out.
+ * A scan problem says the file materialized less than it looks like it should, and that is a hole on either side: a reference loses evidence units, a claim loses the hosts that owe acknowledgements. A whitespace-named claim file forms no target at all, so it contributes no host and leaves its obligation; the claim side must report that path itself, as the reference side does.
  *
  *  1. Point a Markdown claim at a whitespace-named file beside an ordinary one, and assert the path is reported while the ordinary file still owes its acknowledgement.
  *  2. Make that file the claim's only one, so the claim materializes no host and deactivates, and assert it still reports.
@@ -37,16 +37,16 @@ func TestMarkdownReportsScanProblemsToClaims(t *testing.T) {
     "plans/gamma.md":      "## Section two {#section-two}\n\nGamma.\n",
   }, scanProblemGraph)
   assertProblemContains(t, unaddressable, "Markdown file 'plans/alpha beta.md' cannot form an evidence target because its path contains whitespace")
-  // The obligation the surviving file owes is unchanged, so the new report adds
+  // The obligation the surviving file owes is unchanged, so the path report adds
   // a diagnostic rather than replacing one.
   assertProblemContains(t, unaddressable, "Missing acknowledgement for 'docs/rules.md#only'")
 
-  // The headline shape, and the one the whole fix rests on: the claim's only
+  // The headline shape, and the one the report rests on: the claim's only
   // file is the unaddressable one, so the claim materializes no host and
   // deactivates. It still reports, because the claim pass reads the declared
   // configuration and appends before activation drops the claim. Routing that
   // report through the activated config instead would restore the exact silence
-  // this fix exists to end, and every other arm here would stay green.
+  // the report exists to end, and every other arm here would stay green.
   alone := runIndexRule(t, map[string]string{
     "docs/rules.md":       "## Only {#only}\n",
     "plans/alpha beta.md": "## Section one\n\nAlpha.\n",
