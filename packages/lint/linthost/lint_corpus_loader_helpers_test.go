@@ -9,9 +9,9 @@
 // silently remove coverage, and it materializes each positive entry as a
 // disposable project for TestLintFixtureCorpus.
 //
-// The files in this directory are flattened next to the linthost sources by
-// scripts/test-go-lint.cjs, so the corpus is reached through the sibling
-// `../test/testdata/corpus` directory of the scratch module.
+// `go test` runs with the linthost package directory as its working directory,
+// so the corpus is reached through the sibling `../test/testdata/corpus`
+// directory of packages/lint.
 package linthost
 
 import (
@@ -27,8 +27,11 @@ import (
   "testing"
 )
 
-// lintCorpusRoot is the committed corpus directory relative to the scratch
-// module's linthost package, where the Go tests execute.
+// corpusHarnessDirectory is where an audited skip's named Go harness must live.
+const corpusHarnessDirectory = "packages/lint/linthost/"
+
+// lintCorpusRoot is the committed corpus directory relative to the linthost
+// package directory, where the Go tests execute.
 var lintCorpusRoot = filepath.Join("..", "test", "testdata", "corpus")
 
 type corpusExpectation struct {
@@ -95,7 +98,7 @@ var (
   corpusRuleDirective  = regexp.MustCompile(`^\s*//\s*@ttsc-corpus-rule:\s*([@\w/-]+)\s*$`)
   corpusEntryDirective = regexp.MustCompile(`(?m)^\s*//\s*@ttsc-corpus-(?:filename|options|rule|clean)\b`)
 
-  corpusHarnessPath     = regexp.MustCompile(`\bpackages/lint/test/[\w./-]+_test\.go\b`)
+  corpusHarnessPath     = regexp.MustCompile(`\bpackages/lint/linthost/[\w./-]+_test\.go\b`)
   corpusNotImplemented  = regexp.MustCompile(`(?i)not yet implemented`)
   corpusSkipConstraints = map[string]bool{"options": true, "filename": true, "project": true, "checker": true, "platform": true}
 )
@@ -266,10 +269,20 @@ func corpusValidateSkip(file corpusFile) (string, error) {
   }
   harnesses := corpusHarnessPath.FindAllString(skip.Reason, -1)
   if len(harnesses) != 1 {
-    return "", fmt.Errorf("%s: a corpus skip must reference exactly one positive Go harness under packages/lint/test/", file.RelativeFile)
+    return "", fmt.Errorf("%s: a corpus skip must reference exactly one positive Go harness under packages/lint/linthost/", file.RelativeFile)
   }
-  if !strings.HasPrefix(path.Clean(harnesses[0]), "packages/lint/test/") {
-    return "", fmt.Errorf("%s: referenced harness escapes packages/lint/test/: %s", file.RelativeFile, harnesses[0])
+  cleaned := path.Clean(harnesses[0])
+  if !strings.HasPrefix(cleaned, corpusHarnessDirectory) {
+    return "", fmt.Errorf("%s: referenced harness escapes %s: %s", file.RelativeFile, corpusHarnessDirectory, harnesses[0])
+  }
+  // The harness is a file of the linthost package, which is the working
+  // directory of its tests, so the pointer is verified rather than trusted.
+  name := strings.TrimPrefix(cleaned, corpusHarnessDirectory)
+  if strings.Contains(name, "/") {
+    return "", fmt.Errorf("%s: referenced harness must be a file directly under %s: %s", file.RelativeFile, corpusHarnessDirectory, harnesses[0])
+  }
+  if info, err := os.Stat(name); err != nil || !info.Mode().IsRegular() {
+    return "", fmt.Errorf("%s: referenced harness does not exist: %s", file.RelativeFile, harnesses[0])
   }
   return corpusSkippedRule(file.RelativeFile, file.Source, file.Expected)
 }

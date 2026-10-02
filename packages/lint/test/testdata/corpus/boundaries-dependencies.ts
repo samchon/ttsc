@@ -1,4 +1,4 @@
-// @ttsc-corpus-skip(project): rule requires a configured multi-file element graph; positive project coverage lives at packages/lint/test/rules/boundaries/boundaries_dependencies_test.go.
+// @ttsc-corpus-skip(project): rule requires a configured multi-file element graph; positive project coverage lives at packages/lint/linthost/boundaries_dependencies_test.go.
 // @ttsc-corpus-rule: boundaries/dependencies
 /**
  * Fixture for `boundaries/dependencies`.

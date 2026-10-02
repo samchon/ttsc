@@ -178,9 +178,9 @@ func isRegisteredBuiltInRule(name string, candidate Rule) bool {
 // excludes them. The witness audit asks a different question ("does every
 // user-facing rule fire in production?"), so it must not: the formatter family
 // is precisely the over-match-prone surface the witness doctrine exists to
-// guard. Format rules earn their witnesses through the dedicated fixer
-// harnesses under packages/lint/test/format, the same route other rules that
-// cannot run the flat corpus already use.
+// guard. Format rules earn their witnesses through the dedicated
+// format tests in this package (the `format_*_test.go` files), the same route
+// other rules that cannot run the flat corpus already use.
 func behavioralWitnessPublicRuleSet() map[string]struct{} {
   public := registeredBuiltInNonFormatRuleSet()
   for _, name := range AllRuleNames() {
