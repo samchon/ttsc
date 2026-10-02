@@ -30,9 +30,10 @@ export interface InputEntry {
   conditions: Map<string, InputCondition>;
 
   /**
-   * Whether the bounded poll checks this entry: no native scope covers it, it
-   * has more than one hard link, a linked component cannot be resolved, or its
-   * native watcher failed.
+   * Whether the bounded poll checks this entry: no native scope covers it, the
+   * owner declared polling, its directory's case policy could not be measured,
+   * it has more than one hard link, a linked component cannot be resolved, or
+   * its native watcher failed.
    */
   fallback: boolean;
 
