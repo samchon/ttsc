@@ -10,7 +10,9 @@ import { buildSourcePlugin } from "../../plugin/internal/source/buildSourcePlugi
  *
  * The host is the `cmd/ttsc` Go entrypoint compiled with `buildSourcePlugin`.
  * The cache key incorporates the ttsc package version and the full `go.mod`
- * contents so a toolchain upgrade automatically produces a fresh binary.
+ * contents as supplemental cache tokens. Actual source and selected toolchain
+ * identity are established by the owning builder; metadata labels alone do
+ * not certify every toolchain upgrade.
  *
  * @returns Absolute path to the compiled host executable.
  *
@@ -18,8 +20,8 @@ import { buildSourcePlugin } from "../../plugin/internal/source/buildSourcePlugi
  * @evidence contracts/common.md#clear-and-simple-design This adapter supplies the host source, cache anchor and version tokens while buildSourcePlugin owns compilation, locking and artifact admission.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Version read fallbacks label unavailable metadata; they do not replace the owning builder's actual source/environment proof or synthesize a binary path.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies the compiler consumers and version-token inputs; separated option members distinguish project cache base, optional override and package source root.
- * @evidence contracts/performance.md#efficient-algorithms The adapter reads package metadata and module text once before delegating dominant source fingerprinting and Go compilation to the artifact builder.
- * @evidence contracts/performance.md#reuse-equivalent-work buildSourcePlugin shares the compiled host only under its validated source/toolchain identity; this adapter adds package/module coordinates rather than trusting a version label alone.
+ * @evidence contracts/performance.md#efficient-algorithms The adapter reads and parses package JSON and reads full module text on each call, with costs proportional to those bytes plus native path/I/O costs. Delegated source/environment fingerprinting, cache admission and any Go compilation remain part of this call; this adapter does not measure or bound their duration.
+ * @evidence contracts/performance.md#reuse-equivalent-work The owning builder controls compiled-host reuse using source/environment identity and artifact admission. This adapter contributes package-version and full module-text tokens to that identity; fallback tokens do not independently prove equivalence and metadata reads are repeated per call.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The artifact builder owns lock, process and persistent cache lifetimes; this adapter returns the resulting path without acquiring an independent handle or history.
  *

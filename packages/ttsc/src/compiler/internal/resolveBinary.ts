@@ -14,13 +14,16 @@ import { SidecarEnvironment } from "./sharedHost/SidecarEnvironment";
  *
  * A relative TTSC_BINARY is ignored; an absolute override is returned without a
  * filesystem probe so the spawn operation owns its executable error.
+ * Platform-package lookup failures fall through to the local candidate. Local
+ * source/lib realpath errors can propagate instead of returning null, and a
+ * selected existing path is not an executable or ABI compatibility check.
  *
  * @evidence contracts/common.md#principled-implementation Explicit absolute authority precedes Node's platform-package resolution and then the package-local Go build output, matching the helper binary ownership exported through ttsc/binary.
  * @evidence contracts/common.md#clear-and-simple-design A single resolver owns precedence for compiler and external helper consumers; the local-path helper separates source/lib layout from installed platform-package lookup.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Platform package names and executable suffixes follow the published package contract; the resolver uses supported require.resolve without replacing foreign resolution methods.
  * @evidence contracts/common.md#meaningful-documentation Ordered resolution and override behavior are documented separately; the corrected development path matches go:build, following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Platform and architecture select the native package and executable suffix; native path APIs establish the development path, and override lookup follows Windows environment-name identity even in a caller's ordinary object.
- * @evidence contracts/performance.md#efficient-algorithms The resolver follows a fixed number of precedence branches; npm lookup cost belongs to Node module resolution, followed by at most one local existence check.
+ * @evidence contracts/performance.md#efficient-algorithms Precedence has a fixed branch count, but Windows environment-name lookup scans key bytes, native path normalization processes text, Node package lookup has delegated search costs, and local fallback realpaths the source/lib root before checking candidate existence. No compiler executes merely to select this path.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Environment overrides and development binaries may change between calls; the resolver owns no invalidation protocol beyond Node's own module resolver and introduces no stale path cache.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Resolution owns no persistent map, descriptor or task and returns only the selected path spelling.
