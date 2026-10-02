@@ -38,7 +38,7 @@ import fs from "node:fs";
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A rename and its contention observations are mutable ownership effects; replaying a previous result would not retire the current generation.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources The operation retires one caller-held generation and removes each temporary probe; repeated contention retains the call indefinitely because this primitive has no retry deadline, while protocol cleanup owns the retired tombstone.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The operation retires one caller-held generation and attempts to remove each temporary probe; a refused probe removal leaves that empty sibling directory behind without changing the retry decision, and repeated contention retains the call indefinitely because this primitive has no retry deadline, while protocol cleanup owns the retired tombstone.
  */
 export function retireLockDirectory(
   source: string,
@@ -97,9 +97,24 @@ function isHeldByPeer(
   try {
     fs.renameSync(probe, moved);
   } catch {
-    fs.rmSync(probe, { force: true, recursive: true });
+    removeProbe(probe);
     return false;
   }
-  fs.rmSync(moved, { force: true, recursive: true });
+  removeProbe(moved);
   return true;
+}
+
+/**
+ * Remove a probe directory without letting its removal decide the retry. The
+ * probe only answers whether the parents permit a rename, so a transient
+ * refusal to delete the empty directory (an indexer or scanner holding it on
+ * Windows) leaves that directory behind rather than turning a peer contention
+ * into a thrown failure.
+ */
+function removeProbe(directory: string): void {
+  try {
+    fs.rmSync(directory, { force: true, recursive: true });
+  } catch {
+    // The probe is an empty sibling of the lock; its answer is already known.
+  }
 }
