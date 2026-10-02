@@ -50,12 +50,21 @@ import { readProjectSelectionEntry } from "./readProjectSelectionEntry";
  *   Native paragraphs explain solution configs and consulted negative choices;
  *   return prose tells callers why those rejected inputs still need watching.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Depth-first search of the references; the visited set stops cycles and
- *   repeats.
+ *   A lexical visited set bounds reached graph operations by V configs and E
+ *   edges until the first admission. Depth drives recursion; path resolution,
+ *   nested native stat and delegated entry graph/read/hash/identity validation
+ *   add their actual input costs even on cached entries. Root matching follows
+ *   spec/path dimensions; explicit files after exclusion build a fresh policy
+ *   projection. Consulted insertion and returned arrays grow with observed
+ *   configs, inherited sources and unresolved candidates.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   The visited set keeps a project already searched from being read again.
+ *   Repeated lexical references share the first search within this traversal.
+ *   Cross-call policy/reference reuse belongs to the selection-entry reader's
+ *   fresh input validation; this call does not claim an atomic filesystem view.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   The visited and consulted sets are local to the call.
+ *   Visited/consulted state and recursion are call-local; returned config keys
+ *   transfer to the caller. Delegated entry-cache retention belongs to that
+ *   owner; the search retains no native handle or running task.
  */
 export function selectReferencedProject(
   file: string,
