@@ -66,8 +66,9 @@ import { runExternalEmitProvenance } from "./runExternalEmitProvenance";
 export namespace BuildExecution {
   /**
    * Merge extra environment variables over `process.env`, always injecting
-   * `TTSC_NODE_BINARY` so child processes can re-invoke the same Node.js binary
-   * without searching `PATH`.
+   * `TTSC_NODE_BINARY` selected by the runtime capability owner. Explicit
+   * compatible overrides can select a different Node executable; this is not
+   * necessarily the current process binary.
    */
   function mergeEnv(
     extra?: NodeJS.ProcessEnv,
@@ -99,10 +100,10 @@ export namespace BuildExecution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported environment channels convey compiler/plugin context without patching strict sidecar parsers; clearing inherited payloads corrects ownership rather than compensating for a stale ancestor selection.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain config anchoring, linked sources, precedence and absent-payload effects without mixing prose into tags.
    * @evidence contracts/portability.md#os-neutral-implementation Native environment helpers normalize Windows key aliases while retaining POSIX case distinctions; node:path builds the default launcher path and binary values remain native executable selections.
-   * @evidence contracts/performance.md#efficient-algorithms Environment copying scales with inherited/caller key count and linked payload bytes; Node discovery probes ordered distinct runtime candidates through the existing capability owner before selected protocol keys are published.
+   * @evidence contracts/performance.md#efficient-algorithms Environment layering copies inherited/caller fields, and Windows channel reads/writes repeatedly scan native-equivalent key names with key-text normalization costs. Linked selection/projection/JSON adds plugin count and payload work. Ordered runtime-candidate probes are delegated before publication and remain native process costs of this call.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Fresh environment composition depends on current invocation and mutable process environment, and coordinates no persistent producer.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Runtime capability probes complete synchronously under their owner, and the fresh environment transfers to the spawn owner without this function retaining a child process or global payload.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The fresh environment and intermediate linked payload have invocation-local ownership and transfer to the spawn caller. Runtime probe acquisition/timeout/cleanup belongs to the capability owner, not a native-release guarantee made here; this function stores no child handle or global payload.
    */
   export function nativePluginEnv(
     extra: NodeJS.ProcessEnv | undefined,
@@ -146,7 +147,7 @@ export namespace BuildExecution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Supplied executable selections are preserved without guessing capabilities, launching a substitute producer or mutating the global environment.
    * @evidence contracts/common.md#meaningful-documentation Native prose states the required fresh layered environment, caller ownership and the separation of runtime discovery from protocol publication.
    * @evidence contracts/portability.md#os-neutral-implementation SidecarEnvironment preserves native Windows name identity and POSIX spelling; executable values are supplied native paths rather than shell commands.
-   * @evidence contracts/performance.md#efficient-algorithms Protocol publication visits the environment only for native key access and writes and serializes the selected linked payload; it performs no capability subprocess or repeated environment merge.
+   * @evidence contracts/performance.md#efficient-algorithms Protocol channel reads/writes include Windows environment-name scans and key-text costs. Transform-stage publication also filters P native plugins and projects/JSON-serializes linked config/name/stage values with ordinary JSON conversion/error semantics. No capability subprocess or extra environment-layer merge is performed by this composer.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Invocation-owned writes apply to current mutable caller state rather than a reusable producer computation.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The supplied environment remains caller-owned and is returned without retaining it or acquiring a child process.
    */
@@ -498,10 +499,12 @@ export namespace BuildExecution {
   }
 
   /**
-   * Whether a check-stage host already reports TypeScript's own diagnostics, in
-   * which case a separate type-check pass would print each error twice.
+   * Whether a check-stage host declares reporting TypeScript's diagnostics,
+   * in which case another pass can duplicate already-reported diagnostics.
+   * This trusts an explicit descriptor contract; it does not independently
+   * measure the completed host's diagnostic completeness or success.
    *
-   * @evidence contracts/common.md#principled-implementation Only check-stage descriptors explicitly declaring TypeScript diagnostic reporting satisfy the predicate; transform metadata cannot grant this check-stage guarantee.
+   * @evidence contracts/common.md#principled-implementation Only check-stage descriptors explicitly declaring TypeScript diagnostic reporting satisfy the predicate; transform metadata cannot supply that declaration. The dispatcher owns when it may trust this contract rather than treating a true predicate as observed runtime completeness.
    * @evidence contracts/common.md#clear-and-simple-design One capability query is shared by both analysis and emission orchestration rather than duplicating plugin classifications.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Descriptor semantics drive diagnostic policy without recognizing particular plugin names or trusting a previous passing example.
    * @evidence contracts/common.md#meaningful-documentation Native prose gives the declared reporting premise and why a redundant type check should be avoided.
