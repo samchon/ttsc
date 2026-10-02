@@ -18,6 +18,7 @@ import { COMPILER_OPTION_ASCII_FOLDS } from "./COMPILER_OPTION_ASCII_FOLDS";
  * @evidence contracts/performance.md#efficient-algorithms The two boundary scans and Unicode replacement are linear in the token length, with constant-time lookups in immutable generated tables.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each token belongs to its caller's current option origin; immutable native tables are module-shared, and no invocation or historical value cache is retained.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the normalized string is returned; transient string slices and replacements create no resource or retained history.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation normalizeCompilerEnumValue is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
  */
 export function normalizeCompilerEnumValue(
   value: string,

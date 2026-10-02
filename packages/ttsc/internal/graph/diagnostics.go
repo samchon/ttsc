@@ -23,6 +23,7 @@ import "github.com/samchon/ttsc/packages/ttsc/driver"
 // @evidence contracts/performance.md#efficient-algorithms Filtering costs O(program diagnostics) and allocates only matching records; callers needing all files are directed to one whole-program projection.
 // @evidence contracts/performance.md#reuse-equivalent-work Program owns reusable semantic diagnostics; this adapter consumes that warm result rather than opening a second compile.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned slice transfers to the caller and no additional Program lifetime or cache is retained.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation FileDiagnostics computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func FileDiagnostics(prog *driver.Program, path string) []driver.Diagnostic {
   out := make([]driver.Diagnostic, 0)
   for _, diagnostic := range prog.Diagnostics() {

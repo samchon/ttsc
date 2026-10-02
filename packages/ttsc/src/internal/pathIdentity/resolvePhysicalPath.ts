@@ -17,6 +17,9 @@ import { createFilesystemPathIdentityContext } from "./createFilesystemPathIdent
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failure preserves the original usable spelling rather than fabricating a proved identity, and no foreign filesystem behavior is patched.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the absolute-path premise and total fallback, keeping use meaning separate from tags.
  * @evidence contracts/portability.md#os-neutral-implementation Realpath and case semantics come from the shared native boundary; unavailable case policy preserves missing spelling, and the total error fallback remains best-effort rather than a proved alias guarantee.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources resolvePhysicalPath acquires no handle, buffer or cache and retains nothing after it returns.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms resolvePhysicalPath performs a fixed number of steps with no loop or recursion over caller data.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work resolvePhysicalPath computes one result per call, so there is no repeated work to share.
  */
 export function resolvePhysicalPath(location: string): string {
   try {

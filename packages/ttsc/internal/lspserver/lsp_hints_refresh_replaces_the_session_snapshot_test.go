@@ -18,6 +18,11 @@ import (
 //  1. Read the corpus before any producer has answered.
 //  2. Let a producer answer, and read again through the proxy's completion seam.
 //  3. Let the same producer answer differently, then answer with nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification The served corpus is empty before a producer answers, reflects a new answer, shrinks when the producer answers differently and becomes silent when it answers with nothing.
+// @evidence contracts/testing.md#independent-expectations The expected corpus at each stage is a literal.
+// @evidence contracts/testing.md#distinguishing-cases Growth, shrink and absence are three stages that fail open or stale if the snapshot is not replaced.
+// @evidence contracts/testing.md#execution-ownership TestLSPHintsRefreshReplacesTheSessionSnapshot is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPHintsRefreshReplacesTheSessionSnapshot(t *testing.T) {
   plugin := NativeLSPPluginEntry{Binary: "ttsc-lint", Name: "@ttsc/lint"}
   source := &NativePluginSource{plugins: []NativeLSPPluginEntry{plugin}}

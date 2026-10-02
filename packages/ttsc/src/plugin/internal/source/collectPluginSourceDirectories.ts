@@ -12,8 +12,8 @@ import { prunesPluginSourceDirectory } from "./prunesPluginSourceDirectory";
  * A file the build reads lands in one of these, so watching each of them, the
  * way an observer that hears only a directory's direct entries has to, hears
  * every source edit and every new file, and nothing a package manager or Git
- * writes. `ttsc --watch` and a `ttscserver` session take the list from here
- * (samchon/ttsc#1492, samchon/ttsc#1507), so the two observe exactly the same
+ * writes. `ttsc --watch` and a `ttscserver` session take the list from here,
+ * so the two observe exactly the same
  * tree. A path that is not a directory has none.
  *
  * @param root The plugin source directory.

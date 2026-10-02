@@ -19,6 +19,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The access-error allowance is tied to the real lock-publication premise, not a blanket suppression of unrelated permissions or expected fixture outcomes.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the candidate ownership premise and disappearing-destination race, making this narrow classifier's permitted use visible.
  * @evidence contracts/portability.md#os-neutral-implementation Native collision errno differs on Windows; callers' writable-parent construction gives that difference a supported protocol basis rather than deriving arbitrary filesystem permission from an OS name.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources isContendedCandidateRename acquires no handle, buffer or cache and retains nothing after it returns.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms isContendedCandidateRename performs a fixed number of steps with no loop or recursion over caller data.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work isContendedCandidateRename computes one result per call, so there is no repeated work to share.
  */
 export function isContendedCandidateRename(error: unknown): boolean {
   const code = (error as NodeJS.ErrnoException).code;

@@ -17,6 +17,9 @@ import { parseJsonc } from "./parseJsonc";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid syntax and root shapes remain named errors rather than being replaced by empty configs that could hide user configuration mistakes.
  * @evidence contracts/common.md#meaningful-documentation Separate paragraphs explain file attribution and the distinction between valid JSONC values and permitted config roots, following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Node reads the supplied native path as UTF-8; parsing counts text line terminators independently of OS newline conventions, and no path spelling is converted into a case assumption.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources readJsoncFile acquires no handle, buffer or cache and retains nothing after it returns.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms readJsoncFile performs a fixed number of steps with no loop or recursion over caller data.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work readJsoncFile computes one result per call, so there is no repeated work to share.
  */
 export function readJsoncFile(file: string): Record<string, unknown> {
   const text = fs.readFileSync(file, "utf8");

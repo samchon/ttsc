@@ -9,6 +9,9 @@ import type { ITtscProjectPluginConfig } from "../ITtscProjectPluginConfig";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Native binary/env injection is a supported embedding boundary; compiler options remain tokens rather than hardcoded approximations of the entire native schema.
  * @evidence contracts/common.md#meaningful-documentation Native comments explain option ownership, config discovery origins, threading and plugin override states; paragraphs, member and tag spacing follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path inputs and Node environment data stay separate from passthrough argv tokens, enabling OS-neutral spawn/path handling without shell quoting assumptions or platform-specific executable names in this representation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface TtscCommonOptions {
   /**

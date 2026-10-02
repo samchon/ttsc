@@ -17,6 +17,9 @@ import { createFilesystemPathIdentityContext } from "./createFilesystemPathIdent
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Operations use the supported injection boundary; neither native methods nor foreign globals are patched to change identity.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the domain name, shared implementation and omitted-operation defaults, with tags visibly separate.
  * @evidence contracts/portability.md#os-neutral-implementation The owning resolver uses actual native case evidence and path syntax; unavailable policy remains unknown and preserves identity spellings instead of assuming an OS-default filesystem capability.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources createProjectInputPathIdentityContext declares a signature only; the implementation owns acquisition and release of resources.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms createProjectInputPathIdentityContext declares a signature only; the implementation owns the processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work createProjectInputPathIdentityContext declares a signature only; the implementation owns any shared work.
  */
 export function createProjectInputPathIdentityContext(
   operations: Partial<ProjectInputPathIdentityOperations> = {},

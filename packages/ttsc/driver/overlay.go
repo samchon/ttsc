@@ -17,6 +17,9 @@ import (
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper implements the supported VFS interface without mutating the inner filesystem or foreign methods.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains unsaved buffers, overridden predicates and delegation under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation Canonical keys use the inner filesystem's actual case capability, not a platform-name assumption.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 type OverlayFS struct {
   vfs.FS
   caseSensitive bool
@@ -30,6 +33,9 @@ type OverlayFS struct {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Construction does not alter the inner object or inject sample file contents.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the initially empty overlay following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation UseCaseSensitiveFileNames supplies actual canonicalization capability from inner.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewOverlayFS acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms NewOverlayFS performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewOverlayFS computes one result per call, so there is no repeated work to share.
 func NewOverlayFS(inner vfs.FS) *OverlayFS {
   return &OverlayFS{
     FS:            inner,
@@ -51,6 +57,9 @@ func (o *OverlayFS) key(path string) string {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The supplied buffer is retained directly with no fixture substitution or disk mutation.
 // @evidence contracts/common.md#meaningful-documentation Native prose states buffer override ownership following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation key uses compiler normalization and the inner VFS case policy for all spellings.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Set acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Set performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Set computes one result per call, so there is no repeated work to share.
 func (o *OverlayFS) Set(path, content string) {
   o.overrides[o.key(path)] = content
 }
@@ -62,6 +71,9 @@ func (o *OverlayFS) Set(path, content string) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing overrides are not fabricated from underlying file contents.
 // @evidence contracts/common.md#meaningful-documentation Native prose states override-only lookup and optional presence under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation Canonical lookup follows the compiler and inner filesystem case capability.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Get acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Get performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Get computes one result per call, so there is no repeated work to share.
 func (o *OverlayFS) Get(path string) (string, bool) {
   content, ok := o.overrides[o.key(path)]
   return content, ok
@@ -75,6 +87,9 @@ func (o *OverlayFS) Get(path string) (string, bool) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Unset removes an owned buffer without deleting or rewriting a native file.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains restoration of fallback behavior following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation The same compiler key normalization is used by insertion and removal across native case policies.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Unset acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Unset performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Unset computes one result per call, so there is no repeated work to share.
 func (o *OverlayFS) Unset(path string) {
   delete(o.overrides, o.key(path))
 }
@@ -87,6 +102,9 @@ func (o *OverlayFS) Unset(path string) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper cannot turn a failed inner read into a fabricated successful buffer.
 // @evidence contracts/common.md#meaningful-documentation Native prose states empty-buffer and fallback semantics under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation Canonical override identity uses actual VFS capabilities and native reads stay delegated.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ReadFile acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ReadFile performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ReadFile computes one result per call, so there is no repeated work to share.
 func (o *OverlayFS) ReadFile(path string) (string, bool) {
   if content, ok := o.overrides[o.key(path)]; ok {
     return content, true
@@ -101,6 +119,9 @@ func (o *OverlayFS) ReadFile(path string) (string, bool) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Presence changes only for caller-supplied buffers, without foreign state mutation.
 // @evidence contracts/common.md#meaningful-documentation Native prose states virtual presence and fallback under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation Actual filesystem case policy controls override identity; native existence remains an inner VFS operation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources FileExists acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms FileExists performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work FileExists computes one result per call, so there is no repeated work to share.
 func (o *OverlayFS) FileExists(path string) bool {
   if _, ok := o.overrides[o.key(path)]; ok {
     return true

@@ -17,6 +17,9 @@ import type { TtscCommonOptions } from "../../structures/internal/TtscCommonOpti
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The fallback is an explicit unknown wrapper version, not a fabricated compiler version or a suppressed failed native command.
  * @evidence contracts/common.md#meaningful-documentation Native prose documents the distinct native-command failure and metadata fallback, and the helper explains the compiled-layout anchor.
  * @evidence contracts/portability.md#os-neutral-implementation resolveTsgo and spawnNative own executable selection and invocation; shared environment merging preserves Windows alias identity and caller precedence while POSIX names remain exact. Node paths anchor package metadata without a shell or filesystem case folding.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources spawnNative returns after the child has exited, and its captured output is local to the call.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Runs one synchronous child process (the compiler's --version) and formats its output; there is no loop.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The version is queried afresh on each call and nothing is cached.
  */
 export function getCompilerVersionText(
   options: TtscCommonOptions = {},

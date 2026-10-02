@@ -77,7 +77,7 @@ export function readCapabilityResolution(options: {
   // What each binary path was keyed on, proven by the build's own rule: a
   // module root, linked package, or contributor that moved, or another build
   // environment, names a binary the build would no longer produce, while the
-  // old one still exists (samchon/ttsc#1492).
+  // old one still exists.
   const sources = Object.entries(entry.pluginSources);
   const evidence = sources.some(([, source]) => source.signature !== undefined)
     ? CapabilityResolutionFormat.sourceEvidence(

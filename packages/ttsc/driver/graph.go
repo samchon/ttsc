@@ -46,7 +46,7 @@ const bundledScheme = "bundled:///"
 //   - UseCaseSensitiveFileNames is the case policy the compiler matched the
 //     project's root specs and compared paths with, so a host deciding the
 //     same membership uses the compiler's policy rather than a guess from the
-//     platform (samchon/ttsc#1545).
+//     platform.
 //
 // Keys and values use the same convention as the envelope's `typescript`
 // map: project-relative slash paths, falling back to slash-normalized

@@ -9,6 +9,10 @@ import "encoding/json"
 // @evidence contracts/common.md#clear-and-simple-design A local wire value avoids a compiler AST dependency.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts UTF-16 is the negotiated protocol choice, not a consumer-specific offset correction.
 // @evidence contracts/common.md#meaningful-documentation Native prose states zero-based coordinates and column units, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPPosition struct {
   // Line is a zero-based line index; producers must supply a nonnegative value.
   Line int `json:"line"`
@@ -23,6 +27,10 @@ type LSPPosition struct {
 // @evidence contracts/common.md#clear-and-simple-design Both endpoints reuse the same coordinate representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Endpoints retain LSP semantics without fixture-specific adjustments.
 // @evidence contracts/common.md#meaningful-documentation Native prose states interval closure, with acknowledgment separation required by the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPRange struct {
   Start LSPPosition `json:"start"`
   End   LSPPosition `json:"end"`
@@ -35,6 +43,10 @@ type LSPRange struct {
 // @evidence contracts/common.md#clear-and-simple-design Producers share one severity representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Named values are protocol-defined constants.
 // @evidence contracts/common.md#meaningful-documentation Native declaration and constant comments explain severity mappings under the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPDiagnosticSeverity int
 
 const (
@@ -63,6 +75,10 @@ const (
 // @evidence contracts/common.md#clear-and-simple-design Diagnostic payload fields stay together while related locations and code links use reusable shapes.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Tags and Data come from producers rather than expected rule answers.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain re-encoding risks and opaque ownership; documented members follow the documentation skill's spacing rule.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPDiagnostic struct {
   Range           LSPRange              `json:"range"`
   Severity        LSPDiagnosticSeverity `json:"severity,omitempty"`
@@ -100,6 +116,10 @@ type LSPDiagnostic struct {
 // @evidence contracts/common.md#clear-and-simple-design LSPLocation owns the shared URI and range shape.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Producer locations survive without guessed replacements.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains why unread payload survives serialization, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPDiagnosticRelatedInformation struct {
   Location LSPLocation `json:"location"`
   Message  string      `json:"message"`
@@ -117,6 +137,10 @@ type LSPDiagnosticRelatedInformation struct {
 // @evidence contracts/common.md#clear-and-simple-design A separate optional value distinguishes the link from the display code.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The host does not synthesize URLs from guessed rule names.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains producer ownership and editor use, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPCodeDescription struct {
   Href string `json:"href"`
 }
@@ -131,6 +155,10 @@ type LSPCodeDescription struct {
 // @evidence contracts/common.md#clear-and-simple-design Presentation and execution choices remain a wire value without dispatch behavior.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Native edit rejection follows explicit ownership rather than silently patching a foreign command.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes native and in-process edit policy, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPCodeAction struct {
   Title       string          `json:"title"`
   Kind        string          `json:"kind,omitempty"`
@@ -146,6 +174,10 @@ type LSPCodeAction struct {
 // @evidence contracts/common.md#clear-and-simple-design Actions and dispatch reuse this command value.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Arguments remain producer values rather than known-command substitutions.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains why arguments retain raw JSON, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPCommand struct {
   Title     string            `json:"title"`
   Command   string            `json:"command"`
@@ -161,6 +193,10 @@ type LSPCommand struct {
 // @evidence contracts/common.md#clear-and-simple-design Routing and producer filtering consume one context representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Only is a client filter rather than a table of expected actions.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies field consumers, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPCodeActionContext struct {
   Diagnostics []json.RawMessage `json:"diagnostics,omitempty"`
   Only        []string          `json:"only,omitempty"`
@@ -175,6 +211,10 @@ type LSPCodeActionContext struct {
 // @evidence contracts/common.md#clear-and-simple-design Map entries reuse LSPTextEdit without additional edit variants.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The restricted form follows the owned command protocol rather than a particular consumer's answer.
 // @evidence contracts/common.md#meaningful-documentation Native prose states URI mapping and unsupported edit forms, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPWorkspaceEdit struct {
   Changes map[string][]LSPTextEdit `json:"changes,omitempty"`
 }
@@ -186,6 +226,10 @@ type LSPWorkspaceEdit struct {
 // @evidence contracts/common.md#clear-and-simple-design Formatting and command results reuse this edit shape.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Empty text and zero-width ranges retain protocol meaning.
 // @evidence contracts/common.md#meaningful-documentation Native prose states replacement semantics and units, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPTextEdit struct {
   Range   LSPRange `json:"range"`
   NewText string   `json:"newText"`
@@ -204,6 +248,10 @@ type LSPTextEdit struct {
 // @evidence contracts/common.md#clear-and-simple-design URI and optional version travel together as diagnostic request identity.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts An unknown version is not replaced by an invented generation.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain stale-result use and nil meaning, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPDocumentVersion struct {
   URI     string
   Version *int
@@ -216,6 +264,10 @@ type LSPDocumentVersion struct {
 // @evidence contracts/common.md#clear-and-simple-design Project publications reuse diagnostics while remaining separate from document results.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Project findings retain their own scope instead of being copied onto open files.
 // @evidence contracts/common.md#meaningful-documentation Native prose states logical config identity and project range placement, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPProjectDiagnostics struct {
   URI         string          `json:"uri"`
   Diagnostics []LSPDiagnostic `json:"diagnostics"`
@@ -229,6 +281,10 @@ type LSPProjectDiagnostics struct {
 // @evidence contracts/common.md#clear-and-simple-design Host-only refresh bookkeeping is separate from serialized result fields.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts A cached publication is not treated as newly computed merely because it is present.
 // @evidence contracts/common.md#meaningful-documentation Native comments explain scope and the nonserialized producer set, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPDiagnosticsResult struct {
   Document []LSPDiagnostic        `json:"document"`
   Project  *LSPProjectDiagnostics `json:"project,omitempty"`
@@ -251,6 +307,10 @@ type LSPDiagnosticsResult struct {
 // @evidence contracts/common.md#clear-and-simple-design This injection boundary hides native transport and compiler state.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Supported injection avoids replacing upstream methods or globals.
 // @evidence contracts/common.md#meaningful-documentation Native prose states empty-result and concurrency contracts, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type PluginSource interface {
   // Diagnostics returns ttsc plugin diagnostics for the document the
   // proxy is about to publish. doc.Version is nil when upstream omitted
@@ -262,6 +322,10 @@ type PluginSource interface {
   // @evidence contracts/common.md#clear-and-simple-design Production returns values while the proxy merges frames.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts Contributions enter through the source boundary without altering upstream state.
   // @evidence contracts/common.md#meaningful-documentation Native prose documents unknown version and deduplication ownership, following the documentation skill.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Diagnostics declares a signature only; the implementation owns acquisition and release of resources.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms Diagnostics declares a signature only; the implementation owns the processing strategy.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work Diagnostics declares a signature only; the implementation owns any shared work.
+  // @evidenceExclude contracts/portability.md#os-neutral-implementation Diagnostics is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
   Diagnostics(doc LSPDocumentVersion) LSPDiagnosticsResult
 
   // CodeActions contributes additional actions for the given range. The
@@ -272,6 +336,10 @@ type PluginSource interface {
   // @evidence contracts/common.md#clear-and-simple-design Capability routing remains separate from action production.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts The interface supplies actions without patching the upstream provider.
   // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes augmentation from local replies, following the documentation skill.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CodeActions declares a signature only; the implementation owns acquisition and release of resources.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms CodeActions declares a signature only; the implementation owns the processing strategy.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work CodeActions declares a signature only; the implementation owns any shared work.
+  // @evidenceExclude contracts/portability.md#os-neutral-implementation CodeActions is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
   CodeActions(uri string, rng LSPRange, ctx LSPCodeActionContext) []LSPCodeAction
 
   // ExecuteCommand handles workspace/executeCommand requests whose command id
@@ -284,6 +352,10 @@ type PluginSource interface {
   // @evidence contracts/common.md#clear-and-simple-design Dispatch consumes identity and ordered arguments; editor application remains with the caller.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts An advertised but unhandled command is an error instead of a success-shaped fallback.
   // @evidence contracts/common.md#meaningful-documentation Native prose explains nil, error and ownership states, following the documentation skill.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ExecuteCommand declares a signature only; the implementation owns acquisition and release of resources.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms ExecuteCommand declares a signature only; the implementation owns the processing strategy.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work ExecuteCommand declares a signature only; the implementation owns any shared work.
+  // @evidenceExclude contracts/portability.md#os-neutral-implementation ExecuteCommand is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
   ExecuteCommand(command string, args []json.RawMessage) (*LSPWorkspaceEdit, error)
 
   // CommandIDs lists the workspace command ids ttsc handles locally so
@@ -293,6 +365,10 @@ type PluginSource interface {
   // @evidence contracts/common.md#clear-and-simple-design Advertising and dispatch consume one producer identity list.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts Ownership comes from the source contract rather than an editor-specific command table.
   // @evidence contracts/common.md#meaningful-documentation Native prose explains upstream forwarding consequences, following the documentation skill.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CommandIDs declares a signature only; the implementation owns acquisition and release of resources.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms CommandIDs declares a signature only; the implementation owns the processing strategy.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work CommandIDs declares a signature only; the implementation owns any shared work.
+  // @evidenceExclude contracts/portability.md#os-neutral-implementation CommandIDs is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
   CommandIDs() []string
 }
 
@@ -308,6 +384,10 @@ type PluginSource interface {
 // @evidence contracts/common.md#clear-and-simple-design Declarative matching inputs and items form one transportable group.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Literal matching follows the supported protocol rather than guessed rule output.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain process separation, trigger precedence and item order, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPCompletionHint struct {
   // Scope names the syntactic region the cursor must sit in.
   Scope string `json:"scope"`
@@ -337,6 +417,10 @@ type LSPCompletionHint struct {
 // @evidence contracts/common.md#clear-and-simple-design Fully resolved data avoids a second producer request.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The eager shape follows the subprocess corpus protocol rather than faking a resolve response.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains why no resolve round trip exists, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LSPCompletionItem struct {
   Insert string `json:"insert"`
   Label  string `json:"label,omitempty"`
@@ -350,6 +434,10 @@ type LSPCompletionItem struct {
 // @evidence contracts/common.md#clear-and-simple-design One implementation satisfies the normal interface without another proxy mode.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No-plugin service is supported production behavior rather than test-only logic.
 // @evidence contracts/common.md#meaningful-documentation Native prose describes no-plugin use, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type NullPluginSource struct{}
 
 // Diagnostics returns no plugin diagnostics.
@@ -358,6 +446,10 @@ type NullPluginSource struct{}
 // @evidence contracts/common.md#clear-and-simple-design This method directly returns the interface's empty result.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Every document receives the legitimate no-plugin result.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the observable contribution, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Diagnostics acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Diagnostics performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Diagnostics computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Diagnostics computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (NullPluginSource) Diagnostics(LSPDocumentVersion) LSPDiagnosticsResult {
   return LSPDiagnosticsResult{}
 }
@@ -368,6 +460,10 @@ func (NullPluginSource) Diagnostics(LSPDocumentVersion) LSPDiagnosticsResult {
 // @evidence contracts/common.md#clear-and-simple-design An empty source needs no action state or factory.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Selection inputs do not activate fixture-specific actions.
 // @evidence contracts/common.md#meaningful-documentation Native prose states empty action behavior, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CodeActions acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms CodeActions performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work CodeActions computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation CodeActions computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (NullPluginSource) CodeActions(string, LSPRange, LSPCodeActionContext) []LSPCodeAction {
   return nil
 }
@@ -378,6 +474,10 @@ func (NullPluginSource) CodeActions(string, LSPRange, LSPCodeActionContext) []LS
 // @evidence contracts/common.md#clear-and-simple-design It uses the same ownership outcome as other sources.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown commands are not successful no-op edits.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the failure outcome, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Acquires and retains nothing.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Returns immediately with ErrCommandNotHandled.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Performs no computation, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Returns a fixed error without touching any path or file.
 func (NullPluginSource) ExecuteCommand(string, []json.RawMessage) (*LSPWorkspaceEdit, error) {
   return nil, ErrCommandNotHandled
 }
@@ -389,4 +489,8 @@ func (NullPluginSource) ExecuteCommand(string, []json.RawMessage) (*LSPWorkspace
 // @evidence contracts/common.md#clear-and-simple-design The empty source requires no command storage.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Empty ownership reflects the supported no-plugin state.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains upstream forwarding, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CommandIDs acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms CommandIDs performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work CommandIDs computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation CommandIDs computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (NullPluginSource) CommandIDs() []string { return nil }

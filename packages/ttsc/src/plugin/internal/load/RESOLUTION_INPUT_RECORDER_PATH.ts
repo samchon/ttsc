@@ -3,7 +3,7 @@ import path from "node:path";
 /**
  * The absolute path of the module resolution input recorder
  * (`driver/resolutioninputs/recorder.cjs`), the one file that owns which inputs
- * a resolution read (samchon/ttsc#1501).
+ * a resolution read.
  *
  * The recorder lives beside the Go package that embeds it, so a Go plugin's
  * config loader and ttsc's own evaluators share it rather than copy it. The

@@ -33,6 +33,11 @@ func (s executableProjectInputSource) ProjectInputReloadMatchesChange(
 //     returns its stable restart sentinel before forwarding.
 //  3. Send an unrelated change and assert it follows the ordinary forwarded
 //     invalidation path without another lifecycle notification.
+//
+// @evidence contracts/testing.md#behavioral-verification A watched change to the executable reload URI announces the lifecycle transition and returns the stable restart sentinel before forwarding, while an unrelated change follows the ordinary forwarded invalidation path.
+// @evidence contracts/testing.md#independent-expectations The lifecycle notification and the restart sentinel are literals from the proxy contract.
+// @evidence contracts/testing.md#distinguishing-cases The executable reload URI and an unrelated URI take different paths.
+// @evidence contracts/testing.md#execution-ownership TestLSPExecutableProjectInputChangeRequestsLauncherRestart is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPExecutableProjectInputChangeRequestsLauncherRestart(t *testing.T) {
   reloadURI := "file:///project/lint.config.ts"
   var editor bytes.Buffer

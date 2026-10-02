@@ -18,7 +18,7 @@ import { PluginBuildEnvironmentReadings } from "./PluginBuildEnvironmentReadings
  * file `go env -w` writes, the executables the C toolchain commands name, and
  * GOROOT. A kept read is reused only while each of them holds its metadata, so
  * a toolchain replaced in place or a `go env -w` is read at the next use, not
- * after a proof has already accepted the old reading (samchon/ttsc#1516). The
+ * after a proof has already accepted the old reading. The
  * build itself never reads through here: it keys each binary on a fresh read.
  *
  * @param directory The directory a build runs `go` in.

@@ -14,7 +14,7 @@ import { GoSourceInputs } from "./GoSourceInputs";
  * hashes these files (`computeCacheKey`), and the transform envelope reports
  * their digest (`pluginSourceDigest`) within each directory's state
  * (`pluginSourceState`), so the two cannot disagree about what a plugin's
- * source is (samchon/ttsc#1487). A consumer that keeps a digest while the
+ * source is. A consumer that keeps a digest while the
  * metadata of these files holds still, rather than reading their bytes on every
  * proof, stats exactly this list, through the `ttsc/plugin-source` entry.
  *
@@ -25,7 +25,7 @@ import { GoSourceInputs } from "./GoSourceInputs";
  *
  * A link (a symbolic link or a Windows junction) outside those directories is
  * refused rather than skipped. The build would compile what it names, which
- * neither this list nor anything keyed on it covers (samchon/ttsc#1506); a Go
+ * neither this list nor anything keyed on it covers; a Go
  * module zip excludes links from a module's content for the same reason.
  *
  * @param root The source directory: a plugin's Go module root, an overlay

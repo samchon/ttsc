@@ -23,13 +23,13 @@ import { pluginSourceDigest } from "./pluginSourceDigest";
  * Each source directory enters the key as its digest (`pluginSourceDigest`),
  * which the transform envelope reports, with the environment below, as the
  * state of each directory a plugin supplied (`pluginSourceState`), so what a
- * consumer proves is exactly what the binary was keyed on (samchon/ttsc#1487).
+ * consumer proves is exactly what the binary was keyed on.
  * `sourceDigests` carries the digests one load already took: every build of the
  * load keys on one reading of each directory, and the load reports those
  * readings. The environment enters through `hashPluginBuildEnvironment`, the
  * rule that reported state takes it from too, and `environmentDigests` carries
  * the digest of each build directory's, so the load reports it without a second
- * `go env` run (samchon/ttsc#1493).
+ * `go env` run.
  *
  * The `ttsc cache` CLI and plugin build pipeline share this key computation.
  *

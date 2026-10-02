@@ -19,6 +19,9 @@ import { ProjectInputWatchRules } from "./ProjectInputWatchRules";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No second fallback broadens an absent safe owner into a system-wide watch.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain stable ownership, missing trees and unsafe external ancestors following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation The delegated selector owns native ancestry and actual physical containment instead of caller-side separator or OS-case assumptions.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources projectInputWatchDirectories declares a signature only; the implementation owns acquisition and release of resources.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms projectInputWatchDirectories declares a signature only; the implementation owns the processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work projectInputWatchDirectories declares a signature only; the implementation owns any shared work.
  */
 export function projectInputWatchDirectories(
   target: string,

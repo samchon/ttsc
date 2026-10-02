@@ -14,6 +14,11 @@ import "testing"
 //  1. Retain changed Markdown and Swagger inputs.
 //  2. Retain an in-place TypeScript edit for incremental Program update.
 //  3. Reload package metadata, created/deleted modules, and project configs.
+//
+// @evidence contracts/testing.md#behavioral-verification External data events (Markdown, Swagger, in-place TypeScript edits) keep the warm Program, while package metadata, created or deleted modules and project configs reload it.
+// @evidence contracts/testing.md#independent-expectations The expected retain-or-reload decision is a literal per event kind.
+// @evidence contracts/testing.md#distinguishing-cases A JSON path that can be a resolveJsonModule source is the boundary between data and Program topology.
+// @evidence contracts/testing.md#execution-ownership TestExternalWatchedChangeRetainsProgram is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestExternalWatchedChangeRetainsProgram(t *testing.T) {
   changed := fileChangeTypeChanged
   created := fileChangeTypeCreated

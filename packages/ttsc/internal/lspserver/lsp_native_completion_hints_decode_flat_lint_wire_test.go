@@ -14,6 +14,11 @@ import (
 //  1. Decode interleaved flat hints using the exact public rule.Hint JSON shape.
 //  2. Assert first-trigger group order and per-trigger item order are preserved.
 //  3. Feed the decoded corpus to the live matcher and verify it is offerable.
+//
+// @evidence contracts/testing.md#behavioral-verification Interleaved flat rule hints decode into groups ordered by first trigger with per-trigger item order preserved, and the decoded corpus is offered by the live matcher.
+// @evidence contracts/testing.md#independent-expectations The expected group and item order are literals taken from the public rule.Hint JSON shape.
+// @evidence contracts/testing.md#distinguishing-cases Repeated triggers must coalesce without reordering, which slice order tests catch.
+// @evidence contracts/testing.md#execution-ownership TestNativeCompletionHintsDecodeFlatLintWire is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestNativeCompletionHintsDecodeFlatLintWire(t *testing.T) {
   body := []byte(`[
     {

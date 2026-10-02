@@ -10,7 +10,7 @@ import path from "node:path";
  * What a transform produces is a function of its inputs, its plugins' sources
  * and build environment (`pluginSourceState`), and these versions. A consumer
  * that keeps a transform's output beyond the process that produced it, as a
- * persisted shared compile of `@ttsc/unplugin` is (samchon/ttsc#1483), names it
+ * persisted shared compile of `@ttsc/unplugin` is, names it
  * by these versions with the rule the build applies instead of a copy of it:
  * ttsc's own package version, and the version of the `typescript` package the
  * project resolves, or `"unknown"` when it resolves none.

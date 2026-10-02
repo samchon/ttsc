@@ -123,7 +123,7 @@ export function transformProjectInMemory(options: ITtscCompilerContext): {
   if (loaded.nativePlugins.length !== 0) {
     // Every step below runs binaries built from these sources, so the output
     // is a function of their state, which the envelope carries for a consumer
-    // to prove (samchon/ttsc#1487).
+    // to prove.
     return {
       ...transformProjectWithPlugins(options, loaded),
       ...(Object.keys(loaded.pluginSources).length === 0

@@ -20,7 +20,7 @@ import { withRuntimeDirectoryLock } from "./runtime/withRuntimeDirectoryLock";
  * serve that emit under the source's own path.
  *
  * The launcher owns the process tree it starts, so it behaves toward it the way
- * a shell does (samchon/ttsc#1403). A termination signal that arrives while the
+ * a shell does. A termination signal that arrives while the
  * project is being prepared is held until preparation has cleaned up after
  * itself. While the program runs, `SIGTERM` and `SIGHUP`, which a supervisor or
  * container runtime sends to the launcher's pid alone, are forwarded to it;
@@ -205,7 +205,7 @@ function prependNodeOption(
 
 /**
  * Run a JavaScript entry as Node's main module under the runtime
- * `ttsc/register` installs (samchon/ttsc#1569).
+ * `ttsc/register` installs.
  *
  * A JavaScript entry, such as a CLI's bin script run so that the TypeScript
  * configuration and sources it loads are served, has no project to check up
@@ -260,8 +260,8 @@ async function runJavaScriptEntry(
  * is Node's own main module, exactly as under `node <entry>` or `node -r
  * ttsc/register <entry>`: `require.main === module` and `import.meta.main` hold
  * in it, `process.argv` is Node's own, and an error thrown while it evaluates
- * reaches `process.on("uncaughtException")` and Node's exit status
- * (samchon/ttsc#1402), never a bootstrap module that loads it. A runtime manifest pins the
+ * reaches `process.on("uncaughtException")` and Node's exit status,
+ * never a bootstrap module that loads it. A runtime manifest pins the
  * entry project's emit for the hooks; `TTSC_TSGO_BINARY` lets dependency builds
  * find tsgo without re-resolving it from inside the hook.
  */

@@ -22,6 +22,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design One pure-AST rendering entry composes adaptation, contextual formatting and summary emission; mixed lint rendering stays in its separate adjacent entry.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The supplied output writer receives real compiler messages; no global stream replacement or source-pattern diagnostic approximation is involved.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies upstream formatting, non-nil input requirements and caller-owned writer/source lifetime before these tags.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The converted diagnostics are local to the call and released after the write.
+// @evidenceExclude contracts/performance.md#efficient-algorithms One formatting pass over the diagnostics, then one summary write.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The diagnostics are converted and formatted once per call.
+// @evidence contracts/portability.md#os-neutral-implementation The path comparison options carry the supplied current directory and a fixed case-sensitive policy because the writer only renders display paths and compares no filesystem identities.
 func FormatASTDiagnosticsWithColorAndContext(output io.Writer, diagnostics []*ast.Diagnostic, currentDirectory string) {
   if len(diagnostics) == 0 {
     return

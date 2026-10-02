@@ -207,8 +207,7 @@ export class TtscCompiler {
       const env = this.resolveEffectiveEnv();
       targets = [
         ...resolveCleanTargets(projectRoot, this.resolvePluginCacheDir(), env),
-        // The runtime directories of runs no process still owns
-        // (samchon/ttsc#1579).
+        // The runtime directories of runs no process still owns.
         ...(includeRuntime
           ? resolveRuntimeCleanTargets(
               resolveSourceBuildCachePaths(

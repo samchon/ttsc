@@ -13,6 +13,11 @@ func (projectDiagnosticsResumeSource) ProjectDiagnostics() *LSPProjectDiagnostic
 // TestResumePendingProjectDiagnosticRefreshDoesNotReviveCompletedWork verifies
 // a save or close advances and rearms pending work atomically, while a refresh
 // completed before that transition remains completed.
+//
+// @evidence contracts/testing.md#behavioral-verification A save or close advances and rearms pending work atomically, and a refresh completed before that transition stays completed.
+// @evidence contracts/testing.md#independent-expectations The expected pending and completed states are literal after each transition.
+// @evidence contracts/testing.md#distinguishing-cases Pre-transition completion and post-transition pending work are distinguished by generation.
+// @evidence contracts/testing.md#execution-ownership TestResumePendingProjectDiagnosticRefreshDoesNotReviveCompletedWork is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestResumePendingProjectDiagnosticRefreshDoesNotReviveCompletedWork(
   t *testing.T,
 ) {

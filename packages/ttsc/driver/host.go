@@ -26,6 +26,9 @@ import (
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Bundled resolution uses the supported WrapFS boundary without patching upstream filesystem methods.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains embedded definitions and absence of a network fetch following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Upstream osvfs supplies native filesystem behavior and capabilities; the factory does not guess them from a platform string.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned stack owns its cache for as long as the caller keeps it; the function itself retains nothing.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Composes three filesystem wrappers once per call; there is no loop.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh wrapper stack; callers that want one shared stack hold the returned value.
 func DefaultFS() vfs.FS {
   return bundled.WrapFS(cachedvfs.From(osvfs.FS()))
 }
@@ -38,6 +41,9 @@ func DefaultFS() vfs.FS {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The supported CompilerHost constructor owns behavior without an injected foreign-method replacement.
 // @evidence contracts/common.md#meaningful-documentation Native prose names project anchoring and bundled library lookup under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation The host uses the supplied filesystem's native capabilities and upstream path handling rather than hardcoded OS path rules.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources DefaultHost acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms DefaultHost performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work DefaultHost computes one result per call, so there is no repeated work to share.
 func DefaultHost(cwd string, fs vfs.FS) shimcompiler.CompilerHost {
   return shimcompiler.NewCompilerHost(cwd, fs, bundled.LibPath(), nil, nil)
 }

@@ -15,6 +15,9 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Namespace rules follow path syntax and do not whitelist projects or pretend device handles are ordinary files.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs name admitted Windows forms, rejected devices and the injectable platform parameter.
  * @evidence contracts/portability.md#os-neutral-implementation Explicit platform syntax uses path.posix or drive/UNC rules independent of the executing host; it does not infer existence, case policy or watcher support from the platform label.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It builds only short local strings and retains nothing after returning.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A handful of string tests and at most two regular-expression matches per call, with the platform argument selecting the Windows or POSIX branch.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure predicate of its two arguments; there is no work to share between calls.
  */
 export function isAbsoluteLocalProjectInputPath(
   location: string,

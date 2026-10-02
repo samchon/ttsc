@@ -8,6 +8,9 @@ import type { ITtscCompilerDiagnostic } from "../ITtscCompilerDiagnostic";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Captured streams and process status are actual host results, not reconstructed expected output or diagnostic-text guesses at success.
  * @evidence contracts/common.md#meaningful-documentation Native comments state status versus actual completion, emitted-list availability, generation ownership, null versus missing witnesses and unknown/ambiguous provenance states; member and tag separation follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Provenance distinguishes actual absolute native output spelling from physical source identity captured by the producer or stable external observations; neither path is case-folded or reconstructed from a URL, and each producer owns its resolution premise.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface TtscBuildResult {
   /** Structured diagnostics collected from compiler output. */

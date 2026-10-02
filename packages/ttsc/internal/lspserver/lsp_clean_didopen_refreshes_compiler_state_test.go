@@ -84,6 +84,11 @@ func didOpenEnvelope(uri string, text string) Envelope {
 //     refreshed and the resident refresh named that document's URI.
 //  2. Open a second file with text that differs from disk.
 //  3. Assert neither cache was refreshed and the notification still forwards.
+//
+// @evidence contracts/testing.md#behavioral-verification Opening a document whose buffer equals disk refreshes both the resident lint Program and the graph symbol provider and names that document's URI, while opening a dirty buffer refreshes neither.
+// @evidence contracts/testing.md#independent-expectations The refresh counts and the named URI are literal expectations for the two opened files.
+// @evidence contracts/testing.md#distinguishing-cases A clean open and a dirty open differ only in buffer-versus-disk equality, so a refresh gated on the wrong condition fails one half.
+// @evidence contracts/testing.md#execution-ownership TestLSPCleanDidOpenRefreshesCompilerState is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPCleanDidOpenRefreshesCompilerState(t *testing.T) {
   dir := t.TempDir()
   clean := filepath.Join(dir, "clean.ts")

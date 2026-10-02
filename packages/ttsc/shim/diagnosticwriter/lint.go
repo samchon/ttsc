@@ -32,6 +32,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design One category value drives both rendering and caller error classification without coupling the diagnostic to a process exit.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Category constants express the renderer contract, not severity guesses based on message text or a rule's consumer.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies display categories, caller-owned exit decisions and the non-error fallback.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LintCategory int
 
 const (
@@ -49,6 +53,10 @@ const (
 // @evidence contracts/common.md#clear-and-simple-design One boundary normalizer owns producer-range sanitation for every NewLintDiagnostic instead of requiring each renderer method to repair offsets.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Clamping addresses untrusted producer coordinates against the actual source length; it does not substitute canned diagnostic ranges or hide an out-of-file byte.
 // @evidence contracts/common.md#meaningful-documentation Native prose states half-open units, why sanitation belongs at the producer boundary, and the reversed/EOF/empty-file effects.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NormalizeLintRange acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms NormalizeLintRange performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work NormalizeLintRange computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation NormalizeLintRange computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func NormalizeLintRange(file *ast.SourceFile, pos, end int) (int, int) {
   if file == nil {
     return 0, 0
@@ -86,6 +94,10 @@ func NormalizeLintRange(file *ast.SourceFile, pos, end int) (int, int) {
 // @evidence contracts/common.md#clear-and-simple-design One immutable-by-public-API value implements the renderer boundary, with construction owning range validation and accessors supplying stored facts.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Lint findings enter the same formatter through an explicit interface implementation rather than modifying upstream diagnostics or injecting global output.
 // @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain the internal-package import boundary, retained source version and nil-receiver limits; public accessors document units and optional metadata.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type LintDiagnostic struct {
   file     *ast.SourceFile
   pos      int
@@ -104,6 +116,10 @@ type LintDiagnostic struct {
 // @evidence contracts/common.md#clear-and-simple-design One constructor establishes the range invariant for the private fields; renderer accessors need no repeated sanitation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The value contains actual producer findings; stable codes identify rules rather than synthesizing expected compiler messages.
 // @evidence contracts/common.md#meaningful-documentation Native prose states half-open anchoring, code identity convention and nil-file meaning, with range normalization explained on its owner.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewLintDiagnostic acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms NewLintDiagnostic performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewLintDiagnostic computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation NewLintDiagnostic computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func NewLintDiagnostic(file *ast.SourceFile, pos, end int, code int32, category LintCategory, message string) *LintDiagnostic {
   pos, end = NormalizeLintRange(file, pos, end)
   return &LintDiagnostic{
@@ -123,6 +139,10 @@ func NewLintDiagnostic(file *ast.SourceFile, pos, end int, code int32, category 
 // @evidence contracts/common.md#clear-and-simple-design One accessor owns pointer-to-interface absence conversion without a wrapper file representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing source remains absent rather than a fabricated file used to satisfy the renderer.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains retained provenance, project-wide absence and the Go typed-nil interface consequence.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources File acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms File performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work File computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation File computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) File() inner.FileLike {
   if d == nil || d.file == nil {
     return nil
@@ -136,6 +156,10 @@ func (d *LintDiagnostic) File() inner.FileLike {
 // @evidence contracts/common.md#clear-and-simple-design The accessor supplies one stored endpoint without reinterpreting coordinates.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The offset remains producer/source data rather than a guessed JavaScript character position.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies normalized origin and byte units; the type states the non-nil receiver premise.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Pos acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Pos performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Pos computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Pos computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) Pos() int { return d.pos }
 
 // End returns the normalized exclusive UTF-8 byte offset.
@@ -144,6 +168,10 @@ func (d *LintDiagnostic) Pos() int { return d.pos }
 // @evidence contracts/common.md#clear-and-simple-design One endpoint accessor keeps interval facts distinct from derived length.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The end is not extended past EOF to invent a visible diagnostic byte.
 // @evidence contracts/common.md#meaningful-documentation Native prose states normalized exclusive endpoint and byte units, with receiver requirements on the type.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources End acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms End performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work End computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation End computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) End() int { return d.end }
 
 // Len returns the normalized span length in UTF-8 bytes, including zero at EOF.
@@ -152,6 +180,10 @@ func (d *LintDiagnostic) End() int { return d.end }
 // @evidence contracts/common.md#clear-and-simple-design Deriving length from the two stored endpoints avoids another mutable field that could diverge from them.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Zero-width spans remain real absence of covered bytes rather than a fabricated length beyond the source.
 // @evidence contracts/common.md#meaningful-documentation Native prose states byte length and the EOF zero-width case before acknowledgment tags.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Len acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Len performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Len computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Len computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) Len() int { return d.end - d.pos }
 
 // Code returns the producer's stable diagnostic identifier.
@@ -160,6 +192,10 @@ func (d *LintDiagnostic) Len() int { return d.end - d.pos }
 // @evidence contracts/common.md#clear-and-simple-design One accessor exposes producer identity independently from severity and message presentation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Codes are supplied by the producer rather than inferred from expected message text.
 // @evidence contracts/common.md#meaningful-documentation Native prose names stable producer identity; construction explains the per-rule convention.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Code acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Code performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Code computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Code computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) Code() int32 { return d.code }
 
 // Category translates the exact error discriminator; every other value is warning.
@@ -168,6 +204,10 @@ func (d *LintDiagnostic) Code() int32 { return d.code }
 // @evidence contracts/common.md#clear-and-simple-design One translation boundary adapts the public lint category to the internal formatter enum.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit category data determines severity without message heuristics or consumer-specific reclassification.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the exact discriminator and fallback, rather than implying arbitrary integers form validated enum values.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Category acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Category performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Category computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Category computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) Category() diagnostics.Category {
   if d.category == LintCategoryError {
     return diagnostics.CategoryError
@@ -181,6 +221,10 @@ func (d *LintDiagnostic) Category() diagnostics.Category {
 // @evidence contracts/common.md#clear-and-simple-design One formatter adapter supplies stored prose while message creation stays with the rule.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The message is not replaced by a canned compiler diagnostic or inferred translation.
 // @evidence contracts/common.md#meaningful-documentation Native prose explicitly states already-localized input and ignored locale semantics.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Localize acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Localize performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Localize computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Localize computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) Localize(_ locale.Locale) string { return d.message }
 
 // MessageChain returns nil because this diagnostic contains one flat message.
@@ -189,6 +233,10 @@ func (d *LintDiagnostic) Localize(_ locale.Locale) string { return d.message }
 // @evidence contracts/common.md#clear-and-simple-design The adapter states its flat-message capability without an unused child-diagnostic hierarchy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing structured metadata remains absent rather than manufactured chain nodes.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the absence and its representation premise.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources MessageChain acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms MessageChain performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work MessageChain computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation MessageChain computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) MessageChain() []inner.Diagnostic { return nil }
 
 // RelatedInformation returns nil; this value carries no auxiliary diagnostics.
@@ -197,6 +245,10 @@ func (d *LintDiagnostic) MessageChain() []inner.Diagnostic { return nil }
 // @evidence contracts/common.md#clear-and-simple-design A focused flat diagnostic does not acquire an unused related-information store.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Auxiliary source sites are not fabricated from message spelling.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the unsupported auxiliary metadata capability directly.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RelatedInformation acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RelatedInformation performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RelatedInformation computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RelatedInformation computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) RelatedInformation() []inner.Diagnostic { return nil }
 
 // Message returns the already-localized lint message.
@@ -206,6 +258,10 @@ func (d *LintDiagnostic) RelatedInformation() []inner.Diagnostic { return nil }
 // @evidence contracts/common.md#clear-and-simple-design The public string accessor is separate from the locale-shaped formatter method, while both use the same stored message.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Nil does not cause a fabricated finding or a guessed diagnostic message.
 // @evidence contracts/common.md#meaningful-documentation Native prose names already-localized content and the nil-receiver result.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Message acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Message performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Message computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Message computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) Message() string {
   if d == nil {
     return ""
@@ -220,6 +276,10 @@ func (d *LintDiagnostic) Message() string {
 // @evidence contracts/common.md#clear-and-simple-design A boolean category query leaves process exit-code policy with the caller instead of embedding it in a rendered diagnostic.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Stored category data determines failure classification without matching consumer or message names.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains caller-owned exit decisions and the separation from rendering.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsError acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms IsError performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsError computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation IsError computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (d *LintDiagnostic) IsError() bool { return d.category == LintCategoryError }
 
 // FormatMixedDiagnostics renders raw tsgo diagnostics and lint diagnostics
@@ -233,6 +293,10 @@ func (d *LintDiagnostic) IsError() bool { return d.category == LintCategoryError
 // @evidence contracts/common.md#clear-and-simple-design One mixed rendering entry owns filtering, ordering and summary composition, with a private comparator centralizing tie-breaking and upstream owning snippet formatting.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Real findings flow through a caller-supplied writer rather than a swapped global stream; nil filtering does not drop present findings or manufacture successful diagnostics.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains mixed source context, returned error count, nil-entry handling and retained source-version requirements before these tags.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The combined slice is local to the call and released after formatting.
+// @evidenceExclude contracts/performance.md#efficient-algorithms One pass over each diagnostic slice, then one formatting call over the combined list.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The combined list is built once per call and formatted once.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Passes the supplied current directory to the upstream writer, which owns path display; this function builds no path itself.
 func FormatMixedDiagnostics(
   output io.Writer,
   astDiags []*ast.Diagnostic,

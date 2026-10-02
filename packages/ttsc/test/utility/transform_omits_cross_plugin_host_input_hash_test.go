@@ -35,6 +35,11 @@ func (plugin scopedHostInputPlugin) SourcePreamble(ctx driver.PluginContext) (st
 // The transform envelope describes the combined result of every linked hook.
 // If any hook lists a path without an exact observation, persistent adapters
 // must see the path but no proof, even when another hook hashes the same file.
+//
+// @evidence contracts/testing.md#behavioral-verification One plugin's hash and identity for a path are not published when another plugin lists the same path without an exact observation.
+// @evidence contracts/testing.md#independent-expectations The expected presence of the path and absence of proof are literal.
+// @evidence contracts/testing.md#distinguishing-cases The hashed plugin and the unproven plugin report the same file, which is the case where a merged map could wrongly certify it.
+// @evidence contracts/testing.md#execution-ownership TestUtilityTransformOmitsCrossPluginHostInputHash is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityTransformOmitsCrossPluginHostInputHash(t *testing.T) {
   resetLinkedPluginRegistry()
   root := t.TempDir()

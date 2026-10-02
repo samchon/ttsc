@@ -11,6 +11,9 @@ import type { TtscPluginStage } from "../TtscPluginStage";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Capability and reportsTypeScriptDiagnostics declarations govern forwarding and guard behavior; names remain labels rather than special-case routing keys.
  * @evidence contracts/common.md#meaningful-documentation Native member comments describe binary provenance, original config, linked ownership and capability meaning; blank member lines and prose/tag separation follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Binary and source are resolved native paths supplied by the loader/build owner; this representation neither hardcodes platform suffixes nor serializes process execution as shell text.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ITtscLoadedNativePlugin {
   /** Executable produced by the lazy Go source build cache. */

@@ -20,6 +20,11 @@ import (
 // 1. Register a linked source-preamble plugin.
 // 2. Run utility build with emit enabled and one manifest entry.
 // 3. Assert the generated JavaScript and declaration file contain the preamble text.
+//
+// @evidence contracts/testing.md#behavioral-verification RunBuild with a linked source-preamble plugin writes both the JavaScript and the declaration output, and the assertions require the preamble text in each emitted file kind.
+// @evidence contracts/testing.md#independent-expectations The expected preamble text is the literal string the test's own plugin injects, not text derived from the emitted files.
+// @evidence contracts/testing.md#distinguishing-cases Declaration output is the neighbor that would miss the preamble if only the parsed-source path applied it; both file kinds are checked.
+// @evidence contracts/testing.md#execution-ownership TestUtilityBuildAppliesLinkedSourcePreamble is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityBuildAppliesLinkedSourcePreamble(t *testing.T) {
   resetLinkedPluginRegistry()
   driver.RegisterPlugin(utilityPreamblePlugin{})

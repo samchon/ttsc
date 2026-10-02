@@ -25,6 +25,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design One upstream checker is the semantic authority, avoiding an independently maintained type graph at the shim boundary.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The alias exposes supported compiler objects without replacing query methods or synthesizing fixture semantics.
 // @evidence contracts/common.md#meaningful-documentation Native prose states program ownership and caller synchronization instead of implying immutable or thread-safe checker state.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type Checker = innerchecker.Checker
 
 // IndexInfo describes a compiler index signature, including its key and value types.
@@ -33,6 +37,10 @@ type Checker = innerchecker.Checker
 // @evidence contracts/common.md#clear-and-simple-design One existing record carries index-signature facts without a lossy shim projection.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No index key or value is fabricated from consumer conventions.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the semantic role and key/value distinction.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type IndexInfo = innerchecker.IndexInfo
 
 // Signature represents one checked call or construct signature and its parameters.
@@ -42,6 +50,10 @@ type IndexInfo = innerchecker.IndexInfo
 // @evidence contracts/common.md#clear-and-simple-design The compiler's signature object is shared rather than copied into a second overload model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The alias preserves semantic signatures rather than inferring them from printed syntax.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes call/construct signatures and states checker ownership.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type Signature = innerchecker.Signature
 
 // SignatureFlags is the compiler bitmask for signature properties such as rest parameters.
@@ -50,6 +62,10 @@ type Signature = innerchecker.Signature
 // @evidence contracts/common.md#clear-and-simple-design One compiler flag representation serves signature queries without shim-specific translation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Upstream flag meanings remain unchanged rather than hardcoded from selected examples.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies bitmask composition and a meaningful signature distinction.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type SignatureFlags = innerchecker.SignatureFlags
 
 // SignatureKind selects call signatures or construct signatures in checker queries.
@@ -58,6 +74,10 @@ type SignatureFlags = innerchecker.SignatureFlags
 // @evidence contracts/common.md#clear-and-simple-design One discriminant selects the intended query population.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The enum expresses language invocation categories without consumer exceptions.
 // @evidence contracts/common.md#meaningful-documentation Native prose names both selectable signature categories.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type SignatureKind = innerchecker.SignatureKind
 
 // Type is a compiler semantic type, including instantiated and composite types.
@@ -67,6 +87,10 @@ type SignatureKind = innerchecker.SignatureKind
 // @evidence contracts/common.md#clear-and-simple-design The alias keeps semantic representation with the compiler instead of building a parallel shim type system.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No semantic type is reconstructed from consumer names or printed text.
 // @evidence contracts/common.md#meaningful-documentation Native prose states semantic versus syntax identity and producing-checker ownership.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type Type = innerchecker.Type
 
 // TypeAlias retains a semantic type alias's symbol and instantiated arguments.
@@ -76,6 +100,10 @@ type Type = innerchecker.Type
 // @evidence contracts/common.md#clear-and-simple-design One upstream record exposes existing semantic metadata without duplicating checker state.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Alias metadata comes from a checked Type rather than reconstructed declaration names.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies metadata, its producer and nil-safe accessor behavior.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type TypeAlias = innerchecker.TypeAlias
 
 // NodeBuilderImpl serializes checked types within an active builder context.
@@ -85,6 +113,10 @@ type TypeAlias = innerchecker.TypeAlias
 // @evidence contracts/common.md#clear-and-simple-design A borrowed compiler implementation serves the existing metadata conversion without another semantic serializer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The implementation comes from the upstream builder with a real entered context; a nil-context constructor is not presented as usable state.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the callback producer and forbids retaining the context-bound value beyond its lifetime.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type NodeBuilderImpl = innerchecker.NodeBuilderImpl
 
 // WithNodeBuilderContext converts checked metadata in a fresh builder context.
@@ -100,6 +132,10 @@ type NodeBuilderImpl = innerchecker.NodeBuilderImpl
 // @evidence contracts/common.md#clear-and-simple-design A scoped callback separates compiler-state acquisition from caller conversion while a fresh builder owns each nested invocation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No private layout is handwritten or patched, and no unusable raw getter is published as a producer; official generation derives the one required field access.
 // @evidence contracts/common.md#meaningful-documentation Native prose states synchronization, program and emit identity, default flags, borrowing limits, nil result and error/panic restoration.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The deferred pop restores the builder context on every return path, so no context outlives the call.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Constant work around one callback invocation.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work It creates one node-builder context per call and shares none.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory compiler nodes only; it accesses no path or filesystem.
 func WithNodeBuilderContext(ch *Checker, emitContext *innerprinter.EmitContext, enclosing *innerast.Node, use func(*NodeBuilderImpl) (*innerast.Node, error)) (*innerast.Node, error) {
   builder := innerchecker.NewNodeBuilder(ch, emitContext)
   nodeBuilderEnterContext(builder, enclosing, innernodebuilder.FlagsNone, innernodebuilder.InternalFlagsNone, nil)
@@ -134,6 +170,10 @@ func nodeBuilderPopContext(*innerchecker.NodeBuilder)
 // @evidence contracts/common.md#clear-and-simple-design One predicate qualifies inputs to GetPropertyNameFromType without another type classifier.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Eligibility follows actual type flags rather than printed type spelling.
 // @evidence contracts/common.md#meaningful-documentation Native prose names supported semantic categories and nonnil input.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsTypeUsableAsPropertyName acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms IsTypeUsableAsPropertyName performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsTypeUsableAsPropertyName computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation IsTypeUsableAsPropertyName computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsTypeUsableAsPropertyName(t *Type) bool {
   return innerchecker.IsTypeUsableAsPropertyName(t)
 }
@@ -145,6 +185,10 @@ func IsTypeUsableAsPropertyName(t *Type) bool {
 // @evidence contracts/common.md#clear-and-simple-design One decoder consumes the adjacent eligibility predicate's qualified semantic input.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Property identity is not guessed from source text or converted from unsupported types.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the qualification requirement and unsupported-type panic.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetPropertyNameFromType acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms GetPropertyNameFromType performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetPropertyNameFromType computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation GetPropertyNameFromType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func GetPropertyNameFromType(t *Type) string {
   return innerchecker.GetPropertyNameFromType(t)
 }
@@ -156,6 +200,10 @@ func GetPropertyNameFromType(t *Type) string {
 // @evidence contracts/common.md#clear-and-simple-design One syntax query exposes the compiler's existing accessor convention.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Parameter selection follows actual setter syntax rather than a fixed consumer name.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the setter premise and explicit-this distinction.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetSetAccessorValueParameter acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms GetSetAccessorValueParameter performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetSetAccessorValueParameter computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation GetSetAccessorValueParameter computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func GetSetAccessorValueParameter(accessor *innerast.Node) *innerast.Node {
   return innerchecker.GetSetAccessorValueParameter(accessor)
 }
@@ -166,6 +214,10 @@ func GetSetAccessorValueParameter(accessor *innerast.Node) *innerast.Node {
 // @evidence contracts/common.md#clear-and-simple-design Substitution uses the compiler's existing mapper model across construction and instantiation wrappers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No ad hoc name-based substitution or foreign instantiator replacement is introduced.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies semantic type-parameter substitution rather than a generic object map.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type TypeMapper = innerchecker.TypeMapper
 
 // TypeMapperKind discriminates the compiler's substitution mapper representations.
@@ -174,6 +226,10 @@ type TypeMapper = innerchecker.TypeMapper
 // @evidence contracts/common.md#clear-and-simple-design The same kind representation connects mapper constructors and consumers without a shim discriminator.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler mapper variants are retained without selecting consumer-specific behavior.
 // @evidence contracts/common.md#meaningful-documentation Native prose states why the discriminator exists: choosing a substitution representation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type TypeMapperKind = innerchecker.TypeMapperKind
 
 // TypeFlags is the compiler bitmask describing semantic type categories.
@@ -182,6 +238,10 @@ type TypeMapperKind = innerchecker.TypeMapperKind
 // @evidence contracts/common.md#clear-and-simple-design One native flag vocabulary connects the compiler and its plugin consumers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Flags are not inferred from textual type spelling or rewritten for fixtures.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes semantic categories and bitmask representation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type TypeFlags = innerchecker.TypeFlags
 
 // ObjectFlags is the compiler bitmask refining object types, including references and tuples.
@@ -190,6 +250,10 @@ type TypeFlags = innerchecker.TypeFlags
 // @evidence contracts/common.md#clear-and-simple-design Object refinement remains in the compiler's established flag layer rather than a new shim taxonomy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The representation retains real object-category flags without guessing from declaration names.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies object refinement and examples relevant to exposed tuple queries.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ObjectFlags = innerchecker.ObjectFlags
 
 // ElementFlags is the compiler bitmask for required, optional, rest and variadic tuple elements.
@@ -198,6 +262,10 @@ type ObjectFlags = innerchecker.ObjectFlags
 // @evidence contracts/common.md#clear-and-simple-design Existing compiler flags describe tuple elements without separate shim metadata.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Tuple categories are not reduced to a guessed fixed-length representation.
 // @evidence contracts/common.md#meaningful-documentation Native prose explicitly lists required, optional, rest and variadic meanings.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ElementFlags = innerchecker.ElementFlags
 
 // Program is the semantic input interface required to construct an upstream Checker.
@@ -206,6 +274,10 @@ type ElementFlags = innerchecker.ElementFlags
 // @evidence contracts/common.md#clear-and-simple-design Checker construction consumes the compiler's existing program boundary without a second adapter contract.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts A caller implements the real compiler interface rather than replacing checker internals.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the checker-construction role and interface nature.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type Program = innerchecker.Program
 
 // Tracer carries the compiler's optional semantic tracing state for a Checker.
@@ -214,6 +286,10 @@ type Program = innerchecker.Program
 // @evidence contracts/common.md#clear-and-simple-design Optional tracing remains a compiler-owned concern passed through NewChecker.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The alias introduces no injected expected trace or global tracer replacement.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies optional tracing and its checker context.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type Tracer = innerchecker.Tracer
 
 //go:linkname checkerNewAnonymousType github.com/microsoft/typescript-go/internal/checker.(*Checker).newAnonymousType
@@ -251,6 +327,10 @@ func checkerArePropertiesAbstractOrInterface(
 // @evidence contracts/common.md#clear-and-simple-design Two minimal anonymous type views isolate one relation without rewriting the upstream property relater or introducing sibling-dependent results.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Anonymous types use the compiler's constructor rather than monkey patching its relater; equal names include valid empty-string property symbols rather than treating an empty spelling as a missing-symbol sentinel.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain retained-symbol semantics, same-name/type-graph premises and caller synchronization rather than promising a syntax-only override check.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_isPropertyAssignableTo acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_isPropertyAssignableTo performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_isPropertyAssignableTo computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_isPropertyAssignableTo computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_isPropertyAssignableTo(
   recv *innerchecker.Checker,
   sourceProperty *innerast.Symbol,
@@ -291,6 +371,10 @@ func Checker_isPropertyAssignableTo(
 // @evidence contracts/common.md#clear-and-simple-design One direct-pair predicate exposes member-kind legality independently from Checker_isPropertyAssignableTo, so callers can require both without importing internal flag policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Assignment and abstract/interface exceptions are upstream class-member semantics; the mapped-property exception is absent because a direct class base member cannot be mapped.
 // @evidence contracts/common.md#meaningful-documentation Native prose contrasts class inheritance with structural assignment and states direct-member, same-checker and kind-only limits.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_isValidClassMemberOverridePair acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_isValidClassMemberOverridePair performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_isValidClassMemberOverridePair computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_isValidClassMemberOverridePair computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_isValidClassMemberOverridePair(
   recv *innerchecker.Checker,
   derivedProperty *innerast.Symbol,
@@ -338,6 +422,10 @@ func Checker_isValidClassMemberOverridePair(
 // @evidence contracts/common.md#clear-and-simple-design One constructor returns the semantic object and its lock together without a duplicate graph or locking layer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Construction uses the actual supplied program and optional tracer rather than a foreign checker replacement or synthetic semantic result.
 // @evidence contracts/common.md#meaningful-documentation Native prose states type-graph ownership and caller serialization through the paired mutex.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The checker and its mutex are returned to the caller, who owns their lifetime.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Delegates directly to the upstream constructor, which owns its cost.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds one checker; any sharing is the caller's decision.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Delegates to the upstream checker constructor; the shim handles no path or file.
 func NewChecker(program Program, tracer *Tracer) (*Checker, *sync.Mutex) {
   return innerchecker.NewChecker(program, tracer)
 }
@@ -355,6 +443,10 @@ func checkerGetRegularTypeOfLiteralType(recv *innerchecker.Checker, t *innerchec
 // @evidence contracts/common.md#clear-and-simple-design One guarded bridge exposes compiler canonicalization without duplicating literal interning or conversion rules.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The nil fallback preserves the input rather than constructing a desired literal; actual canonicalization remains with the producing compiler checker.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains fresh-versus-regular pointer identity, runtime meaning and nil input preservation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getRegularTypeOfLiteralType acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getRegularTypeOfLiteralType performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getRegularTypeOfLiteralType computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getRegularTypeOfLiteralType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getRegularTypeOfLiteralType(recv *innerchecker.Checker, t *innerchecker.Type) *innerchecker.Type {
   if recv == nil || t == nil {
     return t
@@ -376,6 +468,10 @@ func Checker_getRegularTypeOfLiteralType(recv *innerchecker.Checker, t *innerche
 // @evidence contracts/common.md#clear-and-simple-design One renderer bridge centralizes compiler literal syntax without a separate shim serializer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Values are formatted from actual compiler data, with no expected string table or special-case enum member names.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs state source-form output and the unsupported/nil-value panic boundary with explanatory context.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ValueToString acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ValueToString performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ValueToString computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ValueToString computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func ValueToString(value any) string {
   return innerchecker.ValueToString(value)
 }
@@ -390,6 +486,10 @@ func ValueToString(value any) string {
 // @evidence contracts/common.md#clear-and-simple-design One named formatting policy owns its flags, leaving graph consumers independent of internal formatting enums.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Flags are compiler-defined formatting controls rather than patches to type identity or consumer-specific output strings.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains alias-aware scope, flag ownership, nil output and same-checker requirements.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_typeToStringFullyQualified acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_typeToStringFullyQualified performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_typeToStringFullyQualified computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_typeToStringFullyQualified computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_typeToStringFullyQualified(recv *innerchecker.Checker, t *innerchecker.Type, enclosingDeclaration *innerast.Node) string {
   if recv == nil || t == nil {
     return ""
@@ -413,6 +513,10 @@ func Checker_typeToStringFullyQualified(recv *innerchecker.Checker, t *innerchec
 // @evidence contracts/common.md#clear-and-simple-design One wrapper owns value-position formatting policy without manual namespace concatenation or an AST printer fallback.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Indexed member spelling comes from the compiler's real symbol representation rather than a consumer-name escape table.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains expression-position output, indexed access and nil/same-checker limits before the tags.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_symbolToValueString acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_symbolToValueString performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_symbolToValueString computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_symbolToValueString computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_symbolToValueString(recv *innerchecker.Checker, symbol *innerast.Symbol, enclosingDeclaration *innerast.Node) string {
   if recv == nil || symbol == nil {
     return ""
@@ -436,6 +540,10 @@ func Checker_symbolToValueString(recv *innerchecker.Checker, symbol *innerast.Sy
 // @evidence contracts/common.md#clear-and-simple-design One boolean query separates accessibility from value-string formatting, keeping visibility policy in the compiler.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper does not assume a qualified name is accessible because its text is known; actual checker accessibility must succeed.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains containing-symbol visibility and nil refusal, distinguishing this operation from an accessible-chain lookup.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_isSymbolAccessibleAsValue acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_isSymbolAccessibleAsValue performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_isSymbolAccessibleAsValue computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_isSymbolAccessibleAsValue computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_isSymbolAccessibleAsValue(recv *innerchecker.Checker, symbol *innerast.Symbol, enclosingDeclaration *innerast.Node) bool {
   if recv == nil || symbol == nil || enclosingDeclaration == nil {
     return false
@@ -502,6 +610,10 @@ const (
 // @evidence contracts/common.md#clear-and-simple-design One predicate delegates representation classification without inferring tuples from printed syntax or element count.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No fixed-size shortcut substitutes for the compiler's tuple identity.
 // @evidence contracts/common.md#meaningful-documentation Native prose states rest/variadic inclusion and the nonnil type requirement.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsTupleType acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms IsTupleType performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsTupleType computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation IsTupleType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsTupleType(t *innerchecker.Type) bool {
   return innerchecker.IsTupleType(t)
 }
@@ -514,6 +626,10 @@ func IsTupleType(t *innerchecker.Type) bool {
 // @evidence contracts/common.md#clear-and-simple-design One direct semantic query exposes existing index information without a separate index-signature walker.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Index signatures come from the actual type graph rather than guessed numeric or string property names.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies index-key categories and same-checker nonnil premises.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getIndexInfosOfType acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getIndexInfosOfType performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getIndexInfosOfType computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getIndexInfosOfType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getIndexInfosOfType(recv *innerchecker.Checker, t *innerchecker.Type) []*innerchecker.IndexInfo {
   return recv.GetIndexInfosOfType(t)
 }
@@ -527,6 +643,10 @@ func Checker_getIndexInfosOfType(recv *innerchecker.Checker, t *innerchecker.Typ
 // @evidence contracts/common.md#clear-and-simple-design One checker query owns composite-type property formation instead of an independent shim intersection or union merger.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Composite properties are not reduced to a common-member approximation for every type category.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes union from intersection behavior and states graph/nonnil premises.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getPropertiesOfType acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getPropertiesOfType performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getPropertiesOfType computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getPropertiesOfType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getPropertiesOfType(recv *innerchecker.Checker, t *innerchecker.Type) []*innerast.Symbol {
   return recv.GetPropertiesOfType(t)
 }
@@ -539,6 +659,10 @@ func Checker_getPropertiesOfType(recv *innerchecker.Checker, t *innerchecker.Typ
 // @evidence contracts/common.md#clear-and-simple-design Apparent lookup remains distinct from direct properties so callers select the actual semantic question without a duplicated normalization layer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Primitive properties come from compiler apparent types, not a hardcoded wrapper-member inventory.
 // @evidence contracts/common.md#meaningful-documentation Native prose gives the primitive-wrapper example and nonnil same-graph conditions.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getApparentProperties acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getApparentProperties performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getApparentProperties computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getApparentProperties computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getApparentProperties(recv *innerchecker.Checker, t *innerchecker.Type) []*innerast.Symbol {
   return recv.GetApparentProperties(t)
 }
@@ -551,6 +675,10 @@ func Checker_getApparentProperties(recv *innerchecker.Checker, t *innerchecker.T
 // @evidence contracts/common.md#clear-and-simple-design One direct reference query exposes instantiated arguments without another generic type model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Type argument identity is retained instead of guessed from type names or printed angle brackets.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies resolved generic-reference scope and the nonnil type-reference/producing-checker domain instead of promising non-reference nil.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getTypeArguments acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getTypeArguments performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getTypeArguments computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getTypeArguments computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getTypeArguments(recv *innerchecker.Checker, t *innerchecker.Type) []*innerchecker.Type {
   return recv.GetTypeArguments(t)
 }
@@ -564,6 +692,10 @@ func Checker_getTypeArguments(recv *innerchecker.Checker, t *innerchecker.Type) 
 // @evidence contracts/common.md#clear-and-simple-design One symbol-to-type query leaves binding and resolution with the existing checker.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No type is synthesized from consumer naming or a cached textual annotation.
 // @evidence contracts/common.md#meaningful-documentation Native prose names alias/late-bound handling, class value versus instance typing and nonnil checker ownership.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getTypeOfSymbol acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getTypeOfSymbol performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getTypeOfSymbol computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getTypeOfSymbol computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getTypeOfSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol) *innerchecker.Type {
   return recv.GetTypeOfSymbol(symbol)
 }
@@ -577,6 +709,10 @@ func Checker_getTypeOfSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol
 // @evidence contracts/common.md#clear-and-simple-design This wrapper makes location dependence explicit instead of mixing contextual and declared type queries.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Context comes from a real checked node, not a fixture offset or textual narrowing heuristic.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains contextual typing, same-program checker/symbol requirements and nil location's unnarrowed result.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getTypeOfSymbolAtLocation acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getTypeOfSymbolAtLocation performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getTypeOfSymbolAtLocation computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getTypeOfSymbolAtLocation computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getTypeOfSymbolAtLocation(recv *innerchecker.Checker, symbol *innerast.Symbol, node *innerast.Node) *innerchecker.Type {
   return recv.GetTypeOfSymbolAtLocation(symbol, node)
 }
@@ -589,6 +725,10 @@ func Checker_getTypeOfSymbolAtLocation(recv *innerchecker.Checker, symbol *inner
 // @evidence contracts/common.md#clear-and-simple-design One type/name lookup delegates property resolution without separately resolving symbols and reimplementing property typing.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing members remain absent rather than receiving a fabricated fallback type.
 // @evidence contracts/common.md#meaningful-documentation Native prose states missing-property nil and same-checker nonnil requirements.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getTypeOfPropertyOfType acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getTypeOfPropertyOfType performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getTypeOfPropertyOfType computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getTypeOfPropertyOfType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getTypeOfPropertyOfType(recv *innerchecker.Checker, t *innerchecker.Type, name string) *innerchecker.Type {
   return recv.GetTypeOfPropertyOfType(t, name)
 }
@@ -615,6 +755,10 @@ func checkerGetPropertyNameForKnownSymbolName(recv *innerchecker.Checker, symbol
 // @evidence contracts/common.md#clear-and-simple-design One bridge owns well-known-symbol key resolution rather than duplicating a textual Symbol-name matcher in lint consumers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing global members use upstream's unbindable fallback key rather than treating any similarly spelled property as the protocol.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains unique-symbol lookup, augmented globals, fallback absence and nil receiver behavior in useful context.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getPropertyNameForKnownSymbolName acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getPropertyNameForKnownSymbolName performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getPropertyNameForKnownSymbolName computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getPropertyNameForKnownSymbolName computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getPropertyNameForKnownSymbolName(recv *innerchecker.Checker, symbolName string) string {
   if recv == nil {
     return ""
@@ -643,6 +787,10 @@ func checkerGetIterationTypeOfIterable(
 // @evidence contracts/common.md#clear-and-simple-design One guarded bridge exposes the compiler's iterator semantics without assembling Symbol.iterator and next signatures independently.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Iterator values are not guessed from property spelling or selected container names; upstream semantics cover structural iterables and strings.
 // @evidence contracts/common.md#meaningful-documentation Native prose states supported traversal categories, nil-result meaning and disabled diagnostics, separated from tags.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getSynchronousIterationYieldType acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getSynchronousIterationYieldType performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getSynchronousIterationYieldType computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getSynchronousIterationYieldType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getSynchronousIterationYieldType(recv *innerchecker.Checker, inputType *innerchecker.Type) *innerchecker.Type {
   if recv == nil || inputType == nil {
     return nil
@@ -668,6 +816,10 @@ func checkerGetAliasSymbolForTypeNode(recv *innerchecker.Checker, node *innerast
 // @evidence contracts/common.md#clear-and-simple-design One specifically documented enclosure query exposes compiler alias provenance without conflating it with alias-target resolution.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No alias is inferred from printed type text or a named consumer; the actual AST parent chain defines the result.
 // @evidence contracts/common.md#meaningful-documentation Native prose states wrapper traversal, non-alias nil, nonnil inputs and the enclosing-declaration distinction.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getAliasSymbolForTypeNode acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getAliasSymbolForTypeNode performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getAliasSymbolForTypeNode computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getAliasSymbolForTypeNode computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getAliasSymbolForTypeNode(recv *innerchecker.Checker, node *innerast.Node) *innerast.Symbol {
   return checkerGetAliasSymbolForTypeNode(recv, node)
 }
@@ -683,6 +835,10 @@ func checkerGetDeclarationOfAliasSymbol(recv *innerchecker.Checker, symbol *inne
 // @evidence contracts/common.md#clear-and-simple-design Declaration provenance is queried separately from Checker_getAliasedSymbol target resolution, retaining the difference in the public API's native explanation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The declaration is selected from the actual symbol's compiler declarations without a guessed import/export source.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes alias declaration from target, specifies last-match ordering and absent/nonnil conditions.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getDeclarationOfAliasSymbol acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getDeclarationOfAliasSymbol performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getDeclarationOfAliasSymbol computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getDeclarationOfAliasSymbol computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getDeclarationOfAliasSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol) *innerast.Node {
   return checkerGetDeclarationOfAliasSymbol(recv, symbol)
 }
@@ -698,6 +854,10 @@ func checkerGetTargetOfImportSpecifier(recv *innerchecker.Checker, node *inneras
 // @evidence contracts/common.md#clear-and-simple-design One guarded import-specific query exposes the existing semantic operation without duplicating module export lookup.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing inputs remain nil and targets are not guessed from specifier names.
 // @evidence contracts/common.md#meaningful-documentation Native prose states target meaning, nil behavior and the import-specifier/same-program premise.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getTargetOfImportSpecifier acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getTargetOfImportSpecifier performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getTargetOfImportSpecifier computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getTargetOfImportSpecifier computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getTargetOfImportSpecifier(recv *innerchecker.Checker, node *innerast.Node) *innerast.Symbol {
   if recv == nil || node == nil {
     return nil
@@ -713,6 +873,10 @@ func Checker_getTargetOfImportSpecifier(recv *innerchecker.Checker, node *innera
 // @evidence contracts/common.md#clear-and-simple-design Target resolution remains separate from declaration lookup and import-node-specific resolution.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The target is not reconstructed by reopening textual module paths or accepting a similarly named symbol.
 // @evidence contracts/common.md#meaningful-documentation Native prose states final-target meaning, nil handling and the alias-symbol domain.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getAliasedSymbol acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getAliasedSymbol performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getAliasedSymbol computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getAliasedSymbol computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getAliasedSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol) *innerast.Symbol {
   if recv == nil || symbol == nil {
     return nil
@@ -729,6 +893,10 @@ func Checker_getAliasedSymbol(recv *innerchecker.Checker, symbol *innerast.Symbo
 // @evidence contracts/common.md#clear-and-simple-design One module query centralizes aggregation in the checker instead of a separate shim re-export walker.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Export targets follow actual compiler bindings without hardcoded barrel paths or consumer exceptions.
 // @evidence contracts/common.md#meaningful-documentation Native prose names source-file/namespace modules, export-star handling and nil/same-checker constraints.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getExportsOfModule acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getExportsOfModule performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getExportsOfModule computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getExportsOfModule computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getExportsOfModule(recv *innerchecker.Checker, symbol *innerast.Symbol) []*innerast.Symbol {
   if recv == nil || symbol == nil {
     return nil
@@ -757,6 +925,10 @@ func checkerResolveEntityName(
 // @evidence contracts/common.md#clear-and-simple-design One bridge exposes the resolver's relevant controls explicitly rather than duplicating separate dotted-name lookup implementations.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The semantic name is resolved by compiler scope rules, not string concatenation or a consumer-specific namespace table.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains meaning filtering, diagnostic suppression, alias retention and input ownership in separated sentences.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_resolveEntityName acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_resolveEntityName performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_resolveEntityName computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_resolveEntityName computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_resolveEntityName(
   recv *innerchecker.Checker,
   name *innerast.Node,
@@ -782,6 +954,10 @@ func checkerGetTypeNameSymbol(t *innerchecker.Type) *innerast.Symbol
 // @evidence contracts/common.md#clear-and-simple-design One query exposes name provenance independently of type formatting or general symbol resolution.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No name symbol is guessed from printed text or declaration identifiers.
 // @evidence contracts/common.md#meaningful-documentation Native prose states optional name/nil results and why explicit internal linkage is used.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Type_getTypeNameSymbol acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Type_getTypeNameSymbol performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Type_getTypeNameSymbol computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Type_getTypeNameSymbol computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Type_getTypeNameSymbol(t *innerchecker.Type) *innerast.Symbol {
   if t == nil {
     return nil
@@ -800,6 +976,10 @@ func checkerIsArrayType(recv *innerchecker.Checker, t *innerchecker.Type) bool
 // @evidence contracts/common.md#clear-and-simple-design One compiler identity predicate avoids a separate structural-array classifier.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Built-in arrays are not identified by a consumer's type name or numeric-property heuristic.
 // @evidence contracts/common.md#meaningful-documentation Native prose states built-in reference scope and nonnil same-checker inputs.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_isArrayType acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_isArrayType performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_isArrayType computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_isArrayType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_isArrayType(recv *innerchecker.Checker, t *innerchecker.Type) bool {
   return checkerIsArrayType(recv, t)
 }
@@ -815,6 +995,10 @@ func checkerGetBaseTypes(recv *innerchecker.Checker, t *innerchecker.Type) []*in
 // @evidence contracts/common.md#clear-and-simple-design One inheritance query leaves heritage resolution with the compiler and states its narrower input domain explicitly.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No base is inferred from a textual extends clause or guessed class name.
 // @evidence contracts/common.md#meaningful-documentation Native prose describes heritage output, nil absence and the declared-type versus generic-reference distinction.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getBaseTypes acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getBaseTypes performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getBaseTypes computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getBaseTypes computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getBaseTypes(recv *innerchecker.Checker, t *innerchecker.Type) []*innerchecker.Type {
   if recv == nil || t == nil {
     return nil
@@ -838,6 +1022,10 @@ func checkerGetDeclaredTypeOfSymbol(recv *innerchecker.Checker, symbol *innerast
 // @evidence contracts/common.md#clear-and-simple-design The wrapper exposes instance declaration typing separately from ordinary symbol value typing instead of making consumers coerce type representations.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Generic heritage traversal uses actual declared compiler types rather than a compensating name-based base lookup.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains constructor versus instance results, generic-boundary relevance and nil inputs in a coherent paragraph.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getDeclaredTypeOfSymbol acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getDeclaredTypeOfSymbol performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getDeclaredTypeOfSymbol computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getDeclaredTypeOfSymbol computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getDeclaredTypeOfSymbol(recv *innerchecker.Checker, symbol *innerast.Symbol) *innerchecker.Type {
   if recv == nil || symbol == nil {
     return nil
@@ -859,6 +1047,10 @@ func checkerGetMinArgumentCount(recv *innerchecker.Checker, signature *innerchec
 // @evidence contracts/common.md#clear-and-simple-design One arity query exposes the compiler's complete rule without a second parameter-counting policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The result comes from actual signature semantics rather than a consumer's constructor strategy or fixed expected arity.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes compiler minimum arity from declared parameter count, includes tuple/void cases and documents nil zero.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getMinArgumentCount acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getMinArgumentCount performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getMinArgumentCount computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getMinArgumentCount computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getMinArgumentCount(recv *innerchecker.Checker, signature *innerchecker.Signature) int {
   if recv == nil || signature == nil {
     return 0
@@ -879,6 +1071,10 @@ func Checker_getMinArgumentCount(recv *innerchecker.Checker, signature *innerche
 // @evidence contracts/common.md#clear-and-simple-design One explicit kind parameter separates invocation from construction without duplicating type traversal.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Signatures are actual compiler results rather than assumed constructor or factory shapes.
 // @evidence contracts/common.md#meaningful-documentation Native prose states selectable populations, relationships to arity/return queries and nil absence.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getSignaturesOfType acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getSignaturesOfType performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getSignaturesOfType computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getSignaturesOfType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getSignaturesOfType(recv *innerchecker.Checker, t *innerchecker.Type, kind innerchecker.SignatureKind) []*innerchecker.Signature {
   if recv == nil || t == nil {
     return nil
@@ -895,6 +1091,10 @@ func Checker_getSignaturesOfType(recv *innerchecker.Checker, t *innerchecker.Typ
 // @evidence contracts/common.md#clear-and-simple-design One return query complements signature enumeration while keeping semantic resolution inside the checker.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts A factory's return is queried instead of assumed from its name or construction convention.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains return-type purpose and nil inputs separately from implementation acknowledgments.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getReturnTypeOfSignature acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getReturnTypeOfSignature performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getReturnTypeOfSignature computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getReturnTypeOfSignature computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getReturnTypeOfSignature(recv *innerchecker.Checker, signature *innerchecker.Signature) *innerchecker.Type {
   if recv == nil || signature == nil {
     return nil
@@ -920,6 +1120,10 @@ func Checker_getReturnTypeOfSignature(recv *innerchecker.Checker, signature *inn
 // @evidence contracts/common.md#clear-and-simple-design A direct length query answers declaration count without conflating it with Checker_getMinArgumentCount.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No constructor convention alters the count; it is computed from the actual signature parameter slice.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain rest/this counting, the distinction from minimum arity and nil zero with useful examples.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Signature_parameterCount acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Signature_parameterCount performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Signature_parameterCount computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Signature_parameterCount computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Signature_parameterCount(signature *innerchecker.Signature) int {
   if signature == nil {
     return 0
@@ -942,6 +1146,10 @@ func Signature_parameterCount(signature *innerchecker.Signature) int {
 // @evidence contracts/common.md#clear-and-simple-design One accessor exposes the same slice counted by Signature_parameterCount, avoiding a copied shim parameter representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The accessor does not create synthetic seed parameters or filter parameters for a particular consumer strategy.
 // @evidence contracts/common.md#meaningful-documentation Native prose states value/this separation, declaration order, nil behavior and compiler-owned immutable-by-caller slice use.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Signature_parameters acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Signature_parameters performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Signature_parameters computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Signature_parameters computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Signature_parameters(signature *innerchecker.Signature) []*innerast.Symbol {
   if signature == nil {
     return nil
@@ -969,6 +1177,10 @@ func Signature_parameters(signature *innerchecker.Signature) []*innerast.Symbol 
 // @evidence contracts/common.md#clear-and-simple-design One predicate exposes declaration shape separately from parameter count and rest element typing.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Array typing is not used as a shortcut for rest syntax; actual signature flags decide the result.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain rest-only versus leading-required cases, array ambiguity and nil false without replacing the actual predicate's domain.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Signature_hasRestParameter acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Signature_hasRestParameter performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Signature_hasRestParameter computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Signature_hasRestParameter computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Signature_hasRestParameter(signature *innerchecker.Signature) bool {
   if signature == nil {
     return false
@@ -992,6 +1204,10 @@ func Signature_hasRestParameter(signature *innerchecker.Signature) bool {
 // @evidence contracts/common.md#clear-and-simple-design One query exposes rest element semantics independently of declared parameter count, so callers can distinguish a sole spread parameter from a required prefix.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Ordinary array parameters are not treated as rest declarations and fixed tuple-rest absence is not hidden with a guessed element type.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes variable tuple rest, any fallback, leading-prefix use and nil inputs.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_getRestTypeOfSignature acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_getRestTypeOfSignature performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_getRestTypeOfSignature computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_getRestTypeOfSignature computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_getRestTypeOfSignature(recv *innerchecker.Checker, signature *innerchecker.Signature) *innerchecker.Type {
   if recv == nil || signature == nil {
     return nil
@@ -1019,6 +1235,10 @@ func checkerNewTypeMapper(sources []*innerchecker.Type, targets []*innerchecker.
 // @evidence contracts/common.md#clear-and-simple-design One instantiation bridge consumes the same mapper model exposed by constructors, avoiding a separate recursive type copier.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Substitution uses actual type identities rather than parameter names or selected container special cases.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains nested substitution, nil result, nil mapper identity and producing-checker premises.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_instantiateType acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_instantiateType performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_instantiateType computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_instantiateType computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_instantiateType(recv *innerchecker.Checker, t *innerchecker.Type, mapper *innerchecker.TypeMapper) *innerchecker.Type {
   if recv == nil || t == nil {
     return nil
@@ -1036,6 +1256,10 @@ func Checker_instantiateType(recv *innerchecker.Checker, t *innerchecker.Type, m
 // @evidence contracts/common.md#clear-and-simple-design The one-pair constructor is distinct from parallel and composed mappings, exposing the representation required for its actual operation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No guessed type-parameter name or fixed consumer class determines the mapping.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies one-pair substitution, nil refusal and same-context types.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_newSimpleTypeMapper acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_newSimpleTypeMapper performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_newSimpleTypeMapper computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_newSimpleTypeMapper computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_newSimpleTypeMapper(source *innerchecker.Type, target *innerchecker.Type) *innerchecker.TypeMapper {
   if source == nil || target == nil {
     return nil
@@ -1056,6 +1280,10 @@ func Checker_newSimpleTypeMapper(source *innerchecker.Type, target *innerchecker
 // @evidence contracts/common.md#clear-and-simple-design One constructor owns parallel-shape validation, separate from the explicitly compositional mapper operation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid arrays are rejected rather than truncated, padded or converted into successive substitutions that change meaning.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain parallel-versus-composed substitution, a swap example, rejection conditions and retained-slice ownership.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The mapper is returned to the caller and nothing else is retained.
+// @evidenceExclude contracts/performance.md#efficient-algorithms One pass over the source and target pairs, linear in their count.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Builds one mapper per call from its arguments and shares nothing.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory type values only; it accesses no path or filesystem.
 func Checker_newTypeMapper(sources []*innerchecker.Type, targets []*innerchecker.Type) *innerchecker.TypeMapper {
   if len(sources) == 0 || len(sources) != len(targets) {
     return nil
@@ -1084,6 +1312,10 @@ func checkerCombineTypeMappers(recv *innerchecker.Checker, m1 *innerchecker.Type
 // @evidence contracts/common.md#clear-and-simple-design Composition has its own named operation and explicit nil policy, distinct from simultaneous parallel parameter mapping.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The stages are composed by compiler semantics rather than flattened into a misleading pair list or repaired with arbitrary fallback types.
 // @evidence contracts/common.md#meaningful-documentation Native prose states composition order, parallel alternative, all nil cases and same-checker premises.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Checker_combineTypeMappers acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Checker_combineTypeMappers performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Checker_combineTypeMappers computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Checker_combineTypeMappers computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Checker_combineTypeMappers(recv *innerchecker.Checker, m1 *innerchecker.TypeMapper, m2 *innerchecker.TypeMapper) *innerchecker.TypeMapper {
   if m1 == nil {
     return m2

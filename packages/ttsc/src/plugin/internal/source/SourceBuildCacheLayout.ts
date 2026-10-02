@@ -66,7 +66,7 @@ export namespace SourceBuildCacheLayout {
 
   /**
    * The parts of the cache root whose entries are single files, each collected
-   * by `pruneCacheFileRoot` and removed by `ttsc clean` (samchon/ttsc#1562).
+   * by `pruneCacheFileRoot` and removed by `ttsc clean`.
    */
   export const CACHE_FILE_DIRNAMES: readonly string[] = [
     DESCRIPTOR_CACHE_DIRNAME,

@@ -27,6 +27,9 @@ import (
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The baseline records actual launcher reads and source rules, not a fixed package-specific reload list.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain directory grouping, missing candidates and listing ownership, with separated member prose under the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Directories are resolved natively and names remain single entries; validation rejects separators, NUL and dot-parent spellings instead of treating native paths as protocol URLs.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 type NativePluginSelectionInputs struct {
   // DescriptorFiles maps every directory holding a file the plugin load read
   // or probed to the name of each such file, with its digest: the project's

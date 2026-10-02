@@ -22,6 +22,10 @@ import { COMPILER_OPTION_ASCII_FOLDS } from "./COMPILER_OPTION_ASCII_FOLDS";
  * @evidence contracts/common.md#clear-and-simple-design The shared normalization function owns spelling identity for parsing, lookup and native allow-list derivation rather than duplicating that policy in each consumer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The regex expresses the supported dash grammar and preserves any further prefix characters; it does not recognize particular project arguments or alter the native option parser.
  * @evidence contracts/common.md#meaningful-documentation The comment explains accepted casing and dash variants plus the shared identity boundary, following the documentation skill's explanation-of-reasons guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returns a new string and retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Two regular-expression replacements and one lowercase pass over a single token, linear in its length.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure function of one token; no shared work exists.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation normalizeFlagToken computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
  */
 export function normalizeFlagToken(token: string): string {
   return token

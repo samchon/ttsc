@@ -15,7 +15,7 @@ import { readJsoncFile } from "./readJsoncFile";
  * delegates them. Vite, Nx, and many monorepo templates generate that layout,
  * and a runner that stops at the nearest config compiles the file with the
  * solution's empty options while the editor, which follows the references,
- * shows no error (samchon/ttsc#1406). This applies the language service's rule
+ * shows no error. This applies the language service's rule
  * for choosing a file's project:
  *
  * 1. A config that declares no `references` owns the file. Nothing is spawned, so

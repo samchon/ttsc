@@ -1,6 +1,6 @@
 // Package resolutioninputs carries the one recorder of module resolution
 // inputs every JavaScript evaluator ttsc caches the result of uses: a plugin
-// descriptor's, and a utility plugin's config loader (samchon/ttsc#1501).
+// descriptor's, and a utility plugin's config loader.
 //
 // A Go plugin that evaluates a JavaScript config file in a Node.js process of
 // its own embeds the recorder here instead of carrying a copy: which files a
@@ -28,6 +28,10 @@ var Recorder string
 // @evidence contracts/common.md#clear-and-simple-design A module-local exports object evaluates the embedded recorder without a second implementation or filesystem extraction.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper uses the recorder's own CommonJS module boundary; it does not mutate a shared loader global or assert that project TypeScript configs support module.exports.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the complete expression and initialization order following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CommonJSExpression acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms CommonJSExpression performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work CommonJSExpression computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation CommonJSExpression computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func CommonJSExpression() string {
   return "(function (module) {\n" + Recorder + "\nreturn module.exports;\n})({ exports: {} })"
 }

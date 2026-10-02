@@ -14,5 +14,8 @@ import type { FilesystemPathIdentity } from "./FilesystemPathIdentity";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The alias uses TypeScript's supported type identity and carries no runtime adaptation or consumer special case.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains which project inputs it names and why the representation is shared, separated from tags.
  * @evidence contracts/portability.md#os-neutral-implementation The aliased representation separates native comparison keys from returned path spellings; it does not introduce another OS or case-policy assumption.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export type ProjectInputPathIdentity = FilesystemPathIdentity;

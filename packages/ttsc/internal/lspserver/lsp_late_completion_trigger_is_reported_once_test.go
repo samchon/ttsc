@@ -43,6 +43,11 @@ func (s *mutableCompletionHintSource) publish(hints ...LSPCompletionHint) {
 //  1. Answer initialize with tsgo's trigger characters and no corpus.
 //  2. Publish a corpus whose trigger is new and refresh; expect one notice.
 //  3. Refresh again, and publish a trigger tsgo already advertised; expect none.
+//
+// @evidence contracts/testing.md#behavioral-verification A trigger character that appears after initialize is reported to the user once, and neither a repeat refresh nor a trigger tsgo already advertised produces another notice.
+// @evidence contracts/testing.md#independent-expectations The expected notice count is a literal per stage.
+// @evidence contracts/testing.md#distinguishing-cases A new trigger, the same trigger again and an already advertised trigger are the three inputs.
+// @evidence contracts/testing.md#execution-ownership TestLSPLateCompletionTriggerIsReportedOnce is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPLateCompletionTriggerIsReportedOnce(t *testing.T) {
   var editor bytes.Buffer
   source := &mutableCompletionHintSource{}

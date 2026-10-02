@@ -14,8 +14,7 @@ import (
 )
 
 // AuthoredSourceMap returns the text file was authored with, and sourceMap, a
-// map printed from file's Program, corrected to describe that text
-// (samchon/ttsc#1392).
+// map printed from file's Program, corrected to describe that text.
 //
 // A source preamble is inserted into the text TypeScript-Go parses, so every
 // position a printer records for a preamble-bearing file lies in that text

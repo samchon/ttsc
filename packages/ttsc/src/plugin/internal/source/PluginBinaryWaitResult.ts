@@ -17,6 +17,10 @@ import type { PluginBuildLockFence } from "./PluginBuildLockFence";
  * @evidence contracts/common.md#clear-and-simple-design Three outcomes expose the caller's next action without optional reason/fence fields on unrelated states.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Elapsed time never supplies an abandoned result; a bounded-wait failure leaves the potentially active task's ownership intact.
  * @evidence contracts/common.md#meaningful-documentation Native bullets explain acquisition/retirement consequences and distinguish timeout failure from a returned abandonment capability, with blank separation before tags.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
  */
 export type PluginBinaryWaitResult =
   | { outcome: "published" }

@@ -6,6 +6,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Ownership follows explicit selection provenance rather than assuming every configured directory is disposable.
  * @evidence contracts/common.md#meaningful-documentation Member comments identify content-addressed binaries, GOCACHE and selection provenance, with blank lines between fields.
  * @evidence contracts/portability.md#os-neutral-implementation Members carry native directory spellings and a platform-independent provenance union; resolvers use node:path rather than assuming slash spelling or case policy.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ITtscSourceBuildCachePaths {
   /** Selected plugin-cache layout root; an external GOCACHE may lie elsewhere. */

@@ -14,6 +14,9 @@ import "fmt"
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The reader is an explicit dependency, not a replaced global; override precedence is the CLI contract rather than a fixture exception.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs state preservation, the conditional reader precondition and wrapped failure effects under the documentation skill's ownership and rationale guidance.
 // @evidence contracts/portability.md#os-neutral-implementation The supplied host reader owns native directory discovery. Resolve preserves native spelling rather than imposing separators or inferring a filesystem case policy.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Resolve acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Resolve performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Resolve computes one result per call, so there is no repeated work to share.
 func Resolve(override string, getwd func() (string, error)) (string, error) {
   if override != "" {
     return override, nil

@@ -19,6 +19,7 @@
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each failure graph belongs to one outcome; sharing an earlier serialization would require immutable graph inputs that arbitrary thrown values do not guarantee.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources Seen-object and work-stack state belongs to one traversal and scales with its graph; only the finite returned description escapes, and no global exception history is retained.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation serializeCompilerError computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
  */
 export function serializeCompilerError(error: unknown): unknown {
   const seen = new WeakMap<object, string>();

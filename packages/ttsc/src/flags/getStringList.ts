@@ -15,6 +15,7 @@ import type { ParseResult } from "./ParseResult";
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This accessor receives caller-owned ParseResult values and produces an independently mutable array; it coordinates no stable producer identity or cross-request computation.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The newly allocated array transfers to the caller on return; the accessor owns no retained table, handle or task beyond the invocation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation getStringList computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
  */
 export function getStringList(result: ParseResult, flag: string): string[] {
   return (result.repeated.get(flag) ?? []).filter(

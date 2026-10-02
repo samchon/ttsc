@@ -9,6 +9,10 @@
  * @evidence contracts/common.md#clear-and-simple-design A single predicate owns transport injection and examines top-level meta dispatch without duplicating native option parsing.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Help/version tokens are native command discriminants, not fixture exceptions; caller argv remains untouched and no foreign dispatch behavior is patched.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the supported transport and first-token distinction with a blank line before tags according to the documentation skill.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources needsStdio acquires no handle, buffer or cache and retains nothing after it returns.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms needsStdio performs a fixed number of steps with no loop or recursion over caller data.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work needsStdio computes one result per call, so there is no repeated work to share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation needsStdio computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
  */
 export function needsStdio(argv: readonly string[]): boolean {
   if (argv.length === 0) return false;

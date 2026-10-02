@@ -14,6 +14,7 @@
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This formats one caller-provided token and does not coordinate a retained computation across requests.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The formatter retains no state or external resource after returning its string.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation autoQuoteGoModToken computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
  */
 export function autoQuoteGoModToken(token: string): string {
   return mustQuoteGoModToken(token) ? goQuoteString(token) : token;

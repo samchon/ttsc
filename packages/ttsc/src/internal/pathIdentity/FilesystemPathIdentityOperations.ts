@@ -19,6 +19,9 @@ import fs from "node:fs";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit injection replaces only this owned boundary, not foreign globals; a consistent filesystem/platform premise is required instead of accepting fabricated aliases or treating an OS name as measured directory policy.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain partial overrides, host defaults and coherent filesystem/path semantics; member descriptions state defaults and error-policy consequences with documentation-skill member and tag separation.
  * @evidence contracts/portability.md#os-neutral-implementation Platform selects native path grammar, while realpath and directory capability probes establish identity; unknown case policy is explicit and does not inherit a platform default, and volume-root formatting remains a separate concern.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export type FilesystemPathIdentityOperations = {
   /**
@@ -34,6 +37,9 @@ export type FilesystemPathIdentityOperations = {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Injected results must report actual established policy or unknown, not special-filename answers or OS defaults chosen to produce desired identity equality.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains directory scope, explicit-query use, all three result states and boolean callback compatibility, with separate method tags under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation The callback represents native directory case capability, supporting case-sensitive Windows directories and case-insensitive POSIX volumes without deriving the answer solely from an operating-system name.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources caseSensitive declares a signature only; the implementation owns acquisition and release of resources.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms caseSensitive declares a signature only; the implementation owns the processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work caseSensitive declares a signature only; the implementation owns any shared work.
    */
   caseSensitive(directory: string): boolean | undefined;
 
@@ -46,6 +52,9 @@ export type FilesystemPathIdentityOperations = {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A supported callback supplies real stat results instead of mutating fs.lstatSync or returning a guessed affirmative answer for selected alternate names.
    * @evidence contracts/common.md#meaningful-documentation Native prose states link preservation, alternate-case purpose and the default implementation, with tags separated under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native link-preserving stat and either Stats representation retain filesystem metadata semantics; callers need no shell command or platform-specific filename heuristic at this boundary.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources lstat declares a signature only; the implementation owns acquisition and release of resources.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms lstat declares a signature only; the implementation owns the processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work lstat declares a signature only; the implementation owns any shared work.
    */
   lstat?(location: string): fs.Stats | fs.BigIntStats;
 
@@ -64,6 +73,9 @@ export type FilesystemPathIdentityOperations = {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Names must come from the actual directory rather than a fixed fixture list or patched global enumeration that makes a desired case decision appear supported.
    * @evidence contracts/common.md#meaningful-documentation Native prose identifies probe use and fs.readdirSync default; its separate method acknowledgment block follows the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native directory enumeration returns immediate names without a shell listing or hardcoded path separator; interpretation uses the selected filesystem's case behavior.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources readdir declares a signature only; the implementation owns acquisition and release of resources.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms readdir declares a signature only; the implementation owns the processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work readdir declares a signature only; the implementation owns any shared work.
    */
   readdir?(directory: string): string[];
 
@@ -77,6 +89,9 @@ export type FilesystemPathIdentityOperations = {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Native realpath results replace actual aliases instead of manually guessing a target or globally rewriting foreign filesystem behavior.
    * @evidence contracts/common.md#meaningful-documentation Native prose states existing-entry physical resolution and why the native default matters for Windows short names, with separated method tags under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Physical resolution must honor native aliases, including Windows short names; path grammar and directory case interpretation remain separate capabilities instead of substitutes for realpath.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources realpath declares a signature only; the implementation owns acquisition and release of resources.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms realpath declares a signature only; the implementation owns the processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work realpath declares a signature only; the implementation owns any shared work.
    */
   realpath(location: string): string;
 

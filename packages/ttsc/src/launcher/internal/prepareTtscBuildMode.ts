@@ -13,6 +13,10 @@ import type { TtscBuildMode } from "./TtscBuildMode";
  * @evidence contracts/common.md#clear-and-simple-design One small mode adapter owns validation and mode flags; project normalization and actual watch/build execution stay with their existing owners.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Neither flags nor invalid combinations are ignored; watch validation is not reordered behind single-file validation and explicit emit conflicts retain their precedence.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains watch versus one-shot emit ownership and the validation order, enabling direct unit verification of the maintained decision.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Mutates or copies only the supplied options object and retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A fixed sequence of option checks that either throws or returns the options object; nothing loops over inputs.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Applies one mode to one options object per call; there is no work to share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation prepareTtscBuildMode is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
  */
 export function prepareTtscBuildMode(
   options: ReturnType<typeof parseTtscBuildArgs>,

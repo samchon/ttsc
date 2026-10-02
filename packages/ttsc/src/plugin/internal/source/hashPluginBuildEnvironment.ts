@@ -21,8 +21,7 @@ import { spawnGoTool } from "./spawnGoTool";
  * A plugin binary is a function of its sources and of this environment, so both
  * the plugin cache key (`computeCacheKey`) and the state a transform reports
  * for each source directory (`pluginSourceState`) take it from here, one rule
- * for the build and for every consumer that proves the build's output
- * (samchon/ttsc#1493).
+ * for the build and for every consumer that proves the build's output.
  *
  * @param hash What the environment's framed values enter: the key's hash, or
  *   one that digests the environment alone, or both at once.
@@ -483,8 +482,8 @@ function normalizeGoBuildEnvValue(
  * Go runs the value as a command and its arguments (`cmd/internal/quoted`), so
  * a launcher such as `ccache gcc` or a wrapper followed by the compiler it
  * delegates to names more than one program the build runs. Hashing only the
- * first token would keep the key when the delegated compiler is replaced
- * (samchon/ttsc#1555). A token that names no executable file, a flag, is part
+ * first token would keep the key when the delegated compiler is replaced.
+ * A token that names no executable file, a flag, is part
  * of the command's text, which the key carries beside this identity. A program
  * a launcher finds by its own means, not named in the command, is outside what
  * the command can show.

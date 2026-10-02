@@ -33,6 +33,11 @@ import (
 //     consumed, because the launcher created that file for this process alone.
 //  6. Point the flag at a missing manifest and prove the command fails instead
 //     of silently serving a project without its declared plugins.
+//
+// @evidence contracts/testing.md#behavioral-verification runLSP selects a native plugin source from the launcher's manifest and clears the legacy manifest payload so it cannot reach a spawned sidecar, and a manifest file wins over an invalid legacy payload and stays readable.
+// @evidence contracts/testing.md#independent-expectations The expected source selection, environment state and file transport are checked against literal manifests and variables the test sets.
+// @evidence contracts/testing.md#distinguishing-cases The legacy environment transport and the file transport are both exercised, with the legacy payload made invalid to prove precedence.
+// @evidence contracts/testing.md#execution-ownership TestRunLSPUsesNativePluginManifestSource is a Go unit test in the cmd/ttscserver package: it calls runLSP in-process with the runLSPServer or getwd seam replaced and captured streams, starting neither tsgo nor a product process.
 func TestRunLSPUsesNativePluginManifestSource(t *testing.T) {
   t.Setenv("TTSC_LSP_PLUGINS_JSON", `{"plugins":[],"lspPlugins":[]}`)
   t.Setenv("TTSC_LSP_PLUGINS_FILE", "")

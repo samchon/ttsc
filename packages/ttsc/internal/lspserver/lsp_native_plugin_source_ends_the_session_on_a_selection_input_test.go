@@ -33,6 +33,11 @@ import (
 //     it, and an edit to the descriptor each do.
 //  3. Hand it inputs whose source digest no longer matches, and assert the source
 //     refuses to start.
+//
+// @evidence contracts/testing.md#behavioral-verification Inputs a session's plugin selection was loaded from, links, descriptors and missing resolution candidates, end the session when they change, an unchanged source file, an editor backup and pruned directories do not, and every directory gets a children watcher.
+// @evidence contracts/testing.md#independent-expectations Currentness decisions and watcher registrations are literal expectations for the authored plugin module tree.
+// @evidence contracts/testing.md#distinguishing-cases Changing, unchanged, backup and pruned inputs separate what ends the session from what does not.
+// @evidence contracts/testing.md#execution-ownership TestNativePluginSourceEndsTheSessionOnASelectionInput is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestNativePluginSourceEndsTheSessionOnASelectionInput(t *testing.T) {
   root := t.TempDir()
   module := filepath.Join(root, "plugin")

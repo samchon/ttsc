@@ -29,6 +29,11 @@ func (s *incrementalSaveSource) InvalidateResidentPrograms(uris ...string) {
 //  1. Save a document and assert the daemon is told that one URI changed.
 //  2. Send a ranged didChange for the same document.
 //  3. Assert no further resident invalidation was recorded.
+//
+// @evidence contracts/testing.md#behavioral-verification A save of a known source tells the resident daemon exactly one changed URI, and a ranged didChange on a dirty buffer sends it nothing.
+// @evidence contracts/testing.md#independent-expectations The expected single URI and zero further invalidations are literal.
+// @evidence contracts/testing.md#distinguishing-cases Save and keystroke edits are the two signals; widening other signals must not change either.
+// @evidence contracts/testing.md#execution-ownership TestLSPDidSaveKeepsTheIncrementalChangedURIPath is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPDidSaveKeepsTheIncrementalChangedURIPath(t *testing.T) {
   const uri = "file:///project/src/main.ts"
   plugins := &incrementalSaveSource{}

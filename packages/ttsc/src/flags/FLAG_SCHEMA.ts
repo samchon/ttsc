@@ -478,7 +478,7 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
   // The launcher does not emit it. A CLI flag is fatal to any host whose
   // `flag.FlagSet` does not declare it, and third-party hosts have a frozen
   // plugin protocol, so forwarding compiler flags that way would exit 2 on a
-  // typia/nestia-shaped sidecar (issue #1188). The payload rides the
+  // typia/nestia-shaped sidecar. The payload rides the
   // `TTSC_TSGO_ARGS` environment variable, which an unaware host simply
   // ignores. ttsc's own hosts still accept the flag so an older launcher, or an
   // embedder that composes sidecar argv itself, keeps working.

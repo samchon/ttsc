@@ -732,8 +732,7 @@ export class WatchTopology {
 
   /**
    * Watch every directory of every plugin input, and report what a directory
-   * that appeared below an input already watched holds by now
-   * (samchon/ttsc#1500).
+   * that appeared below an input already watched holds by now.
    *
    * Each directory has a watcher of its own, and a directory created below a
    * plugin module is heard through its parent's; its own watcher is added only
@@ -1632,7 +1631,7 @@ export class WatchTopology {
    * A delivery can name a directory created below an input: while it is empty
    * it moves nothing a build reads, yet it needs a watcher of its own before a
    * file lands in it, or on a platform whose watcher reports a directory's
-   * direct entries alone that file reaches no watcher (samchon/ttsc#1500). So
+   * direct entries alone that file reaches no watcher. So
    * the watchers are synced first, and what a directory they start watching
    * already holds is noted into this same decision (`syncExtraWatchers`).
    */
@@ -1668,7 +1667,7 @@ export class WatchTopology {
   /**
    * Whether a path is one a plugin build keys on: the plugin input itself, or a
    * path below it outside every directory the build passes over
-   * (`pluginSourceCovers`, samchon/ttsc#1492). A write in a plugin module's
+   * (`pluginSourceCovers`). A write in a plugin module's
    * `node_modules` or `.git` is not one, whatever watcher heard it.
    *
    * Nor is such a directory's own entry. Windows reports every write inside a
@@ -2240,7 +2239,7 @@ function collectTopologyDirectories(
 /**
  * Every directory of a plugin input a watch observes: the input and the
  * directories below it, except those the plugin build passes over and all below
- * them (`prunesPluginSourceDirectory`, samchon/ttsc#1492). The input is a
+ * them (`prunesPluginSourceDirectory`). The input is a
  * plugin's whole Go module, which can be a repository with its own
  * `node_modules` and `.git`; watching those would rebuild for every package
  * install and commit without the build reading any of it.

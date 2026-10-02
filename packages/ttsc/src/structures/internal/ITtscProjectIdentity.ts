@@ -6,6 +6,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Lexical paths are not discarded and later recreated with platform guesses; caller-declared origins stay explicit rather than being inferred from generated wrapper locations.
  * @evidence contracts/common.md#meaningful-documentation Native comments explain canonicalization and the origin of each identity; blank member lines and prose/tag separation follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral consumers can preserve caller lexical selection and follow physical realpaths independently, including symlink/junction aliases; the type imposes neither slash splitting nor blanket lowercasing of filesystem identities.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ITtscProjectIdentity {
   /** Caller working directory before filesystem canonicalization. */

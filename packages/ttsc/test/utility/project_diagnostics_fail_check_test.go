@@ -17,6 +17,11 @@ import (
 // 1. Create a syntactically valid project with a type error.
 // 2. Run utility check with no linked plugin errors.
 // 3. Assert TypeScript diagnostics produce a non-zero command status.
+//
+// @evidence contracts/testing.md#behavioral-verification RunCheck over a project with a type error returns a nonzero status once plugin configuration has succeeded.
+// @evidence contracts/testing.md#independent-expectations The assignment of a string to a number is a TypeScript semantic error by the language definition, independent of the host.
+// @evidence contracts/testing.md#distinguishing-cases A syntactically valid project with a semantic error contrasts with the configuration and plugin failures covered elsewhere.
+// @evidence contracts/testing.md#execution-ownership TestUtilityProjectDiagnosticsFailCheck is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityProjectDiagnosticsFailCheck(t *testing.T) {
   root := t.TempDir()
 

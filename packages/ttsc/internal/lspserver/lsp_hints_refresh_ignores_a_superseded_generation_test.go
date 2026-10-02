@@ -14,6 +14,11 @@ import "testing"
 //  1. Store a corpus produced by a newer generation.
 //  2. Store the older generation's result afterwards.
 //  3. Assert the newer corpus stands, and that a still-newer one replaces it.
+//
+// @evidence contracts/testing.md#behavioral-verification A corpus stored by an older generation after a newer one does not replace it, and a still-newer one does.
+// @evidence contracts/testing.md#independent-expectations The expected surviving corpus is a literal per store order.
+// @evidence contracts/testing.md#distinguishing-cases The out-of-order store is the case a missing generation stamp would get wrong.
+// @evidence contracts/testing.md#execution-ownership TestLSPHintsRefreshIgnoresASupersededGeneration is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPHintsRefreshIgnoresASupersededGeneration(t *testing.T) {
   plugin := NativeLSPPluginEntry{Binary: "ttsc-lint", Name: "@ttsc/lint"}
   source := &NativePluginSource{plugins: []NativeLSPPluginEntry{plugin}}

@@ -26,6 +26,11 @@ import (
 //     target, then missing content, as a directory reads as none.
 //  3. Assert the directory fingerprint lists the junction as a symlink with its
 //     target.
+//
+// @evidence contracts/testing.md#behavioral-verification On Windows the exact-file and directory fingerprints record a junction as a symlink with its target, as the launcher does.
+// @evidence contracts/testing.md#independent-expectations The expected records are the protocol's symlink record built independently in the test.
+// @evidence contracts/testing.md#distinguishing-cases A junction is the entry kind Go reports as irregular, which would be hashed as other.
+// @evidence contracts/testing.md#execution-ownership TestReloadFingerprintsReadAJunctionAsALink is a Go unit test built only on Windows in the lspserver package: it calls the unexported operation in-process against real temporary directories and starts no product host.
 func TestReloadFingerprintsReadAJunctionAsALink(t *testing.T) {
   if runtime.GOOS != "windows" {
     t.Skip("junctions exist only on Windows")

@@ -20,6 +20,7 @@ import { readCompilerOptionOccurrence } from "./readCompilerOptionOccurrence";
  * @evidence contracts/performance.md#efficient-algorithms One advancing cursor projects argv once, with map replacement for repeated assignments; enum normalization and occurrence list lookahead are linear in their operand bytes.
  * @evidence contracts/performance.md#reuse-equivalent-work Callers share this invocation record across option queries, while immutable native metadata is shared by module identity. No value from a different argv population is reused.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned map and response array transfer to the caller and retain only current invocation tokens; no process, handle, persistent cache or historical argument population is owned here.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation readCompilerOptionValues is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
  */
 export function readCompilerOptionValues(
   argv: readonly string[] = [],

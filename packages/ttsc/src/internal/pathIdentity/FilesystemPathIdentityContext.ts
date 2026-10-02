@@ -31,6 +31,9 @@ import type { FilesystemPathIdentity } from "./FilesystemPathIdentity";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing-entry observations remain memoized outcomes rather than guessed future existence; refreshed work needs a new context instead of layering retries over stale identity premises.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain generation-local observations, tri-state case policy, ASCII identity limits and physical versus lexical use; documented methods and acknowledgments follow the documentation skill's spacing guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Native realpath and observed directory capability govern physical identity; unavailable probes remain unknown and only observed insensitivity permits ASCII missing-suffix folding. Lexical routing retains non-ASCII candidate pairs instead of inventing a native Unicode equivalence table.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export type FilesystemPathIdentityContext = {
   /**
@@ -47,6 +50,9 @@ export type FilesystemPathIdentityContext = {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unavailable measurement stays unknown rather than receiving an operating-system default or a preferred answer that makes a desired identity comparison succeed.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain ancestor selection, true/false/undefined and why unknown cannot certify case-folded identity or cache stability, with separated tags under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Directory-specific probes represent Windows per-directory and POSIX volume case behavior; undefined acknowledges unavailable capability instead of inferring it from an OS name.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources caseSensitive declares a signature only; the implementation owns acquisition and release of resources.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms caseSensitive declares a signature only; the implementation owns the processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work caseSensitive declares a signature only; the implementation owns any shared work.
    */
   caseSensitive(directory: string): boolean | undefined;
 
@@ -68,6 +74,9 @@ export type FilesystemPathIdentityContext = {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Aliases are handled by the shared resolver, not hardcoded directory names or string-prefix exceptions; stale observations are not secretly refreshed inside containment.
    * @evidence contracts/common.md#meaningful-documentation Native prose documents root inclusion, alias equivalence and inherited cache/case limits rather than claiming a held-directory guarantee; tags follow the documentation skill's separation rule.
    * @evidence contracts/portability.md#os-neutral-implementation Native aliases and volume roots are resolved before containment; unknown directory policy preserves exact missing spelling, requiring coverage and reuse owners to handle that uncertainty rather than assuming OS-default folding.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources isWithin declares a signature only; the implementation owns acquisition and release of resources.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms isWithin declares a signature only; the implementation owns the processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work isWithin declares a signature only; the implementation owns any shared work.
    */
   isWithin(root: string, candidate: string): boolean;
 
@@ -92,6 +101,9 @@ export type FilesystemPathIdentityContext = {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown case evidence expands routing candidates rather than fabricating equality; link spellings remain intact and the relation cannot substitute for physical or generation proof.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain root inclusion, component/case rules, retained aliases, routing purpose and the Unicode/proof limit with separated method tags under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native grammar separates volumes and components, actual parent probes govern ASCII case routing, and non-ASCII admission preserves possible native Unicode aliases without applying an invented OS-independent Unicode table.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources lexicalIsWithin declares a signature only; the implementation owns acquisition and release of resources.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms lexicalIsWithin declares a signature only; the implementation owns the processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work lexicalIsWithin declares a signature only; the implementation owns any shared work.
    */
   lexicalIsWithin(root: string, candidate: string): boolean;
 
@@ -108,6 +120,9 @@ export type FilesystemPathIdentityContext = {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown capability preserves the name rather than inventing a default-insensitive answer; the key does not resolve away a symlink spelling merely to force it into an existing physical entry.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain component preservation, ASCII-only folding, parent policy and why key inequality is not physical distinction, with separate method tags under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native roots and component separators come from the selected path grammar; directory probes authorize only the supported ASCII case canonicalization instead of universal lowercasing across host filesystems.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources lexicalKey declares a signature only; the implementation owns acquisition and release of resources.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms lexicalKey declares a signature only; the implementation owns the processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work lexicalKey declares a signature only; the implementation owns any shared work.
    */
   lexicalKey(location: string): string;
 
@@ -130,6 +145,9 @@ export type FilesystemPathIdentityContext = {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown policy admits an extra candidate comparison rather than certifying equality; no caller may use a true result as replacement evidence for unchanged files or generation validity.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain root/count requirements, left-parent capability, preserved aliases and the routing-versus-proof Unicode limit with separated method tags under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native roots and directory probes control ASCII lexical routing across Windows and POSIX syntax; uncertain Unicode pairs remain candidates so JavaScript casing cannot suppress a possible native alias event.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources lexicalMatches declares a signature only; the implementation owns acquisition and release of resources.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms lexicalMatches declares a signature only; the implementation owns the processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work lexicalMatches declares a signature only; the implementation owns any shared work.
    */
   lexicalMatches(left: string, right: string): boolean;
 
@@ -151,6 +169,9 @@ export type FilesystemPathIdentityContext = {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Resolution uses actual native observations and an explicit error policy; missing suffixes are represented without fabricating an existing entry or patching filesystem methods.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain physical/key results, missing suffixes, memo reuse and error-policy ownership with separated method tags under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native alias expansion and directory capability govern identity using selected path grammar; unknown policy preserves missing names and non-ASCII letters are never folded by the suffix canonicalizer, avoiding universal lowercasing or an OS default.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources resolve declares a signature only; the implementation owns acquisition and release of resources.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms resolve declares a signature only; the implementation owns the processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work resolve declares a signature only; the implementation owns any shared work.
    */
   resolve(location: string): FilesystemPathIdentity;
 };

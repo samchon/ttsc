@@ -205,14 +205,14 @@ export namespace TsgoArguments {
    * plugin build the same way it reaches the plain tsgo lane.
    *
    * The payload travels in the `TTSC_TSGO_ARGS` environment variable, not on
-   * the sidecar's command line. #113 shipped it as a `--tsgo-args` flag, which
-   * is an addition to a plugin protocol third-party hosts had already frozen: a
-   * Go `flag.FlagSet` created with `flag.ContinueOnError` treats an undeclared
-   * flag as fatal, so every pre-#113 sidecar answered `flag provided but not
-   * defined: -tsgo-args` and exited 2. That took down `ttsc --strict`, `ttsc
+   * the sidecar's command line. A `--tsgo-args` flag would be an addition to a
+   * plugin protocol third-party hosts have already frozen: a Go `flag.FlagSet`
+   * created with `flag.ContinueOnError` treats an undeclared flag as fatal, so
+   * every sidecar built before the payload existed would answer `flag provided
+   * but not defined: -tsgo-args` and exit 2. That took down `ttsc --strict`, `ttsc
    * --declaration`, `ttsx --strict` and — because {@link isolatedTsgoOutputArgs}
    * makes this payload non-empty on its own — plain `ttsc <file.ts>`, on every
-   * project carrying a typia/nestia-era transform host (issue #1188).
+   * project carrying a typia/nestia-era transform host.
    *
    * The environment is the channel ttsc already uses for host-owned payloads
    * that must not collide with a third-party flag set

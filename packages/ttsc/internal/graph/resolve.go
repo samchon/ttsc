@@ -33,6 +33,7 @@ import (
 // @evidenceExclude contracts/performance.md#efficient-algorithms The record chooses no resolution strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Build's resolver memo owns reuse, not this value container.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The record borrows a compiler symbol; its containing build owns and releases that generation context.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type Target struct {
   Symbol   *shimast.Symbol
   File     string
@@ -78,6 +79,7 @@ func (g *Graph) resolve(checker *shimchecker.Checker, ref *shimast.Node) *Target
 // @evidence contracts/performance.md#efficient-algorithms Cost is the checker lookup and alias resolution plus a bounded pass over that symbol's declarations, not a repository scan.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Direct Resolve owns no repeated-request cache; Graph.resolve supplies build-local AST-keyed reuse for graph passes.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned endpoint transfers to its caller and this adapter retains no compiler state.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Resolve computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Resolve(checker *shimchecker.Checker, ref *shimast.Node) *Target {
   symbol := checker.GetSymbolAtLocation(ref)
   if symbol == nil {

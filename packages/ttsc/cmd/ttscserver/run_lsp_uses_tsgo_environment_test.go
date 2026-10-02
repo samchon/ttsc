@@ -18,6 +18,11 @@ import (
 // 1. Set TTSC_TSGO_BINARY to a sentinel path.
 // 2. Substitute runLSPServer and capture its options.
 // 3. Assert TsgoBinary is populated from the environment.
+//
+// @evidence contracts/testing.md#behavioral-verification runLSP fills LSPServerOptions.TsgoBinary from TTSC_TSGO_BINARY when no --tsgo flag is given.
+// @evidence contracts/testing.md#independent-expectations The expected path is the literal sentinel set in the environment.
+// @evidence contracts/testing.md#distinguishing-cases The environment fallback contrasts with the explicit flag covered by its sibling test.
+// @evidence contracts/testing.md#execution-ownership TestRunLSPUsesTsgoEnvironment is a Go unit test in the cmd/ttscserver package: it calls runLSP in-process with the runLSPServer or getwd seam replaced and captured streams, starting neither tsgo nor a product process.
 func TestRunLSPUsesTsgoEnvironment(t *testing.T) {
   const expected = "/tmp/tsgo-env-binary"
   t.Setenv("TTSC_TSGO_BINARY", expected)

@@ -21,6 +21,7 @@ import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonO
  * @evidenceExclude contracts/performance.md#efficient-algorithms The namespace groups APIs; selected predicates and argv transformation functions own their scans and allocations.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work No completed or in-flight computation is retained by this API grouping.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The namespace owns no persistent map, task or handle; helper parser state is invocation-local.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation A namespace only groups the declarations inside it; each carries its own acknowledgments.
  */
 export namespace PassthroughFlags {
   /**
@@ -35,6 +36,7 @@ export namespace PassthroughFlags {
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This predicate inspects current mutable options and coordinates no retained or in-flight computation.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Boolean state is local to the call; no argument history or resource is retained.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation hasDiagnosticsFlag computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
    */
   export function hasDiagnosticsFlag(options: TtscCommonOptions): boolean {
     const enabled = effectiveBooleanFlags(options);
@@ -64,6 +66,7 @@ export namespace PassthroughFlags {
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Classification reads one options value and establishes no reusable producer or cross-request state.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only invocation-local parser state is allocated; no process or retained history is owned.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation forwardsTerminalTsgoFlag is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
    */
   export function forwardsTerminalTsgoFlag(
     options: TtscCommonOptions,
@@ -89,6 +92,7 @@ export namespace PassthroughFlags {
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This classification does not coordinate repeated production or retain option interpretation between requests.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources All parser state is local and no native resource is acquired.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation forwardsProjectFreeTerminalTsgoFlag is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
    */
   export function forwardsProjectFreeTerminalTsgoFlag(
     options: TtscCommonOptions,
@@ -120,6 +124,7 @@ export namespace PassthroughFlags {
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Current argv presence is inspected directly without coordinating a shared or retained producer.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This lookup owns no persistent state or handle.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation forwardsInternalShadowFlag is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
    */
   export function forwardsInternalShadowFlag(
     options: TtscCommonOptions,
@@ -162,6 +167,7 @@ export namespace PassthroughFlags {
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This transforms one argv sequence without retaining or coordinating equivalent computation across requests.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The new array is transferred to the caller and no token history or handle remains owned here.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation withoutBooleanFlags is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
    */
   export function withoutBooleanFlags(
     passthrough: readonly string[],

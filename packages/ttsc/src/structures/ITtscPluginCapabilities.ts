@@ -17,6 +17,10 @@
  * @evidence contracts/common.md#clear-and-simple-design Each supported protocol has its own named field so callers can negotiate one behavior without inferring unrelated support.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Capability declarations replace plugin-name special cases; false defaults are the conservative protocol contract rather than test accommodations.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains each protocol, its false default and relevant independence from other capabilities; documented members and descriptive prose are separated according to the documentation skill.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
  */
 export interface ITtscPluginCapabilities {
   /**

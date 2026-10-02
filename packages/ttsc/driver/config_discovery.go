@@ -13,6 +13,9 @@ import (
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Candidate state is observed, not reconstructed from a plugin name or known project layout.
 // @evidence contracts/common.md#meaningful-documentation Native member paragraphs explain ordering, ambiguity and negative observations under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation Paths retain native spellings; the result does not infer case policy or physical identity from the OS name.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 type ConfigDiscovery struct {
   // Directory is the directory the search stopped in, empty when nothing
   // matched anywhere up to the filesystem root.
@@ -50,6 +53,9 @@ type ConfigDiscovery struct {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Directory state is supplied by a filesystem observation, not a filename heuristic.
 // @evidence contracts/common.md#meaningful-documentation Native member comments describe the directory flag and absolute path following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Native paths and directory status remain separate; no separator or case capability is encoded as an OS guess.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 type ConfigCandidate struct {
   // Directory reports that the path exists and is a directory.
   Directory bool
@@ -72,6 +78,9 @@ type ConfigCandidate struct {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Names are caller policy; the search has no repository-specific branch or fabricated missing-file result.
 // @evidence contracts/common.md#meaningful-documentation Native prose states search stopping, shared observation ownership and the absolute-base precondition under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation filepath.Join and Dir handle native ancestry and root termination; os.Stat obtains actual directory state without an OS case guess.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources os.Stat opens no handle; the function keeps only the candidate slices it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Walks from the base directory to the filesystem root probing each config name once per directory with os.Stat, so it costs O(depth x names) stat calls.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Every probed candidate is returned for the caller's proof so the caller does not stat it again.
 func DiscoverConfigFile(base string, names []string) ConfigDiscovery {
   out := ConfigDiscovery{}
   directory := base
@@ -131,6 +140,9 @@ func DiscoverConfigFile(base string, names []string) ConfigDiscovery {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts An unresolved directory target is omitted rather than falsely reported as observed missing.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain nil-versus-unknown state, invalidation and callback ownership under documentation-skill guidance.
 // @evidence contracts/portability.md#os-neutral-implementation filepath.Abs, EvalSymlinks and Clean obtain physical directory identity; failed native resolution leaves that observation unavailable.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The digest and resolved path pointers live only until the reporters return.
+// @evidenceExclude contracts/performance.md#efficient-algorithms One pass over the candidates; each directory candidate costs one Abs and one EvalSymlinks call.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each candidate is reported to the reporters exactly once and nothing is cached.
 func ReportRejectedConfigCandidates(candidates []ConfigCandidate, hashReporter, realpathReporter func(string, *string)) {
   for _, candidate := range candidates {
     var hash *string

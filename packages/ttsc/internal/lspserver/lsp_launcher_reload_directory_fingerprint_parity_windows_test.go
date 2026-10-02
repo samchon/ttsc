@@ -23,6 +23,11 @@ import (
 //  2. Pass each launcher-produced digest through the real Go snapshot
 //     normalization path.
 //  3. Prove the Go currentness validator accepts both unchanged directories.
+//
+// @evidence contracts/testing.md#behavioral-verification The directory fingerprint produced by the JavaScript launcher for an existing and a missing directory under a case-insensitive parent is accepted as current by the Go snapshot validator.
+// @evidence contracts/testing.md#independent-expectations The launcher's own digest is the independent oracle for the Go validator.
+// @evidence contracts/testing.md#distinguishing-cases An existing and a missing descendant exercise both fingerprint shapes and the case-folding of the missing suffix.
+// @evidence contracts/testing.md#execution-ownership TestLauncherReloadDirectoryFingerprintMatchesGo is a Go test built only on Windows in the lspserver package: it runs the built JavaScript launcher through node to produce the digest and then calls the Go validator in-process.
 func TestLauncherReloadDirectoryFingerprintMatchesGo(t *testing.T) {
   root := t.TempDir()
   existing := filepath.Join(root, "ExistingDirectory")

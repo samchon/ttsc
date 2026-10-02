@@ -16,6 +16,9 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The volume-root separator rule is path syntax required by containment, not an expected-result exception or a casing workaround.
  * @evidence contracts/common.md#meaningful-documentation Native prose documents the canonical-key premise, no filesystem access and volume-root behavior, which callers need to avoid treating raw paths as identities.
  * @evidence contracts/portability.md#os-neutral-implementation Explicit platform separators preserve drive, UNC and POSIX root boundaries; existing keys supply native case policy rather than whole-path lowercasing here.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources isFilesystemPathIdentityWithin declares a signature only; the implementation owns acquisition and release of resources.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms isFilesystemPathIdentityWithin declares a signature only; the implementation owns the processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work isFilesystemPathIdentityWithin declares a signature only; the implementation owns any shared work.
  */
 export function isFilesystemPathIdentityWithin(
   root: string,

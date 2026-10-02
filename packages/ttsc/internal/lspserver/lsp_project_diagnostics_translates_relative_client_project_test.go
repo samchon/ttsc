@@ -24,6 +24,11 @@ import (
 //  1. Resolve a relative project against the directory the client named.
 //  2. Resolve one against the directory the host inherited.
 //  3. Translate an absolute one the same way.
+//
+// @evidence contracts/testing.md#behavioral-verification A relative project path is resolved against the directory the client named, or the host's inherited directory when the client named none, so the translated project URI is absolute.
+// @evidence contracts/testing.md#independent-expectations The expected absolute URIs are literals from the temporary directories.
+// @evidence contracts/testing.md#distinguishing-cases Client directory present and absent are the two anchors.
+// @evidence contracts/testing.md#execution-ownership TestLSPProjectDiagnosticsTranslatesRelativeClientProject is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPProjectDiagnosticsTranslatesRelativeClientProject(t *testing.T) {
   root := t.TempDir()
   if err := os.WriteFile(

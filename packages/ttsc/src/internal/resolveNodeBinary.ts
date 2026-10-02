@@ -12,6 +12,9 @@ import { javascriptRuntimeCapabilities } from "./javascriptRuntimeCapabilities";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The node spelling is a supported final discovery candidate, not an assumed successful runtime; incompatible candidates are skipped without patching modules or globals.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the consumer and the required synchronous hook capability, while the selection loop makes precedence apparent without redundant prose.
  * @evidence contracts/portability.md#os-neutral-implementation Executable discovery reads injected Windows environment names case-insensitively, measures candidates through native spawning and returns the child's absolute executable.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The candidate list and seen-set are local to the call and released on return.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Probes at most four candidates, each once, and stops at the first usable one.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A seen-set skips duplicate candidates so no candidate is probed twice within one call.
  */
 export function resolveNodeBinary(
   env: NodeJS.ProcessEnv = process.env,

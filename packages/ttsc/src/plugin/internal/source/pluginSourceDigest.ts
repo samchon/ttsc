@@ -16,10 +16,10 @@ import { collectPluginSourceFiles } from "./collectPluginSourceFiles";
  * each directory it covers (`computeCacheKey`), and the transform envelope
  * reports each plugin source directory's state
  * (`ITtscCompilerTransformation.ISuccess.pluginSources`), this digest together
- * with the build environment (`pluginSourceState`, samchon/ttsc#1493), so a
+ * with the build environment (`pluginSourceState`), so a
  * consumer that caches the output proves it still holds through the
  * `ttsc/plugin-source` entry (`pluginSourceStateHolds`) instead of a copy of
- * the rule (samchon/ttsc#1487).
+ * the rule.
  *
  * Content rather than size and modification time: the build reads every byte
  * anyway, and a consumer's proof must not accept an edit that kept a file's

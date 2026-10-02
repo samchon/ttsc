@@ -14,6 +14,7 @@ import { parse as parseCommonJs } from "cjs-module-lexer";
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This per-source parser owns no cross-request coordinator; consumers choose whether identical transformed source metadata can be reused.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Parser nodes and pending matches are call-local; no handle, task or historical cache is acquired.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation parseCommonJsExports is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
  */
 export function parseCommonJsExports(
   source: string,

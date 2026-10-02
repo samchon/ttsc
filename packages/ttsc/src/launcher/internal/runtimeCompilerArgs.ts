@@ -15,7 +15,7 @@ import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscPa
  *   transform and keeps native class-field semantics, without changing the
  *   implied library or module kind.
  * - `jsx: preserve` and `jsx: react-native` keep JSX. The build compiles it with
- *   the JSX runtime the type-check already reads (samchon/ttsc#1408).
+ *   the JSX runtime the type-check already reads.
  *
  * A forwarded `--noEmit` or `--emitDeclarationOnly` is switched back off as
  * well. ttsx forwards the flags before the entry to its type-check, and the
@@ -31,6 +31,9 @@ import type { ITtscParsedProjectConfig } from "../../structures/internal/ITtscPa
  * @evidence contracts/common.md#prohibited-implementation-shortcuts ES2025 and JSX discriminants reflect supported compiler transforms; no source-text patch or consumer-specific override substitutes for emission.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain decorator, JSX, library and no-emit decisions and their runtime-only scope without changing the user's project.
  * @evidence contracts/portability.md#os-neutral-implementation Effective-option resolution delegates response-file parsing to the compiler owner and returns argument tokens rather than shell text or platform-specific paths.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Builds a local argument array that the caller owns after return; no handle or buffer is retained.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A fixed sequence of option lookups and pushes onto a short argument array; nothing loops over project files.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Computes one argument list per call from its inputs and keeps nothing for later calls.
  */
 export function runtimeCompilerArgs(
   project: ITtscParsedProjectConfig,

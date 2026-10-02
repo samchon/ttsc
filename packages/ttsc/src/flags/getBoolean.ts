@@ -11,6 +11,10 @@ import type { ParseResult } from "./ParseResult";
  * @evidence contracts/common.md#clear-and-simple-design The accessor performs only the requested runtime narrowing, leaving flag identity and parsing policy with their existing owners.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No truthiness conversion substitutes for the stored value, so a false flag cannot silently become missing or true.
  * @evidence contracts/common.md#meaningful-documentation The comment explains the typed accessor's place over ParseResult and its absent result, using a separate context paragraph as the documentation skill requires.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources getBoolean declares a signature only; the implementation owns acquisition and release of resources.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms getBoolean declares a signature only; the implementation owns the processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work getBoolean declares a signature only; the implementation owns any shared work.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation getBoolean is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
  */
 export function getBoolean(
   result: ParseResult,

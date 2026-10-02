@@ -5,8 +5,7 @@ import { SourceBuildCacheLayout } from "../../../plugin/internal/source/SourceBu
 import { ProcessOwnedDirectory } from "./ProcessOwnedDirectory";
 
 /**
- * What `ttsc clean` removes of a cache root's ttsx runtime directory
- * (samchon/ttsc#1579).
+ * What `ttsc clean` removes of a cache root's ttsx runtime directory.
  *
  * The runtime directory holds one directory per prepared run, owned by the
  * processes of that run (`ProcessOwnedDirectory`). A run still in progress

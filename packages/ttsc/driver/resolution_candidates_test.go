@@ -8,6 +8,11 @@ import (
   "testing"
 )
 
+//
+// @evidence contracts/testing.md#behavioral-verification The transform graph replays the compiler's resolution semantics for package imports and exports, subpath imports, module suffixes, directory indexes, triple-slash references and type packages over a fixture project.
+// @evidence contracts/testing.md#independent-expectations Expected candidate and edge sets are the literal files of the authored fixture, not derived from the graph.
+// @evidence contracts/testing.md#distinguishing-cases Each resolver feature in the fixture selects a different candidate set, so a feature the replay skips shows as a missing candidate.
+// @evidence contracts/testing.md#execution-ownership TestTransformGraphReplaysCompilerResolutionSemantics is a Go unit test inside the driver package: it calls the unexported operation in-process with literal inputs or a temporary directory, installing no consumer and starting no product process.
 func TestTransformGraphReplaysCompilerResolutionSemantics(t *testing.T) {
   root := t.TempDir()
   files := map[string]string{

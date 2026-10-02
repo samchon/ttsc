@@ -75,7 +75,7 @@ export namespace RuntimeLoaderCapabilities {
    * ESM loader and cannot load a module Node's CommonJS loader would load.
    * Whenever any load hook is registered, every CommonJS module an `import`
    * reaches takes that path there, the ones the hook passes to `nextLoad`
-   * included (samchon/ttsc#1570).
+   * included.
    *
    * @evidence contracts/common.md#principled-implementation A worker runs an actual ESM import whose hooked CommonJS body reports ordinary require properties; only a positive answer permits the unadapted lane, while failure selects the supported facade.
    * @evidence contracts/common.md#clear-and-simple-design The synchronous accessor hides worker coordination and returns one cached loader capability rather than exposing timing or worker state to hook consumers.

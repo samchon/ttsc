@@ -12,7 +12,7 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * use. A long-lived consumer, such as a `ttsc --watch` session reusing its
  * resident check plugins, runs the binary again and again without either, so
  * its entry aged out and could be removed while the session still needed it to
- * respawn a sidecar (samchon/ttsc#1556). The consumer records each cycle's use
+ * respawn a sidecar. The consumer records each cycle's use
  * here instead. This improves its recency priority but does not give it
  * ownership of a permanently retained binary. A binary outside the cache, whose
  * directory carries no last-use record, is left alone.

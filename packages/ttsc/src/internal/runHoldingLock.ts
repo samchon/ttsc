@@ -27,6 +27,7 @@
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Executing held work and releasing a lock are effectful ownership transitions and cannot be shared by matching callback identities.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources The caller transfers a held lock for the synchronous callback lifetime; release is attempted on either outcome, and failure reports leave recovery to the lock generation's owner-exit protocol.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation runHoldingLock is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
  */
 export function runHoldingLock<T>(
   work: () => T,

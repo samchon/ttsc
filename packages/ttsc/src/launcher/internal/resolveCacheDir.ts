@@ -14,6 +14,9 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No consumer-specific cache directory or guessed home path replaces a caller's option or the downstream cache policy.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain absent/empty meaning, invocation-relative anchoring and the downstream precedence boundary, with acknowledgments separated from prose.
  * @evidence contracts/portability.md#os-neutral-implementation Node's native isAbsolute/resolve determine host path semantics without manual slash conversion, case folding or shell expansion.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources resolveCacheDir declares a signature only; the implementation owns acquisition and release of resources.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms resolveCacheDir declares a signature only; the implementation owns the processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work resolveCacheDir declares a signature only; the implementation owns any shared work.
  */
 export function resolveCacheDir(
   cwd: string,

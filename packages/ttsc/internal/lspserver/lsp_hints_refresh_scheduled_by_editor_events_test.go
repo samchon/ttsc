@@ -32,6 +32,11 @@ func (s *refreshCountingSource) RefreshCompletionHints() { s.refreshes.Add(1) }
 //  1. Send each notification that must schedule a refresh.
 //  2. Assert one refresh per notification.
 //  3. Send the notifications that must not, and assert the count is unchanged.
+//
+// @evidence contracts/testing.md#behavioral-verification A saved document, a config change and a watched-file rewrite each schedule one refresh, while didChange and the other listed notifications schedule none.
+// @evidence contracts/testing.md#independent-expectations The expected refresh counts are literal per notification.
+// @evidence contracts/testing.md#distinguishing-cases Disk-changing and keystroke notifications are the positive and negative cases.
+// @evidence contracts/testing.md#execution-ownership TestLSPHintsRefreshScheduledByEditorEvents is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPHintsRefreshScheduledByEditorEvents(t *testing.T) {
   source := &refreshCountingSource{}
   proxy := NewProxy(ProxyOptions{

@@ -16,6 +16,7 @@ import { normalizeFlagToken } from "./normalizeFlagToken";
  * @evidence contracts/performance.md#efficient-algorithms Metadata lookup is constant-time after a token-name scan; list lookahead scans its value and components linearly. Temporary component/rune arrays grow with only that value, and callers advance by the returned width.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure lookahead reads current invocation argv; immutable generated tables are already shared by module identity, and no per-argv computation is coordinated or cached here.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only a returned occurrence and transient value components are created; no argv history, process, handle or persistent invocation state is retained.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation readCompilerOptionOccurrence is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
  */
 export function readCompilerOptionOccurrence(
   argv: readonly string[],

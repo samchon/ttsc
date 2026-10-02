@@ -12,6 +12,11 @@ import (
 // composed aggregate and leaf can therefore have distinct names while invoking
 // the same binary with the same argv; treating them as separate producers would
 // duplicate diagnostics, inputs, completion hints, and command discovery.
+//
+// @evidence contracts/testing.md#behavioral-verification Manifest entries with distinct names but the same effective native launch identity produce one aggregate result.
+// @evidence contracts/testing.md#independent-expectations The expected single producer is a literal count.
+// @evidence contracts/testing.md#distinguishing-cases Identical binary and argv under different names are the case that would duplicate diagnostics and hints.
+// @evidence contracts/testing.md#execution-ownership TestLSPSameTransportEntriesAreDeduplicated is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPSameTransportEntriesAreDeduplicated(t *testing.T) {
   aggregate := NativeLSPPluginEntry{
     Binary:             "shared-sidecar",

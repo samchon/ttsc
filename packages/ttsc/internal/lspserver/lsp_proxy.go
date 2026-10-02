@@ -218,8 +218,7 @@ type Proxy struct {
   // in the order their decisions were made, and releases diagnosticsMu before
   // the write blocks on an editor that is not reading yet: the editor pump
   // takes diagnosticsMu for every document notification before it forwards
-  // the notification upstream, and must never wait on a publication
-  // (samchon/ttsc#1441).
+  // the notification upstream, and must never wait on a publication.
   diagnosticsMu sync.Mutex
 
   upstreamDiagnostics         map[string]cachedDiagnostics
@@ -356,7 +355,7 @@ func NewProxy(opts ProxyOptions) *Proxy {
 // without waiting for the editor's stream to close: `exit` ends the session,
 // and a read blocked on the editor's stdin is not interrupted by closing it on
 // every platform (a Windows pipe is not), so waiting kept the server running
-// until the editor happened to close the pipe (samchon/ttsc#1575).
+// until the editor happened to close the pipe.
 //
 // @evidence contracts/common.md#principled-implementation Two pumps dispatch complete frames; generation guards reject stale contributions and initialized position negotiation fixes UTF-16 before live buffer conversions.
 // @evidence contracts/common.md#clear-and-simple-design Method helpers separate correlation, local contributions and passthrough; one source-close boundary coordinates cancellation and completion.
@@ -389,7 +388,7 @@ func (p *Proxy) Run(ctx context.Context) error {
     }
     // RunLSPServer closes the editor input itself when the session ends, and a
     // read that closing ends reports os.ErrClosed: ttsc's own teardown, not a
-    // fault of the session (samchon/ttsc#1575).
+    // fault of the session.
     if first == nil && err != nil && !errors.Is(err, ErrFrameClosed) && !errors.Is(err, context.Canceled) && !errors.Is(err, os.ErrClosed) {
       first = err
       p.closeAfterPumpError()
@@ -449,8 +448,7 @@ func (p *Proxy) pumpEditorToUpstream(_ context.Context) error {
     }
     // Nothing follows `exit` upstream. Ending its input lets a runner that
     // waits for its stdin to drain before returning, as exec.Cmd.Wait does,
-    // finish once tsgo has quit, instead of waiting on this pump
-    // (samchon/ttsc#1575).
+    // finish once tsgo has quit, instead of waiting on this pump.
     if env.IsNotification() && env.Method == methodExit {
       p.closeUpstreamInput()
     }

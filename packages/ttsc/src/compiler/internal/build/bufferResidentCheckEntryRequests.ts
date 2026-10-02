@@ -16,6 +16,7 @@ import type { ResidentCheckEntryPlan } from "./ResidentCheckEntryPlan";
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This buffer preserves delivery data rather than coordinating shared computation; each configured effectful check still runs separately when due.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns the pending map, with one slot per configured resident entry; consumption or session reset releases it, while unique paths can grow without a bound if an earlier check keeps failing.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation bufferResidentCheckEntryRequests is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
  */
 export function bufferResidentCheckEntryRequests(
   pending: Map<number, ResidentCheckRequest>,

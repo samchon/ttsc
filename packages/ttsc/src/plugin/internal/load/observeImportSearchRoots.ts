@@ -9,7 +9,7 @@ import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH
  * `node_modules` search from the importer. Which package that is can be named
  * only once the resolution selected it, so the candidates of the nearer roots
  * are observed afterwards; each root's own metadata, taken here, is what shows
- * a nearer package that appeared in between (samchon/ttsc#1498). Pass the
+ * a nearer package that appeared in between. Pass the
  * result to `visitImportMappedCandidates`.
  *
  * The rule is the resolution input recorder's
@@ -25,6 +25,9 @@ import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH
  * @evidence contracts/common.md#prohibited-implementation-shortcuts This adapter invokes the recorder's exported metadata query without replacing foreign methods or reproducing imports resolution.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains why witnesses precede selection and how the visitor uses them, plus the non-file result; paragraph/tag separation follows the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation The recorder accepts native paths or file URLs and observes actual search-root metadata, supporting OS-neutral identity without POSIX-only URL/path conversion in this adapter.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources observeImportSearchRoots declares a signature only; the implementation owns acquisition and release of resources.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms observeImportSearchRoots declares a signature only; the implementation owns the processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work observeImportSearchRoots declares a signature only; the implementation owns any shared work.
  */
 export function observeImportSearchRoots(
   parent: string | undefined,

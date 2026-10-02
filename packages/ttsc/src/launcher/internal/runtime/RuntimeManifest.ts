@@ -12,6 +12,9 @@ import type { OwningModuleOptions } from "./OwningModuleOptions";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit entry/output ownership and plugin policy replace basename guesses or independently chosen transform behavior for later roots.
  * @evidence contracts/common.md#meaningful-documentation The purpose and separated member comments explain native paths, required actual emit provenance, protocol output separators, module/target defaults, orphan lifetime and false-only plugin policy without member tags.
  * @evidence contracts/portability.md#os-neutral-implementation Native root/entry/cache paths remain distinct from slash-separated relative output records; producers resolve physical source identity and consumers convert output spelling through the filesystem boundary.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface RuntimeManifest {
   /** Project root of the entry's owning tsconfig. */
@@ -55,7 +58,7 @@ export interface RuntimeManifest {
 
   /**
    * Directory of the lowered orphan sources, under the run's resolved cache
-   * root, which outlives the run (samchon/ttsc#1562).
+   * root, which outlives the run.
    */
   readonly orphanCacheDir?: string;
 

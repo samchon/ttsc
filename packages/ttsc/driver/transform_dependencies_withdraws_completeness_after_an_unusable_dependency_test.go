@@ -11,6 +11,11 @@ import "testing"
 // the unusable member would publish exactly the under-declaration the protocol
 // blames on the plugin — manufactured by the host. Only the affected file loses
 // the claim; the plugin's other files keep theirs.
+//
+// @evidence contracts/testing.md#behavioral-verification A dependency the host could not key withdraws the completeness claim of that file only; the plugin's other files keep theirs.
+// @evidence contracts/testing.md#independent-expectations The expected complete lists are literal file keys for the affected and unaffected files.
+// @evidence contracts/testing.md#distinguishing-cases An unusable dependency on one file and a good dependency on another differ only in the keyed outcome.
+// @evidence contracts/testing.md#execution-ownership TestTransformDependenciesWithdrawsCompletenessAfterAnUnusableDependency is a Go unit test inside the driver package: it calls the unexported operation in-process with literal inputs or a temporary directory, installing no consumer and starting no product process.
 func TestTransformDependenciesWithdrawsCompletenessAfterAnUnusableDependency(t *testing.T) {
   cwd := t.TempDir()
   declarations := newPluginFileDeclarations()

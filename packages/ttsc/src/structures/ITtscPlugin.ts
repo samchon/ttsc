@@ -20,6 +20,9 @@ import type { TtscPluginStage } from "./TtscPluginStage";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Source-based Go composition and capability opt-ins are supported extension mechanisms; routing never depends on name, and undeclared reads cannot be made cache-safe by compensating guesses.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains source ownership, stage, horizontal/vertical composition, capabilities and input-proof obligations; documented-member spacing and prose/tag separation follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Source and host-input paths are native identities with documented absolute/relative bases; content hashes and physical realpaths are separate proof fields so symlink retargeting remains a change. The descriptor requests Go-source building rather than a hardcoded executable suffix or shell command.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ITtscPlugin {
   /**

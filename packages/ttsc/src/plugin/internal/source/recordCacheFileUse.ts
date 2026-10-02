@@ -2,7 +2,7 @@ import fs from "node:fs";
 
 /**
  * Record a use of a single-file cache entry by setting its modification time,
- * which `pruneCacheFileRoot` reads as its last use (samchon/ttsc#1562). A hit
+ * which `pruneCacheFileRoot` reads as its last use. A hit
  * that cannot record it still answers: the entry may then age out a use early
  * and be computed again.
  *

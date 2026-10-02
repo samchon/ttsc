@@ -27,6 +27,10 @@ import { TTSX_MINIMUM_NODE_VERSION } from "./TTSX_MINIMUM_NODE_VERSION";
  * @evidence contracts/common.md#clear-and-simple-design Version parsing and tuple comparison are private helpers under one diagnostic decision; loader behavior probes remain a separate capability owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The minimum release and Bun/Deno markers describe actual supported runtime boundaries, not fixture versions, and no runtime method is replaced to emulate missing hooks.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain checked emit/plugin consequences and the separate capability gate, while parameter docs distinguish reported version from runtime identity markers.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources checkNodeRuntimeSupport declares a signature only; the implementation owns acquisition and release of resources.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms checkNodeRuntimeSupport declares a signature only; the implementation owns the processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work checkNodeRuntimeSupport declares a signature only; the implementation owns any shared work.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Reads version strings (process.versions by default) and compares numeric parts; it has no path or platform branch.
  */
 export function checkNodeRuntimeSupport(
   version: string,

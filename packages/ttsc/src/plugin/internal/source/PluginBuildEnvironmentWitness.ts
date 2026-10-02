@@ -8,8 +8,8 @@ import fs from "node:fs";
  * executables the C toolchain commands name, and GOROOT
  * (`hashPluginBuildEnvironment`). Their metadata, taken before their content is
  * read, is what a later observer compares: a process keeping its reading
- * (`processPluginBuildEnvironment`, samchon/ttsc#1516), and a build proving the
- * toolchain it ran is the one its key read (samchon/ttsc#1534). Change time can
+ * (`processPluginBuildEnvironment`), and a build proving the
+ * toolchain it ran is the one its key read. Change time can
  * reveal a write even when size and modification time are restored.
  *
  * This witnesses native metadata and link target names, not a second byte

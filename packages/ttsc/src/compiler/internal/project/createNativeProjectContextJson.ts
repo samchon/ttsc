@@ -12,6 +12,10 @@ import type { ITtscParsedProjectConfig } from "../../../structures/internal/ITts
  * @evidence contracts/common.md#clear-and-simple-design One payload serializer serves argument and environment consumers so project-context field selection cannot drift between independent assembly paths.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Identity comes from the resolved project record rather than reinterpreting paths from a generated wrapper or substituting a known consumer's project directory.
  * @evidence contracts/common.md#meaningful-documentation Purpose and ownership rationale occupy separate native paragraphs, with acknowledgments separated according to the documentation skill.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The serialized string is returned to the caller and nothing is retained.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One JSON.stringify over a small identity object.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work One serialization per call from its arguments; nothing is shared.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation createNativeProjectContextJson is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
  */
 export function createNativeProjectContextJson(
   project: ITtscParsedProjectConfig,

@@ -112,14 +112,10 @@ func buildPlatformCommand(t *testing.T) string {
 // Windows can briefly retain an exited image; only its access/share denials are
 // retried, matching Go TempDir cleanup, and persistent failure fails the suite.
 //
-// @evidence contracts/common.md#principled-implementation m.Run completes before the platformCommandBuild producer directory is released; failures in cleanup convert the suite exit to failure rather than certifying an unreleased artifact. All command consumers wait for child completion before returning.
-// @evidence contracts/common.md#clear-and-simple-design The suite exit hook is the sole shared-artifact reclamation owner; individual case cleanup cannot remove an artifact still needed by another case or a count repetition.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Bounded retries apply only to actual Windows access/share denials after joined executable use, matching Go TempDir image-release behavior. No arbitrary failure is ignored, producer replaced or case skipped.
-// @evidence contracts/common.md#meaningful-documentation Native paragraphs state suite ownership, waited command lifetimes and the bounded Windows release distinction; a blank comment line separates those facts from these acknowledgments. No repository prose changes are needed.
-// @evidence contracts/performance.md#efficient-algorithms The exit hook delegates one recursive removal of the one suite artifact directory; its work scales with the bounded authored producer files. A Windows transient denial retries the same operation at 10 ms intervals for at most two seconds, without scanning unrelated paths.
-// @evidence contracts/performance.md#reuse-equivalent-work The sync.Once producer and its fixed source, toolchain and coverage inputs stay valid for all cases and count repetitions; the exit hook retains that shared artifact until the final consumer returns. A new Go test process rebuilds instead of reusing unvalidated historical state.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The suite owns one temporary producer directory, one compiled command artifact and one cached build outcome. The retained population does not grow with case count. Successful and failed m.Run paths both attempt release, and cleanup failure is a suite failure.
-// @evidence contracts/portability.md#os-neutral-implementation filepath and Go process APIs own native paths and argv. Windows uses the executable suffix and recognizes only native access/share error codes for bounded removal retries; this does not infer filesystem case policy. POSIX removal errors return immediately.
+// @evidence contracts/testing.md#behavioral-verification TestMain runs the package's tests and then removes the shared platform helper build directory, failing the suite when removal fails.
+// @evidence contracts/testing.md#independent-expectations The exit code is the oracle for cleanup failure.
+// @evidence contracts/testing.md#distinguishing-cases Release after all cases versus a bounded Windows retry of access and sharing denials.
+// @evidence contracts/testing.md#execution-ownership TestMain is the package entry point for the test/platform binary.
 func TestMain(m *testing.M) {
   code := m.Run()
   if directory := platformCommandBuild.directory; directory != "" {

@@ -9,7 +9,7 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  * Opportunistically bound a part of the cache root whose entries are single
  * files: the descriptor evaluations under `descriptors/`, the capability
  * answers under `capabilities/`, and the lowered orphan sources under
- * `ttsx-orphan/` (samchon/ttsc#1562).
+ * `ttsx-orphan/`.
  *
  * The policy is the plugin cache's (`CachePrunePolicy`). An entry's last use is
  * its modification time: a write sets it, and every hit records a use by

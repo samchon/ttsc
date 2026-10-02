@@ -21,6 +21,7 @@ import (
 // @evidence contracts/performance.md#efficient-algorithms Work scales with resident source ASTs, emitted facts and repeated enclosing-container traversals; memoized resolution avoids repeating checker lookups.
 // @evidence contracts/performance.md#reuse-equivalent-work Per-build AST resolution, doc-host and edge identity maps share equivalent work only within this immutable Program.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The returned graph owns its facts; releaseBuildState drops AST-keyed and base-node scratch maps before the completed generation escapes.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Build computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Build(prog *driver.Program) *Graph {
   return BuildFiles(prog, nil, nil)
 }
@@ -42,6 +43,7 @@ func Build(prog *driver.Program) *Graph {
 // @evidence contracts/performance.md#efficient-algorithms File selection is indexed once; declaration and relation walks cover only selected files while base endpoint lookup is constant expected time.
 // @evidence contracts/performance.md#reuse-equivalent-work The supplied committed map reuses unchanged endpoints and build-local memoization reuses checker answers within the replacement Program.
 // @evidence contracts/performance.md#bound-retention-and-release-resources Base nodes are borrowed during the transaction and released from scratch at completion; only emitted replacement facts remain owned by the returned graph.
+// @evidence contracts/portability.md#os-neutral-implementation pathCaseInsensitive copies the compiler program's own file-name case policy (UseCaseSensitiveFileNames) instead of guessing it from the operating system.
 func BuildFiles(prog *driver.Program, selected []string, baseNodes map[string]*Node) *Graph {
   selectedFiles := map[string]bool{}
   if selected != nil {
@@ -116,6 +118,7 @@ func (g *Graph) releaseBuildState() {
 // @evidence contracts/performance.md#efficient-algorithms One pass over loaded files builds a path map; source strings are shared rather than recopied by content.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This extraction does not coordinate repeated requests; its Program owner decides when a generation's text map can be reused.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller receives the map and owns its lifetime; this function retains no Program reference after return.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation SourceTexts computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func SourceTexts(prog *driver.Program) map[string]string {
   if prog == nil || prog.TSProgram == nil {
     return map[string]string{}
@@ -146,6 +149,7 @@ func SourceTexts(prog *driver.Program) map[string]string {
 // @evidence contracts/performance.md#efficient-algorithms A set costs O(selected paths) and one resident-file pass costs O(loaded files), without repeated selected-path scans.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This function extracts a caller-owned generation view and does not own reuse across requests.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned strings and map transfer to the caller; no native handle or retained cache is acquired.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation SourceTextsForFiles computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func SourceTextsForFiles(prog *driver.Program, files []string) map[string]string {
   if prog == nil || prog.TSProgram == nil {
     return map[string]string{}
@@ -281,6 +285,7 @@ func collectClosures(g *Graph, path string, declaration *shimast.Node) {
 // @evidence contracts/performance.md#efficient-algorithms Cost follows the enclosing callable chain and constructed name length, not the whole source file.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This identity helper does not coordinate consumers; callers reuse indexed closure nodes within the graph generation.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only a result string is returned; no AST or cache is retained.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ClosureName computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func ClosureName(closure *shimast.Node) (string, bool) {
   symbol := closure.Symbol()
   if symbol == nil {
@@ -380,6 +385,7 @@ func bindingOf(fn *shimast.Node) *shimast.Node {
 // @evidence contracts/performance.md#efficient-algorithms Each AST node in the current owner's body is visited once until a selected closure boundary; output space follows selected closures.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This collection does not own cross-phase caching; Build's immutable AST and indexed nodes establish generation-level reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The result borrows AST pointers and transfers its slice to the caller without retaining a Program.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ClosuresIn computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func ClosuresIn(declaration *shimast.Node) []*shimast.Node {
   body := functionBody(declaration)
   if body == nil {
@@ -411,6 +417,7 @@ func ClosuresIn(declaration *shimast.Node) []*shimast.Node {
 // @evidence contracts/performance.md#efficient-algorithms Kind dispatch is constant time; a variable's initializer unwrap follows only its local wrapper depth with constant temporary space.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This predicate does not coordinate repeated operations or retain a classification cache.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No state or native resource is acquired.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation IsClosure computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func IsClosure(node *shimast.Node) bool {
   switch node.Kind {
   case shimast.KindFunctionDeclaration:

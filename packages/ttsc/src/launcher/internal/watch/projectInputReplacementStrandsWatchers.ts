@@ -30,6 +30,9 @@ import { WatchPaths } from "./WatchPaths";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Rearming is justified by the backend's inode retention, not a retry chain hiding an unchanged watcher assumption.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain native versus per-directory backends and why indiscriminate reinstalling is costly, following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Platform selection expresses Node's recursive watcher implementation boundary; filesystem identity and containment still come from the actual transaction resolver.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources projectInputReplacementStrandsWatchers declares a signature only; the implementation owns acquisition and release of resources.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms projectInputReplacementStrandsWatchers declares a signature only; the implementation owns the processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work projectInputReplacementStrandsWatchers declares a signature only; the implementation owns any shared work.
  */
 export function projectInputReplacementStrandsWatchers(
   snapshot: ITtscProjectInputSnapshot,

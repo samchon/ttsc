@@ -8,6 +8,9 @@ import type { TtscCommonOptions } from "./TtscCommonOptions";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Overrides are declared host controls; format restrictions and no-emit fix behavior address actual command contracts rather than fixture-only logic.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc spells out the three emit states, source-rewrite effects, launcher restrictions and quiet default; paragraphs, member and tag spacing follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Config and output-directory overrides are native path values interpreted by the build owner from cwd, while inherited environment and passthrough argv remain structured; this type does not embed POSIX shell or separator assumptions.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface TtscBuildOptions extends TtscCommonOptions {
   /** Project config file to compile. Relative paths are resolved from `cwd`. */

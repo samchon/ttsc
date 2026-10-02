@@ -19,6 +19,11 @@ func (regexScopeCompletionHintSource) CompletionHints() []LSPCompletionHint {
 // TestLSPCompletionScopeRefusesRegexHints verifies the request path never
 // offers JSDoc hints inside a regex while still offering one in a real JSDoc
 // block immediately after executable code.
+//
+// @evidence contracts/testing.md#behavioral-verification The request path offers no hint inside a regex literal and still offers one in a real JSDoc block right after executable code.
+// @evidence contracts/testing.md#independent-expectations Zero items for the regex and one item for the block are literal expectations.
+// @evidence contracts/testing.md#distinguishing-cases The two documents contain the same '@tag' text in different lexical contexts.
+// @evidence contracts/testing.md#execution-ownership TestLSPCompletionScopeRefusesRegexHints is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPCompletionScopeRefusesRegexHints(t *testing.T) {
   const uri = "file:///project/src/main.ts"
   proxy := &Proxy{source: regexScopeCompletionHintSource{}}

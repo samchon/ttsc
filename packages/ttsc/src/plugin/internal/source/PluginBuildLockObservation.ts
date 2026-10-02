@@ -10,7 +10,7 @@ import type { PluginBuildLockFence } from "./PluginBuildLockFence";
  *   returned fence permits an attempt to retire that observed generation.
  * - `released`: the observed generation no longer exists. In v3 the persistent
  *   coordination root remains while `current` is absent. This is a routine
- *   handoff, never an infinitely old abandoned lock (issue #421).
+ *   handoff, never an infinitely old abandoned lock.
  *
  * A v3 active or abandoned result records the observer before returning its
  * fence. Reclamation is still a separate action that may lose a retirement
@@ -21,6 +21,9 @@ import type { PluginBuildLockFence } from "./PluginBuildLockFence";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Released is represented explicitly rather than an infinite age that could manufacture abandonment after a normal handoff.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains all three states, persistent-root absence and the observation/reclamation distinction before its tags.
  * @evidence contracts/portability.md#os-neutral-implementation The states represent filesystem observations independently of OS errno wording; occupied states carry the protocol distinction needed for native retirement.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export type PluginBuildLockObservation =
   | {

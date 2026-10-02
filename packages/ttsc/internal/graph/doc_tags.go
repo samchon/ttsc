@@ -37,6 +37,7 @@ import (
 // @evidenceExclude contracts/performance.md#efficient-algorithms This record represents tag facts; traversal and deduplication belong to collection operations.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The enclosing graph build owns shared AST reads.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The record does not own retention or native resources.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type DocTag struct {
   // Target is the id of the graph node the tag was written on.
   Target string

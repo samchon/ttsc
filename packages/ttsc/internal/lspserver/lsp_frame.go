@@ -49,6 +49,7 @@ const MaxHeaderBytes = 64 << 10
 // @evidenceExclude contracts/performance.md#efficient-algorithms Read chooses the framing algorithm; this type carries its buffered input.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The type does not coordinate shared computations across readers.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The transport owner controls closure; this representation owns no native handle independently.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type FrameReader struct {
   br *bufio.Reader
 }
@@ -63,6 +64,7 @@ type FrameReader struct {
 // @evidenceExclude contracts/performance.md#efficient-algorithms Construction delegates buffering; Read owns input processing.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Distinct streams cannot share unread framing state.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned reader owns its buffer while the caller retains transport closure.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation NewFrameReader computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func NewFrameReader(r io.Reader) *FrameReader {
   return &FrameReader{br: bufio.NewReader(r)}
 }
@@ -78,6 +80,7 @@ func NewFrameReader(r io.Reader) *FrameReader {
 // @evidence contracts/performance.md#efficient-algorithms ReadSlice and builders process H header bytes and B body bytes in O(H+B) time and O(H+B) returned/temporary storage, under independent caps.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Consuming the next stream frame is effectful and cannot reuse a previous frame's body.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Per-frame buffers are returned to the caller; the transport owner closes the reader.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Read computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (fr *FrameReader) Read() (headers string, body []byte, err error) {
   var headerBuf strings.Builder
   contentLength := -1
@@ -157,6 +160,7 @@ func parseContentLength(line string) (int, bool) {
 // @evidence contracts/performance.md#efficient-algorithms Only the length header is allocated; the existing B-byte body is passed directly to the writer without a concatenated frame copy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each frame write is an externally visible transport effect.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The function neither retains the body nor takes ownership of the writer.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation WriteFrame computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func WriteFrame(w io.Writer, body []byte) error {
   header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(body))
   if _, err := io.WriteString(w, header); err != nil {

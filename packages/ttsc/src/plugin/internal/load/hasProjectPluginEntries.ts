@@ -15,6 +15,9 @@ import { ProjectPluginEntries } from "./ProjectPluginEntries";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Enabled selection follows declared configuration, without assuming a known package marker or fabricating absence after a resolver error.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc states why the presence query exists and how explicit false differs from omitted entries; prose/tag separation follows the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation The project-entry resolver owns native config/package resolution; this adapter applies no POSIX parsing or additional path/case normalization to its answer.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The resolved list is local to the call and released on return.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One short-circuiting pass over the resolved plugin entries.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The entry list is resolved once per call and not recomputed inside the pass.
  */
 export function hasProjectPluginEntries(
   project: ITtscParsedProjectConfig,

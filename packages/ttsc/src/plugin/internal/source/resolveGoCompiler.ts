@@ -11,7 +11,7 @@ import path from "node:path";
  *
  * Both the build (`buildSourcePlugin`) and the environment a consumer proves
  * the build's output against (`pluginBuildEnvironment`) resolve the compiler
- * here, so they key on one toolchain (samchon/ttsc#1493).
+ * here, so they key on one toolchain.
  *
  * @param env The build's effective environment.
  *

@@ -137,7 +137,7 @@ export namespace RuntimeManifestRegistry {
    * root, requires the ownership index's actual compiler output-to-source
    * observations and physical source identity. A file no manifest compiled gets
    * `null` and belongs to another lane, however many emitted files share its
-   * name (samchon/ttsc#1382).
+   * name.
    *
    * @evidence contracts/common.md#principled-implementation A prepared entry gets first ownership lookup, but every match must come from actual emitted-source observations in its build index; neither recorded entry filenames nor matching output stems prove source membership.
    * @evidence contracts/common.md#clear-and-simple-design Two explicit passes separate entry precedence from general build ownership, with one index helper owning memoized reverse mapping.

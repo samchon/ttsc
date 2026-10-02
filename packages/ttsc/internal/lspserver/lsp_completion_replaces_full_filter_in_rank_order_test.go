@@ -28,6 +28,11 @@ func (rankedCompletionHintSource) CompletionHints() []LSPCompletionHint {
 //  1. Match two ranked hints after a non-BMP character and a CJK path prefix.
 //  2. Merge them into the null completion response tsgo uses in JSDoc prose.
 //  3. Assert both text edits replace the full filter and sort in slice order.
+//
+// @evidence contracts/testing.md#behavioral-verification Two ranked hints after a non-BMP character and a CJK path prefix merge into a null upstream response as text edits that replace the full filter, in publisher order.
+// @evidence contracts/testing.md#independent-expectations The expected ranges are UTF-16 columns written literally for the literal text.
+// @evidence contracts/testing.md#distinguishing-cases A path filter containing slashes and wide characters distinguishes a full-filter range from a last-segment range.
+// @evidence contracts/testing.md#execution-ownership TestLSPCompletionReplacesFullFilterInRankOrder is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPCompletionReplacesFullFilterInRankOrder(t *testing.T) {
   const uri = "file:///project/src/main.ts"
   const text = "/** 😀 @evidence 文档/sp"

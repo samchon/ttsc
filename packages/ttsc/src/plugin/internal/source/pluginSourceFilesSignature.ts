@@ -17,7 +17,7 @@ import { collectPluginSourceFiles } from "./collectPluginSourceFiles";
  * reproduce it. What a stamp is, and whether its tick has ended, is the host's
  * to answer, since only the host owns a clock reference on the filesystem it
  * observes (`evidence`). The file list is ttsc's, so every host signs exactly
- * what the build keys on (samchon/ttsc#1492): `@ttsc/unplugin` keeps a digest
+ * what the build keys on: `@ttsc/unplugin` keeps a digest
  * per delivery this way, and the capability-resolution cache across processes.
  *
  * @param directory The plugin source directory, absolute.

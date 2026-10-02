@@ -20,7 +20,7 @@ import { RuntimeManifestRegistry } from "./RuntimeManifestRegistry";
  * the launcher removed the manifest. Its builds go to a directory private to
  * this process and removed when it exits. A shared, persistent directory keyed
  * only by the tsconfig path would let an edited dependency keep running its
- * first build until the temp directory was cleared (samchon/ttsc#1405). A process that could not remove its directory (it was
+ * first build until the temp directory was cleared. A process that could not remove its directory (it was
  * killed) is swept by the next one that starts.
  *
  * @param env Environment to read the descriptor-evaluation variables from.

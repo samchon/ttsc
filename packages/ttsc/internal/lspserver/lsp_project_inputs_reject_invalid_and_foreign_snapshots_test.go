@@ -18,6 +18,11 @@ import (
 //  3. Reject Windows device namespaces and malformed UNC volumes while
 //     retaining fixed drive and UNC paths.
 //  4. Reject incomplete and malformed launcher-owned reload fingerprints.
+//
+// @evidence contracts/testing.md#behavioral-verification A valid snapshot under the selected root normalizes while relative paths, remote URLs, a different root, Windows device namespaces and malformed UNC volumes are rejected, fixed drive and UNC paths are retained and incomplete or malformed reload fingerprints are rejected.
+// @evidence contracts/testing.md#independent-expectations The expected accepts and rejects are literal inputs and errors.
+// @evidence contracts/testing.md#distinguishing-cases Valid and each invalid category are separate rows.
+// @evidence contracts/testing.md#execution-ownership TestLSPProjectInputsRejectInvalidAndForeignSnapshots is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPProjectInputsRejectInvalidAndForeignSnapshots(t *testing.T) {
   root := t.TempDir()
   valid := LSPProjectInputSnapshot{

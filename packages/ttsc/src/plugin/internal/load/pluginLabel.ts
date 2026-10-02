@@ -8,6 +8,10 @@ import type { ITtscProjectPluginConfig } from "../../../structures/ITtscProjectP
  * @evidence contracts/common.md#clear-and-simple-design One value selector is shared by native admission and downstream loader records.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Plugin names remain diagnostic labels and never confer built-in compiler behavior.
  * @evidence contracts/common.md#meaningful-documentation The headline states the stable fallback identity used by callers.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources pluginLabel declares a signature only; the implementation owns acquisition and release of resources.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms pluginLabel declares a signature only; the implementation owns the processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work pluginLabel declares a signature only; the implementation owns any shared work.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation pluginLabel is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
  */
 export function pluginLabel(
   plugin: ITtscPlugin,

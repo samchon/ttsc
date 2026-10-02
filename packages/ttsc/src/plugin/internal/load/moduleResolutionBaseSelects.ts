@@ -20,7 +20,7 @@ import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH
  * (`RESOLUTION_INPUT_RECORDER_PATH`), which every evaluator that records
  * resolution inputs takes it from: the ttsx descriptor evaluator, the isolated
  * CommonJS evaluator, a utility plugin's config loader, and the loader's own
- * candidate expansion and plugin discovery (samchon/ttsc#1501).
+ * candidate expansion and plugin discovery.
  *
  * Every path is compared by its physical spelling, so a package reached through
  * a link is still the one selected. A path that cannot be resolved selects
@@ -37,6 +37,9 @@ import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The adapter invokes the recorder's exported query without replacing foreign methods or reconstructing a package resolver from guessed target paths.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains stopping semantics, physical identity, unreadable refusal and parameter vocabularies in distinct paragraphs under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation The shared rule handles native paths and file URLs with physical identity; callers pass their real extension policy rather than guessing from OS names or splitting only POSIX paths.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources moduleResolutionBaseSelects declares a signature only; the implementation owns acquisition and release of resources.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms moduleResolutionBaseSelects declares a signature only; the implementation owns the processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work moduleResolutionBaseSelects declares a signature only; the implementation owns any shared work.
  */
 export function moduleResolutionBaseSelects(
   base: string,

@@ -331,7 +331,7 @@ func RunLSPServer(ctx context.Context, opts LSPServerOptions) error {
       continue
     }
     // The teardown above closes the editor input, and a read it ends reports
-    // os.ErrClosed (samchon/ttsc#1575).
+    // os.ErrClosed.
     if errors.Is(err, os.ErrClosed) {
       continue
     }

@@ -10,6 +10,9 @@ import { isFilesystemPathIdentityWithin } from "./isFilesystemPathIdentityWithin
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No project-specific path exception or foreign mutation bypasses the canonical-key predicate.
  * @evidence contracts/common.md#meaningful-documentation Native prose names the identity-key inputs and shared owner, without suggesting raw lexical paths have been physically resolved.
  * @evidence contracts/portability.md#os-neutral-implementation The host separator is obtained by the shared predicate while case and alias equivalence must already be encoded in its input keys.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources isProjectInputPathIdentityWithin declares a signature only; the implementation owns acquisition and release of resources.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms isProjectInputPathIdentityWithin declares a signature only; the implementation owns the processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work isProjectInputPathIdentityWithin declares a signature only; the implementation owns any shared work.
  */
 export function isProjectInputPathIdentityWithin(
   root: string,

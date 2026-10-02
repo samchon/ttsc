@@ -77,7 +77,7 @@ export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
       // directory with TS5011 as soon as any `outDir` is in play. Pinning the
       // root tsgo would infer keeps `ttsc <file.ts>` working on a project that
       // declares no output at all, while the producing invocation reports its
-      // actual source/output ownership separately (issue #1172).
+      // actual source/output ownership separately.
       pinInferredRootDir: true,
       resolvedProject: project,
       tsconfig,

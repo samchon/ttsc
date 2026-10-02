@@ -14,6 +14,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The broker writes the actual child streams into caller-selected files; the type provides no synthetic output or special-case expected command result.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain retry use, common read destinations, caller cleanup and path-versus-descriptor meaning; member and acknowledgment spacing follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native output paths are passed to supported filesystem operations rather than encoded as shell redirection; the launch owner decides whether the POSIX descriptor broker is applicable.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface SpawnSyncOutputFiles {
   /** File receiving the child's standard error. */

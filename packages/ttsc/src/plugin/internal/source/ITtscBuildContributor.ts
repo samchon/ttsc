@@ -6,6 +6,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The name is caller-declared contribution identity, not a fixture-specific package insertion.
  * @evidence contracts/common.md#meaningful-documentation Members state the contrib target layout and absolute source-path requirement with separate native comments.
  * @evidence contracts/portability.md#os-neutral-implementation Source is a native absolute directory resolved by the loader; name is the logical sub-package suffix, so filesystem identity and Go import spelling remain distinct.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ITtscBuildContributor {
   /** Sub-package suffix: scratch lands at `<host>/contrib/<name>/`. */

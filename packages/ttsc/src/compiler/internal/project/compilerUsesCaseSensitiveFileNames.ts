@@ -6,7 +6,7 @@ import { resolveSourceBuildCachePaths } from "../../../plugin/internal/source/re
 
 /**
  * Whether the compiler ttsc runs for a project compares file names
- * case-sensitively, answered before that compiler has run (samchon/ttsc#1563).
+ * case-sensitively, answered before that compiler has run.
  *
  * TypeScript-Go decides it once, from the executable it runs as
  * (`internal/vfs/osvfs/os.go`, `isFileSystemCaseSensitive`):

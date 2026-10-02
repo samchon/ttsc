@@ -17,6 +17,11 @@ import (
 // 1. Create an emit-capable project with an output directory.
 // 2. Run utility build with `--emit` and `--verbose`.
 // 3. Assert stdout includes the plugin and emitted-file summaries.
+//
+// @evidence contracts/testing.md#behavioral-verification RunBuild with --emit and --verbose prints the plugin and emitted-file summaries to stdout even though quiet is the default.
+// @evidence contracts/testing.md#independent-expectations The expected summary fragments are literals from the command's output contract.
+// @evidence contracts/testing.md#distinguishing-cases Verbose is the case that must differ from the quiet default; the default-quiet builds in sibling tests print no summary.
+// @evidence contracts/testing.md#execution-ownership TestUtilityBuildVerboseSummary is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityBuildVerboseSummary(t *testing.T) {
   root := t.TempDir()
 

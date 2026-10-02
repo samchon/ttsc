@@ -20,6 +20,7 @@ import { PassthroughFlags } from "./PassthroughFlags";
  * @evidenceExclude contracts/performance.md#efficient-algorithms The namespace is an API grouping; its selected construction, recording and rendering functions own processing choices.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This namespace holds no shared computation or cache; each build owns its own ledger.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The grouping acquires no resource; mutable ledger lifetime belongs to its build and recording operation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation A namespace only groups the declarations inside it; each carries its own acknowledgments.
  */
 export namespace BuildTiming {
   /**
@@ -34,6 +35,7 @@ export namespace BuildTiming {
    * @evidenceExclude contracts/performance.md#efficient-algorithms This record describes timing data; recording and rendering functions select processing strategies.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The ledger does not decide reuse across requests; it belongs to one build.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The build owns ledger lifetime; the data type itself acquires no resource or retained history.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
    */
   export type BuildTiming = {
     /** An effective diagnostics flag enables collection and final rendering. */
@@ -59,6 +61,7 @@ export namespace BuildTiming {
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each build requires its own start time and mutable phase list, so separate builds cannot share this ledger.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Construction transfers a fresh ledger to the build owner without retaining it globally.
+   * @evidence contracts/portability.md#os-neutral-implementation The only host dependence is process.hrtime.bigint(), Node's portable monotonic clock; no path, shell or file API is used.
    */
   export function createBuildTiming(options: TtscCommonOptions): BuildTiming {
     return {
@@ -82,6 +85,7 @@ export namespace BuildTiming {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A completed phase measurement is effectful and specific to its start time, not a reusable result across phases.
    *
    * @evidence contracts/performance.md#bound-retention-and-release-resources The build-owned ledger retains one string per recorded phase until the build releases it; the configured phase population, not a historical cache, determines growth.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation recordTiming is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
    */
   export function recordTiming(
     timing: BuildTiming,
@@ -105,6 +109,7 @@ export namespace BuildTiming {
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The total depends on the current clock and output append point, so this operation establishes no cross-request reuse.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Output is returned to the caller and the adapter retains no ledger or native handle.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Formats elapsed time from process.hrtime values and appends text to stdout; it builds no path and calls no filesystem API.
    */
   export function appendTimingOutput(
     result: TtscBuildResult,

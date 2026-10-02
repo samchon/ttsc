@@ -8,7 +8,7 @@ import {
  *
  * What the descriptor's resolutions read is recorded by the resolution input
  * recorder (`RESOLUTION_INPUT_RECORDER_PATH`), bracketing every resolution the
- * hooks see (samchon/ttsc#1501). The process starts with ttsx's runtime hooks
+ * hooks see. The process starts with ttsx's runtime hooks
  * preloaded and recording descriptor inputs, so a `require` of the recorder
  * would be recorded as one of them. The recorder is read and evaluated as a
  * module of its own instead, as a Go config loader evaluates the copy it

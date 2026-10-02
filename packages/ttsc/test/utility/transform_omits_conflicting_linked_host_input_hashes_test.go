@@ -32,6 +32,11 @@ func (plugin conflictingHostInputPlugin) SourcePreamble(ctx driver.PluginContext
 //  1. Register a linked plugin that reports two hashes for one config path.
 //  2. Run the real utility transform entrypoint.
 //  3. Assert the path is retained and no stable hash is published for it.
+//
+// @evidence contracts/testing.md#behavioral-verification A plugin that reports two hashes for one input keeps the path in hostInputs but the envelope publishes no hash for it.
+// @evidence contracts/testing.md#independent-expectations The path and the absence of a stable hash are literal expectations from the reporting contract.
+// @evidence contracts/testing.md#distinguishing-cases Two contradictory hashes contrast with a single stable hash that would be published.
+// @evidence contracts/testing.md#execution-ownership TestUtilityTransformOmitsConflictingLinkedHostInputHashes is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityTransformOmitsConflictingLinkedHostInputHashes(t *testing.T) {
   resetLinkedPluginRegistry()
   root := t.TempDir()

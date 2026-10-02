@@ -1,7 +1,7 @@
 /**
  * What a `ttscserver` session's plugin selection was loaded from, as the native
  * host receives it in the plugin manifest (`selectionInputs`), so a change to
- * any of it ends the session (samchon/ttsc#1507).
+ * any of it ends the session.
  *
  * Both kinds of input travel by directory, each directory with the names of the
  * files in it and the digest each had
@@ -18,6 +18,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Recorded file state comes from the selection's actual inputs, and source filters are shared builder rules rather than consumer or fixture exceptions.
  * @evidence contracts/common.md#meaningful-documentation The interface and member comments explain directory grouping, missing candidates and listing exclusions; documented members have blank source lines and tags are separated according to the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Declared native directories and entry names travel separately so the native host resolves actual directory identity without replacing path spellings with an OS-wide case assumption.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ILSPPluginSelectionInputs {
   /**

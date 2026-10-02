@@ -10,7 +10,7 @@ import type { CompilerDirectoryWatchEventPlan } from "./CompilerDirectoryWatchEv
  * A named content change of a tracked file is a candidate on every platform. On
  * POSIX the file has a watcher of its own too, and either can miss what the
  * other hears: on macOS a directory watch has heard a config edit its file
- * watch never delivered (samchon/ttsc#1583). Both are decided from the bytes
+ * watch never delivered. Both are decided from the bytes
  * (`WatchTopology.compilerChangesToReport`), so the first to see the edit
  * reports it once. A named rename re-arms the replaced file; an unnamed event
  * conservatively re-arms and reports every surviving tracked input below the

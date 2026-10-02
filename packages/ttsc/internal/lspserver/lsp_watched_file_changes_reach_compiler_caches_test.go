@@ -57,6 +57,11 @@ func watchedFilesEnvelope(t *testing.T, params string) Envelope {
 //  2. Send a tsconfig edit, a created file, and a deleted file, and assert each
 //     drops the whole Program instead.
 //  3. Send an undecodable batch (full reload) and an empty batch (no-op).
+//
+// @evidence contracts/testing.md#behavioral-verification A didChangeWatchedFiles batch refreshes both compiler-backed caches, a plain source edit travels as exactly its URI, and a tsconfig edit, a created file and a deleted file each drop the whole Program.
+// @evidence contracts/testing.md#independent-expectations Expected refresh payloads are literal URIs and drop decisions.
+// @evidence contracts/testing.md#distinguishing-cases Plain edits, config edits, creation and deletion each take a different invalidation path.
+// @evidence contracts/testing.md#execution-ownership TestLSPWatchedFileChangesReachCompilerCaches is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPWatchedFileChangesReachCompilerCaches(t *testing.T) {
   cases := []struct {
     name    string

@@ -9,6 +9,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts This declaration represents the public hook boundary rather than exposing or replacing Node loader internals.
  * @evidence contracts/common.md#meaningful-documentation Native purpose and typing rationale accompany separate member comments for URL representation, format deferral and chain termination.
  * @evidence contracts/portability.md#os-neutral-implementation The result uses module URL spelling rather than native path syntax; file URL conversion is owned by hook producers so drive letters and separators are not guessed here.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ResolveResult {
   /** The resolved module URL; a `file:` URL for anything ttsx serves. */

@@ -18,7 +18,7 @@
  * reads every config through it (`readJsoncFile`), and `@ttsc/unplugin` reads
  * the configs it builds its membership policy and alias overlay from through
  * the `ttsc/tsconfig` entry, so the two cannot disagree about what a config
- * says (samchon/ttsc#1489). A failure names the line and column of the original
+ * says. A failure names the line and column of the original
  * text, counting lines the way the compiler does.
  *
  * @param input The file's text as read.
@@ -35,6 +35,7 @@
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call returns a fresh mutable object/array tree; sharing a previous parse would expose one caller's mutations to another. This pure parser owns no immutable-result cache or coordinated config lifecycle.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The reader and lexical span arrays are invocation-local, and the parsed value transfers to its caller; no historical config tree, descriptor or task is retained in the module.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation parseJsonc computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
  */
 export function parseJsonc(input: string): unknown {
   const reader = new JsoncReader(input);

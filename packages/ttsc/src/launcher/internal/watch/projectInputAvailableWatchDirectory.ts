@@ -18,6 +18,9 @@ import { WatchPaths } from "./WatchPaths";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Recovery does not reopen a root known to contain the entire project merely to return a successful watcher candidate.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain rejection, escalation and the undefined result following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native ancestry uses path.dirname and the transaction resolver compares actual physical identities rather than an OS-derived case rule.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only local variables are held during the climb; nothing is retained after return.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Climbs from the location toward the root at most once per directory level, stopping at the project ceiling, a free identity key or the filesystem root.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Directory identities come from the caller-supplied identity context rather than being recomputed here.
  */
 export function projectInputAvailableWatchDirectory(
   location: string,

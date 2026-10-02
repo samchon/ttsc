@@ -21,6 +21,9 @@ import (
 // @evidence contracts/common.md#prohibited-implementation-shortcuts node_modules is a package-resolution boundary, not a consumer or fixture exception; no foreign compiler state is changed.
 // @evidence contracts/common.md#meaningful-documentation The native comment states declaration ownership and the compiler's default symlink handling, with prose separated from these tags under the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation filepath.ToSlash converts native separators for segment comparison while retaining literal POSIX backslashes; physical symlink resolution remains the compiler host's responsibility.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsWorkspaceSourceFile acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms IsWorkspaceSourceFile performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsWorkspaceSourceFile computes one result per call, so there is no repeated work to share.
 func IsWorkspaceSourceFile(file *shimast.SourceFile) bool {
   if file == nil || file.IsDeclarationFile {
     return false

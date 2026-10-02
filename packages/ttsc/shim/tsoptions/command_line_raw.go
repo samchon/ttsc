@@ -25,6 +25,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design Nil and raw-shape checks precede one ordered-map wrapper, keeping representation adaptation separate from the config parser that owns merging.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts compilerOptions is the compiler's merge-envelope key, not a consumer exception; the adapter preserves upstream parsing rather than patching fields or inventing reset values.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains explicit-null reset semantics, nil results and shared-map ownership, keeping the example and ownership note in distinct paragraphs.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CommandLineRawOptions acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms CommandLineRawOptions performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work CommandLineRawOptions computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation CommandLineRawOptions computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func CommandLineRawOptions(commandLine *tsoptions.ParsedCommandLine) *collections.OrderedMap[string, any] {
   if commandLine == nil {
     return nil

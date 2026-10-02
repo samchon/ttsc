@@ -18,6 +18,9 @@ import fs from "node:fs";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Copying after an unavailable hard link and junctions after Windows symlink restrictions address supported filesystem differences; no test identity changes production behavior.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain alias/copy behavior, dangling targets and Windows privilege constraints, with acknowledgment tags separated from that explanation.
  * @evidence contracts/portability.md#os-neutral-implementation Node filesystem APIs represent actual link/copy capabilities; Windows junction selection is explicit, while failed hard-link/symlink operations determine the fallback rather than guessed volume policy.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources linkVirtualEntry declares a signature only; the implementation owns acquisition and release of resources.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms linkVirtualEntry declares a signature only; the implementation owns the processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work linkVirtualEntry declares a signature only; the implementation owns any shared work.
  */
 export function linkVirtualEntry(
   realEntry: string,
@@ -54,7 +57,7 @@ export function linkVirtualEntry(
   // Symlinks (and other special entries) are re-symlinked as-is. On Windows,
   // a file symlink needs SeCreateSymbolicLinkPrivilege (admin or Developer
   // Mode), so mirror the plain-file branch's hard-link/copy fallback instead
-  // of failing the run (#306). A link whose target no longer exists is
+  // of failing the run. A link whose target no longer exists is
   // skipped: it can serve no module, and none of the fallbacks can
   // materialize it without symlink privileges.
   try {

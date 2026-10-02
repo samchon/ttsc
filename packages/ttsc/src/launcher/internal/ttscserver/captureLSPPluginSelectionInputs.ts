@@ -18,14 +18,14 @@ import { LSPProjectInputDigest } from "./LSPProjectInputDigest";
  * resolved at startup. The load read the descriptors and the files they
  * resolved (`hostInputs`), and it built each binary from the Go sources of its
  * `pluginSources`; a change to any of them selects other plugins, or builds
- * another binary, which only a new session loads (samchon/ttsc#1507). The host
+ * another binary, which only a new session loads. The host
  * ends the session through its reload path when one changes, and the editor
  * starts the next. The shape each travels in is `ILSPPluginSelectionInputs`.
  *
  * What selects the plugins is among them: the project's config chain, whose
  * `compilerOptions.plugins` names them, and the manifests plugin discovery
  * reads. A change there is a selection change, as `ttsc --watch` treats it,
- * rather than only a Program refresh (samchon/ttsc#1511). Left out is a
+ * rather than only a Program refresh. Left out is a
  * plugin's `configFile` that no descriptor read, which its plugin declares
  * among its own project inputs.
  *

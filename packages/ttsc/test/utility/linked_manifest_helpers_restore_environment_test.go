@@ -20,6 +20,11 @@ import (
 // 1. Parse empty, valid, and invalid plugin manifests through the helper.
 // 2. Set and restore the linked-plugin env in both the set and unset states.
 // 3. Assert preamble and output-key predicates handle non-target paths.
+//
+// @evidence contracts/testing.md#behavioral-verification utilityParsePluginEntries accepts empty and valid manifests and rejects malformed JSON, and utilitySetLinkedPluginManifest restores the linked-plugin environment variable whether it was set or absent.
+// @evidence contracts/testing.md#independent-expectations Expected entries and environment values are literal manifests and strings written in the test.
+// @evidence contracts/testing.md#distinguishing-cases Both the previously-set and previously-unset states are restored, and non-target paths are checked against the preamble and output-key predicates.
+// @evidence contracts/testing.md#execution-ownership TestUtilityLinkedManifestHelpersRestoreEnvironment is a Go unit test in the test/utility process: it calls the manifest helpers directly and uses t.Setenv so the environment change cannot leak.
 func TestUtilityLinkedManifestHelpersRestoreEnvironment(t *testing.T) {
   empty, err := utilityParsePluginEntries("   ")
   if err != nil || empty != nil {

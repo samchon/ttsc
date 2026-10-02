@@ -18,11 +18,10 @@ import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
  *   `.json` appended. A module resolves to its physical path, as
  *   TypeScript-Go's module resolution does.
  *
- * The one rule both of the workspace's config readers use (samchon/ttsc#1489):
+ * The one rule both of the workspace's config readers use:
  * ttsc's project reader canonicalizes the answer before it reads the chain
  * further, and `@ttsc/unplugin` keeps the spelling, since TypeScript anchors a
- * relatively extended config at the path it was reached by
- * (samchon/ttsc#1455).
+ * relatively extended config at the path it was reached by.
  *
  * @param tsconfig The declaring config, as the reader named it.
  * @param specifier The `extends` value as written.

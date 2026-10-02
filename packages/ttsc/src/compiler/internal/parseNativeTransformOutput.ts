@@ -161,7 +161,7 @@ function parseObservationUnavailable(
 }
 
 /**
- * Parse the envelope's per-file source maps (samchon/ttsc#1392).
+ * Parse the envelope's per-file source maps.
  *
  * An entry survives only when it is a version 3 map with string `mappings`,
  * string `sources` and `names`, and a `sourcesContent` of strings or nulls, for
@@ -373,8 +373,7 @@ function parseReferenceGraph(
       ? {}
       : { inputProofFailures }),
     ...(inputRealpaths === undefined ? {} : { inputRealpaths }),
-    // The compiler's case policy, kept only as the boolean it reports
-    // (samchon/ttsc#1545).
+    // The compiler's case policy, kept only as the boolean it reports.
     ...(typeof section.useCaseSensitiveFileNames === "boolean"
       ? { useCaseSensitiveFileNames: section.useCaseSensitiveFileNames }
       : {}),

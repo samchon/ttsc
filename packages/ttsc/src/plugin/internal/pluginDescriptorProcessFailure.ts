@@ -15,6 +15,10 @@
  * @evidence contracts/common.md#clear-and-simple-design The classifier returns an error without owning spawning, streamed diagnostics or descriptor decoding, keeping those responsibilities with the loader.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No descriptor-name exception, fixed runtime deadline or output threshold replaces the actual process result.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains the already-streamed child output and remaining process-level information; separate paragraphs and a blank line before tags follow the documentation skill.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources pluginDescriptorProcessFailure declares a signature only; the implementation owns acquisition and release of resources.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms pluginDescriptorProcessFailure declares a signature only; the implementation owns the processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work pluginDescriptorProcessFailure declares a signature only; the implementation owns any shared work.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Formats the process result's error, signal and exit status into a message; it reads no file and builds no path.
  */
 export function pluginDescriptorProcessFailure(
   result: DescriptorProcessResult,

@@ -15,6 +15,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design One direct bridge exposes the existing cursor operation without adding a second AST search or token representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts go:linkname is the shim's explicit internal-package bridge; it neither replaces the upstream traversal nor guesses token kinds from source text.
 // @evidence contracts/common.md#meaningful-documentation Native prose warns about the non-token fallback and the caller's classification responsibility, separated from these acknowledgments.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetTouchingToken declares a signature only; the implementation owns acquisition and release of resources.
+// @evidenceExclude contracts/performance.md#efficient-algorithms GetTouchingToken declares a signature only; the implementation owns the processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetTouchingToken declares a signature only; the implementation owns any shared work.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation GetTouchingToken is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
 //
 //go:linkname GetTouchingToken github.com/microsoft/typescript-go/internal/astnav.GetTouchingToken
 func GetTouchingToken(sourceFile *ast.SourceFile, position int) *ast.Node

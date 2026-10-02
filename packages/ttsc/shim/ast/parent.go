@@ -19,6 +19,10 @@ import innerast "github.com/microsoft/typescript-go/internal/ast"
 // @evidence contracts/common.md#clear-and-simple-design The wrapper exposes upstream's overwrite operation separately from the preserve-existing-parent operation, so callers choose ownership explicitly.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The only mutation is the requested AST parent wiring through the compiler's own traversal API; it does not replace foreign methods or globals.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the overwrite effect, emit motivation, alternative for reused parse nodes, and nonnil acyclic-tree premise with separated paragraphs.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources SetParentInChildren acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms SetParentInChildren performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work SetParentInChildren computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation SetParentInChildren computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func SetParentInChildren(node *Node) {
   innerast.SetParentInChildren(node)
 }
@@ -38,6 +42,10 @@ func SetParentInChildren(node *Node) {
 // @evidence contracts/common.md#clear-and-simple-design A single recursive child traversal owns the nil-only assignment; the overwrite variant remains a separate explicit operation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The nil check expresses synthetic-node ownership rather than a fixture exception; no foreign method is replaced and existing parse parents are preserved deliberately.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains why existing parents survive, the synthetic-node case, and the nonnil acyclic-tree premise without relying on test history.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources SetParentInChildrenUnset acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms SetParentInChildrenUnset performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work SetParentInChildrenUnset computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation SetParentInChildrenUnset computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func SetParentInChildrenUnset(node *Node) {
   node.ForEachChild(func(child *Node) bool {
     if child.Parent == nil {

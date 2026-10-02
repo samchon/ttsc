@@ -13,6 +13,9 @@ import { ResidentTransformProcess } from "./ResidentTransformProcess";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The root is the configured producer's actual anchor, not a guessed working directory or consumer-specific filename substitution.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why the pair travels together, and separated members document disposal and root spelling following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation The project root carries the native spelling used by the resident Program; callers derive keys relative to that same anchor instead of assuming a slash or case policy.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface StartedResidentTransform {
   /** The live host process; dispose it when the service shuts down. */

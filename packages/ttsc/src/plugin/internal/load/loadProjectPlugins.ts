@@ -53,10 +53,10 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  * Returns the ordered native plugins, parsed project config, exact
  * JavaScript-host files that universally influence the loaded selection, and
  * the state of every Go source directory the plugins supplied to the builds
- * (`pluginSources`, samchon/ttsc#1487): each plugin's module root and each
+ * (`pluginSources`): each plugin's module root and each
  * contributor's source, with its state (`pluginSourceState`), the sources as
- * the build read them together with the environment a build there is keyed on
- * (samchon/ttsc#1493). ttsc's own sources, its overlays and the host it builds
+ * the build read them together with the environment a build there is keyed on.
+ * ttsc's own sources, its overlays and the host it builds
  * for linked plugins, are keyed too but not reported: they change only with
  * ttsc itself.
  *
@@ -126,7 +126,7 @@ export function loadProjectPlugins(options: {
   /**
    * Whether every descriptor declared the files it read outside its module
    * graph (`declaresHostInputReads`). When one did not, the host inputs cannot
-   * prove the load's answer to a later launch (samchon/ttsc#1561). The runtime
+   * prove the load's answer to a later launch. The runtime
    * must also explicitly complete its module observations; retained partial
    * records do not establish that declaration's input graph.
    */
@@ -213,7 +213,7 @@ export function loadProjectPlugins(options: {
     tsconfig: project.path,
   };
   // Where isolated descriptor evaluations keep their answers across launches
-  // (`PluginDescriptorEvaluationCache`, samchon/ttsc#1497).
+  // (`PluginDescriptorEvaluationCache`).
   const descriptorCache: DescriptorCacheOptions = {
     cacheDir: options.cacheDir,
     version: pluginBuildVersions(project.root).ttsc,
@@ -387,7 +387,7 @@ export function loadProjectPlugins(options: {
   // reported as the state the binaries were keyed on.
   const sourceDigests = new Map<string, string>();
   // And one reading of the environment each build directory is keyed on, which
-  // a plugin module root's state reports as it is (samchon/ttsc#1493).
+  // a plugin module root's state reports as it is.
   const environmentDigests = new Map<string, string>();
   const builtTransformHosts = new Map<object, string>();
   for (const record of transformHosts) {
@@ -934,7 +934,7 @@ function collectModuleResolutionCandidates(
   // A `#` specifier is looked up in the importer's own package `imports`, whose
   // manifest is recorded with the importer. When that maps it to a bare
   // package, the package's candidates up to the root that selected it are
-  // inputs (samchon/ttsc#1498).
+  // inputs.
   if (specifier.startsWith("#")) {
     visitImportMappedCandidates(
       parentFile,
@@ -1128,7 +1128,7 @@ class CommonJsDescriptorLoadError extends Error {
  *
  * The answer of a descriptor that declares the files it reads is kept across
  * launches while every input the evaluation proved still holds
- * (`PluginDescriptorEvaluationCache`, samchon/ttsc#1497, samchon/ttsc#1561): an
+ * (`PluginDescriptorEvaluationCache`): an
  * unchanged project pays a proof of its descriptor inputs instead of a runtime
  * start and a graph load.
  */
@@ -1995,7 +1995,7 @@ function resolvePluginSource(source: string, projectRoot: string): string {
 
 /**
  * The directories the plugin builds of one load key their binaries on, which a
- * watch session observes (samchon/ttsc#1492): the module root of every plugin
+ * watch session observes: the module root of every plugin
  * built as an executable, since the build copies and keys the whole module
  * (`computeCacheKey`), the source of every plugin linked into a host, and every
  * contributor's source, which a host build keys as it is. They are the
@@ -2003,7 +2003,7 @@ function resolvePluginSource(source: string, projectRoot: string): string {
  * build runs, and ttsc's own sources are left out of both. An executable
  * plugin's module also names, through its `go.mod`, every directory outside it
  * that it replaces a module with, which the build compiles in place
- * (`pluginModuleReplaceDirectories`, samchon/ttsc#1506).
+ * (`pluginModuleReplaceDirectories`).
  */
 function pluginBuildDirectories(
   records: readonly {

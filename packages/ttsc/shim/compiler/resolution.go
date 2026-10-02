@@ -116,7 +116,7 @@ func ProgramResolutionTasks(program *Program) []ProgramResolutionTask {
       // their containing directory, falling back to cwd for configless hosts.
       // Secondary lookup (package subpaths and relative types) preserves this
       // spelling in resolvedFileName or a symlink's originalPath. Replaying a
-      // lowercased key falsely rejected unchanged programs in #1353. Restore
+      // lowercased key would falsely reject unchanged programs. Restore
       // the input context here; keep the strict result comparison below so
       // actual target, package and link changes still invalidate the program.
       containingDirectory := program.GetCurrentDirectory()

@@ -13,8 +13,8 @@ import { findNearestGoMod } from "../../../compiler/internal/findNearestGoMod";
  * and keys that whole root (`buildSourcePlugin`, `computeCacheKey`), so a
  * sibling package or the module's own `go.mod` moves the binary as much as the
  * package itself does. Everything that needs the module a plugin builds in, the
- * build, the loader's validation, and the inputs a watch session observes
- * (samchon/ttsc#1492), takes it from here, so the rule has one reading.
+ * build, the loader's validation, and the inputs a watch session observes,
+ * takes it from here, so the rule has one reading.
  *
  * @param source The source, absolute, which the caller has found to exist.
  * @param pluginName The plugin's label in an error.

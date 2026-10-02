@@ -38,8 +38,8 @@ type LSPProjectInputSnapshot struct {
 
   // WatchDirectories are directories whose entries the client must report
   // without their listing being a reload input of its own: the directories of
-  // the plugin selection inputs, which judge their own changes
-  // (samchon/ttsc#1507). Never read from a contributor.
+  // the plugin selection inputs, which judge their own changes.
+  // Never read from a contributor.
   WatchDirectories []string `json:"-"`
 }
 
@@ -197,8 +197,7 @@ func (s *NativePluginSource) ProjectInputReloadMatchesChange(
   snapshot := copyProjectInputSnapshot(s.projectInputs)
   selection := s.selection
   s.projectInputsMu.RUnlock()
-  // What the plugin selection was loaded from is a reload input too
-  // (samchon/ttsc#1507).
+  // What the plugin selection was loaded from is a reload input too.
   if selection.matchesChange(location) {
     return true
   }

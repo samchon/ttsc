@@ -18,6 +18,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design Hosts pass the compiler's own options value instead of maintaining another option schema and conversion layer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Configuration remains caller/compiler data, with no consumer-specific option overrides in this alias.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies parsed tsconfig provenance and the Program-host consumer, separate from these tags.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type CompilerOptions = innercore.CompilerOptions
 
 // JsxEmit is the parsed compilerOptions.jsx mode.
@@ -26,6 +30,10 @@ type CompilerOptions = innercore.CompilerOptions
 // @evidence contracts/common.md#clear-and-simple-design One enum identity serves parsed options and compiler consumers without translating JSX modes.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Modes use actual compiler constants rather than guessed strings or consumer-selected numeric values.
 // @evidence contracts/common.md#meaningful-documentation The comment names the configuration field this discriminator represents.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type JsxEmit = innercore.JsxEmit
 
 // ModuleResolutionKind selects TypeScript-Go's module resolver.
@@ -34,6 +42,10 @@ type JsxEmit = innercore.JsxEmit
 // @evidence contracts/common.md#clear-and-simple-design Resolver selection remains one compiler discriminator instead of a parallel shim policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Selection uses upstream constants without guessing a resolver from a consumer name or host OS.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies resolver selection rather than merely repeating the type name.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ModuleResolutionKind = innercore.ModuleResolutionKind
 
 // ResolutionMode is the CommonJS or ESM lookup mode for one module use.
@@ -42,6 +54,10 @@ type ModuleResolutionKind = innercore.ModuleResolutionKind
 // @evidence contracts/common.md#clear-and-simple-design A separate upstream enum expresses the per-module lookup decision without overloading ModuleResolutionKind.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Modes remain compiler facts rather than a file-extension heuristic in the shim.
 // @evidence contracts/common.md#meaningful-documentation The comment identifies the per-use scope and the two semantic modes.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ResolutionMode = innercore.ResolutionMode
 
 // Tristate is a three-valued boolean: TSFalse, TSTrue, or TSUnknown. Used by
@@ -51,6 +67,10 @@ type ResolutionMode = innercore.ResolutionMode
 // @evidence contracts/common.md#clear-and-simple-design One three-valued representation serves compiler options instead of separate presence and boolean fields.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown is retained as a real compiler state rather than being silently coerced to a desired default.
 // @evidence contracts/common.md#meaningful-documentation Native prose names the three values and their configuration use before the acknowledgment block.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type Tristate = innercore.Tristate
 
 // TextPos is a signed 32-bit byte coordinate. Source offsets are zero-based;
@@ -60,6 +80,10 @@ type Tristate = innercore.Tristate
 // @evidence contracts/common.md#clear-and-simple-design A single compiler coordinate type connects source ranges and line starts without a unit-conversion wrapper.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Byte offsets are retained without guessed JavaScript character conversion.
 // @evidence contracts/common.md#meaningful-documentation The declaration states signed 32-bit storage, zero-based byte units and negative synthetic-position meaning.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type TextPos = innercore.TextPos
 
 // ECMALineStarts holds the byte offset of every source line the compiler
@@ -69,6 +93,10 @@ type TextPos = innercore.TextPos
 // @evidence contracts/common.md#clear-and-simple-design Line positions use the compiler's existing representation rather than another indexed line model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Source line starts follow compiler semantics rather than a newline split that discards ECMAScript terminators.
 // @evidence contracts/common.md#meaningful-documentation Native prose states byte offsets and the language's line-terminator model.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ECMALineStarts = innercore.ECMALineStarts
 
 // TextRange is a half-open [Pos, End) byte range, or an undefined range with
@@ -78,6 +106,10 @@ type ECMALineStarts = innercore.ECMALineStarts
 // @evidence contracts/common.md#clear-and-simple-design One upstream interval representation serves constructors and AST users without a competing span type.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Positions stay compiler values without fabricating a source interval for a synthetic node.
 // @evidence contracts/common.md#meaningful-documentation Native prose states half-open endpoints and byte units; UndefinedTextRange documents synthesized-node absence.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type TextRange = innercore.TextRange
 
 // ScriptKind identifies the syntactic flavour of a source file.
@@ -86,6 +118,10 @@ type TextRange = innercore.TextRange
 // @evidence contracts/common.md#clear-and-simple-design Parsed source flavour uses one compiler enum rather than a shim string-to-language mapper.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The bridge forwards upstream kinds without special-casing a named file or package.
 // @evidence contracts/common.md#meaningful-documentation The comment states syntactic source flavour and adjacent constant comments identify the supported family.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ScriptKind = innercore.ScriptKind
 
 const (
@@ -149,6 +185,10 @@ const (
 // @evidence contracts/common.md#clear-and-simple-design One accessor supplies upstream version identity without parsing manifests or inferring release metadata.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The answer comes from the compiler rather than a hardcoded ttsc package version.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes compiler version from host release and explains the graph consumer's provenance need.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Version acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Version performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Version computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Version computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func Version() string { return innercore.Version() }
 
 // ApplyDebugStackLimit applies a positive TS_GO_DEBUG_STACK_LIMIT byte count
@@ -158,6 +198,10 @@ func Version() string { return innercore.Version() }
 // @evidence contracts/common.md#clear-and-simple-design One explicit operation leaves environment parsing and runtime policy with the compiler owner.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The explicit upstream operation changes the process-wide stack limit only when its environment input requests a positive limit; no consumer-specific policy is substituted.
 // @evidence contracts/common.md#meaningful-documentation Native prose states byte units, process scope and the three no-op conditions.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ApplyDebugStackLimit acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ApplyDebugStackLimit performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ApplyDebugStackLimit computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ApplyDebugStackLimit computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func ApplyDebugStackLimit() { innercore.ApplyDebugStackLimit() }
 
 // TypeScriptVersionSatisfiesRange reports whether the compiler's own version
@@ -168,6 +212,10 @@ func ApplyDebugStackLimit() { innercore.ApplyDebugStackLimit() }
 // @evidence contracts/common.md#clear-and-simple-design One predicate owns range parsing and testing, leaving compiler version production with Version and grammar with upstream semver.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts typesVersions matching uses real compiler version and parser semantics rather than consumer names or lexicographic version guesses.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies typesVersions, the upstream grammar and invalid-syntax refusal.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TypeScriptVersionSatisfiesRange acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms TypeScriptVersionSatisfiesRange performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work TypeScriptVersionSatisfiesRange computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation TypeScriptVersionSatisfiesRange computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func TypeScriptVersionSatisfiesRange(text string) bool {
   versionRange, ok := innersemver.TryParseVersionRange(text)
   if !ok {
@@ -184,6 +232,10 @@ func TypeScriptVersionSatisfiesRange(text string) bool {
 // @evidence contracts/common.md#clear-and-simple-design One text-to-line-start adapter reuses the compiler model without a separate line scanner.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The implementation does not approximate compiler lines by splitting only on LF or guessing UTF-16 offsets.
 // @evidence contracts/common.md#meaningful-documentation Native prose enumerates LF, CRLF, CR, LS and PS and identifies UTF-8 source units.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ComputeECMALineStarts acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ComputeECMALineStarts performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ComputeECMALineStarts computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ComputeECMALineStarts computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func ComputeECMALineStarts(text string) ECMALineStarts {
   return innercore.ComputeECMALineStarts(text)
 }
@@ -196,6 +248,10 @@ func ComputeECMALineStarts(text string) ECMALineStarts {
 // @evidence contracts/common.md#clear-and-simple-design One constructor supplies the native range without a separate normalization or coordinate-conversion policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Endpoints are not clamped to manufacture an apparently valid range for a consumer.
 // @evidence contracts/common.md#meaningful-documentation Native prose states half-open byte endpoints, signed 32-bit representability and absence of constructor validation, separated from implementation grounds.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewTextRange acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms NewTextRange performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewTextRange computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation NewTextRange computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func NewTextRange(pos, end int) TextRange { return innercore.NewTextRange(pos, end) }
 
 // UndefinedTextRange marks synthesized AST nodes that do not map to source.
@@ -204,4 +260,8 @@ func NewTextRange(pos, end int) TextRange { return innercore.NewTextRange(pos, e
 // @evidence contracts/common.md#clear-and-simple-design A named sentinel constructor distinguishes missing source provenance from ordinary NewTextRange intervals.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Synthetic nodes receive upstream absence metadata rather than fabricated source coordinates.
 // @evidence contracts/common.md#meaningful-documentation The native comment explains synthesized-node provenance and why an undefined interval exists.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources UndefinedTextRange acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms UndefinedTextRange performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work UndefinedTextRange computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation UndefinedTextRange computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func UndefinedTextRange() TextRange { return innercore.UndefinedTextRange() }

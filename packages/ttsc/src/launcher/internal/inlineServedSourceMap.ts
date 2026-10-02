@@ -13,7 +13,7 @@ import { pathToFileURL } from "node:url";
  * `sourceMappingURL` that Node resolves against the `.ts` script URL — where no
  * `.js.map` exists — and that the per-run emit directory deletes at process
  * exit anyway. Node's V8 coverage then caches the script with `data: null` and
- * c8 misattributes lines (false 100%, issue #353); `--enable-source-maps`
+ * c8 misattributes lines (it reports a false 100%); `--enable-source-maps`
  * cannot map stack frames. Inlining the map into the served text (which V8
  * captures at compile time) survives both the wrong resolution base and the
  * post-exit cleanup, and absolutizing `sources` fixes the mis-rooted paths that

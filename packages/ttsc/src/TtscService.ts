@@ -16,8 +16,9 @@ import type { ITtscCompilerContext } from "./structures/ITtscCompilerContext";
  * compiles the project once and then answers per-file transform requests from
  * that warm program. A single service instance transforms many files (a watch
  * server, an editor session, a codegen tool) while paying the project compile
- * once instead of once per file. Sharing one host across separate worker
- * processes (a Metro worker pool) is tracked in samchon/ttsc#255.
+ * once instead of once per file. One host serves one
+ * process; sharing it across separate worker processes (a Metro worker pool)
+ * is not provided.
  *
  * The shape mirrors a legacy TypeScript `LanguageService`: construct it against
  * a project context, ask it to transform individual files, and dispose it when

@@ -12,6 +12,10 @@ import type { ITtscCompilerDiagnostic } from "./ITtscCompilerDiagnostic";
  * @evidence contracts/common.md#clear-and-simple-design Named result variants share advisory dependency types but retain outcome-specific requirements, allowing callers to narrow by type.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Source text and optional invalidation metadata describe actual producer outputs; the contract does not substitute emitted JavaScript for transformed TypeScript.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc distinguishes transformation from emit, then explains result and advisory-data semantics on their declarations; paragraphs, member spacing and tag separation follow the documentation skill.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
  */
 export type ITtscCompilerTransformation =
   | ITtscCompilerTransformation.ISuccess
@@ -39,6 +43,10 @@ export namespace ITtscCompilerTransformation {
    * @evidence contracts/common.md#clear-and-simple-design The graph separates realized references from candidate observations and proof failures so adapters can invalidate conservatively without attributing compiler reads to plugins.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or failed proofs remain refusals to reuse; neither an empty candidate map nor a guessed platform case policy fabricates compiler evidence.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains path vocabulary, global influence, optional legacy fields and the compiler-owned case policy; documented members and distinct paragraphs follow the documentation skill.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
    */
   export interface IReferenceGraph {
     /**
@@ -121,6 +129,10 @@ export namespace ITtscCompilerTransformation {
    * @evidence contracts/common.md#clear-and-simple-design A single observation collects distinct results for one lexical path without flattening them into ambiguous generic existence.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Omitted predicates make no assertion; a failed read is not replaced with a synthetic content hash or path.
    * @evidence contracts/common.md#meaningful-documentation Native member comments identify each compiler operation and its result shape, with blank lines between documented members and before acknowledgments as required by the documentation skill.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
    */
   export interface IInputObservation {
     /** Result returned by `GetAccessibleEntries`, preserving both name lists. */
@@ -171,6 +183,10 @@ export namespace ITtscCompilerTransformation {
    * @evidence contracts/common.md#clear-and-simple-design The standard source-map fields stay together as one transform artifact instead of introducing a competing custom mapping representation.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Version 3 is the supported map format; absent source content remains absent rather than synthesized to make a consumer accept a map.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains mapping direction, sourceRoot resolution and embedded-content meaning, with documented member spacing and separate acknowledgment prose under the documentation skill.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
    */
   export interface ISourceMap {
     /** Always `3`. */
@@ -205,6 +221,10 @@ export namespace ITtscCompilerTransformation {
    * @evidence contracts/common.md#clear-and-simple-design Required source text and optional maps/input metadata expose one generation without mixing emission or forcing plugins to implement narrower invalidation.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Completeness is an explicit responsibility transfer; unknown or volatile inputs retain conservative behavior rather than gaining fabricated cache eligibility.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains source-map absence, host versus plugin inputs, completeness and volatility in separate paragraphs; member spacing and tag separation follow the documentation skill.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
    */
   export interface ISuccess {
     /** Indicates successful completion without error diagnostics. */
@@ -373,6 +393,10 @@ export namespace ITtscCompilerTransformation {
    * @evidence contracts/common.md#clear-and-simple-design The completed-failure payload mirrors success's advisory shapes while making diagnostics mandatory; serialized host exceptions remain a different variant.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Partial metadata is not promoted to a completeness claim, and partial text is not supplemented with expected fixture output.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc states which outputs may be partial and refers each reused field to its authoritative semantics within the same type namespace; member and tag separation follow the documentation skill.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
    */
   export interface IFailure {
     /** Indicates that transformation completed with diagnostics. */
@@ -462,6 +486,10 @@ export namespace ITtscCompilerTransformation {
    * @evidence contracts/common.md#clear-and-simple-design A separate exception variant avoids requiring unavailable source maps or diagnostics after abnormal host failure.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts An unrecognized origin remains unknown; no recovery wrapper fabricates a completed transformation.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain finite causal serialization, reference/value markers and accessor limits alongside classifier meanings; list, member and tag spacing follow the documentation skill.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
    */
   export interface IException {
     /** Indicates that transformation could not complete normally. */

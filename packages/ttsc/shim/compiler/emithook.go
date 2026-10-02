@@ -33,6 +33,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design The helper exposes chain assembly without running transforms, keeping plugin insertion in the driver and builtin ordering in the compiler.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The source-file distinction follows the pinned helper's marking semantics rather than masking an arbitrary transform failure; linkage exposes the function without replacing its implementation.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain chain contents, marking versus transformation roles and the version-pin premise, with Go linkage retained outside the prose section.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetScriptTransformers declares a signature only; the implementation owns acquisition and release of resources.
+// @evidenceExclude contracts/performance.md#efficient-algorithms GetScriptTransformers declares a signature only; the implementation owns the processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetScriptTransformers declares a signature only; the implementation owns any shared work.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation GetScriptTransformers is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
 //
 //go:linkname GetScriptTransformers github.com/microsoft/typescript-go/internal/compiler.getScriptTransformers
 func GetScriptTransformers(emitContext *innerprinter.EmitContext, host innerprinter.EmitHost, sourceFile *innerast.SourceFile) []*innertransformers.Transformer

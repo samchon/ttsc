@@ -36,6 +36,11 @@ func stringPointer(value string) *string {
 // 1. Register a linked source-preamble plugin that reports one config input.
 // 2. Run utility transform with one linked plugin manifest entry.
 // 3. Assert the JSON result contains the preamble and exact reported input.
+//
+// @evidence contracts/testing.md#behavioral-verification RunTransform with a linked source-preamble plugin returns JSON whose TypeScript text carries the preamble and whose host inputs include the exact input the plugin reported.
+// @evidence contracts/testing.md#independent-expectations The preamble text and input path are literals supplied by the test plugin.
+// @evidence contracts/testing.md#distinguishing-cases The preamble must appear only after hooks run; absence from the JSON output is the failure the assertion detects.
+// @evidence contracts/testing.md#execution-ownership TestUtilityTransformAppliesLinkedSourcePreamble is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityTransformAppliesLinkedSourcePreamble(t *testing.T) {
   resetLinkedPluginRegistry()
   root := t.TempDir()

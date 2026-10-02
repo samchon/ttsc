@@ -22,6 +22,7 @@ import { normalizeBuildOutput } from "./normalizeBuildOutput";
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Combining two supplied results does not coordinate shared production or cross-request work.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned result transfers combined data to the caller and no history or handle is retained.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation appendBuildOutput is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
  */
 export function appendBuildOutput(
   left: TtscBuildResult,

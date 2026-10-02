@@ -15,6 +15,7 @@ import { type WatchInputChange } from "./watch/WatchInputChange";
  * @evidence contracts/performance.md#efficient-algorithms Set insertion deduplicates expected O(1) events; take sorts U distinct changed/external paths in O(U log U) and allocates O(U) batch storage.
  * @evidence contracts/performance.md#reuse-equivalent-work Repeated identical path notifications share one pending set entry until the next take; reload removes narrower events because its cold reload subsumes them.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The pending cycle owns distinct path strings and releases them on take or escalation; population is bounded by distinct events between cycles, without a separate numeric cap if the caller stops draining.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Coalesces event paths held as opaque strings; it resolves no path and touches no filesystem.
  */
 export class PendingResidentCheckWatchChanges {
   private readonly changed = new Set<string>();
@@ -37,6 +38,7 @@ export class PendingResidentCheckWatchChanges {
    * @evidence contracts/performance.md#efficient-algorithms Normal events use at most two set insertions; escalation clears retained paths rather than scanning and rewriting an event list.
    * @evidence contracts/performance.md#reuse-equivalent-work Sets share repeated path events within this cycle, and an already-selected reload discards redundant narrower notifications.
    * @evidence contracts/performance.md#bound-retention-and-release-resources This accumulator retains unique paths until take or full reload; no bound independent of the caller's drain rate is imposed.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Records event paths as opaque strings in sets and compares only event kinds; it resolves no path and touches no filesystem.
    */
   public push(change?: WatchInputChange, reload = false): void {
     if (reload || change?.kind === "config" || change?.kind === "plugin") {
@@ -72,6 +74,7 @@ export class PendingResidentCheckWatchChanges {
    * @evidence contracts/performance.md#efficient-algorithms Sorting each distinct path population costs O(U log U), with O(U) returned array storage and no repeated sorting before the drain.
    * @evidence contracts/performance.md#reuse-equivalent-work Each cycle emits already-deduplicated events once; returning a prior batch again would replay effects, so batches are not cached across take calls.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Ownership of arrays transfers to the caller while the accumulator clears its sets and flags; retaining returned batches is the consumer's responsibility.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation take computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
    */
   public take(): ResidentCheckWatchChange {
     const change: ResidentCheckWatchChange = {

@@ -81,8 +81,8 @@ import { selectRuntimePluginPolicy } from "./selectRuntimePluginPolicy";
  * CommonJS module an ESM `import` reaches is served as an ESM facade that loads
  * it through the CommonJS loader (`commonJsImportFacade`): handed to the ESM
  * loader with source, the module's own `require()` bypasses the hooks on some
- * releases, so a nested `require("./x.js")` backed only by `x.ts` failed there
- * (samchon/ttsc#1280). The one reach the API lacks on some releases is
+ * releases, so a nested `require("./x.js")` backed only by `x.ts` failed there.
+ * The one reach the API lacks on some releases is
  * `require.resolve`, which is probed before installation. Served CommonJS
  * bodies receive an owned require function whose resolve member applies the
  * same source policy on those releases. Its copied extension registry
@@ -173,7 +173,7 @@ function resolveCommonJsRequest(
  * With no config there is no `jsx` either, so a `.tsx` orphan is compiled with
  * the automatic runtime, the one mode that needs no factory in scope: its
  * import source is `react` unless a `@jsxImportSource` pragma in the file says
- * otherwise (samchon/ttsc#1408).
+ * otherwise.
  */
 const ISOLATED_EMIT_ARGS = [
   "--ignoreConfig",
@@ -267,7 +267,7 @@ const runtimeEntryUrls = new Set<string>();
  * The process entry, where Node's ESM loader opens it: resolved with no parent
  * and without the `require` condition, as an `--import` preload makes Node run
  * every entry. A CommonJS entry is handed to Node with its source rather than
- * as the facade, so Node loads it as the main module (samchon/ttsc#1571).
+ * as the facade, so Node loads it as the main module.
  */
 const esmEntryUrls = new Set<string>();
 
@@ -360,7 +360,7 @@ function observePluginDescriptorResolutionCandidates(
   // A `#` specifier is looked up in the importer's own package `imports`, whose
   // manifest was recorded with the importer. When that maps it to a bare
   // package, the package's candidates up to the root that selected it are
-  // inputs, named once the resolution settles (samchon/ttsc#1498).
+  // inputs, named once the resolution settles.
   if (specifier.startsWith("#")) {
     const witnesses = observeImportSearchRoots(parent);
     return {
@@ -830,7 +830,7 @@ function load(
   );
   // An ESM import of a CommonJS source gets the facade, which loads the module
   // through the CommonJS loader, where the hooks see its own `require()` on
-  // every release (`commonJsImportFacade`, samchon/ttsc#1517).
+  // every release (`commonJsImportFacade`).
   if (format === "commonjs" && !hasCondition(context, "require")) {
     if (servesCommonJsFromSource(url))
       return { format, shortCircuit: true, source: CommonJsRuntimeSource.prepare(served.source, filename) };
@@ -855,7 +855,7 @@ function load(
 /**
  * Load a JavaScript module, handing a CommonJS one an ESM import reaches to the
  * CommonJS loader through the facade where Node would otherwise evaluate it
- * with its narrower `require` (samchon/ttsc#1570). A runtime that gives a
+ * with its narrower `require`. A runtime that gives a
  * hook-served CommonJS module that `require` gives it to every CommonJS module
  * an import reaches once any load hook exists, so without the facade such a
  * module had no `require.cache`, `require.extensions` or
@@ -1132,8 +1132,8 @@ function recordPluginDescriptorProjectInputs(
  * `load` hook and the CommonJS `require` handler.
  *
  * A file runs only from JavaScript a build provably compiled from that very
- * file, never from another file's output that shares its name
- * (samchon/ttsc#1382). The lanes, in order:
+ * file, never from another file's output that shares its name.
+ * The lanes, in order:
  *
  * 1. A checked entry build that compiled it (`ttsx`'s entry project, or a root
  *    `ttsc/register` prepared).
@@ -1264,7 +1264,7 @@ function emitOrphanSource(
       // The emit names its input by absolute path and reads no config, so it
       // runs from its own output directory rather than from a dependency's,
       // which below `node_modules` can pass Windows' MAX_PATH for a working
-      // directory (samchon/ttsc#1572).
+      // directory.
       { cwd: outDir, encoding: "utf8" },
     );
     const emitted = isolatedEmitOf(filename, outDir);
@@ -1277,7 +1277,7 @@ function emitOrphanSource(
     // and the emit read the file and ran the compiler again. Only a source that
     // held still across both reads, lowered by a compiler that is still the
     // keyed one, is what the key names; otherwise the lowering serves this run
-    // and is not recorded (samchon/ttsc#1508, samchon/ttsc#1521).
+    // and is not recorded.
     if (
       lowered !== null &&
       cache !== null &&
@@ -1373,7 +1373,7 @@ function emitCommonJsForNameScan(filename: string): string | null {
  * A run prepared by ttsx or `ttsc/register` names it in its manifest, under the
  * run's resolved cache root (`--cache-dir`, `TTSC_CACHE_DIR`, or the default
  * project-local root), where it outlives the run and is collected and cleaned
- * with the rest of that root (samchon/ttsc#1562). A runtime without a manifest
+ * with the rest of that root. A runtime without a manifest
  * has no cache root to name, so its lowerings go where its dependency builds go
  * (`dependencyCacheRoot`), which is removed with the evaluation or the process
  * that made them.
@@ -1397,7 +1397,7 @@ function orphanCacheRoot(): string {
  * Read afresh at every use, never remembered by path: a long-lived process can
  * lower orphans before and after the compiler at that path is replaced, and an
  * entry lowered by the new one must not be recorded under the old one's key for
- * a later process to adopt (samchon/ttsc#1521).
+ * a later process to adopt.
  */
 function compilerIdentity(binary: string): string {
   return runtimeExecutableIdentity(binary) ?? crypto.randomUUID();
@@ -1429,7 +1429,7 @@ let ownPackageVersionCache: string | undefined;
  * source cannot be read.
  *
  * The cache outlives the run in its cache root, so a hit has to prove the
- * current inputs would produce the cached text (samchon/ttsc#1405). The key
+ * current inputs would produce the cached text. The key
  * holds everything that decides it: the source's bytes and path (the inlined
  * map names the path), the module format, the emit arguments, the compiler that
  * lowers it, and the ttsc that post-processes it. The compiler is keyed by what
@@ -1439,7 +1439,7 @@ let ownPackageVersionCache: string | undefined;
  *
  * The source is read here, and the emit reads it again. The answer carries the
  * bytes and the file's metadata before they were read, so `orphanSourceHeld`
- * can prove the emit read the same source (samchon/ttsc#1508).
+ * can prove the emit read the same source.
  */
 function orphanCacheFile(
   filename: string,
@@ -2182,20 +2182,20 @@ function buildDependency(
       // Every output this build writes stays in ttsx's private directory: a
       // declared `declarationDir`, `tsBuildInfoFile`, or `outFile`, and any
       // output location forwarded on the command line, would otherwise land in
-      // the user's tree (samchon/ttsc#1404).
+      // the user's tree.
       isolateOutputsTo: emitDir,
       // The generation directory is an `outDir` this lane injected, not one the
       // dependency declared, and tsgo demands an explicit `rootDir` (TS5011) as
       // soon as any `outDir` is in play. Pinning the root tsgo would infer keeps
       // a source-shipping dependency that declares no output buildable, and it is
       // the same root `resolveDependencySourceRoot` publishes for it below —
-      // without it that dependency falls back to type-stripping (issue #1172).
+      // without it that dependency falls back to type-stripping.
       pinInferredRootDir: true,
       // Emit a source map on the transient dependency emit (it never reaches the
       // dependency's published `lib/`) so the serve path can inline it under the
       // source URL, but only when the dependency configures none itself. Routed
       // as a dedicated build option, not a forwarded tsgo flag, so it never
-      // reaches a native plugin host's argument parser (issue #353).
+      // reaches a native plugin host's argument parser.
       forceRuntimeSourceMap:
         project.compilerOptions.sourceMap !== true &&
         project.compilerOptions.inlineSourceMap !== true,
@@ -2331,7 +2331,7 @@ interface ITsconfigLookup {
 /**
  * The config of the project that owns `real`: its nearest `tsconfig.json`, or,
  * when that config is a solution that does not contain the file, the referenced
- * project that does (samchon/ttsc#1406). `null` when no config owns the file at
+ * project that does. `null` when no config owns the file at
  * all.
  */
 function owningTsconfig(real: string): string | null {

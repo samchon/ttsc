@@ -36,8 +36,7 @@ type NativePluginManifest struct {
   ProjectContext       json.RawMessage                    `json:"projectContext,omitempty"`
 
   // SelectionInputs are what the plugin selection itself was loaded from. A
-  // change to one ends the session like a plugin's own reload input
-  // (samchon/ttsc#1507).
+  // change to one ends the session like a plugin's own reload input.
   SelectionInputs *NativePluginSelectionInputs `json:"selectionInputs,omitempty"`
 }
 

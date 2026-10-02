@@ -10,6 +10,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The name grammar and no-go.mod rule express Go package composition requirements, without consumer-specific overrides or a prebuilt-binary escape path.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc gives the generated import location, naming restriction, uniqueness and copied-source exclusions; member and tag separation follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native absolute source paths remain distinct from Go import names, whose slash vocabulary and ASCII package-name restriction belong to Go semantics rather than a host filesystem assumption. The builder owns native joins and source copying.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ITtscPluginContributor {
   /**

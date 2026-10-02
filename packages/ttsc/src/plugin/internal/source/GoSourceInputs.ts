@@ -39,7 +39,7 @@ export namespace GoSourceInputs {
    * Names of directories excluded below a plugin source root: a nested
    * `node_modules`, a repository's `.git`, and ttsc's own `.ttsc`. An observer
    * outside this package, such as `ttscserver`'s native host, is handed this
-   * list rather than a copy of it (samchon/ttsc#1507).
+   * list rather than a copy of it.
    */
   export const PRUNED_SOURCE_DIRECTORY_NAMES: readonly string[] = [
     "node_modules",
@@ -136,7 +136,7 @@ export namespace GoSourceInputs {
    * changes on unrelated workspace or file-browser writes, but also excludes
    * caller-authored data with those names. An
    * observer that runs outside this package, such as `ttscserver`'s native
-   * host, is handed this list rather than a copy of it (samchon/ttsc#1507).
+   * host, is handed this list rather than a copy of it.
    */
   export const OMITTED_SOURCE_FILE_NAMES: readonly string[] = [
     ...GENERATED_WORKSPACE_FILES,

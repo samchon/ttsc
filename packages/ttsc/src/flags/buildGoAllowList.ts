@@ -16,6 +16,7 @@ import { normalizeFlagToken } from "./normalizeFlagToken";
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The adapter creates an independently mutable map for its caller and coordinates no completed or in-flight cross-request result.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The map owns only references and boolean arity values for the selected schema spellings and transfers to the caller on return; the function keeps no historical entries or handles.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation buildGoAllowList computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
  */
 export function buildGoAllowList(layer: "host" | "lint"): Map<string, boolean> {
   const out = new Map<string, boolean>();

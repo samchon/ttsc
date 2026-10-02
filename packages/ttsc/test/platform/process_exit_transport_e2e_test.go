@@ -22,10 +22,6 @@ import (
 // @evidence contracts/testing.md#independent-expectations Supported default help and usage-error contracts independently define statuses zero/two and literal fragments. Assertions observe real pipe bytes and do not calculate expectations from captured results.
 // @evidence contracts/testing.md#distinguishing-cases Successful main exit and rejected main exit exercise both os.Exit paths. All remaining portable aliases and rejection variants have named direct unit owners; these calls do not certify those aliases' executable wiring individually.
 // @evidence contracts/testing.md#execution-ownership This e2e-tagged public Go entry is selected by the central native connection experiment and starts the actual compiled command. Default Go units exercise run separately.
-// @evidence contracts/e2e.md#necessary-boundary Only actual main can connect native argv to OS exit zero/two and stdout/stderr pipes; direct run calls return integers and write to in-process writers. Both termination paths distinguish entry wiring defects.
-// @evidence contracts/e2e.md#shared-execution Both argv invocations consume the same package-owned once-built native artifact. Separate processes are necessary because main calls os.Exit; no rebuild is introduced for either subtest.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each synchronous helper invocation owns separate full-byte buffers and waits for its child before return. Neither invocation creates a project. The retained TestMain owns artifact cleanup after every consumer completes, including assertion failure paths.
-// @evidence contracts/e2e.md#preserved-coverage The complete five original portable cases and their aliases/status/stream literals transfer to the owning command operation aggregate only after actual unit validation. These two calls retain zero/nonzero OS exits. The helper remains metadata-only and no TypeScript project is created.
 func TestPlatformProcessExitTransport(t *testing.T) {
   t.Run("success", func(t *testing.T) {
     code, out, errOut := runPlatformCommand(t)

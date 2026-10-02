@@ -26,6 +26,11 @@ import (
 //     envelope are returned unchanged.
 //  3. Drive the real editor-to-upstream pump and assert the rewrite is what tsgo
 //     actually receives.
+//
+// @evidence contracts/testing.md#behavioral-verification An initialize request offering UTF-8 first is forwarded offering UTF-16 alone with every sibling field intact, and an offer of UTF-16 only, an absent offer and a non-initialize envelope pass through unchanged.
+// @evidence contracts/testing.md#independent-expectations The expected forwarded JSON is a literal for each input request.
+// @evidence contracts/testing.md#distinguishing-cases Each of the four inputs takes a different branch of the constraint.
+// @evidence contracts/testing.md#execution-ownership TestLSPInitializeConstrainsPositionEncodingToUTF16 is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPInitializeConstrainsPositionEncodingToUTF16(t *testing.T) {
   const offeringUTF8 = `{"jsonrpc":"2.0","id":1,"method":"initialize","params":` +
     `{"processId":4242,"rootUri":"file:///project","capabilities":` +

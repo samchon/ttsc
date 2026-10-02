@@ -9,6 +9,9 @@ import type { ITtscProjectIdentity } from "./ITtscProjectIdentity";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Inherited plugin bases are actual provenance, not package-name path exceptions; unknown compiler options are preserved instead of guessed by the host.
  * @evidence contracts/common.md#meaningful-documentation Native member comments identify ancestry, option normalization, plugin origins and project identity; documented-member and tag spacing follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation The config retains per-entry declaring directories and separate logical/physical project identities instead of making POSIX spelling or one canonical root stand for all resolution. Resolved outDir is native absolute path data; parser/path utilities own OS-neutral normalization.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ITtscParsedProjectConfig {
   /**

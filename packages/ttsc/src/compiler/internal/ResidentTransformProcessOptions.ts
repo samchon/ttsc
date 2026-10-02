@@ -10,6 +10,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Native invocation is caller-supplied data rather than a recognized consumer name or a patched child-process implementation.
  * @evidence contracts/common.md#meaningful-documentation The native paragraph explains fixed configuration, and separated member comments state paths and default meanings following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native executable and cwd representations stay distinct from argv strings; optional environment delegates to Node's supported native spawn behavior.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ResidentTransformProcessOptions {
   /** Full argv of the host, including its serve subcommand. */

@@ -16,6 +16,10 @@ import { normalizeFlagToken } from "./normalizeFlagToken";
  * @evidence contracts/common.md#clear-and-simple-design This resolver owns raw-token classification and delegates spelling policy to normalizeFlagToken and lookup storage to FLAG_BY_TOKEN.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The dash guard follows argv grammar rather than compensating with a list of positional names that happen to collide with options.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain undefined results, inline-value separation and why bare values are rejected, applying the documentation skill's failure-state and rationale guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources resolveFlagSpec acquires no handle, buffer or cache and retains nothing after it returns.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms resolveFlagSpec performs a fixed number of steps with no loop or recursion over caller data.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work resolveFlagSpec computes one result per call, so there is no repeated work to share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation resolveFlagSpec computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
  */
 export function resolveFlagSpec(token: string): FlagSpec | undefined {
   if (!token.startsWith("-")) return undefined;

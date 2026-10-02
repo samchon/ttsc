@@ -13,6 +13,11 @@ import (
 //  1. Give two diagnostics-capable producers disjoint exact input snapshots.
 //  2. Resolve the first input's owner from the merged source.
 //  3. Refresh that owner and assert the unrelated producer is never invoked.
+//
+// @evidence contracts/testing.md#behavioral-verification Refreshing the owner of one declared input invokes that producer and never an unrelated producer with a disjoint snapshot.
+// @evidence contracts/testing.md#independent-expectations The expected invocation set is literal.
+// @evidence contracts/testing.md#distinguishing-cases Two producers with disjoint exact inputs separate owner-scoped from broadcast refresh.
+// @evidence contracts/testing.md#execution-ownership TestLSPProjectDiagnosticsRefreshesOnlyInputOwners is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPProjectDiagnosticsRefreshesOnlyInputOwners(t *testing.T) {
   root := t.TempDir()
   first := NativeLSPPluginEntry{

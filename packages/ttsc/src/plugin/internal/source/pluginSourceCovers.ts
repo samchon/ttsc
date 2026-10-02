@@ -4,7 +4,7 @@ import { prunesPluginSourceDirectory } from "./prunesPluginSourceDirectory";
 
 /**
  * Whether a path below a plugin source directory can bear on the sources in the
- * directory's state (`pluginSourceState`, samchon/ttsc#1487), so an observer of
+ * directory's state (`pluginSourceState`), so an observer of
  * the directory as a subtree must hear it.
  *
  * The plugin build passes over every directory it prunes
@@ -12,7 +12,7 @@ import { prunesPluginSourceDirectory } from "./prunesPluginSourceDirectory";
  * `.git`), so nothing below one moves the state, and an observer that watched
  * them would re-prove the state, or rebuild, for every write of a package
  * manager or of Git. `ttsc --watch` and `@ttsc/unplugin`'s observers answer the
- * question with this one rule (samchon/ttsc#1492). An injected filesystem
+ * question with this one rule. An injected filesystem
  * observer can supply its path grammar explicitly; native compiler and
  * filesystem callers retain the current process default.
  *

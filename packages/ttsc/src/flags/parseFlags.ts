@@ -20,6 +20,7 @@ import { resolveFlagSpec } from "./resolveFlagSpec";
  * @evidence contracts/performance.md#efficient-algorithms A monotonically advancing cursor processes N tokens without repeated array shifts; scanning and result storage are O(N) plus token text and the caller's positional predicate cost. The schema index costs O(F plus aliases) once per command, not on every parse.
  * @evidence contracts/performance.md#reuse-equivalent-work Launcher acceptance indexes are shared by command identity because module-owned schema rows and normalization policy remain fixed for the loaded module; invocation argv, prefix and classifier stay local and never enter the cached computation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The module retains at most one acceptance index per finite command identity, containing references to fixed schema rows. Each cursor and result collection is invocation-owned and grows with argv size; returning transfers only the result, not the cursor or input copy.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation parseFlags computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
  */
 export function parseFlags(opts: ParseOptions): ParseResult {
   const accepted = launcherFlagsForSubcommand(opts.subcommand);
@@ -35,7 +36,7 @@ export function parseFlags(opts: ParseOptions): ParseResult {
   // hold it. Everything after the entry belongs to the program, which gets
   // its own `--` tokens exactly as `node` would hand them over; the one
   // separator directly after the entry is still consumed, so the documented
-  // `ttsx entry.ts -- --port 3000` passes `--port 3000` (samchon/ttsc#1401).
+  // `ttsx entry.ts -- --port 3000` passes `--port 3000`.
   const separatorInOrder =
     opts.honorDoubleDashSeparator === true &&
     opts.forwardAfterFirstPositional === true;

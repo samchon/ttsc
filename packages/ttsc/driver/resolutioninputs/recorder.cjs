@@ -2,7 +2,7 @@
 /**
  * The inputs one module resolution reads, recorded where a JavaScript program
  * is evaluated to produce something ttsc caches: a plugin descriptor, a utility
- * plugin's config file (samchon/ttsc#1501).
+ * plugin's config file.
  *
  * The evaluator runs in a process of its own, so it reports what it read as a
  * set of inputs, each with the hash of its content (`null` when absent), its
@@ -431,7 +431,7 @@ function searchRoots(parentFile) {
  * package through, before the resolution runs. Which package that is can be
  * named only once the resolution selected it, so the candidates of the nearer
  * roots are observed afterwards; each root's own metadata, taken here, is what
- * shows a nearer package that appeared in between (samchon/ttsc#1498).
+ * shows a nearer package that appeared in between.
  *
  * @param {string | undefined} parent The importer, a path or a file URL.
  *
@@ -616,8 +616,8 @@ function importMappedPackageDirectories(parent, resolved, extensions) {
 
 /**
  * Visit the candidates of the package a `#` import resolved into, in every
- * search root from the importer up to the one that selected it
- * (samchon/ttsc#1498). A package's `imports` may map a `#` specifier to a bare
+ * search root from the importer up to the one that selected it.
+ * A package's `imports` may map a `#` specifier to a bare
  * package, which Node looks up through the ordinary `node_modules` search from
  * the importer; a nearer copy would be selected instead. The package is named
  * by the resolved module itself, so Node's `imports` algorithm is not copied.
@@ -666,7 +666,7 @@ function visitImportMappedCandidates(
 
 /**
  * Visit the candidates every target of the importer's `imports` entry for a `#`
- * specifier can name, before the resolution runs (samchon/ttsc#1547).
+ * specifier can name, before the resolution runs.
  *
  * A resolution that fails names no module, so nothing afterwards shows which
  * target it tried, yet a program may catch the failure and produce a value that
@@ -1000,7 +1000,7 @@ function createResolutionInputRecorder(options) {
  * Install supported resolution observation for one isolated evaluation.
  *
  * A resolve hook registered through `module.registerHooks`, the supported
- * customization API, sees every `import` and `require()` (samchon/ttsc#1523). A
+ * customization API, sees every `import` and `require()`. A
  * runtime that does not expose hooks, or whose `require.resolve` bypasses them,
  * leaves the observation incomplete. Evaluation still proceeds; its consumer
  * must withdraw reuse rather than assume an unobserved resolution consulted no

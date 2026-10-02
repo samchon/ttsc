@@ -3,7 +3,7 @@ import path from "node:path";
 /**
  * Whether a descriptor declared the state of every file it read outside its
  * module graph, so an answer computed from its evaluation can be proven by what
- * the evaluation recorded (samchon/ttsc#1561).
+ * the evaluation recorded.
  *
  * The declaration is `hostInputHashes`: a descriptor that returns it names each
  * file it read with the state it read it in, `{}` when it read none. Nothing
@@ -22,6 +22,9 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Undeclared reads do not gain cache eligibility through a guessed module graph or permission-model workaround; the producer must state its actual external input set.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains the explicit empty declaration, unsupported observation gap and missing-fingerprint refusal in distinct paragraphs under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation path.resolve compares native input spellings through the same host path semantics; this declaration checker does not require POSIX separators or use OS names to guess filesystem identity.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Holds only references into the supplied descriptor during the call.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Inspects a fixed number of fields and makes one pass over the hostInputs array when it is present.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure shape check of one descriptor; there is no work to share between calls.
  */
 export function declaresHostInputReads(descriptor: unknown): boolean {
   if (

@@ -11,6 +11,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The request reports real input categories rather than forcing a test-specific reload or hiding a topology change as unchanged state.
  * @evidence contracts/common.md#meaningful-documentation Native member paragraphs explain the invalidation consequence of each category and optional-state meaning, with member spacing following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Change lists carry native file paths for the sidecar's project resolution; the type does not impose URL spelling, slash normalization or a universal filesystem case policy.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ResidentCheckRequest {
   /**

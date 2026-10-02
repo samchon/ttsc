@@ -172,7 +172,7 @@ const ENTRY_PROJECT_EMIT_DIR = "entry-project";
  * Only an output proven to come from the entry itself counts. A
  * `scripts/index.ts` outside `include` shares its name with the `src/index.js`
  * the project build emitted, and taking that output would run the wrong program
- * instead of compiling the requested one (samchon/ttsc#1382).
+ * instead of compiling the requested one.
  */
 function emittedEntryOf(
   context: ReturnType<typeof createProjectContext>,
@@ -325,7 +325,7 @@ function createProjectContext(
     createFilesystemPathIdentityContext().resolve(cacheDirSpelling).path;
   // The lowered orphan sources outlive the run, so they live in the resolved
   // cache root beside every other persistent part of it, and a default root
-  // collects them with the rest (samchon/ttsc#1562).
+  // collects them with the rest.
   const cacheRoot =
     defaultCache === undefined || defaultCache.runtime === defaultCache.root
       ? cacheDir
@@ -366,7 +366,7 @@ function createProjectContext(
     // Force a source map on the transient runtime emit only when the build
     // would carry none — when the project or a forwarded flag already emits
     // `sourceMap` or `inlineSourceMap`, the serve path inlines/absolutizes that
-    // map, so no override is needed (issue #353).
+    // map, so no override is needed.
     forceRuntimeSourceMap: emitProfile.forceRuntimeSourceMap,
     built: false,
     outputs: [] as readonly string[],
@@ -385,8 +385,8 @@ function createProjectContext(
  * The nearest config is where discovery starts, not where it has to stop. A
  * solution-style config (`"files": []` plus `references`) owns nothing itself,
  * and compiling an entry through it applies its empty options to code whose
- * real project sets `experimentalDecorators`, `jsx`, or `paths`
- * (samchon/ttsc#1406). When the nearest config does not contain the file, the
+ * real project sets `experimentalDecorators`, `jsx`, or `paths`.
+ * When the nearest config does not contain the file, the
  * referenced project that does is used; an explicit `-P` skips all of this.
  */
 function discoverOwningProject(
@@ -422,7 +422,7 @@ function discoverOwningProject(
  * file's directory and never computes a common directory of the input files.
  * The entry's directory is not that root — it is only the same directory when
  * the entry happens to sit beside the tsconfig, which is precisely why a
- * `src/`-shaped project mislaid its emit here (issue #1172) while a flat one
+ * `src/`-shaped project mislaid its emit here while a flat one
  * worked. `installRuntimeHooks.ts::resolveDependencySourceRoot` and
  * `WatchTopology.ts::inferPerSourceCompilerOutputs` already model the same
  * rule, and `TsgoArguments.ts::pinnedRootDirArgs` pins it for tsgo itself.
@@ -501,7 +501,7 @@ function buildProject(
     // Every output this build writes stays in ttsx's private directory: a
     // declared `declarationDir`, `tsBuildInfoFile`, or `outFile`, and any
     // output location forwarded on the command line, would otherwise land in
-    // the user's tree (samchon/ttsc#1404).
+    // the user's tree.
     isolateOutputsTo: context.emitDir,
     passthrough: runtimeCompilerArgs(
       context.project,
@@ -511,15 +511,14 @@ function buildProject(
     // `context.emitDir` is ttsx's own temp directory, not an output the project
     // asked for, and tsgo demands an explicit `rootDir` (TS5011) as soon as any
     // `outDir` is in play. Pinning the root tsgo would infer keeps a check-only
-    // project runnable without moving its emit (issue #1172); a project that
+    // project runnable without moving its emit; a project that
     // declares `rootDir` is left exactly as it is, which is also the root
     // `resolveRuntimeSourceRoot` published above.
     pinInferredRootDir: true,
     // Emit a source map on the transient entry emit (a PID-isolated temp dir,
     // never the consumer's `outDir`) so the serve path can inline it under the
     // source URL. Routed as a dedicated build option, not a forwarded tsgo
-    // flag, so it never reaches a native plugin host's argument parser (issue
-    // #353).
+    // flag, so it never reaches a native plugin host's argument parser.
     forceRuntimeSourceMap: context.forceRuntimeSourceMap,
     forceEmitProvenance: true,
     pluginConfigDir: options.pluginConfigDir,

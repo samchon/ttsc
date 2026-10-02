@@ -11,7 +11,7 @@ import type { transformProjectInMemory } from "./transformProjectInMemory";
 
 /**
  * {@link transformProjectInMemory} on a worker thread, so the calling thread's
- * event loop stays free for the whole transform (samchon/ttsc#1391).
+ * event loop stays free for the whole transform.
  *
  * Every part of a transform blocks the thread that runs it: plugin loading
  * computes the source-plugin cache key and evaluates each descriptor in a child
@@ -27,7 +27,7 @@ import type { transformProjectInMemory } from "./transformProjectInMemory";
  * (`inheritedSidecarEnv`). Its in-process work therefore reads what the caller
  * configured, a temporary directory above all, without the caller rewriting its
  * own globals around the call, and nothing the caller changes afterward reaches
- * it (samchon/ttsc#1488). A worker serves one transform at a time and returns
+ * it. A worker serves one transform at a time and returns
  * to an idle pool afterward, keeping the in-process caches plugin loading
  * builds warm. Concurrent transforms get workers of their own. An idle worker
  * never keeps the process alive.

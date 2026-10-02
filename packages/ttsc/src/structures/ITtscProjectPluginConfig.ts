@@ -22,6 +22,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The open payload is a documented extension boundary; plugin-specific validation belongs to the factory or native implementation rather than host special cases.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc states relative-resolution ownership, opt-out semantics and the validation responsibility for unknown fields; separate paragraphs, member spacing and a blank line before tags follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Transform accepts package specifiers and native relative/absolute paths; their resolution bases are explicit, and the host loader owns Node/native path resolution rather than requiring one separator spelling in this config type.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ITtscProjectPluginConfig {
   /**

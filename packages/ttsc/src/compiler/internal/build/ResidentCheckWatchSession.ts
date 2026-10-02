@@ -134,7 +134,7 @@ export class ResidentCheckWatchSession {
       // resolving them again, so it records each cycle's use in their cache
       // entries, and a binary the cache removed anyway sends the session back
       // through resolution, which builds it again, rather than failing a
-      // sidecar respawn (samchon/ttsc#1556).
+      // sidecar respawn.
       if (
         execution.nativePlugins.some((plugin) => !fs.existsSync(plugin.binary))
       ) {

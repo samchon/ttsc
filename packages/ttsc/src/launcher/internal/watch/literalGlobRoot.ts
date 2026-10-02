@@ -12,6 +12,9 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The root derives from the declared pattern instead of known project directory names.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain wildcard-free and root-level patterns following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve, dirname and parse preserve Windows drive/UNC roots and POSIX roots; slash normalization is only the supported glob spelling boundary.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Builds short local strings and retains nothing after returning.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One path.resolve, a few string searches and at most one more path.resolve, linear in the pattern length.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure function of one pattern; nothing is cached or shared.
  */
 export function literalGlobRoot(pattern: string): string {
   const resolved = path.resolve(pattern);

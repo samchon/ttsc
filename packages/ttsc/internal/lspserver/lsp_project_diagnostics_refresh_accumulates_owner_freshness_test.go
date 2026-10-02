@@ -4,6 +4,11 @@ import "testing"
 
 // TestProjectDiagnosticsRefreshAccumulatesOwnerFreshness verifies separate
 // successful refreshes can jointly satisfy one affected-producer generation.
+//
+// @evidence contracts/testing.md#behavioral-verification Separate successful refreshes can jointly satisfy one affected-producer generation.
+// @evidence contracts/testing.md#independent-expectations The expected generation state is a literal after each refresh.
+// @evidence contracts/testing.md#distinguishing-cases Partial and complete freshness are the two states compared.
+// @evidence contracts/testing.md#execution-ownership TestProjectDiagnosticsRefreshAccumulatesOwnerFreshness is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestProjectDiagnosticsRefreshAccumulatesOwnerFreshness(t *testing.T) {
   proxy := &Proxy{}
   proxy.projectDiagnosticRefreshPending = true

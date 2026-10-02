@@ -23,7 +23,7 @@ import { runtimeEmitProfile } from "./runtimeEmitProfile";
  * satisfy the second, so such a root is compiled here through a project that
  * inherits every option and declares only the root. Two lanes need it: the
  * launcher's entry when the project build did not emit it, and a TypeScript
- * file the running program reaches that no build compiled (samchon/ttsc#1382).
+ * file the running program reaches that no build compiled.
  *
  * Where the synthesized tsconfig lives depends on what the build reads from its
  * location. `extends` with an absolute path resolves from anywhere, and every
@@ -200,7 +200,7 @@ export function buildSingleRootProject(props: {
       // Every output this build writes stays in ttsx's private directory: a
       // declared `declarationDir`, `tsBuildInfoFile`, or `outFile`, and any
       // output location forwarded on the command line, would otherwise land in
-      // the user's tree (samchon/ttsc#1404).
+      // the user's tree.
       isolateOutputsTo: props.emitDir,
       passthrough: runtimeCompilerArgs(
         project,

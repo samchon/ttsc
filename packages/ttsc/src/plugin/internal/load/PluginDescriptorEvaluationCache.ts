@@ -13,7 +13,7 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
 
 /**
  * The persistent answers of isolated CommonJS descriptor evaluations, each
- * recorded with the state it was computed from (samchon/ttsc#1497).
+ * recorded with the state it was computed from.
  *
  * Evaluating a descriptor spawns a runtime that loads the descriptor graph in a
  * fresh module cache: seconds per launch on Windows, repeated by every `ttsc`
@@ -28,7 +28,7 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
  * The files a descriptor reads outside its module graph are its own to declare
  * (`hostInputHashes`), and no runtime ttsc supports can observe one it leaves
  * out, so only the answer of a descriptor that declares them is recorded
- * (`declaresHostInputReads`, samchon/ttsc#1561); a declared fingerprint is
+ * (`declaresHostInputReads`); a declared fingerprint is
  * proven like a module the graph loaded. An evaluation that could not prove an
  * input is not recorded, and neither is one that printed anything, since a hit
  * replays nothing. Startup preloads run before these observations and cannot
@@ -218,7 +218,7 @@ export namespace PluginDescriptorEvaluationCache {
    *
    * The state is the one the evaluation proved while it ran, never a reading
    * taken now: hashing the inputs here would pair the answer with a state it
-   * may not have been computed from (samchon/ttsc#1504). An evaluation input
+   * may not have been computed from. An evaluation input
    * without both proofs leaves nothing that could prove the entry later, so
    * nothing is recorded, and neither is a fingerprint declaration no proof can
    * use, nor the answer of a descriptor that did not declare every file it read

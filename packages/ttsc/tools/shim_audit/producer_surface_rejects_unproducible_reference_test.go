@@ -21,6 +21,11 @@ import (
 //  4. Remove a method consumer's producer and confirm that gap appears too.
 //  5. Repeat through recursive named callbacks and containers without hanging.
 //  6. Prove package-operation cycles fail until an independent root is added.
+//
+// @evidence contracts/testing.md#behavioral-verification Producer closure rejects a consumed reference after its only producer is removed, including through callbacks, recursive named callbacks and package-operation cycles.
+// @evidence contracts/testing.md#independent-expectations The expected gaps are literal type-keyed findings for the fixture source.
+// @evidence contracts/testing.md#distinguishing-cases Input-only objects, removed package producers, removed method producers and cycles are separate cases that must each fail until a root is added.
+// @evidence contracts/testing.md#execution-ownership TestProducerSurfaceRejectsUnproducibleReference is a Go unit test of the shim_audit tool package: it calls the analysis helper in-process on literal or synthetic type-checker values and starts no Go toolchain run.
 func TestProducerSurfaceRejectsUnproducibleReference(t *testing.T) {
   source := `package fixture
 import inner "github.com/microsoft/typescript-go/internal/fixture"

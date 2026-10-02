@@ -1,5 +1,3 @@
-//go:build e2e
-
 package main
 
 import (
@@ -27,11 +25,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification The test runs a real `git init` on an owned worktree, and the production acquisition then evaluates membership with git check-ignore; the default dump command, the resident shard snapshots and the legacy resident snapshot must each publish Generated with ignored=true and Visible with ignored=false, checked per node by checkNodes after every transition.
 // @evidence contracts/testing.md#independent-expectations The literal ignore rule selects Generated and excludes Visible. Restoring the exact prior config bytes preserves the committed program, so recovery is unchanged; private body edits require incremental publication.
 // @evidence contracts/testing.md#distinguishing-cases A space-bearing ignored source, nonignored dependency, full and partial publications, byte restoration, unchanged requests and invalid-config recovery distinguish acquisition and publication paths.
-// @evidence contracts/testing.md#execution-ownership This Go E2E entry calls run for the dump verb and newGraphSession for the resident adapters in the Go test process and actually spawns Git: the test's own git init uses CombinedOutput and the production check-ignore call uses Output, so both children are joined. The three sequential subtests restore the swapped output streams or close their session before fixture cleanup, and a failed subtest does not stop the others. It does not invoke a built product CLI.
-// @evidence contracts/e2e.md#necessary-boundary Git's NUL-delimited child process must evaluate the real worktree and the default acquisition-to-projection connection; direct state units consume supplied membership and cannot prove that connection.
-// @evidence contracts/e2e.md#shared-execution One owned worktree and compiler corpus serves the dump, shard and legacy adapters. The stateless command program, incremental shard owner and independently initial legacy owner need three distinct compiler lifetimes to exercise their different default compositions; no product binary is built or installed.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity Only this case owns its worktree. Exact project/source bytes are restored before recovery and the legacy initial request; deferred compiler closes run before t.TempDir cleanup, and each Git command joins synchronously.
-// @evidence contracts/e2e.md#preserved-coverage This boundary keeps one real-Git membership check through the top-level dump dispatch and through the resident shard and legacy snapshot adapters, across full, unchanged, partial, restored, invalid-config and recovered transitions. The in-package serve_* session tests in cmd/ttscgraph own the state transitions that do not need Git membership, The symlink or junction retarget is a separate E2E entry; direct path-mapper units own the Windows short-root and symlinked-project-base assertions.
+// @evidence contracts/testing.md#execution-ownership This Go unit test calls run for the dump verb and newGraphSession for the resident adapters in the Go test process and actually spawns Git: the test's own git init uses CombinedOutput and the production check-ignore call uses Output, so both children are joined. The three sequential subtests restore the swapped output streams or close their session before fixture cleanup, and a failed subtest does not stop the others. It does not invoke a built product CLI.
 func TestGitIgnoreMembershipFlowsThroughNativeProjectionAdapters(t *testing.T) {
   root := t.TempDir()
   config := `{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true},"include":["src"]}`

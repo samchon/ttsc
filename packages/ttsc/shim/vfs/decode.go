@@ -13,6 +13,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design One thin linkname bridge exposes upstream decoding without another filesystem abstraction or copied algorithm.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts This declaration links the actual upstream helper, retaining BOM, endian and malformed-code-unit behavior rather than approximating the decoder locally.
 // @evidence contracts/common.md#meaningful-documentation Native prose states immutable input, decoded overlay output and ownership of the disk read.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources DecodeBytes declares a signature only; the implementation owns acquisition and release of resources.
+// @evidenceExclude contracts/performance.md#efficient-algorithms DecodeBytes declares a signature only; the implementation owns the processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work DecodeBytes declares a signature only; the implementation owns any shared work.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation DecodeBytes is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
 //
 //go:linkname DecodeBytes github.com/microsoft/typescript-go/internal/vfs/internal.decodeBytes
 func DecodeBytes(s string) (contents string, ok bool)

@@ -20,6 +20,11 @@ import (
 //  1. Hold a run open and schedule several more requests behind it.
 //  2. Release it and assert exactly one rerun followed, with a newer generation.
 //  3. Schedule again once idle and assert the refresher restarts.
+//
+// @evidence contracts/testing.md#behavioral-verification Several refresh requests scheduled while one run is open produce exactly one rerun with a newer generation, and a request once idle restarts the refresher.
+// @evidence contracts/testing.md#independent-expectations The run count and generation order are literal expectations.
+// @evidence contracts/testing.md#distinguishing-cases Dropping events or running one per event would produce the wrong count.
+// @evidence contracts/testing.md#execution-ownership TestLSPHintsRefreshCoalescesConcurrentRequests is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPHintsRefreshCoalescesConcurrentRequests(t *testing.T) {
   var refresh coalescingRefresh
   started := make(chan struct{}, 8)

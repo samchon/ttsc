@@ -15,6 +15,11 @@ import (
 //  1. Encode a plugin completion and send that item back as a resolve request.
 //  2. Assert the proxy answers locally with the item unchanged.
 //  3. Assert an upstream-owned item remains unhandled and is still forwarded.
+//
+// @evidence contracts/testing.md#behavioral-verification A completionItem/resolve request for a plugin item is answered locally with the item unchanged, and an upstream-owned item remains unhandled and is forwarded.
+// @evidence contracts/testing.md#independent-expectations The expected local answer is the encoded item itself.
+// @evidence contracts/testing.md#distinguishing-cases A plugin item and an upstream item differ by ownership marker.
+// @evidence contracts/testing.md#execution-ownership TestLSPPluginCompletionResolveStaysLocal is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPPluginCompletionResolveStaysLocal(t *testing.T) {
   merged := mergeCompletionResponse(
     []byte(`{"jsonrpc":"2.0","id":1,"result":null}`),

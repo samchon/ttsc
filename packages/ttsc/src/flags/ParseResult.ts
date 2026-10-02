@@ -8,6 +8,10 @@
  * @evidence contracts/common.md#clear-and-simple-design Each result member names one destination or occurrence policy, so consumers need no second parsing pass to reconstruct compiler versus program arguments.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The separate tail prevents program arguments from becoming compiler flags, and canonical keys derive from FlagSpec instead of consumer-specific spelling checks.
  * @evidence contracts/common.md#meaningful-documentation Native member comments explain canonical keys, repetition ordering and the distinction between compiler passthrough and program tail; their separated presentation follows the documentation skill without member checklist tags.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
  */
 export interface ParseResult {
   /** Canonical flag name → resolved value. */

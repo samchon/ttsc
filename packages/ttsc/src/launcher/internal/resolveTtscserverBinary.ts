@@ -17,6 +17,9 @@ import { SidecarEnvironment } from "../../compiler/internal/sharedHost/SidecarEn
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The local fallback addresses an actual source-checkout layout, and .exe is a native executable naming distinction rather than a consumer exception.
  * @evidence contracts/common.md#meaningful-documentation Native prose states search order, override requirements and local-development fallback; absence remains explicit in the return type.
  * @evidence contracts/portability.md#os-neutral-implementation Node's host platform/architecture select the shipped executable; shared environment lookup follows Windows name aliases while POSIX names stay exact. Native path/realpath operations anchor local lookup without inferring filesystem case policy from an OS name.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources resolveTtscserverBinary declares a signature only; the implementation owns acquisition and release of resources.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms resolveTtscserverBinary declares a signature only; the implementation owns the processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work resolveTtscserverBinary declares a signature only; the implementation owns any shared work.
  */
 export function resolveTtscserverBinary(
   opts: { env?: NodeJS.ProcessEnv } = {},

@@ -4,8 +4,8 @@
 // Background. ttsc re-exports typescript-go's `internal/*` packages through the
 // shim so plugin authors (typia, nestia, third-party rules) never touch Go
 // internals. A missing re-export is an ttsc bug, not a plugin bug — yet they
-// keep being discovered one reactive issue at a time (#217, #218, #220, #221,
-// #226, #230). This tool computes the shortfall mechanically instead.
+// keep being discovered one reactive report at a time. This tool computes the
+// shortfall mechanically instead.
 //
 // The invariant. The shim should be TRANSITIVELY CLOSED over the operations of
 // the types it already exposes. If the shim already aliases an upstream type T,
@@ -13,8 +13,8 @@
 // through the shim. Four closure rules are checked:
 //
 //   - ENUM   every exported const whose type is an already-exposed enum type
-//     must be re-exported. (This is the `SignatureKindConstruct` class —
-//     #230 rule 1. `SignatureKind` is exposed but only `...Call` is, so
+//     must be re-exported. (This is the `SignatureKindConstruct` class.
+//     `SignatureKind` is exposed but only `...Call` is, so
 //     `...Construct` is a deterministic gap.)
 //   - FUNC   every exported package-level func whose params and results are all
 //     already-reachable types must be reachable. (A plugin holding those
@@ -28,7 +28,7 @@
 //     type alias alone only makes the object nameable; it provides no value.
 //
 // What it deliberately does NOT find: UNEXPORTED helpers a plugin needs by name
-// (e.g. `(*Checker).getMinArgumentCount`, #230 rule 2). Those are invisible to
+// (e.g. `(*Checker).getMinArgumentCount`). Those are invisible to
 // closure and must come from the consumer-demand scan. The audit prints the
 // unexported method/func pool of exposed types as a triage list so the demand
 // side has a bounded candidate set.
@@ -706,7 +706,7 @@ func indexInternalPackages(roots []*packages.Package) (map[string]*packages.Pack
 // *types.Alias matters: an enum declared `type PragmaKindFlags = uint8` (a Go
 // type alias to a basic) gives its member consts an *types.Alias type, and a
 // bare *types.Named assertion would drop them — leaving a partial re-export of
-// that #230-class enum invisible to the zero-tolerance ENUM check.
+// that partially re-exported enum invisible to the zero-tolerance ENUM check.
 func namedInfo(t types.Type) (pkgSuffix, name string, ok bool) {
   var obj *types.TypeName
   switch n := t.(type) {
@@ -1254,7 +1254,7 @@ func analyze(r reachable, inner map[string]*packages.Package, enumExports, famil
     // be typed. This is essential: an enum whose members are ALL untyped (every
     // member `= iota` / `1<<n` with no annotation, e.g. printer's
     // GeneratedIdentifierFlags) would otherwise never register as a family, and
-    // a partial re-export of exactly the #230 class would pass the gate.
+    // a partial re-export of exactly that class would pass the gate.
     var enumNames []string
     for _, name := range scope.Names() {
       tn, ok := scope.Lookup(name).(*types.TypeName)
@@ -1288,7 +1288,7 @@ func analyze(r reachable, inner map[string]*packages.Package, enumExports, famil
     // matches the longest of each enum's prefixes — the type name, plus the
     // abbreviation prefix shared by its typed members — so untyped+unprefixed
     // members (e.g. OuterExpressionKinds' OEKExcludeJSDocTypeAssertion = 1<<6)
-    // are not silently dropped from the #230 enum-closure check.
+    // are not silently dropped from the enum-closure check.
     typedMembers := make(map[string][]string, len(enumNames))
     for _, en := range enumNames {
       typedMembers[en] = constsByType[suffix+"."+en]
@@ -1304,7 +1304,7 @@ func analyze(r reachable, inner map[string]*packages.Package, enumExports, famil
         continue // the enum type itself isn't exposed; not a closure gap
       }
       // Tier by partial exposure: an enum with SOME members already
-      // re-exported but not all is the near-certain #230 bug class
+      // re-exported but not all is the near-certain bug class
       // (e.g. SignatureKindCall present, SignatureKindConstruct absent).
       // An enum with zero members exposed is a deliberate type-only
       // aliasing choice — report it, but at INFO.
@@ -1503,7 +1503,7 @@ func dedupe(in []finding) []finding {
 }
 
 // tierOf maps a finding kind to a confidence tier. Tier 1 is the near-certain
-// bug class (#230); higher tiers are progressively noisier candidate pools.
+// bug class; higher tiers are progressively noisier candidate pools.
 func tierOf(kind string) int {
   switch kind {
   case "ENUM", "ENUM_REMOVED": // public enum closure and migration failures
@@ -1676,7 +1676,7 @@ func shimPackageName(dir string) string {
 // runFix writes shim/<pkg>/enums_gen.go for every package carrying TIER-1 enum
 // gaps, re-exporting each missing member so the family is complete. Const
 // re-exports carry no behavior and no ABI risk, so closing the whole family is
-// always safe — and makes the #230 class structurally impossible.
+// always safe — and makes a partially re-exported enum family structurally impossible.
 //
 // A generated member handed over to an authored export no longer belongs in
 // the output. Remove an obsolete file only when all of its members remain
@@ -1749,8 +1749,8 @@ func runFix(findings []finding, shimRoot string) error {
     b.WriteString("// Code generated by packages/ttsc/tools/shim_audit -fix. DO NOT EDIT.\n//\n")
     b.WriteString("// Completes every exposed enum family: re-exports each member not already\n")
     b.WriteString("// re-exported elsewhere in the shim package, so a plugin that can name the\n")
-    b.WriteString("// enum type can name all of its values. Prevents the #230 class (a sibling\n")
-    b.WriteString("// const silently missing). Regenerate after a typescript-go bump with\n")
+    b.WriteString("// enum type can name all of its values. Prevents a partially re-exported\n")
+    b.WriteString("// family (a sibling const silently missing). Regenerate after a typescript-go bump with\n")
     b.WriteString("// `pnpm --filter ttsc shim:audit -fix`.\n\n")
     fmt.Fprintf(&b, "package %s\n\n", pkgName)
     fmt.Fprintf(&b, "import %s %q\n\n", alias, internalPrefix+pkg)
@@ -1845,7 +1845,7 @@ func runCheck(findings []finding, surface producerSurface, path string) {
   }
   if len(evaluation.enumGaps) > 0 {
     fmt.Fprintf(os.Stderr, "\nshim_audit: FAIL — %d enum-family member(s) of an EXPOSED enum are not re-exported.\n", len(evaluation.enumGaps))
-    fmt.Fprintf(os.Stderr, "  This is the #230 class. Fix mechanically: `pnpm --filter ttsc shim:audit -fix`.\n")
+    fmt.Fprintf(os.Stderr, "  This is a partially re-exported enum family. Fix mechanically: `pnpm --filter ttsc shim:audit -fix`.\n")
     for _, f := range evaluation.enumGaps {
       fmt.Fprintf(os.Stderr, "    ENUM   %s.%s\n", f.pkg, f.symbol)
     }

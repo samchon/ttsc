@@ -31,6 +31,11 @@ func (failingReader) Read([]byte) (int, error) {
 // 1. Build a single-file project whose source has a type error.
 // 2. Run RunServe with one request.
 // 3. Assert it exits non-zero and wrote no reply.
+//
+// @evidence contracts/testing.md#behavioral-verification RunServe over a project with a type error exits nonzero before answering any request and writes no reply.
+// @evidence contracts/testing.md#independent-expectations Nonzero status and an empty reply stream are the contract for a startup compile failure.
+// @evidence contracts/testing.md#distinguishing-cases A request is supplied so that serving would be observable; its absence from the output distinguishes loud failure from empty transforms.
+// @evidence contracts/testing.md#execution-ownership TestUtilityServeExitsWhenProjectDoesNotCompile is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityServeExitsWhenProjectDoesNotCompile(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -56,6 +61,11 @@ func TestUtilityServeExitsWhenProjectDoesNotCompile(t *testing.T) {
 // TestUtilityServeExitsOnInputReadError verifies the resident host exits
 // non-zero when reading its request stream fails with a non-EOF error, rather
 // than treating the failure as a clean end of input.
+//
+// @evidence contracts/testing.md#behavioral-verification RunServe exits nonzero when its request stream fails with a non-EOF read error instead of treating it as a clean end of input.
+// @evidence contracts/testing.md#independent-expectations The failing reader returns a deliberate error, and the nonzero status is the contract.
+// @evidence contracts/testing.md#distinguishing-cases A clean EOF (exit zero) is the neighbor exercised by the other serve tests.
+// @evidence contracts/testing.md#execution-ownership TestUtilityServeExitsOnInputReadError is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityServeExitsOnInputReadError(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

@@ -28,6 +28,11 @@ import (
 //  2. Request the file using a path whose final segment is joined with "\"
 //     instead of the host OS's separator.
 //  3. Assert the resident host still finds and transforms the file.
+//
+// @evidence contracts/testing.md#behavioral-verification A serve request that spells a project file with a backslash separator still finds and transforms the file.
+// @evidence contracts/testing.md#independent-expectations The expected transform text is the authored source of the project file.
+// @evidence contracts/testing.md#distinguishing-cases The backslash spelling is the input a forward-slash-only lookup would miss; the normal spelling is the neighbor served by sibling tests.
+// @evidence contracts/testing.md#execution-ownership TestUtilityServeNormalizesBackslashRequestPaths is a Go unit test in the test/utility process: it calls the utility host entrypoint in-process with captured streams and a temporary project, installing no consumer and starting no product process.
 func TestUtilityServeNormalizesBackslashRequestPaths(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

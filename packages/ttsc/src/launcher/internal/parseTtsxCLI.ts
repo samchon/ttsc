@@ -41,7 +41,7 @@ export function parseTtsxCLI(argv: readonly string[]) {
   //
   // Terminal flags (--help / --version) belong to ttsx only before the entry;
   // after it they are the program's own argv, exactly as `node entry.js
-  // --version` hands `--version` to the program (samchon/ttsc#1401). The
+  // --version` hands `--version` to the program. The
   // parser already draws that boundary, so they are read off its result, and
   // resolved through the schema so every spelling the compiler accepts
   // (`--HELP`, `-Version`) reaches the same branch.
@@ -55,8 +55,7 @@ export function parseTtsxCLI(argv: readonly string[]) {
       // The entry is the first bare token that is no option's value, whatever
       // its extension: the schema and the compiler's own option table say
       // which options take a value (the `es2020` of `--target es2020`), so a
-      // JavaScript entry is the entry too rather than a forwarded value
-      // (samchon/ttsc#1569).
+      // JavaScript entry is the entry too rather than a forwarded value.
       subcommand: "ttsx",
     });
   } catch (error) {
@@ -157,8 +156,8 @@ function firstPositionalIndex(argv: readonly string[]): number {
  * Refuse `--watch` (or `-w`) given to ttsx itself, before any compiler starts.
  *
  * Forwarded to the type-check, it turned the check into a process that never
- * returns, so the entry never ran and the command hung with no output
- * (samchon/ttsc#1409). ttsx runs the entry once after one check, and a watch
+ * returns, so the entry never ran and the command hung with no output.
+ * ttsx runs the entry once after one check, and a watch
  * that restarts the program is a different feature; the message names the two
  * tools that already provide the halves. A `--watch` after the entry is the
  * program's own flag and never reaches here.

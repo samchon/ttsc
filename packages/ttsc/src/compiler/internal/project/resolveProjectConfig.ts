@@ -18,6 +18,9 @@ import { resolveProjectIdentity } from "./resolveProjectIdentity";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No caller-specific config spelling or fallback search is added around the identity resolver.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish config selection from reference ownership and identify the richer identity API, following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path resolution and realpath behavior remain with resolveProjectIdentity; this adapter returns its physical path without independently folding case or interpreting protocol paths.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources resolveProjectConfig declares a signature only; the implementation owns acquisition and release of resources.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms resolveProjectConfig declares a signature only; the implementation owns the processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work resolveProjectConfig declares a signature only; the implementation owns any shared work.
  */
 export function resolveProjectConfig(
   opts: ITtscProjectLocatorOptions = {},

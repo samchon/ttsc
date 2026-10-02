@@ -75,8 +75,7 @@ export function buildSourcePlugin(opts: {
   /**
    * Digests of the environment each build directory is keyed on, shared by
    * every build of the load and filled with this build's (`computeCacheKey`),
-   * so the load reports its plugin sources' states from the same reading
-   * (samchon/ttsc#1493).
+   * so the load reports its plugin sources' states from the same reading.
    */
   environmentDigests?: Map<string, string>;
 
@@ -89,7 +88,7 @@ export function buildSourcePlugin(opts: {
    * Digests of the source directories the caller's load already read, shared by
    * every build of the load and filled with each directory this build keys on
    * (`computeCacheKey`), so the load can report exactly what its binaries were
-   * built from (samchon/ttsc#1487).
+   * built from.
    */
   sourceDigests?: Map<string, string>;
 
@@ -108,7 +107,7 @@ export function buildSourcePlugin(opts: {
   );
   ensureExecutableGoToolchain(goBinary, compiler.bundled);
   // The digest of every directory the key covers, as the key read it, which
-  // the build proves against what it compiled (samchon/ttsc#1505).
+  // the build proves against what it compiled.
   const sourceDigests = opts.sourceDigests ?? new Map<string, string>();
   const environmentWitness: PluginBuildEnvironmentWitness.Record = new Map();
   const key = computeCacheKey({
@@ -276,7 +275,7 @@ function compileSourcePlugin(opts: {
     // each replace target outside the module, is copied and proven against the
     // key before Go reads it, as the module and its contributors are: a check
     // after the build cannot tell a source that held still from one that
-    // changed and changed back while Go was reading it (samchon/ttsc#1527).
+    // changed and changed back while Go was reading it.
     const external = snapshotExternalSources(
       scratchDir,
       [
@@ -353,7 +352,7 @@ function compileSourcePlugin(opts: {
     // and Go ran it by path. Every path the key's environment read must still
     // hold the metadata it was read with, or the binary may be another
     // toolchain's. Change time also detects reverted writes when native
-    // metadata distinguishes those edits (samchon/ttsc#1534); the witness
+    // metadata distinguishes those edits; the witness
     // documents that premise rather than certifying a second byte comparison.
     if (!PluginBuildEnvironmentWitness.holds(opts.environmentWitness)) {
       throw new Error(
@@ -463,7 +462,7 @@ function buildUnderPluginLock(
       // "released" needs no repair: the holder freed the key normally (its
       // build published or failed), so retry the ordinary atomic acquisition.
       // Reporting a steal or force-removing the path here would misclassify a
-      // routine handoff as abandonment (issue #421).
+      // routine handoff as abandonment.
       continue;
     }
     const held = lease;
@@ -771,8 +770,8 @@ function snapshotExternalSources(
  *
  * The build runs in a scratch copy of the module, where `../dep` names a
  * sibling of the copy instead of the module's sibling that `go build` in the
- * module compiles (samchon/ttsc#1506), and an absolute target would be read in
- * place (samchon/ttsc#1527). The copy's `go.mod` is rewritten to the absolute
+ * module compiles, and an absolute target would be read in
+ * place. The copy's `go.mod` is rewritten to the absolute
  * directory of the proven copy through `go mod edit`, Go's own editor of the
  * file. A target inside the module moved with the copy and is left as it is.
  */
@@ -811,8 +810,8 @@ function anchorReplaceDirectories(
  *
  * Every build writes its binary, its lock, and Go's objects below those caches,
  * so a cache inside a keyed source directory changes the source while the build
- * runs: the binary could never be published under the key it was built for
- * (samchon/ttsc#1505), and each later build would key a new state. A cache
+ * runs: the binary could never be published under the key it was built for,
+ * and each later build would key a new state. A cache
  * below a directory the sources never include, such as the default one in
  * `node_modules`, is outside them by the rule the key itself uses
  * (`pluginSourceCovers`).
@@ -843,8 +842,8 @@ function requireCachesOutsideSources(
  * and its contributors after any wait for the build lock and snapshots overlays
  * and outside replace targets before Go starts. A source edited in between is
  * built into the binary, which would then be published, permanently, under the
- * key of the state before the edit, and served once the source returned to it
- * (samchon/ttsc#1505). The copy is digested by the rule the key used
+ * key of the state before the edit, and served once the source returned to it.
+ * The copy is digested by the rule the key used
  * (`pluginSourceDigest`), and a difference publishes nothing.
  *
  * @param source The directory the key covers.
@@ -1034,7 +1033,7 @@ function readGoModInfo(
   // system temporary directory rather than from `dir`: a copy of an external
   // source mirrors its absolute path below the build's scratch directory, and
   // Windows refuses a working directory longer than MAX_PATH even where every
-  // path the build itself opens is fine (samchon/ttsc#1572).
+  // path the build itself opens is fine.
   const cwd = os.tmpdir();
   const result = spawnGoTool(
     goBinary,
@@ -1167,7 +1166,7 @@ function runGoBuild(
  * missing working directory, or one Windows refuses as too long, with the same
  * `ENOENT` as a missing executable, so only an executable that is itself absent
  * is reported as a missing toolchain; any other failure names the executable,
- * the working directory, and the system error (samchon/ttsc#1572).
+ * the working directory, and the system error.
  */
 function goSpawnFailureMessage(
   action: string,

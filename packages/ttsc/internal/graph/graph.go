@@ -15,6 +15,7 @@ import (
 // @evidenceExclude contracts/performance.md#efficient-algorithms This discriminant type chooses no algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A kind value coordinates no shared computation.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A kind value owns no retained resource.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type NodeKind string
 
 const (
@@ -58,6 +59,7 @@ const (
 // @evidenceExclude contracts/performance.md#efficient-algorithms The node is a fact container, not the owner of build or projection algorithms.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Graph generation owners establish reuse of these facts.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Node lifetime is owned by its graph generation; the record acquires no handle or cache independently.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type Node struct {
   ID   string
   Name string
@@ -181,6 +183,7 @@ type Node struct {
 // @evidenceExclude contracts/performance.md#efficient-algorithms This record chooses no folding algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The compiler and graph generation own value reuse.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This record has no independent retained-state lifecycle.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type EnumMember struct {
   Name  string
   Value string
@@ -197,6 +200,7 @@ type EnumMember struct {
 // @evidenceExclude contracts/performance.md#efficient-algorithms Collection and rendering own algorithms; this declaration holds their facts.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The producing graph snapshot owns reuse of member facts.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The containing node owns lifetime; this record acquires no independent resource.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type ObjectMember struct {
   Name string
   Kind NodeKind
@@ -223,6 +227,7 @@ type ObjectMember struct {
 // @evidenceExclude contracts/performance.md#efficient-algorithms A relationship discriminant selects no traversal strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The value does not own shared computation.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The value owns no retained state or resource.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type EdgeKind string
 
 const (
@@ -282,6 +287,7 @@ const (
 // @evidence contracts/performance.md#efficient-algorithms The output has fixed schema-bounded size and requires no graph scan.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This vocabulary constructor owns no repeated computation; returning an independent slice prevents caller mutation of shared enumeration storage.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The slice transfers to the caller and no cache or resource is retained.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation EdgeKinds computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func EdgeKinds() []EdgeKind {
   return []EdgeKind{
     EdgeHeritage,
@@ -308,6 +314,7 @@ func EdgeKinds() []EdgeKind {
 // @evidenceExclude contracts/performance.md#efficient-algorithms Deduplication belongs to graph construction, not this record.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Generation owners decide reuse of relationships.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The graph owns this value's lifetime and it acquires no independent resources.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type Edge struct {
   From string
   To   string
@@ -337,6 +344,7 @@ type Edge struct {
 // @evidenceExclude contracts/performance.md#efficient-algorithms Build and query operations select algorithms; this structure represents their state.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The record exposes indices but does not itself coordinate a build or reuse decision.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources BuildFiles and generation owners acquire and release the represented state; the container has no independent lifecycle operation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type Graph struct {
   Nodes map[string]*Node
   Edges []*Edge
@@ -496,6 +504,7 @@ func nodeFile(id string) string {
 // @evidence contracts/performance.md#efficient-algorithms Parsing scans ID bytes linearly and allocates only decoded path/name components.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This parser does not coordinate repeated requests; consumers own any identity index.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No source snapshots or native resources are retained.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation NodeFile computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func NodeFile(id string) string {
   return nodeFile(id)
 }

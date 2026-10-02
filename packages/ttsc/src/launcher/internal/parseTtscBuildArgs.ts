@@ -14,6 +14,7 @@ import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
  * @evidence contracts/performance.md#efficient-algorithms One linear argv parse and copies of its positional and passthrough lists bound work and temporary space by argument count.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation owns different argv; this parser coordinates no shared computation.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned options are invocation values; no retained memo, process or handle is acquired.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Parses argv tokens only; file arguments are returned verbatim and are neither resolved nor normalized here.
  */
 export function parseTtscBuildArgs(argv: readonly string[]) {
   const result = parseFlags({

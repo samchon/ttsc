@@ -16,6 +16,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No locale-specific expected text is fabricated; absent baseline framing remains undefined, while the successful-query premise is explicit rather than applied to arbitrary output.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe locale handling, successful-query inputs and the disabled-root assumption, with the acknowledgment block separated.
  * @evidence contracts/portability.md#os-neutral-implementation Windows-specific query interpretation remains isolated; comparing native output bytes avoids assuming UTF-8 decoding preserves localized fsutil suffixes, while volume-root framing remains a stated boundary assumption.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only slices of the supplied buffers are used during the call; the result is one boolean.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Scans the two supplied buffers a constant number of times (one regex test, one lastIndexOf, one byte comparison), linear in their size.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure function of its three arguments; it keeps nothing a later call could reuse.
  */
 export function parseWindowsDirectoryCaseSensitivity(
   directoryOutput: Buffer,

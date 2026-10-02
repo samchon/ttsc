@@ -30,6 +30,11 @@ func (s *mutableProjectInputRegistrationSource) ProjectInputs() LSPProjectInputS
 //  3. Register D, leave cleanup of C pending, then publish E and reject cleanup.
 //  4. Assert E registers while the rejected cleanup remains deferred.
 //  5. Publish F and assert retained cleanup completes once before F replaces E.
+//
+// @evidence contracts/testing.md#behavioral-verification Rejected registration requests preserve the last-good registration, advance to the newest snapshot, defer rejected cleanup and complete retained cleanup exactly once.
+// @evidence contracts/testing.md#independent-expectations The expected active registrations and cleanup counts are literals for the A to F sequence.
+// @evidence contracts/testing.md#distinguishing-cases Rejected replacement and rejected cleanup are different failures with different required outcomes.
+// @evidence contracts/testing.md#execution-ownership TestProjectInputRegistrationReconcilesRejectedPendingRequest is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestProjectInputRegistrationReconcilesRejectedPendingRequest(
   t *testing.T,
 ) {

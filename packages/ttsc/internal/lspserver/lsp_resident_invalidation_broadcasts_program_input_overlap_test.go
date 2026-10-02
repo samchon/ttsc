@@ -13,6 +13,11 @@ import "testing"
 //  1. Install two resident entries with distinct producer keys.
 //  2. Attribute one shared-Program URI to the first producer only.
 //  3. Assert both residents receive the changed and external deltas.
+//
+// @evidence contracts/testing.md#behavioral-verification A URI attributed to one producer but also a shared Program input delivers the changed and external deltas to every resident entry.
+// @evidence contracts/testing.md#independent-expectations The expected delivery set is both residents.
+// @evidence contracts/testing.md#distinguishing-cases Contrast with the owner-only test: here the second role as a Program input widens delivery.
+// @evidence contracts/testing.md#execution-ownership TestLSPResidentInvalidationBroadcastsProgramInputOverlap is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPResidentInvalidationBroadcastsProgramInputOverlap(t *testing.T) {
   for _, externalURI := range []string{
     "file:///project/src/shared.ts",

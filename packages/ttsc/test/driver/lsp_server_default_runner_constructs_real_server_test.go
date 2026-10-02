@@ -1,5 +1,3 @@
-//go:build e2e
-
 package driver_test
 
 import (
@@ -28,11 +26,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification RunLSPServer starts the actual installed compiler with no runner injection and answers initialize ID 1 with capabilities, then cancellation returns nil and both host and editor reader join.
 // @evidence contracts/testing.md#independent-expectations A real LSP initialize response, rather than process startup alone, proves the upstream protocol connection; literal request ID ties the response to this exchange.
 // @evidence contracts/testing.md#distinguishing-cases The live handshake complements command EOF-only smoke cases. Non-response, early read failure and unjoined cancellation fail this test.
-// @evidence contracts/testing.md#execution-ownership TestLSPServerDefaultRunnerConstructsRealServer is its own Go E2E entry selected by the central ttsc experiment and built only with -tags=e2e; all assertions and failure messages remain with this discoverable function.
-// @evidence contracts/e2e.md#necessary-boundary The public LSP proxy uses its production default runner to communicate with the installed tsgo process; an injected upstream cannot establish default process wiring.
-// @evidence contracts/e2e.md#shared-execution This sole default-runner connection starts one real compiler session and performs one initialize exchange. The installed SDK is resolved through the existing compiler package; no compiler artifact is built by this case.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity Its fresh cwd and editor pipes belong to the case. Cleanup cancels the context and closes both ends of both pipes even after assertion failure. Separate ten-second waits require host and reader completion and report failure if either does not join; the reader send observes cancellation so surplus messages cannot prevent its join. It exercises no cache invalidation.
-// @evidence contracts/e2e.md#preserved-coverage The original real-server initialize exchange and clean cancellation remain in this case. The response now must carry request ID 1 as well as capabilities; registered cleanup also requires the host and editor reader to finish. No fixture sidecar participates in this connection and no direct-unit assertion is claimed as proof of the installed server.
+// @evidence contracts/testing.md#execution-ownership TestLSPServerDefaultRunnerConstructsRealServer is a Go unit test: it runs RunLSPServer in the test process with the workspace tsgo binary as the real upstream child and joins both through its cleanup, without a built product CLI.
 func TestLSPServerDefaultRunnerConstructsRealServer(t *testing.T) {
   cwd := t.TempDir()
   binary := tsgoBinaryForTest(t)

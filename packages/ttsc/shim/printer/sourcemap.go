@@ -33,6 +33,7 @@ import (
 // @evidence contracts/performance.md#efficient-algorithms One printer traversal creates emitted text and mapping segments together; output and map serialization costs grow with nodes, text bytes, mapping segments and optional inline source text rather than an independent second AST walk.
 // @evidence contracts/performance.md#reuse-equivalent-work The same traversal supplies both outputs and EmitContext supplies original-node provenance; a fresh per-file printer is necessary because retained source indexes cannot be shared between independent map generators.
 // @evidence contracts/performance.md#bound-retention-and-release-resources One call owns its printer, generator and writer, retaining output and mapping bytes only until return; the two strings transfer to the caller with no historical map cache or running task.
+// @evidence contracts/portability.md#os-neutral-implementation The source map generator receives the file's own directory and a fixed case-sensitive path policy because it only relativizes the emitted file name and compares no filesystem identities.
 func EmitSourceFileWithSourceMap(
   options PrinterOptions,
   handlers PrintHandlers,

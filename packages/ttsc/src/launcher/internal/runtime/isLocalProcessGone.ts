@@ -16,6 +16,9 @@ import os from "node:os";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Native process existence is queried through process.kill(pid, 0); no fixture pid or broad error-to-dead fallback substitutes for ownership evidence.
  * @evidence contracts/common.md#meaningful-documentation The native explanation distinguishes a remote host, a denied or unknown probe and pid recycling, stating why ambiguity protects a live owner's state.
  * @evidence contracts/portability.md#os-neutral-implementation Node exposes the host's process-existence probe and portable error codes; hostname comparison scopes pid identity to this host without assuming POSIX signals can terminate Windows processes.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources isLocalProcessGone acquires no handle, buffer or cache and retains nothing after it returns.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms isLocalProcessGone performs a fixed number of steps with no loop or recursion over caller data.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work isLocalProcessGone computes one result per call, so there is no repeated work to share.
  */
 export function isLocalProcessGone(owner: {
   /** The process id the owner recorded. */

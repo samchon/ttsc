@@ -5,6 +5,11 @@ import "testing"
 // TestLSPCompletionScopeClassifiesRegexStatementAndOperatorBoundaries keeps
 // JSDoc-shaped bytes inside regexes from escaping into completion scope while
 // preserving real comments after expressions and live-buffer recovery.
+//
+// @evidence contracts/testing.md#behavioral-verification The lexical scanner classifies JSDoc-shaped bytes inside regexes after statement headers, operators and commented returns as code, while real comments after expressions stay doc scope.
+// @evidence contracts/testing.md#independent-expectations Each case's expected scope is a literal written next to its source text.
+// @evidence contracts/testing.md#distinguishing-cases Statement headers (if, while, for, with), division and unary operators decide whether a slash starts a regex, so each is its own row.
+// @evidence contracts/testing.md#execution-ownership TestLSPCompletionScopeClassifiesRegexStatementAndOperatorBoundaries is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPCompletionScopeClassifiesRegexStatementAndOperatorBoundaries(t *testing.T) {
   cases := []struct {
     name string

@@ -20,6 +20,11 @@ import (
 //  2. Ask for the owners of the same paths spelled physically.
 //  3. Assert the declaring producer owns both.
 //  4. Assert two adjacent paths one property away are owned by nobody.
+//
+// @evidence contracts/testing.md#behavioral-verification An exact file and a glob declared through a directory alias are owned by the declaring producer when the same paths are spelled physically, and adjacent paths one property away are owned by nobody.
+// @evidence contracts/testing.md#independent-expectations Expected owners are literal producer keys.
+// @evidence contracts/testing.md#distinguishing-cases Alias and physical spellings must match while near-miss paths must not.
+// @evidence contracts/testing.md#execution-ownership TestLSPProjectInputOwnershipResolvesDeclaredSpellings is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPProjectInputOwnershipResolvesDeclaredSpellings(t *testing.T) {
   physical := t.TempDir()
   alias := filepath.Join(t.TempDir(), "project")

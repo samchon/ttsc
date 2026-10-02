@@ -16,6 +16,9 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Recognized Windows path prefixes are native syntax, not consumer exceptions; no filesystem method or global state is replaced.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains lexical scope, supported extended prefixes and the platform argument, separately from the acknowledgments.
  * @evidence contracts/portability.md#os-neutral-implementation Explicit win32 or posix path semantics handle native separators and Windows extended drive/UNC representations without assuming casing establishes physical identity.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Builds short local strings and retains nothing after returning.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A fixed number of string tests and one path.resolve call per invocation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure function of its two arguments; nothing is cached or shared.
  */
 export function resolveFilesystemPath(
   location: string,

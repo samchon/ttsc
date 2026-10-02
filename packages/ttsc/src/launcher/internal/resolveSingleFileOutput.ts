@@ -21,6 +21,9 @@ import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysical
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Basename placement for files outside the project root is a supported positional-output rule; no fixture path or transformed-content special case decides the destination.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish the one copied JavaScript artifact from private build products; the physical-path comment explains why lexical aliases are insufficient.
  * @evidence contracts/portability.md#os-neutral-implementation Native path operations and shared physical resolution handle volumes, separators and links; containment checks reject absolute cross-volume relatives without unconditional case folding.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources resolveSingleFileOutput acquires no handle, buffer or cache and retains nothing after it returns.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms resolveSingleFileOutput performs a fixed number of steps with no loop or recursion over caller data.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work resolveSingleFileOutput computes one result per call, so there is no repeated work to share.
  */
 export function resolveSingleFileOutput(options: {
   cliOutDir?: string;

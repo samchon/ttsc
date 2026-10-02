@@ -21,6 +21,11 @@ import (
 //  2. Read it back and continue only when the filesystem preserved the bytes.
 //  3. Hash the protocol's symlink, raw target, and missing-content records.
 //  4. Assert the production fingerprint is exactly that digest.
+//
+// @evidence contracts/testing.md#behavioral-verification The production fingerprint of a dangling symlink with a non-UTF-8 raw target equals the digest of the protocol's symlink, raw target and missing-content records.
+// @evidence contracts/testing.md#independent-expectations The expected digest is computed independently from the protocol bytes in the test.
+// @evidence contracts/testing.md#distinguishing-cases The test continues only when the filesystem preserved the raw bytes, so unsupported filesystems skip and supported ones require fidelity.
+// @evidence contracts/testing.md#execution-ownership TestReloadFileFingerprintPreservesRawSymlinkTarget is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestReloadFileFingerprintPreservesRawSymlinkTarget(t *testing.T) {
   target := string([]byte{0xff, 'x'})
   link := filepath.Join(t.TempDir(), "reload-link")

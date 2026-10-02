@@ -14,7 +14,7 @@ import path from "node:path";
  *
  * A reader that records what an `extends` it could not resolve would take to
  * appear, as `@ttsc/unplugin` does to observe a missing base config, asks this
- * rather than repeating the rule (samchon/ttsc#1489).
+ * rather than repeating the rule.
  *
  * @param tsconfig The declaring config, as the reader named it.
  * @param specifier The `extends` value as written.
@@ -24,6 +24,9 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The dot-relative prefixes and json suffix express config grammar rather than named consumers or fixtures; no directory-to-tsconfig guess is inserted.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain candidate order, lexical anchoring, module classification and the deliberate bare-dot extension; params state whose spelling is retained.
  * @evidence contracts/portability.md#os-neutral-implementation Compiler-style slash normalization precedes host-native isAbsolute/dirname/resolve operations; no realpath or case folding discards the lexical anchor needed for relative extends.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returns a short fresh array and retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds at most two candidate path strings from one specifier with a single path.resolve.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure computation of its two arguments with nothing to share between calls.
  */
 export function tsconfigExtendsFileCandidates(
   tsconfig: string,

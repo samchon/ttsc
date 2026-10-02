@@ -12,6 +12,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The representation names actual watch actions and declared input classes rather than consumer-specific sentinel paths.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains effect precedence and empty changes; each documented member has its own separated comment.
  * @evidence contracts/portability.md#os-neutral-implementation Changed and external paths are native filesystem inputs normalized against session cwd by the wire adapter; the type does not imply case equivalence from an OS name.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export type ResidentCheckWatchChange = {
   /** Re-resolve project, plugin, contributor, and Program topology. */

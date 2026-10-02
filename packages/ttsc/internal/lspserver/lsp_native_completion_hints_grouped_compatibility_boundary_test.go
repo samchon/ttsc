@@ -15,6 +15,11 @@ import (
 //  1. Decode a grouped response containing valid and empty entries.
 //  2. Assert the valid group's item order survives and empty entries are dropped.
 //  3. Assert a field with the wrong JSON type rejects the response.
+//
+// @evidence contracts/testing.md#behavioral-verification A grouped hint response keeps valid groups in item order, drops empty items and empty triggers, and a field of the wrong JSON type rejects the response.
+// @evidence contracts/testing.md#independent-expectations The expected corpus and the rejection are literal.
+// @evidence contracts/testing.md#distinguishing-cases Valid, empty and malformed entries are separate inputs.
+// @evidence contracts/testing.md#execution-ownership TestNativeCompletionHintsKeepGroupedWireAndRejectInvalidEntries is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestNativeCompletionHintsKeepGroupedWireAndRejectInvalidEntries(t *testing.T) {
   body := []byte(`[
     {

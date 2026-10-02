@@ -18,6 +18,11 @@ import (
 // 1. Substitute the runLSPServer seam and capture its options.
 // 2. Run runLSP with --stdio, --cwd, and --tsgo.
 // 3. Assert the captured TsgoBinary is the flag value.
+//
+// @evidence contracts/testing.md#behavioral-verification runLSP forwards an explicit --tsgo path into LSPServerOptions.TsgoBinary.
+// @evidence contracts/testing.md#independent-expectations The expected path is the literal constant the test passes.
+// @evidence contracts/testing.md#distinguishing-cases The flag path is separate from the environment fallback covered by its sibling test.
+// @evidence contracts/testing.md#execution-ownership TestRunLSPPrefersTsgoFlag is a Go unit test in the cmd/ttscserver package: it calls runLSP in-process with the runLSPServer or getwd seam replaced and captured streams, starting neither tsgo nor a product process.
 func TestRunLSPPrefersTsgoFlag(t *testing.T) {
   const expected = "/tmp/tsgo-test-binary"
   prev := runLSPServer

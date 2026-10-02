@@ -112,7 +112,7 @@ type LSPExecutionContext = {
 
   /**
    * What the plugin selection was loaded from, which ends the session when it
-   * changes (`captureLSPPluginSelectionInputs`, samchon/ttsc#1507).
+   * changes (`captureLSPPluginSelectionInputs`).
    */
   selectionInputs?: ILSPPluginSelectionInputs;
 
@@ -319,8 +319,8 @@ function loadLSPProjectPlugins(
 ): ReturnType<typeof loadProjectPlugins> {
   // Loaded even for a project that declares no plugin: what selects the
   // plugins, the config chain and the manifests plugin discovery reads, is an
-  // input of the session all the same, so adding a plugin later ends it
-  // (samchon/ttsc#1511). A load that finds no entry returns before any build.
+  // input of the session all the same, so adding a plugin later ends it.
+  // A load that finds no entry returns before any build.
   return loadProjectPlugins({
     binary: resolveBinary() ?? "",
     cwd,

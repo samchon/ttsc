@@ -13,6 +13,7 @@
  * @evidenceExclude contracts/performance.md#efficient-algorithms This performs a fixed number of scalar arithmetic and formatting operations, with no workload-dependent algorithm choice.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The function formats one diagnostic value and stores no shared computation.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the returned string survives the call; no retained resource is acquired.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation formatDuration computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
  */
 export function formatDuration(ms: number): string {
   if (!Number.isFinite(ms)) {

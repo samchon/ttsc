@@ -15,6 +15,10 @@ import type { ResolveResult } from "./ResolveResult";
  * @evidence contracts/common.md#clear-and-simple-design One result adapter isolates the documented synchronous CommonJS scheme difference without rerunning resolution or duplicating builtin tables.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The compatibility path addresses an actual supported Node result shape through isBuiltin; it neither overrides intentional user remaps nor patches a foreign resolver.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain exact restoration scope, user-hook ownership and unchanged ESM/builtin results.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returns the supplied result or one shallow copy and retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A constant number of string comparisons; there is no loop.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure function of its two arguments with nothing to share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares specifier and URL strings and checks isBuiltin; it builds no path and touches no filesystem.
  */
 export function restoreStrippedNodeBuiltinScheme(
   specifier: string,

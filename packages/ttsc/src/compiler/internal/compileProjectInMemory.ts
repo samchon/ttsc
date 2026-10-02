@@ -157,7 +157,7 @@ function compileProjectWithPlugins(
       // answers an inferred common source directory with TS5011 as soon as any
       // `outDir` is in play, so pin the root it would infer. The keys
       // `outputKeyMapper` builds are unchanged by it — that root is exactly the
-      // layout tsgo already lays the emit out against (issue #1172).
+      // layout tsgo already lays the emit out against.
       pinInferredRootDir: true,
       quiet: true,
       resolvedProject: project,

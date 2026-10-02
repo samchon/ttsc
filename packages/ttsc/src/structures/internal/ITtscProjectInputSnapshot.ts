@@ -6,6 +6,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing exact paths remain meaningful candidates; consumers do not replace them with a fabricated present-file list or compensate for lost symlink spellings.
  * @evidence contracts/common.md#meaningful-documentation Native comments explain missing paths, slash glob vocabulary, reload scope and why declared spellings are retained; paragraph, member and tag spacing follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native exact paths and the declared forward-slash glob grammar are distinct vocabularies; retaining original spellings alongside physical identities supports link/junction replacement watchers without assuming case sensitivity from the OS name.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface ITtscProjectInputSnapshot {
   /** Exact absolute paths, retained even while missing. */

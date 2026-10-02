@@ -17,6 +17,7 @@ import crypto from "node:crypto";
  * @evidence contracts/performance.md#efficient-algorithms Hashing costs O(B) input bytes with constant digest state; the returned 16-hex address is a 64-bit truncation, so it is not a collision-free or security identity.
  * @evidence contracts/performance.md#reuse-equivalent-work Run/process containers scope ordinary module snapshots; the coordinator supplies the selected plugin policy, current compiler proof and isolated-root content, while a process nonce forbids cross-evaluator reuse. A key alone does not validate edited project dependencies.
  * @evidence contracts/performance.md#bound-retention-and-release-resources One random descriptor nonce is retained for the process lifetime; hash objects are call-local and generated directory storage remains with the cache owner.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Hashes the tsconfig path and option strings as text and reads one environment variable; it normalizes no path and touches no filesystem.
  */
 export function dependencyCacheKey(
   tsconfig: string,

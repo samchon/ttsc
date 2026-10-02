@@ -19,6 +19,11 @@ import (
 // 1. Substitute the runLSPServer seam and capture its options.
 // 2. Run runLSP with suppression and prefix flags.
 // 3. Assert the captured LSPServerOptions carry the parsed values.
+//
+// @evidence contracts/testing.md#behavioral-verification runLSP passes the suppress-execute-command-provider and command-prefix flags into the LSPServerOptions given to the LSP host.
+// @evidence contracts/testing.md#independent-expectations The expected option values are the literal flag values supplied on the command line.
+// @evidence contracts/testing.md#distinguishing-cases Both a suppression flag and a prefix flag are supplied so a handoff that drops either is detected.
+// @evidence contracts/testing.md#execution-ownership TestRunLSPForwardsExecuteCommandAdvertisementFlags is a Go unit test in the cmd/ttscserver package: it calls runLSP in-process with the runLSPServer or getwd seam replaced and captured streams, starting neither tsgo nor a product process.
 func TestRunLSPForwardsExecuteCommandAdvertisementFlags(t *testing.T) {
   prev := runLSPServer
   var captured lspserver.LSPServerOptions

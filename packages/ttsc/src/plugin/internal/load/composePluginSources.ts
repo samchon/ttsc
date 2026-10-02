@@ -17,6 +17,7 @@ import type { ProjectPluginEntries } from "./ProjectPluginEntries";
  * @evidence contracts/performance.md#efficient-algorithms For n plugins and a aggregate descriptors, cycle detection costs O(a squared times the maximum alias count) and redirect selection costs O(n times a times the maximum alias count); aliases are matched by direct scans rather than an index, which suits the small descriptor populations of one project.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Composition uses this invocation's original descriptors and entry aliases; it owns no completed-answer cache or cross-request sharing.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Temporary aggregate and result arrays are invocation-owned; no retained history or live handle is acquired.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation composePluginSources is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
  */
 export function composePluginSources(
   entries: readonly ProjectPluginEntries.ProjectPluginEntry[],

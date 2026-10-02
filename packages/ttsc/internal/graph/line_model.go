@@ -19,6 +19,7 @@ import (
 // @evidence contracts/performance.md#efficient-algorithms Computing boundaries is linear in source bytes and copying is linear in line count, with one output allocation.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure adapter does not coordinate requests; source-snapshot owners retain its resulting line index.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned slice transfers to the caller and this function retains no source text or index.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ECMALineStarts computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func ECMALineStarts(text string) []int {
   compilerStarts := shimcore.ComputeECMALineStarts(text)
   starts := make([]int, len(compilerStarts))
@@ -39,6 +40,7 @@ func ECMALineStarts(text string) []int {
 // @evidence contracts/performance.md#efficient-algorithms Index lookup is constant time and scanning costs only the selected line's byte length, with constant temporary space.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This calculation consumes a caller-owned reusable line index and creates no cross-request computation owner.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No retained state or native resource is acquired.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation LineEnd computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func LineEnd(text string, starts []int, line int) int {
   if line < 0 || line >= len(starts) {
     return len(text)
@@ -73,6 +75,7 @@ func LineEnd(text string, starts []int, line int) int {
 // @evidence contracts/performance.md#efficient-algorithms Each traversed trivia byte is visited at most once and no intermediate text is allocated.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This span calculation does not own a request cache; its text and starting offset determine a single result.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The function retains no text, indices or tasks after returning.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation FirstCodeOffset computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func FirstCodeOffset(text string, pos int) int {
   if pos < 0 {
     return 0
@@ -93,6 +96,7 @@ func FirstCodeOffset(text string, pos int) int {
 // @evidence contracts/performance.md#efficient-algorithms Cost is linear in this comment's bytes and temporary space is constant.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work The helper computes one comment boundary and does not coordinate repeated requests.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No resources or source snapshots are retained by this calculation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation LineCommentEnd computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func LineCommentEnd(text string, start int) int {
   for i := start + 2; i < len(text); {
     if width := lineTerminatorWidth(text, i); width > 0 {

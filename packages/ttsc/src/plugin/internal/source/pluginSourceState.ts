@@ -15,8 +15,7 @@ import { processPluginBuildEnvironment } from "./processPluginBuildEnvironment";
  * transform envelope reports this state for every source directory its binaries
  * were built from (`ITtscCompilerTransformation.ISuccess.pluginSources`), and a
  * consumer that keeps the output beyond its process proves it through the
- * `ttsc/plugin-source` entry, with no rule of its own (samchon/ttsc#1487,
- * samchon/ttsc#1493). For a plugin's own module root the environment is the one
+ * `ttsc/plugin-source` entry, with no rule of its own. For a plugin's own module root the environment is the one
  * its build keyed on exactly. For a contributor or an overlay, which the build
  * reads under the plugin's module root, it is the environment a build there
  * would take, which moves with every variable and tool the build's own does.

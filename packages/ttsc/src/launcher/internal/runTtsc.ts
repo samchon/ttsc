@@ -210,7 +210,7 @@ function runCleanWithContext(
   includeRuntime: boolean,
 ): number {
   // The runtime directories of runs no process still owns. A run that may
-  // still be in progress keeps its own, and is reported (samchon/ttsc#1579).
+  // still be in progress keeps its own, and is reported.
   const runtime =
     includeRuntime && explicitCacheDir === undefined
       ? resolveRuntimeCleanTargets(

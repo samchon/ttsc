@@ -23,6 +23,9 @@ const (
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Path data is not interpolated into cmd syntax or escaped through guessed quoting rules.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the platform precondition and junction purpose following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Required Windows behavior is isolated in the windowsjunction package; fixed cmd arguments and delayed environment expansion preserve path metacharacters as data, while callers select this boundary explicitly.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CombinedOutput waits for the child to exit, and its buffered output is dropped after the error message is built.
+// @evidenceExclude contracts/performance.md#efficient-algorithms One cmd.exe invocation with a constant command; there is no loop.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each junction is a distinct filesystem effect, so nothing is reusable between calls.
 func Create(link, target string) error {
   // mklink is a cmd.exe builtin. Feed a constant command over stdin and use
   // delayed environment expansion so Go never has to quote a command string

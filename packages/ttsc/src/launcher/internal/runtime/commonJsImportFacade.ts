@@ -4,7 +4,7 @@
  * Node evaluates a CommonJS module handed to its ESM loader with source on a
  * path where the module's own `require()` does not reach `module.registerHooks`
  * on every supported release, so a nested `require("./x.js")` backed only by
- * `x.ts` failed there (samchon/ttsc#1281, samchon/ttsc#1517). The facade loads
+ * `x.ts` failed there. The facade loads
  * the module through the CommonJS loader instead, with a `require` from
  * `createRequire`, whose resolution and loading the hooks serve on every
  * release, and gives the importer the namespace Node would have: `default` as
@@ -27,6 +27,7 @@
  * @evidence contracts/performance.md#reuse-equivalent-work The generated facade invokes createRequire so imports and ordinary require share Node's CommonJS evaluation cache; source generation itself remains caller-owned and does not cache mutable name inputs.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Temporary names and source lines end with the call; the returned source and Node's module cache belong to the runtime loader.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Embeds the module URL and filename as JSON strings in generated source; it interprets neither and calls no path API.
  */
 export function commonJsImportFacade(
   url: string,

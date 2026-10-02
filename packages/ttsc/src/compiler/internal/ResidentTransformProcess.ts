@@ -17,7 +17,7 @@ import type { ResidentTransformRequestOptions } from "./ResidentTransformRequest
  *
  * One resident process answers every request from one service instead of
  * spawning a fresh `transform` subprocess per call, so a single process pays
- * the project compile once (samchon/ttsc#255).
+ * the project compile once.
  *
  * The caller owns disposal. Live requests have no deadline; queue population
  * and reply-line size depend on the caller and host, without a fixed cap.

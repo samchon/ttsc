@@ -13,5 +13,8 @@ import type { RuntimeManifest } from "./RuntimeManifest";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The callback describes the host's supported preparation boundary and introduces no fixture branch, foreign mutation or fallback implementation.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the resolved filename, checked output, failure propagation and successful manifest lifetime following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation The argument is a native filesystem filename rather than a URL; the returned manifest carries the owning build's resolved directories instead of assuming a separator or case policy.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export type RuntimeEntryPreparer = (filename: string) => RuntimeManifest;

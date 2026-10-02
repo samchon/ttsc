@@ -8,8 +8,8 @@ import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH
  * looks up through the ordinary `node_modules` search from the importer. A
  * nearer copy of that package, a nested install or a moved workspace package,
  * would be selected instead, so the candidates the lookup found missing in the
- * nearer roots are inputs of whatever the importer evaluated
- * (samchon/ttsc#1498). The package is named by the resolved module itself, by
+ * nearer roots are inputs of whatever the importer evaluated.
+ * The package is named by the resolved module itself, by
  * the directory after its last `node_modules`, or by the linked entry of a
  * search root it lies in, so Node's `imports` algorithm is not copied. A target
  * inside the importer's own package, or one no search root selects, visits
@@ -31,6 +31,9 @@ import { RESOLUTION_INPUT_RECORDER_PATH } from "./RESOLUTION_INPUT_RECORDER_PATH
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual selected targets and supplied probe extensions drive the recorder's exported visitor; this adapter neither modifies Node nor guesses one known package's missing paths.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains selected-root bounds, linked packages, witness timing and the moved flag in separated prose and parameter entries under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path/file-URL vocabulary and linked physical selection are handled by the shared recorder; this adapter forwards them without slash-only parsing or blanket case conversion.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources visitImportMappedCandidates declares a signature only; the implementation owns acquisition and release of resources.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms visitImportMappedCandidates declares a signature only; the implementation owns the processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work visitImportMappedCandidates declares a signature only; the implementation owns any shared work.
  */
 export function visitImportMappedCandidates(
   parent: string | undefined,

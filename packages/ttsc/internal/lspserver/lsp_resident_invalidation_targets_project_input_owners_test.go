@@ -8,6 +8,11 @@ import "testing"
 //  1. Install two resident entries with distinct producer keys.
 //  2. Attribute one external URI to the first producer.
 //  3. Assert only the first resident receives changed/external deltas.
+//
+// @evidence contracts/testing.md#behavioral-verification An external data change reaches only the resident entry whose producer declared the input.
+// @evidence contracts/testing.md#independent-expectations The expected delivery set is the first resident only.
+// @evidence contracts/testing.md#distinguishing-cases Two residents with distinct producer keys separate owner delivery from broadcast.
+// @evidence contracts/testing.md#execution-ownership TestLSPResidentInvalidationTargetsProjectInputOwners is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPResidentInvalidationTargetsProjectInputOwners(t *testing.T) {
   first := NativeLSPPluginEntry{Binary: "first", Name: "@ttsc/first"}
   second := NativeLSPPluginEntry{Binary: "second", Name: "@ttsc/second"}

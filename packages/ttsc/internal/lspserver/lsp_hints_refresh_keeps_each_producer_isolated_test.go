@@ -19,6 +19,11 @@ import (
 //  2. Run a whole refresh generation in which neither sidecar can be executed.
 //  3. Assert both corpora survived, in manifest order, with nothing logged.
 //  4. Let only the first producer answer, and assert the second is untouched.
+//
+// @evidence contracts/testing.md#behavioral-verification A refresh generation in which neither sidecar can run keeps both producers' corpora in manifest order with nothing logged, and when only one answers the other is untouched.
+// @evidence contracts/testing.md#independent-expectations The expected corpora are literal hint lists per producer.
+// @evidence contracts/testing.md#distinguishing-cases All-fail and one-succeeds generations separate per-producer replacement from a shared rebuilt slice.
+// @evidence contracts/testing.md#execution-ownership TestLSPHintsRefreshKeepsEachProducerIsolated is a Go unit test in the lspserver package: it calls the unexported proxy or source operation in-process with substituted seams, unresolvable sidecars and temporary directories, installing no consumer and starting no product host.
 func TestLSPHintsRefreshKeepsEachProducerIsolated(t *testing.T) {
   var log bytes.Buffer
   first := NativeLSPPluginEntry{Binary: "ttsc-no-such-plugin-binary-a", Name: "@ttsc/lint"}

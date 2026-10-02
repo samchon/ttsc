@@ -9,7 +9,7 @@ import crypto from "node:crypto";
  * another host sharing the cache root can have the same id, and a later process
  * given the id of one that was killed would claim the directory a sweep is
  * removing as abandoned (`ProcessOwnedDirectory.sweep`). The nonce keeps every
- * run's directory its own (samchon/ttsc#1579).
+ * run's directory its own.
  *
  * @returns The same key for every call in this process.
  *
@@ -20,6 +20,7 @@ import crypto from "node:crypto";
  * @evidence contracts/performance.md#efficient-algorithms One fixed-size random draw initializes the key; subsequent accesses return the same string in O(1) time and space.
  * @evidence contracts/performance.md#reuse-equivalent-work All preparations in one process share the same run identity; a new process creates a fresh nonce rather than inheriting an old pid's key.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Exactly one small identifier is retained until process exit, while the directory owners separately reclaim the named runs.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Combines process.pid with random bytes into a per-process key; it builds no path and has no platform branch.
  */
 export function runtimeRunKey(): string {
   key ??= `${process.pid}-${crypto.randomBytes(8).toString("hex")}`;

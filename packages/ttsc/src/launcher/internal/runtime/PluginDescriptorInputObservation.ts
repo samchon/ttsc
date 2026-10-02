@@ -13,6 +13,7 @@
  * @evidenceExclude contracts/performance.md#efficient-algorithms The namespace representation groups transitions; individual functions own their algorithm choices.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Cache admission belongs to the envelope consumer rather than this representation.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Functions own acquisition and snapshots; the namespace itself does not independently retain resources.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation A namespace only groups the declarations inside it; each carries its own acknowledgments.
  */
 export namespace PluginDescriptorInputObservation {
   /**
@@ -28,6 +29,7 @@ export namespace PluginDescriptorInputObservation {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Initialization authorizes observation, not reuse of a computation.
    *
    * @evidence contracts/performance.md#bound-retention-and-release-resources Initialization creates no handles and preserves the existing process-owned population rather than silently dropping observations.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation begin computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
    */
   export function begin(): void {
     if (installed) return;
@@ -47,6 +49,7 @@ export namespace PluginDescriptorInputObservation {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Recording observation results does not decide whether descriptor evaluations may share a result.
    *
    * @evidence contracts/performance.md#bound-retention-and-release-resources The evaluator process owns these strings until exit; population and bytes grow with observed resolver edges and have no fixed cap. No descriptor or native handle is retained here.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation record computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
    */
   export function record(records: readonly string[]): void {
     for (const record of records) lines.push(record);
@@ -63,6 +66,7 @@ export namespace PluginDescriptorInputObservation {
    * @evidenceExclude contracts/performance.md#efficient-algorithms A fixed boolean assignment does not own an input-processing algorithm.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation records proof failure; consumers own cache admission.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Invalidating a proof neither acquires nor releases resources and does not own retained-record lifetime.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation invalidate computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
    */
   export function invalidate(): void {
     complete = false;
@@ -80,6 +84,7 @@ export namespace PluginDescriptorInputObservation {
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The snapshot supplies proof to the owning cache policy and does not share evaluator computations itself.
    *
    * @evidence contracts/performance.md#bound-retention-and-release-resources The copied array transfers to the envelope consumer while the original remains process-owned; strings are immutable and no native handles escape.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation snapshot computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
    */
   export function snapshot(): { complete: boolean; lines: string[] } {
     return { complete: installed && complete, lines: [...lines] };

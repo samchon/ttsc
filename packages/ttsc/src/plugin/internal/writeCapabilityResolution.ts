@@ -21,7 +21,7 @@ import { pluginSourceState } from "./source/pluginSourceState";
  * comparing those with the filesystem, so hashing the inputs again here would
  * pair an answer computed from one state with another state, and an input that
  * moved while the descriptors evaluated would bless the stale answer for as
- * long as it held still afterwards (samchon/ttsc#1504). An answer with an input
+ * long as it held still afterwards. An answer with an input
  * the load could not prove is not recorded at all: nothing could prove it later
  * either, and the next resolution walks again.
  *

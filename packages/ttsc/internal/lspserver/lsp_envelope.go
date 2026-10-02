@@ -23,6 +23,10 @@ var ErrInvalidJSONRPC = errors.New("lsp: jsonrpc field must be \"2.0\"")
 // @evidence contracts/common.md#clear-and-simple-design Routing fields are viewed independently of method-specific payload types.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown payloads are not reconstructed from expected answers.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains raw ID ownership and the routing view, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
 type Envelope struct {
   JSONRPC string          `json:"jsonrpc,omitempty"`
   ID      json.RawMessage `json:"id,omitempty"`
@@ -41,6 +45,10 @@ type Envelope struct {
 // @evidence contracts/common.md#clear-and-simple-design Decoding and version validation form one dispatch entry boundary.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing version is explicit compatibility policy; malformed JSON is not repaired.
 // @evidence contracts/common.md#meaningful-documentation Native prose states version tolerance and unknown-field behavior, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The envelope is returned to the caller and nothing is retained.
+// @evidenceExclude contracts/performance.md#efficient-algorithms One json.Unmarshal over the message body, linear in its size.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Decodes each frame once and returns the envelope to the caller.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Decodes JSON-RPC bytes only; it handles no path or file and has no platform branch.
 func ParseEnvelope(body []byte) (Envelope, error) {
   var env Envelope
   if err := json.Unmarshal(body, &env); err != nil {
@@ -59,6 +67,10 @@ func ParseEnvelope(body []byte) (Envelope, error) {
 // @evidence contracts/common.md#clear-and-simple-design Handlers share one field-based request predicate.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Classification does not special-case known method names.
 // @evidence contracts/common.md#meaningful-documentation Native prose states classification premises, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsRequest acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms IsRequest performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsRequest computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation IsRequest computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (e Envelope) IsRequest() bool {
   return len(e.ID) > 0 && e.Method != ""
 }
@@ -69,6 +81,10 @@ func (e Envelope) IsRequest() bool {
 // @evidence contracts/common.md#clear-and-simple-design Classification is independent of notification payload types.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No editor-specific notification identity is substituted.
 // @evidence contracts/common.md#meaningful-documentation Native prose states one-way meaning, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsNotification acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms IsNotification performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsNotification computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation IsNotification computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (e Envelope) IsNotification() bool {
   return len(e.ID) == 0 && e.Method != ""
 }
@@ -80,6 +96,10 @@ func (e Envelope) IsNotification() bool {
 // @evidence contracts/common.md#clear-and-simple-design Correlation shares one response predicate.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The predicate fabricates neither result nor error.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies routing fields, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsResponse acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms IsResponse performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsResponse computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation IsResponse computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (e Envelope) IsResponse() bool {
   return len(e.ID) > 0 && e.Method == ""
 }
@@ -93,6 +113,10 @@ func (e Envelope) IsResponse() bool {
 // @evidence contracts/common.md#clear-and-simple-design Response classification is reused before error inspection.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Failures are not rewritten as successful contributions.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the result/error protocol constraint, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IsErrorResponse acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms IsErrorResponse performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work IsErrorResponse computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation IsErrorResponse computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (e Envelope) IsErrorResponse() bool {
   return e.IsResponse() && len(e.Error) > 0 && !bytes.Equal(bytes.TrimSpace(e.Error), []byte("null"))
 }
@@ -110,6 +134,10 @@ func (e Envelope) IsErrorResponse() bool {
 // @evidence contracts/common.md#clear-and-simple-design Raw cancellation IDs and envelope correlation share one helper.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Large IDs are not rounded to make differently encoded examples match.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain numeric equivalence, string distinction and invalid-ID absence, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IDKey acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms IDKey performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work IDKey computes one result per call, so there is no repeated work to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation IDKey computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func (e Envelope) IDKey() string {
   return idKeyFromRaw(e.ID)
 }
@@ -121,6 +149,10 @@ func (e Envelope) IDKey() string {
 // @evidence contracts/common.md#clear-and-simple-design The compatibility entry exposes the existing normalizer without duplicating parsing.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts This wrapper shares the owning parser rather than compensating for a conflicting implementation.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the compatibility caller, following the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returns a string key and retains nothing.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Delegates to idKeyFromRaw, which decodes one request id.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure function of one raw id with nothing to share.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Derives a map key from raw JSON bytes only; it touches no path or file.
 func IDKeyFromRaw(raw json.RawMessage) string {
   return idKeyFromRaw(raw)
 }

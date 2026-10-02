@@ -30,6 +30,9 @@ import { projectModuleOptions } from "./runtime/projectModuleOptions";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid forwarded arguments retain the compiler's own rejection path; config fallback is provisional classification rather than silently dropping those arguments.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs and parameter comments explain emit-derived decisions and the two failure modes this boundary avoids; result members retain separate native comments.
  * @evidence contracts/portability.md#os-neutral-implementation Native response-file interpretation stays with effective-option resolution; this adapter passes binary identity and argument tokens without shell quoting or guessed filesystem case rules.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returns a small local record; no handle, buffer or cache is retained.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A fixed set of option lookups yields one small record; nothing loops over project files.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Computes one profile per call from its inputs and keeps nothing for later calls.
  */
 export function runtimeEmitProfile(
   project: ITtscParsedProjectConfig,

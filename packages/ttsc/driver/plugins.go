@@ -60,6 +60,9 @@ const TsgoArgsEnv = "TTSC_TSGO_ARGS"
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The declared environment channel avoids adding unsupported flags to third-party hosts.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains empty input and explicit precedence following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation os.Getenv and JSON argv do not depend on shell quoting or native separators.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The parsed slice is returned to the caller and nothing is retained.
+// @evidenceExclude contracts/performance.md#efficient-algorithms One environment read and one JSON.Unmarshal, linear in the payload size.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The payload is parsed afresh on each call and nothing is cached.
 func TsgoArgsFromEnv() ([]string, error) {
   raw := strings.TrimSpace(os.Getenv(TsgoArgsEnv))
   if raw == "" {
@@ -82,6 +85,9 @@ func TsgoArgsFromEnv() ([]string, error) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Declared anchors replace guessed layouts or platform-specific temporary paths.
 // @evidence contracts/common.md#meaningful-documentation Native prose specifies precedence and relative resolution following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Native filepath operations handle absolute, relative, and volume syntax without separator literals.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources PluginConfigBaseDir acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms PluginConfigBaseDir performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work PluginConfigBaseDir computes one result per call, so there is no repeated work to share.
 func PluginConfigBaseDir(cwd, tsconfigPath string) string {
   if dir := strings.TrimSpace(os.Getenv(PluginConfigDirEnv)); dir != "" {
     if !filepath.IsAbs(dir) && cwd != "" {
@@ -106,6 +112,9 @@ func PluginConfigBaseDir(cwd, tsconfigPath string) string {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The schema has no fixture or plugin-package specialization.
 // @evidence contracts/common.md#meaningful-documentation Native field comments and JSON tags explain the boundary following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation The manifest value owns no native path operation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 type PluginEntry struct {
   // Config is the launcher-evaluated configuration passed through to the plugin.
   Config map[string]any `json:"config"`
@@ -124,6 +133,9 @@ type PluginEntry struct {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit reports avoid foreign globals or intercepted arbitrary filesystem calls.
 // @evidence contracts/common.md#meaningful-documentation Field prose and reporting-method contracts explain context and proof following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Native project anchors flow through filepath normalization rather than shell assumptions.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 type PluginContext struct {
   // Cwd anchors relative paths reported by this plugin.
   Cwd string
@@ -161,6 +173,9 @@ type PluginContext struct {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Public API unavailability is distinguished from observed mutation; no blanket hash omission or fabricated input filename bypasses a real conflict.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs define hook scope, sticky lifetime, fresh output versus reuse and the prohibition on masking actual mutation following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This callback reports an observation limitation and performs no native filesystem operation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ReportObservationIncomplete acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ReportObservationIncomplete performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ReportObservationIncomplete computes one result per call, so there is no repeated work to share.
 func (ctx PluginContext) ReportObservationIncomplete() {
   if ctx.reportObservationIncomplete != nil {
     ctx.reportObservationIncomplete()
@@ -178,6 +193,9 @@ func (ctx PluginContext) ReportObservationIncomplete() {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No later reread or invented digest replaces evaluation-time evidence.
 // @evidence contracts/common.md#meaningful-documentation Native prose defines digests, absence, and conflict consequences following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Relative paths use native Join and Clean against cwd without shell interpretation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ReportHostInputHash acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ReportHostInputHash performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ReportHostInputHash computes one result per call, so there is no repeated work to share.
 func (ctx PluginContext) ReportHostInputHash(file string, hash *string) {
   if ctx.reportHostInputHash == nil || strings.TrimSpace(file) == "" {
     return
@@ -208,6 +226,9 @@ func (ctx PluginContext) ReportHostInputHash(file string, hash *string) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Neither a later realpath read nor the lexical filename substitutes for missing proof.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains absolute identity and retarget safety following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Native filepath operations preserve observed symlink or junction identities.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ReportHostInputRealpath acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ReportHostInputRealpath performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ReportHostInputRealpath computes one result per call, so there is no repeated work to share.
 func (ctx PluginContext) ReportHostInputRealpath(file string, realpath *string) {
   if ctx.reportHostInputRealpath == nil || strings.TrimSpace(file) == "" {
     return
@@ -253,6 +274,9 @@ func isLowerSHA256(value string) bool {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Actual consumption reports replace guessed config names and fabricated hashes.
 // @evidence contracts/common.md#meaningful-documentation Native prose separates input declaration from reevaluation following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Native Join and Clean resolve against cwd without separator literals.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ReportHostInput acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ReportHostInput performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ReportHostInput computes one result per call, so there is no repeated work to share.
 func (ctx PluginContext) ReportHostInput(file string) {
   if ctx.reportHostInput == nil || strings.TrimSpace(file) == "" {
     return
@@ -283,6 +307,9 @@ func (ctx PluginContext) ReportHostInput(file string) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts A partial set never implicitly becomes complete.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains widening, completeness, and failure following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Shared native cwd resolution and slash conversion preserve filename case.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ReportFileDependency acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ReportFileDependency performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ReportFileDependency computes one result per call, so there is no repeated work to share.
 func (ctx PluginContext) ReportFileDependency(file string, dependency string) {
   if ctx.reportFileDependency == nil {
     return
@@ -316,6 +343,9 @@ func (ctx PluginContext) ReportFileDependency(file string, dependency string) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Empty lists or successful transforms do not imply completeness.
 // @evidence contracts/common.md#meaningful-documentation Native prose defines complete inputs and all contributors following the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Shared native-path conversion replaces platform-specific prefix slicing.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ReportFileDependenciesComplete acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ReportFileDependenciesComplete performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ReportFileDependenciesComplete computes one result per call, so there is no repeated work to share.
 func (ctx PluginContext) ReportFileDependenciesComplete(file string) {
   if ctx.reportFileComplete == nil {
     return
@@ -342,6 +372,9 @@ func (ctx PluginContext) ReportFileDependenciesComplete(file string) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Contributor declarations replace completeness inferred from syntax or test success.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the declaration and preamble-hook applicability following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Reporting this boolean policy performs no native operation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ReportDependenciesComplete acquires no handle, buffer or cache and retains nothing after it returns.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ReportDependenciesComplete performs a fixed number of steps with no loop or recursion over caller data.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ReportDependenciesComplete computes one result per call, so there is no repeated work to share.
 func (ctx PluginContext) ReportDependenciesComplete() {
   if ctx.reportEveryFileComplete == nil {
     return
@@ -378,6 +411,9 @@ func (ctx PluginContext) transformKey(file string) (string, bool) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit interfaces replace package-name dispatch or parser monkeypatching.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the parse boundary following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Concrete implementations own native configuration access; the interface only defines source production.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 type SourcePreamblePlugin interface {
   // SourcePreamble produces source text for this plugin's preparse contribution.
   //
@@ -386,6 +422,9 @@ type SourcePreamblePlugin interface {
   // @evidence contracts/common.md#prohibited-implementation-shortcuts The supported hook avoids parser monkeypatches and package-name special cases.
   // @evidence contracts/common.md#meaningful-documentation Native prose identifies plugin-owned preparse text following the documentation skill.
   // @evidenceExclude contracts/portability.md#os-neutral-implementation The capability declaration owns no native operation; concrete configuration readers own their platform boundary.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources SourcePreamble declares a signature only; the implementation owns acquisition and release of resources.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms SourcePreamble declares a signature only; the implementation owns the processing strategy.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work SourcePreamble declares a signature only; the implementation owns any shared work.
   SourcePreamble(PluginContext) (string, error)
 }
 
@@ -396,6 +435,9 @@ type SourcePreamblePlugin interface {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The supported hook replaces globally altered compiler packages.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the mutation boundary following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation The capability declaration performs no native operation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 type ProgramPlugin interface {
   // ApplyProgram mutates this generation before source output or native emit.
   //
@@ -404,6 +446,9 @@ type ProgramPlugin interface {
   // @evidence contracts/common.md#prohibited-implementation-shortcuts Mutation uses the declared plugin seam rather than global compiler package replacement.
   // @evidence contracts/common.md#meaningful-documentation Native prose specifies generation and phase following the documentation skill.
   // @evidenceExclude contracts/portability.md#os-neutral-implementation This method declaration owns no native filesystem or process operation.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ApplyProgram declares a signature only; the implementation owns acquisition and release of resources.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms ApplyProgram declares a signature only; the implementation owns the processing strategy.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work ApplyProgram declares a signature only; the implementation owns any shared work.
   ApplyProgram(*Program, PluginContext) error
 }
 
@@ -424,6 +469,9 @@ type ProgramPlugin interface {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Supported factory names and original links replace hardcoded temporary identifiers.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains factory identity, nil behavior, and binding reuse following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation This AST capability owns no native process or path operation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+// @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
 type EmitTransformPlugin interface {
   // EmitTransform produces an optional callback for the native per-file emit chain.
   //
@@ -432,6 +480,9 @@ type EmitTransformPlugin interface {
   // @evidence contracts/common.md#prohibited-implementation-shortcuts The interface returns supported AST transformations instead of guessed downlevel import text.
   // @evidence contracts/common.md#meaningful-documentation Native prose identifies optional callback production following the documentation skill.
   // @evidenceExclude contracts/portability.md#os-neutral-implementation The callback declaration defines AST work without a native path or process operation.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources EmitTransform declares a signature only; the implementation owns acquisition and release of resources.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms EmitTransform declares a signature only; the implementation owns the processing strategy.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work EmitTransform declares a signature only; the implementation owns any shared work.
   EmitTransform(PluginContext) (PluginTransform, error)
 }
 
@@ -707,6 +758,9 @@ var pluginRegistry []any
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Registry entries come from linked init calls rather than guessed names or test fixtures.
 // @evidence contracts/common.md#meaningful-documentation Native prose states init use and order-based pairing following the documentation skill.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation In-process insertion performs no native path or process operation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The registry keeps every registered plugin for the process lifetime; the set is bounded by the plugins a host links.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Appends one value to the registry slice in amortized constant time.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Registration performs no per-call computation that a later call could reuse.
 func RegisterPlugin(plugin any) {
   if plugin == nil {
     panic("driver: RegisterPlugin called with nil plugin")

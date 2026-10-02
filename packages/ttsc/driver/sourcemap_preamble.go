@@ -53,6 +53,7 @@ const inlineSourceMapMarker = "//# sourceMappingURL=data:application/json;base64
 // @evidenceExclude contracts/performance.md#efficient-algorithms The dispatch owns no segment-processing strategy; the delegated map correction performs that computation.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each emitted artifact is corrected once and the operation owns no shared cache.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Temporary decoding buffers are local and no resident collection or resource is retained.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation AdjustEmittedSourceMap computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func AdjustEmittedSourceMap(fileName, text string, dropLines int) (string, bool) {
   if dropLines <= 0 {
     return text, false
@@ -141,6 +142,7 @@ func adjustInlineSourceMap(text string, dropLines int) (string, bool) {
 // @evidence contracts/performance.md#efficient-algorithms Mappings are decoded and re-encoded in one segment pass; source masks and optional embedded content are processed once per map.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work A map correction owns no cross-request cache or shared computation coordinator.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Decoded JSON and segment buffers are invocation-local without a retained cache or external handle.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation AdjustSourceMapForPreamble computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
 func AdjustSourceMapForPreamble(mapText string, dropLines int) (string, bool) {
   if dropLines <= 0 || strings.TrimSpace(mapText) == "" {
     return mapText, false

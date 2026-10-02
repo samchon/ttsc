@@ -12,6 +12,9 @@ import type { TtscBuildOptions } from "../../../structures/internal/TtscBuildOpt
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Internal controls express supported runtime/watch requirements; source-map and inferred-root exceptions are documented lane policies, not test-specific escape flags.
  * @evidence contracts/common.md#meaningful-documentation Native member paragraphs explain ownership, optional-state effects and the rootDir premise, with blank lines separating documented properties.
  * @evidence contracts/portability.md#os-neutral-implementation The type carries native sandbox/project selection and filesystem input callbacks without embedding slash, drive or case assumptions; process/path adapters interpret those values.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export type RunBuildOptions = TtscBuildOptions & {
   /**
@@ -54,7 +57,7 @@ export type RunBuildOptions = TtscBuildOptions & {
    * `outDir` is in play, so injecting one turns a project that declares no
    * output at all — the `noEmit` check-only shape `tsgo`, `ttsc`, and `ttsc
    * --emit` all accept — into one that must configure the layout of output the
-   * user never asked for and never sees (issue #1172).
+   * user never asked for and never sees.
    *
    * The pinned value is the one tsgo itself infers: with a config file in play
    * its common source directory is that file's directory, never the computed
@@ -92,7 +95,7 @@ export type RunBuildOptions = TtscBuildOptions & {
   /**
    * Emit an external source map from the direct tsgo build lane even when the
    * project configures none. Set by the ttsx runtime builds so a served emit
-   * carries a map to inline under the source URL (issue #353). Applied only to
+   * carries a map to inline under the source URL. Applied only to
    * the plain tsgo emit — never forwarded to a native plugin host, whose own
    * emit honours the project's `sourceMap` setting.
    */
