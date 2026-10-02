@@ -4,9 +4,8 @@
     {
       "name": "JavaScript process and packed host experiments",
       "type": "javascript",
-      "root": "../..",
       "files": [
-        "experimental/test-unplugin/src/contracts/**/test_*.mjs"
+        "src/contracts/**/test_*.mjs"
       ],
       "symbol": "function",
       "reference": {
