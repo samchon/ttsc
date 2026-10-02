@@ -28,6 +28,8 @@ export namespace GraphProcessTrace {
  * callers own process behavior. Node's absolute-path and append operations use
  * the coordinator's native path spelling and process.pid identifies the writer.
  * No fixture oracle, foreign mutation or test-helper dependency is involved.
+ * Each event carries the writer's actual process.version; that runtime string
+ * alone does not authenticate executable bytes or the loaded native image.
  *
  * Each event serializes its observed fields once, so temporary text follows
  * event size. Synchronous IO is measurement overhead, not a claimed speedup.
@@ -47,7 +49,8 @@ function begin() {
     try {
       const line = JSON.stringify({ ...fields, schema: 1, event,
         writerPid: process.pid, instance: writerInstance, sequence: ++sequence,
-        at: new Date().toISOString(), invocation }) + "\n";
+        at: new Date().toISOString(), invocation,
+        data: { ...(fields.data as Record<string, unknown> | undefined), writerRuntime: process.version } }) + "\n";
       const bytes = Buffer.byteLength(line);
       if (bytes > EVENT_LIMIT || written + bytes > WRITER_LIMIT)
         throw new Error("trace writer byte budget exceeded");
