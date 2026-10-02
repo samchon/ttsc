@@ -2,7 +2,7 @@ import type { IArtifactDirectory } from "./IArtifactDirectory";
 import type { IArtifactInputs } from "./IArtifactInputs";
 import type { IPublishedArtifacts } from "./IPublishedArtifacts";
 
-import { spawnSync } from "node:child_process";
+import { GraphProcessTrace } from "../internal/GraphProcessTrace";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -131,7 +131,7 @@ function runVerb(
   verb: string,
   options: { cwd: string; tsconfig: string },
 ): string | null {
-  const result = spawnSync(
+  const result = GraphProcessTrace.spawnSync(
     plugin.binary,
     [
       verb,

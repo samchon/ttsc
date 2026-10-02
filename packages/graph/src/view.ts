@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from "node:child_process";
+import { GraphProcessTrace } from "./internal/GraphProcessTrace";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
@@ -58,7 +58,7 @@ export function runView(argv: readonly string[]): number | void {
       cwd: opts.cwd,
       tsconfig: opts.tsconfig,
     });
-    dump = spawnSync(
+    dump = GraphProcessTrace.spawnSync(
       binary,
       [
         "dump",
@@ -168,7 +168,7 @@ export function runView(argv: readonly string[]): number | void {
 function openBrowser(url: string): void {
   try {
     if (process.platform === "win32")
-      spawn("cmd", ["/c", "start", "", url], {
+      GraphProcessTrace.spawn("cmd", ["/c", "start", "", url], {
         stdio: "ignore",
         detached: true,
         windowsHide: true,
@@ -176,11 +176,11 @@ function openBrowser(url: string): void {
         .on("error", () => undefined)
         .unref();
     else if (process.platform === "darwin")
-      spawn("open", [url], { stdio: "ignore", detached: true })
+      GraphProcessTrace.spawn("open", [url], { stdio: "ignore", detached: true })
         .on("error", () => undefined)
         .unref();
     else
-      spawn("xdg-open", [url], { stdio: "ignore", detached: true })
+      GraphProcessTrace.spawn("xdg-open", [url], { stdio: "ignore", detached: true })
         .on("error", () => undefined)
         .unref();
   } catch {

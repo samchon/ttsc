@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { GraphProcessTrace } from "../internal/GraphProcessTrace";
 import readline from "node:readline";
 
 const TERMINATION_GRACE_MS = 1_000;
@@ -153,7 +153,7 @@ export namespace TtscGraphLinePeer {
     events: Events,
     options: { cwd?: string; stderr: "capture" | "drain" },
   ): Connection {
-    const child = spawn(binary, args, {
+    const child = GraphProcessTrace.spawn(binary, args, {
       ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
       stdio: ["pipe", "pipe", "pipe"], windowsHide: true,
     });

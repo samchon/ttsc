@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { GraphProcessTrace } from "../internal/GraphProcessTrace";
 import typia from "typia";
 
 import { captureProcessOutput, ensureExecutable } from "../nativeExecutable";
@@ -82,7 +82,7 @@ export function loadGraph(
     // into a relation rather than leaving it a token. A project with no lint
     // install, or none that publishes, contributes no file and no claim.
     const artifacts = publishArtifacts({ cwd, tsconfig });
-    result = spawnSync(
+    result = GraphProcessTrace.spawnSync(
       binary,
       [
         "dump",

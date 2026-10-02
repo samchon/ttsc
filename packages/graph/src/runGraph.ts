@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { GraphProcessTrace } from "./internal/GraphProcessTrace";
 
 import { TtscGraphLauncherArguments } from "./TtscGraphLauncherArguments";
 import { publishArtifacts } from "./model/publishedArtifacts";
@@ -75,7 +75,7 @@ function runDump(argv: readonly string[]): number {
   const published = artifactsSpecified
     ? null
     : publishArtifacts({ cwd, tsconfig });
-  const result = spawnSync(
+  const result = GraphProcessTrace.spawnSync(
     binary,
     TtscGraphLauncherArguments.dumpVector(argv, published?.file ?? null),
     {
