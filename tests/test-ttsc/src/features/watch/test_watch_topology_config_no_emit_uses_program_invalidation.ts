@@ -24,8 +24,8 @@ const WATCH_EVENT_DEADLINE_MS = 30_000;
  *    subscriptions.
  * 3. Change the declared input and require the original project transition.
  *
- * @evidence contracts/testing.md#behavioral-verification This case drives the real WatchTopology: tsconfig noEmit gets the same resident Program fast path as --noEmit. An imported resolveJsonModule member declared as a project input is removed under configured noEmit; the emitted change must invalidate the Program without an execution reload.
- * @evidence contracts/testing.md#independent-expectations Authored tsconfig options, source imports and declared input paths establish which files are compiler inputs, products or reload dependencies. The literal expectations are a project-kind change carrying the invalidate flag and a zero count of execution-reload topology changes; no quiet negative twin (a content-only JSON edit staying warm) is run here, which owns project_input_membership_classifies_program_topology and resident_check_watch_change_forwards_program_invalidation.
+ * @evidence contracts/testing.md#behavioral-verification Actual WatchTopology reports the removed, supplied resolveJsonModule compiler member as one project change with Program invalidation under configured noEmit, without a topology-reload callback. A resident Program or native compiler is not executed.
+ * @evidence contracts/testing.md#independent-expectations Authored tsconfig noEmit/resolveJsonModule options, explicit compiler-membership arrays and declared JSON input establish this source-unit boundary. The literal expectations are one project-kind change carrying invalidate and the removed JSON path, and zero topology changes; the source import is fixture data rather than evidence of native membership discovery. Content-only and CLI-option controls belong to separate owning units.
  * @evidence contracts/testing.md#distinguishing-cases An imported resolveJsonModule member declared as a project input is removed under configured noEmit; the emitted change must invalidate the Program without an execution reload.
  * @evidence contracts/testing.md#execution-ownership Actual source WatchTopology runs with authored absolute compiler members and explicitly recorded source directory operations. No compiler child or native observer executes; retained E2E owns population and physical delivery. Original event, membership and cleanup assertions remain.
  */
@@ -97,6 +97,10 @@ export const test_watch_topology_config_no_emit_uses_program_invalidation =
           (change) => change.kind === "project" && change.invalidate === true,
         ),
       );
+      await Promise.resolve();
+      assert.deepEqual(changes, [
+        { kind: "project", invalidate: true, path: json },
+      ]);
       assert.equal(
         topologyChanges,
         0,
@@ -105,6 +109,7 @@ export const test_watch_topology_config_no_emit_uses_program_invalidation =
     } finally {
       topology.close();
     }
+    assert.ok(observed.watchers.every((watcher) => !watcher.active));
   };
 
 async function waitFor(predicate: () => boolean): Promise<void> {
