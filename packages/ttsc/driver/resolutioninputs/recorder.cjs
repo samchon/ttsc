@@ -119,7 +119,7 @@ function asFile(value) {
   }
 }
 
-/** The physical spelling of an absolute path or file URL, or `undefined`. */
+/** Realpath or normalized lexical fallback for an absolute path/file URL. */
 function selectedFile(value) {
   const file = asFile(value);
   if (file === undefined) return undefined;
