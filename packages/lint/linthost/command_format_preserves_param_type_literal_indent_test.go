@@ -6,19 +6,18 @@ import (
   "testing"
 )
 
-// TestCommandFormatPreservesParamTypeLiteralIndent reproduces a regression
-// where the nested type literal of a method-signature parameter is
-// re-indented one level too shallow. Prettier indents the members of
-// `input: Payload & { ... }` one level deeper than the `input:` line and
-// closes the brace at the `input:` column; the format pipeline must keep
-// this already-correct layout byte-identical (idempotent).
+// TestCommandFormatPreservesParamTypeLiteralIndent preserves a method's
+// parameter type whose members sit one level beyond the `input:` line and
+// whose brace closes at that line's column. The same file includes a flat
+// parameter literal. Format must preserve both layouts and every parameter,
+// optional member type and method return type byte-for-byte.
 //
 //  1. Seed an interface whose method parameter is `Payload & { ... }` with a broken literal, plus a flat parameter literal.
 //  2. Run `ttsc format` with an empty format block.
 //  3. Require exit 0 and the file byte-identical.
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on an interface whose method parameter `input: Payload & { ... }` has its literal members one level deeper than the `input:` line and its brace closing at that column, plus a flat `count(arg: { where: Where })`, and requires exit 0 and the file byte-identical.
-// @evidence contracts/testing.md#independent-expectations The source is an authored literal in Prettier's layout and serves as its own expected output.
+// @evidence contracts/testing.md#independent-expectations The complete authored literal independently preserves aliases, both parameter layouts, optional member types including the OrderBy union/array, and method return types; no independent Prettier invocation establishes the expected bytes.
 // @evidence contracts/testing.md#distinguishing-cases One fixed-point case with a broken parameter literal and a flat one in the same file; a formatter that re-indented the broken literal to block depth would fail. No mis-indented input is repaired here.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatPreservesParamTypeLiteralIndent(t *testing.T) {
