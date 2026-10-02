@@ -16,7 +16,7 @@ import type { ResidentCheckTelemetry } from "./ResidentCheckTelemetry";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
  * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
+ * @evidence contracts/portability.md#os-neutral-implementation The inherited build-result fields retain their native diagnostic/output/input path conventions; resident telemetry adds numeric producer identity and activity without converting those paths or imposing a platform-specific PID spelling.
  */
 export type ResidentCheckResult = TtscBuildResult & {
   /** How the sidecar served this cycle. */
