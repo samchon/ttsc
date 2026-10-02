@@ -21,7 +21,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on `var legacy = 1` and an unterminated call with format.semi and the no-var lint rule both enabled, and asserts exit 0, empty output and the complete file with semicolons added and `var` kept.
 // @evidence contracts/testing.md#independent-expectations The expected `var legacy = 1;\nJSON.stringify(legacy);\n` is an authored literal: semi applies and the lint rule must not rewrite under format.
-// @evidence contracts/testing.md#distinguishing-cases Distinguishes format-class edits (applied) from lint-class edits (withheld) in one run; a format command that also applied no-var would produce `let` and fail. Only the semi format rule is exercised.
+// @evidence contracts/testing.md#distinguishing-cases Distinguishes format-class edits (applied) from lint-class edits (withheld) in one run; a format command that also applied no-var would produce `let` and fail. The owned output difference is semicolon insertion; the format block expands other formatter options, so this is not isolated semi-only dispatch.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand over a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatAppliesFormatRuleEdits(t *testing.T) {
   root := seedLintProject(t, "var legacy = 1\nJSON.stringify(legacy)\n")
