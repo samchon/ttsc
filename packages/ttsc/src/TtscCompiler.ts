@@ -138,18 +138,24 @@ export class TtscCompiler {
    * equals or contains the project, or names a filesystem root, is rejected
    * before any directory is removed.
    *
+   * Default runtime selection uses the runtime-root lock and conservative owner
+   * records. An explicit whole-cache selector is not filtered by runtime owner
+   * liveness. Root discovery and metadata checks are sequential observations,
+   * not a namespace snapshot: selected roots/physical parents must remain stable
+   * while the operation uses its lock and deletion plan.
+   *
    * @returns Cache directories that were removed.
    *
    * @evidence contracts/common.md#principled-implementation Explicit and default ownership select different cache sets, and every candidate is validated before deletion; physical overlap preserves caller GOCACHE while roots and project-containing candidates fail closed.
    * @evidence contracts/common.md#clear-and-simple-design This public operation selects the project and optional runtime lock; cleanResolved owns the complete candidate plan and the shared cleanup helper owns deletion safety across API and CLI paths.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Cache ownership follows declared selectors and actual physical identities, not fixed expected directories; legacy locations are documented compatibility cleanup, and live runtime owners are retained rather than bypassed.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Cache ownership follows declared selectors and observed physical identities, not fixture-specific directories. Default runtime selection preserves live/unknown ownership; an explicit whole-cache selector has its documented separate deletion meaning.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs specify explicit/default ownership, external caller cache preservation, runtime liveness and validation-before-deletion so callers can assess destructive effects.
    * @evidence contracts/portability.md#os-neutral-implementation Native resolution and shared identity handle aliases and volume roots; canonical environment-name lookup reads caller GOCACHE on Windows, and unavailable case measurement does not assert case-variant identity.
-   * @evidence contracts/performance.md#efficient-algorithms Candidate discovery and physical validation run once before directory removal; runtime scanning and deletion scale with selected cache entries/artifact bytes rather than rebuilding plugin outputs to decide cleanup.
+   * @evidence contracts/performance.md#efficient-algorithms Default runtime existence, candidate discovery and optional runtime planning can repeat delegated workspace/root observations; their ancestor/manifest/layout work is not constant projection. Complete-set identity/protection validation then precedes removal. Runtime owner scans, lock attempts and recursive deletion add their path/record/entry costs, without rebuilding plugin outputs to decide cleanup.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Cleanup and runtime liveness are mutable deletion effects; cached deletion plans cannot authorize a later filesystem generation.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Runtime cleanup holds the directory lock through candidate resolution and deletion, then releases through its owner; all safety checks precede the first removal, while partial native rm failures remain observable rather than rolled back.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The default runtime-plan branch holds its selected root's lock through resolution/deletion and delegates finally release, including the lock owner's unbounded peer-handle retirement limitation. Stable root discovery and namespace identity are required across sequential observations; the explicit whole-cache branch is not runtime-liveness filtered. Partial native rm failures are observable, not rolled back, and no storage ceiling is established.
    */
   public clean(): string[] {
     const projectRoot = this.resolveCleanProjectRoot();
@@ -267,7 +273,7 @@ export class TtscCompiler {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Captured output never substitutes for a successful status or absence of error diagnostics; real host exceptions are exposed rather than patched into expected results.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain in-memory output ownership, plugin temporary output and the three result states, with a separate acknowledgment block.
    * @evidence contracts/portability.md#os-neutral-implementation Native compiler and plugin owners receive explicit context path/environment inputs; their supported spawning and temporary-output boundaries isolate platform representation rather than shell concatenation here.
-   * @evidence contracts/performance.md#efficient-algorithms One compile pipeline runs and its existing output/diagnostics are adapted once; result adaptation costs emitted payload and diagnostic count without another project traversal.
+   * @evidence contracts/performance.md#efficient-algorithms One compile pipeline pays delegated source/native/output-capture costs. This adapter retains the existing output map, checks diagnostic severity and may format a process fallback diagnostic; context copies and diagnostic/stream text add their own costs, without a second project traversal just to form the envelope.
    * @evidence contracts/performance.md#reuse-equivalent-work Immutable plugin serialization and downstream validated source/descriptor caches are reused, while project compilation is repeated because source and filesystem inputs can change between calls.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The synchronous pipeline owns child captures and temporary output cleanup; returned output bytes and diagnostics transfer to the caller, and this method retains no historical results.
    */
@@ -298,7 +304,7 @@ export class TtscCompiler {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No emitted JavaScript is mislabeled as TypeScript and no consumer-specific output substitutes for native transformation; supported plugin/no-plugin lanes preserve actual diagnostics.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish source transformation from emit and describe plugin JSON, no-plugin behavior and the result states, visibly separate from tags.
    * @evidence contracts/portability.md#os-neutral-implementation Native path and environment inputs remain context data passed to the transform owner; this adapter adds no platform shell or filename convention.
-   * @evidence contracts/performance.md#efficient-algorithms One transformation is performed and its existing text map/diagnostics are adapted once, without a second compiler pass to shape the result.
+   * @evidence contracts/performance.md#efficient-algorithms One transform pays delegated source/native/capture costs. The envelope retains existing text/advisory maps and examines diagnostic severity or process fallback text; context/payload work remains with its actual owners, without a second compiler pass to shape the result.
    * @evidence contracts/performance.md#reuse-equivalent-work Constructor plugin payload and validated downstream compilation artifacts are reusable; transformed source results are not retained across mutable project inputs without proof.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous native captures and temporary project outputs belong to the transform owner; returned source text belongs to the caller and the compiler instance stores no result history.
    */
