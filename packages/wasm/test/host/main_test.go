@@ -46,10 +46,10 @@ const suiteBudget = 120 * time.Second
 // the time it mattered. On a healthy run the process exits in under a second
 // and the pending timer is simply discarded with it.
 //
-// @evidence contracts/common.md#principled-implementation Arming the guard before m.Run keeps the suite's own exit path separate from the cases, and the guard is never stopped because the stall it reports happens after the last case.
-// @evidence contracts/common.md#clear-and-simple-design TestMain owns only the teardown guard and the process exit status; the cases and the stall reading helpers keep their own responsibilities.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts The guard dumps every goroutine and node's pending work through a direct synchronous write and then exits, instead of replacing any runtime function or relying on the stalled completion event.
-// @evidence contracts/common.md#meaningful-documentation The documentation records the observed stall, why no in-process recovery exists and why the guard outlives the tests; helper comments explain each reading separately.
+// @evidenceExclude contracts/testing.md#behavioral-verification TestMain asserts no product behavior; it arms the teardown guard and returns the status of m.Run, and every case owns its own assertions.
+// @evidenceExclude contracts/testing.md#independent-expectations There is no expected product value here; the only literals are the suite budget and the guard's exit status 1.
+// @evidenceExclude contracts/testing.md#distinguishing-cases The entry has no input matrix; the healthy exit and the stall guard are one process lifecycle, not decision cases.
+// @evidence contracts/testing.md#execution-ownership TestMain is the discoverable entry of the host suite process: it starts the guard before m.Run and never stops it, because the stall it reports happens after the last case, and it leaves the case population to the Test functions of the package.
 func TestMain(m *testing.M) {
   time.AfterFunc(suiteBudget, reportStallAndExit)
   os.Exit(m.Run())

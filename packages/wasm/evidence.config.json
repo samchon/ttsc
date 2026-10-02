@@ -4,7 +4,7 @@
     {
       "name": "TypeScript production declarations",
       "type": "typescript",
-      "files": ["src/**/*.ts", "!src/bootTtsc.ts", "!src/createMemFS.ts", "!src/index.ts"],
+      "files": ["src/**/*.ts", "!src/index.ts", "!src/bootTtsc.ts", "!src/createMemFS.ts"],
       "symbol": ["type", "function"],
       "reference": {
         "type": "markdown",
@@ -15,7 +15,7 @@
       }
     },
     {
-      "name": "TypeScript boot state and MemFS resources",
+      "name": "TypeScript retained-resource functions (bootTtsc.ts, createMemFS.ts)",
       "type": "typescript",
       "files": ["src/bootTtsc.ts", "src/createMemFS.ts"],
       "symbol": ["type", "function"],
@@ -30,7 +30,7 @@
     {
       "name": "Go production declarations",
       "type": "go",
-      "files": ["cmd/**/*.go", "host/**/*.go", "!host/api.go", "!host/host.go", "!host/invoke.go", "!**/*_test.go"],
+      "files": ["cmd/**/*.go", "host/**/*.go", "!host/api.go", "!host/host.go", "!host/invoke.go"],
       "symbol": ["type", "function"],
       "reference": {
         "type": "markdown",
@@ -41,7 +41,7 @@
       }
     },
     {
-      "name": "Go project path projection",
+      "name": "Go project-path functions (host/api.go)",
       "type": "go",
       "files": ["host/api.go"],
       "symbol": ["type", "function"],
@@ -54,7 +54,7 @@
       }
     },
     {
-      "name": "Go host registration and plugin invocation resources",
+      "name": "Go retained-resource functions (host/host.go, host/invoke.go)",
       "type": "go",
       "files": ["host/host.go", "host/invoke.go"],
       "symbol": ["type", "function"],
@@ -69,25 +69,12 @@
     {
       "name": "Go host tests",
       "type": "go",
-      "files": ["test/host/**/*_test.go", "!test/host/*_harness_test.go"],
+      "files": ["test/host/**/*_test.go"],
       "symbol": "function",
       "reference": {
         "type": "markdown",
         "root": "../../.agents/skills",
         "files": ["contracts/testing.md"],
-        "symbol": "h2",
-        "checklist": true
-      }
-    },
-    {
-      "name": "Go host test harness",
-      "type": "go",
-      "files": ["test/host/*_harness_test.go"],
-      "symbol": ["type", "function"],
-      "reference": {
-        "type": "markdown",
-        "root": "../../.agents/skills",
-        "files": ["contracts/common.md"],
         "symbol": "h2",
         "checklist": true
       }
