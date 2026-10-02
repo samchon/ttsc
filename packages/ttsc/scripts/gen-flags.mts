@@ -1,12 +1,12 @@
 // CLI flag codegen.
 //
-// Reads `src/flags/FLAG_SCHEMA.ts` and writes the layer-specific artifacts that
-// were previously hand-maintained:
+// Reads `src/flags/FLAG_SCHEMA.ts` and writes the layer-specific artifacts
+// derived from it:
 //
 //   * `cmd/ttsc/flags_gen.go`            — host allow-list (cmd/ttsc + utility)
 //   * `../lint/linthost/flags_gen.go`    — lint allow-list (linthost subcommands)
 //   * `../../website/src/content/docs/ttsc/flags.mdx` — docs reference table
-//   * `src/flags/COMPILER_*.ts` ? four single-export native grammar tables
+//   * `src/flags/COMPILER_*.ts` — four single-export native grammar tables
 //
 // The schema owns launcher allow-lists and documentation. Pinned native Go
 // declarations own compiler kinds, operand grammar, name folds and enum whitespace.
@@ -120,8 +120,8 @@ function renderCompilerOptionKinds(
 }
 
 /**
- * Render a Go file declaring the named string→bool map. The shape is the same
- * the legacy `filterHostArgs` / `filterKnownFlags` literal maps used.
+ * Render a Go file declaring the named string→bool map that the Go layers'
+ * argument filters consult.
  */
 function renderGoMap(
   pkg: string,
@@ -177,10 +177,9 @@ function renderDocsTable(schema: readonly FlagSpec[]): string {
     })
     .join("\n");
 
-  // Single MDX comment block so it parses cleanly under MDX2 / Nextra.
-  // The line-per-line `{/* … */}` rewrite the previous version did
-  // produced four openers with one closer and tripped strict MDX
-  // linters even though Nextra renders it tolerantly.
+  // Single MDX comment block so it parses cleanly under MDX2 / Nextra; a
+  // line-per-line `{/* … */}` rewrite would produce several openers with one
+  // closer and trip strict MDX linters.
   return `{/*
 ${HEADER.trimEnd()
   .split("\n")

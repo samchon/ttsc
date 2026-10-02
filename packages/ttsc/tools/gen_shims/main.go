@@ -13,8 +13,8 @@
 //  cd packages/ttsc
 //  go run -modfile=tools/gen_shims/go.mod ./tools/gen_shims/main.go
 //
-// Each shim directory (`packages/ttsc/shim/<name>`) must contain an
-// `extra-shim.json` file; the generator writes its output to
+// Each shim directory (`packages/ttsc/shim/<name>`) may contain an
+// `extra-shim.json` file (an absent file means no extras); the generator writes its output to
 // `packages/ttsc/shim/<name>/shim.go` or a configured private support file.
 package main
 
