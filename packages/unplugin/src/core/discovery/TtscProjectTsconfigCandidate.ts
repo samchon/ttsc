@@ -8,7 +8,6 @@
  * @evidence contracts/common.md#clear-and-simple-design
  *   Two readonly members carry one selection observation together.
  *
- *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The verdict is captured by the walk, not filled from an expected selection.
  *
@@ -17,16 +16,17 @@
  *   predicate; documented members and tags are visibly separated.
  * @evidence contracts/portability.md#os-neutral-implementation
  *   The file member carries an absolute native spelling; fileExists carries
- *   a stat-time regular-file fact, preserving spelling and kind as distinct data.
+ *   a proven regular-file result. False can mean a different kind or a failed
+ *   stat and does not prove absence; spelling stays separate from authority.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   TtscProjectTsconfigCandidate only declares a shape; it has no computation
- *   at runtime.
+ *   The ancestor walker owns stat/path processing; this pair specifies the
+ *   retained result without choosing a search or metadata algorithm.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   TtscProjectTsconfigCandidate only declares a shape; it has no work to
- *   reuse at runtime.
+ *   Discovery and downstream routing own observation timing/reproof; the pair
+ *   grants no validity for a later native state.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   TtscProjectTsconfigCandidate only declares a shape; it has no handle or
- *   retained state at runtime.
+ *   The containing discovery result/caller owns retained candidate/path storage;
+ *   this pair specifies no acquired descriptor or independent release operation.
  */
 export interface TtscProjectTsconfigCandidate {
   /** Absolute `tsconfig.json` spelling the walk probed. */

@@ -33,9 +33,10 @@ import { canonicalProjectPath } from "./canonicalProjectPath";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains the cycle guard and absence consequence, giving the
  *   reason for the undefined result without claiming successful enumeration.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Available identity pays supplied realpath component/link resolution, native
+ *   selected-grammar path resolution and volume-root formatting/string work.
+ *   Absent capability returns immediately; no subtree or content is enumerated.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources

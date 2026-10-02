@@ -30,8 +30,10 @@ import type { TtscProjectTsconfigCandidate } from "./TtscProjectTsconfigCandidat
  *   JSDoc explains optional recording, failure handling and root termination;
  *   separate paragraphs give the purpose and the nonobvious boundary.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Walks the parent chain once with one stat per level and stops at the
- *   filesystem root.
+ *   Walks D parent levels with one stat each and stops at the native root;
+ *   resolution/join/dirname cost follows each reached prefix's text. Optional
+ *   recording allocates D candidate pairs/path strings, not a constant-size
+ *   result; no directory enumeration or content read occurs.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
