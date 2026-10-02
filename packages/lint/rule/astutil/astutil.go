@@ -79,9 +79,9 @@ func NodeText(file *shimast.SourceFile, node *shimast.Node) string {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler tokens replace the guessed 32-byte prefix and raw substring workaround.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains modifier handling, token exclusions, missing results and an edit example; separated tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation KeywordStart scans source text positions and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms The search window is narrowed by the positions of the node's children and the scanner then runs once from the node start, so cost is the number of tokens in the declaration head.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work KeywordStart keeps no cache and shares no computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources KeywordStart acquires no handle or task and retains nothing.
+// @evidence contracts/performance.md#efficient-algorithms Header-bound selection inspects h declarations and parameters before constructing the scanner. A matching first token avoids opaque-span collection; otherwise a child walk visits a nodes, collects s opaque spans and sorts them in O(s log s), followed by forward lexical search. Delegated trivia/token decoding costs depend on bytes consumed, not just token count; the grammar boundary excludes body traversal while preserving modifier and decorator distinctions.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure lookup helper coordinates no requests or shared memo. Source/node identity and positions belong to the caller snapshot; scanner state is fresh for the requested grammar boundary, and any caller reuse must remain valid for that snapshot rather than AST pointer equality across Programs.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The call owns a temporary scanner, up to s collected spans and recursive walk depth. The scanner borrows the source and may allocate decoded token values or per-scan numeric caches proportional to scanned data; none survives through the returned integer. Inputs remain caller-owned, and this helper retains no history, native handle or running task.
 func KeywordStart(file *shimast.SourceFile, node *shimast.Node, keyword string) int {
   if file == nil || node == nil || keyword == "" {
     return -1
@@ -133,8 +133,9 @@ func KeywordStart(file *shimast.SourceFile, node *shimast.Node, keyword string) 
 // FindKeyword scans `[pos, end)` for a keyword token whose lexeme is
 // `keyword` and returns its first-byte offset, or -1 if not found.
 // Differs from KeywordStart in that it works on an arbitrary byte range
-// instead of a node's leading-trivia-adjusted start — use this for fixes
-// that need to splice text after `import` or before `from`.
+// instead of a declaration header. Scanning starts at the file beginning to
+// preserve lexical context, but matches must lie inside the range. Use this
+// for fixes that splice text after `import` or before `from`.
 //
 // The compiler scanner handles Unicode identifier boundaries and trivia.
 // Parser-classified strings, regex literals, template text and JSX text are
@@ -146,9 +147,9 @@ func KeywordStart(file *shimast.SourceFile, node *shimast.Node, keyword string) 
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Language tokens replace ASCII flank guesses and raw text matches, without fixture-specific exceptions or foreign scanner mutation.
 // @evidence contracts/common.md#meaningful-documentation Native prose states Unicode, literal and complete-range behavior; paragraphs and tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation FindKeyword performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms FindKeyword has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work FindKeyword keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources FindKeyword acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms The parser child walk visits a nodes, pruning descent at the requested end or an opaque literal, then sorts s spans in O(s log s). Forward scanning begins at file byte zero to preserve lexical context and can consume a complete boundary token before rejecting it; token/trivia decoding is driven by scanned bytes and values. This may read the prefix before pos, and temporary span storage grows with s; no fixed-cost claim follows from delegation.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure range lookup owns no request coordinator or shared memo. The caller owns source snapshot identity, byte-range validity and any reuse across repeated queries; a fresh scanner preserves lexical context for this range instead of reusing a position under a changed Program.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The call owns a temporary scanner, s opaque-span slots and recursive walk stack. Scanner token values and numeric caches can allocate according to scanned data while borrowing the source; only one integer leaves the function, so those temporary owners become unreachable on return. No cross-call history, native handle or task is retained.
 func FindKeyword(file *shimast.SourceFile, pos, end int, keyword string) int {
   if file == nil || keyword == "" {
     return -1
