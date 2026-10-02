@@ -1,6 +1,6 @@
 /**
  * A type element placeholder that is intentionally not emitted. It emits
- * nothing.
+ * nothing, apart from any synthetic comments attached to it.
  *
  * Built by {@link factory.createNotEmittedTypeElement}.
  *
