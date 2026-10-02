@@ -36,13 +36,12 @@ const PluginConfigDirEnv = "TTSC_PLUGIN_CONFIG_DIR"
 // means nothing was forwarded.
 //
 // It rides the environment for the same reason PluginConfigDirEnv does, only
-// with sharper consequences. The payload used to travel as a `--tsgo-args`
-// flag, which #113 appended to a plugin protocol third-party hosts had already
-// frozen. A Go `flag.FlagSet` created with `flag.ContinueOnError` treats an
-// undeclared flag as fatal, so every sidecar built before #113 answered
-// `flag provided but not defined: -tsgo-args` and exited 2 — including on
-// `ttsc <file.ts>`, where the launcher forwards its own output-containment
-// flags and the user passed nothing at all (issue #1188). An unknown
+// with sharper consequences. A flag would have to be appended to the plugin
+// protocol third-party hosts have already frozen, and a Go `flag.FlagSet`
+// created with `flag.ContinueOnError` treats an undeclared flag as fatal: the
+// sidecar would answer `flag provided but not defined: -tsgo-args` and exit 2,
+// even on `ttsc <file.ts>`, where the launcher forwards its own
+// output-containment flags and the user passed nothing at all. An unknown
 // environment variable is inert to every host; an unknown flag is fatal to all
 // of them. ttsc's own hosts still accept `--tsgo-args` so an older launcher
 // paired with a newer host keeps working.

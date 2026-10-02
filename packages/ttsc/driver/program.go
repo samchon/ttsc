@@ -451,7 +451,7 @@ func parseTSConfig(fs vfs.FS, cwd, tsconfigPath string, host shimcompiler.Compil
 // embedder that deliberately passes an empty argv is not overridden by an
 // environment variable an ancestor ttsc process happened to set. The fallback
 // is what carries the payload into a third-party sidecar whose flag set does
-// not declare `--tsgo-args` at all — see TsgoArgsEnv and issue #1188.
+// not declare `--tsgo-args` at all — see TsgoArgsEnv.
 func resolveTsgoArgs(explicit []string) ([]string, error) {
   if explicit != nil {
     return explicit, nil
@@ -964,9 +964,9 @@ func (p *Program) diagnostics(files []*ast.SourceFile) []Diagnostic {
   // `SourceFile`, `SourceFiles`, and the graph builder all run the apply and
   // discard its error — they have no channel of their own and are not the place
   // to grow one. The emit path checks it directly and fails the build, so this
-  // is the read-only half of the same fact: `ttscgraph` used to describe the
-  // untransformed program with nothing to say about it, while `ttsc build` on
-  // the same project reported the failure.
+  // is the read-only half of the same fact: graph consumers read the program
+  // through this method, and without it they would describe the untransformed
+  // tree while `ttsc build` on the same project reported the failure.
   //
   // The cached outcome is read, never forced. Calling `ApplyLinkedPlugins`
   // here would move WHEN the apply happens: diagnostics would then be computed

@@ -281,14 +281,13 @@ func (p *Program) emit(rs *RewriteSet, target *ast.SourceFile, writeFile shimcom
 // incremental lane when the resolved compiler options ask for build
 // information.
 //
-// tsgo's own CLI branches the same way — `performIncrementalCompilation` vs
-// `performCompilation`, on `CompilerOptions.IsIncremental()` — but it branches
-// in `internal/execute`, which a host constructing its Program in-process never
-// enters. ttsc always took the plain branch, so `incremental`, `composite`, and
-// `tsBuildInfoFile` parsed, resolved, and then vanished: a plugin-carrying
-// project emitted its JavaScript and no `.tsbuildinfo` at all (issue #1188).
-// `driver/emit_containment.go` had already exempted `.tsbuildinfo` from the
-// outDir guard for a write that could not happen.
+// tsgo's own CLI branches the same way, `performIncrementalCompilation` vs
+// `performCompilation` on `CompilerOptions.IsIncremental()`, in
+// `internal/execute`, which a host constructing its Program in-process never
+// enters. Without this branch `incremental`, `composite`, and `tsBuildInfoFile`
+// would parse and resolve and then have no effect: a plugin-carrying project
+// would emit its JavaScript and no `.tsbuildinfo`. `driver/emit_containment.go`
+// exempts `.tsbuildinfo` from the outDir guard for that write.
 //
 // A single-file emit stays on the plain lane. Build information describes a
 // whole program, and tsgo's incremental program returns early on a
@@ -420,10 +419,9 @@ func applyRewritesWithPatterns(outputName, text string, rs *RewriteSet, cursors 
 // relative path (with a leading "/" boundary unless the source sits at the
 // common directory root). This is stricter than a generic suffix match: a
 // barrel file like `lib/api/x/index.js` will not accidentally collide with an
-// unrelated `src/.../y/index.ts` that happens to share the basename. The bug
-// surfaced when typia ran across shopping-backend's nestia-generated barrel
-// files; the looser match steered the rewriter at the wrong source and threw
-// `driver: could not locate typia.random(…) call in …`.
+// unrelated `src/.../y/index.ts` that happens to share the basename; a looser
+// match would steer the rewriter at the wrong source and fail with
+// `driver: could not locate <call>(…) call in …`.
 //
 // Ambiguous matches (two or more registered sources with the same tail) return
 // no match so the caller treats the output as having no rewrites.
@@ -535,11 +533,6 @@ func spliceCallWithPattern(text string, r Rewrite, pattern *regexp.Regexp, searc
   return replaced, idx + len(r.Replacement), true, nil
 }
 
-// collectEmittedImportBindings recovers the identifiers TypeScript-Go
-// actually assigned to top-level CommonJS imports in one emitted JavaScript
-// file. The source-level import name is not enough: the emitter owns collision
-// suffixes and may choose any free number. Parsing the emitted declarations
-// keeps alias discovery coupled to that output instead of guessing a maximum.
 type emittedImportKind uint8
 
 const (
@@ -555,6 +548,11 @@ type emittedImportBinding struct {
   kind emittedImportKind
 }
 
+// collectEmittedImportBindings recovers the identifiers TypeScript-Go
+// actually assigned to top-level CommonJS imports in one emitted JavaScript
+// file. The source-level import name is not enough: the emitter owns collision
+// suffixes and may choose any free number. Parsing the emitted declarations
+// keeps alias discovery coupled to that output instead of guessing a maximum.
 func collectEmittedImportBindings(outputName, text string) map[string][]emittedImportBinding {
   parseName := filepath.ToSlash(outputName)
   if !filepath.IsAbs(outputName) {
@@ -709,10 +707,6 @@ func stringLiteralValue(node *ast.Node) (string, bool) {
   return literal.Text, true
 }
 
-// rewriteAliases binds one source import to the identifiers recovered from its
-// emitted require declaration. Retained ESM imports and non-import roots keep
-// their source spelling; CommonJS imports use only emitter-owned bindings so a
-// nearby identifier cannot be mistaken for the plugin call.
 type sourceImportKind uint8
 
 const (
@@ -726,6 +720,10 @@ type sourceImport struct {
   kind   sourceImportKind
 }
 
+// rewriteAliases binds one source import to the identifiers recovered from its
+// emitted require declaration. Retained ESM imports and non-import roots keep
+// their source spelling; CommonJS imports use only emitter-owned bindings so a
+// nearby identifier cannot be mistaken for the plugin call.
 func rewriteAliases(r Rewrite, emittedBindings map[string][]emittedImportBinding) []string {
   imported, ok := sourceImportForRoot(r.File, r.RootName)
   if !ok {
@@ -1067,9 +1065,8 @@ func skipQuoted(text string, pos int, quote byte) (int, bool) {
 }
 
 // skipTemplate advances past a backtick template literal starting at pos.
-// Nested template expressions (${...}) are not recursed into — the rewriter
-// only needs to balance the outer backtick so it does not misinterpret a
-// backtick inside the template as the end of a surrounding construct.
+// A `${...}` expression is scanned by skipTemplateExpression so a backtick,
+// quote or brace inside it is not mistaken for the end of the literal.
 func skipTemplate(text string, pos int) (int, bool) {
   for i := pos + 1; i < len(text); i++ {
     switch text[i] {
@@ -1077,6 +1074,61 @@ func skipTemplate(text string, pos int) (int, bool) {
       i++
     case '`':
       return i, true
+    case '$':
+      if i+1 < len(text) && text[i+1] == '{' {
+        end, ok := skipTemplateExpression(text, i+2)
+        if !ok {
+          return 0, false
+        }
+        i = end
+      }
+    }
+  }
+  return 0, false
+}
+
+// skipTemplateExpression advances past the body of a `${...}` expression whose
+// first byte is at pos. Braces are balanced, and strings, nested templates and
+// comments are skipped whole. Returns the index of the closing "}" and true, or
+// (0, false) when the expression is unterminated. Regex literals are not
+// recognized here: one holding an unbalanced brace or quote inside a template
+// expression is outside what emitted plugin calls carry.
+func skipTemplateExpression(text string, pos int) (int, bool) {
+  depth := 1
+  for i := pos; i < len(text); i++ {
+    switch text[i] {
+    case '{':
+      depth++
+    case '}':
+      depth--
+      if depth == 0 {
+        return i, true
+      }
+    case '"', '\'':
+      end, ok := skipQuoted(text, i, text[i])
+      if !ok {
+        return 0, false
+      }
+      i = end
+    case '`':
+      end, ok := skipTemplate(text, i)
+      if !ok {
+        return 0, false
+      }
+      i = end
+    case '/':
+      if i+1 < len(text) {
+        switch text[i+1] {
+        case '/':
+          i = skipLineComment(text, i+2)
+        case '*':
+          end, ok := skipBlockComment(text, i+2)
+          if !ok {
+            return 0, false
+          }
+          i = end
+        }
+      }
     }
   }
   return 0, false
