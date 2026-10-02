@@ -26,9 +26,9 @@ import { isOutsideRelativePath } from "./isOutsideRelativePath";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing, incomplete or ambiguous provenance cannot be converted to ownership by extension order, matching names or newer source-map content.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs define writer/source coordinates, empty and missing states, and freshness ownership; properties carry only native documentation.
  *
- * @evidenceExclude contracts/performance.md#efficient-algorithms find and listOutputs own processing while this declaration describes the representation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work find and its build owner establish continued reuse, not this class shape independently.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns index lifetime; find describes its bounded retained population.
+ * @evidence contracts/performance.md#efficient-algorithms Construction processes recorded output/source associations, normalizes source coordinate text, resolves output identities and builds source/output Sets. Native identity capability observations and proof-gap formatting remain costs of construction; queries reuse those maps instead of rescanning output trees.
+ * @evidence contracts/performance.md#reuse-equivalent-work One constructed index shares captured associations across queries, while each query resolves its current source target. Continued source-content/generation validity remains the producing build owner's responsibility, and a new build needs a new index.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The instance retains source/output Sets, root strings and proof-gap reasons until its caller discards it. Population and bytes grow with captured associations and path/reason text without a configured byte ceiling; construction-local identity memo state is not stored on the instance, and no query history or independently held native descriptor is acquired.
  *
  * @evidence contracts/portability.md#os-neutral-implementation Output writer aliases use the shared native filesystem identity resolver, preserving sensitive or unknown missing names; captured physical source coordinates remain distinct from later lexical aliases and normalize only Windows volume-root spelling.
  */
@@ -174,8 +174,8 @@ export class EmitOwnershipIndex {
    * @evidence contracts/common.md#clear-and-simple-design An explicit stack supplies one sorted path list without content parsing or source inference.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreadable subtrees are not silently omitted and later linked user files cannot become compiler output through a late snapshot.
    * @evidence contracts/common.md#meaningful-documentation Native prose states capture timing, returned spelling, link handling and the coverage-versus-ownership distinction before tags.
-   * @evidence contracts/performance.md#efficient-algorithms One traversal visits E entries and sorts J output paths once in O(J log J), without reading output bytes.
-   * @evidence contracts/performance.md#reuse-equivalent-work One completed-build record serves its consumers before runtime layout changes; a new build records its own outputs.
+   * @evidence contracts/performance.md#efficient-algorithms One traversal visits E entries, performs native directory reads and converts relative path text; J output paths are sorted with path-text comparison costs. It reads no output content, but entry/path storage grows with the enumeration.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This enumeration owns no cross-call sharing or validity protocol; every call observes the current tree. A build owner may retain the returned record for consumers under its capture-timing premise.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The path list transfers to the build owner; no retained handle or cache is acquired.
    *
@@ -210,7 +210,7 @@ export class EmitOwnershipIndex {
    * @evidence contracts/common.md#clear-and-simple-design One source lookup replaces filename inference; unavailable proof is explicit rather than a hidden fallback policy.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy and unknown records cannot gain a unique owner through extension order or a lexical source alias resolved after compilation.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes exact, absent and error outcomes, plus fresh alias observation from source-content freshness; errors distinguish missing producer metadata, ownerless or ambiguous rows and uncovered written outputs with their native coordinates.
-   * @evidence contracts/performance.md#efficient-algorithms Construction indexes P associations and resolves output coordinates in one memoized native identity transaction; missing suffixes can add ancestor and case-observation work. A successful query resolves source identity and performs one map lookup without scanning outputs or source maps; unavailable errors format retained reason text rather than rereading the output tree.
+   * @evidence contracts/performance.md#efficient-algorithms Construction indexes associations and resolves output coordinates in one memoized native identity transaction, including native capability queries where required; path normalization, alias merging and proof-gap text costs accompany it. Missing suffixes can add ancestor and case-observation work. A successful query resolves source identity and performs one map lookup without scanning outputs or source maps; unavailable errors format retained reason text rather than rereading the output tree.
    * @evidence contracts/performance.md#reuse-equivalent-work A completed build's captured associations serve all queries while aliases stay fresh; another build requires a new index.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Index storage grows with captured associations and proof-gap path bytes, with no query history or retained native handle; each successful query finishes its native realpath observation synchronously.
    * @evidence contracts/portability.md#os-neutral-implementation Native realpath resolves current aliases to physical spelling; exact captured names remain distinct when directory case policy changes, without OS-wide lowercase assumptions.
