@@ -96,12 +96,26 @@ func updateDirection(node *shimast.Node, counter string) int {
     if identifierText(bin.Left) != counter {
       return 0
     }
+    direction := 0
     switch bin.OperatorToken.Kind {
     case shimast.KindPlusEqualsToken:
-      return +1
+      direction = +1
     case shimast.KindMinusEqualsToken:
-      return -1
+      direction = -1
+    default:
+      return 0
     }
+    // A negated operand flips the step, so `i += -1` decrements; any other
+    // unary operand has a sign this check does not evaluate.
+    right := stripParens(bin.Right)
+    if right != nil && right.Kind == shimast.KindPrefixUnaryExpression {
+      prefix := right.AsPrefixUnaryExpression()
+      if prefix == nil || prefix.Operator != shimast.KindMinusToken {
+        return 0
+      }
+      return -direction
+    }
+    return direction
   }
   return 0
 }
