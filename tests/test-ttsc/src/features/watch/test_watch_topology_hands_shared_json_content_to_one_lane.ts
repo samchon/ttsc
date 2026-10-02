@@ -24,7 +24,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * 3. Reverse the next delivery order and require one project report in both cases.
  *
  * @evidence contracts/testing.md#behavioral-verification Both compiler-first and project-first delivery produce exactly one project change for the shared JSON member.
- * @evidence contracts/testing.md#independent-expectations The source imports JSON and separately declares it as a project input; the literal one-project-change expectations establish single ownership.
+ * @evidence contracts/testing.md#independent-expectations Explicit source/JSON compiler-membership paths and a separately declared JSON glob establish overlap; the import is authored fixture data rather than native discovery. Literal one-project-change expectations establish single ownership in each delivery order.
  * @evidence contracts/testing.md#distinguishing-cases Both compiler-first and project-first delivery produce exactly one project change for the shared JSON member; the native observer's uncontrolled event scheduling remains exercised by the separate actual fs.watch watch boundaries.
  * @evidence contracts/testing.md#execution-ownership Actual source WatchTopology and directory adapters consume recorded notifications and explicitly supplied absolute compiler membership. This unit starts no compiler process or native watcher; retained native E2E cases own compiler population and physical delivery. Every original semantic assertion remains in this unit.
  */
@@ -107,4 +107,5 @@ export async function test_watch_topology_hands_shared_json_content_to_one_lane(
   } finally {
     topology.close();
   }
+  assert.ok(watchers.every((watcher) => !watcher.active));
 }
