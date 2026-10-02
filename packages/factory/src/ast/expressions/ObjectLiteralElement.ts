@@ -15,6 +15,10 @@ import type { SpreadAssignment } from "./SpreadAssignment";
  * @evidence contracts/common.md#clear-and-simple-design Concrete member types share one union rather than a member record with unrelated optional payloads.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Object-member alternatives retain their real syntax roles without routing unsupported class entries through a guessed assignment form.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains accepted categories and the class-member boundary, with a separated tag block following documentation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  */

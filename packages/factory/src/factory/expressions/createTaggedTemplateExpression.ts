@@ -29,6 +29,10 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#clear-and-simple-design One make call reuses the complete-template type, leaving chunk escaping and tag-target grouping in the printer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The tag is not invoked to precompute expected output, and rawText is an explicit lexical contract rather than a post-print patch.
  * @evidence contracts/common.md#meaningful-documentation Native prose states generic placement and raw-spelling significance, with example, parameter roles and separate acknowledgment tags.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param tag The tag expression applied to the template.

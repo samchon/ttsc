@@ -9,6 +9,10 @@ import type { Statement } from "../statements/Statement";
  * @evidence contracts/common.md#clear-and-simple-design The body owns sequence while ModuleDeclaration owns its name and module/namespace choice.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Statement contents are supplied syntax, without consumer-specific module bodies or runtime global changes.
  * @evidence contracts/common.md#meaningful-documentation JSDoc identifies namespace/module body use and statement order; separated native comments follow the documentation skill.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  */

@@ -17,6 +17,10 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * @evidence contracts/common.md#clear-and-simple-design The binary constructor supplies the comparison outline; the wrapper's sole policy is strict operator selection.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The explicit strict operator does not depend on a known fixture's values or a fabricated comparison result.
  * @evidence contracts/common.md#meaningful-documentation Native prose names strict equality and describes ordered operands; its example and tag block remain distinct under documentation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param left The left-hand operand.

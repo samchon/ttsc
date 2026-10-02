@@ -18,6 +18,10 @@ import { createIdentifier } from "../names/createIdentifier";
  * @evidence contracts/common.md#clear-and-simple-design The constructor stores only the marker payload rather than a duplicate hierarchy or method-resolution mechanism.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The override default records syntax and does not replace any method or guess a known base declaration.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies the default and comment behavior with a bare-tag example; distinct paragraphs and native tags follow the documentation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `override`.
  * @param comment The trailing comment, if any.

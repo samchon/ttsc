@@ -83,6 +83,7 @@ import { NodeFlags, SyntaxKind } from "./syntax";
  * @evidenceExclude contracts/performance.md#efficient-algorithms The class chooses no algorithm itself; `print`, `printNodes` and `printFile` own the document-building and layout costs and answer for them.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The class is a synchronous renderer with immutable layout settings, not a cross-request computation coordinator; its operations state why a tree identity cannot validate stored output.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The instance owns only its three scalar layout settings and no handle or running task; each print call owns its transient buffers and answers for them.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Renders to a string; the newline text is an explicit option and no filesystem or process boundary is touched.
  */
 export class TsPrinter {
   private readonly printWidth_: number;
@@ -108,6 +109,7 @@ export class TsPrinter {
    * @evidence contracts/performance.md#efficient-algorithms Emission allocates documents proportional to traversed nodes and text, and linear-stack union/intersection flattening avoids copying descendants at every nesting level. Grammar lookahead and group fit checks can revisit subtrees, so adversarial nesting can still require quadratic time; the implementation does not claim a universal linear bound.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This call lowers a current mutable tree and current weak-store comments; it does not own a cross-request coordinator or a producer validity protocol. Adding identity-only text caching would change subsequent reads after mutation.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The call owns its temporary documents, layout command stacks and output fragments; they become unreachable after return or throw, with live memory driven by input tree and output size rather than previous calls. The printer instance retains only its three layout settings.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation String formatting over an in-memory tree; no filesystem or process boundary, and the newline text is an explicit option.
    */
   public print(node: Node): string {
     return this.layout(this.emit(node));
@@ -126,6 +128,7 @@ export class TsPrinter {
    * @evidence contracts/performance.md#efficient-algorithms Root mapping and hardline joining are linear in root count, with one shared layout of the emitted document sequence. Descendant emission and fit lookahead determine the remaining cost, including possible quadratic revisits under adversarial nesting; flattened binary types use one work stack.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This sequence-lowering call observes current node and comment contents without coordinating other requests. Shared object identity alone supplies no invalidation witness for persistent rendered text.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The root document list, join parts, command stacks and string fragments belong to this synchronous call and are released from reachability on completion or failure. Their population follows current roots and descendant/output size; previous print calls add no retained history.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation String formatting over an in-memory tree; no filesystem or process boundary, and the newline text is an explicit option.
    */
   public printNodes(nodes: readonly Node[]): string {
     return this.layout(
@@ -153,6 +156,7 @@ export class TsPrinter {
    * @evidence contracts/performance.md#efficient-algorithms The chosen statement list is mapped and joined once without allocating a synthetic source-file node. Costs follow statement count, descendant nodes and output text; grammar and fit lookahead may revisit nested documents, while binary-type flattening visits each flattened descendant once.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This call selects and lowers the supplied current statement list, rather than coordinating completed work across consumers. Mutable nodes and side-band comment lists lack a version protocol for cross-call text reuse.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Temporary statement documents and layout buffers live only through this call and its returned string construction; error unwinding retains no per-file cache or handle. Memory grows with the chosen tree and produced text, while the final string's lifetime belongs to its caller.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation String formatting over an in-memory tree; no filesystem or process boundary, and the newline text is an explicit option.
    */
   public printFile(
     sourceFile?: SourceFile,
@@ -3393,6 +3397,7 @@ export namespace TsPrinter {
    * @evidenceExclude contracts/performance.md#efficient-algorithms This options record defines layout input values and selects no computation algorithm; the printer operations own document-processing costs.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The value record coordinates no producers or consumers and defines no result identity or invalidation protocol.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The options value owns no handle, running task or retained-population lifecycle; the printer decides what settings it retains.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Option values only; no filesystem or process boundary.
    */
   export interface IProps {
     /** Maximum line width before groups break. Defaults to `80`. */

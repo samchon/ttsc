@@ -28,6 +28,10 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#clear-and-simple-design Shared name normalization and one make call retain the header/body organization without invocation or compiler state.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Absent names are not replaced by invented identifiers, and marker presence records requested generator syntax rather than patching runtime behavior.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains anonymous naming, optional signature fields and required block body; example, parameters and tags use distinct blocks.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers and decorators, if any.

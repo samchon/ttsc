@@ -20,6 +20,10 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#clear-and-simple-design One operand and shared make call are sufficient; the printer owns keyword spacing and grouping.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The operand is not replaced with a known fixture's type string or queried through a patched host object.
  * @evidence contracts/common.md#meaningful-documentation Native prose states value-space meaning and no construction-time evaluation; the example and parameter description remain separate from tags.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The operand of `typeof`.

@@ -20,6 +20,10 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * @evidence contracts/common.md#clear-and-simple-design One delegation selects the logical operator while the binary constructor and printer own node structure and grouping.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The right operand remains syntax rather than being dropped from a guessed left truthiness value.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains short-circuit meaning and operand order; the expression example and tags are separated following documentation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param left The left-hand operand.

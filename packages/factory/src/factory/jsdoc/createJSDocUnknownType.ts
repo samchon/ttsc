@@ -17,6 +17,10 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#clear-and-simple-design A zero-argument constructor records the marker without unused child or placement options.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The question-mark node is supported grammar data rather than a fallback guessed from known input types.
  * @evidence contracts/common.md#meaningful-documentation Native prose and the output example explain the bare marker and lack of inputs; paragraph and tag separation follows the documentation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  * @author Jeongho Nam - https://github.com/samchon
  * @returns The created {@link JSDocUnknownType}.
  */

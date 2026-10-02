@@ -19,6 +19,10 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#clear-and-simple-design Direct construction leaves assertion punctuation and operand grouping to the printer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The caller's assertion remains explicit rather than coercing the operand or supplying a fabricated type-check result.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes syntax construction from checking and conversion; the example and acknowledgment block remain separated under documentation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The expression being asserted.

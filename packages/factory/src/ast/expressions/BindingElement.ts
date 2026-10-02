@@ -16,6 +16,10 @@ import type { Expression } from "./Expression";
  * @evidence contracts/common.md#clear-and-simple-design The element owns one local binding with optional mapping and default; enclosing patterns own collection order and punctuation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A rest marker and renamed property are explicit input syntax, not synthesized bindings compensating for a missing source property.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes source and local names and valid-context requirements; each optional member explains its effect with separated comments and tags.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  */

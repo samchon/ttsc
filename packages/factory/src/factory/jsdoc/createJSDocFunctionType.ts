@@ -24,6 +24,10 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#clear-and-simple-design Two role-based assignments capture parameters and return syntax, keeping layout in the printer and avoiding a second flattened signature.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supplied parameters and return nodes remain unchanged rather than recognized signature examples or mutations of a foreign function model.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains omitted-return punctuation, retained references and the grammar-validation boundary with an output example; separate paragraphs and parameter tags follow the documentation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  * @author Jeongho Nam - https://github.com/samchon
  * @param parameters The parameters.
  * @param type The return type, if any.

@@ -21,6 +21,10 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#clear-and-simple-design The chain-specific kind and one operand suffice; preceding links remain in the operand and printer grouping stays centralized.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The explicit assertion does not inject a default value or patch null handling for known consumers.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes the chain-aware form and absence of runtime checking, with expression example and tags separated under documentation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param expression The expression to assert as non-null.

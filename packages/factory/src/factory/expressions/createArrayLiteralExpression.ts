@@ -19,6 +19,10 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#clear-and-simple-design One make call stores entries and the optional layout hint, with punctuation and width decisions remaining printer-owned.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The empty-list default and explicit multiLine option serve documented construction and layout, not consumer-selected values or output patches.
  * @evidence contracts/common.md#meaningful-documentation Native prose states width-dependent layout and contextual punctuation instead of promising always-inline output; examples and tags follow documentation separation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param elements The element expressions.

@@ -13,6 +13,10 @@ import type { JSDocComment } from "./JSDocComment";
  * @evidence contracts/common.md#clear-and-simple-design The marker needs no target storage or mutation policy; the tag identifier and description are the complete printed payload.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Readonly intent is explicit annotation data rather than freezing caller objects or replacing foreign setters.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains the absence of freezing or modifier insertion and the bare-tag case; paragraphs and members follow the documentation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface JSDocReadonlyTag {

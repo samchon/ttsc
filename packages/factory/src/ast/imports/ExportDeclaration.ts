@@ -15,6 +15,10 @@ import type { NamespaceExport } from "./NamespaceExport";
  * @evidence contracts/common.md#clear-and-simple-design Clause representation owns binding details while the declaration owns type-only and from attachment.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Module names and exported bindings come from callers without hardcoded package aliases.
  * @evidence contracts/common.md#meaningful-documentation JSDoc explains operand restrictions and comments distinguish absent star clause and module source; paragraphs follow the documentation skill.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  */

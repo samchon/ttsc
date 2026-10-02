@@ -51,6 +51,10 @@ import { SyntaxKind } from "./syntax";
  * @evidence contracts/common.md#clear-and-simple-design One record carries comment content and placement flags; storage identity belongs to the attachment operations rather than this value.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The supported trivia kinds and optional flags encode comment semantics, without consumer names or executable test exceptions.
  * @evidence contracts/common.md#meaningful-documentation The type and separated member comments explain raw text, delimiter selection and the distinct leading and trailing line effects, using the documentation skill's paragraph and member separation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  */
 export interface SynthesizedComment {
   /** Whether the comment renders as `//` (single-line) or `/* *\/` (multi-line). */
@@ -142,6 +146,10 @@ const append = (
  * @evidence contracts/common.md#clear-and-simple-design The public adapter constructs one comment record and delegates ordered insertion to append, keeping the leading and trailing storage distinction explicit.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The registry is this package's own versioned rendezvous, not a replacement of foreign methods; frozen nodes remain unchanged and hardened-realm fallback has the documented sharing limit.
  * @evidence contracts/common.md#meaningful-documentation Native prose and parameter tags describe leading placement, raw body and chainable identity; descriptive paragraphs are separated from tags according to the documentation skill.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Entries live in a WeakMap keyed by the node, so they are collected with it; the population grows only by the comments callers attach, and the setter clears it.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One weak-map lookup and an array push; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each attachment is a distinct fact about a node; there is no equivalent computation to share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Side-band store in process memory; no filesystem or process boundary (the shared registry is a JavaScript realm key).
  */
 export const addSyntheticLeadingComment = <T extends Node>(
   node: T,
@@ -169,6 +177,10 @@ export const addSyntheticLeadingComment = <T extends Node>(
  * @evidence contracts/common.md#clear-and-simple-design The trailing adapter differs from leading attachment only in its explicit store, while the shared append helper owns list insertion.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Attachment mutates package-owned side-band metadata rather than node or compiler internals; the realm registry and fallback serve the documented cross-copy contract.
  * @evidence contracts/common.md#meaningful-documentation Prose and parameter tags explain placement, raw text and the returned original node, with paragraph separation and native JSDoc syntax required by the documentation skill.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Entries live in a WeakMap keyed by the node, so they are collected with it; the population grows only by the comments callers attach, and the setter clears it.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One weak-map lookup and an array push; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each attachment is a distinct fact about a node; there is no equivalent computation to share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Side-band store in process memory; no filesystem or process boundary (the shared registry is a JavaScript realm key).
  */
 export const addSyntheticTrailingComment = <T extends Node>(
   node: T,
@@ -190,6 +202,10 @@ export const addSyntheticTrailingComment = <T extends Node>(
  * @evidence contracts/common.md#clear-and-simple-design One direct lookup exposes existing leading metadata without a second index or a hidden copy policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The lookup reads package-owned metadata without altering node properties, compiler methods or behavior for named consumers.
  * @evidence contracts/common.md#meaningful-documentation Native prose states absent and live-list behavior so callers understand mutation ownership; paragraphs and tags follow the documentation skill.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A read retains nothing and releases nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One weak-map lookup; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A lookup shares nothing to reuse; it returns the stored list.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Side-band store in process memory; no filesystem or process boundary (the shared registry is a JavaScript realm key).
  */
 export const getSyntheticLeadingComments = (
   node: Node,
@@ -205,6 +221,10 @@ export const getSyntheticLeadingComments = (
  * @evidence contracts/common.md#clear-and-simple-design A direct trailing-store read keeps lookup independent of replacement and printer formatting responsibilities.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Reading the package's own weak metadata neither patches foreign code nor writes printer fields onto the AST node.
  * @evidence contracts/common.md#meaningful-documentation The getter documents optional presence and live-list ownership in separate paragraphs before the tags, following the documentation skill's clarity guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A read retains nothing and releases nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One weak-map lookup; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A lookup shares nothing to reuse; it returns the stored list.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Side-band store in process memory; no filesystem or process boundary (the shared registry is a JavaScript realm key).
  */
 export const getSyntheticTrailingComments = (
   node: Node,
@@ -223,6 +243,10 @@ export const getSyntheticTrailingComments = (
  * @evidence contracts/common.md#clear-and-simple-design The setter owns replacement and clearing directly; it does not mix those operations with append or printer layout.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Replacement changes package-owned side-band state through its public API, with no foreign mutation or fixture-specific clearing rule.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs state clearing, chaining and shallow-copy ownership; tags remain separated from prose as required by the documentation skill.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources A replacement drops the previous list or deletes the entry, and the WeakMap releases the entry with the node, so retained state stays bounded by the comments currently attached.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One weak-map write and a shallow copy proportional to the supplied list; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each replacement is a distinct fact about a node; there is no equivalent computation to share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Side-band store in process memory; no filesystem or process boundary (the shared registry is a JavaScript realm key).
  */
 export const setSyntheticLeadingComments = <T extends Node>(
   node: T,
@@ -247,6 +271,10 @@ export const setSyntheticLeadingComments = <T extends Node>(
  * @evidence contracts/common.md#clear-and-simple-design Replacement and deletion are explicit branches over the trailing store, leaving ordered append and formatting to their existing owners.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The operation uses the documented attachment boundary and package-owned metadata; neither node internals nor foreign compiler functions are patched.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain empty clearing, returned identity and shared records versus copied membership, applying the documentation skill's separation and precise prose.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources A replacement drops the previous list or deletes the entry, and the WeakMap releases the entry with the node, so retained state stays bounded by the comments currently attached.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One weak-map write and a shallow copy proportional to the supplied list; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each replacement is a distinct fact about a node; there is no equivalent computation to share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Side-band store in process memory; no filesystem or process boundary (the shared registry is a JavaScript realm key).
  */
 export const setSyntheticTrailingComments = <T extends Node>(
   node: T,

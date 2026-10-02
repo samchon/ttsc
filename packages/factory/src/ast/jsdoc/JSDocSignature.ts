@@ -15,6 +15,10 @@ import type { JSDocTemplateTag } from "./JSDocTemplateTag";
  * @evidence contracts/common.md#clear-and-simple-design Three role-based members describe the fixed emission order; absent templates and return tags need no auxiliary state or second flattened tag list.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The signature uses structured tags for arbitrary callers rather than recognizing fixture signatures or patching declarations to match documentation.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains emission order, empty parameters and the consistency-check boundary; optional-role comments and paragraph separation follow the documentation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  * @author Jeongho Nam - https://github.com/samchon
  */
 export interface JSDocSignature {

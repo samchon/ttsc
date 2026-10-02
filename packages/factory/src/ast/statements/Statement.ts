@@ -40,6 +40,10 @@ import type { WithStatement } from "./WithStatement";
  * @evidence contracts/common.md#clear-and-simple-design One shared statement alias owns variants reused by bodies and source files; each concrete variant owns its fields.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Alternatives are syntax categories; non-emission is an explicit placeholder rather than an ad hoc fixture deletion.
  * @evidence contracts/common.md#meaningful-documentation JSDoc states placeholder support and contextual-validation limits in separate paragraphs following the documentation skill.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  */

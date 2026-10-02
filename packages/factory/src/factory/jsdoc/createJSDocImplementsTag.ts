@@ -24,6 +24,10 @@ import { createIdentifier } from "../names/createIdentifier";
  * @evidence contracts/common.md#clear-and-simple-design The existing expression-with-type-arguments node owns target structure; this adapter supplies the tag name and comment without another implementation model.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Implements is a supported annotation default, while the target is supplied rather than a hardcoded successful interface match or patched declaration.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies the interface/class target, brace output and optional comment with an example; paragraph and parameter-tag separation follows the documentation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `implements`.
  * @param className The implemented class.

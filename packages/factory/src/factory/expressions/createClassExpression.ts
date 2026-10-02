@@ -26,6 +26,10 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#clear-and-simple-design Name normalization precedes one shared make call; reused class-element and clause representations avoid a duplicate class schema.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts An absent name remains absent rather than acquiring a fabricated identity; no consumer-specific base class is injected.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains optional header parts and string-name normalization, with example, parameter roles and separate tags under documentation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param modifiers The leading modifiers, if any.

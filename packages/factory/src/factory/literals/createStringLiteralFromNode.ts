@@ -36,6 +36,10 @@ import { createStringLiteral } from "./createStringLiteral";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc identifies accepted variants, text copying and default quotes,
  *   with a separate example and tags following documentation paragraph rules.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param sourceNode The node to derive the text from.

@@ -25,6 +25,10 @@ import { createIdentifier } from "../names/createIdentifier";
  * @evidence contracts/common.md#clear-and-simple-design Brace ownership stays with the type-expression child, leaving this adapter to map name, payload and optional description directly.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The type spelling is the documented default, and caller types are not replaced with known-fixture annotations or foreign checker results.
  * @evidence contracts/common.md#meaningful-documentation Native prose describes the brace-wrapped payload and default name with an output example; separate paragraphs and parameter descriptions follow the documentation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `type`.
  * @param typeExpression The type expression.
