@@ -6,17 +6,10 @@ import "testing"
 // NewPrintContext substitutes DefaultPrintOptions when the supplied
 // opts carry a zero PrintWidth.
 //
-// The zero-width guard exists so call sites can pass a partially-filled
-// PrintOptions (or the zero value) without producing an unusable context.
-// Without the branch, a PrintWidth of 0 would reach the engine where
-// `opts.PrintWidth <= 0` is normalised in Print — but the context's Opts
-// field would still hold 0, which breaks callers that read Opts.PrintWidth
-// directly (e.g. formatPrintWidth). The branch pins that the guard
-// triggers at construction time, not at render time.
-//
-//  1. Parse any valid TypeScript source so a SourceFile is available.
-//  2. Call NewPrintContext with opts whose PrintWidth is 0 (zero value).
-//  3. Assert the returned context carries the Prettier-default PrintWidth (80).
+// Zero PrintWidth replaces every option, including otherwise nondefault
+// indentation, line ending, comma policy and source geometry. Nonzero width
+// preserves the supplied record. Literal expected records and original
+// source text distinguish whole-set replacement from partial defaulting.
 //
 // @evidence contracts/testing.md#behavioral-verification NewPrintContext must select the complete default option set for zero width, preserve all supplied options for nonzero width, and retain file identity and text.
 // @evidence contracts/testing.md#independent-expectations Literal eighty/two/LF/all defaults follow the documented constructor contract; an independently authored nonzero options record supplies the opposite expected result.

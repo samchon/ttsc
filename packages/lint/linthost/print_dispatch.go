@@ -36,9 +36,10 @@ import (
 // emits the half-reflowed shape. Single-line verbatim is always safe:
 // a node confined to one source line has no interior column to freeze.
 
-// PrintContext bundles the per-file inputs every per-node printer
-// needs. The dispatcher constructs one per top-level reflow and threads
-// it into every recursive call.
+// PrintContext bundles the source and options consumed by per-node printers.
+// The caller constructs it for a top-level reflow and passes it through
+// recursive dispatch. Its public fields are writable; keep File, Source and
+// Opts consistent and unchanged during that reflow.
 //
 // @evidence contracts/common.md#principled-implementation The source file, its exact text and resolved layout options keep recursive printers in one byte-coordinate and formatting context.
 // @evidence contracts/common.md#clear-and-simple-design One context groups stable per-file inputs instead of resolving policy in every node printer.
@@ -49,7 +50,7 @@ import (
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work PrintContext is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources PrintContext is a declaration of data shape; the code that holds its values owns their lifetime.
 type PrintContext struct {
-  // File is the immutable compiler source file being reflowed.
+  // File is the borrowed compiler source file; do not mutate it during reflow.
   File   *shimast.SourceFile
 
   // Source is the same file's original text, using compiler byte positions.
@@ -71,8 +72,8 @@ type PrintContext struct {
 // @evidence contracts/common.md#meaningful-documentation Native prose states the nonnil premise and whole-default behavior; separated tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation NewPrintContext performs no filesystem or process operation of its own.
 // @evidenceExclude contracts/performance.md#efficient-algorithms NewPrintContext has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewPrintContext keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewPrintContext acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Construction establishes caller-owned reflow inputs, not a request-result coordinator. Source state and options determine valid rendering, and public fields remain mutable; retaining or sharing this context across reflows requires the caller to preserve that identity and consistency.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned context keeps the borrowed SourceFile and its original text storage reachable without copying source bytes. Its caller owns context lifetime and reflow consistency, while the compiler/host owns source state. No historical context cache, handle or running task is created.
 func NewPrintContext(file *shimast.SourceFile, opts PrintOptions) *PrintContext {
   if opts.PrintWidth == 0 {
     opts = DefaultPrintOptions()
