@@ -17,7 +17,7 @@ import { hostDeclaresPolling } from "../../../../packages/unplugin/src/core/tran
  * 1. Evaluate each declaration against the host option it overrides.
  * 2. Assert the verdict is the one the host itself reaches.
  *
- * @evidence contracts/testing.md#behavioral-verification hostDeclaresPolling interprets Chokidar environment overrides and Watchpack intervals, allowing either host to require polling.
+ * @evidence contracts/testing.md#behavioral-verification hostDeclaresPolling interprets Chokidar environment overrides and Watchpack intervals, allowing either host to require polling, including a present-but-empty Chokidar value overriding the option and non-canonical Watchpack numerals.
  * @evidence contracts/testing.md#independent-expectations The literal boolean table follows the supported Chokidar/Watchpack option conventions, including environment false overriding configured true.
  * @evidence contracts/testing.md#distinguishing-cases Absent, true/TRUE/1/yes, empty/false/0 and positive numeric interval forms plus conflicting hosts distinguish polling from native observation.
  * @evidence contracts/testing.md#execution-ownership Calls hostDeclaresPolling on explicitly supplied environment objects; every row retains its serialized env/usePolling failure identity and starts no observer.
@@ -34,8 +34,16 @@ export async function test_host_polling_declarations_follow_each_host(): Promise
     // The environment overrides the host option in both directions.
     [{ CHOKIDAR_USEPOLLING: "false" }, true, false],
     [{ CHOKIDAR_USEPOLLING: "0" }, true, false],
+    // chokidar 3 reads a present-but-empty value as `!!""`, so it overrides a
+    // polling option too, and compares `false` without regard to case.
+    [{ CHOKIDAR_USEPOLLING: "" }, true, false],
+    [{ CHOKIDAR_USEPOLLING: "FALSE" }, true, false],
     [{ WATCHPACK_POLLING: "true" }, undefined, true],
     [{ WATCHPACK_POLLING: "500" }, undefined, true],
+    // Watchpack 2 takes a canonical numeric string as an interval and any
+    // other non-empty string but "false" as true.
+    [{ WATCHPACK_POLLING: "0.5" }, undefined, true],
+    [{ WATCHPACK_POLLING: "00" }, undefined, true],
     [{ WATCHPACK_POLLING: "0" }, undefined, false],
     [{ WATCHPACK_POLLING: "false" }, undefined, false],
     [{ WATCHPACK_POLLING: "" }, undefined, false],
