@@ -40,9 +40,10 @@ func Main(args []string) int {
   return run(args)
 }
 
-// MainWithIO dispatches the browser-owned project commands without consulting
-// process-global stdout or stderr. Native-only mutation and LSP commands retain
-// Main as their CLI entrypoint.
+// MainWithIO dispatches browser-owned project commands with explicit command
+// output streams. Shared contributor bootstrap can still report invalid or
+// colliding registrations to process-global stderr. Native-only mutation and
+// LSP commands retain Main as their CLI entrypoint.
 //
 // @evidence contracts/common.md#principled-implementation Explicit command output streams and browser-supported check/build/transform routes preserve command writer ownership; nil writers discard command output and unavailable verbs fail. Shared bootstrap warnings remain a process-level channel.
 // @evidence contracts/common.md#clear-and-simple-design One browser dispatcher passes stream ownership directly to the existing project commands.
