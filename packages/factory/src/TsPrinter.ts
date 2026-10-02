@@ -3,6 +3,7 @@ import type {
   Expression,
   ForInitializer,
   Identifier,
+  JSDocTypeLiteral,
   ModifierLike,
   Node,
   SourceFile,
@@ -1732,20 +1733,25 @@ export class TsPrinter {
           ].map((t) => this.emit(t)),
         );
       case "JSDoc": {
-        const body: Doc =
-          node.comment === undefined
-            ? ""
-            : typeof node.comment === "string"
-              ? node.comment
-              : concat(node.comment.map((c) => this.emit(c)));
-        const lines: Doc[] = [concat([" * ", this.jsDocLines(body)])];
+        // An absent or empty summary writes no line, so a block of tags does
+        // not open with a blank ` *` line.
+        const lines: Doc[] = [];
+        if (typeof node.comment === "string") {
+          if (node.comment.length !== 0)
+            lines.push(concat([" * ", this.jsDocLines(node.comment)]));
+        } else if (node.comment !== undefined && node.comment.length !== 0)
+          lines.push(
+            concat([
+              " * ",
+              this.jsDocLines(concat(node.comment.map((c) => this.emit(c)))),
+            ]),
+          );
         for (const tag of node.tags ?? [])
           lines.push(concat([" * ", this.jsDocLines(this.emit(tag))]));
         return concat([
           "/**",
           hardline,
-          join(hardline, lines),
-          hardline,
+          ...(lines.length === 0 ? [] : [join(hardline, lines), hardline]),
           " */",
         ]);
       }
@@ -1864,16 +1870,30 @@ export class TsPrinter {
           ),
           this.jsDocComment(node.comment),
         ]);
-      case "JSDocTypedefTag":
+      case "JSDocTypedefTag": {
+        // An object-shaped typedef is written as `{Object}` or `{Object[]}`,
+        // followed by one line per property tag.
+        const literal: JSDocTypeLiteral | undefined =
+          node.typeExpression?.kind === "JSDocTypeLiteral"
+            ? node.typeExpression
+            : undefined;
         return concat([
           "@",
           this.emit(node.tagName),
-          node.typeExpression
-            ? concat([" ", this.emit(node.typeExpression)])
-            : "",
+          literal !== undefined
+            ? literal.isArrayType
+              ? " {Object[]}"
+              : " {Object}"
+            : node.typeExpression
+              ? concat([" ", this.emit(node.typeExpression)])
+              : "",
           node.fullName ? concat([" ", this.emit(node.fullName)]) : "",
           this.jsDocComment(node.comment),
+          ...(literal?.jsDocPropertyTags ?? []).map((tag) =>
+            concat([hardline, this.emit(tag)]),
+          ),
         ]);
+      }
 
       default:
         return this.unsupported(node);

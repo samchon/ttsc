@@ -10,6 +10,9 @@ import { make } from "../internal/make";
  * including embedded newlines and multiline tags. Text is not escaped; avoid
  * a closing comment delimiter inside supplied content.
  *
+ * An absent or empty `comment` writes no summary line, so a block of tags
+ * starts with its first tag.
+ *
  * Arrays and child nodes are retained by reference, not copied. Later caller
  * mutation can change subsequent printing of this block.
  *

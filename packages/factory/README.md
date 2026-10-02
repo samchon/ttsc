@@ -97,6 +97,8 @@ factory.createCallExpression(id("foo"), undefined, [a, b]); // foo(a, b)
 
 `printWidth` picks a layout, never a meaning. The break-time trailing comma is dropped where it would change the program (after the rest element of a destructuring assignment target, or after an argument-list hole), and it is written in both layouts where it is a value (the hole in `["a", "b", ,]`). JSX children stay on one line whenever a break would delete a whitespace-only child or trim the significant edge space off a text child, so the same tree renders the same text at every width.
 
+The printer does not reproduce the byte output of the legacy `ts.Printer`. Layout follows `printWidth`, a self-closing JSX tag keeps a space before `/>`, an `@overload` tag keeps its tag name, a `@param` tag with `isNameFirst` prints the name first, and a JSDoc block without a summary starts with its first tag. The grammar the output expresses is the same, and where the legacy text would parse differently the printer adds the parentheses or block that keep the tree.
+
 String literal nodes carry cooked values. In quoted JSX attributes, the printer uses entities to preserve quotes, ampersands, control characters and line endings; backslashes remain literal. A value containing an unpaired UTF-16 surrogate prints as a JSX expression with JavaScript string escapes, because native JSX entity decoding cannot preserve that code unit. Explicit JSX expressions use the same JavaScript escapes. These forms preserve the supplied value when the generated source is encoded as UTF-8.
 
 ### Comments

@@ -9,6 +9,9 @@ import { make } from "../internal/make";
  * one per line. The `isArrayType` flag, when `true`, appends `[]` to mark the
  * literal as an array of that shape.
  *
+ * Standing alone the literal prints as above. Inside a typedef tag it prints as
+ * `{Object}` or `{Object[]}` and the property tags follow the typedef.
+ *
  * The array and its children are retained by reference. This record is a tag
  * collection; it does not validate or brace-wrap a TypeScript object type.
  *
