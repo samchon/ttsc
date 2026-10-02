@@ -118,13 +118,13 @@ export interface ITtscPluginCapabilities {
 
   /**
    * Whether the sidecar accepts `--singleThreaded` and `--checkers` on its
-   * command line. The lint sidecar parses both flags via `parseSubcommandFlags`
-   * and threads them into `loadProgram` (parse phase) and `engine.SetSerial`
-   * (rule walk); other check-stage hosts may not.
+   * command line. The lint sidecar parses both flags in its shared subcommand
+   * flag parser and threads them into program loading (parse phase) and
+   * `engine.SetSerial` (rule walk); other check-stage hosts may not.
    *
    * When `false` (the default), ttsc strips both flags from the sidecar's arg
-   * list — the conservative behavior that ad3443a restored after `#113`
-   * over-forwarded them to typia/nestia hosts.
+   * list, because a host that does not declare the capability has an unknown
+   * flag set and would reject an undeclared flag.
    *
    * @default false
    */

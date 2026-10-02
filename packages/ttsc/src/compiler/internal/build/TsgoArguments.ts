@@ -221,10 +221,10 @@ export namespace TsgoArguments {
    * `buildSourcePlugin.ts::sourceBuildWorkspaceReplacements` builds every
    * source plugin against the installed ttsc's own driver, and
    * `driver.LoadProgram` reads the variable whenever the caller supplied no
-   * explicit argv. It is strictly better than the capability gate `ad3443a`
-   * used for `--singleThreaded` / `--checkers`: that one drops the flag for
-   * hosts that cannot take it, which is acceptable for a threading knob and not
-   * for `--strict`.
+   * explicit argv. Unlike the `threadingArgs` capability gate used for
+   * `--singleThreaded` / `--checkers`, which drops the flag for hosts that do
+   * not declare it (acceptable for a threading knob), this channel never drops
+   * a flag such as `--strict`.
    *
    * Returns the JSON payload, or `undefined` when this lane forwards nothing.
    *
