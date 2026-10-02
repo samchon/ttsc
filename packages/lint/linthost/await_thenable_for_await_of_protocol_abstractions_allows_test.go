@@ -21,7 +21,7 @@ import (
 //  3. Assert a clean exit with no await-thenable finding.
 //
 // @evidence contracts/testing.md#behavioral-verification Async-iterable protocol detection must traverse aliases, inheritance, intersections and constraints.
-// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix zero rule findings with code 0 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#independent-expectations The authored AsyncIterable alias, inherited interface, intersection and generic constraint independently require code 0, empty stdout and no rule-labelled stderr. The rendered-main.ts helper also requires zero matches, without certifying unrelated diagnostics.
 // @evidence contracts/testing.md#distinguishing-cases The four async abstraction shapes remain clean; ProtocolAbstractionsReports changes them to sync Iterable.
 // @evidence contracts/testing.md#execution-ownership TestAwaitThenableForAwaitOfProtocolAbstractionsAllows executes the in-process check command with a real Program/Checker in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableForAwaitOfProtocolAbstractionsAllows(t *testing.T) {

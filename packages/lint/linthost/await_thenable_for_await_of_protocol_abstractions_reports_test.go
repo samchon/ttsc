@@ -12,8 +12,8 @@ import (
 // One-property-away twins of the abstraction-allows scenario: the same
 // alias / inheritance / intersection / generic-constraint shapes, but built
 // on `Iterable` instead of `AsyncIterable`. A lookup that treated "reached
-// through an abstraction" as "async iterable" — or that keyed on the
-// presence of ANY iteration protocol — would stay silent here.
+// through an abstraction" as "async iterable", or that keyed on the
+// presence of ANY iteration protocol, would stay silent here.
 //
 //  1. Seed a project iterating aliased, inherited, intersected, and
 //     constraint-typed SYNC iterables with `for await`.
@@ -21,7 +21,7 @@ import (
 //  3. Assert exactly four findings on the four loop lines.
 //
 // @evidence contracts/testing.md#behavioral-verification Sync-only iterable abstractions must report under the async-iteration rule policy.
-// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix exact rule/error rendered lines 9,14,17,20 with code 2 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#independent-expectations The authored Iterable alias, inherited interface, intersection and generic constraint independently require four rule-labelled errors on lines 9,14,17,20, code 2 and empty stdout. Count and literal anchors reject missing or extra findings; the rendered-main.ts helper checks each line and error severity, without certifying exact columns or unrelated diagnostics.
 // @evidence contracts/testing.md#distinguishing-cases The matching AsyncIterable abstractions in ProtocolAbstractionsAllows remain clean; this lint policy does not claim synchronous iteration is forbidden by JavaScript.
 // @evidence contracts/testing.md#execution-ownership TestAwaitThenableForAwaitOfProtocolAbstractionsReports executes the in-process check command with a real Program/Checker in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableForAwaitOfProtocolAbstractionsReports(t *testing.T) {
