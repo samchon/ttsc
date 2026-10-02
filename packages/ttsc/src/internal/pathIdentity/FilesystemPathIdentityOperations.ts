@@ -26,13 +26,13 @@ import fs from "node:fs";
 export type FilesystemPathIdentityOperations = {
   /**
    * Whether ASCII names inside `directory` are compared case-sensitively. The
-   * resolver queries a resolved ancestor when interpreting missing suffixes or
+   * resolver queries a resolved ancestor when interpreting unresolved suffixes or
    * answering an explicit directory-policy query; if no existing prefix
    * resolves, it can query the volume root. Return true for established
    * sensitivity, false for established insensitivity or undefined if the policy
    * cannot be established. Existing boolean-returning callbacks remain valid.
    *
-   * @evidence contracts/common.md#principled-implementation Established directory policy supplies the missing-name ASCII equivalence premise, and undefined preserves inability to establish it; only false authorizes ASCII folding, independently of volume-root formatting and unproved Unicode equivalence.
+   * @evidence contracts/common.md#principled-implementation Established directory policy supplies the unresolved-suffix ASCII equivalence premise, and undefined preserves inability to establish it; only false authorizes ASCII folding, independently of volume-root formatting and unproved Unicode equivalence. Best-effort resolution does not prove that such suffix entries are absent.
    * @evidence contracts/common.md#clear-and-simple-design One callback reports sensitive, insensitive or unknown capability while accepting existing boolean implementations; the creator owns memoization and suffix handling rather than duplicating them in injected probes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Injected results must report actual established policy or unknown, not special-filename answers or OS defaults chosen to produce desired identity equality.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains directory scope, explicit-query use, all three result states and boolean callback compatibility, with separate method tags under the documentation skill.
@@ -97,9 +97,10 @@ export type FilesystemPathIdentityOperations = {
 
   /**
    * When `true` (the default), a realpath failure other than a missing entry
-   * propagates. When `false`, every failure reads as "does not exist yet" and
-   * resolution continues with the parent, which is what a best-effort caller
-   * such as the runtime hooks needs.
+   * propagates. When `false`, every failure is treated as an unavailable
+   * physical observation and resolution continues with the parent. This does
+   * not establish absence: existing inaccessible entries can become part of
+   * the unresolved suffix used by best-effort callers such as runtime hooks.
    */
   throwOnRealpathError: boolean;
 };

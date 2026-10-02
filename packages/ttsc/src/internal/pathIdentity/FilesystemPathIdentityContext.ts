@@ -6,14 +6,15 @@ import type { FilesystemPathIdentity } from "./FilesystemPathIdentity";
  * Create one with {@link createFilesystemPathIdentityContext} per unit of work
  * (one build, one watch refresh, one runtime question) and ask it every
  * question whose answers should reuse the same observations. Each queried key's
- * realpath and case result is memoized, including missing-entry results.
+ * realpath and case result is memoized, including missing-entry results and
+ * other unavailable observations admitted by best-effort error policy.
  *
  * This is not an atomic filesystem snapshot: previously unseen keys can be
  * observed later, after the disk has changed. Begin a new context when the
  * operation needs fresh observations rather than reusing earlier answers.
  *
  * Directory ASCII case capability is explicit: true means observed sensitivity,
- * false means observed insensitivity and undefined means unknown. Missing
+ * false means observed insensitivity and undefined means unknown. Unresolved
  * suffixes fold ASCII letters only for false; an unknown policy preserves exact
  * spelling without establishing that differently cased spellings denote
  * different entries. Non-ASCII letters retain their spelling even under
@@ -26,11 +27,11 @@ import type { FilesystemPathIdentity } from "./FilesystemPathIdentity";
  * policy and retains non-ASCII component pairs as candidates without asserting
  * physical identity or cache freshness.
  *
- * @evidence contracts/common.md#principled-implementation Resolution, tri-state case capability and containment share keyed observations; unknown policy preserves missing spelling instead of authorizing a merge, and the context makes no atomic guarantee across keys first observed at different times.
+ * @evidence contracts/common.md#principled-implementation Resolution, tri-state case capability and containment share keyed observations; unknown policy preserves unresolved spelling instead of authorizing a merge, and the context makes no atomic guarantee across keys first observed at different times. Best-effort suffixes can include unreadable existing entries, not only missing names.
  * @evidence contracts/common.md#clear-and-simple-design Six methods distinguish physical resolution/containment, native case capability and lexical key/candidate routing while sharing one probe context; callers need no parallel path-policy implementation.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing-entry observations remain memoized outcomes rather than guessed future existence; refreshed work needs a new context instead of layering retries over stale identity premises.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or permitted-unavailable observations remain memoized outcomes rather than guessed existence or absence; refreshed work needs a new context instead of layering retries over stale identity premises.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain generation-local observations, tri-state case policy, ASCII identity limits and physical versus lexical use; documented methods and acknowledgments follow the documentation skill's spacing guidance.
- * @evidence contracts/portability.md#os-neutral-implementation Native realpath and observed directory capability govern physical identity; unavailable probes remain unknown and only observed insensitivity permits ASCII missing-suffix folding. Lexical routing retains non-ASCII candidate pairs instead of inventing a native Unicode equivalence table.
+ * @evidence contracts/portability.md#os-neutral-implementation Native realpath and observed directory capability govern observed physical prefixes; unavailable case probes remain unknown and only observed insensitivity permits unresolved-suffix ASCII folding. Best-effort output does not certify that every existing alias resolved. Lexical routing retains non-ASCII candidate pairs instead of inventing a native Unicode equivalence table.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
  * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
@@ -58,12 +59,13 @@ export type FilesystemPathIdentityContext = {
 
   /**
    * Whether `candidate` is `root` itself or lies beneath it, compared by
-   * identity key so aliases (8.3 names, symlinked or junctioned directories,
-   * case variants on a case-insensitive volume) agree.
+   * identity key under the context's observations. Successfully resolved native
+   * aliases and observed ASCII case equivalence can share that key.
    *
    * Containment inherits the context's cached observations and case-policy
    * limitations; it does not hold either directory open or refresh its
-   * identity.
+   * identity. Best-effort output can retain unreadable existing aliases rather
+   * than prove that they resolved to one physical entry.
    *
    * With unknown policy, preserved missing-suffix spelling can leave real
    * case-insensitive aliases separate; this result alone cannot prove complete
@@ -73,7 +75,7 @@ export type FilesystemPathIdentityContext = {
    * @evidence contracts/common.md#clear-and-simple-design The method combines the existing resolve and identity containment operations, keeping callers independent of key encoding details.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Aliases are handled by the shared resolver, not hardcoded directory names or string-prefix exceptions; stale observations are not secretly refreshed inside containment.
    * @evidence contracts/common.md#meaningful-documentation Native prose documents root inclusion, alias equivalence and inherited cache/case limits rather than claiming a held-directory guarantee; tags follow the documentation skill's separation rule.
-   * @evidence contracts/portability.md#os-neutral-implementation Native aliases and volume roots are resolved before containment; unknown directory policy preserves exact missing spelling, requiring coverage and reuse owners to handle that uncertainty rather than assuming OS-default folding.
+   * @evidence contracts/portability.md#os-neutral-implementation Containment uses native observed keys and volume-root grammar; unknown directory policy preserves unresolved spelling and best-effort failures can leave existing aliases unexpanded. Coverage and reuse owners must handle that uncertainty rather than assume OS-default folding or complete alias resolution.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources isWithin declares a signature only; the implementation owns acquisition and release of resources.
    * @evidenceExclude contracts/performance.md#efficient-algorithms isWithin declares a signature only; the implementation owns the processing strategy.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work isWithin declares a signature only; the implementation owns any shared work.
@@ -152,21 +154,22 @@ export type FilesystemPathIdentityContext = {
   lexicalMatches(left: string, right: string): boolean;
 
   /**
-   * Resolve `location`, existing or not, to its physical path and comparison
-   * key.
+   * Resolve `location`, existing or not, to an observed path spelling and
+   * comparison key.
    *
-   * Existing ancestors are resolved natively. Missing suffix ASCII letters fold
-   * only for observed insensitivity, retaining exact case for sensitivity or
+   * Successfully observed ancestors are resolved natively. Unresolved suffix
+   * ASCII letters fold only for observed insensitivity, retaining exact case for sensitivity or
    * unknown policy. Repeated normalized keys reuse the context's earlier
    * observation; realpath error handling follows the creator's configured
-   * policy.
+   * policy. Best-effort policy can preserve unreadable existing suffix entries;
+   * if no prefix resolves, the returned path stays lexically normalized.
    *
-   * Non-ASCII letters in missing names preserve spelling because native Unicode
-   * case equivalence was not established by the ASCII capability probe.
+   * Non-ASCII letters in unresolved names preserve spelling because native
+   * Unicode case equivalence was not established by the ASCII capability probe.
    *
    * @evidence contracts/common.md#principled-implementation Physical ancestor resolution and ASCII-only folding under observed insensitivity avoid merging unknown or unproved Unicode suffixes; normalized queries reuse captured premises, while preserved spellings do not prove distinct physical entries.
    * @evidence contracts/common.md#clear-and-simple-design One identity result groups path spelling and comparison key while native probing and memoization stay private to the creator.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Resolution uses actual native observations and an explicit error policy; missing suffixes are represented without fabricating an existing entry or patching filesystem methods.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Resolution uses actual native observations and an explicit error policy; unresolved suffixes do not fabricate an existing entry or prove absence, and filesystem methods are not patched.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain physical/key results, missing suffixes, memo reuse and error-policy ownership with separated method tags under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native alias expansion and directory capability govern identity using selected path grammar; unknown policy preserves missing names and non-ASCII letters are never folded by the suffix canonicalizer, avoiding universal lowercasing or an OS default.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources resolve declares a signature only; the implementation owns acquisition and release of resources.
