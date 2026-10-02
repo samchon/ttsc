@@ -9,23 +9,28 @@ import { recordGenerationProofFailure } from "./recordGenerationProofFailure";
 
 /**
  * Record declared-input content/metadata changes, relevant directory membership
- * changes and compile-time event witnesses from the before/after walks.
+ * changes from before/after walks, and compile-time membership event witnesses.
  * Unidentifiable file failures stay conservative; the shared recorder bounds
- * retained witnesses and reports dropped occurrences.
+ * witness count and reports dropped occurrences, without bounding path bytes.
  *
- * @evidence contracts/common.md#principled-implementation Witness selection mirrors stable-walk comparisons: declared file keys, relevant directory maps and compile-time membership events attribute the actual absent or changed proof rather than just recording a false verdict.
+ * Capture calls this after its walk verdict fails. Content-only tracker events
+ * need not appear as named witnesses here; if the aggregate still contains no
+ * entry, the generic incomplete-snapshot witness records the unexplained failed
+ * proof. This operation reports a verdict rather than deciding reuse itself.
+ *
+ * @evidence contracts/common.md#principled-implementation Declared file comparisons, relevant directory maps and compile-time membership events attribute observed differences after the capture verdict fails. Walk failures remain conservative, and a generic witness covers an otherwise empty aggregate rather than inventing the identity of an unavailable event.
  * @evidence contracts/common.md#clear-and-simple-design Local helpers distinguish walk failures, directory selection and tracker attribution, while one shared recorder owns bounds and witness identity.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed identity conversion retains the walk failure, omitted tracker evidence remains counted and an otherwise empty failed capture gets an explicit incomplete-snapshot witness.
  * @evidence contracts/common.md#meaningful-documentation Native prose states compared evidence and conservative/bounded reporting, with documented props separated and private helper comments explaining their selection responsibility.
  * @evidence contracts/portability.md#os-neutral-implementation Declared keys map through the supplied filesystem identity context; diagnostic source paths use Node native resolution rather than a universal lowercase or separator replacement rule.
- * @evidence contracts/performance.md#efficient-algorithms Hash keys and relevant directory maps are compared in linear passes using Set/Map lookup, and bounded witness storage avoids retaining the full comparison result.
- * @evidence contracts/performance.md#reuse-equivalent-work Two walk passes and the directory comparisons use shared recorder deduplication; declaration selection and the supplied identities reuse captured observations instead of re-reading files.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns the bounded target collection; local directory maps and union sets die after reporting and no tracker lifecycle is acquired by the recorder.
+ * @evidence contracts/performance.md#efficient-algorithms Both failure populations and complete directory arrays are scanned; declared keys or an allocated hash-key union drive content/metadata comparisons, and filtered directory arrays, map-entry pairs and a relevant-path union grow with directory count. Key/signature equality, native diagnostic resolution, identity probes and each recorder's witness serialization retain their spelling/text costs. Witness count is bounded independently of full comparison work or temporary populations.
+ * @evidence contracts/performance.md#reuse-equivalent-work Already captured walks, signatures and tracker events avoid fresh content collection. The supplied identity transaction may share native resolution answers; the shared recorder deduplicates retained witnesses but does not skip comparison, identity encoding or repeated dropped occurrences.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns at most eight retained witnesses and their seen keys, with bytes depending on path text. Local filtered arrays, maps and union sets become collectible after reporting; no tracker lifecycle or historical cache is acquired here.
  */
 export function recordProjectSnapshotFailures(
   failures: TtscGenerationProofFailures,
   props: {
-    /** Complete pre-compile walk observation, including any failed reads. */
+    /** Pre-compile walk observation, possibly incomplete with failed reads. */
     before: ReturnType<typeof collectProjectInputSnapshot>;
 
     /** Declared project keys; undefined selects every observed file key. */
