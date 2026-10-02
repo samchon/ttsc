@@ -3,12 +3,13 @@ import { selectModuleGraphs } from "./selectModuleGraphs";
 import { selectModulesByFile } from "./selectModulesByFile";
 
 /**
- * Invalidate every module-graph node of the registered importers so the next
- * request retransforms them. Importers keep their original absolute spelling so
+ * Attempt invalidation of selected module-graph nodes so a capable host can
+ * retransform them on a later request. Importers keep their original spelling so
  * the module graph's exact-key lookup can hit; graph lookups still go through
  * {@link selectModulesByFile} because module-graph file keys are
- * slash-normalized and, on case-insensitive filesystems, may not match the
- * compiler's spelling byte for byte.
+ * slash-normalized and native aliases or filesystem case policy may differ
+ * from the compiler's spelling byte for byte. Missing or throwing invalidation
+ * APIs cannot guarantee that Vite's cached transform was discarded.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Every selected graph receives the importer nodes resolved through its own
@@ -22,12 +23,17 @@ import { selectModulesByFile } from "./selectModulesByFile";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains original spelling and lookup ownership; the nearby
  *   error comment states the fallback limit with documentation-guided separation.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   Performs no filesystem, path or process operation of its own.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   Visits each module of the file's importers once.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Importer spellings enter the selector's slash-normalized exact lookup and
+ *   native identity fallback; original opaque nodes stay with their owning graph.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   E selected graph occurrences and I importer spellings produce E-times-I
+ *   lookups; missed exact lookups can scan G keys with native identity queries.
+ *   Each of N returned node occurrences invokes host invalidation independently,
+ *   so graph aliases and overlapping importer results can repeat effects.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Keeps no cache of its own and computes each value once.
+ *   This step requests effectful invalidation, not a reusable computed result;
+ *   opaque graph/node equality does not supply cross-request validity proof.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Acquires no handle, timer or retained state of its own.
  */
