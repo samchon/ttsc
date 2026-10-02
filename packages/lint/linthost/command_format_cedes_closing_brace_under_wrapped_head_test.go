@@ -7,12 +7,13 @@ import (
   "testing"
 )
 
-// TestCommandFormatCedesClosingBraceUnderWrappedHead verifies the
-// closing-brace pass cedes a `}` whose block opens on a wrapped
-// continuation line — here a curried arrow whose `): void => {` head sits
-// at the head's own indent, not at depth*tabWidth from column 0. The
-// canonical is already correct, so `ttsc format` must be a no-op; a naive
-// closing-brace re-indent would pull the `}` to column 0 and corrupt it.
+// TestCommandFormatCedesClosingBraceUnderWrappedHead verifies that format
+// preserves a curried arrow with a wrapped continuation head, including the
+// inner if and arrow-body closing braces at their authored indentation.
+//
+// This fixture satisfies both wrapped-function and chained-arrow cede guards.
+// Exact unchanged output rejects a de-indent, but does not independently
+// establish either guard by excluding the other. No malformed input is used.
 //
 //  1. Seed the curried-arrow canonical (already correct).
 //  2. Run `ttsc format`.
@@ -20,7 +21,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command (semi false) on a curried generic arrow whose `): void => {` head is wrapped, and asserts exit 0, no did-not-converge message, and the file unchanged, including the closing braces of the inner `if` and the arrow body.
 // @evidence contracts/testing.md#independent-expectations The source is an authored, already-correct layout and serves as its own expected output; the expectation is not derived from the formatter.
-// @evidence contracts/testing.md#distinguishing-cases One no-change case guarding against a closing-brace re-indent pulling `}` to column 0 under a wrapped head. No malformed input is included, so correction of a wrong brace indent here is not demonstrated.
+// @evidence contracts/testing.md#distinguishing-cases One no-change curried/wrapped-head case guards both inner and body closing-brace indentation. Wrapped-function and chained-arrow guards overlap here, so this does not isolate either guard or demonstrate malformed-input repair.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand against a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatCedesClosingBraceUnderWrappedHead(t *testing.T) {
   canonical := "export const createHook =\n" +
