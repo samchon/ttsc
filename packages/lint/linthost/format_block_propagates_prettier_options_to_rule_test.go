@@ -11,7 +11,7 @@ import (
 // This case pins the authored nondefault settings at the engine-options
 // boundary. If their translation regressed
 // silently (mapped `singleQuote: true` to `prefer: "double"`, etc.),
-// every downstream rule would see the wrong option blob — far worse
+// every downstream rule would see the wrong option blob, which is worse
 // than a load-time error, because diagnostics would still fire,
 // just incorrectly.
 //
@@ -21,11 +21,13 @@ import (
 //     tagSynonyms.
 //  2. Parse it and inspect the option blob attached to each rule.
 //  3. Assert every cell decodes to the expected JSON.
+//  4. Retain isolated format-only width120 and semi:false inputs from loader donors.
+//     These assert direct normalization, not the actual CJS/TS loader connection.
 //
-// @evidence contracts/testing.md#behavioral-verification parseExternalConfigStore emits never semis, single quotes, es5 commas, width100/tab4/tabs/crlf, exact import order, and foo-to-bar JSDoc synonym options.
+// @evidence contracts/testing.md#behavioral-verification parseExternalConfigStore emits never semis, single quotes, es5 commas, width100/tab4/tabs/crlf, exact import order, and foo-to-bar JSDoc synonym options; isolated format-only objects preserve width120 and never semis.
 // @evidence contracts/testing.md#independent-expectations Public format keys have documented meanings that determine literal rule-option values; independent JSON decoding checks each authored nondefault value rather than using the expansion to create expectations.
-// @evidence contracts/testing.md#distinguishing-cases Owns all originally authored nondefault mapping cells, including complete import-order sequence; field type errors and explicit opt-outs are separate tests.
-// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. The authored nondefault format object reaches parseExternalConfigStore and independent decoding of each RuleOptions payload in-process; configuration translation is observed without installing Prettier or formatting a consumer.
+// @evidence contracts/testing.md#distinguishing-cases Owns all originally authored nondefault mapping cells, including complete import-order sequence, plus isolated width120/semi:false objects whose nonempty option payloads and decoded literals are checked. Field type errors and explicit opt-outs are separate tests.
+// @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the original object and two named t.Run format-only subcases. Each authored object reaches parseExternalConfigStore and independent decoding of each RuleOptions payload in-process; configuration translation is observed without installing Prettier or formatting a consumer.
 func TestFormatBlockPropagatesPrettierOptionsToRule(t *testing.T) {
   resolver, err := parseExternalConfigStore(map[string]any{
     "format": map[string]any{
@@ -114,4 +116,44 @@ func TestFormatBlockPropagatesPrettierOptionsToRule(t *testing.T) {
   if jd.TagSynonyms["foo"] != "bar" {
     t.Errorf("jsdoc tagSynonyms mismatch: %+v", jd.TagSynonyms)
   }
+
+  t.Run("format-only printWidth120", func(t *testing.T) {
+    isolated, err := parseExternalConfigStore(map[string]any{
+      "format": map[string]any{"printWidth": 120},
+    }, "")
+    if err != nil {
+      t.Fatalf("parse format-only printWidth: %v", err)
+    }
+    payload := isolated.RuleOptions("format/print-width")
+    if len(payload) == 0 {
+      t.Fatal("format-only printWidth must retain an option payload")
+    }
+    var decoded pwOpts
+    if err := json.Unmarshal(payload, &decoded); err != nil {
+      t.Fatalf("decode format-only printWidth: %v", err)
+    }
+    if decoded.PrintWidth != 120 {
+      t.Fatalf("format-only printWidth want 120, got %d", decoded.PrintWidth)
+    }
+  })
+
+  t.Run("format-only semi false", func(t *testing.T) {
+    isolated, err := parseExternalConfigStore(map[string]any{
+      "format": map[string]any{"semi": false},
+    }, "")
+    if err != nil {
+      t.Fatalf("parse format-only semi: %v", err)
+    }
+    payload := isolated.RuleOptions("format/semi")
+    if len(payload) == 0 {
+      t.Fatal("format-only semi must retain an option payload")
+    }
+    var decoded semiOpts
+    if err := json.Unmarshal(payload, &decoded); err != nil {
+      t.Fatalf("decode format-only semi: %v", err)
+    }
+    if decoded.Prefer != "never" {
+      t.Fatalf("format-only semi false want prefer=never, got %q", decoded.Prefer)
+    }
+  })
 }
