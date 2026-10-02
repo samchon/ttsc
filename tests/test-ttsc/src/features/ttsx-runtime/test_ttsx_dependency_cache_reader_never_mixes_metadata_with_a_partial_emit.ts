@@ -17,7 +17,8 @@ import { readDependencyCache } from "../../../../../packages/ttsc/src/launcher/i
  * 1. Seed a complete generation A with a published marker.
  * 2. Seed generation B without publishing its marker; the reader observes A only.
  * 3. Atomically swap the fixture marker; the reader now observes the
- *    complete B and never a directory that lacks emitted JavaScript.
+ *    JavaScript-bearing B.
+ * 4. Advertise empty generation C and assert the reader misses.
  *
  * @evidence contracts/testing.md#behavioral-verification Actual readDependencyCache returns published complete A while B exists without a marker, then B after an atomic fixture marker rename; a marker naming C with no emitted output misses.
  * @evidence contracts/testing.md#independent-expectations Literal distinct generation ids and authored output files define publication identity. A marker names exactly one generation, so an unpublished sibling cannot supply emitted sources and an absent advertised output cannot be a hit.
@@ -52,7 +53,7 @@ export function test_ttsx_dependency_cache_reader_never_mixes_metadata_with_a_pa
     fs.writeFileSync(path.join(genBDir, "index.js"), "exports.value = 'B';\n");
 
     // Marker still names A: the reader must return the complete A, never a
-    // BuiltProject pointing at the partially-written B directory.
+    // BuiltProject pointing at the unpublished B directory.
     const midRebuild = readDependencyCache(cacheDir, metaPath);
     assert.notEqual(midRebuild, null, "reader should still hit generation A");
     assert.equal(midRebuild!.emitDir, genADir);
