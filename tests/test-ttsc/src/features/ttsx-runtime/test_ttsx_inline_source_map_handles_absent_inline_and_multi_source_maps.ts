@@ -11,8 +11,8 @@ import { inlineServedSourceMap } from "../../../../../packages/ttsc/src/launcher
  * served emit can carry beyond the common single-source external case (issue
  * #353).
  *
- * These are the latent-risk edges the spawned runs cannot reach on a platform
- * whose tsgo always emits an LF, single-source external map: a served emit with
+ * Authored map fixtures directly distinguish four inliner branches without
+ * depending on a compiler producer selecting those shapes: a served emit with
  * no comment must pass through untouched; an emit whose sibling map is missing
  * must have its dangling comment stripped (so Node caches no `data: null`
  * script); an already-inline map must be absolutized without being double-
