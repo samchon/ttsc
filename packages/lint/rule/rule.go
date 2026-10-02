@@ -288,7 +288,9 @@ type TaggedRule interface {
 //
 // A contributor whose rule is AST-only can implement this with
 // `NeedsTypeChecker() bool { return false }` to opt out of the checker path,
-// preserving the engine's parallel file walk. Returning `true` is equivalent
+// allowing a checker-free parallel walk when no other active rule requires
+// a checker and the caller has not requested serial execution. Returning true is
+// equivalent
 // to not implementing the interface at all. A rule that returns `false` must
 // not read `Context.Checker`: the host is free to leave it nil.
 //

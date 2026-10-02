@@ -12,7 +12,7 @@ import (
 // This is the negative twin of the AST-only case. The host cannot infer a
 // third-party rule's shape, and ProjectContext carries a Checker, so an
 // unmarked rule must keep receiving one. Losing this default would silently
-// hand nil to every existing project contributor that reads Context.Checker —
+// hand nil to existing project contributors that read Context.Checker;
 // the marker exists to let a rule opt out, never to change what silence means.
 //
 //  1. Install a project contributor with no TypeAwareRule method.
