@@ -86,15 +86,17 @@ type PluginEntry struct {
 
 // ParsePlugins decodes the `--plugins-json` payload.
 // Empty or whitespace-only input means no entries; malformed JSON returns a contextual error.
+// Parsing examines the supplied payload and allocates decoded records and their
+// configuration values. The caller owns the returned records.
 //
 // @evidence contracts/common.md#principled-implementation encoding/json decodes the host envelope into PluginEntry records; the explicit empty-input case represents an absent descriptor list.
 // @evidence contracts/common.md#clear-and-simple-design Parsing and contextual error wrapping form one boundary operation, leaving lint selection to FindLintEntry.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The absence case follows the host protocol and does not fabricate entries to satisfy a consumer.
 // @evidence contracts/common.md#meaningful-documentation Native prose states absence and malformed-input effects, with a blank comment line before tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ParsePlugins performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ParsePlugins has no loop of its own and runs a fixed number of steps.
+// @evidence contracts/performance.md#efficient-algorithms Trimming, byte conversion and JSON decoding scale with payload size; decoded entries and configuration values determine result storage. One complete parse is necessary to validate and decode this supplied envelope without a second custom traversal.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ParsePlugins keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ParsePlugins acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ParsePlugins owns no retained state, handle or running task; decoded records are transferred to the caller and temporary results from a failed parse are not retained.
 func ParsePlugins(text string) ([]PluginEntry, error) {
   if strings.TrimSpace(text) == "" {
     return nil, nil

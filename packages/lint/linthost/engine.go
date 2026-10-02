@@ -919,7 +919,7 @@ func (e *Engine) SetSerial(serial bool) {
 // @evidence contracts/common.md#clear-and-simple-design The setter carries directory context only; Run owns fallback and rules own resolution of their path options.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts It transports an explicit origin without changing global cwd or inserting machine-specific paths.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain project rooting, empty behavior, configuration timing and absence of process mutation before the tags.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Engine.SetCurrentDirectory performs no filesystem or process operation of its own.
+// @evidence contracts/portability.md#os-neutral-implementation Carries the compiler Program's native directory spelling unchanged into the per-file rule Context. It does not convert native paths to URL spelling, infer filesystem case policy or change global cwd; Run owns native cwd fallback and each rule owns relative-path resolution.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Engine.SetCurrentDirectory has no loop of its own and runs a fixed number of steps.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Engine.SetCurrentDirectory keeps no cache and shares no in-flight computation.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Engine.SetCurrentDirectory acquires no handle or task and retains nothing beyond the receiver's own fields.
@@ -1076,8 +1076,8 @@ func NewEngineWithResolver(config RuleResolver) *Engine {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown names come from resolver entries and parsed directives, not a whitelist of expected diagnostics.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains both sources, deduplication and borrowed-slice ownership before the tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation UnknownRules merges rule-name lists and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms The configured and directive-discovered names are merged and de-duplicated with a set and sorted once, O((n+m) log (n+m)).
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work UnknownRules keeps no cache; every call merges the current lists.
+// @evidence contracts/performance.md#efficient-algorithms Copies m directive names under the lock and borrows the already sorted configured list when m is zero. Otherwise a hash-set union over n+m names sorts u unique names, requiring O(n+m+u log u) name operations and O(n+m) temporary entries; hashing and comparison also examine name bytes.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work UnknownRules reads the current engine state for one warning snapshot; it does not coordinate a shared producer across requests or consumers. With no directive additions it directly reuses the construction-time sorted list.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The directive mutex is held only while the discovered names are copied and is released before the merge; the returned slice is new when extras exist.
 func (e *Engine) UnknownRules() []string {
   if e == nil {

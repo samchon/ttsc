@@ -17,8 +17,8 @@ export type TtscLintUnicornFilenameCaseName =
  * Options for `unicorn/filename-case`.
  *
  * `case` and `cases` are mutually exclusive: configure either the single
- * enforced style or a map of allowed styles. With neither configured — or with
- * every `cases` entry disabled — the rule enforces kebab-case.
+ * enforced style or a map of allowed styles. With neither configured, or with
+ * every `cases` entry disabled, the rule enforces kebab-case.
  *
  * @reference https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/filename-case.md
  * @evidence contracts/common.md#principled-implementation The exclusive union prevents simultaneous case and cases settings, which the native decoder rejects; shared members describe path selection and extension handling.
@@ -28,8 +28,9 @@ export type TtscLintUnicornFilenameCaseName =
  */
 export type ITtscLintUnicornFilenameCaseRuleOptions = {
   /**
-   * Regular-expression strings; a file is exempt when any pattern matches any
-   * segment of its project-relative path.
+   * Go regular-expression strings; a file is exempt when any pattern matches
+   * a segment of its project-relative path. Files outside the project directory
+   * contribute only their basename.
    */
   ignore?: readonly string[];
 
@@ -73,13 +74,14 @@ export type ITtscLintUnicornFilenameCaseRuleOptions = {
  * @evidence contracts/common.md#principled-implementation The optional boolean controls range reordering independently of length-reducing regex shorthand transformations.
  * @evidence contracts/common.md#clear-and-simple-design One switch exposes the only configurable transformation policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The switch selects a general regex policy without naming particular expressions or fixtures.
- * @evidence contracts/common.md#meaningful-documentation The member explains the default, preserved source order and an example of adjacent-range merging.
+ * @evidence contracts/common.md#meaningful-documentation The member explains the default, the single disabled literal transform and an example of adjacent-range merging.
  */
 export interface ITtscLintUnicornBetterRegexRuleOptions {
   /**
-   * Sort and merge adjacent character-class ranges (e.g. `[d-ea-c]` ->
-   * `[a-e]`). Defaults to `true`; set `false` to keep the source order and only
-   * apply the length-reducing shorthands.
+   * Sort and merge adjacent character-class ranges in regex literals
+   * (e.g. `[d-ea-c]` -> `[a-e]`). Defaults to `true`; set `false` to disable
+   * this range-sorting and merging transform while retaining the other regex
+   * optimizations.
    */
   sortCharacterClasses?: boolean;
 }
@@ -475,14 +477,16 @@ export interface ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions {
 /**
  * Options for `unicorn/no-typeof-undefined`.
  *
- * @evidence contracts/common.md#principled-implementation The boolean determines whether undeclared globals join the typeof-undefined comparison check.
+ * @evidence contracts/common.md#principled-implementation The boolean determines whether unresolved identifiers and bindings declared outside the linted file join the typeof-undefined comparison check.
  * @evidence contracts/common.md#clear-and-simple-design One optional flag exposes the configurable global-name boundary.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The boundary is declaration status rather than a hardcoded list of identifier names.
- * @evidence contracts/common.md#meaningful-documentation The member identifies undeclared globals and records the disabled default separately.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Checker binding ownership defines the boundary rather than a hardcoded list of identifier names.
+ * @evidence contracts/common.md#meaningful-documentation The member identifies unresolved and externally declared globals, their suggestion boundary and the disabled default separately.
  */
 export interface ITtscLintUnicornNoTypeofUndefinedRuleOptions {
   /**
-   * Also report undeclared global identifiers.
+   * Also report unresolved identifiers and globals declared outside the linted
+   * file, including ambient library globals. Eligible edits for these globals
+   * are suggestions because accessing an unavailable global can throw.
    *
    * @default false
    */
@@ -516,14 +520,17 @@ export interface ITtscLintUnicornPreferNumberPropertiesRuleOptions {
 /**
  * Options for `unicorn/text-encoding-identifier-case`.
  *
- * @evidence contracts/common.md#principled-implementation The switch selects dashed encoding names outside contexts whose API already requires a dash.
+ * @evidence contracts/common.md#principled-implementation The switch selects the dashed UTF-8 spelling outside the TextDecoder and JSX charset contexts where the rule always selects it.
  * @evidence contracts/common.md#clear-and-simple-design One optional preference represents the configurable encoding-spelling choice.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts API-required dash exceptions follow supported encoding contexts rather than particular consumers.
- * @evidence contracts/common.md#meaningful-documentation The member distinguishes optional preference from dash-required APIs and states the default separately.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts TextDecoder and JSX charset syntax establish the rule's canonical-spelling policy rather than particular consumers.
+ * @evidence contracts/common.md#meaningful-documentation The member distinguishes the optional UTF-8 preference from the rule's fixed contexts, states the default and limits its effect on other labels.
  */
 export interface ITtscLintUnicornTextEncodingIdentifierCaseRuleOptions {
   /**
-   * Prefer `utf-8` instead of `utf8` outside dash-required APIs.
+   * Prefer `utf-8` instead of `utf8` in other positions. The rule always uses
+   * `utf-8` for the first TextDecoder argument and JSX meta charset or form
+   * accept-charset attributes. This option does not change `ascii` or make
+   * unrecognized encoding labels reportable.
    *
    * @default false
    */
