@@ -13,7 +13,7 @@ import "testing"
 //  3. Require the file byte-identical.
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on an interface whose type-parameter list is broken one per line and whose `> extends IBase {` stays on the closing line, and requires the file byte-identical.
-// @evidence contracts/testing.md#independent-expectations The source is an authored literal in the Prettier layout (bare-identifier heritage inline after `>`) and is its own expected output.
+// @evidence contracts/testing.md#independent-expectations The complete authored literal independently preserves IBase, the two constrained/defaulted type parameters, inline bare heritage after `>` and the optional member type; no independent Prettier invocation establishes the expected bytes.
 // @evidence contracts/testing.md#distinguishing-cases One fixed-point case guarding the body depth and the heritage line against de-indentation; the qualified-heritage variant that moves to its own line is owned by a separate test.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatPreservesMultilineTypeParamHeritage(t *testing.T) {
