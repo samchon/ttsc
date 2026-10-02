@@ -2,12 +2,11 @@
   "severity": "error",
   "claims": [
     {
-      "name": "TypeScript E2E experiments",
-      "type": "typescript",
+      "name": "JavaScript process and packed host experiments",
+      "type": "javascript",
       "root": "../..",
       "files": [
-        "tests/test-e2e/src/features/**/test_*.ts",
-        "tests/test-e2e/src/features/**/case_*.ts"
+        "experimental/test-unplugin/src/contracts/**/test_*.mjs"
       ],
       "symbol": "function",
       "reference": [

@@ -1,5 +1,4 @@
 import { withEvidenceProject } from "../../../utils/src/evidence/withEvidenceProject";
-import { GoBoundary } from "../internal/GoBoundary";
 import { Scenarios } from "../internal/Scenarios";
 import { TransitionProject } from "../internal/evidence/internal/TransitionProject";
 import { case_evidence_consumer_batch_accepts_complete_graphs } from "./evidence/scenes/case_evidence_consumer_batch_accepts_complete_graphs";
@@ -19,57 +18,22 @@ import { case_evidence_positive_watch_consumers_share_one_watcher } from "./evid
  * owns one fixed consumer, while the watcher batch owns its
  * transition-sensitive consumer. Every scenario reaches its own verdict.
  *
- * 1. Run the 27 package-owned Go-to-Node parser and graph connection cases in one
- *    Go process.
- * 2. Open the shared consumer and run the severity, source-refresh, file-link and
+ * 1. Open the shared consumer and run the severity, source-refresh, file-link and
  *    resident-document scenarios against it, then release it.
- * 3. Run the combined positive/file-rule/negative consumer and the watcher batch.
- * 4. Report every failed scenario by name.
+ * 2. Run the combined positive/file-rule/negative consumer and the watcher batch.
+ * 3. Report every failed scenario by name.
  *
  * @evidence contracts/testing.md#behavioral-verification Each scenario runs the real ttsc check, resident graph session or native watcher and asserts exit status, diagnostics or graph content; this entry only orders them and aggregates failures.
  * @evidence contracts/testing.md#independent-expectations Expectations come from authored severities, headings, member names and consumer sources stated in each scenario, not from the Evidence implementation.
  * @evidence contracts/testing.md#distinguishing-cases Severity inheritance, inventory refresh after renames, file-qualified links, resident document edits, complete-graph acceptance, file rules and watched transitions are distinct decisions; each scenario carries its own negative controls.
- * @evidence contracts/testing.md#execution-ownership test_e2e_evidence discovers the TypeScript scenarios and the explicit 27-case Go bridge selection. Package-owned *_e2e_test.go entries execute only with the e2e build tag; their native declarations and the exported TypeScript cases have individual checklist answers. The anonymous orchestration callback is review-only.
+ * @evidence contracts/testing.md#execution-ownership test_e2e_evidence discovers the TypeScript scenarios; the former Go-to-Node loader cases are in-process unit tests in packages/evidence/native and no Go process is started here. The exported TypeScript cases have individual checklist answers. The anonymous orchestration callback is review-only.
  * @evidence contracts/e2e.md#necessary-boundary The packaged contributor, the lint sidecar, the launcher and the resident native producer meet only in real runs; each scenario states which connection it proves.
- * @evidence contracts/e2e.md#shared-execution One Go test binary/process serves all 27 Go-to-Node bridge cases and reuses Go object compilation. Prisma classification and located declarations share their original schema inventory; Swagger document/digest/error controls share one real five-source request. Other schema, path, invalidation and platform inputs retain their independent preparation. The severity, source-refresh, file-link and resident-document scenarios share one consumer, twelve checks and one resident session. The positive and negative batches share one default Program and consumer; only JSX and noUnusedLocals option families start additional Programs. The watcher retains its own source-transition corpus.
+ * @evidence contracts/e2e.md#shared-execution The severity, source-refresh, file-link and resident-document scenarios share one consumer, twelve checks and one resident session. The positive and negative batches share one default Program and consumer; only JSX and noUnusedLocals option families start additional Programs. The watcher retains its own source-transition corpus.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The shared consumer is released through withEvidenceProject after the four scenarios, which refuse removal while any native child may still hold it; each scenario's entry resets src, docs and the sibling api directory before installing its inputs. Larger batches own and release their own consumers.
- * @evidence contracts/e2e.md#preserved-coverage The TypeScript scenarios retain their necessary consumer assertions. The original 32 Go bridge cases become 27 entries: one located-population entry also owns the six original classification symbols, and one five-source Swagger request owns the six original result groups with independent before/after operation-key presence controls. GoBoundary rejects missing selected entry execution; these shared entries collect their independently named subcases. Portable rule literals retain their direct unit owners.
+ * @evidence contracts/e2e.md#preserved-coverage The TypeScript scenarios retain their necessary consumer assertions. The former Go bridge cases moved, with unchanged names and bodies, to unit tests in packages/evidence/native. Portable rule literals retain their direct unit owners.
  */
 export async function test_e2e_evidence(): Promise<void> {
   await Scenarios.collect("evidence", [
-    [
-      "native_parser_bridges",
-      () =>
-        GoBoundary.run("evidence", "./native", [
-          "TestAnAddedPrismaFieldMovesTheScopeAndNotTheModel",
-          "TestAnExclusionInASharedFileIsPlacedByEveryNameThatReadsIt",
-          "TestADiagnosticForASharedSchemaNamesTheSetsSpelling",
-          "TestAPrismaDigestFollowsTheDeclaration",
-          "TestASchemaHardLinkedInsideOnePopulationIsCitedOnce",
-          "TestFirstSelectedPrismaModelActivatesCoverage",
-          "TestOneSchemaHardLinkedIntoTwoRootsIsParsedOnce",
-          "TestOneSchemaReachedThroughALinkedDirectoryIsParsedOnce",
-          "TestPrismaBridgeCarriesDocComments",
-          "TestPrismaBridgeRejectsAnInvalidSchemaWithItsLocation",
-          "TestPrismaBridgeReportsNoDigestForAnUnreadableSet",
-          "TestPrismaBridgeReportsTheNativeDigest",
-          "TestPrismaBridgeReturnsAViewAsAModel",
-          "TestPrismaClaimHostsParticipateInReferencePolicyCounts",
-          "TestPrismaClaimWithOnlyTheBenchmarkScaffoldIsInactive",
-          "TestPrismaClassifiesEveryRelationSpelling",
-          "TestPrismaDuplicateModelAcrossTheSetIsRejected",
-          "TestPrismaEnumMaterializesNoUnit",
-          "TestPrismaHiddenModelsLeaveTheGraphPopulation",
-          "TestPrismaImplicitManyToManyMaterializesRelationsOnly",
-          "TestPrismaLoaderMaterializesALocatedPopulation",
-          "TestPrismaLoaderReportsAnUnparseableSchema",
-          "TestRequireReviewMatchesAPrismaFileLevelExclusion",
-          "TestSwaggerBridgeAnswersEverySourceInOneRequest",
-          "TestTwoClaimsOverOneSharedSchemaEachOweTheirOwnReference",
-          "TestTwoRootsDifferingOnlyInCaseReachOneSchema",
-          "TestTwoRootsNamingTwoSchemasKeepBothInTheSet",
-        ]),
-    ],
     [
       "transitions",
       async () => {
