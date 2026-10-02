@@ -1,7 +1,7 @@
 import path from "node:path";
 import type { FilesystemPathIdentityContext } from "ttsc/path-identity";
 
-import type { ResolutionCandidate } from "./serverResolution";
+import type { ResolutionCandidate } from "./ResolutionCandidate";
 
 /**
  * Retain the deepest physical project candidates in their original priority.

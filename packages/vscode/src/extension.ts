@@ -31,10 +31,10 @@ import {
   type ExpectedServerRestartHandler,
   createExpectedServerRestartHandler,
 } from "./expectedServerRestart";
+import type { ResolutionCandidate } from "./ResolutionCandidate";
 import { findClientEntryByRoot } from "./findClientEntryByRoot";
 import { resolveWithDirectoryMemo } from "./resolveWithDirectoryMemo";
 import {
-  type ResolutionCandidate,
   createDocumentSelectorPattern,
   createResolutionCandidates,
   createServerExecutable,
