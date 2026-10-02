@@ -1088,7 +1088,7 @@ func (s *ConfigStore) ResolveProjectRules(names []string) (map[string]ProjectRul
   return out, nil
 }
 
-// Flatten returns the unconstrained union of all non-ignore-only entries,
+// Flatten returns a new severity map for all non-ignore-only entries,
 // including SeverityOff rules. Used by LoadRuleConfig (callers that expect a
 // plain RuleConfig). Later entries shadow earlier ones for the same rule name.
 //
@@ -1097,8 +1097,8 @@ func (s *ConfigStore) ResolveProjectRules(names []string) (map[string]ProjectRul
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Flattening is an explicit metadata API and is not substituted for scoped engine execution.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the loss of scope, inclusion of off and precedence before a separate tag paragraph.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Flatten merges rule severities and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms One pass over the entries and their rules, O(entries times rules per entry).
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Flatten keeps no cache; every call reads the store's entries.
+// @evidence contracts/performance.md#efficient-algorithms One fold visits e entries and q rules in participating entries, with O(e+q) entry/map operations plus rule-name trimming, normalization and hashing bytes. A full fold is needed for the unconstrained union and later-entry precedence. The returned map holds u distinct canonical names and severities in O(u) map entries; normalized names can share their source string backing storage.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Flatten owns one severity projection of the store, not a cross-request computation coordinator. Its fresh writable result gives each caller independent map membership; callers establish equivalence and ownership before reusing a projection.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned map is new and owned by the caller; no handle or task is acquired.
 func (s *ConfigStore) Flatten() RuleConfig {
   out := RuleConfig{}
