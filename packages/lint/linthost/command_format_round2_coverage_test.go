@@ -3,17 +3,17 @@ package linthost
 import "testing"
 
 // TestCommandFormatRound2Coverage verifies that `ttsc format` leaves four
-// Prettier-canonical call layouts byte-identical: the three-argument test-call
+// authored call layouts byte-identical: the three-argument test-call
 // branch with its positive and negative gate, and trailing-argument kinds that
-// hug. Each source is the pinned Prettier 3.8.3 canonical form, so idempotency
-// is parity. The cases are the named subtests below.
+// hug. Complete literals protect the callbacks, argument values and order;
+// fixed-point preservation does not certify external formatter parity.
 //
-//  1. Seed four Prettier-canonical call layouts.
+//  1. Seed four independently authored call layouts.
 //  2. Run `ttsc format` with the default format block on each.
 //  3. Require every file byte-identical.
 //
 // @evidence contracts/testing.md#behavioral-verification Four subcases run the in-process `format` command on authored layouts and require each unchanged: a three-argument test call with a numeric timeout whose block callback hugs, the same call with a two-parameter callback exploded, and first-argument hugs over element-access and property-access trailing arguments.
-// @evidence contracts/testing.md#independent-expectations Sources are authored literals the test comment describes as the pinned Prettier 3.8.3 canonical form (not re-verified here) and serve as their own expected output.
+// @evidence contracts/testing.md#independent-expectations Complete sources are authored expected literals preserving descriptions, timeout 2500, callback parameters and operations, element-access keys and property names. They are independent of formatter output; no external formatter is invoked.
 // @evidence contracts/testing.md#distinguishing-cases Covers the three-argument test-call branch with its positive and negative gate (zero-parameter versus two-parameter callback) and two trailing-argument kinds that hug. All are fixed points.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatRound2Coverage(t *testing.T) {
