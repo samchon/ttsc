@@ -15,10 +15,13 @@ import { packageNameFromSpecifier } from "../../../../packages/playground/src/np
  *    in both bare and `node:` spellings.
  * 2. Keep prefix-only builtins, URL specifiers, scoped packages, and ordinary npm
  *    names on their distinct classification paths.
- * @evidence contracts/testing.md#behavioral-verification packageNameFromSpecifier excludes runtime Node builtin roots, their subpaths and node: forms while preserving scoped/ordinary npm package roots and rejecting URL or unknown node: requests.
- * @evidence contracts/testing.md#independent-expectations Node builtinModules is an independent runtime reference for the portable classifier; literal @scope/package and ordinary expectations pin npm root extraction without reading repository source or a manifest.
- * @evidence contracts/testing.md#distinguishing-cases Every ordinary builtin root has bare/node:/subpath controls, prefix-only runtime builtins distinguish their bare npm names, and scoped/deep/URL/unknown-prefixed cases remain explicit.
- * @evidence contracts/testing.md#execution-ownership This named source unit owns the builtinModules-derived rows and literal boundary calls; it queries the current Node API in process and performs no registry request or child host execution.
+ * 3. Preserve the exact scoped-subpath and builtin inputs of the playground
+ *    boundary case as direct source calls.
+ *
+ * @evidence contracts/testing.md#behavioral-verification packageNameFromSpecifier excludes runtime Node builtin roots, their subpaths and node: forms while preserving scoped/ordinary npm package roots and rejecting URL or unknown node: requests. Exact @scope/package/subpath and node:fs calls preserve the boundary case's positive and negative classifier assertions.
+ * @evidence contracts/testing.md#independent-expectations Node builtinModules is an independent runtime reference for the portable classifier; npm scope/name identity independently fixes the literal @scope/package expectation, and Node's fs builtin contract fixes null for node:fs. Neither expectation is derived from the classifier.
+ * @evidence contracts/testing.md#distinguishing-cases Every ordinary builtin root has bare/node:/subpath controls, prefix-only runtime builtins distinguish their bare npm names, and scoped/deep/URL/unknown-prefixed cases remain explicit. The exact scoped subpath positive contrasts with the explicit node:fs negative without depending on runtime list generation for those two inputs.
+ * @evidence contracts/testing.md#execution-ownership This named source unit owns the builtinModules-derived rows and literal boundary calls, including the exact two classifier inputs from test_e2e_playground. It calls the authored classifier and Node API in process; it does not exercise the built public export, registry, fixture install or child host.
  */
 export const test_package_name_from_specifier_matches_node_builtins = () => {
   const roots = [
@@ -55,6 +58,11 @@ export const test_package_name_from_specifier_matches_node_builtins = () => {
     packageNameFromSpecifier("@scope/package/deep"),
     "@scope/package",
   );
+  assert.equal(
+    packageNameFromSpecifier("@scope/package/subpath"),
+    "@scope/package",
+  );
+  assert.equal(packageNameFromSpecifier("node:fs"), null);
   assert.equal(packageNameFromSpecifier("ordinary/deep"), "ordinary");
   assert.equal(packageNameFromSpecifier("https://example.com/pkg"), null);
   assert.equal(packageNameFromSpecifier("node:not-a-real-builtin"), null);
