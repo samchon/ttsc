@@ -28,7 +28,7 @@ import "testing"
  * @evidence contracts/e2e.md#necessary-boundary runIndexRuleAtRoot loads the schema through the installed Prisma Node bridge before graph review matching. This tests whether real unattached documentation carriers reach the source-position fallback rather than only testing a hand-built declaration.
  * @evidence contracts/e2e.md#shared-execution One prismaBridgeRoot is shared by the three runIndexRuleAtRoot runs; each run rewrites schema and ledger content, so a run launches a Node child only when its schema bytes have not been parsed before in the process (the second run's schema differs from the first and third).
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The local root belongs to this Test and is cleaned after its sequential checks. Each run creates parsed inputs from the current strings; the fixed Markdown fingerprint may be reused because its cited content remains unchanged, not because schema carrier placement is equivalent.
- * @evidence contracts/e2e.md#preserved-coverage The body asserts the missing-review finding and fingerprint extraction (L55-L72), the wrong-host failure (L76) and the clean colocated-review run (L85).
+ * @evidence contracts/e2e.md#preserved-coverage The body asserts the missing-review finding and fingerprint extraction, the wrong-host failure and the clean colocated-review run.
  */
 func TestRequireReviewMatchesAPrismaFileLevelExclusion(t *testing.T) {
   config := `{"claims":[{

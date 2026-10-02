@@ -32,7 +32,7 @@ import (
  * @evidence contracts/e2e.md#necessary-boundary prismaFieldDigests reaches normalizePrismaSet through the installed @ttsc/evidence Node loader and pinned Prisma parser. Losing column executable metadata or retaining documentation in that cross-language output breaks the change/invariance assertions.
  * @evidence contracts/e2e.md#shared-execution the test (one base plus four rows, each via prismaFieldDigests) starts 5 Node child processes; no resident bridge or batching is used. The only shared prerequisites are the built @ttsc/evidence package and its compiled lib/internal loaders, which this test neither builds nor installs.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity prismaBridgeRoot gives each parsed schema an absolute workspace-local root with registered removal. Baseline and each changed schema are distinct inputs; this test does not count process launches or independently prove cache reuse.
- * @evidence contracts/e2e.md#preserved-coverage The body keeps four t.Run rows (documentation edit, type change, removed attribute, changed attribute argument), each asserting whether Sale.price's digest moved relative to the base digest (L94-L101).
+ * @evidence contracts/e2e.md#preserved-coverage The body keeps four t.Run rows (documentation edit, type change, removed attribute, changed attribute argument), each asserting whether Sale.price's digest moved relative to the base digest.
  */
 func TestAPrismaDigestFollowsTheDeclaration(t *testing.T) {
   base := prismaFieldDigests(t, `model Sale {
