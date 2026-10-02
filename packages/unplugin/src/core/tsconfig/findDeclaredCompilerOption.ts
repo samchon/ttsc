@@ -5,6 +5,8 @@ import { findDeclaredValue } from "./findDeclaredValue";
  *
  * Own key presence is significant even for null or undefined values; the caller
  * decides whether the selected option value is usable.
+ * An optional decoded-source map belongs to one caller read transaction;
+ * independent option searches retain separate branch-local cycle guards.
  *
  * @evidence contracts/common.md#principled-implementation
  *   A wrapper preserves key presence through the generic selector, so the own
@@ -25,18 +27,21 @@ import { findDeclaredValue } from "./findDeclaredValue";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain the declaring anchor and key-presence distinction,
  *   the facts a template-path reader needs beyond the return type.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One own-key selector delegates native inheritance resolution and branch-local
+ *   cycle-set copying. Search cost follows config occurrences, source bytes and
+ *   visited depths; a shared source map avoids repeating decoding per option.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   Forwards no shared config map here, so each call reads its own chain; the
- *   repeat is bounded by the fixed option key lists.
+ *   A supplied caller transaction map shares decoded sources across option
+ *   searches by lexical path. Selections remain independent; changed config
+ *   inputs require a fresh transaction map.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Its Set is local to the call.
  */
 export function findDeclaredCompilerOption(
   tsconfig: string,
   key: string,
+  configs?: Map<string, unknown>,
 ): { baseDir: string; value: unknown } | null {
   const declared = findDeclaredValue(
     tsconfig,
@@ -51,6 +56,8 @@ export function findDeclaredCompilerOption(
         : undefined;
     },
     new Set(),
+    undefined,
+    configs,
   );
   return declared === null
     ? null

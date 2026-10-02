@@ -41,11 +41,14 @@ import { startsWithConfigDirTemplate } from "./startsWithConfigDirTemplate";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains final-consumer template ownership and why ordinary inherited
  *   paths stay untouched, with the configDir argument's spelling stated.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   Visits the fixed option key lists once, each with one chain read.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Re-reads the chain once per option key, bounded by the fixed key lists,
- *   and keeps no cache.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Fixed option groups perform independent inheritance selections with shared
+ *   source decoding. Work follows visited config occurrences/depths and mapping,
+ *   list and target lengths; mixed lists retain all entries when materialized.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   One call shares decoded sources across scalar, list and paths searches.
+ *   Lexical declaring contexts and physical branch guards remain independent;
+ *   every subsequent call starts a fresh map to observe changed configuration.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Its output is local and handed to the caller.
  */
@@ -54,9 +57,10 @@ export function readEffectiveTsconfigTemplateCompilerOptions(
   configDir: string = path.dirname(path.resolve(tsconfig)),
 ): Record<string, unknown> {
   const resolved = path.resolve(tsconfig);
+  const configs = new Map<string, unknown>();
   const output: Record<string, unknown> = {};
   for (const key of CONFIG_DIR_TEMPLATE_SCALAR_OPTIONS) {
-    const declared = findDeclaredCompilerOption(resolved, key);
+    const declared = findDeclaredCompilerOption(resolved, key, configs);
     if (
       declared !== null &&
       typeof declared.value === "string" &&
@@ -70,7 +74,7 @@ export function readEffectiveTsconfigTemplateCompilerOptions(
     }
   }
   for (const key of CONFIG_DIR_TEMPLATE_LIST_OPTIONS) {
-    const declared = findDeclaredCompilerOption(resolved, key);
+    const declared = findDeclaredCompilerOption(resolved, key, configs);
     if (
       declared !== null &&
       Array.isArray(declared.value) &&
@@ -87,7 +91,7 @@ export function readEffectiveTsconfigTemplateCompilerOptions(
     }
   }
 
-  const declaredPaths = findDeclaredPaths(resolved, new Set());
+  const declaredPaths = findDeclaredPaths(resolved, new Set(), configs);
   if (
     declaredPaths !== null &&
     Object.values(declaredPaths.paths).some(
