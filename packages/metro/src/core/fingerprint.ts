@@ -107,6 +107,135 @@ const CLAIMED_WORKER_SNAPSHOT_PREFIX = "graph-inputs.worker-claimed-";
  */
 const SNAPSHOT_LISTING_ATTEMPTS = 8;
 
+/**
+ * The filesystem reads the snapshot reader performs, injectable so a test can
+ * drive the interleaving of a listing with a concurrent compaction. Production
+ * passes nothing and reads the real filesystem.
+ *
+ * @evidence contracts/common.md#principled-implementation
+ *   A structural record of the three Node filesystem reads the snapshot reader
+ *   makes; the default delegates to node:fs unchanged.
+ *
+ * @evidence contracts/common.md#clear-and-simple-design
+ *   One optional parameter carries the read boundary instead of a test mode
+ *   flag, mirroring the repository's injectable filesystem operations.
+ *
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts
+ *   Production code never branches on the injection; no fs method is patched.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   The record carries calls to the host filesystem and defines no path or
+ *   process representation of its own.
+ *
+ * @evidence contracts/common.md#meaningful-documentation
+ *   The native JSDoc states why the boundary exists and that production uses
+ *   the real filesystem.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   This declaration performs no processing; the reader that uses it owns the
+ *   bounded retry.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   It coordinates no shared computation.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   It retains nothing and opens no handle.
+ */
+export interface SnapshotReadOperations {
+  /**
+   * Whether a path exists, as `fs.existsSync`.
+   *
+   * @evidence contracts/common.md#principled-implementation
+   *   Signature of the Node call it replaces; the default delegates to it.
+   *
+   * @evidence contracts/common.md#clear-and-simple-design
+   *   One call per member, no behavior of its own.
+   *
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts
+   *   The reader never branches on whether it was injected.
+   *
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   Delegates path interpretation to the host filesystem on every OS.
+   *
+   * @evidence contracts/common.md#meaningful-documentation
+   *   States which read this member stands for.
+   *
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   A single delegated call; no processing strategy.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Coordinates no shared computation.
+   *
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Retains nothing and opens no handle.
+   */
+  existsSync: (file: string) => boolean;
+
+  /**
+   * Text of a file, as `fs.readFileSync`; throws a missing-file error when absent.
+   *
+   * @evidence contracts/common.md#principled-implementation
+   *   Signature of the Node call it replaces; the default delegates to it.
+   *
+   * @evidence contracts/common.md#clear-and-simple-design
+   *   One call per member, no behavior of its own.
+   *
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts
+   *   The reader never branches on whether it was injected.
+   *
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   Delegates path interpretation to the host filesystem on every OS.
+   *
+   * @evidence contracts/common.md#meaningful-documentation
+   *   States which read this member stands for.
+   *
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   A single delegated call; no processing strategy.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Coordinates no shared computation.
+   *
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Retains nothing and opens no handle.
+   */
+  readFileSync: (file: string, encoding: "utf8") => string;
+
+  /**
+   * Entry names of a directory, as `fs.readdirSync`.
+   *
+   * @evidence contracts/common.md#principled-implementation
+   *   Signature of the Node call it replaces; the default delegates to it.
+   *
+   * @evidence contracts/common.md#clear-and-simple-design
+   *   One call per member, no behavior of its own.
+   *
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts
+   *   The reader never branches on whether it was injected.
+   *
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   Delegates path interpretation to the host filesystem on every OS.
+   *
+   * @evidence contracts/common.md#meaningful-documentation
+   *   States which read this member stands for.
+   *
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   A single delegated call; no processing strategy.
+   *
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Coordinates no shared computation.
+   *
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Retains nothing and opens no handle.
+   */
+  readdirSync: (directory: string) => string[];
+}
+
+const HOST_SNAPSHOT_READ_OPERATIONS: SnapshotReadOperations = {
+  existsSync: (file) => fs.existsSync(file),
+  readFileSync: (file, encoding) => fs.readFileSync(file, encoding),
+  readdirSync: (directory) => fs.readdirSync(directory),
+};
+
 /** Directory lock serializing the one mutable main-snapshot rewrite. */
 const SNAPSHOT_COMPACTION_LOCK = "snapshot-compaction.lock";
 
@@ -1455,6 +1584,13 @@ function listExpiredKeyBaselines(directory: string): string[] {
  * concurrent compaction keeps renaming worker files so the listing never settles
  * or a compaction lock stays held.
  *
+ * `operations` is the read boundary (existence, listing, file text); the
+ * default reads the real filesystem, and a test passes its own to interleave a
+ * compaction with a listing. A pass is retried at most
+ * {@link SNAPSHOT_LISTING_ATTEMPTS} (8) times with a 5 ms pause between
+ * passes, so a held lock costs a call at most about 40 ms before the state is
+ * reported untrusted; the retry is bounded and holds no resource between passes.
+ *
  * The result contains sorted absolute file and tree paths, the epoch identity,
  * and tainted/volatile flags. It reads persisted evidence without revalidating
  * current file bytes; the fingerprint operation owns that validation. Reading
@@ -1468,6 +1604,8 @@ function listExpiredKeyBaselines(directory: string): string[] {
  *   A pass is accepted only when no compaction lock existed before or after
  *   it and the main file is unchanged, because a listing concurrent with a
  *   rename can return the renamed entry under neither name.
+ *   The read boundary is an optional parameter, so the interleaving can be
+ *   driven deterministically while production reads the real filesystem.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   This reader validates persisted documents and unions their paths without
@@ -1501,7 +1639,10 @@ function listExpiredKeyBaselines(directory: string): string[] {
  *   skill: separate paragraphs state the contract and why its nonobvious
  *   boundary matters; field comments retain their own useful facts.
  */
-export function readSnapshotState(base: string): SnapshotState | undefined {
+export function readSnapshotState(
+  base: string,
+  operations: SnapshotReadOperations = HOST_SNAPSHOT_READ_OPERATIONS,
+): SnapshotState | undefined {
   const directory = snapshotDirectory(base);
   const lock = path.join(directory, SNAPSHOT_COMPACTION_LOCK);
   // A directory listing taken while another process renames entries of that
@@ -1513,10 +1654,13 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
   // or after it and the main file read the same on both sides. A compaction
   // wholly inside the pass still changes the main file it publishes.
   for (let attempt = 0; attempt < SNAPSHOT_LISTING_ATTEMPTS; ++attempt) {
-    if (!fs.existsSync(lock)) {
-      const before = readMainText(directory);
-      const state = readSnapshotStateOnce(base);
-      if (!fs.existsSync(lock) && readMainText(directory) === before) {
+    if (!operations.existsSync(lock)) {
+      const before = readMainText(directory, operations);
+      const state = readSnapshotStateOnce(base, operations);
+      if (
+        !operations.existsSync(lock) &&
+        readMainText(directory, operations) === before
+      ) {
         return state;
       }
     }
@@ -1526,19 +1670,25 @@ export function readSnapshotState(base: string): SnapshotState | undefined {
 }
 
 /** The main snapshot's text, or `undefined` when it cannot be read. */
-function readMainText(directory: string): string | undefined {
+function readMainText(
+  directory: string,
+  operations: SnapshotReadOperations,
+): string | undefined {
   try {
-    return fs.readFileSync(path.join(directory, MAIN_SNAPSHOT), "utf8");
+    return operations.readFileSync(path.join(directory, MAIN_SNAPSHOT), "utf8");
   } catch {
     return undefined;
   }
 }
 
-function readSnapshotStateOnce(base: string): SnapshotState | undefined {
+function readSnapshotStateOnce(
+  base: string,
+  operations: SnapshotReadOperations,
+): SnapshotState | undefined {
   if (unhealthySnapshots.has(base)) {
     return undefined;
   }
-  const recovery = readUnhealthySnapshots(base);
+  const recovery = readUnhealthySnapshots(base, operations);
   if (
     !recovery.readable ||
     recovery.paths.length !== 0 ||
@@ -1548,11 +1698,11 @@ function readSnapshotStateOnce(base: string): SnapshotState | undefined {
   }
   const directory = snapshotDirectory(base);
   // Worker files strictly before the main file — see the module doc comment.
-  const workers = readWorkerFiles(directory);
+  const workers = readWorkerFiles(directory, operations);
   if (!workers.readable || workers.corruptPaths.length !== 0) {
     return undefined;
   }
-  const main = readMainDocument(directory);
+  const main = readMainDocument(directory, operations);
   if (main === undefined || typeof main.id !== "string") {
     return undefined;
   }
@@ -2002,10 +2152,14 @@ function persistUnhealthySnapshot(
   );
 }
 
-function readUnhealthySnapshots(base: string): SnapshotDocuments {
+function readUnhealthySnapshots(
+  base: string,
+  operations: SnapshotReadOperations = HOST_SNAPSHOT_READ_OPERATIONS,
+): SnapshotDocuments {
   return readSnapshotFiles(
     snapshotCacheDirectory(base),
     UNHEALTHY_SNAPSHOT_PREFIX,
+    operations,
   );
 }
 
@@ -2078,18 +2232,22 @@ function uncompactedWorkerEntries(
  * `corruptPaths` so readers can degrade to a nonce and the compactor can sweep
  * it.
  */
-function readWorkerFiles(directory: string): {
+function readWorkerFiles(
+  directory: string,
+  operations: SnapshotReadOperations = HOST_SNAPSHOT_READ_OPERATIONS,
+): {
   corruptPaths: string[];
   entries: SnapshotDocument[];
   paths: string[];
   readable: boolean;
 } {
-  return readSnapshotFiles(directory, WORKER_SNAPSHOT_PREFIX);
+  return readSnapshotFiles(directory, WORKER_SNAPSHOT_PREFIX, operations);
 }
 
 function readSnapshotFiles(
   directory: string,
   prefix: string,
+  operations: SnapshotReadOperations,
 ): SnapshotDocuments {
   // A name that vanishes between the listing and the read was renamed, not
   // necessarily merged: compaction claims a worker file under a new name well
@@ -2099,7 +2257,7 @@ function readSnapshotFiles(
   // its own name, and once the merged main is published and the claimed copy
   // removed the main read that follows holds its content.
   for (let attempt = 0; attempt < SNAPSHOT_LISTING_ATTEMPTS; ++attempt) {
-    const documents = readSnapshotListing(directory, prefix);
+    const documents = readSnapshotListing(directory, prefix, operations);
     if (documents !== undefined) {
       return documents;
     }
@@ -2111,10 +2269,11 @@ function readSnapshotFiles(
 function readSnapshotListing(
   directory: string,
   prefix: string,
+  operations: SnapshotReadOperations,
 ): SnapshotDocuments | undefined {
   let names: string[];
   try {
-    names = fs.readdirSync(directory);
+    names = operations.readdirSync(directory);
   } catch (error) {
     return {
       corruptPaths: [],
@@ -2133,7 +2292,7 @@ function readSnapshotListing(
     const file = path.join(directory, name);
     let text: string;
     try {
-      text = fs.readFileSync(file, "utf8");
+      text = operations.readFileSync(file, "utf8");
     } catch (error) {
       if (isMissingFileError(error)) {
         return undefined;
@@ -2161,10 +2320,16 @@ function isMissingFileError(error: unknown): boolean {
   );
 }
 
-function readMainDocument(directory: string): SnapshotDocument | undefined {
+function readMainDocument(
+  directory: string,
+  operations: SnapshotReadOperations = HOST_SNAPSHOT_READ_OPERATIONS,
+): SnapshotDocument | undefined {
   let text: string;
   try {
-    text = fs.readFileSync(path.join(directory, MAIN_SNAPSHOT), "utf8");
+    text = operations.readFileSync(
+      path.join(directory, MAIN_SNAPSHOT),
+      "utf8",
+    );
   } catch {
     return undefined;
   }
