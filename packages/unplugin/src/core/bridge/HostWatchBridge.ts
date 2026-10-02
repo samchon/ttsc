@@ -42,28 +42,30 @@ export interface HostWatchBridge {
    *   The method states capture timing and reason with native tag/member spacing
    *   required by documentation guidance.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation
-   *   Only the signature of begin is declared here; the platform behaviour
-   *   belongs to its implementation.
+   *   The returned number is a monotone change sequence, not a native timestamp,
+   *   path identity or filesystem capability.
    * @evidenceExclude contracts/performance.md#efficient-algorithms
-   *   Only the signature of begin is declared here; the cost belongs to its
-   *   implementation.
+   *   This scalar capture boundary selects no algorithm; openHostWatchBridge
+   *   owns pass advancement and the observer's sequence read.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-   *   Only the signature of begin is declared here; the cost belongs to its
-   *   implementation.
+   *   Captures a pass token rather than sharing a computation across callers.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-   *   Only the signature of begin is declared here; the cost belongs to its
-   *   implementation.
+   *   The scalar result acquires no resource or retained population.
    */
   begin(): number;
 
   /**
-   * Close every observer and drop every owed signal. The records stay: a host's
-   * persistent cache holds them as dependencies, and the next session proves
-   * them against the disk.
+   * Attempt observer cleanup and drop every owed signal. Backend close failures
+   * are suppressed by the observer and are not certified as released. The
+   * records stay: a host's persistent cache holds them as dependencies, and the
+   * next session proves them against the disk. A later delivery can register
+   * inputs again on the observer's retained root. Pass counters and the recent
+   * answering-pass window remain; completion does not promise owes() is false.
    *
    * @evidence contracts/common.md#principled-implementation
-   *   Promise completion represents session observer disposal; persistent record
-   *   files remain because host caches continue to depend on their paths.
+   *   Completion represents clearing bridge registrations/signals and attempting
+   *   observer disposal. Persistent record files remain for host cache dependencies;
+   *   completion does not certify a backend whose close threw.
    * @evidence contracts/common.md#clear-and-simple-design
    *   One close boundary groups release rather than exposing each resource handle.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts
@@ -73,17 +75,16 @@ export interface HostWatchBridge {
    *   Native prose distinguishes observer release from persisted files, separated
    *   from tags and members per documentation guidance.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation
-   *   Only the signature of close is declared here; the platform behaviour
-   *   belongs to its implementation.
+   *   This closure boundary carries no native spelling or capability value;
+   *   observer disposal and record persistence are implemented by their owners.
    * @evidenceExclude contracts/performance.md#efficient-algorithms
-   *   Only the signature of close is declared here; the cost belongs to its
-   *   implementation.
+   *   openHostWatchBridge owns clearing record/timer populations and delegating
+   *   observer disposal; this member declares their completion boundary.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-   *   Only the signature of close is declared here; the cost belongs to its
-   *   implementation.
+   *   Disposal is a lifecycle effect, not a reusable computed result.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-   *   Only the signature of close is declared here; the cost belongs to its
-   *   implementation.
+   *   The bridge implementation owns timers and observer handles. This member
+   *   specifies when its cleanup attempt is complete, without owning the state.
    */
   close(): Promise<void>;
 
@@ -106,8 +107,9 @@ export interface HostWatchBridge {
    *   path, the one `projectRecordFile` spells and the host was handed.
    *
    * @evidence contracts/common.md#principled-implementation
-   *   The host predicate identifies records its current compiler watches, so
-   *   retry movements target only records with a recipient capable of settling them.
+   *   The host predicate reports current record dependencies, so retries target
+   *   reported recipients. That report alone does not prove watcher health or
+   *   that a recipient will ever deliver a settling registration.
    * @evidence contracts/common.md#clear-and-simple-design
    *   One predicate transfers dependency knowledge without a bundler-specific graph type.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts
@@ -115,18 +117,19 @@ export interface HostWatchBridge {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native paragraphs explain unwatched records and resumed retries; parameter
    *   and acknowledgment spacing follow documentation guidance.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation
-   *   Only the signature of compiled is declared here; the platform behaviour
-   *   belongs to its implementation.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   The callback receives the absolute native record spelling delivered to
+   *   the host. It must report dependencies in that representation; this member
+   *   does not certify arbitrary alias equivalence or actual watcher health.
    * @evidenceExclude contracts/performance.md#efficient-algorithms
-   *   Only the signature of compiled is declared here; the cost belongs to its
-   *   implementation.
+   *   The implementing bridge owns the registered-record scan and caller's
+   *   predicate cost; the signature selects no traversal strategy.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-   *   Only the signature of compiled is declared here; the cost belongs to its
-   *   implementation.
+   *   Reports one completed host pass's dependencies rather than caching a
+   *   result across later passes.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-   *   Only the signature of compiled is declared here; the cost belongs to its
-   *   implementation.
+   *   The bridge owns retry timers and observed records; this callback contract
+   *   transfers dependency knowledge without acquiring or retaining a handle.
    */
   compiled(depends: (record: string) => boolean): void;
 
@@ -152,18 +155,18 @@ export interface HostWatchBridge {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native prose explains the pass window and global query's purpose, with
    *   separated paragraphs/tags per documentation guidance.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation
-   *   Only the signature of owes is declared here; the platform behaviour
-   *   belongs to its implementation.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   The optional record uses the absolute native delivered spelling; the
+   *   implementing bridge resolves it before Set lookup. The global pass-window
+   *   answer is separate from record spelling and certifies no native file state.
    * @evidenceExclude contracts/performance.md#efficient-algorithms
-   *   Only the signature of owes is declared here; the cost belongs to its
-   *   implementation.
+   *   The implementation owns scalar/Set lookup and optional native resolution;
+   *   this member declares the query semantics rather than an algorithm.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-   *   Only the signature of owes is declared here; the cost belongs to its
-   *   implementation.
+   *   Queries current owed/pass state; it does not coordinate reusable work.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-   *   Only the signature of owes is declared here; the cost belongs to its
-   *   implementation.
+   *   The implementing bridge owns the owed Set and pass window, while this
+   *   boolean result acquires no handle or history.
    */
   owes(record?: string): boolean;
 
@@ -187,18 +190,21 @@ export interface HostWatchBridge {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native paragraphs explain capture-token omission and immediate re-signaling,
    *   with native tag/member spacing following documentation guidance.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation
-   *   Only the signature of register is declared here; the platform behaviour
-   *   belongs to its implementation.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   Record and input paths carry the native spellings delivered to the host;
+   *   the implementing bridge resolves the record and delegates input identity
+   *   and native condition reproof to its observer. startedAt is a sequence,
+   *   not an OS timestamp or direct proof of unchanged input bytes.
    * @evidenceExclude contracts/performance.md#efficient-algorithms
-   *   Only the signature of register is declared here; the cost belongs to its
-   *   implementation.
+   *   The implementing bridge and observer own registration/condition indexing
+   *   and proof costs; the member defines their input transfer boundary.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-   *   Only the signature of register is declared here; the cost belongs to its
-   *   implementation.
+   *   The implementation may share a delivery only for the same immutable input
+   *   array and capture token when not failed; a changed population needs a new
+   *   array. This declaration owns no memo or independent validity mechanism.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-   *   Only the signature of register is declared here; the cost belongs to its
-   *   implementation.
+   *   The bridge retains registration arrays and settles retry timers; its
+   *   observer owns transferred input conditions. This member acquires no handle.
    */
   register(
     record: string,
