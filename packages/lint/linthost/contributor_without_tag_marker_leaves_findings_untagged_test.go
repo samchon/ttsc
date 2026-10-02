@@ -11,7 +11,7 @@ import (
 //
 // Most findings are neither unnecessary nor deprecated, so untagged is the
 // default and must survive. If the plumbing tagged everything, a plain rule's
-// findings would be greyed out — the editor telling authors correct code is
+// findings could be greyed out, telling authors correct code is
 // unnecessary.
 //
 //  1. Run both a contributor returning nil tags and one lacking the optional tag marker on the same source.
@@ -40,6 +40,9 @@ func TestContributorWithoutTagMarkerLeavesFindingsUntagged(t *testing.T) {
   }
   if findings[0].Tags != nil {
     t.Fatalf("an untagged rule must not tag its findings, got %v", findings[0].Tags)
+  }
+  if findings[0].Message != "flagged" {
+    t.Fatalf("nil-tag contributor message lost: %q", findings[0].Message)
   }
   metadata, err = inspectContributor(untaggedContributor{})
   if err != nil { t.Fatal(err) }

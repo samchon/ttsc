@@ -9,11 +9,10 @@ import (
 // TestContributorTaggedRuleMarksFindings verifies a rule.TaggedRule's
 // classification reaches the findings it produces.
 //
-// The tag is read at dispatch from the marker and copied onto every finding, so
-// the whole chain — inspectContributor caches it, the adapter forwards it,
-// dispatch stamps it — has to hold or an editor's greying never appears. The
-// wrapping adapter is the fragile link: it hides an optional marker unless it
-// forwards it explicitly, exactly as it must for NeedsTypeChecker.
+// Metadata inspection captures the contributor's classification, the adapter
+// exposes it and the engine attaches it to the normal warning finding. This
+// fixture exercises that chain; it does not execute an editor or prove a
+// client's visual presentation. The stored tags remain immutable for the run.
 //
 //  1. Register a contributor that reports one finding and declares itself
 //     Unnecessary.

@@ -205,8 +205,8 @@ type DeclarationFileRule interface {
 }
 
 // DiagnosticTag classifies what a finding IS, orthogonally to how severe it is.
-// The values match the LSP DiagnosticTag enum, and an editor renders them
-// distinctively: unnecessary code is greyed out, deprecated code struck through.
+// The values match the LSP DiagnosticTag enum. Clients may fade unnecessary
+// code or strike through deprecated code; presentation remains client policy.
 //
 // @evidence contracts/common.md#principled-implementation The numeric values match LSP's unnecessary and deprecated classifications independently from severity.
 // @evidence contracts/common.md#clear-and-simple-design One type owns visual classification without coupling it to command failure.
@@ -219,8 +219,8 @@ type DeclarationFileRule interface {
 type DiagnosticTag int
 
 const (
-  // DiagnosticTagUnnecessary marks code that is safe to delete — an unused
-  // import, an unreachable branch. The editor fades it.
+  // DiagnosticTagUnnecessary marks code that is safe to delete, such as an unused
+  // import or an unreachable branch. A client may fade it.
   //
   // This is a claim about what the code is, not how bad it is, and the
   // distinction bites: "unnecessary" says "remove this." A finding that means
@@ -229,40 +229,45 @@ const (
   // what deletion would mean, never by severity.
   DiagnosticTagUnnecessary DiagnosticTag = 1
   // DiagnosticTagDeprecated marks code that still works but should be migrated
-  // away from. The editor strikes it through.
+  // away from. A client may strike it through.
   DiagnosticTagDeprecated DiagnosticTag = 2
 )
 
 // TaggedRule is an optional marker a rule implements to classify its findings
-// with DiagnosticTags. Every finding the rule produces carries the returned
-// tags — the rule-level grain fits the rules that want this, since a rule that
-// flags unused code flags only unused code.
+// with DiagnosticTags. Every diagnostic reported through its Context carries
+// the returned tags. This rule-level classification fits a rule that
+// reports only unused code. Host-generated rule-panic errors are untagged.
 //
 // It is separate from severity on purpose. Severity is how much a finding
 // matters and is the user's to configure; a tag is what the finding is and is
 // the rule's to state. A host that does not read tags loses the greying, not the
-// diagnostic — the same graceful degradation the other optional markers give.
+// diagnostic, as with the other optional markers.
 //
 // Return nil, or do not implement it, for a rule whose findings are neither
 // unnecessary nor deprecated. Most findings are neither, and guessing wrong is
 // worse than saying nothing: a spurious Unnecessary tells the author to delete
 // correct code.
 //
+// Tags are registration metadata. Return a stable slice and do not mutate
+// its backing storage after registration: the host shares the captured tags
+// with ordinary findings rather than cloning them for each report.
+//
 // @evidence contracts/common.md#principled-implementation A rule-level tag slice describes classification shared by its findings while severity remains user configured.
 // @evidence contracts/common.md#clear-and-simple-design One optional method adds classification without changing the main checking interface.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Interface capability supplies tags without replacing reporter logic or guessing from severity.
-// @evidence contracts/common.md#meaningful-documentation Native prose documents no-tag defaults and harmful unnecessary-code guesses; paragraphs and tags follow documentation guidance.
+// @evidence contracts/common.md#meaningful-documentation Native prose documents no-tag defaults, classification scope, immutable metadata and harmful unnecessary-code guesses; paragraphs and tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation TaggedRule is a declaration of data shape and performs no filesystem, path or process operation.
 // @evidenceExclude contracts/performance.md#efficient-algorithms TaggedRule is a declaration of data shape and chooses no algorithm or processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work TaggedRule is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TaggedRule is a declaration of data shape; the code that holds its values owns their lifetime.
 type TaggedRule interface {
-  // DiagnosticTags returns classifications shared by every finding from this rule.
+  // DiagnosticTags returns immutable registration metadata for diagnostics
+  // reported through this rule's Context. Rule-panic errors do not inherit it.
   //
   // @evidence contracts/common.md#principled-implementation The returned tags classify findings independently from their configured level.
   // @evidence contracts/common.md#clear-and-simple-design One method supplies the rule's shared classification metadata.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts Classification uses explicit tags rather than deriving deletion advice from severity.
-  // @evidence contracts/common.md#meaningful-documentation Native prose states the all-findings scope with a separated tag block under documentation guidance.
+  // @evidence contracts/common.md#meaningful-documentation Native prose states the report scope, panic exception and immutable metadata lifetime with a separated tag block.
   // @evidenceExclude contracts/portability.md#os-neutral-implementation TaggedRule.DiagnosticTags is a method signature without a body; each implementation owns any filesystem or process behavior.
   // @evidenceExclude contracts/performance.md#efficient-algorithms TaggedRule.DiagnosticTags is a method signature without a body; each implementation chooses its own algorithm.
   // @evidenceExclude contracts/performance.md#reuse-equivalent-work TaggedRule.DiagnosticTags is a method signature without a body; each implementation decides what, if anything, to share.
