@@ -5,8 +5,8 @@ import { ResidentTransformProcess } from "./ResidentTransformProcess";
  * to.
  *
  * Returned by {@link startResidentTransform}. The two travel together because a
- * request names files by project-relative key, and a caller that resolved the
- * root differently from the host would ask about a file the host never loaded.
+ * request names files by project-relative key; a differently selected root can
+ * produce a different key even when the caller intended the same file.
  *
  * @evidence contracts/common.md#principled-implementation Pairing the live client with the producer's project root preserves the identity needed to form its project-relative file keys.
  * @evidence contracts/common.md#clear-and-simple-design One startup return record transfers the process and its key anchor together rather than asking callers to resolve the root again.
@@ -18,7 +18,10 @@ import { ResidentTransformProcess } from "./ResidentTransformProcess";
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
  */
 export interface StartedResidentTransform {
-  /** The live host process; dispose it when the service shuts down. */
+  /**
+   * Resident client handle transferred to the caller. Dispose it at shutdown;
+   * disposal requests retirement but is not an awaited child-close receipt.
+   */
   process: ResidentTransformProcess;
 
   /** Project root in the spelling the resident Program uses for its files. */
