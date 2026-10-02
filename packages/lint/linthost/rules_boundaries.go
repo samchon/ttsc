@@ -8,6 +8,7 @@ import (
   "regexp"
   "sort"
   "strings"
+  "sync"
 
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
@@ -584,19 +585,30 @@ func boundaryPatternMatch(pattern, candidate string) bool {
   if pattern == "" || candidate == "" {
     return false
   }
-  re, err := regexp.Compile("^" + regexp.QuoteMeta(pattern) + "$")
-  if err != nil {
-    return false
+  re := boundaryPatternRegexp(pattern)
+  return re != nil && re.MatchString(candidate)
+}
+
+// boundaryPatterns memoizes the compiled form of each normalized boundary glob.
+// A project reuses the same few patterns for every import of every file, so the
+// translation to a regular expression is done once per distinct pattern. A
+// pattern that does not compile is cached as nil and never matches.
+var boundaryPatterns sync.Map
+
+func boundaryPatternRegexp(pattern string) *regexp.Regexp {
+  if cached, ok := boundaryPatterns.Load(pattern); ok {
+    return cached.(*regexp.Regexp)
   }
-  expr := re.String()
+  expr := regexp.QuoteMeta(pattern)
   expr = strings.ReplaceAll(expr, `\*\*`, ".*")
   expr = strings.ReplaceAll(expr, `\*`, `[^/]*`)
   expr = strings.ReplaceAll(expr, `\?`, `[^/]`)
-  re, err = regexp.Compile(expr)
+  re, err := regexp.Compile("^" + expr + "$")
   if err != nil {
-    return false
+    re = nil
   }
-  return re.MatchString(candidate)
+  boundaryPatterns.Store(pattern, re)
+  return re
 }
 
 func boundaryPathCandidates(path string) []string {
