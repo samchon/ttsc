@@ -22,7 +22,7 @@ import (
 //  3. Assert the second finding starts at the indented comment's offset.
 //
 // @evidence contracts/testing.md#behavioral-verification True ts-check policy reports leading and indented pragmas with the exact prohibition message.
-// @evidence contracts/testing.md#independent-expectations The authored true option bans enabling checking at either valid pragma location; literal message and nested-comment offset are independent.
+// @evidence contracts/testing.md#independent-expectations The authored true option bans recognized ts-check comment syntax at both positions, even though a mid-file pragma does not enable compiler file checking; literal message and nested-comment offset are independent.
 // @evidence contracts/testing.md#distinguishing-cases Two positions distinguish a file-leading-only scan from recognition inside code blocks.
 // @evidence contracts/testing.md#execution-ownership parseTS and NewEngineWithResolver.Run produce both findings; this entry owns count, every message and the indented offset. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentOptionTsCheckTrueReportsPragmaAnywhere(t *testing.T) {

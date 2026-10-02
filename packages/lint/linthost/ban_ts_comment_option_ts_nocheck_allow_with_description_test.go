@@ -14,7 +14,7 @@ import (
 //
 // A described pragma passes, a bare one reports the requires-description
 // message, and a pragma after the first statement stays silent even under
-// the description arm — the position gate runs before any policy, because
+// the description arm. The position gate runs before any policy because
 // an inert pragma is not worth describing.
 //
 // 1. Assert a described top-of-file `@ts-nocheck` produces zero findings.
