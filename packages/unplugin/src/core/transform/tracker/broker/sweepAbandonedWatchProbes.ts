@@ -4,16 +4,19 @@ import path from "node:path";
 import { WATCH_PROBE_DIRECTORY_PREFIX } from "./WATCH_PROBE_DIRECTORY_PREFIX";
 
 /**
- * Remove the probe directories below `parent` whose owning process no longer
- * exists.
+ * Attempt removal of recognized probe-name entries below `parent` when their
+ * named process reports ESRCH.
  *
  * A process removes its own probe directory when it exits, but a killed process
- * does not. Only a directory named with a process id that the operating system
+ * may not. Only a namespace entry named with a process id that the operating system
  * reports as gone (`ESRCH`) is removed: a live owner, one this process may not
- * signal, and a name without an id are left alone.
+ * signal, and a name without an id are left alone. Names follow the adapter's
+ * probe convention; this scan does not separately stat entry kind or prove
+ * filesystem ownership, and liveness/deletion are not one atomic operation.
  *
  * @param parent The tool cache the broker is about to name its own probe
  *   directory in.
+ *
  * @evidence contracts/common.md#principled-implementation
  *   Probe namespace ownership and an ESRCH result authorize stale cleanup;
  *   live or inaccessible process ids must retain their directory.
@@ -30,14 +33,19 @@ import { WATCH_PROBE_DIRECTORY_PREFIX } from "./WATCH_PROBE_DIRECTORY_PREFIX";
  *   OS-neutral cleanup uses node:path and the supported process liveness call;
  *   permission denial remains non-removable rather than an OS-name assumption.
  * @evidence contracts/performance.md#efficient-algorithms
- *   One O(n) entry scan checks only matching probe namespaces, with at most one
- *   process-liveness operation per candidate; no historical global PID scan occurs.
+ *   One scan materializes N names, checks prefix/decimal text and parses safe
+ *   integer PIDs. Each eligible candidate probes current liveness; selected
+ *   entries then delegate native recursive removal over their descendants.
+ *   Text/native access and removed subtree work remain beyond N, with O(N)
+ *   temporary name storage; no global PID population is enumerated.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Process liveness and stale-directory deletion are current external effects;
  *   a previous sweep cannot authorize a later owner's cleanup.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   The scan owns only its temporary entry array; confirmed dead-owner probe
- *   directories are retired, while live, denied and uncertain owners remain.
+ *   Confirmed ESRCH permits best-effort recursive removal, not certified native
+ *   release. Failed listing/removal and live/denied/current/unrecognized owners
+ *   remain, so this scan imposes no count/byte bound or historical retry queue.
+ *   Only temporary names are held; active probe lifetime belongs to its opener.
  */
 export function sweepAbandonedWatchProbes(parent: string): void {
   let entries: string[];
