@@ -23,13 +23,16 @@ import { policyUsesCaseSensitiveFileNames } from "../../tsconfig/policyUsesCaseS
  * case-insensitive containment nor a POSIX case-sensitive comparison can
  * substitute for that independent policy. Literal components also retain
  * Unicode simple folding, without turning configured names into glob patterns.
+ * Before a compiler report supplies the case answer, the existing prediction
+ * owner may set up and observe its selected native compiler-cache root. This
+ * predicate does not replace that owner's approximation or cache lifetime.
  *
  * @evidence contracts/common.md#principled-implementation Native lexical components compare configured excluded locations under the compiler's case policy without collapsing symlink spellings; strict mode exempts the exact entry under that same policy so directory-only exclusion does not misclassify a file.
  * @evidence contracts/common.md#clear-and-simple-design An empty-policy fast path and one literal-component prefix scan keep grammar selection, compiler comparison and strict exact-entry handling explicit.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Exclusion follows actual configured locations rather than generic directory-name exceptions or physical normalization that erases unwalked aliases.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain lexical walk membership, exact-file exemption and why compiler comparison policy is independent of native path grammar.
  * @evidence contracts/portability.md#os-neutral-implementation Explicit view-platform Node resolution and native component separators retain root, drive and UNC boundaries; compiler-reported or predicted case policy governs exact and descendant comparison, including Unicode simple folding, without resolving links.
- * @evidence contracts/performance.md#efficient-algorithms Resolves and splits the queried path once, then short-circuits component prefixes across the configured exclusions. Cold compilation scans excluded path text and escapes literal components; warm work is bounded by exclusion component/text population, with query components temporary and no glob state expansion.
+ * @evidence contracts/performance.md#efficient-algorithms Resolves and splits the queried path once, then short-circuits component prefixes across the configured exclusions. Cold compilation scans excluded path text and escapes literal components; warm component work follows exclusion component/text population, with query components temporary and no glob state expansion. A reported case flag is direct data; otherwise the prediction owner additionally performs native cache-root setup/observations and shares its physical-root answer under its documented assumptions.
  * @evidence contracts/performance.md#reuse-equivalent-work A WeakMap shares compiled absolute exclusion components for the same immutable policy, selected native grammar and current compiler case answer. Changed configuration replaces the policy; a changed predicted answer selects a separate entry rather than trusting an old comparison policy.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Weak policy keys do not retain discarded configurations. Each live policy retains at most two grammars times two case answers, with component strings/expressions driven by its exclusion text; per-query components expire on return and no native handle is acquired.
  */
