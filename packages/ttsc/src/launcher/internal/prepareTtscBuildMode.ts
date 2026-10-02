@@ -16,7 +16,7 @@ import type { TtscBuildMode } from "./TtscBuildMode";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Mutates or copies only the supplied options object and retains nothing.
  * @evidenceExclude contracts/performance.md#efficient-algorithms A fixed sequence of option checks that either throws or returns the options object; nothing loops over inputs.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Applies one mode to one options object per call; there is no work to share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation prepareTtscBuildMode is a signature without a body here; path and platform behavior belongs to the implementation that supplies it.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation This mode adapter inspects booleans and whether the parsed file list is empty; it does not interpret native file paths, spawn a process or acquire an OS capability.
  */
 export function prepareTtscBuildMode(
   options: ReturnType<typeof parseTtscBuildArgs>,
