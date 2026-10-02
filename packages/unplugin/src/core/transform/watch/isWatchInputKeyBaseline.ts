@@ -16,7 +16,7 @@ import type { TtscWatchInputKeyBaseline } from "./TtscWatchInputKeyBaseline";
  * @evidence contracts/common.md#meaningful-documentation Native prose states the persisted-key trust boundary and validation scope, with separated tags following documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Both POSIX and Windows absolute path syntaxes are accepted for serialized identity payloads without assuming the current machine's OS establishes filesystem identity.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing.
- * @evidence contracts/performance.md#efficient-algorithms Enumerating K supplied keys across the outer and nested records rejects unsupported counts before sorting each fixed-size group (at most ten keys). Remaining work scales with path/hash text and total listing-name UTF-8 bytes, including byte-prefix order comparisons; no native observation or whole-project walk is performed.
+ * @evidence contracts/performance.md#efficient-algorithms Enumerating K supplied keys across the outer and nested records rejects unsupported counts before sorting each fixed-size group (at most ten keys). Remaining work scales with path/hash text and total listing-name UTF-8 bytes, including byte-prefix order comparisons. Temporary space holds O(K) key references and at most two adjacent encoded names; accepted key serialization has a fixed-size shape. No native observation or whole-project walk is performed.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A structural validation of one value; nothing is shared.
  */
 export function isWatchInputKeyBaseline(
