@@ -10,11 +10,11 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * removes a real tree, and lets a failure that outlasts the retries reach the
  * caller.
  *
- * Windows refuses to remove a directory a process still holds, and only the
- * asynchronous `fs.promises.rm` retries (`rmSync` ignores `maxRetries`). The
- * removal therefore passes ten retries 100 ms apart and does not swallow a
- * failure that persists, because the capture decides whether a cleanup error may
- * replace its own.
+ * Recursive Node removal supports bounded retries for EBUSY, EMFILE, ENFILE,
+ * ENOTEMPTY and EPERM, for both rm and rmSync. This operation requests ten
+ * retries with linear backoff increasing by 100 ms per retry; the injected
+ * operation observes that request, not Node scheduling. A persistent failure
+ * reaches the capture, which decides whether cleanup may replace its error.
  *
  * 1. Remove a real directory tree and a directory that does not exist.
  * 2. Remove through an injected operation and read the directory and options it
@@ -23,7 +23,7 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *    require the very same error to reject the call.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls removeCaptureScratch with the native operation on a real tree and a missing directory, and with injected operations that resolve and reject, so a skipped removal, a lost option and a swallowed failure each fail an assertion.
- * @evidence contracts/testing.md#independent-expectations The expected options object `{ force: true, maxRetries: 10, recursive: true, retryDelay: 100 }` is the documented retry policy written as a literal, and `EBUSY` is the error Windows reports for a held directory; neither is read back from the implementation.
+ * @evidence contracts/testing.md#independent-expectations The expected options object `{ force: true, maxRetries: 10, recursive: true, retryDelay: 100 }` is the documented retry policy written as a literal, and the authored `EBUSY` is one of Node recursive removal's retryable error codes; neither is read back from the implementation.
  * @evidence contracts/testing.md#distinguishing-cases A real removal and a missing directory (which `force` must accept) contrast with a persistent `EBUSY` that must reject the same error object, and a resolving injected operation contrasts with the rejecting one.
  * @evidence contracts/testing.md#execution-ownership This named source unit calls the authored removal over a real temporary tree and injected operations in process. Node's own retry cannot be observed from an injected operation, so a transient hold that clears is not exercised here; the injected case asserts the request for retries, not the retry itself, and a real held directory needs the Windows capture path.
  */
