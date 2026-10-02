@@ -26,8 +26,7 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
  * Turbopack pool, whose workers then compiled the project again each. What the
  * expansion depends on is the program's membership there, which the walk proves
  * only for directories it actually enumerated in a complete capture. A listing
- * the walk does not stand for stays: a
- * directory it never enters, a universal resolution input such as a type root,
+ * the walk does not stand for stays: a directory it never enters, a universal resolution input such as a type root,
  * and a path whose listing is its only predicate.
  *
  * 1. Index an envelope whose root, a directory below it, `dist` (which the
@@ -125,77 +124,77 @@ export async function test_graph_index_leaves_a_walked_directory_listing_to_the_
   const captured = envelope();
   const failedResult = envelope();
   try {
-  TRANSFORM_RESULT_MEMBERSHIP.set(captured, {
-    policy,
-    enumeratedDirectories: snapshot.directoryComplete ? visited : new Set<string>(),
-    projectRoot: root,
-  });
-  TRANSFORM_RESULT_FILESYSTEM.set(captured, DEFAULT_FILESYSTEM_OPERATIONS);
-  const observations = index(captured);
-  assert.equal(listingOf(observations, "."), undefined, "the root's listing");
-  assert.equal(
-    observations.get(root)?.directoryExists,
-    true,
-    "keeps its other predicates",
-  );
-  assert.equal(listingOf(observations, "src/lib"), undefined, "a walked child");
-  assert.deepEqual(listingOf(observations, "dist"), { directories: [], files: ["out.js"] });
-  assert.deepEqual(listingOf(observations, "src/types"), { directories: ["node"], files: [] });
-  assert.deepEqual(listingOf(observations, "src/only"), { directories: [], files: ["leaf.ts"] });
-  assert.deepEqual(listingOf(observations, "src/linked"), { directories: [], files: ["linked.ts"] }, "an admitted but unwalked link keeps its listing");
-  assert.equal(listingOf(observations, "src/unreadable"), undefined, "the ordinary view enumerated this directory");
-  const unreadable = path.join(root, "src", "unreadable");
-  const failedFilesystem = {
-    ...DEFAULT_FILESYSTEM_OPERATIONS,
-    readdir: (directory: string) => {
-      if (directory === unreadable) throw Object.assign(new Error("authored enumeration failure"), { code: "EIO" });
-      return DEFAULT_FILESYSTEM_OPERATIONS.readdir(directory);
-    },
-  };
-  const failedSnapshot = collectProjectInputSnapshot(root, createHostPathIdentityContext(failedFilesystem), failedFilesystem, undefined, { policy });
-  assert.equal(failedSnapshot.directoryComplete, false);
-  assert.equal(failedSnapshot.projectDirectories.some((directory) => directory.path === root), true);
-  assert.equal(failedSnapshot.projectDirectories.some((directory) => directory.path === path.join(root, "src", "lib")), true, "the partial walk really visited this sibling");
-  assert.equal(failedSnapshot.projectDirectories.some((directory) => directory.path === unreadable), false);
-  assert.equal(failedSnapshot.walkFailures.some((failure) => failure.path === unreadable && failure.kind === "directory-read-failed"), true);
-  TRANSFORM_RESULT_FILESYSTEM.set(failedResult, failedFilesystem);
-  TRANSFORM_RESULT_MEMBERSHIP.set(failedResult, {
-    policy,
-    projectRoot: root,
-    enumeratedDirectories: failedSnapshot.directoryComplete
-      ? new Set(failedSnapshot.projectDirectories.map((directory) => directory.path))
-      : new Set<string>(),
-  });
-  const failedObservations = index(failedResult);
-  assert.deepEqual(listingOf(failedObservations, "src/unreadable"), { directories: [], files: ["child.ts"] }, "failed enumeration cannot erase the compiler's independently reported listing");
-  assert.deepEqual(listingOf(failedObservations, "src/lib"), { directories: [], files: ["util.ts"] }, "an incomplete walk grants no partial enumeration authority");
-  assert.deepEqual(listingOf(failedObservations, "."), { directories: ["dist", "src"], files: ["tsconfig.json"] });
-  const unqualified = index(envelope());
-  for (const [directory, expected] of [
-    [".", { directories: ["dist", "src"], files: ["tsconfig.json"] }],
-    ["src/lib", { directories: [], files: ["util.ts"] }],
-    ["src/linked", { directories: [], files: ["linked.ts"] }],
-    ["src/unreadable", { directories: [], files: ["child.ts"] }],
-    ["dist", { directories: [], files: ["out.js"] }],
-    ["src/types", { directories: ["node"], files: [] }],
-    ["src/only", { directories: [], files: ["leaf.ts"] }],
-  ] as const) {
-    assert.deepEqual(listingOf(unqualified, directory), expected, "without membership no listing may be dropped or changed");
-  }
+    TRANSFORM_RESULT_MEMBERSHIP.set(captured, {
+      policy,
+      enumeratedDirectories: snapshot.directoryComplete ? visited : new Set<string>(),
+      projectRoot: root,
+    });
+    TRANSFORM_RESULT_FILESYSTEM.set(captured, DEFAULT_FILESYSTEM_OPERATIONS);
+    const observations = index(captured);
+    assert.equal(listingOf(observations, "."), undefined, "the root's listing");
+    assert.equal(
+      observations.get(root)?.directoryExists,
+      true,
+      "keeps its other predicates",
+    );
+    assert.equal(listingOf(observations, "src/lib"), undefined, "a walked child");
+    assert.deepEqual(listingOf(observations, "dist"), { directories: [], files: ["out.js"] });
+    assert.deepEqual(listingOf(observations, "src/types"), { directories: ["node"], files: [] });
+    assert.deepEqual(listingOf(observations, "src/only"), { directories: [], files: ["leaf.ts"] });
+    assert.deepEqual(listingOf(observations, "src/linked"), { directories: [], files: ["linked.ts"] }, "an admitted but unwalked link keeps its listing");
+    assert.equal(listingOf(observations, "src/unreadable"), undefined, "the ordinary view enumerated this directory");
+    const unreadable = path.join(root, "src", "unreadable");
+    const failedFilesystem = {
+      ...DEFAULT_FILESYSTEM_OPERATIONS,
+      readdir: (directory: string) => {
+        if (directory === unreadable) throw Object.assign(new Error("authored enumeration failure"), { code: "EIO" });
+        return DEFAULT_FILESYSTEM_OPERATIONS.readdir(directory);
+      },
+    };
+    const failedSnapshot = collectProjectInputSnapshot(root, createHostPathIdentityContext(failedFilesystem), failedFilesystem, undefined, { policy });
+    assert.equal(failedSnapshot.directoryComplete, false);
+    assert.equal(failedSnapshot.projectDirectories.some((directory) => directory.path === root), true);
+    assert.equal(failedSnapshot.projectDirectories.some((directory) => directory.path === path.join(root, "src", "lib")), true, "the partial walk really visited this sibling");
+    assert.equal(failedSnapshot.projectDirectories.some((directory) => directory.path === unreadable), false);
+    assert.equal(failedSnapshot.walkFailures.some((failure) => failure.path === unreadable && failure.kind === "directory-read-failed"), true);
+    TRANSFORM_RESULT_FILESYSTEM.set(failedResult, failedFilesystem);
+    TRANSFORM_RESULT_MEMBERSHIP.set(failedResult, {
+      policy,
+      projectRoot: root,
+      enumeratedDirectories: failedSnapshot.directoryComplete
+        ? new Set(failedSnapshot.projectDirectories.map((directory) => directory.path))
+        : new Set<string>(),
+    });
+    const failedObservations = index(failedResult);
+    assert.deepEqual(listingOf(failedObservations, "src/unreadable"), { directories: [], files: ["child.ts"] }, "failed enumeration cannot erase the compiler's independently reported listing");
+    assert.deepEqual(listingOf(failedObservations, "src/lib"), { directories: [], files: ["util.ts"] }, "an incomplete walk grants no partial enumeration authority");
+    assert.deepEqual(listingOf(failedObservations, "."), { directories: ["dist", "src"], files: ["tsconfig.json"] });
+    const unqualified = index(envelope());
+    for (const [directory, expected] of [
+      [".", { directories: ["dist", "src"], files: ["tsconfig.json"] }],
+      ["src/lib", { directories: [], files: ["util.ts"] }],
+      ["src/linked", { directories: [], files: ["linked.ts"] }],
+      ["src/unreadable", { directories: [], files: ["child.ts"] }],
+      ["dist", { directories: [], files: ["out.js"] }],
+      ["src/types", { directories: ["node"], files: [] }],
+      ["src/only", { directories: [], files: ["leaf.ts"] }],
+    ] as const) {
+      assert.deepEqual(listingOf(unqualified, directory), expected, "without membership no listing may be dropped or changed");
+    }
 
-  fs.mkdirSync(path.join(root, ".next"));
-  fs.writeFileSync(path.join(root, "AGENTS.md"), "# agents\n");
-  fs.writeFileSync(path.join(root, "next-env.d.ts"), "export {};\n");
-  assert.deepEqual(
-    graphInputObservationFailures(
-      root,
-      observations.get(root)!,
-      DEFAULT_FILESYSTEM_OPERATIONS,
-      createHostPathIdentityContext(),
-    ),
-    [],
-    "a framework writing beside the project fails nothing",
-  );
+    fs.mkdirSync(path.join(root, ".next"));
+    fs.writeFileSync(path.join(root, "AGENTS.md"), "# agents\n");
+    fs.writeFileSync(path.join(root, "next-env.d.ts"), "export {};\n");
+    assert.deepEqual(
+      graphInputObservationFailures(
+        root,
+        observations.get(root)!,
+        DEFAULT_FILESYSTEM_OPERATIONS,
+        createHostPathIdentityContext(),
+      ),
+      [],
+      "a framework writing beside the project fails nothing",
+    );
   } finally {
     TRANSFORM_RESULT_MEMBERSHIP.delete(captured);
     TRANSFORM_RESULT_FILESYSTEM.delete(captured);
