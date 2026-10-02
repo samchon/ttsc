@@ -56,22 +56,23 @@ export namespace ProjectInputWatchRules {
   /**
    * The directory a recursive watcher for `target` should be installed on.
    *
-   * A target inside the project is observed through the project's own root. One
-   * outside it is observed through the nearest existing directory of its
-   * declared parent, or failing that of its own tree, so a tree that does not
-   * exist yet is still seen. Either candidate is refused when it contains the
-   * project, and `undefined` is returned rather than watching the whole project
-   * from above.
+   * A target inside the project selects the nearest existing directory at or
+   * above the project root. For an external target, candidates are the nearest
+   * existing directories of its declared parent and its own tree, in that order.
+   * A candidate strictly containing the project is refused; one with the
+   * project's own identity is allowed. If neither candidate is admitted, the
+   * result is undefined. This selects a root under current native observations;
+   * it starts no watcher and does not prove future event delivery.
    *
-   * @evidence contracts/common.md#principled-implementation Internal declarations use the project root; external declarations select existing ancestry without allowing a root that contains and swallows the project's own coverage.
+   * @evidence contracts/common.md#principled-implementation Internal declarations select existing ancestry of the project root; external candidates cannot strictly contain the project and displace its distinct root selection, while equal physical identity is admitted.
    * @evidence contracts/common.md#clear-and-simple-design Internal and external ownership branches share one physical identity policy and nearest-existing-directory helper.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts An unsafe external owner remains undefined instead of adding a broad ancestor watch to disguise lost observation.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain missing trees, parent preference and the containment ceiling with their reasons, following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native resolve/dirname supply ancestry; the supplied transaction compares physical roots and actual case semantics, including symlink aliases.
-   * @evidence contracts/performance.md#efficient-algorithms At most two ancestor searches visit D directory levels; containment uses the same transaction instead of pairwise root population scans.
+   * @evidence contracts/performance.md#efficient-algorithms Construction of a default identity context precedes selection. The internal branch makes one native ancestor-stat search; the external branch eagerly makes both parent and target searches before candidate admission. Identity resolution/containment adds path-text, ancestor and possible case-query work through the shared context; no descendant corpus is enumerated and depth/text/query populations are not capped here.
    * @evidence contracts/performance.md#reuse-equivalent-work The transaction shares equivalent native identity resolutions across root and ceiling comparisons for this selection; later selections can use fresh state.
    *
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Root selection returns an optional path without opening or retaining a watcher.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Selection returns an optional path without acquiring a watcher or retaining history. A supplied identity context remains caller-owned; a default context and its observation maps are invocation-local and become reclaimable after their references are discarded.
    */
   export function projectInputRecursiveWatchRoot(
     target: string,
@@ -85,12 +86,11 @@ export namespace ProjectInputWatchRules {
     }
     // An external anchor rises to the declared parent so a tree that does not
     // exist yet is still observed, and so siblings under it share one handle. It
-    // may not rise past the project, though: a directory that contains the
-    // project swallows the project's own root when the two are merged, and every
-    // in-project declaration then rides one recursive handle over a shared system
-    // directory — a temp root, or the filesystem root itself — which delivers
-    // nothing. Prefer the declared parent, fall back to the target's own tree,
-    // and decline rather than widen past the project.
+    // may not rise strictly past the project: a containing root can displace
+    // its distinct root selection when roots are merged. Declining avoids that
+    // broader selection; it does not establish what a shared ancestor watcher
+    // would deliver. Prefer the declared parent, fall back to the target's own
+    // tree, and allow equality with the project root.
     for (const candidate of [
       WatchPaths.nearestExistingDirectory(path.dirname(resolvedTarget)),
       WatchPaths.nearestExistingDirectory(resolvedTarget),
@@ -98,9 +98,8 @@ export namespace ProjectInputWatchRules {
       if (candidate === undefined) continue;
       // The project root cannot outrank itself in the merge, so it is the one
       // container that is never a swallow — it is the owner the internal branch
-      // would have chosen anyway. A declaration reached through an in-project
-      // directory symlink lands here, and rejecting it would drop the hoist that
-      // keeps a replaced directory from stranding a child handle.
+      // would have chosen when it exists. An in-project directory symlink can
+      // produce the same physical root here; that alias must remain eligible.
       if (
         identities.resolve(candidate).key !==
           identities.resolve(resolvedProjectRoot).key &&

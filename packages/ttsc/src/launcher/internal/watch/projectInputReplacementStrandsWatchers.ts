@@ -6,33 +6,37 @@ import { ProjectInputWatchRules } from "./ProjectInputWatchRules";
 import { WatchPaths } from "./WatchPaths";
 
 /**
- * Whether a replacement at this path leaves a recursive watcher bound to the
- * object that was replaced.
+ * Select a directory attention that requests recursive watcher reinstallation.
  *
- * Only one backend needs the answer. Node routes a recursive watch to its own
- * per-directory implementation when the platform is neither macOS nor Windows,
- * and that implementation keys its handles by path: the handle for a directory
- * renamed away stays bound to the object that left, and any child whose name
- * survives the swap is skipped as already known. The native subtree backends
- * both other platforms use follow the path, so retiring their watcher would buy
- * nothing and would open a window in which no events are delivered.
+ * Node 22.15.0's `lib/fs.js` routes recursive watches to
+ * `lib/internal/fs/recursive_watch.js` outside macOS and Windows. That
+ * implementation records paths and skips an already registered path, motivating
+ * this policy's rearm selection on those hosts. The predicate returns false for
+ * macOS and Windows; that selection does not prove native subtree delivery after
+ * replacement or that those backends follow every replaced path.
  *
- * The answer is deliberately narrower than the rescan rule, because
- * reinstalling a root costs one watch descriptor per entry beneath it, which an
- * install storm would pay thousands of times. A directory appearing inside a
- * glob root deserves a rescan but replaces nothing a root stands on, and a
- * reload directory anchors the directory that contains it rather than itself,
- * since its fingerprint is a digest of its own immediate entries and nothing
- * below it can reach the declared corpus.
+ * On the selected backend, the supplied path must currently stat as a directory
+ * and its parent must anchor at least one declared file, reload file, strict
+ * reload-directory descendant or literal glob root. This is an attention policy,
+ * not detection that an object was replaced. Restricting reinstallation avoids
+ * repeatedly rebuilding a recursive entry population on unrelated changes.
+ * Reload-directory membership alone anchors its parent rather than itself;
+ * another declaration can still anchor that same path. The topology caller owns
+ * retiring and synchronizing watchers before its next snapshot; this predicate
+ * starts or closes no watcher and does not certify the resulting coverage.
  *
- * @evidence contracts/common.md#principled-implementation Only Node's path-indexed recursive backend needs replacement rearming; an existing directory must anchor a declaration before retiring coverage.
+ * @param identities Identity transaction; absence creates a native host context.
+ * @param platform Backend selection only; paths still use the host's path API
+ *   and the supplied identity context, not this argument's foreign path grammar.
+ *
+ * @evidence contracts/common.md#principled-implementation The supported selection policy requests rearming only outside macOS/Windows for an existing directory whose parent anchors a declaration; its boolean is not proof of replacement or native event delivery.
  * @evidence contracts/common.md#clear-and-simple-design A backend capability branch precedes directory and declaration checks, separating rescan admission from handle reinstallation.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Rearming is justified by the backend's inode retention, not a retry chain hiding an unchanged watcher assumption.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Node's path-indexed registration supplies the rearm premise; actual directory/declaration observations select attention without test identities or an invented proof that native subtree backends always recover replacements.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain native versus per-directory backends and why indiscriminate reinstalling is costly, following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Platform selection expresses Node's recursive watcher implementation boundary; filesystem identity and containment still come from the actual transaction resolver.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources projectInputReplacementStrandsWatchers declares a signature only; the implementation owns acquisition and release of resources.
- * @evidenceExclude contracts/performance.md#efficient-algorithms projectInputReplacementStrandsWatchers declares a signature only; the implementation owns the processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work projectInputReplacementStrandsWatchers declares a signature only; the implementation owns any shared work.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The predicate starts or retains no watcher. A supplied identity context remains caller-owned; the default creates invocation-local observation maps without eviction, released only when their references are discarded.
+ * @evidence contracts/performance.md#efficient-algorithms Default context allocation occurs before the platform return. Selected hosts resolve/stat one changed path and short-circuit over files, reload declarations and glob roots; each containment query can perform delegated identity/path/native work. No declared corpus enumeration or watcher installation occurs in this predicate, and text/declaration/query populations are not capped here.
+ * @evidence contracts/performance.md#reuse-equivalent-work The topology caller supplies one identity transaction across attention and declaration checks, reusing per-key observations within that native state. Standalone default calls create fresh contexts; this predicate neither shares across transactions nor caches replacement verdicts.
  */
 export function projectInputReplacementStrandsWatchers(
   snapshot: ITtscProjectInputSnapshot,
