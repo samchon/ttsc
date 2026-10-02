@@ -14,12 +14,12 @@ import (
 // can locate a namespaced call expression even when tsgo preserves source line
 // breaks between the property segments.
 //
-// tsgo's emitter keeps `foo.bar\n    .baz()` formatting verbatim. The rewrite
-// scanner used a literal needle (e.g. `typia_1.default.misc.literals(`) that
-// could not span the intermediate whitespace, surfacing as a
+// tsgo's emitter keeps `foo.bar\n    .baz()` formatting verbatim. A literal
+// needle (e.g. `typia_1.default.misc.literals(`) cannot span the intermediate
+// whitespace and would surface as a
 // `driver: could not locate <root>.<namespace>.<method>(…)` failure even
-// though the call was clearly present in the output. The fix uses a regex
-// that tolerates whitespace and newlines between every segment.
+// though the call is present in the output. The scanner must therefore
+// tolerate whitespace and newlines between every segment.
 //
 // 1. Compile a project whose source writes `plugin.namespace\n.method()`.
 // 2. Register a rewrite with the matching root/namespace/method descriptor.
@@ -81,7 +81,7 @@ export const value = plugin.namespace
     return nil
   })
   if err != nil {
-    t.Fatalf("emit returned an error (regression: rewriter rejected line-broken member chain): %v", err)
+    t.Fatalf("emit returned an error (rewriter rejected line-broken member chain): %v", err)
   }
   if len(emitDiags) != 0 {
     t.Fatalf("unexpected emit diagnostics: %#v", emitDiags)

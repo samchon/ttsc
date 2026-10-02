@@ -14,7 +14,7 @@ import (
 //
 // Alias discovery must not turn an absent target into a silent pass or a decoy
 // rewrite. A high-suffix import with a different method therefore still fails,
-// but its diagnostic now names the declaration TypeScript-Go actually emitted.
+// but its diagnostic names the declaration TypeScript-Go actually emitted.
 //
 // 1. Emit a default import at `_16` whose only call uses another method.
 // 2. Register a rewrite for the missing `plugin.make` call.

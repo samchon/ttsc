@@ -17,7 +17,7 @@ import (
 // `/// <reference>` targets included), files contributing to the global
 // scope, and the tsconfig `extends` chain.
 //
-// Implements samchon/ttsc#716: bundlers erase type-only imports from their
+// Bundlers erase type-only imports from their
 // module graphs and persistent caches replay stale generated code unless the
 // compiler host itself reports the language-semantic input set of a
 // transform. The graph must therefore carry exactly the edges tsgo's own

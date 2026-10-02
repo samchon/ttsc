@@ -15,7 +15,7 @@ import (
 // TypeScript-Go's serializer leaves them literal. Re-encoding the map
 // with the default would byte-diverge from tsgo's native maps for any source
 // containing generics, JSX, or `&&`/`&`, valid JSON, but needless churn. The
-// fix encodes with HTML escaping disabled; this pins it.
+// encoder must therefore run with HTML escaping disabled; this pins it.
 //
 //  1. Build an inlineSources map whose sourcesContent holds `Array<number>` and
 //     `a && b`, with a 1-line preamble.

@@ -12,10 +12,10 @@ import (
 
 // TestDriverRewriteDerivesEmittedAliasesWithoutSuffixCeiling Verifies rewrites follow the actual CommonJS binding at every authored collision depth.
 //
-// The driver used to enumerate only the bare root, `_1`, and `_2`. That made a
-// valid default import fail as soon as ordinary locals pushed the emitter to
-// `_3`. The suffix-16 case distinguishes the old small enumeration from a
-// repair tested only at the adjacent boundary; these finite cases do not by
+// A driver that enumerated only the bare root, `_1`, and `_2` would fail a
+// valid default import as soon as ordinary locals pushed the emitter to
+// `_3`. The suffix-16 case distinguishes a small fixed enumeration from one
+// tested only at the adjacent boundary; these finite cases do not by
 // themselves prove an unbounded suffix range.
 //
 // 1. Emit the bare-root and default-import fixtures at suffixes 0, 1, 2, 3 and 16.

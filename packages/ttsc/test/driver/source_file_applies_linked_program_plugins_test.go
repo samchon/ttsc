@@ -13,8 +13,7 @@ import (
 // TestSourceFileAppliesLinkedProgramPlugins Verifies that Program.SourceFile
 // runs linked ProgramPlugin hooks before handing out the single file.
 //
-// Locks the single-file lane of the same class as the emit-funnel regression:
-// a host's `--file` transform mode fetches one source through SourceFile and
+// This is the single-file lane of the linked-plugin funnel: a host's `--file` transform mode fetches one source through SourceFile and
 // prints it, so if only SourceFiles applied linked plugins, a whole-project
 // run and a single-file run of the same host would disagree about the tree.
 //

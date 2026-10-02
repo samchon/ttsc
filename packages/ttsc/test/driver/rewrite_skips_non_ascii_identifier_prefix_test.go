@@ -10,14 +10,14 @@ import (
 // TestDriverRewriteSkipsNonASCIIIdentifierPrefix Verifies the call-boundary
 // guard rejects a match that begins mid-identifier after a non-ASCII character.
 //
-// findCallMatch used to widen the single byte at text[matchStart-1] into a rune.
-// For a multi-byte identifier character that byte is a UTF-8 continuation/lead
-// byte, not the character, so isIdentifierPart returned false, the boundary
-// guard was bypassed, and `étypia.assert(` matched as the tail `typia.assert(`
-// of a larger identifier, splicing the replacement into the middle of a
-// distinct name and silently corrupting the emitted JS. Decoding the whole
-// preceding rune restores the guard for BMP and astral prefixes alike, while
-// the ASCII `mytypia` negative and a bare positive call pin both sides.
+// Widening the single byte at text[matchStart-1] into a rune would misread a
+// multi-byte identifier character: that byte is a UTF-8 continuation/lead
+// byte, not the character, so isIdentifierPart would return false, the boundary
+// guard would be bypassed, and `étypia.assert(` would match as the tail
+// `typia.assert(` of a larger identifier, splicing the replacement into the
+// middle of a distinct name and silently corrupting the emitted JS. The guard
+// must decode the whole preceding rune, for BMP and astral prefixes alike; the
+// ASCII `mytypia` negative and a bare positive call pin both sides.
 //
 //  1. Splice `typia.assert(` against inputs whose call head is the trailing
 //     substring of a longer identifier ending in `typia`.

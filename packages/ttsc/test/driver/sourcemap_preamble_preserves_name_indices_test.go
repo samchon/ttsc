@@ -13,8 +13,8 @@ import (
 // nameIndex is cumulative across the whole mappings string. When a name-bearing
 // segment is dropped (it fell inside the preamble region), the re-encoder must
 // NOT advance its output name cumulant past the drop, or every later segment's
-// decoded name index is wrong. The earlier single-fixture test had no 5-field
-// segments, so this branch was unproven.
+// decoded name index is wrong. Only a map with 5-field segments
+// reaches this branch.
 //
 //  1. Build a single-source map with three name-bearing segments, the middle one
 //     inside the preamble region (dropLines 2).

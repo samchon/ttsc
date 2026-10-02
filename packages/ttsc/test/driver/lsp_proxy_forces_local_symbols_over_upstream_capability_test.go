@@ -14,7 +14,7 @@ import (
 // The raw-LSP graph consumer that motivated the provider wants graph-derived
 // declarations, not tsgo's language-service answer. The force flag overrides the
 // default forward-when-advertised gate so that consumer still gets the graph
-// outline (#620).
+// outline.
 //
 //  1. Complete an initialize handshake whose upstream result advertises
 //     documentSymbolProvider: true, with ForceLocalSymbolProvider set.

@@ -12,7 +12,7 @@ import (
 
 // TestLSPProxyHardErrorClosesSiblingStreams Verifies hard proxy errors drain both pumps.
 //
-// A write failure in one proxy pump used to require the test to pre-close the
+// A write failure in one proxy pump must not depend on the test pre-closing the
 // opposite stream. The proxy itself must close the sibling closeable endpoints
 // so production pipe pairs cannot leave Run blocked forever after the first
 // hard transport error.

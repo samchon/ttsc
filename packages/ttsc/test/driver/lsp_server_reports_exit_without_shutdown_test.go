@@ -14,7 +14,7 @@ import (
 // specification gives an `exit` that no `shutdown` request preceded.
 //
 // The specification ends the server with status 0 when `shutdown` came before
-// `exit` and 1 when it did not (samchon/ttsc#1575). RunLSPServer reports the
+// `exit` and 1 when it did not. RunLSPServer reports the
 // second case as ErrLSPExitWithoutShutdown, which ttscserver turns into status
 // 1; TestLSPServerEndsTheSessionOnExitWithoutTheEditorsEOF is the twin that
 // sends `shutdown` first and gets nil.

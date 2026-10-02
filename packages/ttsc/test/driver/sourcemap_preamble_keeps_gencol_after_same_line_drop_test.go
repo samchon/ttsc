@@ -12,9 +12,8 @@ import (
 //
 // genCol is a per-generated-line delta; when an earlier segment on the same line
 // is dropped, the re-encoder must NOT advance its output genCol cumulant over the
-// drop, or the surviving segment's genCol delta is wrong. Earlier fixtures only
-// dropped whole generated lines, never a mid-line sibling, so this branch was
-// unproven.
+// drop, or the surviving segment's genCol delta is wrong. Only a mid-line
+// dropped sibling reaches this branch; whole dropped generated lines do not.
 //
 //  1. Build a map whose generated line 0 has two segments: the first inside the
 //     preamble region (dropped), the second real code.

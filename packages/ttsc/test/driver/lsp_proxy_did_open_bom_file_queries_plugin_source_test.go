@@ -14,7 +14,7 @@ import (
 // TestLSPProxyDidOpenBOMFileQueriesPluginSource Verifies a file whose disk copy
 // starts with a UTF-8 BOM is classified clean on didOpen when the editor sends
 // BOM-less buffer text, so plugin diagnostics are not suppressed until the first
-// save (#621).
+// save.
 //
 // The proxy gates plugin diagnostics on the buffer matching disk. A raw byte
 // compare treats a BOM present only on disk as an edit, marking the unedited

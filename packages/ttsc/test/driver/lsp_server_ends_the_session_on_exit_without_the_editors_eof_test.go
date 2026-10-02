@@ -13,11 +13,12 @@ import (
 // `exit` notification ends the session while the editor's stream stays open.
 //
 // The specification has `exit` ask the server to exit its process, and plain
-// tsgo does. The proxy waited for the editor's stream to close as well, and a
-// read blocked on the editor's stdin is not interrupted by closing it on every
-// platform (a Windows pipe is not), so ttscserver kept running after `exit`
-// until the editor happened to close the pipe (samchon/ttsc#1575). The editor
-// input here cannot be closed at all, as that stdin cannot be interrupted.
+// tsgo does. A proxy that also waited for the editor's stream to close would
+// depend on closing the editor's stdin to interrupt a blocked read, which is
+// not possible on every platform (a Windows pipe is not), so ttscserver would
+// keep running after `exit` until the editor happened to close the pipe. The
+// editor input here cannot be closed at all, as that stdin cannot be
+// interrupted.
 //
 //  1. Give RunLSPServer an editor input that never ends and has no Close, and
 //     an upstream that answers `shutdown` and returns on `exit`, as tsgo does.

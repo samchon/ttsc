@@ -16,7 +16,7 @@ import (
 // clean-open documents participate in URI-less command stale checks.
 //
 // URI-less commands snapshot every known document generation. A clean
-// `didOpen` used to leave no generation entry, so a later document change
+// `didOpen` must still leave a generation entry; otherwise a later document change
 // could happen while a command was running and the command error would still be
 // shown to the editor instead of collapsing to a stale null result.
 //

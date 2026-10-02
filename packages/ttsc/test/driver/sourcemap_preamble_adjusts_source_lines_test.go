@@ -13,7 +13,7 @@ import (
 // preamble's line count and drops mappings that fell inside the injected
 // preamble region.
 //
-// This pins the @ttsc/banner source-map corruption fix: the banner is injected
+// This pins the @ttsc/banner source-map correction: the banner is injected
 // at the source level, so without this rewrite every emitted mapping for real
 // code points `dropLines` lines too deep (onto blank lines) and the preamble's
 // own emitted comment carries phantom mappings. The fixture is a real banner
@@ -32,7 +32,7 @@ import (
 func TestAdjustSourceMapForPreambleUndoesSourceLineShift(t *testing.T) {
   const dropLines = 9
   // Real `main.js.map` emitted for a banner project: `export const first`
-  // (source line 0) ends up mapped to source line 9 before the fix.
+  // (source line 0) ends up mapped to source line 9 before the adjustment.
   const shifted = `{"version":3,"file":"main.js","sourceRoot":"","sources":["../src/main.ts"],"names":[],` +
     `"mappings":";;;;AAAA;;;;;;;;GAQG;AACU,QAAA,KAAK,GAAW,GAAG,CAAC;AACpB,QAAA,MAAM,GAAW,GAAG,CAAC;AAClC,eAAsB,CAAS;IAC7B,OAAO,CAAC,GAAG,QAAA,KAAK,GAAG,QAAA,MAAM,CAAC;AAC5B,CAAC"}`
 

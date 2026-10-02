@@ -14,7 +14,7 @@ import (
 // Document-symbol and reference answers are distinct graph-provider paths: the
 // first must skip a leading // comment before building a range, while the second
 // must map an editor cursor back to the declaration and then map its edge spans
-// forward. Both had their own CR-only failure mode.
+// forward. Each can mishandle a CR-only terminator independently.
 //
 // 1. Compile the same comment-plus-two-functions source under each separator.
 // 2. Ask the graph SymbolProvider for document symbols and the beta references.

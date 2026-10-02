@@ -12,11 +12,11 @@ import (
 // embedded source is corrected even when there are no mappings to shift.
 //
 // A comment-only or empty source file produces a map with empty `mappings`, so
-// the mapping shift is a no-op. but under `inlineSources` its `sourcesContent`
+// the mapping shift is a no-op, but under `inlineSources` its `sourcesContent`
 // still carries the injected preamble. The correction must strip sourcesContent
 // independently of whether mappings changed, or a banner build of such a file
-// would embed the banner-shifted source. (This sealed a real gap: the earlier
-// version early-returned when no mapping changed and never reached the strip.)
+// would embed the banner-shifted source. An implementation that returned early
+// when no mapping changed would never reach the strip.
 //
 //  1. Build a map with empty mappings and a sourcesContent that is preamble +
 //     one comment line, dropLines 3.

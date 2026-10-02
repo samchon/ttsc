@@ -7,8 +7,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPEnvelopeRejectsInvalidJSONRPCField Verifies the protocol guard
-// added in round 1. A body that declares a `jsonrpc` field other than
+// TestLSPEnvelopeRejectsInvalidJSONRPCField Verifies the protocol guard. A body that declares a `jsonrpc` field other than
 // "2.0" is rejected so the proxy never dispatches malformed traffic
 //. the pump forwards the original bytes verbatim to upstream so the
 // peer can produce its own JSON-RPC error response.

@@ -7,11 +7,10 @@ import (
 )
 
 // TestLSPEnvelopeIDKeyPreservesAboveInt64IDs Verifies adjacent large integer identities
-// for 19-digit ids. The previous Float64-fallback
-// normalization rounded any id past 2^53 down to `1e+19`, colliding
-// every "huge integer" id into the same pending-actions key, a real
-// proxy correctness bug for peers that mint ids from a counter past
-// MaxInt64.
+// for 19-digit ids. A Float64-fallback normalization would round any id
+// past 2^53 to `1e+19`, colliding every "huge integer" id into the same
+// pending-actions key, a real proxy correctness bug for peers that mint ids
+// from a counter past MaxInt64.
 //
 //  1. Decode two envelopes whose integer ids differ only above the
 //     safe-float boundary (9999999999999999998 vs 9999999999999999999).

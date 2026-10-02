@@ -11,9 +11,9 @@ import (
 // SymbolProvider.Invalidate when it forwards textDocument/didChange. The
 // recording provider observes the hook, not a refreshed compiler result.
 //
-// The graph provider caches its compiler load; nothing invalidated it, so an
-// editor session froze at the first outline. The proxy now calls Invalidate on
-// every buffer-changing notification.
+// The graph provider caches its compiler load; without invalidation an editor
+// session would freeze at the first outline. The proxy therefore calls
+// Invalidate on every buffer-changing notification.
 //
 // 1. Wire a recording SymbolProvider.
 // 2. Send textDocument/didChange from the editor.

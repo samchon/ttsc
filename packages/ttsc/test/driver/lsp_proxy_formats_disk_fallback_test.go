@@ -97,7 +97,7 @@ func TestLSPProxyFormatsPatchedBufferAfterIncrementalDidChange(t *testing.T) {
 
   drainFormattingResponse(t, h, 11)
   if gotContent == diskContent {
-    t.Fatalf("formatter received disk content %q; the live patched buffer must win (two-save bug regression)", gotContent)
+    t.Fatalf("formatter received disk content %q; the live patched buffer must win", gotContent)
   }
   if gotContent == openBuffer {
     t.Fatalf("formatter received the pre-edit buffer %q; the ranged change must be applied to the cache", gotContent)

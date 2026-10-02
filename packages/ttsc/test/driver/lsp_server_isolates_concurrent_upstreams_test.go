@@ -23,7 +23,7 @@ type lspInvocationHarness struct {
 // TestLSPServerIsolatesConcurrentUpstreams Verifies each server captures its
 // own runner and validation policy.
 //
-// The old package-global test seam allowed overlapping servers to replace each
+// A package-global runner seam would let overlapping servers replace each
 // other's runner between validation and execution. Two concurrent invocations
 // must instead keep their dependency pair and lifecycle independent, including
 // after one invocation closes.

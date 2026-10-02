@@ -11,14 +11,14 @@ import (
 
 // TestLSPProxyForwardsDidSaveWhileAPublicationWriteIsHeld Verifies the editor
 // pump forwards a document notification upstream while a diagnostics
-// publication is still writing to the editor (samchon/ttsc#1441).
+// publication is still writing to the editor.
 //
-// A publication decided its frame under the diagnostics state lock and kept
-// that lock through the write, and the pump takes the lock for every document
-// notification before forwarding it. An editor that had not read the
-// publication yet therefore held the next notification back from tsgo, which
-// is how TestLSPProxyDidSavePublishesVersionlessPluginDiagnostics failed on CI
-// whenever the publication goroutine reached the lock before the pump did.
+// A publication that decided its frame under the diagnostics state lock and kept
+// that lock through the write would hold up the pump, which takes the lock for
+// every document notification before forwarding it: an editor that had not read
+// the publication yet would hold the next notification back from tsgo, and
+// TestLSPProxyDidSavePublishesVersionlessPluginDiagnostics would fail whenever
+// the publication goroutine reached the lock before the pump did.
 //
 //  1. Arm the editor output so its next write holds, save a document, and wait
 //     until the save's plugin publication is inside that write.
