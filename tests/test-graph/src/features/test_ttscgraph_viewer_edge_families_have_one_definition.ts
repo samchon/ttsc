@@ -76,7 +76,7 @@ const legendHost = (): { footer: StubElement; document: LegendDocument } => {
  *    duplicated by a second render.
  *
  * @evidence contracts/testing.md#behavioral-verification The package, website and fixture reducer copies must each keep all ten seeded wire relationships as links and fold them to the same kind per edge; the set of folded kinds must equal the keys of the viewer's LINK_COLORS; an unknown kind must pass through unfolded and have no colour; and renderLegend must prepend one dot per LINK_COLORS entry, in order, with its colour, the classes dot and swatch, the static note kept after them, and a second render adding nothing.
- * @evidence contracts/testing.md#independent-expectations The ten wire kinds and the unknown kind are literals. The folded kinds are not written as literals: the three reducer copies are compared with one another and with the keys of LINK_COLORS, so the test detects disagreement between copies and the palette (for example a missing legend family) but not an identical error in all of them or a poor palette choice.
+ * @evidence contracts/testing.md#independent-expectations The ten wire kinds, the unknown kind and the display family of every wire kind (value-call, type-ref, doc-ref, heritage, exports) are literals written in the test from the viewer vocabulary, so a fold that is wrong in all three copies is caught. The set of families is also compared with the keys of LINK_COLORS, which detects a missing legend family but not a poor palette choice; the colours themselves are owned by the unknown-kinds test.
  * @evidence contracts/testing.md#distinguishing-cases Ten supported kinds contrast an unknown kind that must stay unfolded and uncoloured; swatch class, order, note placement and repeated rendering are asserted separately. The website and benchmark legend implementations are not rendered, only the bundled viewer's.
  * @evidence contracts/testing.md#execution-ownership Imports and runs the three reducer source files and the bundled legend module in the test process, rendering into a hand-written stub of the DOM footer; no browser, installed artifact, native build or product host is involved.
  */
@@ -113,12 +113,33 @@ export async function test_ttscgraph_viewer_edge_families_have_one_definition():
       [...dumpKinds].sort(),
       "the reduction did not return one link per seeded wire kind",
     );
-    for (const [index, copy] of copies.entries())
+    // The display family of each wire kind, written out from the viewer's
+    // vocabulary (value calls, type references, document references, heritage
+    // and exports) so a fold that is wrong in every copy is still caught.
+    const expectedFamilies: [string, string][] = [
+      ["accesses", "value-call"],
+      ["calls", "value-call"],
+      ["doc_ref", "doc-ref"],
+      ["exports", "exports"],
+      ["extends", "heritage"],
+      ["implements", "heritage"],
+      ["instantiates", "value-call"],
+      ["overrides", "heritage"],
+      ["renders", "value-call"],
+      ["type_ref", "type-ref"],
+    ];
+    for (const [index, copy] of copies.entries()) {
+      assert.deepEqual(
+        [...families[index]!].sort(),
+        expectedFamilies,
+        `${copy.file} does not fold the wire kinds into the documented families`,
+      );
       assert.deepEqual(
         [...families[index]!].sort(),
         [...reference].sort(),
         `${copy.file} folds the wire kinds differently from ${copies[0]!.file}`,
       );
+    }
 
     const displayed = [...new Set(reference.values())].sort();
     assert.deepEqual(

@@ -57,9 +57,9 @@ const assertProjection = (
  * 1. Load all three production reducer copies through Node's TypeScript loader.
  * 2. Exercise single-file, repeated-file, nested, POSIX, drive, and UNC paths.
  * 3. Assert all three reducers retain IDs, files and links, then check the
- *    package and website reducers' git-ignored drop counts.
+ *    reducers' git-ignored drop counts.
  *
- * @evidence contracts/testing.md#behavioral-verification All three authored reducers preserve literal file/id projections, distinct identities and links. The package and website reducers additionally assert generated-code drop counts; the fixture reducer's drop policy is not asserted here.
+ * @evidence contracts/testing.md#behavioral-verification All three authored reducers preserve literal file/id projections, distinct identities and links. Each reducer additionally drops the git-ignored generated node, reporting a drop count of one and keeping the authored node with its self edge.
  * @evidence contracts/testing.md#independent-expectations Legacy rerooting retains filenames and current relative spelling; literal fixture projections independently specify POSIX, drive and UNC expectations.
  * @evidence contracts/testing.md#distinguishing-cases Single, repeated and nested files, disjoint/case-distinct roots, drive/UNC paths, relative paths and generated nodes distinguish projection and filter policies.
  * @evidence contracts/testing.md#execution-ownership The named exported src/features entry calls authored operations through the unit loader; fixtures are in-memory and no installed artifact, native build or product process is needed.
@@ -183,17 +183,13 @@ export async function test_ttscgraph_viewer_reducers_preserve_legacy_absolute_fi
       ],
     };
 
-    // Both copies drop git-ignored generated code, and report how much they
+    // All three copies drop git-ignored generated code, and report how much they
     // dropped. This assertion used to record the package copy keeping it "by
     // design", which was the divergence #835 named: the package copy's own doc
     // comment, the shipped guide, and the two sibling copies all said the
     // authored graph is what a view shows, and only the code disagreed.
-    const packageResult = reducers[0]!.reduce(policyDump);
-    const websiteResult = reducers[1]!.reduce(policyDump);
-    for (const [name, result] of [
-      ["package", packageResult],
-      ["website", websiteResult],
-    ] as const)
+    for (const reducer of reducers) {
+      const result = reducer.reduce(policyDump);
       assert.deepEqual(
         [
           result.counts.nodes,
@@ -201,6 +197,7 @@ export async function test_ttscgraph_viewer_reducers_preserve_legacy_absolute_fi
           result.counts.droppedIgnored,
         ],
         [1, 1, 1],
-        `${name} reducer drops ignored nodes and reports the drop`,
+        `${reducer.name} reducer drops ignored nodes and reports the drop`,
       );
+    }
 }
