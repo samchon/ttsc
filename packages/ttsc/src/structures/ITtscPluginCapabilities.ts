@@ -20,7 +20,7 @@
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
  * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
+ * @evidence contracts/portability.md#os-neutral-implementation These opt-ins describe a native sidecar's accepted argv and process protocols, including private absolute artifact paths and separate lexical/physical project identities; omission leaves the optional protocol unsupported on every platform rather than inferring it from an OS or plugin name.
  */
 export interface ITtscPluginCapabilities {
   /**
