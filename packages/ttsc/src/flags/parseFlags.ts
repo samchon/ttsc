@@ -320,8 +320,8 @@ function validatePositiveInt(
 
 /**
  * Forward a flag the schema knows about but the current subcommand does not
- * accept. The launcher will hand it to tsgo (or to native sidecars via
- * `--tsgo-args`); without this branch the parser would lose the value token of
+ * accept. The launcher will hand it to tsgo (or to native sidecars through the
+ * `TTSC_TSGO_ARGS` environment payload); without this branch it would lose the value token of
  * a `--flag value` pair.
  *
  * A value option owned by tsgo always consumes its next bare token, even when

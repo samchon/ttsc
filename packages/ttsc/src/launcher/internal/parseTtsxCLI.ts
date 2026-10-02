@@ -13,7 +13,9 @@ import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
  * Compiler flags before the first entry, repeated preloads and launcher-owned
  * settings are separated once through the shared flag schema. Terminal requests
  * are recognized only before the entry; unsupported watch/build requests fail
- * before a compiler or program is started.
+ * before a compiler or program is started. These decisions inspect the supplied
+ * argv frame; this parser does not read response-file contents or certify their
+ * eventual native effects.
  *
  * @param argv Command tokens as received from the launcher.
  * @returns A terminal request or the launcher's typed option record.
@@ -23,15 +25,15 @@ import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Accepted spellings follow the actual flag schema/compiler option kinds, not source extensions or consumer-specific rewrites; unsupported modes throw their supported diagnostics.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain compiler/program separation, terminal precedence and early rejection; private helper comments state why the failed-parse prefix scan exists.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation This function classifies argument tokens without resolving filesystem paths or starting processes; native representations remain with its launcher caller.
- * @evidence contracts/performance.md#efficient-algorithms Shared parsing and fixed-count terminal/watch scans cost O(A) tokens with O(A) returned arrays; the failure-only prefix scan advances through value-bearing flags once.
+ * @evidence contracts/performance.md#efficient-algorithms Shared parsing and fixed-count terminal/watch scans advance through at most the supplied argv frame and its parsed projections. Delegated token normalization and native operand lookahead also cost time and transient space proportional to the text they inspect; repeated preloads and tail/compiler snapshots add at most O(A) argument references. The failure-only prefix scan advances by each owning option's width without reparsing program-tail tokens.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each pure option parse belongs to one invocation; it coordinates no completed or in-flight shared work and has no historical result cache.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Local arrays and the returned option record transfer to the caller; this parser owns no retained state, directory, handle or task.
  */
 export function parseTtsxCLI(argv: readonly string[]) {
   // ttsx accepts ttsc-style flags plus its own `--no-plugins` / `--require`.
-  // The shared schema engine recognises both; the engine returns positional
-  // tokens (entry file + flag values that aren't `.ts`) and a passthrough
-  // list mirroring the pre-schema behaviour.
+  // The shared schema engine recognises both; it returns the first unconsumed
+  // bare token as the entry, earlier forwarded flags/values as compiler
+  // passthrough and later tokens as the program tail, regardless of extension.
   //
   // The legacy uppercase `-P` spelling ttsx has always accepted needs no
   // rewrite: the engine resolves a token to the flag the compiler resolves it
@@ -93,12 +95,9 @@ export function parseTtsxCLI(argv: readonly string[]) {
   // value in argv order and the launcher reads the list straight off the parse
   // result.
   //
-  // This replaces a second, hand-written scan over raw argv that re-derived the
-  // pre-entry boundary from the entry's extension. Applied to raw tokens that
-  // test cannot tell an entry from a `--require` value carrying a TypeScript
-  // extension, nor from an inline `--require=<x>.ts` token, so the scan
-  // stopped before the tokens it existed to collect and preloads were dropped
-  // silently. The engine already owns that boundary:
+  // Preload values may themselves carry TypeScript extensions, so entry
+  // classification must follow option arity rather than an extension scan.
+  // The engine owns that boundary:
   // `forwardAfterFirstPositional` routes every post-entry token to
   // `result.tail` without parsing it, so `ttsx entry.ts -r preload.cjs` still
   // forwards the pair to the program instead of preloading it.

@@ -46,8 +46,10 @@ export interface ParseOptions {
    * source file, the ttsx entry, a project path) rather than the
    * space-separated value of a preceding forwarded flag.
    *
-   * When omitted, an unconsumed nonempty bare token is positional, except that
-   * runner first-positional mode still forwards unconsumed response-file tokens.
+   * When omitted, an unconsumed nonempty bare token in the active parser head
+   * is positional, except that runner first-positional mode still forwards
+   * unconsumed response-file tokens. Tokens after an honored separator or the
+   * runner entry belong to passthrough or the program tail without this policy.
    *
    * When provided, a bare token that fails the predicate is appended to
    * `passthrough` in its original position instead of `positional`, so an

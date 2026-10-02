@@ -11,7 +11,7 @@ import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
  * @evidence contracts/common.md#clear-and-simple-design One authored adapter returns launcher-owned values; its two local helpers only resolve emit precedence and identify source extensions.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown compiler flags and adjacent values remain in original order; invalid owned values use the schema errors without coercion or fake compiler execution.
  * @evidence contracts/common.md#meaningful-documentation The comment states the execution-free parser boundary; inline comments retain the default quiet, emit and positional-file decisions.
- * @evidence contracts/performance.md#efficient-algorithms One linear argv parse and copies of its positional and passthrough lists bound work and temporary space by argument count.
+ * @evidence contracts/performance.md#efficient-algorithms Shared parsing and the solution-build guard traverse argv and parsed flag identities; name normalization, operand lookahead and validation also depend on token text lengths. Fixed option accessors add bounded field projections, and the returned file/passthrough snapshots copy at most the parsed argument references without reparsing them.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation owns different argv; this parser coordinates no shared computation.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returned options are invocation values; no retained memo, process or handle is acquired.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Parses argv tokens only; file arguments are returned verbatim and are neither resolved nor normalized here.
@@ -21,9 +21,10 @@ export function parseTtscBuildArgs(argv: readonly string[]) {
     argv,
     errorPrefix: "ttsc:",
     // A bare token is a single-file input only when it carries a TypeScript
-    // source extension; any other bare token is the space-separated value of a
-    // preceding forwarded flag (e.g. the `es2020` in `--target es2020`). The
-    // parser routes those values into `passthrough` in place, so the forwarded
+    // source extension. Other bare tokens remain passthrough data, including
+    // space-separated values (e.g. the `es2020` in `--target es2020`); this
+    // predicate does not certify that a preceding flag owns each token. The
+    // parser routes those tokens into `passthrough` in place, so the forwarded
     // flag/value pairs reach tsgo in their original order.
     isPositional: looksLikeInputFile,
     subcommand: "build",
@@ -43,8 +44,7 @@ export function parseTtscBuildArgs(argv: readonly string[]) {
   // `isPositional: looksLikeInputFile` guarantees every `result.positional`
   // token is a TypeScript input file; forwarded flag values already live in
   // `result.passthrough` in their original order, so no reconstruction is
-  // needed here (the previous `[...passthrough, ...trailingValues]` concat
-  // reordered every flag ahead of every value).
+  // needed here.
   const files = [...result.positional];
   const passthrough = [...result.passthrough];
 
@@ -86,7 +86,8 @@ function resolveExplicitEmit(
 /**
  * Report whether a bare CLI token is a TypeScript source file ttsc should
  * compile in single-file mode. Anything without a TypeScript source extension
- * is treated as a forwarded flag value rather than an input file.
+ * remains passthrough data rather than a launcher input file; the native
+ * compiler decides whether an unowned token is valid.
  *
  */
 function looksLikeInputFile(token: string): boolean {
