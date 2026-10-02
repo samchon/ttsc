@@ -37,8 +37,8 @@ export interface TtscTransformHooks {
    * from `F`, the `graph.globals` files, the `graph.configs` chain, importer
    * `graph.candidates`, and universal `graph.resolutionInputs`, together with
    * the universal host inputs and plugin source directories. For a file the
-   * envelope declared `dependenciesComplete`, the reachability closure and
-   * `graph.globals` are dropped; `dependencies[F]`, importer
+   * envelope declared `dependenciesComplete` without also declaring it volatile,
+   * the reachability closure and `graph.globals` are dropped; `dependencies[F]`, importer
    * `graph.candidates`, `graph.resolutionInputs`, the universal host inputs,
    * the plugin source directories and the universal `graph.configs` chain
    * remain. See `selectWatchInputs` for the exact derivation.
@@ -58,9 +58,10 @@ export interface TtscTransformHooks {
    * Whether the batch of {@link addWatchFile} or {@link addWatchFiles} also
    * carries the project's root-file membership: one input for the project root,
    * of kind `membership` (samchon/ttsc#1419), which a dev server's watcher
-   * observes by walking the project again. A host that already re-keys on the
-   * whole project walk, as `@ttsc/metro` does, leaves it out. A build host's
-   * record ({@link project}) always carries it.
+   * observes by walking the project again when a membership snapshot is
+   * available. A host that already re-keys on the whole project walk, as
+   * `@ttsc/metro` does, leaves it out. A build host's record ({@link project})
+   * carries captured membership or an explicit null when it is unavailable.
    */
   membership?: boolean;
 
