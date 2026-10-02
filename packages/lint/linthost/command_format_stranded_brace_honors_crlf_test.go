@@ -8,11 +8,11 @@ import (
 )
 
 // TestCommandFormatStrandedBraceHonorsCRLF verifies the line break inserted
-// before a claimed brace uses the file's end-of-line, not a bare LF.
+// before a claimed brace uses the configured CRLF end-of-line, not a bare LF.
 //
-// The brace pass inserts a break where no rule inserted one before, so it is a
-// new way to reintroduce the mixed-ending defect #616 fixed. The expected
-// output is the same shape as the LF case with `\r\n` throughout.
+// The source and explicit endOfLine option are both CRLF. Whole-file equality
+// preserves the declaration and return while requiring every expanded break
+// to be `\r\n`; this is not an automatic source-EOL-detection test.
 //
 //  1. Seed a CRLF one-line block.
 //  2. Run `ttsc format`.
