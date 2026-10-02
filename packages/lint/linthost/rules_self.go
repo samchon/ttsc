@@ -2,9 +2,9 @@ package linthost
 
 import shimast "github.com/microsoft/typescript-go/shim/ast"
 
-// noSelfAssign: detect `x = x` / `obj.foo = obj.foo`. Limited to the
-// cheap textual identity match — sufficient for the canonical cases and
-// matches the `no-self-assign` ESLint behavior on simple identifiers.
+// noSelfAssign: detect `x = x` / `obj.foo = obj.foo`. Both sides must be the
+// same reference chain (see isSameReference), so a call on either side, whose
+// result can differ between evaluations, is never reported.
 // https://eslint.org/docs/latest/rules/no-self-assign
 type noSelfAssign struct{}
 
@@ -26,9 +26,44 @@ func (noSelfAssign) Check(ctx *Context, node *shimast.Node) {
   if !isAssignableLeftHand(left) {
     return
   }
-  if nodeText(ctx.File, left) == nodeText(ctx.File, right) {
+  if isSameReference(left, right) {
     ctx.Report(node, "Self-assignment of a variable.")
   }
+}
+
+// isSameReference reports whether two expressions denote the same reference
+// without evaluating anything: identifiers, `this`, `super` and literals with
+// the same value, and property or element accesses whose objects and keys are
+// themselves the same reference. Any other shape, notably a call, is never the
+// same reference, because evaluating it twice can yield different values. This
+// mirrors the reference comparison ESLint's no-self-assign and no-self-compare
+// share.
+func isSameReference(left, right *shimast.Node) bool {
+  left = stripParens(left)
+  right = stripParens(right)
+  if left == nil || right == nil || left.Kind != right.Kind {
+    return false
+  }
+  switch left.Kind {
+  case shimast.KindIdentifier:
+    return identifierText(left) == identifierText(right)
+  case shimast.KindThisKeyword, shimast.KindSuperKeyword, shimast.KindTrueKeyword,
+    shimast.KindFalseKeyword, shimast.KindNullKeyword:
+    return true
+  case shimast.KindStringLiteral, shimast.KindNoSubstitutionTemplateLiteral:
+    return stringLiteralText(left) == stringLiteralText(right)
+  case shimast.KindNumericLiteral, shimast.KindBigIntLiteral:
+    return numericLiteralText(left) == numericLiteralText(right)
+  case shimast.KindPropertyAccessExpression:
+    a, b := left.AsPropertyAccessExpression(), right.AsPropertyAccessExpression()
+    return a != nil && b != nil && identifierText(a.Name()) == identifierText(b.Name()) &&
+      isSameReference(a.Expression, b.Expression)
+  case shimast.KindElementAccessExpression:
+    a, b := left.AsElementAccessExpression(), right.AsElementAccessExpression()
+    return a != nil && b != nil && isSameReference(a.Expression, b.Expression) &&
+      isSameReference(a.ArgumentExpression, b.ArgumentExpression)
+  }
+  return false
 }
 
 // isAssignableLeftHand reports whether node can appear as the left-hand side
@@ -47,7 +82,8 @@ func isAssignableLeftHand(node *shimast.Node) bool {
 }
 
 // noSelfCompare: `x === x`, `x !== x`, etc. Useful for catching typos
-// where the developer meant to compare against a different value.
+// where the developer meant to compare against a different value. Operands
+// are compared as reference chains, so `f() === f()` is not reported.
 // https://eslint.org/docs/latest/rules/no-self-compare
 type noSelfCompare struct{}
 
@@ -66,7 +102,7 @@ func (noSelfCompare) Check(ctx *Context, node *shimast.Node) {
   if left == nil || right == nil {
     return
   }
-  if nodeText(ctx.File, left) == nodeText(ctx.File, right) {
+  if isSameReference(left, right) {
     ctx.Report(node, "Comparing to itself is potentially pointless.")
   }
 }
