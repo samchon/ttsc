@@ -12,7 +12,7 @@ import path from "node:path";
  * @evidence contracts/common.md#meaningful-documentation The comment states lexical scope and explains both sibling prefixes and other-drive rejection.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral containment uses native resolve, relative, separator, and absolute-root semantics, including Windows drive boundaries without a fixed drive or separator assumption.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The predicate acquires and retains no handle, task or state.
- * @evidenceExclude contracts/performance.md#efficient-algorithms One path.relative and three comparisons; no algorithm is chosen.
+ * @evidence contracts/performance.md#efficient-algorithms Native resolve/relative process the two path strings and allocate normalized/relative text; cost follows their lengths and components, not the fixed comparison count. Relative parent/absolute checks avoid scanning filesystem entries or confusing shared textual prefixes with descent.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure predicate recomputed per call.
  */
 export function containsPath(root: string, file: string): boolean {
