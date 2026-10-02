@@ -10,17 +10,23 @@ import (
 // ProjectIdentity names one loaded TypeScript Program without conflating the
 // caller's path spelling with the filesystem identity used by the compiler.
 // Empty explicit fields mean the caller did not provide that channel.
+// Path members carry native filesystem spellings, not file URLs. Logical
+// members preserve caller-facing locations; physical members identify the
+// compiler filesystem binding. The host resolves missing physical channels,
+// retaining the original spelling if no alternate path can be established.
+// Neither channel declares case policy.
 //
 // @evidence contracts/common.md#principled-implementation Separate logical and physical strings preserve caller-facing config identity independently from compiler filesystem identity within one lifecycle.
 // @evidence contracts/common.md#clear-and-simple-design One identity record groups invocation, configuration, roots and optional origins used by project checks.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit identity channels avoid guessing a project binding from unrelated temporary paths.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes logical and physical identity; member comments explain the lifecycle and absent channels with separated tags under documentation guidance.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectIdentity is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidence contracts/portability.md#os-neutral-implementation The boundary separates native invocation/logical/physical paths and optional caller origins from protocol URLs. Host normalization uses filepath for missing logical members and actual symlink/ancestor resolution for missing physical members, including the explicit Windows short-name/junction boundary, preserving a cleaned original on failure or a cycle. Supplied channels remain caller-owned spellings; the record neither lowercases them nor infers case sensitivity from an OS name.
 // @evidenceExclude contracts/performance.md#efficient-algorithms ProjectIdentity is a declaration of data shape and chooses no algorithm or processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectIdentity is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectIdentity is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectIdentity struct {
-  // LifecycleID distinguishes loaded Program cycles within a host.
+  // LifecycleID is minted by the host for each loaded Program cycle;
+  // a supplied caller value is replaced during host normalization.
   LifecycleID         string `json:"lifecycleId"`
 
   // InvocationCwd is the caller's working directory.
