@@ -17,15 +17,18 @@ import type { BunLikeBuild } from "./BunLikeBuild";
  *   Native prose identifies the dependency boundary, and spaced member
  *   comments describe registration and naming per documentation guidance.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   BunLikePlugin only declares a shape; it has no filesystem, path or
- *   process operation at runtime.
+ *   Plugin name and setup lifecycle are ordinary host registration fields;
+ *   native load filenames/working-directory meaning belong to BunLikeBuild
+ *   and the installed adapter, not this descriptor.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   BunLikePlugin only declares a shape; it has no computation at runtime.
+ *   The installed setup/loader and host own option resolution, transforms and
+ *   hook processing; this descriptor chooses no processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   BunLikePlugin only declares a shape; it has no work to reuse at runtime.
+ *   Loader cache and runtime registration state own qualified sharing; the
+ *   name/setup descriptor itself supplies no cached-result authority.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   BunLikePlugin only declares a shape; it has no handle or retained state
- *   at runtime.
+ *   The host retains the installed callback; adapter/cache owners govern its
+ *   watchers, native tasks and retained options, with no descriptor close API.
  */
 export interface BunLikePlugin {
   /** Plugin identifier shown in Bun bundler output. */
