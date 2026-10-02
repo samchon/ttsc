@@ -34,7 +34,7 @@ func (noExtraBooleanCast) Check(ctx *Context, node *shimast.Node) {
     if call.QuestionDotToken != nil {
       return
     }
-    if !isInBooleanContext(node) {
+    if !isInBooleanContext(node) && !isBooleanCallArgument(node) {
       return
     }
     message := "Redundant Boolean call."
@@ -65,7 +65,7 @@ func (noExtraBooleanCast) Check(ctx *Context, node *shimast.Node) {
     if inner == nil || inner.Operator != shimast.KindExclamationToken {
       return
     }
-    if !isInBooleanContext(node) {
+    if !isInBooleanContext(node) && !isBooleanCallArgument(node) {
       return
     }
     message := "Redundant double negation."
@@ -225,6 +225,33 @@ func isInBooleanContext(node *shimast.Node) bool {
   return false
 }
 
+// isBooleanCallArgument reports whether `node` is the first argument of a
+// `Boolean(...)` call or `new Boolean(...)`, whose result is converted to a
+// boolean anyway, so `Boolean(!!x)` repeats the conversion.
+func isBooleanCallArgument(node *shimast.Node) bool {
+  outer := skipParents(node)
+  if outer == nil || outer.Parent == nil {
+    return false
+  }
+  parent := outer.Parent
+  var callee *shimast.Node
+  var arguments *shimast.NodeList
+  switch parent.Kind {
+  case shimast.KindCallExpression:
+    if call := parent.AsCallExpression(); call != nil {
+      callee, arguments = call.Expression, call.Arguments
+    }
+  case shimast.KindNewExpression:
+    if construct := parent.AsNewExpression(); construct != nil {
+      callee, arguments = construct.Expression, construct.Arguments
+    }
+  default:
+    return false
+  }
+  return identifierText(callee) == "Boolean" && arguments != nil &&
+    len(arguments.Nodes) > 0 && arguments.Nodes[0] == outer
+}
+
 // skipParents walks up through any wrapping ParenthesizedExpression nodes and
 // returns the outermost parenthesized wrapper. This is the inverse of
 // stripParens: where stripParens descends into the canonical inner expression,
@@ -356,9 +383,15 @@ func (useIsNaN) Check(ctx *Context, node *shimast.Node) {
   if !isComparisonOperator(expr.OperatorToken.Kind) {
     return
   }
-  if identifierText(expr.Left) == "NaN" || identifierText(expr.Right) == "NaN" {
+  if isNaNReference(expr.Left) || isNaNReference(expr.Right) {
     ctx.Report(node, "Use the isNaN function to compare with NaN.")
   }
+}
+
+// isNaNReference reports whether node is the global `NaN` or `Number.NaN`.
+func isNaNReference(node *shimast.Node) bool {
+  node = stripParens(node)
+  return identifierText(node) == "NaN" || isMatchingPropertyAccess(node, "Number", "NaN")
 }
 
 // validTypeof: typeof expressions can only be compared to known type
@@ -389,6 +422,12 @@ func (validTypeof) Check(ctx *Context, node *shimast.Node) {
     return
   }
   if literal == nil {
+    return
+  }
+  // `typeof x === undefined` compares a type name with the value undefined, so
+  // the identifier can never match; ESLint reports it as an invalid value.
+  if identifierText(literal) == "undefined" {
+    ctx.Report(literal, "Invalid typeof comparison value.")
     return
   }
   value := stringLiteralText(literal)
@@ -423,7 +462,7 @@ func (noCompareNegZero) Check(ctx *Context, node *shimast.Node) {
   if !isComparisonOperator(expr.OperatorToken.Kind) {
     return
   }
-  if isNegZero(expr.Left) || isNegZero(expr.Right) {
+  if isNegZero(stripParens(expr.Left)) || isNegZero(stripParens(expr.Right)) {
     ctx.Report(node, "Do not use the '-0' literal in comparisons.")
   }
 }
