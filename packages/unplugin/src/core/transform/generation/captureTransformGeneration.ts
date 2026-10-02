@@ -69,20 +69,38 @@ const TTSC_SEMANTIC_CONFIG_PATH = "TTSC_SEMANTIC_CONFIG_PATH";
  * mapped in the maintainer page
  * `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
  *
- * Project walks bracket the compiler and the compile-time tracker supplies an
- * independent mutation witness. Reported graph/external/host proofs must agree
- * before a successful generation can be published. Retained observers and the
- * clock probe transfer only with a completed capture; all other resources are
- * released through the finally boundary, including a shared compile lock.
+ * Project walks bracket the compiler; an available compile-time tracker adds
+ * an independent mutation witness. Reported graph/external/host proofs must
+ * agree before a successful generation can be published. Retained observers
+ * and the clock probe transfer only with a returned capture; the finally chain
+ * attempts cleanup of other resources and always releases claim ownership.
+ * Native removal failures can leave storage even after ownership ends.
  *
  * @evidence contracts/common.md#principled-implementation Before/after walk agreement, compiler graph read proofs, external dependency witnesses and host validation jointly establish the captured generation's supported reuse premises; adopted publications are validated against their recorded external state on this worker's disk.
  * @evidence contracts/common.md#clear-and-simple-design One capture owns the compile window and final resource handoff, delegating config overlays, shared compile claiming, input selection, proof composition and tracker operations to their owning helpers.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Scratch config preserves compiler physical anchoring instead of compensating path guesses, dependencies require pre-compile witnesses, and unverifiable graph or host input cannot be upgraded to success by a quiet post-compile watcher.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Scratch config preserves compiler physical anchoring instead of compensating path guesses; local plugin dependencies require pre-compile witnesses, and adopted dependencies match the publisher's recorded state. Unverifiable graph or host input cannot be upgraded to success by a quiet post-compile watcher.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe capture proofs and ownership transfer, inline comments explain temporal boundaries and publication policy, and separated props identify inherited facts and host capabilities.
  * @evidence contracts/portability.md#os-neutral-implementation compilerProjectSpelling anchors physical config meaning, the supplied filesystem owns native observations and tracker capabilities, reported case policy governs membership and transformScratchEnvironment isolates worker environment without mutating host globals.
- * @evidence contracts/performance.md#efficient-algorithms Necessary project scans bracket one compile or adopted result; Set unions deduplicate universal inputs, absence candidates are derived only when retained watchers can use them and bounded witness collections report all evaluated proof families.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Complete pre/post walks pay admitted directory-entry, metadata and file-byte
+ *   work because current declared inputs are learned from this compile. Config
+ *   inheritance/overlay, graph normalization, source baselines and external/host
+ *   proof replay additionally scale with their entries, paths, lists and bytes.
+ *   Set unions deduplicate tracker inputs, and absence selection runs only for
+ *   retained notification use. Native compiler/toolchain work stays delegated;
+ *   context/output transfer and session serialization retain payload costs.
+ *   Both snapshots, proof maps, unions and enumerated-directory set are
+ *   population-sized, independent of the eight retained diagnostic witnesses.
  * @evidence contracts/performance.md#reuse-equivalent-work Complete project state and compile identity coordinate session publication, immutable envelope derivation shares selectors, and a reusable generation transfers captured baselines/observers so later module deliveries avoid equivalent whole-project compilation.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The finally chain attempts all untransferred tracker closures, scratch removal and probe disposal; cleanup failure closes pending transferred trackers, and only a returned capture acquires retained observers/probe association while shared claims are always released.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Snapshot and result storage grow with observed inputs/output bytes; native
+ *   trackers follow admitted directory populations. Compiler/environment worker
+ *   and store owners govern awaited tasks, with no cancellation deadline added
+ *   here. Finally attempts every untransferred tracker closure, scratch removal
+ *   and probe disposal; cleanup failure attempts pending transferred closures
+ *   and preserves an earlier capture error. Native deletion is not guaranteed.
+ *   Only a returned capture receives retained observer/probe ownership; claim
+ *   release stops its heartbeat even when best-effort lock removal fails.
  */
 export async function captureTransformGeneration(props: {
   /** Adapter alias paths translated into the transform config overlay. */
@@ -227,9 +245,10 @@ export async function captureTransformGeneration(props: {
       projectRoot,
     );
     // The walk before the compile matches root specs under the case policy an
-    // earlier compile reported (samchon/ttsc#1545), and until one has, under
-    // the answer the compiler about to run gives by its own rule, for the
-    // project and environment it runs with (samchon/ttsc#1563).
+    // earlier compile reported, or a provisional cache-root approximation
+    // under this attempt's environment. The approximation does not observe
+    // the executable's actual answer; a differing report below refuses this
+    // primed walk and supplies the retry's comparison rule.
     const primedPolicy: ITtscProjectMembershipPolicy = {
       ...mergedPolicy,
       useCaseSensitiveFileNames:
@@ -350,6 +369,14 @@ export async function captureTransformGeneration(props: {
       reportedCaseSensitivity !==
         policyUsesCaseSensitiveFileNames(primedPolicy);
     TRANSFORM_RESULT_MEMBERSHIP.set(result, {
+      // Only the actual complete directory walk authorizes replacing a listing
+      // with program membership. A policy match cannot prove that a linked or
+      // unreadable directory was enumerated, and a changed compiler comparison
+      // answer means the primed walk used another admission policy.
+      enumeratedDirectories:
+        before.directoryComplete && !casePolicyLearned
+          ? new Set(before.projectDirectories.map((snapshot) => snapshot.path))
+          : new Set(),
       policy: membershipPolicy,
       projectRoot,
     });
@@ -416,8 +443,8 @@ export async function captureTransformGeneration(props: {
             persistentValidationInputs,
             props.filesystem,
             // A universal input never reaches the per-input loop that consults a
-            // coverage claim: an absent one is proven by its directory listing
-            // instead, which re-resolves the spelling every delivery.
+            // coverage claim: absent inputs use native candidate probes instead,
+            // re-resolving the recorded spelling on every required validation.
             new Set(
               persistentValidationInputs.map((input) => path.resolve(input)),
             ),
