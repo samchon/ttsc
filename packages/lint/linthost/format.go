@@ -16,19 +16,19 @@ import (
 // not the expected steady state.
 const maxFormatPasses = 10
 
-// RunFormat implements `@ttsc/lint format` — apply format-rule edits
-// only. Write-only by contract: no diagnostic output, no typecheck
-// recheck. Mirrors RunFix in flag handling so the host launcher can
-// forward the same option shape.
+// RunFormat implements `@ttsc/lint format`: apply format-rule edits only.
+// The command performs no final compiler/lint diagnostic pass. Startup,
+// file-write and convergence failures still produce error output. It shares
+// RunFix flag handling so the launcher can forward the same option shape.
 //
 // @evidence contracts/common.md#principled-implementation The command rejects emit and runs only format findings inside project-owned writable sources, applying atomic edits until convergence or the explicit pass limit.
 // @evidence contracts/common.md#clear-and-simple-design Format reuses fix parsing and edit application while owning its format-only selection and absence of final typecheck diagnostics.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Nonconvergence returns a visible failure; default formatting is a documented command policy rather than a test-dependent activation.
-// @evidence contracts/common.md#meaningful-documentation Native prose states format-only and write-only behavior, and cascade comments explain failure at the pass bound.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation RunFormat parses flags, reports errors on the process standard error and forwards to runFormat; it resolves no path itself.
-// @evidenceExclude contracts/performance.md#efficient-algorithms RunFormat has no loop of its own and runs a fixed sequence of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunFormat keeps no cache and shares no computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunFormat retains nothing and acquires no handle or task.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes format-only edits, omission of the final diagnostic pass and visible command failures; cascade comments explain failure at the pass bound.
+// @evidence contracts/portability.md#os-neutral-implementation RunFormat delegates native cwd/config/project loading and writable source paths to the shared compiler and fix helpers; default format policy can additionally read native editor settings. Source writes use filepath-resolved names and os.WriteFile, not shell interpolation or guessed case policy. Selected finding groups are atomic within edit selection, not transactional filesystem writes.
+// @evidence contracts/performance.md#efficient-algorithms Config/default format policy and one Engine are prepared once. At most ten write-scoped cycles select format findings and apply grouped edits; each modifying pass reloads its Program from disk. Total work includes Program creation/checker needs, rule/source visits, edit/path sorting and rewritten bytes for each pass. Omitting final typecheck reporting does not remove acquisition or formatting cost, and the pass cap imposes no project-byte or evaluator-time bound.
+// @evidence contracts/performance.md#reuse-equivalent-work One resolved format policy and Engine serve the cascade, with Programs refreshed after modifying passes to avoid stale source positions. The configured/default options remain the invocation's policy snapshot; config evaluation and resolver metadata have their own validity premises. No cross-command sharing of effectful source writes is inferred from matching options.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Program reloads close the previous standalone checker and the deferred final close drops the current checker on normal/error returns after acquisition. Ordinary Program/finding/edit/output references become reclaimable when no longer held; Engine/resolver state lasts for the invocation and shared cache/registry state has separate owners. No source-byte cap, caller cancellation deadline or rollback of earlier file writes is established here.
 func RunFormat(args []string) int {
   opts, err := parseSubcommandFlags("format", args)
   if err != nil {

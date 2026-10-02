@@ -22,17 +22,17 @@ import (
 // a buggy rule that re-reports its own edit cannot loop forever.
 const maxFixPasses = 10
 
-// RunFix implements `@ttsc/lint fix` — apply autofixes, then report any
+// RunFix implements `@ttsc/lint fix`: apply autofixes, then report any
 // remaining type or lint diagnostics without emitting JavaScript.
 //
 // @evidence contracts/common.md#principled-implementation The command rejects emit and delegates to the bounded all-rule fix cascade, which preserves per-finding edit atomicity and finishes with compiler and lint diagnostics.
 // @evidence contracts/common.md#clear-and-simple-design Shared flag parsing and edit selection serve fix and format while this entry point selects all-rule diagnostics policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The pass cap detects a nonconverging fixer and reports failure instead of hiding repeated edits with retries or expected-source substitutions.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes applying fixes, remaining diagnostics and no JavaScript emission; cascade comments explain ownership and the convergence cap.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation RunFix parses flags, reports errors on the process standard error and forwards to runFix; it resolves no path itself.
-// @evidenceExclude contracts/performance.md#efficient-algorithms RunFix has no loop of its own and runs a fixed sequence of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunFix keeps no cache and shares no computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunFix retains nothing and acquires no handle or task.
+// @evidence contracts/portability.md#os-neutral-implementation RunFix resolves native cwd/config/source paths through shared flag and compiler-host helpers. The cascade resolves writable finding paths with filepath, orders them deterministically and writes source bytes through os.WriteFile. Per-finding selection atomicity is not a transactional file-write guarantee; no shell text or OS-name case assumption represents these paths.
+// @evidence contracts/performance.md#efficient-algorithms Flags/config are loaded once, then at most ten lint/edit passes run with a fresh Program loaded after each modifying pass, followed by final compiler/lint diagnostics. Work includes each pass's source/checker/rule visits, grouped edit selection, sorted file paths, transformed and written bytes, and all Program reload costs. The pass cap bounds iterations rather than project/byte work or evaluator time; no fixed total command cost is claimed.
+// @evidence contracts/performance.md#reuse-equivalent-work The invocation reuses its resolved policy and Engine across cascade passes, while reloading Programs after writes so subsequent findings use updated source positions. Config evaluation retains its own dependency-validated reuse policy. Effectful source writes and diagnostics are not shared across invocations merely because flags or edit values match.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Reload closes the old standalone checker before acquiring a new Program, and the final deferred close drops the current checker on every later return. Program, findings and per-file edit/output buffers become reclaimable when otherwise unreferenced; policy/Engine live for the command and global registries/config caches retain separate state. There is no total source/output byte bound, caller deadline or rollback of earlier successful file writes on later failure.
 func RunFix(args []string) int {
   opts, err := parseSubcommandFlags("fix", args)
   if err != nil {
