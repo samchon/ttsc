@@ -22,7 +22,7 @@ import (
 //  4. Assert a clean exit with no await-thenable finding.
 //
 // @evidence contracts/testing.md#behavioral-verification Async-dispose must be recognized through aliases, inherited interfaces, intersections and generic constraints.
-// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix zero rule findings with code 0 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#independent-expectations The authored async-protocol alias, inherited interface, intersection and constrained factory independently require code 0, empty stdout and no rule-labelled stderr after the separate no-plugin compiler check. The rendered-main.ts helper also requires zero matches, without certifying unrelated diagnostics.
 // @evidence contracts/testing.md#distinguishing-cases Four async abstraction shapes remain clean; ProtocolAbstractionsReports repeats those shapes with sync-only dispose.
 // @evidence contracts/testing.md#execution-ownership TestAwaitThenableAwaitUsingProtocolAbstractionsAllows executes the in-process check command with a real Program/Checker; the original separate no-plugin compiler-prerequisite check is retained before rule execution in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableAwaitUsingProtocolAbstractionsAllows(t *testing.T) {
