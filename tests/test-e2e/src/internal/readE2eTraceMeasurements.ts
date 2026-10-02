@@ -38,6 +38,7 @@ export function readE2eTraceMeasurements(
     bridgeCacheHits: 0,
     integrityProblems: [],
     lastWriterSequences: {},
+    writerRuntimeVersions: {},
   };
   const writerPids = new Set<number>();
   const writerInstances = new Set<string>();
@@ -88,6 +89,17 @@ export function readE2eTraceMeasurements(
         result.integrityProblems.push(`${name}: expected sequence${expected}, observed${event.sequence}`);
       sequences.set(writer, event.sequence);
       result.lastWriterSequences[name] = event.sequence;
+      const reportedRuntimeVersion = typeof event.data?.writerRuntime === "string"
+        ? event.data.writerRuntime
+        : event.event === "writer-identity" && typeof event.data?.runtimeVersion === "string"
+          ? event.data.runtimeVersion
+          : undefined;
+      if (reportedRuntimeVersion !== undefined) {
+        const previousVersion = result.writerRuntimeVersions[name];
+        if (previousVersion !== undefined && previousVersion !== reportedRuntimeVersion)
+          result.integrityProblems.push("Conflicting writer runtime identity: " + name);
+        result.writerRuntimeVersions[name] = reportedRuntimeVersion;
+      }
       const after = afterSequences[name] ?? 0;
       if (!Number.isSafeInteger(after) || after < 0) {
         result.integrityProblems.push("Invalid coordinator cursor: " + name);
@@ -176,6 +188,8 @@ export interface TraceMeasurements {
   integrityProblems: string[];
   /** Actual file/sequence cursor for a later coordinator-owned phase. */
   lastWriterSequences: Record<string, number>;
+  /** Actual writer runtime reports, not executable-byte equality or child-runtime inference. */
+  writerRuntimeVersions: Record<string, string>;
 }
 
 /** Rejects malformed event cores without manufacturing missing observations. */

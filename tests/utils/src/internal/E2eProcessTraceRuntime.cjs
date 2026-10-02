@@ -79,6 +79,12 @@ function sink() {
     const instance = crypto.randomUUID();
     state = { root, instance, sequence: 0, ordinal: 0, bytes: 0,
       file: path.join(root, `${process.pid}-${instance}.jsonl`) };
+    record("writer-identity", `${instance}:0`, {
+      pid: process.pid, argv: process.argv, cwd: null,
+      data: { runtime: "node", runtimeVersion: process.version,
+        helperEntry: __filename, executable: process.execPath,
+        cwdObservation: "not-queried" },
+    });
     return state;
   } catch { return undefined; }
 }
