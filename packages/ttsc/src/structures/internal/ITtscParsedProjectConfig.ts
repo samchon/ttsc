@@ -8,7 +8,7 @@ import type { ITtscProjectIdentity } from "./ITtscProjectIdentity";
  * @evidence contracts/common.md#clear-and-simple-design One resolved project record groups option values and their provenance; lexical/physical identity stays in its shared representation rather than being reconstructed from root alone.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Inherited plugin bases are actual provenance, not package-name path exceptions; unknown compiler options are preserved instead of guessed by the host.
  * @evidence contracts/common.md#meaningful-documentation Native member comments identify ancestry, option normalization, plugin origins and project identity; documented-member and tag spacing follow the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation The config retains per-entry declaring directories and separate logical/physical project identities instead of making POSIX spelling or one canonical root stand for all resolution. Resolved outDir is native absolute path data; parser/path utilities own OS-neutral normalization.
+ * @evidence contracts/portability.md#os-neutral-implementation Per-entry declaring directories and separate lexical/physical-path selections preserve distinct native resolution roles, including the identity resolver's realpath-failure fallback and independent project-root override. Resolved outDir is native absolute path data; parser/path utilities own normalization and filesystem proof.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
  * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
@@ -39,7 +39,7 @@ export interface ITtscParsedProjectConfig {
     plugins: ITtscProjectPluginConfig[];
   } & Record<string, unknown>;
 
-  /** Lexical and physical identities retained for native plugin contexts. */
+  /** Lexical selections and attempted-realpath results for native contexts. */
   identity: Omit<ITtscProjectIdentity, "pluginConfigOrigin">;
 
   /** Absolute path to the resolved tsconfig/jsconfig. */
@@ -48,6 +48,9 @@ export interface ITtscParsedProjectConfig {
   /** Directory that declared each inherited plugin entry. */
   pluginBaseDirs: string[];
 
-  /** Directory containing the resolved tsconfig/jsconfig. */
+  /**
+   * Selected project root from identity resolution: the explicit override when
+   * supplied, otherwise the resolved config directory, after attempted realpath.
+   */
   root: string;
 }
