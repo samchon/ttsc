@@ -144,6 +144,7 @@ export async function assertCacheKeyIsDeterministicAndOptionSensitive(): Promise
   );
   assert.equal(typeof first, "string");
   assert.equal(first.length, 64);
+  assert.match(first, /^[0-9a-f]{64}$/);
   assert.equal(first, repeat);
   assert.notEqual(first, other);
 }
@@ -178,6 +179,11 @@ export async function assertCacheKeyForwardsAndFoldsUpstreamKey(): Promise<void>
   );
   assert.equal(typeof keyC, "string");
   assert.equal(keyC.length, 64);
+  const keyCRepeat = await TestMetroRuntime.withTransformerEnv(
+    { upstreamTransformer: noKey },
+    (mod) => mod.getCacheKey({ projectRoot: root, enableBabelRCLookup: true }),
+  );
+  assert.equal(keyC, keyCRepeat, "an absent optional callback retains reuse");
 }
 
 /**
@@ -185,12 +191,19 @@ export async function assertCacheKeyForwardsAndFoldsUpstreamKey(): Promise<void>
  * resolved: cache-key computation must degrade, not crash the whole build.
  */
 export async function assertCacheKeySurvivesMissingUpstream(): Promise<void> {
-  const key = await TestMetroRuntime.withTransformerEnv(
-    { upstreamTransformer: "@@ttsc-metro-nonexistent-upstream@@" },
-    (mod) => mod.getCacheKey({ projectRoot: "/a" }),
-  );
+  const root = createBareProject();
+  await prepareSnapshot(root);
+  const keyForRun = () =>
+    TestMetroRuntime.withTransformerEnv(
+      { upstreamTransformer: "@@ttsc-metro-nonexistent-upstream@@" },
+      (mod) => mod.getCacheKey({ projectRoot: root }),
+    );
+  const key = await keyForRun();
   assert.equal(typeof key, "string");
-  assert.equal(key.length, 64);
+  assert.match(key, /^[0-9a-f]{64}$/);
+  const repeat = await keyForRun();
+  assert.match(repeat, /^[0-9a-f]{64}$/);
+  assert.notEqual(key, repeat, "missing upstream withdraws reuse");
 }
 
 /**
@@ -198,13 +211,20 @@ export async function assertCacheKeySurvivesMissingUpstream(): Promise<void> {
  * throws: the inner guard must swallow it and still produce a valid key.
  */
 export async function assertCacheKeySurvivesThrowingUpstreamCacheKey(): Promise<void> {
+  const root = createBareProject();
+  await prepareSnapshot(root);
   const throwing = TestMetroRuntime.fakeUpstreamThrowingCacheKeyOnDisk();
-  const key = await TestMetroRuntime.withTransformerEnv(
-    { upstreamTransformer: throwing },
-    (mod) => mod.getCacheKey({ projectRoot: "/a" }),
-  );
+  const keyForRun = () =>
+    TestMetroRuntime.withTransformerEnv(
+      { upstreamTransformer: throwing },
+      (mod) => mod.getCacheKey({ projectRoot: root }),
+    );
+  const key = await keyForRun();
   assert.equal(typeof key, "string");
-  assert.equal(key.length, 64);
+  assert.match(key, /^[0-9a-f]{64}$/);
+  const repeat = await keyForRun();
+  assert.match(repeat, /^[0-9a-f]{64}$/);
+  assert.notEqual(key, repeat, "a failed upstream key withdraws reuse");
 }
 
 /** One file the gate must reject, with the options that reject it. */

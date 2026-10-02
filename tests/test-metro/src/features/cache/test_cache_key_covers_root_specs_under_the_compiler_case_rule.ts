@@ -13,10 +13,10 @@ import { assertCacheKeyCoversRootSpecsUnderTheCompilerCaseRule } from "../../int
  * 3. Assert the key moved exactly when the compiler compares names
  *    case-insensitively.
  *
- * @evidence contracts/testing.md#behavioral-verification With include [src, lib] and a file at Lib/extra.ts, editing that file changes getCacheKey if and only if compilerUsesCaseSensitiveFileNames reports an insensitive policy for the project root.
- * @evidence contracts/testing.md#independent-expectations The expected direction is taken from the owning compiler case-policy function, so it is a contextual oracle rather than an independent one: a wrong policy answer shared by both sides would pass.
+ * @evidence contracts/testing.md#behavioral-verification With include [src, lib] and a file at Lib/extra.ts, editing that file changes getCacheKey exactly when Windows's explicit insensitive rule or a swapped executable-style fixture path resolves on the plugin cache volume.
+ * @evidence contracts/testing.md#independent-expectations The pinned TypeScript-Go osvfs rule returns insensitive on Windows and otherwise stats its swapped executable spelling. The test observes a fixture file on that volume without calling compilerUsesCaseSensitiveFileNames; ASCII spelling is exercised, while Unicode simple-case mapping differences are outside this entry's oracle.
  * @evidence contracts/testing.md#distinguishing-cases Each run exercises only the branch its host selects (key moves on an insensitive policy, stays on a sensitive one); both branches are asserted by the same expression but not both within one run.
- * @evidence contracts/testing.md#execution-ownership Unit layer: calls compilerUsesCaseSensitiveFileNames, prepareSnapshot and getCacheKey (fresh transformer module, fake upstream) in-process on a temp project; no native build of the compiler or Metro host is started.
+ * @evidence contracts/testing.md#execution-ownership Unit layer: resolves the cache location, writes and observes a fixture witness, then calls prepareSnapshot and getCacheKey (fresh transformer module, fake upstream) in-process on a temp project; no native build of the compiler or Metro host is started.
  */
 export const test_cache_key_covers_root_specs_under_the_compiler_case_rule =
   async () => {

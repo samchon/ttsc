@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
+import { resolveSourceBuildCachePaths } from "../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
 
 import { TestMetroRuntime } from "./metro-runtime";
 
@@ -208,39 +208,53 @@ export async function assertCacheKeyChangesWhenProjectSourceChanges(): Promise<v
  * platform ordinarily does (samchon/ttsc#1563).
  */
 export async function assertCacheKeyCoversRootSpecsUnderTheCompilerCaseRule(): Promise<void> {
-  const root = createBareProject();
-  fs.writeFileSync(
-    path.join(root, "tsconfig.json"),
-    JSON.stringify({
-      compilerOptions: { strict: true },
-      include: ["src", "lib"],
-    }),
-    "utf8",
-  );
-  fs.mkdirSync(path.join(root, "Lib"));
-  fs.writeFileSync(
-    path.join(root, "Lib", "extra.ts"),
-    "export const extra = 1;\n",
-    "utf8",
-  );
-  const insensitive = !compilerUsesCaseSensitiveFileNames({
-    projectRoot: root,
-  });
-  await prepareSnapshot(root);
-  const before = await cacheKeyForRun(root);
-  fs.writeFileSync(
-    path.join(root, "Lib", "extra.ts"),
-    "export const extra = 2;\n",
-    "utf8",
-  );
-  const after = await cacheKeyForRun(root);
-  assert.equal(
-    before !== after,
-    insensitive,
-    insensitive
-      ? "the key missed a root file the compiler matches"
-      : "the key covered a file the compiler leaves out",
-  );
+  const previousCache = process.env.TTSC_CACHE_DIR;
+  process.env.TTSC_CACHE_DIR = TestProject.tmpdir("ttsc-metro-case-cache-");
+  try {
+    const root = createBareProject();
+    fs.writeFileSync(
+      path.join(root, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: { strict: true },
+        include: ["src", "lib"],
+      }),
+      "utf8",
+    );
+    fs.mkdirSync(path.join(root, "Lib"));
+    fs.writeFileSync(
+      path.join(root, "Lib", "extra.ts"),
+      "export const extra = 1;\n",
+      "utf8",
+    );
+    const pluginRoot = resolveSourceBuildCachePaths(root).pluginRoot;
+    fs.mkdirSync(pluginRoot, { recursive: true });
+    const executable = path.join(fs.realpathSync.native(pluginRoot), "case-probe");
+    fs.writeFileSync(executable, "compiler case-policy witness\n", "utf8");
+    // Independent filesystem witness for the pinned osvfs rule: Windows is
+    // explicitly insensitive; other hosts stat the swapped executable spelling.
+    const swapped = executable.replace(/[a-zA-Z]/g, (letter) =>
+      letter === letter.toUpperCase() ? letter.toLowerCase() : letter.toUpperCase(),
+    );
+    const insensitive = process.platform === "win32" || fs.existsSync(swapped);
+    await prepareSnapshot(root);
+    const before = await cacheKeyForRun(root);
+    fs.writeFileSync(
+      path.join(root, "Lib", "extra.ts"),
+      "export const extra = 2;\n",
+      "utf8",
+    );
+    const after = await cacheKeyForRun(root);
+    assert.equal(
+      before !== after,
+      insensitive,
+      insensitive
+        ? "the key missed a root file the compiler matches"
+        : "the key covered a file the compiler leaves out",
+    );
+  } finally {
+    if (previousCache === undefined) delete process.env.TTSC_CACHE_DIR;
+    else process.env.TTSC_CACHE_DIR = previousCache;
+  }
 }
 
 /**
@@ -531,7 +545,7 @@ export async function assertPrepareSnapshotSkipsNonexistentRoot(): Promise<void>
 
 /**
  * Asserts each malformed snapshot shape independently disables reuse and heals
- * under a fresh epoch. Worker rows cover every serialized field invariant; main
+ * under a fresh epoch. Worker rows cover malformed fields and ordering; main
  * and recovery rows prove their distinct parser call paths too.
  */
 export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<void> {
@@ -681,6 +695,67 @@ export async function assertPrepareSnapshotHealsCorruptWorkerFile(): Promise<voi
           tainted: false,
           trees: [],
           accessibleEntries: [],
+          version: 4,
+          volatile: false,
+        }),
+    },
+    {
+      name: "entries outside files",
+      value: (absolute: string, secondary: string) =>
+        JSON.stringify({
+          files: [absolute],
+          tainted: false,
+          trees: [],
+          accessibleEntries: [secondary],
+          version: 4,
+          volatile: false,
+        }),
+    },
+    {
+      name: "non-string entries",
+      value: (absolute: string) =>
+        JSON.stringify({
+          files: [absolute],
+          tainted: false,
+          trees: [],
+          accessibleEntries: [7],
+          version: 4,
+          volatile: false,
+        }),
+    },
+    {
+      name: "duplicate entries",
+      value: (absolute: string) =>
+        JSON.stringify({
+          files: [absolute],
+          tainted: false,
+          trees: [],
+          accessibleEntries: [absolute, absolute],
+          version: 4,
+          volatile: false,
+        }),
+    },
+    {
+      name: "unsorted entries",
+      value: (absolute: string, secondary: string) =>
+        JSON.stringify({
+          files: [absolute, secondary].sort(),
+          tainted: false,
+          trees: [],
+          accessibleEntries: [absolute, secondary].sort().reverse(),
+          version: 4,
+          volatile: false,
+        }),
+    },
+    {
+      name: "invalid compacted name",
+      value: (absolute: string) =>
+        JSON.stringify({
+          files: [absolute],
+          tainted: false,
+          trees: [],
+          accessibleEntries: [],
+          compacted: ["../graph-inputs.worker-claimed-other.json"],
           version: 4,
           volatile: false,
         }),
@@ -1540,7 +1615,7 @@ export async function assertMetroAsksTheAdaptersPolicy(): Promise<void> {
     "utf8",
   );
   assert.notEqual(
-    beforeSharedEdit,
+    afterLinkedAppearance,
     fingerprint.computeProjectFingerprint({ projectRoot: root }),
     "a nearer config appearing in an out-of-root watchFolders project must change the key before a worker runs",
   );

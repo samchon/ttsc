@@ -38,6 +38,13 @@ export async function assertResolvesRelativeFilenameAgainstProjectRoot(): Promis
     mod.resolveAbsoluteFilename("src/app.ts"),
     path.resolve(process.cwd(), "src/app.ts"),
   );
+  for (const projectRoot of [null, 7, false, {}]) {
+    assert.equal(
+      mod.resolveAbsoluteFilename("src/app.ts", { projectRoot }),
+      path.resolve(process.cwd(), "src/app.ts"),
+      "a non-string projectRoot uses cwd",
+    );
+  }
 }
 
 /**

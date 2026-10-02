@@ -2,13 +2,13 @@ import { assertOptionsCarryOnlyANonEmptyPrivateRunIdentity } from "../../interna
 
 /**
  * Verifies the private snapshot run identity travels through the worker env
- * payload only as a non-empty string and is never taken from the user's own
- * options.
+ * payload only as a non-empty string. A supplied private identity overrides
+ * the same-named field in the user's options.
  *
  * Workers trust this identity to find the baseline the main process keyed, so a
  * wrong-typed or empty value read as an identity would let a worker record
- * against no baseline, and a user option named like it must not impersonate the
- * identity `withTtsc` mints.
+ * against no baseline. When `withTtsc` supplies its minted identity, a
+ * same-named user option must not replace it.
  *
  * 1. Serialize options with an identity and assert the payload, the unmutated
  *    options and the untouched environment.

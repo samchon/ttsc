@@ -15,7 +15,7 @@ import { assertResolvesRelativeFilenameAgainstProjectRoot } from "../../internal
  *
  * @evidence contracts/testing.md#behavioral-verification resolveAbsoluteFilename("src/app.ts") resolves against options.projectRoot when it is given, and against process.cwd() both when options is an empty object and when options is omitted.
  * @evidence contracts/testing.md#independent-expectations Expected values are computed with path.resolve, the same primitive the implementation uses, so the assertions pin the choice of base (projectRoot versus cwd) rather than the join itself.
- * @evidence contracts/testing.md#distinguishing-cases An explicit projectRoot, an options object without projectRoot and no options at all are three separate asserts with different expected bases; a non-string projectRoot is not covered.
+ * @evidence contracts/testing.md#distinguishing-cases An explicit string projectRoot selects that base; an options object without it, no options, and null, number, boolean or object projectRoot values all use cwd.
  * @evidence contracts/testing.md#execution-ownership Unit layer: calls resolveAbsoluteFilename from packages/metro/src/transformer.ts directly in-process; no filesystem access, upstream or compile.
  */
 export const test_transformer_resolves_relative_filename_against_project_root =

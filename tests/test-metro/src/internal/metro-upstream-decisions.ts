@@ -122,11 +122,11 @@ export async function assertAutoDetectInitFailureDoesNotFallThrough(): Promise<v
   const { resolveUpstreamTransformer } = upstream;
   const expo = "@expo/metro-config/babel-transformer";
   const legacy = "metro-react-native-babel-transformer";
-  assert.ok(expo !== undefined && legacy !== undefined);
+  const failure = new Error("expo transformer boom");
   const error = captureThrow(() =>
     resolveUpstreamTransformer(undefined, (p: string) => {
       if (p === expo) {
-        throw new Error("expo transformer boom");
+        throw failure;
       }
       return tagged(p);
     }),
@@ -136,6 +136,7 @@ export async function assertAutoDetectInitFailureDoesNotFallThrough(): Promise<v
   assert.match(error.message, escapeRegExp(expo));
   const cause = (error as { cause?: unknown }).cause;
   assert.ok(cause instanceof Error, "original error is attached as `cause`");
+  assert.equal(cause, failure, "the original failure identity is preserved");
   // ...and it is not the terminal "install one of these" message, i.e. it did
   // not fall through to (and fail past) the legacy candidate.
   assert.doesNotMatch(
