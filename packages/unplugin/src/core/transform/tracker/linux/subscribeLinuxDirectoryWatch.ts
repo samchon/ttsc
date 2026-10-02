@@ -9,7 +9,8 @@ import { syncLinuxWatchHelper } from "./syncLinuxWatchHelper";
 
 /**
  * Subscribe to one directory's non-recursive watch, opening it only when no
- * other observer holds it and closing it when the last one leaves.
+ * other observer holds that resolved spelling. Last detach retires the shared
+ * watch; native failure can retire it earlier and notify remaining observers.
  *
  * The watch lives in the Linux watch helper, not in `fs.watch`, whose inotify
  * reader discards the kernel's notice that events were dropped
@@ -19,8 +20,9 @@ import { syncLinuxWatchHelper } from "./syncLinuxWatchHelper";
  * it. `ready` resolves `false`, and `onError` runs, when the directory cannot
  * be watched, for instance once the per-user inotify limit is reached.
  *
- * A subscriber hears exactly what a watch of its own would, the events of
- * writes made after it subscribed (samchon/ttsc#1486). The subscriber that
+ * Each subscriber admits protocol lines after its opening frontier
+ * (samchon/ttsc#1486); this is not atomic timestamp classification of writes.
+ * The subscriber that
  * opens the watch hears it from the helper's answer on, and the helper writes
  * no event of a watch before that answer. One that joins a watch another
  * subscriber opened would otherwise be handed every line the helper had already
@@ -35,13 +37,17 @@ import { syncLinuxWatchHelper } from "./syncLinuxWatchHelper";
  *
  * Throws when there is no helper to serve the watch, which the caller treats as
  * a failed tracker, falling back to snapshot validation.
+ * Readiness is not a continuing liveness certificate: a later error or explicit
+ * close retires coverage. Callbacks must return normally to complete fanout and
+ * terminal clearing; this adapter does not isolate arbitrary callback throws.
  *
  * @evidence contracts/common.md#principled-implementation
  *   A first subscriber waits for native opening; a joining subscriber waits for
  *   its own ordered sync before accepting later lines, preserving temporal scope.
  * @evidence contracts/common.md#clear-and-simple-design
  *   One shared directory entry owns the native subscription; each observer owns
- *   wrappers and a closer, with last-subscriber retirement in the shared closer.
+ *   wrappers and a closer. Last detach or native failure retires the shared
+ *   entry; native transport cleanup remains helper-owned.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Joining cannot consume pre-subscription queued events as fresh mutations;
  *   failed synchronization reports unavailable coverage rather than guessed success.
@@ -52,15 +58,24 @@ import { syncLinuxWatchHelper } from "./syncLinuxWatchHelper";
  *   OS-neutral owners receive names and lifecycle callbacks while helper protocol
  *   ordering remains native-owned; node:path resolves the subscription key.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Subscription lookup is expected constant work; dispatch snapshots only the
- *   observers of that directory, O(s) in its subscriber count, not all graph files.
+ *   Key resolution/hash work follows directory text. A cold helper lookup can
+ *   resolve native binary/package state and spawn; opening serializes that path
+ *   and acquires a native watch, while joins send distinct ordered sync requests.
+ *   Dispatch/error fanout copies s callback references and invokes their work;
+ *   it does not scan all graph files, but native/IPC cost is not constant.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   Resolved directory spellings share one helper watch while each join validates
- *   its temporal boundary. Different lexical aliases may still use separate entries.
+ *   Within the loaded directory registry, resolved spellings share one helper
+ *   watch while every join validates its own protocol frontier. Native aliases
+ *   can still occupy separate keys; readiness is not reusable proof of later
+ *   liveness or filesystem equivalence.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   Subscriber close removes its callbacks; the final listener retires the shared
- *   entry and native id. Failure clears callbacks and entry ownership; population
- *   grows with distinct live directory spellings and observers, not historical joins.
+ *   Each closer removes its callback wrappers; last detach attempts native
+ *   removal and retires the entry/id. Failure removes native ownership before
+ *   error fanout, whose callback exceptions can interrupt subsequent clearing.
+ *   Closing a joining subscriber does not cancel its already-started sync;
+ *   that owner's reply/failure/deadline still ends its task. Directory keys,
+ *   subscriber closures and simultaneous joins have no population/byte cap;
+ *   failed native removal is not certified release by a local map deletion.
  */
 export function subscribeLinuxDirectoryWatch(
   directory: string,

@@ -28,10 +28,10 @@ import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
  *   events of that stream may have been lost.
  *
  * FSEvents delivers with a latency, so turns of the loop prove nothing there,
- * and a stream created now still
- * delivers events of writes made just before, which the service had not yet
- * logged (samchon/ttsc#1453, samchon/ttsc#1454). FSEvents does preserve order
- * within one stream is the probe frontier's premise. A location naming a probe
+ * and a stream created now can still deliver events of writes made just before,
+ * which the service had not yet logged (samchon/ttsc#1453, samchon/ttsc#1454).
+ * Ordered delivery within one stream is the probe frontier's premise. A
+ * location naming a probe
  * directory below the stream's root writes there and waits for clean delivery
  * on that stream; loss flags still withdraw authority. This delivered frontier
  * is not an atomic timestamp classification of every write. Such a stream is
@@ -45,8 +45,8 @@ import { WATCH_PROBE_TIMEOUT_MS } from "./WATCH_PROBE_TIMEOUT_MS";
  * with no probe cannot be proven, and the drain names its location as
  * unproven.
  *
- * Without the binding, a macOS watch can lose events silently, so the child
- * reports every registration failed instead.
+ * When the requested macOS binding is unresolved or cannot be loaded, the
+ * child reports the registration failed instead of substituting fs.watch.
  *
  * Native event names reach the parent without a basename prefilter: neither
  * backend supplies an alias-free name capability here. Parent classifiers own
