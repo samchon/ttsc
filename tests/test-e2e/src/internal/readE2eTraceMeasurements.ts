@@ -8,6 +8,8 @@ import { TextDecoder } from "node:util";
  * prove that every intended primitive or upstream Program route was observed.
  * The coordinator must separately bind prepared tool identities, required
  * writers, profile boundaries and the documented unobserved population.
+ * An optional coordinator cursor excludes already-observed rows while keeping
+ * the same opt-in root. It never injects a phase marker into a product request.
  *
  * @evidence contracts/common.md#principled-implementation Validates actual writer identity/sequence and counts distinct observed process invocations and constructor events. Load outcomes and reused data are separate from construction cost; pointer labels are never generation dedup keys.
  * @evidence contracts/common.md#clear-and-simple-design One reader produces observed counters and explicit integrity problems, leaving preparation scope and completeness certification to the coordinator.
@@ -21,6 +23,7 @@ import { TextDecoder } from "node:util";
 export function readE2eTraceMeasurements(
   root: string,
   requiredWriterPids: readonly number[],
+  afterSequences: Readonly<Record<string, number>> = {},
 ): TraceMeasurements {
   const result: TraceMeasurements = {
     observedOnly: true,
@@ -34,6 +37,7 @@ export function readE2eTraceMeasurements(
     installedDriverFacades: 0,
     bridgeCacheHits: 0,
     integrityProblems: [],
+    lastWriterSequences: {},
   };
   const writerPids = new Set<number>();
   const writerInstances = new Set<string>();
@@ -79,12 +83,19 @@ export function readE2eTraceMeasurements(
         continue;
       }
       const writer = `${event.writerPid}:${event.instance}`;
-      writerInstances.add(writer);
-      writerPids.add(event.writerPid);
       const expected = (sequences.get(writer) ?? 0) + 1;
       if (event.sequence !== expected)
         result.integrityProblems.push(`${name}: expected sequence${expected}, observed${event.sequence}`);
       sequences.set(writer, event.sequence);
+      result.lastWriterSequences[name] = event.sequence;
+      const after = afterSequences[name] ?? 0;
+      if (!Number.isSafeInteger(after) || after < 0) {
+        result.integrityProblems.push("Invalid coordinator cursor: " + name);
+        continue;
+      }
+      if (event.sequence <= after) continue;
+      writerInstances.add(writer);
+      writerPids.add(event.writerPid);
       const invocation = writer + ":" + event.invocation;
       if (event.event.startsWith("process-")) {
         if (event.event === "process-attempt") attempts.add(invocation);
@@ -111,6 +122,15 @@ export function readE2eTraceMeasurements(
       } else if (event.event === "bridge-cache-hit") {
         result.bridgeCacheHits++;
       }
+    }
+  }
+  for (const [name, after] of Object.entries(afterSequences)) {
+    if (!Number.isSafeInteger(after) || after < 0) {
+      result.integrityProblems.push("Invalid coordinator cursor: " + name);
+    } else if (result.lastWriterSequences[name] === undefined) {
+      result.integrityProblems.push("Missing prior writer file: " + name);
+    } else if (result.lastWriterSequences[name]! < after) {
+      result.integrityProblems.push("Writer sequence moved behind coordinator cursor: " + name);
     }
   }
   for (const pid of requiredWriterPids)
@@ -154,6 +174,8 @@ export interface TraceMeasurements {
   installedDriverFacades: number;
   bridgeCacheHits: number;
   integrityProblems: string[];
+  /** Actual file/sequence cursor for a later coordinator-owned phase. */
+  lastWriterSequences: Record<string, number>;
 }
 
 /** Rejects malformed event cores without manufacturing missing observations. */
