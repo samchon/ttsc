@@ -1,6 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -56,50 +56,23 @@ function listSnapshotRecoveryFiles(root: string): string[] {
 }
 
 /**
- * Whether directory permissions can make the controlled write failures below.
+ * Make a directory unusable by replacing it with a regular file, and return the
+ * function that puts the directory back.
  *
- * Root ignores both POSIX mode bits and Windows deny entries, so the three
- * failure scenarios cannot run as root. They report that through
- * {@link announceSkippedAsRoot} instead of returning as if they had passed.
+ * Every creation or listing below the path then fails with a not-a-directory
+ * error for any user, root included, so the failures below do not depend on
+ * mode bits or Windows access control entries that a privileged process
+ * ignores. The directory is moved aside rather than deleted, so its snapshot
+ * state survives for the assertions that follow the restoration.
  */
-function canEnforceDeniedAccess(): boolean {
-  return !(typeof process.getuid === "function" && process.getuid() === 0);
-}
-
-/** Log, on the run's output, a scenario skipped because the process is root. */
-function announceSkippedAsRoot(scenario: string): void {
-  console.warn(
-    `SKIPPED ${scenario}: running as root, which directory permissions do not bind.`,
-  );
-}
-
-/**
- * Deny a kind of access to one path and return the function that restores it.
- *
- * POSIX uses the mode bits. Windows ignores them for directories, so an
- * Everyone deny entry (`*S-1-1-0`) refuses new entries (`WD,AD`) or reads
- * (`R`) for the current user as well.
- */
-function denyAccess(
-  target: string,
-  access: "create" | "read",
-): () => void {
-  if (process.platform === "win32") {
-    const right = access === "create" ? "(WD,AD)" : "(R)";
-    const deny = spawnSync("icacls", [target, "/deny", `*S-1-1-0:${right}`], {
-      encoding: "utf8",
-    });
-    assert.equal(deny.status, 0, deny.stderr || deny.stdout);
-    return () => {
-      const remove = spawnSync("icacls", [target, "/remove:d", "*S-1-1-0"], {
-        encoding: "utf8",
-      });
-      assert.equal(remove.status, 0, remove.stderr || remove.stdout);
-    };
-  }
-  const mode = fs.statSync(target).mode & 0o777;
-  fs.chmodSync(target, access === "create" ? 0o555 : 0o000);
-  return () => fs.chmodSync(target, mode);
+function obstructWithRegularFile(target: string): () => void {
+  const aside = `${target}.aside`;
+  fs.renameSync(target, aside);
+  fs.writeFileSync(target, "not a directory\n", "utf8");
+  return () => {
+    fs.rmSync(target, { force: true });
+    fs.renameSync(aside, target);
+  };
 }
 
 /** Parse the main snapshot document, failing the test when absent. */
@@ -302,16 +275,13 @@ export async function assertCacheKeyFoldsNonceWithoutReadableSnapshot(): Promise
 
 /**
  * Asserts a failed worker write cannot leave a readable old main snapshot in
- * charge of cache reuse. The worker persists its pending observation beside the
- * read-only snapshot directory, every key nonces while that recovery file
- * exists, and a later successful retry plus compaction restores a stable key
+ * charge of cache reuse. The snapshot directory is obstructed, so the worker
+ * persists its pending observation beside it, and every key nonces. Once the
+ * directory is back, the recovery file alone still untrusts the readable main
+ * snapshot; a later successful retry plus compaction restores a stable key
  * under a fresh epoch.
  */
 export async function assertCacheKeyFoldsNonceAfterSnapshotWriteFailure(): Promise<void> {
-  if (!canEnforceDeniedAccess()) {
-    announceSkippedAsRoot("worker snapshot write failure");
-    return;
-  }
   const root = createBareProject();
   const external = path.join(
     TestProject.tmpdir("ttsc-metro-unwritable-worker-"),
@@ -326,15 +296,22 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotWriteFailure(): Promi
   const recorder = createSnapshotRecorder();
   const project = resolveProjectView({ projectRoot: root });
 
-  const restore = denyAccess(snapshotDirectory(root), "create");
+  const restore = obstructWithRegularFile(snapshotDirectory(root));
   try {
     recorder.record({ input: external, project });
-    assert.deepEqual(listWorkerSnapshots(root), []);
     assert.equal(listSnapshotRecoveryFiles(root).length, 1);
     assert.notEqual(await cacheKeyForRun(root), await cacheKeyForRun(root));
   } finally {
     restore();
   }
+  assert.deepEqual(listWorkerSnapshots(root), []);
+  assert.equal(readMainSnapshot(root).id, originalIdentity);
+  assert.equal(listSnapshotRecoveryFiles(root).length, 1);
+  assert.notEqual(
+    await cacheKeyForRun(root),
+    await cacheKeyForRun(root),
+    "the recovery file alone must untrust a readable main snapshot",
+  );
 
   // The same observation retries because the failed publication stayed dirty.
   recorder.record({ input: external, project });
@@ -353,14 +330,11 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotWriteFailure(): Promi
 
 /**
  * Asserts a failed main-snapshot rewrite follows the same durable degradation:
- * pending worker files remain represented in a recovery document, the old
- * readable main cannot authorize reuse, and recovery compacts under a new id.
+ * the obstructed compaction leaves its recovery document, the old readable main
+ * cannot authorize reuse once it is reachable again, and the recovery
+ * compacts the pending worker file under a new id.
  */
 export async function assertCacheKeyFoldsNonceAfterSnapshotCompactionFailure(): Promise<void> {
-  if (!canEnforceDeniedAccess()) {
-    announceSkippedAsRoot("main snapshot compaction failure");
-    return;
-  }
   const root = createBareProject();
   const external = path.join(root, "..", "compaction-input.d.ts");
   await prepareSnapshot(root);
@@ -378,15 +352,26 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotCompactionFailure(): 
     "utf8",
   );
 
-  const restore = denyAccess(snapshotDirectory(root), "create");
+  const restore = obstructWithRegularFile(snapshotDirectory(root));
   try {
-    await prepareSnapshot(root);
-    assert.equal(readMainSnapshot(root).id, originalIdentity);
+    const failed = await prepareSnapshot(root);
+    assert.match(
+      failed,
+      /^nonce:[a-f0-9]{32}$/,
+      "a failed compaction must hand out a non-reusable run token",
+    );
     assert.equal(listSnapshotRecoveryFiles(root).length, 1);
     assert.notEqual(await cacheKeyForRun(root), await cacheKeyForRun(root));
   } finally {
     restore();
   }
+  assert.equal(readMainSnapshot(root).id, originalIdentity);
+  assert.equal(listSnapshotRecoveryFiles(root).length, 1);
+  assert.notEqual(
+    await cacheKeyForRun(root),
+    await cacheKeyForRun(root),
+    "the recovery file alone must untrust the readable main snapshot",
+  );
 
   await prepareSnapshot(root);
   const recovered = readMainSnapshot(root);
@@ -398,26 +383,20 @@ export async function assertCacheKeyFoldsNonceAfterSnapshotCompactionFailure(): 
 }
 
 /**
- * Asserts snapshot maintenance fails closed when neither the primary snapshot
- * directory nor its parent recovery location can accept a write. A reusable
- * worker throws, while preparation transports a non-reusable run token so a
- * later process cannot trust an old main file that becomes readable again.
+ * Asserts snapshot maintenance fails closed when neither the snapshot
+ * directory nor its parent recovery location can accept a write. The parent
+ * cache directory is obstructed, which removes both. A reusable worker throws,
+ * while preparation transports a non-reusable run token so a later process
+ * cannot trust an old main file that becomes readable again.
  */
 export async function assertSnapshotFailureWithoutRecoveryStorageFailsClosed(): Promise<void> {
-  if (!canEnforceDeniedAccess()) {
-    announceSkippedAsRoot("snapshot failure without recovery storage");
-    return;
-  }
   const root = createBareProject();
   const runId = await prepareSnapshot(root);
   const fingerprint = await TestMetroRuntime.loadFingerprint();
   fingerprint.computeProjectFingerprint({ projectRoot: root, runId });
   const project = fingerprint.resolveProjectView({ projectRoot: root });
   const external = path.resolve(root, "..", "unpersisted-worker-input.d.ts");
-  const cacheDirectory = snapshotCacheDirectory(root);
-  const restoreMain = denyAccess(mainSnapshotPath(root), "read");
-  const restoreSnapshots = denyAccess(snapshotDirectory(root), "create");
-  const restoreCache = denyAccess(cacheDirectory, "create");
+  const restoreCache = obstructWithRegularFile(snapshotCacheDirectory(root));
   let nonReusableRunId: string;
   try {
     assert.throws(
@@ -431,7 +410,7 @@ export async function assertSnapshotFailureWithoutRecoveryStorageFailsClosed(): 
           "Unable to persist a Metro snapshot observation or its recovery record.",
         name: "AggregateError",
       },
-      "a worker with a run key must fail closed even while the old main snapshot is unreadable",
+      "a worker with a run key must fail closed even while the old main snapshot is unreachable",
     );
     nonReusableRunId = await prepareSnapshot(root);
     assert.match(
@@ -441,8 +420,6 @@ export async function assertSnapshotFailureWithoutRecoveryStorageFailsClosed(): 
     );
   } finally {
     restoreCache();
-    restoreSnapshots();
-    restoreMain();
   }
 
   await prepareSnapshot(root);
