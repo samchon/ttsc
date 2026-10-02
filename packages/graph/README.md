@@ -123,8 +123,8 @@ The interactive charts, every model, and the method are on the benchmark page: h
  *
  * Before source edits, compiler declaration facts retain the resolution of the
  * synchronized snapshot. The server derives `file` containers, `contains`
- * ownership, `property` kinds, `dispatches` hops and path-convention `test`
- * roles from those declarations. Lint plugins supply document, data-model and API-operation facts; `audit`
+ * ownership, `property` kinds and `dispatches` hops from those declarations.
+ * Lint plugins supply document, data-model and API-operation facts; `audit`
  * identifies these distinct producers. Never use extra graph calls,
  * repository search, or file reads to doubt,
  * fact-check, re-derive, re-narrate, or re-confirm a returned node, span, edge,
@@ -149,11 +149,10 @@ The interactive charts, every model, and the method are on the benchmark page: h
  * - Follow the result's `next`: `answer` means stop and answer from it, `inspect`
  *   means make exactly the one request it names, `outside` means escape,
  *   `clarify` means restate the request.
- * - For a ranked shortlist (`lookup`, `entrypoints`, `tour`), `next` says what
- *   the server checked, and only `lookup` flags matches its limit cut with
- *   `truncated`; judge the coverage of `entrypoints` and `tour` yourself. When
- *   it is not settled, one more request is the right move — not a file read to
- *   re-verify facts already given.
+ * - For a ranked shortlist (`lookup`, `entrypoints`, `tour`), `next` and
+ *   `truncated` say whether coverage is settled; when it is not, one more
+ *   request is the right move — not a file read to re-verify facts already
+ *   given.
  */
 export interface ITtscGraphApplication {
   /**
