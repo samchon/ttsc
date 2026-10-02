@@ -2,9 +2,10 @@ package linthost
 
 import "testing"
 
-// TestCommandFormatSpreadElementComments verifies the vscode buffer.ts shapes:
-// comments around spread and plain elements in a broken array or call argument.
-// Prettier preserves them; format must not delete them on reflow.
+// TestCommandFormatSpreadElementComments preserves authored comments around
+// spread and plain elements in broken arrays, including a call-argument array.
+// Full-file equality protects both comment text and element order without
+// invoking VS Code or an external formatter.
 //
 //  1. Seed a broken call-argument array and a broken array, both carrying comments next to spread elements.
 //  2. Run `ttsc format` with printWidth 60 on each.
