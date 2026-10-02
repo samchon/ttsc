@@ -17,15 +17,15 @@ export interface TtscCommonOptions {
   /**
    * Explicit TypeScript-Go executable.
    *
-   * When supplied, ttsc skips package-based tsgo resolution and launches this
-   * binary directly.
+   * A nonempty override must be an existing absolute path. It bypasses
+   * package-based resolution; the native spawn owns execution failures.
    */
   binary?: string;
 
   /** Working directory for config discovery and relative file paths. */
   cwd?: string;
 
-  /** Project root override for generated tsconfig wrappers. */
+  /** Selected project root, resolved from `cwd` independently of config location. */
   projectRoot?: string;
 
   /**
@@ -43,7 +43,7 @@ export interface TtscCommonOptions {
   /** Explicit root directory for compiled source-plugin cache artifacts. */
   cacheDir?: string;
 
-  /** Normalize compiler output so diagnostics can be parsed structurally. */
+  /** Request nonpretty compiler output unless passthrough controls `--pretty`. */
   structuredDiagnostics?: boolean;
 
   /**
@@ -54,25 +54,28 @@ export interface TtscCommonOptions {
   singleThreaded?: boolean;
 
   /**
-   * Type-checker pool size, mirroring `tsgo --checkers`. `undefined` leaves
-   * TypeScript-Go's default; ignored when `singleThreaded` is set.
+   * Requested checker pool size, mirroring `tsgo --checkers`; `singleThreaded`
+   * takes precedence. Check hosts receive this only when they declare support.
+   * The source-plugin driver clamps its serial transform Program to one checker;
+   * direct TypeScript-Go execution otherwise owns its default and pool policy.
    */
   checkers?: number;
 
   /**
-   * CLI tokens ttsc did not recognize as its own, forwarded verbatim to the
-   * underlying `tsgo` invocation. This is how a tsgo flag ttsc has no first-
-   * class option for (`--strict`, `--target es2020`, `--listFiles`, …) still
-   * reaches the compiler: ttsc owns its own flags and lets tsgo — which has the
-   * complete, arity-aware option parser — handle the rest.
+   * Compiler-option tokens retaining their boundaries and order. Direct tsgo
+   * execution forwards them; native hosts receive a JSON compiler-option
+   * payload with timing flags omitted because host timing has its own channel.
+   * tsgo owns option parsing, including flags without a first-class ttsc option
+   * such as `--strict`, `--target es2020` and `--listFiles`. Internal output
+   * isolation can append destination overrides after these tokens.
    */
   passthrough?: readonly string[];
 
   /**
    * Override project plugin loading for this invocation.
    *
-   * - `false`: ignore `compilerOptions.plugins` completely.
-   * - Array: use these plugin entries instead of the project config entries.
+   * - `false`: disable project plugin loading and dependency discovery.
+   * - Array: use these entries instead of config and dependency discovery.
    * - `undefined`: use the project config entries and discover plugins from
    *   direct dependencies.
    */
