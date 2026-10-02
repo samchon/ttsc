@@ -1556,10 +1556,10 @@ func parsePatternList(raw any, path string) ([]string, error) {
 // @evidence contracts/common.md#clear-and-simple-design One adapter owns the legacy severity-only return shape while the scoped loader owns discovery and parsing.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Resolver type handling corresponds to real supported representations and does not bypass per-file execution policy.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies metadata use and directs file execution to the scoped resolver, with separated tags.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation LoadRuleConfig performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms LoadRuleConfig has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work LoadRuleConfig keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources LoadRuleConfig acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/portability.md#os-neutral-implementation LoadRuleConfig carries native cwd/tsconfig/config paths through LoadConfigResolver. That boundary uses filepath-based project anchoring and native discovery/evaluation helpers, while file URLs and executable argument forms belong to their loader owners; this projection introduces no case-folding or shell command text.
+// @evidence contracts/performance.md#efficient-algorithms LoadRuleConfig includes the delegated discovery, config-byte parsing/evaluation, dependency validation and store construction costs of LoadConfigResolver. Store projection adds Flatten entry/rule/name work and a fresh severity map; alternate resolver representations supply their own severity view. A fixed type switch does not make the owning load constant-cost.
+// @evidence contracts/performance.md#reuse-equivalent-work Executable config evaluation reuses the dependency-validated memory/disk producer reached through LoadConfigResolver; this adapter adds no projection cache. The ConfigStore branch returns fresh writable severity membership, so evaluation reuse does not imply sharing caller-mutable projection maps.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The delegated loader owns temporary files and synchronous evaluator children; its shared evaluation cache outlives this adapter. The returned severity map belongs to the caller: ConfigStore produces new membership while a RuleConfig resolver is returned directly. Temporary parsed store metadata becomes reclaimable when otherwise unreferenced; this function imposes no cache eviction or result-size bound.
 func LoadRuleConfig(entry *PluginEntry, cwd, tsconfigPath string) (RuleConfig, error) {
   resolver, err := LoadConfigResolver(entry, cwd, tsconfigPath)
   if err != nil {
@@ -1586,7 +1586,7 @@ func LoadRuleConfig(entry *PluginEntry, cwd, tsconfigPath string) (RuleConfig, e
 // directory (see discoveryConfigBaseDirs for the embedder-declared origin).
 //
 // All rules, format options, and contributor plugins live in the config file
-// itself — the tsconfig entry has no inline rule/format/plugin surface.
+// itself; the tsconfig entry has no inline rule/format/plugin surface.
 //
 // Executable configs are cached against their recorded module dependencies,
 // not arbitrary environment, network or user-performed filesystem reads.
@@ -1597,10 +1597,10 @@ func LoadRuleConfig(entry *PluginEntry, cwd, tsconfigPath string) (RuleConfig, e
 // @evidence contracts/common.md#clear-and-simple-design The public boundary validates configFile and delegates discovery, evaluation and entry folding to their owners rather than supporting parallel inline policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Node's supported hooks track module resolution without replacing foreign fs methods; the bounded extends guard is a documented limit, while cache use for untracked external inputs must be disabled.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain project anchoring, config ownership, cache premises and limits, with a blank comment line before tags.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation LoadConfigResolver validates the configFile value and delegates path resolution to resolveConfigFilePath, findLintConfigFile and loadConfigResolver; it opens no file itself.
-// @evidenceExclude contracts/performance.md#efficient-algorithms LoadConfigResolver has no loop of its own and runs a fixed sequence of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work LoadConfigResolver keeps no cache of its own.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources LoadConfigResolver acquires no handle or task of its own and returns the resolver it was given.
+// @evidence contracts/portability.md#os-neutral-implementation LoadConfigResolver owns native config discovery/loading through its helpers. The launcher project-root channel wins over wrapper tsconfig origins; filepath preserves native path spelling and discovery probes actual candidates without assuming case policy from OS names. JSON uses native reads, JS uses explicit Node arguments/stdin, and TS uses loader-owned file URLs, argument vectors and platform temp/module-link boundaries rather than shell interpolation.
+// @evidence contracts/performance.md#efficient-algorithms Discovery probes fourteen names per visited ancestor directory across the selected origins. Loading includes config bytes, executable evaluator work when needed, dependency digest validation, recursive extends and parsed entries/rules/options; each extends lineage is capped at thirty-two files, not total branch population. Provenance helpers perform membership scans and sorting of stored paths/directories, so additional work can be quadratic in their population plus comparison/path bytes. Returned store and temporary evaluation space scale with these inputs; no fixed total time or unmeasured speedup is claimed.
+// @evidence contracts/performance.md#reuse-equivalent-work Executable evaluation delegates to a memory/disk cache keyed by version, absolute entry path/content and resolution-root namespace, with recorded dependency fingerprints revalidated on hits. Failed evaluations are not stored; dependency changes cause new work. JSON is read directly, and entry folding is performed for each load. Environment, network and arbitrary user filesystem effects are outside tracked equivalence and require the documented cache opt-out; no single-flight coordination is claimed.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned parsed store owns entries/options and public/resident dependency provenance until its consumer releases it. Loader helpers wait for each evaluator child and defer temporary-directory cleanup on success/error; their background contexts provide no caller deadline or external cancellation, and cleanup errors are not surfaced. Memory evaluation entries live for the process and disk entries have no eviction policy here, growing with distinct versioned content/dependency payloads. This loader imposes no total config-byte, branch-population or evaluator-runtime bound.
 func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResolver, error) {
   if entry == nil {
     return RuleConfig{}, nil
