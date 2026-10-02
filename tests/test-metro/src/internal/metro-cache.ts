@@ -1,8 +1,9 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
 
 import { TestMetroRuntime } from "./metro-runtime";
@@ -1927,5 +1928,124 @@ export async function assertCacheKeyFollowsSolutionReferences(): Promise<void> {
     await cacheKeyForRun(root),
     edited,
     "the referenced config keys the run",
+  );
+}
+
+/**
+ * Asserts a reader never loses an input to a concurrent compaction.
+ *
+ * A compactor claims each worker file by renaming it before the merged main
+ * file replaces the old one. A real second process publishes an input through
+ * a recorder and then compacts, round after round, and each round writes a
+ * progress marker once its input is recorded. The reader here, concurrently
+ * and in this process, calls `readSnapshotState` and requires every state it
+ * is given to hold each input whose round the marker had already completed
+ * before the read began; `undefined` (untrusted state) is the only other
+ * permitted answer. A reader that skipped a listed name which vanished
+ * between its listing and its read would return a state missing an input.
+ */
+export async function assertSnapshotReaderKeepsInputsAcrossConcurrentCompaction(): Promise<void> {
+  const rounds = 150;
+  const root = createBareProject();
+  const fingerprint = await TestMetroRuntime.loadFingerprint();
+  fingerprint.prepareSnapshot(root);
+  const scratch = TestProject.tmpdir("ttsc-metro-compactor-");
+  const progress = path.join(scratch, "progress.txt");
+  const inputOf = (round: number) =>
+    path.resolve(scratch, `input-${round}.d.ts`);
+  const script = path.join(scratch, "compactor.mjs");
+  fs.writeFileSync(
+    script,
+    [
+      'import fs from "node:fs";',
+      'import path from "node:path";',
+      `const fingerprint = await import(${JSON.stringify(
+        pathToFileURL(
+          path.join(
+            TestProject.WORKSPACE_ROOT,
+            "packages",
+            "metro",
+            "src",
+            "core",
+            "fingerprint.ts",
+          ),
+        ).href,
+      )});`,
+      `const root = ${JSON.stringify(root)};`,
+      "const project = fingerprint.resolveProjectView({ projectRoot: root });",
+      `for (let round = 0; round < ${rounds}; ++round) {`,
+      "  fingerprint.createSnapshotRecorder().record({",
+      `    input: path.resolve(${JSON.stringify(scratch)}, "input-" + round + ".d.ts"),`,
+      "    project,",
+      "  });",
+      `  fs.writeFileSync(${JSON.stringify(progress)}, String(round + 1));`,
+      "  fingerprint.prepareSnapshot(root);",
+      "}",
+      `fs.writeFileSync(${JSON.stringify(progress)}, "done");`,
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  const child = spawn(
+    process.execPath,
+    [
+      "--import",
+      pathToFileURL(
+        path.join(
+          TestProject.WORKSPACE_ROOT,
+          "config",
+          "register-unit-loader.mjs",
+        ),
+      ).href,
+      script,
+    ],
+    { stdio: ["ignore", "inherit", "inherit"] },
+  );
+  const exit = new Promise<number | null>((resolve) => {
+    child.once("error", () => resolve(null));
+    child.once("exit", (code) => resolve(code));
+  });
+  let exited: number | null | undefined;
+  void exit.then((code) => {
+    exited = code;
+  });
+  const completedRounds = (): number => {
+    try {
+      const text = fs.readFileSync(progress, "utf8");
+      return text === "done" ? rounds : Number(text) || 0;
+    } catch {
+      return 0;
+    }
+  };
+  let trusted = 0;
+  const lost: number[] = [];
+  try {
+    while (exited === undefined) {
+      const completed = completedRounds();
+      const state = fingerprint.readSnapshotState(root);
+      if (state !== undefined) {
+        ++trusted;
+        for (let round = 0; round < completed; ++round) {
+          if (!state.files.includes(inputOf(round))) {
+            lost.push(round);
+            break;
+          }
+        }
+      }
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+  } finally {
+    if (exited === undefined) {
+      child.kill();
+      await exit;
+    }
+  }
+  assert.equal(exited, 0, "the compacting process must finish its rounds");
+  assert.equal(completedRounds(), rounds);
+  assert.ok(trusted > 0, "the reader must observe trusted states");
+  assert.deepEqual(
+    lost,
+    [],
+    "a trusted state must hold every input recorded before the read began",
   );
 }
