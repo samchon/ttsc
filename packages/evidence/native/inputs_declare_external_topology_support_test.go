@@ -7,7 +7,8 @@ import (
 )
 
 // The host discovers this contract by type assertion and skips a rule that
-// fails it (`linthost/project_inputs.go:97-100`), with no warning of any kind.
+// fails it (`collectProjectInputs` in `linthost/project_inputs.go`), with no
+// warning of any kind.
 // A drifted signature would therefore not break a build — it would silently
 // stop every watcher this plugin declares, and a rule that watches nothing
 // looks exactly like a rule whose sources never changed.

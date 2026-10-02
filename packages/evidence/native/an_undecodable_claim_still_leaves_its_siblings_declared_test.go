@@ -9,7 +9,8 @@ import (
  * Verifies a broken claim neither panics nor silences its healthy siblings.
  *
  * The host runs this contract behind a recover that turns a panic into a
- * snapshot-wide error (`linthost/project_inputs.go:139-149`), so one malformed
+ * snapshot-wide error (`callProjectInputs` and `collectProjectInputs` in
+ * `linthost/project_inputs.go`), so one malformed
  * claim must not be able to un-watch a whole project. Declaring what decoded is
  * also the behavior an author needs most while a configuration is mid-repair.
  *

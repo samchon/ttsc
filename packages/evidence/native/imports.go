@@ -109,7 +109,8 @@ func stringLiteralText(node *shimast.Node) string {
   return node.Text()
 }
 
-// typeScriptModuleExtensions are tried in the order TypeScript itself prefers.
+// typeScriptModuleExtensions are the suffixes an extensionless specifier may
+// take, a source file before the declaration file that would describe it.
 var typeScriptModuleExtensions = []string{
   ".ts",
   ".tsx",

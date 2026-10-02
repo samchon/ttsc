@@ -30,7 +30,8 @@ func (graphRule) GraphNodes(ctx *rule.GraphContext) []rule.GraphNode {
   corpus := cycle.Corpus
   // Addresses of every materialized unit, so a parent can be named by the
   // address a citation would use rather than by the rule's internal id. A
-  // parent outside the selected set resolves to nothing and the host clears it,
+  // parent outside the selected set is still named by its address here, and the
+  // host clears a parent that no published node carries (`linthost/graph_nodes.go`),
   // which leaves the child at the top of its chain instead of inventing one.
   addresses := map[string]string{}
   for _, inventories := range []map[string]*artifactInventory{

@@ -1689,7 +1689,7 @@ func resolveReferenceEntry(
 ) (string, string) {
   entry := loader.packageEntryModule(reference.Package)
   if entry == "" {
-    return "", claimLabel(claim) + " " + referenceLabel(reference) + " could not resolve the declaration entry of package '" + reference.Package + "'. Install it, or select its declarations with 'files'; the entry is read from the 'types' condition of 'exports', then 'typesVersions', then 'types'."
+    return "", claimLabel(claim) + " " + referenceLabel(reference) + " could not resolve the declaration entry of package '" + reference.Package + "'. Install it, or select its declarations with 'files'; the entry is read from the 'types' condition of 'exports', then 'typesVersions', then 'types' or 'typings'. A package with none of those resolves only when its 'exports' target or 'main' names TypeScript source itself."
   }
   return entry, ""
 }
