@@ -5,22 +5,15 @@ import "testing"
 // TestEngineLineSuffixAttachesToNextBreak verifies LineSuffix output is
 // deferred until the next newline-emitting doc actually fires.
 //
-// LineSuffix is how a per-node printer attaches a trailing
-// `// comment` to its source line: the comment must appear *after*
-// the comma or expression on the same line but *before* the engine
-// inserts the newline. The fixture sandwiches a LineSuffix between a
-// Text and a Hardline, then verifies the queued content lands before
-// the break.
+// A following Hardline flushes the queued comment before the next line.
+// A second fixture puts literal comma text after the suffix: that text must
+// appear before the queued comment, distinguishing deferred from immediate
+// suffix output. No AST comment producer is dispatched in this direct case.
 //
-//  1. Build Concat(Text("a"), LineSuffix(Text(" // c")), Hardline(),
-//     Text("b")).
-//  2. Print under default options.
-//  3. Assert the comment appears immediately before the newline.
-//
-// @evidence contracts/testing.md#behavioral-verification Print must emit the queued comment after a and before the newline leading to b.
-// @evidence contracts/testing.md#independent-expectations The LineSuffix contract orders the literal a // c\nb without moving or dropping comment bytes.
-// @evidence contracts/testing.md#distinguishing-cases A following Hardline flushes the suffix; the no-following-break case covers final draining.
-// @evidence contracts/testing.md#execution-ownership TestEngineLineSuffixAttachesToNextBreak is one Go unit entry that renders a literal Concat holding a LineSuffix before a Hardline with Print in-process; it parses no source and installs, builds and launches nothing.
+// @evidence contracts/testing.md#behavioral-verification Print must emit the comment before the triggering newline, after all remaining same-line text including a comma supplied after the suffix.
+// @evidence contracts/testing.md#independent-expectations Authored a // c and a, // c followed by LF and b follow deferred suffix ordering; expected strings are literal, not renderer-produced.
+// @evidence contracts/testing.md#distinguishing-cases Remaining comma text after queueing distinguishes deferred output from immediate rendering; a following Hardline contrasts with final draining without a break.
+// @evidence contracts/testing.md#execution-ownership TestEngineLineSuffixAttachesToNextBreak is one Go unit entry that renders two authored Concats holding a LineSuffix before a Hardline, one with subsequent same-line comma text, with Print in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineLineSuffixAttachesToNextBreak(t *testing.T) {
   doc := Concat(
     Text("a"),
@@ -31,5 +24,10 @@ func TestEngineLineSuffixAttachesToNextBreak(t *testing.T) {
   got := Print(doc, DefaultPrintOptions())
   if got != "a // c\nb" {
     t.Fatalf("line suffix mismatch: %q", got)
+  }
+  doc = Concat(Text("a"), LineSuffix(Text(" // c")), Text(","), Hardline(), Text("b"))
+  got = Print(doc, DefaultPrintOptions())
+  if got != "a, // c\nb" {
+    t.Fatalf("same-line text must precede the deferred suffix: got %q", got)
   }
 }
