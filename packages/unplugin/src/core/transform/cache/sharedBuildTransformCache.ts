@@ -17,11 +17,25 @@ import { createTtscTransformCache } from "./createTtscTransformCache";
  * @evidence contracts/common.md#clear-and-simple-design Lazy lookup creates one cache/lease pair per configuration rather than adding another compilation or filesystem snapshot layer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A configuration match establishes sharing identity only; no target-name exception or synthetic successful output changes compile semantics.
  * @evidence contracts/common.md#meaningful-documentation The comment identifies process scope and the stable options key required from callers.
- * @evidence contracts/performance.md#efficient-algorithms Map lookup and lease hooks perform constant-time registry operations; a new key allocates one empty cache/lease pair without traversing existing configurations.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Lookup and registry hooks use the supplied serialized key without scanning
+ *   other configurations; key access carries its text cost. A new key creates
+ *   one empty cache, fixed capability table and lease plus one initial idle
+ *   timer. Later final idle reclamation delegates N-entry reset and generation
+ *   resource cleanup to the lease rather than making that work constant.
  * @evidence contracts/performance.md#reuse-equivalent-work Simultaneously requested configurations share one registered pair; final idle reclamation permits later fresh work, and a surviving adapter restores its pair only when another active pair does not already own that key.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Initial and final idle grace remove unowned registry entries and reset their generations; surviving adapter references keep only their own pair, and identity checks prevent an older lease from deleting a newer registration.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   Performs no filesystem, path or process operation of its own.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Registry growth follows distinct configuration key text and retained pairs,
+ *   without a capacity limit. Initial/final idle callbacks reset unowned pairs
+ *   and remove matching registrations; active owners and event-loop delay can
+ *   extend retention. Surviving adapters keep their own pair, and old leases
+ *   cannot delete a newer registration. Lease timers/probes retain their
+ *   documented owners rather than being bounded by this registry's entry count.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   New pairs use the actual host-default filesystem capability table; sharing
+ *   does not manufacture another view or infer notification/case authority
+ *   from a process-wide key. Generation capture and validation still prove
+ *   native identities/inputs, and the lease owns native cleanup delegation.
  */
 export function sharedBuildTransformCache(
   key: string,
