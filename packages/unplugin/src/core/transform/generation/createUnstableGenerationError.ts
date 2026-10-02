@@ -26,7 +26,8 @@ function formatGenerationFailurePath(
 /**
  * Build the terminal error shared by waiters of an unstable generation, with
  * bounded per-attempt witnesses and a retained retry comparison baseline.
- * Live generation resources are disposed before the error retains that data.
+ * Live generation fields detach and their cleanup is attempted before the
+ * error retains that data; failed native cleanup is not certified released.
  * Producer details and native paths are JSON-escaped for safe diagnostics.
  *
  * @evidence contracts/common.md#principled-implementation Each attempted proof contributes its classified witnesses and omitted count, while absent retained entries remain an explicit incomplete proof; the validation baseline identifies the environment that can authorize retry.
@@ -36,7 +37,7 @@ function formatGenerationFailurePath(
  * @evidence contracts/portability.md#os-neutral-implementation Native relative-path classification uses Node path semantics; slash rendering is only diagnostic presentation and does not change filesystem identity or project ownership.
  * @evidence contracts/performance.md#efficient-algorithms Rendering visits each attempt and retained witness once, with native path processing and escaping driven by diagnostic text lengths; delegated disposal also closes the final attempt's retained watchers without rescanning source contents.
  * @evidence contracts/performance.md#reuse-equivalent-work transformProject creates one terminal verdict for its failed attempt sequence, and cache waiters share that error instead of separately rerendering or recompiling the same unchanged environment.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The shared disposer closes watchers and releases clock probes before the terminal error retains comparison data; error lifetime belongs to the generation cache rather than a new resource owner here.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The shared disposer detaches watcher/probe ownership and attempts each cleanup before the error retains comparison data. Failed native close/removal can leave underlying resources; the error does not acquire their handles or claim cleanup succeeded. Retained comparison/witness text has cache-owner lifetime and no byte bound from the witness-count cap.
  */
 export function createUnstableGenerationError(
   projectRoot: string,
