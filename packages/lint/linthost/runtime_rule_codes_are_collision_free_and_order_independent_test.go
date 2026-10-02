@@ -1,6 +1,8 @@
 package linthost
 
 import (
+  "fmt"
+  "hash/fnv"
   "reflect"
   "testing"
 
@@ -30,7 +32,27 @@ func (runtimeRuleCodeTestRule) Check(*Context, *shimast.Node) {}
 // @evidence contracts/testing.md#distinguishing-cases The original colliding pair spans public Register for the file rule and a directly populated project-rule adapter; both insertion orders and every built-in reservation are checked. Explicit band checks reject absent/default-zero assignments, and cleanup invalidates the cache between populations.
 // @evidence contracts/testing.md#execution-ownership The actual file/project registries and public RuleCode resolver run in one Go process, using synthetic collision names only as inputs. This unit owns live allocator integration; contributor producer/linkage and full project-rule registration are not claimed, and no native build, install or subprocess executes.
 func TestRuntimeRuleCodesAreCollisionFreeAndOrderIndependent(t *testing.T) {
-  left, right := findSyntheticRuleCodeCollision(t)
+  // Prepare colliding inputs with the standard FNV reference, independently of
+  // the allocator package's private fixture helper and production hash wrapper.
+  seen := make(map[uint32]string)
+  var left, right string
+  for index := 0; index < 20000; index++ {
+    name := fmt.Sprintf("contributor/collision-shield-%05d", index)
+    hash := fnv.New32a()
+    _, _ = hash.Write([]byte(name))
+    slot := hash.Sum32() % 9000
+    if slot == 0 {
+      continue
+    }
+    if previous, exists := seen[slot]; exists {
+      left, right = previous, name
+      break
+    }
+    seen[slot] = name
+  }
+  if left == "" || right == "" {
+    t.Fatal("failed to prepare a synthetic legacy-code collision")
+  }
   _, leftProject := registeredProjectRules[left]
   _, rightProject := registeredProjectRules[right]
   if LookupRule(left) != nil || LookupRule(right) != nil || leftProject || rightProject {
