@@ -14,7 +14,7 @@ import (
 //  3. Assert the constrained argument produces one finding.
 //
 // @evidence contracts/testing.md#behavioral-verification An aggregator argument constrained to scalar Iterable<number> must report.
-// @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix the complete rule/error line list 2 with code 2 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#independent-expectations The authored T extends Iterable<number> argument independently requires one rule-labelled error on line 2, code 2 and empty stdout. Label counting rejects extras, and the rendered-main.ts helper checks line 2 and error severity; exact columns, message text and unrelated diagnostics are outside these assertions.
 // @evidence contracts/testing.md#distinguishing-cases AwaitableInputsAllow includes an unconstrained generic iterable; the concrete scalar constraint distinguishes this positive.
 // @evidence contracts/testing.md#execution-ownership TestAwaitThenablePromiseAggregatorGenericConstraintReports invokes the in-process check command with a real Program/Checker in the shared Go unit population; original source/configuration and all assertions remain, with no child compiler, installed consumer or native artifact build.
 func TestAwaitThenablePromiseAggregatorGenericConstraintReports(t *testing.T) {
