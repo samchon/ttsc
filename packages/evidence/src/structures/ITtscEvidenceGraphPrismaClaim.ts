@@ -45,9 +45,6 @@ import type { ITtscEvidenceGraphClaimBase } from "./ITtscEvidenceGraphClaimBase"
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Eligibility is based on actual schema documentation syntax; ignored double-slash annotations do not silently become evidence and no consumer model is singled out.
  * @evidence contracts/common.md#meaningful-documentation The declaration documents comment attachment, file-level exclusions and native Prisma examples; field comments explain schema composition and selector defaults.
 * @evidence contracts/portability.md#os-neutral-implementation Schema files resolve through the inherited stable native root while prisma model identities remain path-free; linked aliases join one schema without using OS names to infer file case or capability.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no algorithm and performs no computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration coordinates no computation across requests, so there is no result to share.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration owns no retained state, handle or running task.
  */
 export interface ITtscEvidenceGraphPrismaClaim extends ITtscEvidenceGraphClaimBase<"prisma"> {
   /**

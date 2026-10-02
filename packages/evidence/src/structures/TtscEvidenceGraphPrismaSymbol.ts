@@ -40,8 +40,5 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Relation classification comes from the parser rather than an attribute-presence heuristic that would miss inverse relation fields.
  * @evidence contracts/common.md#meaningful-documentation Distinct paragraphs explain semantic classification, containment, prisma-prefixed targets, cross-file identity and unsupported schema constructs.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation This type lists Prisma unit kinds and names no path, file, filesystem or process.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no algorithm and performs no computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration coordinates no computation across requests, so there is no result to share.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration owns no retained state, handle or running task.
  */
 export type TtscEvidenceGraphPrismaSymbol = "model" | "column" | "relation";

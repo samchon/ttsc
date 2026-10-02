@@ -22,9 +22,6 @@ import type { ITtscEvidenceGraphClaimBase } from "./ITtscEvidenceGraphClaimBase"
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The type selects outline kinds rather than hardcoding document names or accepting a fixture-specific acknowledgment path.
  * @evidence contracts/common.md#meaningful-documentation The comment describes where Markdown acknowledgments live and the member comments state file parsing and selector defaults, separated from these tags.
 * @evidence contracts/portability.md#os-neutral-implementation The inherited stable root and ordered glob paths select a native document population independently of outline targets; separators are portable and identity remains the explicit graph policy rather than a guess from the OS name.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no algorithm and performs no computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration coordinates no computation across requests, so there is no result to share.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration owns no retained state, handle or running task.
  */
 export interface ITtscEvidenceGraphMarkdownClaim extends ITtscEvidenceGraphClaimBase<"markdown"> {
   /**

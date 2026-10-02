@@ -17,9 +17,6 @@ import type { ITtscEvidenceGraphTypeScriptClaim } from "./ITtscEvidenceGraphType
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The alternatives describe supported artifact semantics and contain no consumer-specific variant or test-only escape.
  * @evidence contracts/common.md#meaningful-documentation The JSDoc explains the outgoing relationship and independent obligations rather than repeating the union members, with prose separated from tags.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation This union only selects among the artifact claim shapes and names no path, file, filesystem or process itself.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no algorithm and performs no computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration coordinates no computation across requests, so there is no result to share.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration owns no retained state, handle or running task.
  */
 export type ITtscEvidenceGraphClaim =
   | ITtscEvidenceGraphMarkdownClaim

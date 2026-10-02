@@ -18,9 +18,6 @@ import type { ITtscEvidenceGraphReferenceBase } from "./ITtscEvidenceGraphRefere
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Package lookup uses declaration entry semantics, not a consumer-specific JavaScript entry or a fallback that invents unavailable exports.
  * @evidence contracts/common.md#meaningful-documentation Property prose explains the root/package restriction, declaration-entry precedence, Program snapshot priority and exact selector defaults with separate member comments.
 * @evidence contracts/portability.md#os-neutral-implementation The type distinguishes a native root or installed-package location from exported symbol identity; forward-slash glob semantics are explicit while path resolution and linked-directory identity remain the loader's supported filesystem boundary.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no algorithm and performs no computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration coordinates no computation across requests, so there is no result to share.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration owns no retained state, handle or running task.
  */
 export interface ITtscEvidenceGraphTypeScriptReference extends ITtscEvidenceGraphReferenceBase<"typescript"> {
   /**

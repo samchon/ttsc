@@ -17,9 +17,6 @@ import type { ITtscEvidenceGraphTypeScriptReference } from "./ITtscEvidenceGraph
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The closed alternatives reflect supported loaders rather than consumer names or fixture-specific bypasses.
  * @evidence contracts/common.md#meaningful-documentation The native comment explains reference ownership and the coverage denominator; member-specific selection details remain in their respective declarations.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation This union only selects among the artifact reference shapes and names no path, file, filesystem or process itself.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no algorithm and performs no computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration coordinates no computation across requests, so there is no result to share.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration owns no retained state, handle or running task.
  */
 export type ITtscEvidenceGraphReference =
   | ITtscEvidenceGraphMarkdownReference

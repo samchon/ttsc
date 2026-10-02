@@ -14,9 +14,6 @@ import type { ITtscEvidenceGraphReferenceBase } from "./ITtscEvidenceGraphRefere
  * @evidence contracts/common.md#prohibited-implementation-shortcuts An unavailable remote source fails its obligation rather than silently removing API operations from the expected population.
  * @evidence contracts/common.md#meaningful-documentation The source comment explains accepted local and HTTP locations, rejection of unstable drive-relative paths, normalization and operation-target spelling.
 * @evidence contracts/portability.md#os-neutral-implementation The file field distinguishes native local paths from HTTP URLs, requiring stable project-relative or absolute local resolution and refusing Windows drive-relative spelling instead of applying filesystem rules to a URL.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no algorithm and performs no computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration coordinates no computation across requests, so there is no result to share.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration owns no retained state, handle or running task.
  */
 export interface ITtscEvidenceGraphSwaggerReference extends ITtscEvidenceGraphReferenceBase<"swagger"> {
   /**

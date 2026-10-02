@@ -19,9 +19,6 @@ import type { ITtscEvidenceGraphReferenceBase } from "./ITtscEvidenceGraphRefere
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Parsing failures remain failures rather than an empty-success substitute, and model-only default selection is an explicit general contract rather than a consumer exception.
  * @evidence contracts/common.md#meaningful-documentation Member prose explains schema-set identity, root effects, default model granularity and aggregate member coverage with separated documentation blocks.
 * @evidence contracts/portability.md#os-neutral-implementation Root selects a native schema directory independently of path-free prisma targets; stable relative or absolute paths and linked directories are supported while drive-relative Windows paths are explicitly invalid.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no algorithm and performs no computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration coordinates no computation across requests, so there is no result to share.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration owns no retained state, handle or running task.
  */
 export interface ITtscEvidenceGraphPrismaReference extends ITtscEvidenceGraphReferenceBase<"prisma"> {
   /**

@@ -22,9 +22,6 @@ import type { ITtscEvidenceGraphConfig } from "./ITtscEvidenceGraphConfig";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The options of the two configurable rules reference their declared config types rather than an unknown slot, and the optionless rules are not given an invented options object.
  * @evidence contracts/common.md#meaningful-documentation The example shows the user side of the pattern and each member explains the rule it names, following the documentation guidance.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation This interface lists rule names and option types and names no path, file, filesystem or process itself.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no algorithm and performs no computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration coordinates no computation across requests, so there is no result to share.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration owns no retained state, handle or running task.
  */
 export interface ITtscEvidenceRules {
   /**
