@@ -33,16 +33,16 @@ import (
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
-// RunCheck implements `@ttsc/lint check` — typecheck + lint, no emit.
+// RunCheck implements `@ttsc/lint check`: typecheck + lint, no emit.
 //
 // @evidence contracts/common.md#principled-implementation Process streams delegate to the same no-emit check entry point used by injected-stream callers.
 // @evidence contracts/common.md#clear-and-simple-design This wrapper owns only default stream selection.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Delegation preserves the supported command path without an alternate diagnostic implementation.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the check command and its no-emit effect; tags are separated from prose.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation RunCheck only selects the process standard streams and forwards to RunCheckWithIO; it resolves no path and builds no executable or argument list.
-// @evidenceExclude contracts/performance.md#efficient-algorithms RunCheck is one delegating call with no loop.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunCheck keeps no cache and shares no computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunCheck retains nothing; the process owns its standard streams.
+// @evidence contracts/portability.md#os-neutral-implementation RunCheck selects process-owned standard writers and preserves the native project-loading and optional emit boundary of RunCheckWithIO. The wrapper constructs no path or shell text; its delegated command owns actual cwd/config/source representations and filesystem capabilities.
+// @evidence contracts/performance.md#efficient-algorithms Stream selection adds fixed wrapper work to the complete RunCheckWithIO operation. Total cost still includes its flags/config/Program/diagnostic and policy-permitted emit workload; delegation does not make the command constant-cost or omit temporary project storage.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This wrapper owns only stream defaults and delegates to RunCheckWithIO, whose shared Program and config/resident reuse premises remain unchanged. It is not an additional cross-request producer or result coordinator.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Standard streams belong to the process and are not closed by the wrapper. RunCheckWithIO and its shared project runner own acquired Program/checker state and delegated evaluator resources, while separate cache owners retain their state; this stream adapter controls no independent retained population.
 func RunCheck(args []string) int {
   return RunCheckWithIO(args, os.Stdout, os.Stderr)
 }
@@ -69,17 +69,17 @@ func RunCheckWithIO(args []string, stdout, stderr io.Writer) int {
   return runProject(opts)
 }
 
-// RunBuild implements `@ttsc/lint build` — same diagnostic flow as
+// RunBuild implements `@ttsc/lint build`: same diagnostic flow as
 // `check`, plus the tsgo emit pipeline when emit is requested.
 //
 // @evidence contracts/common.md#principled-implementation Default process writers delegate to the build entry point that preserves compiler emit configuration.
 // @evidence contracts/common.md#clear-and-simple-design The wrapper adds only process stream selection to shared build behavior.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Emit uses the compiler pipeline rather than rewriting generated output for expected examples.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes build's emission from check's no-emit operation; tags are separated.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation RunBuild only selects the process standard streams and forwards to RunBuildWithIO; it resolves no path and builds no executable or argument list.
-// @evidenceExclude contracts/performance.md#efficient-algorithms RunBuild is one delegating call with no loop.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunBuild keeps no cache and shares no computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunBuild retains nothing; the process owns its standard streams.
+// @evidence contracts/portability.md#os-neutral-implementation RunBuild selects process-owned standard writers and preserves the native project-loading and optional emit boundary of RunBuildWithIO. The wrapper constructs no path or shell text; its delegated command owns actual cwd/config/source representations and filesystem capabilities.
+// @evidence contracts/performance.md#efficient-algorithms Stream selection adds fixed wrapper work to the complete RunBuildWithIO operation. Total cost still includes its flags/config/Program/diagnostic and policy-permitted emit workload; delegation does not make the command constant-cost or omit temporary project storage.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This wrapper owns only stream defaults and delegates to RunBuildWithIO, whose shared Program and config/resident reuse premises remain unchanged. It is not an additional cross-request producer or result coordinator.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Standard streams belong to the process and are not closed by the wrapper. RunBuildWithIO and its shared project runner own acquired Program/checker state and delegated evaluator resources, while separate cache owners retain their state; this stream adapter controls no independent retained population.
 func RunBuild(args []string) int {
   return RunBuildWithIO(args, os.Stdout, os.Stderr)
 }
