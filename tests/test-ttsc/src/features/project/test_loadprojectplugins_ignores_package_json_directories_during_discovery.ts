@@ -1,6 +1,7 @@
 import { TestProject } from "../../../../utils/src/TestProject";
 
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { loadProjectPlugins } from "../../../../../packages/ttsc/src/plugin/internal/load/loadProjectPlugins";
@@ -8,19 +9,20 @@ import { loadProjectPlugins } from "../../../../../packages/ttsc/src/plugin/inte
 /**
  * Verifies package auto-discovery treats only regular manifests as boundaries.
  *
- * Node ignores a directory named `package.json` and continues to the nearest
- * ancestor file. The loader must make the same selection and retain the nearer
+ * Package discovery continues past a directory named `package.json` to the nearest
+ * ancestor file. The loader must retain the nearer
  * directory candidate, because replacing it with a file changes discovery.
  *
  * 1. Create a project whose package.json is a directory below a workspace that
  *    holds a real manifest.
  * 2. Load the project plugins from its tsconfig.
  * 3. Require no native plugins, both candidates among the host inputs and content
- *    hashes only as strings for the real manifest and the directory marker.
+ *    hashes matching the authored manifest bytes and directory marker.
+ * 4. Replace the nearer directory with a manifest and require discovery to stop there.
  *
- * @evidence contracts/testing.md#behavioral-verification Discovery reports no plugins and records both the nearer directory candidate and ancestor manifest with fingerprints.
- * @evidence contracts/testing.md#independent-expectations Node treats a directory named package.json as a candidate rather than a package boundary; the authored ancestor is the actual manifest.
- * @evidence contracts/testing.md#distinguishing-cases A directory named package.json nearer to the project than a real ancestor manifest must be recorded as a host input, as must the ancestor file, each with a string content fingerprint, and the load must yield no native plugins; the test does not assert which of the two manifests discovery parsed, and no case has a regular file at the nearer position.
+ * @evidence contracts/testing.md#behavioral-verification Discovery reports no plugins and records the nearer directory plus ancestor manifest with exact fingerprints; replacing the directory with a regular manifest removes the unconsulted ancestor from host inputs and proofs.
+ * @evidence contracts/testing.md#independent-expectations Manifest boundaries require regular files. Independent SHA-256 over authored bytes and the declared directory domain marker constrain the proofs, while the nearer regular file must stop the candidate search before the ancestor.
+ * @evidence contracts/testing.md#distinguishing-cases The same selected project first has a nearer directory and then a nearer regular manifest. Both loads have no plugins; exact hashes distinguish directory kind from file bytes, and ancestor inclusion versus absence distinguishes discovery's stopping boundary.
  * @evidence contracts/testing.md#execution-ownership This source unit calls loadProjectPlugins directly on a workspace whose nearer package.json is a directory, before any descriptor evaluation or native build; it asserts no plugins, both recorded host inputs and their fingerprints.
  */
 export const test_loadprojectplugins_ignores_package_json_directories_during_discovery =
@@ -32,11 +34,8 @@ export const test_loadprojectplugins_ignores_package_json_directories_during_dis
     const projectManifest = path.join(project, "package.json");
     const workspaceManifest = path.join(workspace, "package.json");
     fs.mkdirSync(projectManifest, { recursive: true });
-    fs.writeFileSync(
-      workspaceManifest,
-      JSON.stringify({ name: "workspace", private: true }),
-      "utf8",
-    );
+    const workspaceBytes = JSON.stringify({ name: "workspace", private: true });
+    fs.writeFileSync(workspaceManifest, workspaceBytes, "utf8");
     const tsconfig = path.join(project, "tsconfig.json");
     fs.writeFileSync(
       tsconfig,
@@ -49,6 +48,17 @@ export const test_loadprojectplugins_ignores_package_json_directories_during_dis
     assert.deepEqual(loaded.nativePlugins, []);
     assert.ok(loaded.hostInputs.includes(projectManifest));
     assert.ok(loaded.hostInputs.includes(workspaceManifest));
-    assert.equal(typeof loaded.hostInputHashes[projectManifest], "string");
-    assert.equal(typeof loaded.hostInputHashes[workspaceManifest], "string");
+    const digest = (bytes: string): string => crypto.createHash("sha256").update(bytes).digest("hex");
+    assert.equal(loaded.hostInputHashes[projectManifest], digest("ttsc:host-input:directory\0"));
+    assert.equal(loaded.hostInputHashes[workspaceManifest], digest(workspaceBytes));
+    fs.rmdirSync(projectManifest);
+    const projectBytes = JSON.stringify({ name: "project", private: true });
+    fs.writeFileSync(projectManifest, projectBytes, "utf8");
+    const local = loadProjectPlugins({ binary: "", tsconfig });
+    assert.deepEqual(local.nativePlugins, []);
+    assert.ok(local.hostInputs.includes(projectManifest));
+    assert.equal(local.hostInputHashes[projectManifest], digest(projectBytes));
+    assert.equal(local.hostInputs.includes(workspaceManifest), false);
+    assert.equal(Object.hasOwn(local.hostInputHashes, workspaceManifest), false);
+    assert.equal(Object.hasOwn(local.hostInputRealpaths, workspaceManifest), false);
   };
