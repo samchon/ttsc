@@ -425,8 +425,32 @@ func (noIrregularWhitespace) Check(ctx *Context, node *shimast.Node) {
     return
   }
   text := ctx.File.Text()
+  // Irregular whitespace inside a string literal is allowed, as in ESLint's
+  // default `skipStrings`. The string spans are collected lazily, only once an
+  // irregular character has actually been seen.
+  var stringSpans [][2]int
+  collected := false
+  inString := func(offset int) bool {
+    if !collected {
+      collected = true
+      walkDescendants(node, func(child *shimast.Node) {
+        if child != nil && child.Kind == shimast.KindStringLiteral {
+          start, end := tokenRange(ctx.File, child)
+          if start >= 0 && end > start {
+            stringSpans = append(stringSpans, [2]int{start, end})
+          }
+        }
+      })
+    }
+    for _, span := range stringSpans {
+      if offset >= span[0] && offset < span[1] {
+        return true
+      }
+    }
+    return false
+  }
   for i, r := range text {
-    if isIrregularWhitespace(r) {
+    if isIrregularWhitespace(r) && !inString(i) {
       ctx.ReportRange(i, i+len(string(r)), "Irregular whitespace not allowed.")
     }
   }
@@ -439,7 +463,7 @@ func (noIrregularWhitespace) Check(ctx *Context, node *shimast.Node) {
 func isIrregularWhitespace(r rune) bool {
   switch r {
   case '\v', '\f',
-    0x00A0, 0x1680,
+    0x0085, 0x00A0, 0x1680, 0x180E,
     0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005,
     0x2006, 0x2007, 0x2008, 0x2009, 0x200A,
     0x200B, 0x202F, 0x205F,
