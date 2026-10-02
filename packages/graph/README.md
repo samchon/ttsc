@@ -73,7 +73,7 @@ The interactive charts, every model, and the method are on the benchmark page: h
  * signatures, decorators, tests, spans, and anchors.
  *
  * Declaration facts come from the compiler for the synchronized snapshot.
- * The server derives file containers, containment, property kinds and dispatch
+ * The server derives file containers, containment, property kinds, path-convention test roles and dispatch
  * hops; lint plugins supply artifact facts. The result's audit distinguishes
  * these producers, so trust compiler facts without re-checking against files.
  */
@@ -154,7 +154,7 @@ export namespace ITtscGraphApplication {
     /**
      * The provenance and coverage of the returned projection. Compiler facts
      * belong to the synchronized program; file containers, containment,
-     * property kinds and dispatch hops are server-derived structure. Artifact
+     * property kinds, path-convention test roles and dispatch hops are server-derived structure. Artifact
      * facts come from the publishing lint plugin. This text reports those
      * origins without claiming a second compiler verification pass.
      *
@@ -192,7 +192,7 @@ The review is allowed to overturn the draft, and that matters more than the plan
 
 Nothing is forbidden. The tool description says when the graph applies and when to stop. Grep and file reads stay available, and the agent still uses them when they are the right move.
 
-What keeps the agent on the graph is precision. Declaration facts come from the TypeScript compiler for the synchronized snapshot. The server derives file containers, containment, property kinds and dispatch hops from those facts; lint plugins publish document, data-model and API-operation facts. The result's `audit` identifies these origins and distinguishes ranked selection from compiler resolution. No file body is included.
+What keeps the agent on the graph is precision. Declaration facts come from the TypeScript compiler for the synchronized snapshot. The server derives file containers, containment, property kinds, path-convention test roles and dispatch hops from those facts; lint plugins publish document, data-model and API-operation facts. The result's `audit` identifies these origins and distinguishes ranked selection from compiler resolution. No file body is included.
 
 Declaration signatures come from the native compiler's declaration heads. When a producer omits a head, the response omits `signature` instead of guessing from a source line that may contain an implementation body. Consumers can use the returned source span when they need the missing text.
 

@@ -244,7 +244,7 @@ export namespace ITtscGraphTrace {
     /** The node's signature, carried on path nodes so the path explains itself. */
     signature?: string;
 
-    /** Why this node matters to an impact trace: `exported`, `test`. */
+    /** Why this node matters to an impact trace: `exported` (a compiler fact) or `test` (assigned by the server from a conventional test path, not by the compiler). */
     roles?: string[];
   }
 }

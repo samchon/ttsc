@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import { TtscGraphApplication } from "../../../../packages/graph/src/TtscGraphApplication";
+import type { ITtscGraphDump } from "../../../../packages/graph/src/structures/ITtscGraphDump";
 import { createSyntheticGraph, type ResolverGraphNode } from "../internal/resolverGraph";
 
 const nodes = (implementations: number): ResolverGraphNode[] => [
@@ -9,7 +10,7 @@ const nodes = (implementations: number): ResolverGraphNode[] => [
   { id: "src/hub.ts#Runner.run:method", kind: "method", name: "run", qualifiedName: "Runner.run", file: "src/hub.ts", external: false },
   ...Array.from({ length: implementations }, (_, index) => ({
     id: `src/hub.ts#Impl${index}.execute:method`,
-    kind: "method",
+    kind: "method" as const,
     name: "execute",
     qualifiedName: `Impl${index}.execute`,
     file: "src/hub.ts",
@@ -19,13 +20,12 @@ const nodes = (implementations: number): ResolverGraphNode[] => [
 
 // The producer records an implementation's member as overriding the base member,
 // and the bodyless base is what makes the walk dispatch into its implementations.
-const edges = (implementations: number) => [
-  { from: "src/hub.ts#Hub:interface", to: "src/hub.ts#Hub.execute:method", kind: "contains" },
+const edges = (implementations: number): ITtscGraphDump.IEdge[] => [
   { from: "src/hub.ts#Runner.run:method", to: "src/hub.ts#Hub.execute:method", kind: "calls" },
   ...Array.from({ length: implementations }, (_, index) => ({
     from: `src/hub.ts#Impl${index}.execute:method`,
     to: "src/hub.ts#Hub.execute:method",
-    kind: "overrides",
+    kind: "overrides" as const,
   })),
 ];
 

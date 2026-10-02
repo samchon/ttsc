@@ -6,8 +6,9 @@ import { TTSC_GRAPH_ARTIFACT_NODE_KINDS } from "../structures/TtscGraphArtifactN
  * The graph holds two kinds of fact that no compiler pass resolved, and an audit
  * that called every fact compiler-resolved claimed more than this layer checked.
  * The memory layer derives structure from compiler-owned declarations: `file`
- * containers, `contains` ownership, a class member's `property` kind, and, in a
- * trace, `dispatches` hops built from `overrides` and `implements`. And an
+ * containers, `contains` ownership, a class member's `property` kind, a `test`
+ * role or `tests` anchor chosen by path convention, and, in a trace,
+ * `dispatches` hops built from `overrides` and `implements`. And an
  * artifact node is published by a lint plugin that parsed a document, a data
  * model, or an API description in a process of its own, which is exactly what
  * the dump's `artifactProducer` records. The text names both, and lists the
@@ -16,7 +17,8 @@ import { TTSC_GRAPH_ARTIFACT_NODE_KINDS } from "../structures/TtscGraphArtifactN
  */
 const NOT_COMPILER_RESOLVED: string = [
   "The server adds only structure derived from those facts: `file` nodes, `contains` ownership,",
-  "`dispatches` hops, and a class member's `property` kind. A node whose kind is one of",
+  "`dispatches` hops, a class member's `property` kind, and the `test` role and `tests` anchors,",
+  "which it assigns from a file's conventional test location rather than from the compiler. A node whose kind is one of",
   TTSC_GRAPH_ARTIFACT_NODE_KINDS.map((kind) => `\`${kind}\``).join(", ") + " is not",
   "the compiler's: a lint plugin parsed that artifact in its own process, and the graph returns its",
   "address, kind, name, and line as that plugin reported them. Nothing else is the server's own,",

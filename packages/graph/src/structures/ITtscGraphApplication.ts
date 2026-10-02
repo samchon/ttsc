@@ -18,7 +18,7 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * signatures, decorators, tests, spans, and anchors.
  *
  * Declaration facts come from the compiler for the synchronized snapshot.
- * The server derives file containers, containment, property kinds and dispatch
+ * The server derives file containers, containment, property kinds, path-convention test roles and dispatch
  * hops; lint plugins supply artifact facts. The result's audit distinguishes
  * these producers. Trust compiler facts without re-checking against files.
  * Where an operation ranks a shortlist against your question (`lookup`,
@@ -200,7 +200,7 @@ export namespace ITtscGraphApplication {
     /**
      * The provenance and coverage of the returned projection. Compiler facts
      * belong to the synchronized program; file containers, containment,
-     * property kinds and dispatch hops are server-derived structure. Artifact
+     * property kinds, path-convention test roles and dispatch hops are server-derived structure. Artifact
      * facts come from the publishing lint plugin. This text reports those
      * origins without claiming a second compiler verification pass.
      *
