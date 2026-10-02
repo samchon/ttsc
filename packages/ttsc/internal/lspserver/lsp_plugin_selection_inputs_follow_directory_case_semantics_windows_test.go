@@ -12,11 +12,10 @@ import (
 // selection hears a new source file that differs from a recorded one only by
 // case, where the directory keeps the two apart.
 //
-// The host decided whether a listed source file was recorded by folding case
-// on every Windows and macOS directory. A Windows directory opted into case
-// sensitivity holds Foo.go and foo.go as two files, so a new foo.go was taken
-// for the recorded Foo.go and the session kept its old plugin binary
-// (samchon/ttsc#1532). The directory's own case semantics now decide.
+// Folding case on every Windows and macOS directory would be wrong: a Windows
+// directory opted into case sensitivity holds Foo.go and foo.go as two files, so
+// a new foo.go would be taken for the recorded Foo.go and the session would keep
+// its old plugin binary. The directory's own case semantics decide.
 //
 //  1. Record Foo.go as the only source of a case-sensitive directory, and assert
 //     the selection is current.

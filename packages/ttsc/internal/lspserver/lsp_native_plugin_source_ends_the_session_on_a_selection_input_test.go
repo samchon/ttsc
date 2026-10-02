@@ -18,8 +18,7 @@ import (
 //
 // The launcher hands the native host the files the descriptors' load read or
 // probed and each plugin's Go sources, both by directory with the digest of
-// every file, and the build's rule for residue and passed-over directories
-// (samchon/ttsc#1507). They join the session's project inputs for its whole
+// every file, and the build's rule for residue and passed-over directories. They join the session's project inputs for its whole
 // life, so the proxy's reload path, its watcher registration, and its
 // registration-time recheck all cover them.
 //

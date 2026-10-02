@@ -5,14 +5,12 @@ import (
   "testing"
 )
 
-// TestLSPHintsRefreshReplacesTheSessionSnapshot pins the lifecycle the corpus
-// channel shipped without.
+// TestLSPHintsRefreshReplacesTheSessionSnapshot pins the corpus lifecycle.
 //
-// The first release fetched the corpus once, in a goroutine started by
-// NewNativePluginSource, and every later read was that same slice. A rule
-// enabled after startup, or a contributor index rebuilt from a saved document,
-// could not reach the editor without restarting the language server — which is
-// precisely when a project-derived corpus is most wrong. Each stage below is a
+// A corpus fetched once at startup and served as the same slice forever cannot
+// reflect a rule enabled after startup, or a contributor index rebuilt from a
+// saved document, without restarting the language server — which is precisely
+// when a project-derived corpus is most wrong. Each stage below is a
 // state the proxy must serve correctly, including the two that are easy to get
 // backwards: a corpus that shrinks must shrink, and one that never arrived must
 // stay silent rather than fail open.

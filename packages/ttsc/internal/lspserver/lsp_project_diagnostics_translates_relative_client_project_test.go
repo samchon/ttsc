@@ -13,9 +13,9 @@ import (
 // project relative to the working directory it also passed is the ordinary
 // spelling, and every ttsc CLI accepts it. The translator, however, needs an
 // absolute path both to compare against the producer's URI and to build a URI
-// from, so a relative spelling used to end the translation and let the sidecar's
-// own spelling reach the editor unchanged — the precise failure this whole
-// translation exists to prevent, surviving in the common case.
+// from, so a relative spelling must not end the translation and let the
+// sidecar's own spelling reach the editor unchanged — the precise failure this
+// whole translation exists to prevent.
 //
 // A client that named no directory either is not a case to decline: this host
 // was started from that directory and inherited it, so its own working
@@ -23,7 +23,7 @@ import (
 //
 //  1. Resolve a relative project against the directory the client named.
 //  2. Resolve one against the directory the host inherited.
-//  3. Leave an absolute one exactly as the previous behavior did.
+//  3. Translate an absolute one the same way.
 func TestLSPProjectDiagnosticsTranslatesRelativeClientProject(t *testing.T) {
   root := t.TempDir()
   if err := os.WriteFile(
@@ -78,7 +78,7 @@ func TestLSPProjectDiagnosticsTranslatesRelativeClientProject(t *testing.T) {
     clientTsconfig: filepath.Join(root, "tsconfig.json"),
   }
   if got := absolute.clientProjectURI(named); got != expected {
-    t.Fatalf("absolute project no longer translated: got %q, want %q", got, expected)
+    t.Fatalf("absolute project not translated: got %q, want %q", got, expected)
   }
 
   // Nothing to translate to, so the producer keeps its own spelling rather than

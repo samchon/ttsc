@@ -15,7 +15,7 @@ import (
 //
 // `lsp-serve` and its accepted request verbs can ship at different times. Once
 // a resident answers another verb, rejecting `lsp-project-diagnostics` is not a
-// transport failure and used to suppress the working one-shot command.
+// transport failure and must not suppress the working one-shot command.
 //
 //  1. Build a sidecar whose daemon rejects only project diagnostics.
 //  2. Advertise the direct project-diagnostic capability.

@@ -5,11 +5,10 @@ import "testing"
 // TestLSPIndexByteFromBoundsItsSearchStart verifies the line scanner behind
 // offsetForPosition answers identically at and past the edges of the buffer.
 //
-// The hand-rolled loop this replaced started at `from` and compared `from <
-// len(text)` on every step, so an out-of-range start simply fell out of the
-// loop. Slicing before delegating to strings.IndexByte would panic on the same
-// input, and the position path reaches it for a cursor on the last line of a
-// buffer that has no trailing newline.
+// An out-of-range start must simply find nothing. Slicing before delegating to
+// strings.IndexByte would panic on the same input, and the position path
+// reaches it for a cursor on the last line of a buffer that has no trailing
+// newline.
 //
 //  1. Search from inside, at, and past the end of a buffer.
 //  2. Search from a negative start.

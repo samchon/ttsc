@@ -72,8 +72,8 @@ func didOpenEnvelope(uri string, text string) Envelope {
 // opening a dirty buffer still refreshes neither.
 //
 // The resident lint Program and the graph symbol provider stay warm for the
-// whole editor session, and before this only didSave refreshed them. A document
-// closed across a branch switch, a `git pull`, or an edit from a second editor
+// whole editor session, and a save is not the only moment their input can have
+// moved. A document closed across a branch switch, a `git pull`, or an edit from a second editor
 // therefore came back with diagnostics computed over the pre-change AST and
 // published against the new buffer. Equality with today's disk is not evidence
 // that the warm Program was built from today's disk, so the clean branch is

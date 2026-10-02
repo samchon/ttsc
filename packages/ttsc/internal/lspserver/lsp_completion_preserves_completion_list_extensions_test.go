@@ -14,7 +14,10 @@ import (
 //
 //  1. Build an upstream CompletionList with itemDefaults, applyKind, and a future field.
 //  2. Merge one plugin completion.
-//  3. Assert every upstream list field and both items survive.
+//  3. Assert itemDefaults, the future field, and isIncomplete survive verbatim,
+//     the upstream item receives the defaults it relied on, and applyKind is
+//     rewritten to replace (1) because those defaults are now materialized into
+//     each item and must not merge a second time.
 func TestLSPCompletionPreservesCompletionListExtensions(t *testing.T) {
   body := []byte(`{
     "jsonrpc":"2.0",

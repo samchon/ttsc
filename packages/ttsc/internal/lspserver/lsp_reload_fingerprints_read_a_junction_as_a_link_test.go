@@ -15,11 +15,11 @@ import (
 // fingerprints a Windows junction the way the launcher does.
 //
 // The launcher's Node reads a junction as a symbolic link with its target, and
-// Go reports it as an irregular entry, so the host hashed an exact input that
-// was a junction, and a reload directory holding one, as `other`. The digests
-// the launcher recorded then never matched: pnpm links a package into
-// node_modules as a junction on Windows, and a plugin selection loaded through
-// one refused every session as changed during startup (samchon/ttsc#1507).
+// Go reports it as an irregular entry, so hashing it as `other` would make an
+// exact input that is a junction, and a reload directory holding one, never match
+// the digests the launcher recorded: pnpm links a package into node_modules as a
+// junction on Windows, and a plugin selection loaded through one would refuse
+// every session as changed during startup.
 //
 //  1. Create a junction to a directory, inside a directory, on Windows.
 //  2. Assert the exact-file fingerprint is the protocol's symlink record: the

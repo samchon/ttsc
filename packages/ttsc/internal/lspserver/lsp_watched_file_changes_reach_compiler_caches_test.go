@@ -46,8 +46,8 @@ func watchedFilesEnvelope(t *testing.T, params string) Envelope {
 //
 // The repository's VS Code client watches `**/{tsconfig,jsconfig}*.json`, which
 // its documentSelector excludes, so a config edit can reach ttsc through no other
-// notification; before this the proxy had no arm for the method at all and the
-// sidecar's documented full-reload fallback was unreachable. A created or deleted
+// notification, and the proxy must act on this method for the sidecar's
+// documented full-reload fallback to be reachable. A created or deleted
 // file and a config edit each reshape the root set or the compiler options, which
 // tsgo's per-file UpdateProgram cannot express, so they must drop the warm
 // Program rather than update it.
