@@ -257,7 +257,7 @@ function event(
   const record = {
     schema: 1, event: kind, writerPid: process.pid, instance,
     sequence: ++sequence, at: new Date().toISOString(),
-    invocation: token.invocation, pid, argv: token.argv, cwd: token.cwd,
+    invocation: `${instance}:${token.invocation}`, pid, argv: token.argv, cwd: token.cwd,
     startLowerBound: token.lower, startUpperBound: upper,
     data: { writerRuntime: process.version, ...data },
   };
@@ -304,7 +304,7 @@ function integrity(token: E2ETrace.Token, reason: string): void {
     const encoded = Buffer.from("\n" + JSON.stringify({
       schema: 1, event: "integrity-failure", writerPid: process.pid,
       instance, sequence: ++sequence, at: new Date().toISOString(),
-      invocation: token.invocation, pid: null, argv: [], cwd: null,
+      invocation: `${instance}:${token.invocation}`, pid: null, argv: [], cwd: null,
       data: { outcome: reason, writerRuntime: process.version },
     }) + "\n");
     if (bytes + encoded.length <= WRITER_LIMIT) append(encoded);

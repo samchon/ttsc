@@ -13,6 +13,7 @@ import (
   "os/exec"
   "path/filepath"
   "runtime"
+  "strings"
   "sync"
   "syscall"
   "time"
@@ -218,7 +219,8 @@ func writeEvent(event, invocation string, pid int, argv []string, cwd string, da
   record := map[string]any{
     "schema": 1, "event": event, "writerPid": os.Getpid(), "instance": writer.instance,
     "sequence": writer.sequence, "at": time.Now().UTC().Format(time.RFC3339Nano),
-    "invocation": invocation, "pid": pid, "argv": argv, "cwd": cwd, "data": data,
+    "invocation": writer.instance + ":" + invocation[strings.LastIndexByte(invocation, '-')+1:],
+    "pid": pid, "argv": argv, "cwd": cwd, "data": data,
   }
   if lower, ok := data["startLowerBound"]; ok {
     record["startLowerBound"] = lower
