@@ -233,28 +233,55 @@ func writeEvent(event, invocation string, pid int, argv []string, cwd string, da
   if writer.bytes+int64(len(line)) > writerBudget-failureReserve {
     writer.failed = true
     record["event"] = "integrity-failure"
+    record["at"] = time.Now().UTC().Format(time.RFC3339Nano)
     record["data"] = map[string]any{"outcome": "writer-budget-exceeded"}
     record["argv"] = nil
     record["cwd"] = ""
     if failure, err := json.Marshal(record); err == nil {
-      appendLine(append(failure, '\n'))
+      _ = appendLine(append(failure, '\n'))
     }
     return
   }
-  appendLine(line)
+  before := writer.bytes
+  if err := appendLine(line); err != nil {
+    writer.failed = true
+    writer.sequence++
+    record["sequence"] = writer.sequence
+    record["event"] = "integrity-failure"
+    record["at"] = time.Now().UTC().Format(time.RFC3339Nano)
+    record["data"] = map[string]any{"outcome": "sink-io-failed"}
+    record["argv"] = nil
+    record["cwd"] = ""
+    if failure, marshalErr := json.Marshal(record); marshalErr == nil {
+      failure = append(failure, '\n')
+      if writer.bytes > before && writer.bytes < before+int64(len(line)) {
+        // Keep the failed partial line invalid, but delimit the failure event.
+        failure = append([]byte{'\n'}, failure...)
+      }
+      if writer.bytes+int64(len(failure)) <= writerBudget {
+        _ = appendLine(failure)
+      }
+    }
+  }
 }
 
-func appendLine(line []byte) {
+func appendLine(line []byte) error {
   filename := filepath.Join(writer.root, fmt.Sprintf("%d-%s.jsonl", os.Getpid(), writer.instance))
   file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
   if err != nil {
-    writer.failed = true
-    return
+    return err
   }
   n, writeErr := file.Write(line)
   closeErr := file.Close()
   writer.bytes += int64(n)
-  if writeErr != nil || closeErr != nil || n != len(line) {
-    writer.failed = true
+  if writeErr != nil {
+    return writeErr
   }
+  if closeErr != nil {
+    return closeErr
+  }
+  if n != len(line) {
+    return io.ErrShortWrite
+  }
+  return nil
 }
