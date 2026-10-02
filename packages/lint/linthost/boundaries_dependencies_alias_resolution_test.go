@@ -8,9 +8,9 @@ import "testing"
 // TypeScript `paths` aliases omit the relative prefix used by the filesystem
 // fallback. The checker must resolve ordinary imports, re-exports, and dynamic
 // imports to the same domain source file before element classification. The
-// fixture uses bundler resolution because that is the module mode in which an
-// extensionless alias is legal for every one of those syntaxes; NodeNext
-// rejects it for ESM-mode dynamic imports before lint ever runs.
+// fixture explicitly selects ESNext/Bundler resolution and its paths mapping;
+// this entry observes that configured resolver, not a comparison with another
+// module-resolution mode or a claim about when compiler errors stop lint.
 //
 // 1. Configure an `@domain/*` tsconfig path alias to a domain element.
 // 2. Import, re-export, and dynamically import the aliased module from app.
