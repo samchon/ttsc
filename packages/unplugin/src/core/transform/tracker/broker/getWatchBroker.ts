@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { traceProcessSpawn } from "../../../tracing/traceProcessSpawn";
 
 import { WATCH_BROKER } from "./WATCH_BROKER";
 import type { WatchBroker } from "./WatchBroker";
@@ -55,6 +55,8 @@ import { watchBrokerSource } from "./watchBrokerSource";
  *   vanish into one spawn call. Failure visits R registrations and D drain
  *   callbacks, whose native/reference/sink work remains delegated; it does not
  *   enumerate watched source trees.
+ *   Enabled private tracing serializes the actual executable/source argv and
+ *   lifecycle events; this observation cost follows their text bytes.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   This module copy's eligible registrations share the broker under its runtime/binding
  *   view chosen at startup. Completed error/exit handling clears only that
@@ -76,10 +78,14 @@ export function getWatchBroker(): WatchBroker {
   const fsevents =
     process.platform === "darwin" ? fseventsBindingPath() : undefined;
   if (fsevents === null) warnMissingFseventsBinding();
-  const child = spawn(process.execPath, ["-e", watchBrokerSource(fsevents)], {
-    stdio: ["ignore", "ignore", "ignore", "ipc"],
-    windowsHide: true,
-  });
+  const child = traceProcessSpawn(
+    process.execPath,
+    ["-e", watchBrokerSource(fsevents)],
+    {
+      stdio: ["ignore", "ignore", "ignore", "ipc"],
+      windowsHide: true,
+    },
+  );
   const broker: WatchBroker = {
     child,
     drains: new Map(),

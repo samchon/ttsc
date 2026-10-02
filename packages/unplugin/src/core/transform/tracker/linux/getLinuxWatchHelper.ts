@@ -1,7 +1,7 @@
-import { spawn } from "node:child_process";
 import readline from "node:readline";
 import { resolveBinary } from "ttsc/binary";
 
+import { traceProcessSpawn } from "../../../tracing/traceProcessSpawn";
 import { LINUX_WATCH_HELPER } from "./LINUX_WATCH_HELPER";
 import type { LinuxWatchHelper } from "./LinuxWatchHelper";
 import { routeLinuxWatchHelperLine } from "./routeLinuxWatchHelperLine";
@@ -42,6 +42,8 @@ import { routeLinuxWatchHelperLine } from "./routeLinuxWatchHelperLine";
  *   Failure snapshots live subscriptions and syncs once, O(S + D) references
  *   plus their delegated callbacks. Decoding later stdout lines follows their
  *   text and routed subscriber populations rather than project file count.
+ *   Enabled private tracing additionally serializes actual argv/lifecycle
+ *   observations and appends their bytes under its writer budget.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   All directory subscriptions share one live helper. Failure clears only that
  *   instance; refused binary paths prevent repeating equivalent unsupported starts.
@@ -62,7 +64,7 @@ export function getLinuxWatchHelper(): LinuxWatchHelper | undefined {
   }
   let child;
   try {
-    child = spawn(binary, ["__watch"], {
+    child = traceProcessSpawn(binary, ["__watch"], {
       stdio: ["pipe", "pipe", "ignore"],
       windowsHide: true,
     });

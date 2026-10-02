@@ -1,5 +1,5 @@
 import path from "node:path";
-import { TtscCompiler } from "ttsc";
+import { type ITtscCompilerTransformation, TtscCompiler } from "ttsc";
 import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
 
 import type { ResolvedTtscUnpluginOptions } from "../../options/ResolvedTtscUnpluginOptions";
@@ -7,6 +7,7 @@ import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMe
 import { mergeMembershipPolicyOverlay } from "../../tsconfig/mergeMembershipPolicyOverlay";
 import { policyUsesCaseSensitiveFileNames } from "../../tsconfig/policyUsesCaseSensitiveFileNames";
 import { readTsconfigSourceSnapshot } from "../../tsconfig/readTsconfigSourceSnapshot";
+import { traceInvocation } from "../../tracing/traceInvocation";
 import { TRANSFORM_RESULT_FILESYSTEM } from "../cache/TRANSFORM_RESULT_FILESYSTEM";
 import { TRANSFORM_RESULT_MEMBERSHIP } from "../cache/TRANSFORM_RESULT_MEMBERSHIP";
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
@@ -91,6 +92,8 @@ const TTSC_SEMANTIC_CONFIG_PATH = "TTSC_SEMANTIC_CONFIG_PATH";
  *   context/output transfer and session serialization retain payload costs.
  *   Both snapshots, proof maps, unions and enumerated-directory set are
  *   population-sized, independent of the eight retained diagnostic witnesses.
+ *   Enabled private tracing appends actual adoption/invocation/outcome fields;
+ *   it does not turn one host request into an inferred native child count.
  * @evidence contracts/performance.md#reuse-equivalent-work Complete project state and compile identity coordinate session publication, immutable envelope derivation shares selectors, and a reusable generation transfers captured baselines/observers so later module deliveries avoid equivalent whole-project compilation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Snapshot and result storage grow with observed inputs/output bytes; native
@@ -326,23 +329,49 @@ export async function captureTransformGeneration(props: {
     // scratch covers the whole compile while the host's own environment is
     // never touched (samchon/ttsc#1488), and the host keeps serving other work
     // while it runs (samchon/ttsc#1391).
-    const result =
-      adopted?.result ??
-      (await new TtscCompiler({
+    let result: ITtscCompilerTransformation;
+    const compileTrace = traceInvocation();
+    if (adopted !== undefined) {
+      result = adopted.result;
+      compileTrace?.("bridge-cache-hit", {
+        pid: process.pid,
         cwd: projectRoot,
-        // The generated tsconfig (if any) lives outside the project directory,
-        // so declare the real project as the plugin config anchor: utility
-        // plugin config discovery (banner.config.*, strip.config.*,
-        // lint.config.*) and relative configFile resolution walk the project,
-        // never the temp tree. In the passthrough case this equals the
-        // tsconfig's own directory, the default anchor, spelled as the
-        // compiler spells it.
-        pluginConfigDir: compilerProject.configDir,
-        plugins: props.plugins,
-        projectRoot,
-        tsconfig: configured.path,
-        env: compilerEnvironment,
-      }).transformAsync());
+        data: { operation: "shared-compile-adoption", tsconfig: configured.path },
+      });
+    } else {
+      compileTrace?.("bridge-lookup", {
+        pid: process.pid,
+        cwd: projectRoot,
+        data: { operation: "TtscCompiler.transformAsync", tsconfig: configured.path },
+      });
+      try {
+        result = await new TtscCompiler({
+          cwd: projectRoot,
+          // The generated tsconfig (if any) lives outside the project directory,
+          // so declare the real project as the plugin config anchor: utility
+          // plugin config discovery (banner.config.*, strip.config.*,
+          // lint.config.*) and relative configFile resolution walk the project,
+          // never the temp tree. In the passthrough case this equals the
+          // tsconfig's own directory, the default anchor, spelled as the
+          // compiler spells it.
+          pluginConfigDir: compilerProject.configDir,
+          plugins: props.plugins,
+          projectRoot,
+          tsconfig: configured.path,
+          env: compilerEnvironment,
+        }).transformAsync();
+        compileTrace?.("bridge-result", {
+          pid: process.pid,
+          data: { outcome: "returned", type: result.type },
+        });
+      } catch (error) {
+        compileTrace?.("bridge-result", {
+          pid: process.pid,
+          data: { outcome: "threw", error },
+        });
+        throw error;
+      }
+    }
     TRANSFORM_RESULT_FILESYSTEM.set(result, props.filesystem);
     // Everything after the compile matches under the case policy the compiler
     // reported. A walk before it that primed another policy described another
