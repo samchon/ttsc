@@ -9,13 +9,13 @@ import (
 
 // TestCommandFormatRestoresClassMemberIndentFromFlat verifies the `ttsc
 // format` cascade re-indents class member headers, their bodies, and their
-// closing braces from a fully flattened source. ttsc-only self-check: the
-// canonical string is the answer key (Prettier is not consulted).
+// closing braces from a fully flattened source. The authored string is the
+// independent answer key; Prettier is not consulted.
 //
 // format/indent's statement walk never visits a member declaration header
-// (a method/property is not a statement), so before the member-header pass a
-// flattened class left every `method() {` at column 0 while its body was
-// re-indented — a malformed result the cascade reported as success.
+// (a method/property is not a statement). A formatter that moved only body
+// statements could converge while leaving each method header at column 0;
+// whole-file equality distinguishes that incomplete transformation.
 //
 //  1. Flatten a two-method class canonical to column 0.
 //  2. Run `ttsc format`.

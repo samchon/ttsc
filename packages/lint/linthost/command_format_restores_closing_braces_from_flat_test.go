@@ -10,15 +10,15 @@ import (
 // TestCommandFormatRestoresClosingBracesFromFlat verifies the `ttsc format`
 // cascade re-indents a block's closing `}` lines, not just its statements.
 //
-// This is a ttsc-only self-check: a canonical (ground-truth) source is
+// An independently authored source is
 // mangled by stripping every line's leading whitespace to column 0 — a
 // transform that leaves the AST identical — and `ttsc format` must restore
 // the canonical byte-for-byte. Prettier is intentionally NOT used as the
 // oracle; the canonical string is the answer key.
 //
-// Before the closing-brace pass in format/indent, the statements were
-// re-indented while the `}` lines stayed at column 0, so the cascade
-// reported success (exit 0) on a malformed result.
+// A formatter that moved only statements could converge while leaving the
+// closing braces at column 0. Whole-file equality rejects that incomplete
+// transformation as well as changes to the function, conditions or call.
 //
 //  1. Build a flat (column-0) version of a nested-block canonical.
 //  2. Run `ttsc format`.
