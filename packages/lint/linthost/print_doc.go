@@ -35,13 +35,11 @@ package linthost
 //     group renders flat (Lines collapse to spaces, Softlines to
 //     nothing), otherwise it breaks (Lines and Softlines emit
 //     newline+indent).
-//   - docIndent adds N columns of indentation to every newline emitted
-//     by its child doc. Nesting composes: an Indent inside another
-//     Indent adds the two amounts.
-//   - docAlign is like Indent but the increment is the current output
-//     column rather than a fixed offset. Used to align continuation
-//     lines under an opening token (e.g. inside a call expression's
-//     arguments).
+//   - docIndent adds N columns to child newline indentation; nested increments
+//     compose. Literal lines intentionally skip that indentation.
+//   - docAlign replaces child indentation with the current output column.
+//     It aligns continuation lines under an opening token, except literal
+//     lines that intentionally emit no indentation.
 //   - docIfBreak renders one doc when the surrounding group breaks and
 //     another when it stays flat. The canonical use is a trailing comma
 //     that should appear only in multi-line lists.
