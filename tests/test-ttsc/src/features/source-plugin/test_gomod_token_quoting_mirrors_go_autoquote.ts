@@ -4,24 +4,26 @@ import { autoQuoteGoModToken } from "../../../../../packages/ttsc/src/plugin/int
 import { formatGoWorkPath } from "../../../../../packages/ttsc/src/plugin/internal/source/formatGoWorkPath";
 
 /**
- * Verifies go.work/go.mod token quoting mirrors Go's modfile.AutoQuote.
+ * Verifies Go-style token quoting for the authored go.work/go.mod corpus.
  *
  * `writeGoWork` emits `use`/`replace` paths into a `go.work` whose grammar
  * (`golang.org/x/mod/modfile`) is whitespace-tokenized, so a path containing a
  * space — a home directory like `/Users/John Smith/...` — must be quoted or
  * `go` cannot parse it (#394). `formatGoWorkPath`/`autoQuoteGoModToken`
- * reproduce `modfile.AutoQuote` + `strconv.Quote`: a clean bare token
- * round-trips unchanged, and only a token that would otherwise mis-tokenize is
- * quoted with Go's exact escaping. This pins every branch of that logic.
+ * apply modfile's ASCII delimiter/comment rules and Go escape spellings to the
+ * literal inputs below. JavaScript runtime Unicode categories do not certify
+ * identity with every Go toolchain's Unicode tables, and malformed UTF-16 is
+ * not covered by a Go-decoding round-trip guarantee. This corpus uses valid
+ * Unicode scalars and observes formatter output without running Go.
  *
  * 1. Feed `autoQuoteGoModToken` a table spanning clean tokens, the space case,
- *    every forced-quote trigger, and every escape form.
+ *    authored quote triggers and escape forms.
  * 2. Feed the explicit Windows grammar paths with and without spaces.
  * 3. Contrast POSIX literal backslashes and check the native default grammar.
  * 4. Assert each output equals the literal authored from Go's modfile quoting rules (the Go toolchain is not run).
  *
  * @evidence contracts/testing.md#behavioral-verification Calls authored autoQuoteGoModToken and formatGoWorkPath; literal output assertions detect invalid workspace tokens and incorrect Go escape sequences.
- * @evidence contracts/testing.md#independent-expectations Each expected string is an authored literal following the documented behavior of golang.org/x/mod/modfile AutoQuote and strconv.Quote (which tokens must be quoted, and Go's escape forms); the expectations are not computed by the TypeScript implementation, but the Go toolchain is not executed here, so a mistaken reading of those rules would not be detected.
+ * @evidence contracts/testing.md#independent-expectations Each expected string is an authored literal following the documented delimiter/comment behavior of golang.org/x/mod/modfile AutoQuote and strconv.Quote escape forms for this corpus. Expectations are not computed by the TypeScript implementation, but Go is not executed here, so a mistaken reading is not detected. These inputs do not certify runtime Unicode-table equivalence, arbitrary malformed UTF-16 or actual Go decoding round trips.
  * @evidence contracts/testing.md#distinguishing-cases Covers unquoted clean tokens, empty input, spaces, quotes, comments, Unicode separators and control escapes; explicit Windows grammar owns all original drive/UNC/device expectations, Linux and macOS preserve literal backslashes, and the omitted argument retains the real host default.
  * @evidence contracts/testing.md#execution-ownership A unit test calling autoQuoteGoModToken and formatGoWorkPath directly with strings and declared platform grammars, plus one call with the host default; it does not replace process.platform and does not run Go.
  */
@@ -29,7 +31,8 @@ export function test_gomod_token_quoting_mirrors_go_autoquote() {
   const NBSP = String.fromCodePoint(0x00a0);
   const IDEOGRAPHIC_SPACE = String.fromCodePoint(0x3000);
 
-  // [input, expected] where expected is exactly what modfile.AutoQuote emits.
+  // [input, expected] with independently authored Go-style corpus outputs;
+  // this table does not certify arbitrary Unicode-version or input-domain parity.
   const autoQuoteCases: readonly [string, string][] = [
     // Clean bare tokens: returned unchanged (space-free paths must not churn).
     ["/home/user/plugin", "/home/user/plugin"],
