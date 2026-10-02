@@ -12,19 +12,25 @@ import path from "node:path";
  * pins the helper that walks upward to the owning `tsconfig*.json` without
  * escaping the workspace folder.
  *
- * 1. Create a workspace with a nested package and an active-file directory.
+ * 1. Create a workspace with a nested package and an active-file directory, and
+ *    plant a config in the directory above the workspace folder.
  * 2. Call the authored VS Code resolution helper in the unit process.
  * 3. Assert the candidate keeps `src/` as the module-resolution base but uses the
  *    package root as cwd.
  *
- * @evidence contracts/testing.md#behavioral-verification createResolutionCandidates, given an active file under packages/demo/src and the workspace root, returns a first candidate whose cwd is the nearest configured package; findProjectRoot over an unconfigured subtree with the workspace as boundary returns undefined.
- * @evidence contracts/testing.md#independent-expectations The expected cwd is the authored package directory that holds tsconfig.app.json, the expected resolveFrom is the authored src directory, and the expected result for the unconfigured subtree is the empty string; all are literals from the fixture layout, not outputs of the resolver.
- * @evidence contracts/testing.md#distinguishing-cases A nested package with only a tsconfig.app.json variant (cwd moves up from src to the package, resolveFrom stays src) is contrasted with an unconfigured subtree where findProjectRoot returns undefined. The test plants no config above the workspace, so it does not distinguish an implementation that escapes the workspace boundary from one that stops at it.
- * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls createResolutionCandidates and findProjectRoot over a TestProject.tmpdir tree containing one tsconfig variant file, with no language client or child process.
+ * @evidence contracts/testing.md#behavioral-verification createResolutionCandidates, given an active file under packages/demo/src and the workspace root, returns a first candidate whose cwd is the nearest configured package; findProjectRoot over an unconfigured subtree with the workspace as boundary returns undefined although a tsconfig.json exists in the directory above the workspace.
+ * @evidence contracts/testing.md#independent-expectations The expected cwd is the authored package directory that holds tsconfig.app.json, the expected resolveFrom is the authored src directory, and the expected result for the unconfigured subtree is the empty string even though the authored container above the workspace holds a tsconfig.json; all are literals from the fixture layout, not outputs of the resolver.
+ * @evidence contracts/testing.md#distinguishing-cases A nested package with only a tsconfig.app.json variant (cwd moves up from src to the package, resolveFrom stays src) is contrasted with an unconfigured subtree where findProjectRoot returns undefined. The config planted above the workspace distinguishes an implementation that escapes the workspace boundary from one that stops at it; the unconfigured result is asserted only through findProjectRoot, not through createResolutionCandidates.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls createResolutionCandidates and findProjectRoot over a TestProject.tmpdir tree containing one tsconfig variant file inside the workspace and one tsconfig.json above it, with no language client or child process.
  */
 export function test_vscode_server_resolution_prefers_nearest_project_config() {
   const root = TestProject.WORKSPACE_ROOT;
-  const workspace = TestProject.tmpdir("vscode-server-project-root-");
+  const container = TestProject.tmpdir("vscode-server-project-root-");
+  const workspace = path.join(container, "workspace");
+  fs.mkdirSync(workspace);
+  // A config above the workspace folder is the boundary's counterexample: an
+  // upward walk that ignored the folder would select this one.
+  fs.writeFileSync(path.join(container, "tsconfig.json"), "{}\n");
   const project = path.join(workspace, "packages", "demo");
   const source = path.join(project, "src");
   fs.mkdirSync(source, { recursive: true });

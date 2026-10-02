@@ -16,6 +16,7 @@ import { formatDuration } from "../../../../../packages/ttsc/src/plugin/internal
  *    `Infinity`/`NaN` substring.
  * 3. Assert the finite boundaries (0, sub-second, second, minute, negative) still
  *    render exactly as before.
+ *
  * @evidence contracts/testing.md#behavioral-verification Calls authored formatDuration and asserts literal finite and non-finite diagnostic strings, rejecting Infinity/NaN leakage.
  * @evidence contracts/testing.md#independent-expectations Unknown durations have the documented human-readable phrase; literal millisecond, second and minute expectations follow elapsed-time arithmetic.
  * @evidence contracts/testing.md#distinguishing-cases Covers positive/negative infinity and NaN plus negative, zero, 999ms, 1000ms, 59999ms, 60000ms and a multi-minute remainder.

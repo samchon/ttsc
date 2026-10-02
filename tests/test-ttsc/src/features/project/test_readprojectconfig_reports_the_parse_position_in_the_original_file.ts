@@ -74,8 +74,8 @@ export const test_readprojectconfig_reports_the_parse_position_in_the_original_f
         /must be an object/.test(error.message),
     );
 
-    // Negative twin: the length-preserving rewrite must not change what parses.
-    // Comments, a trailing comma, and a leading BOM together — the shapes the
+    // Negative twin: counting lines in the original text must not change what
+    // parses. Comments, a trailing comma, and a leading BOM together — the shapes the
     // JSONC cases and closed issue #216 pinned.
     fs.writeFileSync(
       file,
