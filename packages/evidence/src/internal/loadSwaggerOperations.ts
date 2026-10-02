@@ -85,8 +85,10 @@ interface IReadSource {
  * normalization problem. Remote content has no local cache digest. The matching
  * configuration guide states scheme case and unsupported file URLs.
  * Local reads use one handle, acquire at most 16MiB of input plus a sentinel
- * byte, and fill bounded chunks across short reads before releasing the handle
- * on every exit. UTF-8 decoding and parsing have their own bounded-input costs;
+ * byte, and fill bounded chunks across short reads. Every acquired-handle path
+ * awaits a close attempt. A rejected close becomes a source problem with no
+ * read digest and may replace an earlier read error; it does not certify
+ * successful resource release. UTF-8 decoding and parsing have their own costs;
  * this byte limit is not a total process-memory quota.
  *
  * @internal

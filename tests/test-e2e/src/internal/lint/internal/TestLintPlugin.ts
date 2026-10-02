@@ -3,12 +3,12 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 /**
- * Resolve `require()` calls from the test-lint package root so that
+ * Resolve `require()` calls from the test-e2e package root so that
  * `REQUIRE_FROM_TEST(DESCRIPTOR_PATH)` picks up the built `lib/index.js` even
  * when the test process CWD is elsewhere.
  */
 const REQUIRE_FROM_TEST = createRequire(
-  path.join(TestProject.WORKSPACE_ROOT, "tests", "test-lint", "package.json"),
+  path.join(TestProject.WORKSPACE_ROOT, "tests", "test-e2e", "package.json"),
 );
 
 /**

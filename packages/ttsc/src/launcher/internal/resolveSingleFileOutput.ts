@@ -1,7 +1,8 @@
 import path from "node:path";
 
 import { readProjectConfig } from "../../compiler/internal/project/readProjectConfig";
-import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
+import { normalizeCompilerEnumValue } from "../../flags/normalizeCompilerEnumValue";
+import { readCompilerOptionValues } from "../../flags/readCompilerOptionValues";
 import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysicalPath";
 
 /**
@@ -11,7 +12,9 @@ import { resolvePhysicalPath } from "../../internal/pathIdentity/resolvePhysical
  * The compiler itself emits into a private temporary directory. The launcher
  * then copies one transformed JavaScript file to this path, so project-mode
  * declaration, map, build-info, outFile, and broad outDir products are not
- * positional outputs.
+ * positional outputs. Forwarded JSX uses native argv frames and CLI enum
+ * normalization; an explicit reset selects the default suffix instead of
+ * reviving the configured JSX.
  *
  * @evidence contracts/common.md#principled-implementation CLI output wins over project output, supported source extensions choose the emitted suffix, and physical root/file relation preserves project layout through links when the file is contained.
  * @evidence contracts/common.md#clear-and-simple-design Output placement delegates project settings and isolates containment, extension and forwarded-option readers; it does not materialize compiler side products.
@@ -27,9 +30,11 @@ export function resolveSingleFileOutput(options: {
   tsconfig?: string;
 }): string {
   const project = readProjectSettings(options);
+  const forwarded = readCompilerOptionValues(options.passthrough).values;
+  const rawJsx = forwarded.has("jsx") ? forwarded.get("jsx") : project?.jsx;
   const extension = singleFileJavaScriptExtension(
     options.file,
-    passthroughStringOption(options.passthrough, "--jsx") ?? project?.jsx,
+    typeof rawJsx === "string" ? rawJsx : undefined,
   );
   const jsBasename =
     path.basename(options.file).replace(/\.(?:[cm]?tsx?|jsx)$/i, "") +
@@ -87,7 +92,7 @@ function readProjectSettings(options: {
     return {
       jsx:
         typeof rawJsx === "string" && rawJsx.length !== 0
-          ? rawJsx.toLowerCase()
+          ? (normalizeCompilerEnumValue(rawJsx, "json") ?? undefined)
           : undefined,
       outDir:
         typeof outDir === "string" && outDir.length !== 0 ? outDir : undefined,
@@ -121,27 +126,4 @@ function singleFileJavaScriptExtension(
     default:
       return ".js";
   }
-}
-
-function passthroughStringOption(
-  tokens: readonly string[] | undefined,
-  name: string,
-): string | undefined {
-  let value: string | undefined;
-  for (let index = 0; index < (tokens?.length ?? 0); index++) {
-    const token = tokens?.[index];
-    if (
-      token === undefined ||
-      token.includes("=") ||
-      resolveFlagSpec(token)?.name !== resolveFlagSpec(name)?.name
-    ) {
-      continue;
-    }
-    const next = tokens?.[index + 1];
-    if (next !== undefined) {
-      value = next.toLowerCase();
-      index++;
-    }
-  }
-  return value;
 }

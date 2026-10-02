@@ -10,22 +10,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverEmitRawWriteCallbackSurvivesManyParallelEmitIterations brute-forces
-// EmitAllRaw's WriteFile-callback serialization across many emit iterations.
+// TestDriverEmitRawWriteCallbackSurvivesManyParallelEmitIterations Verifies that EmitAllRaw records 24 outputs exactly once across each of 200 emissions.
 //
-// A data race is probabilistic: TypeScript-Go's parallel emitter (one goroutine
-// per source file, PR #112) only sometimes interleaves two callback invocations
-// closely enough for `go test -race` to catch an unguarded map access. The
-// single-pass regression test (emit_raw_serializes_write_callback_under_parallel_emit)
-// pins the bug but a lucky scheduling could let a reverted mutex slip through.
-// This case re-emits the same program many times, each pass over a wide fan-out
-// of sources and each mutating a fresh bare map from inside the callback, so a
-// removed mutex (issue #115) loses the scheduling lottery on essentially every
-// run rather than 1-in-N.
+// Repeated wide emission exposes callback overlap; detecting a data race still requires -race and suitable scheduling.
 //
 // 1. Load one wide multi-file project so each emit fans out many emitters.
 // 2. Re-run EmitAllRaw many times, each with its own unguarded shared map.
 // 3. Assert every iteration records exactly one write per source, no losses.
+//
+// @evidence contracts/testing.md#behavioral-verification EmitAllRaw records 24 outputs exactly once across each of 200 emissions.
+// @evidence contracts/testing.md#independent-expectations The 24 authored source names and one-output-per-source contract define the counts.
+// @evidence contracts/testing.md#distinguishing-cases Repeated wide emission exposes callback overlap; detecting a data race still requires -race and suitable scheduling.
+// @evidence contracts/testing.md#execution-ownership One loaded Program serves all 200 raw emissions and is closed afterward. Go discovers TestDriverEmitRawWriteCallbackSurvivesManyParallelEmitIterations under ./test/driver.
 func TestDriverEmitRawWriteCallbackSurvivesManyParallelEmitIterations(t *testing.T) {
   root := t.TempDir()
 

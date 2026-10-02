@@ -61,6 +61,10 @@ func rewriteStringLiterals(node *shimast.Node, from, to string) {
 //     transform (numeric 0 -> 100).
 //  3. Assert the emitted JS carries BOTH the host transform's rewrite and the
 //     linked plugin's rewrite.
+// @evidence contracts/testing.md#behavioral-verification Calls actual host-owned transform emission with a registered linked ProgramPlugin; output must contain linked-applied and host numeric replacement 100.
+// @evidence contracts/testing.md#independent-expectations Authored string and numeric replacement literals independently prove both plugin phases ran; no expected output is printed by another compiler.
+// @evidence contracts/testing.md#distinguishing-cases ProgramPlugin mutation and host emit transformation coexist in one source, detecting omission of either phase.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit runs actual in-process registered hooks and compiler with test-scoped manifest, private Program and captured writes and deferred close.
 func TestEmitWithPluginTransformersAppliesLinkedProgramPlugins(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"rewrite","stage":"transform","config":{}}]`)
@@ -104,10 +108,20 @@ func TestEmitWithPluginTransformersAppliesLinkedProgramPlugins(t *testing.T) {
   }
 }
 
-// TestEmitWithPluginTransformersWithoutManifestLeavesLinkedHooksIdle is the
-// negative companion: a registered plugin with NO manifest entry must not run.
-// The manifest, not registration alone, gates linked hook execution — without
-// this guard the fix above could regress into always-on registry side effects.
+// TestEmitWithPluginTransformersWithoutManifestLeavesLinkedHooksIdle Verifies registered
+// linked hooks remain pending and idle without a matching manifest entry.
+//
+// Linked registration alone does not authorize a project hook; the matching manifest entry
+// gates application. The original pending string and absent applied string distinguish
+// idle registration from an emitter that runs every registered plugin.
+//
+// 1. Register the fixture plugin while loading a project without a plugin manifest.
+// 2. Emit and require the pending string while rejecting the plugin-applied string.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls actual plugin-transform emission with a registered plugin but no manifest and requires pending string retained with applied string absent.
+// @evidence contracts/testing.md#independent-expectations Literal original linked-pending plus absent linked-applied independently specify nonexecution of the authored hook.
+// @evidence contracts/testing.md#distinguishing-cases Registered-without-manifest contrasts the adjacent manifest-enabled hook; nonempty retained string prevents missing output from passing the negative.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit uses fresh registry and test-scoped empty manifest with a private Program, captured writes and deferred close, without an executable host.
 func TestEmitWithPluginTransformersWithoutManifestLeavesLinkedHooksIdle(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Setenv(driver.LinkedPluginsEnv, "")

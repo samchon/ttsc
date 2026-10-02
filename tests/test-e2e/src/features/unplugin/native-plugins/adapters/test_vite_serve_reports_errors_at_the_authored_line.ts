@@ -26,7 +26,7 @@ const viteCreateServer =
  * @evidence contracts/testing.md#behavioral-verification Real server ssrLoadModule executes banner-shifted fail and its stack names authored new Error line and column.
  * @evidence contracts/testing.md#independent-expectations positionOf reads original source, independently of returned source map or mapped stack.
  * @evidence contracts/testing.md#distinguishing-cases Banner shifts throw position, stack maps it back; bundle map cases cover other hosts.
- * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_serve_reports_errors_at_the_authored_line is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_serve_reports_errors_at_the_authored_line is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Actual Vite SSR runner composes adapter maps into runtime error frames.
  * @evidence contracts/e2e.md#shared-execution One server and fixture serve requests and mutations, with replacement only for restart assertions; shared native artifacts do not replace the cold request.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Server closes in finally on success/failure; restart reuses only this fixture. Tracked roots end at process exit.

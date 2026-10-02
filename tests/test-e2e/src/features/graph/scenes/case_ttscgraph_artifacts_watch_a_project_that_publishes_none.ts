@@ -1,9 +1,10 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
-import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+
+import { FixtureFiles } from "../../../internal/FixtureFiles";
+import { installedTargetBoundary } from "../../../internal/graph/internal/installedTargetBoundary";
 
 const require = createRequire(import.meta.url);
 const graphLib = path.dirname(require.resolve("@ttsc/graph"));
@@ -46,12 +47,23 @@ interface IPublished {
  * @evidence contracts/testing.md#distinguishing-cases Unchanged resolved-empty contrasts a config edit that reopens discovery. Binary-unavailable discovery is not a substitute baseline: it reads stale and previously failed actual unit CI.
  * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_artifacts_watch_a_project_that_publishes_none loads the compiled publication API with real installed capability discovery; it remains in the E2E runner/Evidence population, with the per-case assertions above rather than source-unit execution.
  * @evidence contracts/e2e.md#necessary-boundary publishArtifacts resolves runtime capabilities through resolveBinary/loadProjectPlugins and artifactsAreStale consults discovery.isCurrent; a fingerprint-only source unit cannot certify installed native availability.
- * @evidence contracts/e2e.md#shared-execution This project reuses suite-built compiler and dependency links and starts no graph-node publisher sidecar. Capability discovery still has real installed inputs; shared graph-boundary batching remains incomplete.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture owns both discovery files and mutates only tsconfig after the fresh baseline; TestProject tracks directory cleanup at process completion, and no wholesale cache reset is performed.
+ * @evidence contracts/e2e.md#shared-execution The target-installed resolution, no-publisher, resident lifetime and HTTP viewer consumers share one real project and installed binary copy. This scene starts no graph-node publisher sidecar; capability discovery still consults installed runtime inputs.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The original no-publisher config is temporarily applied to the shared project; its fresh/changed discovery assertions run before original shared config bytes restore finally. Consumers run serially, no cache is deleted, and TestProject owns final project cleanup.
  * @evidence contracts/e2e.md#preserved-coverage No-artifact, required watch paths, unchanged-fresh and config-edit-stale assertions remain. Direct freshness source units cover constructed input transitions without replacing this discovery boundary.
  */
 export function case_ttscgraph_artifacts_watch_a_project_that_publishes_none(): void {
-    const cwd = TestProject.createProject(FixtureFiles.read("graph/ttscgraph_artifacts_watch_a_project_that_publishes_none/inputs-1"));
+  const target = installedTargetBoundary();
+  const cwd = target.root;
+  const configFile = path.join(cwd, "tsconfig.json");
+  const original = fs.readFileSync(configFile);
+  const primaryFailures: unknown[] = [];
+  try {
+    fs.writeFileSync(
+      configFile,
+      FixtureFiles.read(
+        "graph/ttscgraph_artifacts_watch_a_project_that_publishes_none/inputs-1",
+      )["tsconfig.json"]!,
+    );
 
     const published = publishArtifacts({ cwd, tsconfig: "tsconfig.json" });
     assert.equal(
@@ -93,4 +105,18 @@ export function case_ttscgraph_artifacts_watch_a_project_that_publishes_none(): 
       true,
       "configuring a plugin left the answer reading fresh, so a running session would never reconsider it",
     );
+  } catch (error) {
+    primaryFailures.push(error);
+    throw error;
+  } finally {
+    try {
+      fs.writeFileSync(configFile, original);
+    } catch (error) {
+      target.preventReuse("Empty-artifact profile config restoration failed");
+      throw new AggregateError(
+        [...primaryFailures, error],
+        "Empty-artifact assertions and config reset failed",
+      );
+    }
   }
+}

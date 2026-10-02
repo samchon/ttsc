@@ -16,7 +16,7 @@ import { UtilityWorkspace } from "../../../internal/UtilityWorkspace";
  * @evidence contracts/testing.md#behavioral-verification A real emit of a shebang source must keep the shebang as the first bytes of the JavaScript and include one banner preamble.
  * @evidence contracts/testing.md#independent-expectations The Unix interpreter-line contract requires the shebang at byte zero; the authored source supplies it and the preamble helper states the banner shape.
  * @evidence contracts/testing.md#distinguishing-cases The shebang source is the boundary input; the shared baseline emitted by other scenarios without one is the contrast.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_banner with the shared workspace; output ordering is observed in real emitted bytes.
+ * @evidence contracts/testing.md#execution-ownership Called by test_e2e_utilities with the shared workspace; output ordering is observed in real emitted bytes.
  * @evidence contracts/e2e.md#necessary-boundary Emit-time preamble insertion and the compiler's hashbang handling meet in the native host.
  * @evidence contracts/e2e.md#shared-execution One external-map compiler Program emits the ordinary and shebang sources together; the map scenario reads the same output rather than starting another compiler.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity This scenario prepares the external-map output and the map scenario only reads it after the compiler joins. Missing output fails, and no previous fixture output is copied.

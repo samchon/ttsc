@@ -5,7 +5,6 @@ import path from "node:path";
 
 import { captureWatchInputBaseline } from "../../../../../../../packages/unplugin/lib/core/transform/watch/captureWatchInputBaseline.js";
 import { createViteServeInputWatch } from "../../../../../../../packages/unplugin/lib/core/vite/createViteServeInputWatch.js";
-import { loadViteAdapterPlugin } from "../../../../internal/unplugin/internal/adapter-vite-serve/loadViteAdapterPlugin";
 import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-serve/waitFor";
 
 /**
@@ -14,28 +13,27 @@ import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-ser
  *
  * A compiler input can change between the compile that recorded it and the
  * moment the watcher subscribes, and it can be reached through junctions,
- * symlinks, hard links, and case-folded spellings. Each of those is a way to
- * miss an invalidation or to fire one for an unchanged spelling, so the watcher
- * is driven against real filesystem transitions rather than simulated events.
+ * symlinks and case-folded spellings. Each of those is a way to miss an
+ * invalidation or to fire one for an unchanged spelling, so the watcher is
+ * driven against real filesystem transitions rather than simulated events.
  *
  * 1. Register inputs that change before subscription, through retargeted links and
  *    renamed ancestors, and under another case spelling.
  * 2. Assert each change invalidates exactly its importers, including file,
- *    directory, and membership predicates and restored bytes.
- * 3. Assert hard-linked inputs enter the shared fallback, and a replacement server
- *    rediscovers the host's case policy, which a replaced registration keeps
- *    and a removal after a rename re-probes.
- * 4. Delete importers and assert their inputs and fallback work are released while
- *    another importer's remain.
+ *    directory and membership predicates.
+ * 3. Dispose the actual watcher after file, directory and membership predicate
+ *    transitions. Injected proof races, hardlink polling, identity-policy reset
+ *    and importer cleanup execute in the source unit
+ *    test_vite_compiler_watch_preserves_race_and_fallback_lifetimes.
  *
- * @evidence contracts/testing.md#behavioral-verification Watcher invalidates changed importers while preserving unchanged aliases and file predicates, closes compile races, polls hardlinks and releases fallback at last importer.
+ * @evidence contracts/testing.md#behavioral-verification The actual filesystem watcher invalidates changed importers while preserving unchanged aliases and file predicates across deletion before subscription, junction retargeting, ancestor rename, case spelling, external symlink and directory membership transitions.
  * @evidence contracts/testing.md#independent-expectations Authored filesystem transitions and literal predicate states define expected invalidation; host hash helper is used for baseline encoding, not expected callback sets.
- * @evidence contracts/testing.md#distinguishing-cases Deletion before subscribe, retargeted junction, ancestor rename, conditional case aliases, external symlink, directory/file/listing predicates, restored-byte race, hardlinks and cleanup.
- * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_compiler_watch_tracks_subscription_and_alias_boundaries is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
- * @evidence contracts/e2e.md#necessary-boundary Real filesystem watcher boundary plus injected race/poll scheduling; module graph is captured and most helpers need no native compile.
- * @evidence contracts/e2e.md#shared-execution One temporary filesystem corpus supports subcases; fresh watchers are required for subscription, fallback and identity-policy lifetimes. No compiler is built.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Local importer identities, invalidation sets and race callbacks separate subcases; watcher.dispose runs in finally and last-importer assertions verify scheduler close. Tracked roots end at process exit.
- * @evidence contracts/e2e.md#preserved-coverage Retained assertions: watcher invalidates changed importers while preserving unchanged aliases and file predicates, closes compile races, polls hardlinks and releases fallback at last importer. No portable assertion is transferred or waived; the stated boundary and oracle limitations remain.
+ * @evidence contracts/testing.md#distinguishing-cases Deletion before subscribe, retargeted junction, ancestor rename, conditional case aliases, external symlink and directory/file/listing predicates. Source-unit proof races and resource ownership remain separate.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_compiler_watch_tracks_subscription_and_alias_boundaries is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
+ * @evidence contracts/e2e.md#necessary-boundary Real filesystem watcher events, junction retargeting, ancestor rename and external symlink writes connect native subscriptions to captured Vite invalidation. No native compiler or live Vite server is required for this notification boundary.
+ * @evidence contracts/e2e.md#shared-execution One temporary filesystem corpus and one actual watcher serve all subscription, lexical-alias and predicate transitions. The source-unit race and fallback cases create no native watcher.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Distinct importer identities and invalidation sets distinguish transitions within the shared watcher. watcher.dispose runs in finally; tracked roots end at process exit. Source-unit injected schedulers have their own final-owner close assertions.
+ * @evidence contracts/e2e.md#preserved-coverage The actual watcher assertions above remain here. All 22 direct assertions in the five injected race, hardlink-poll, identity-policy and importer-release helpers execute unchanged in test_vite_compiler_watch_preserves_race_and_fallback_lifetimes through authored source APIs; its supported poll collaborators avoid native observers and real interval timers.
  */
 export async function test_vite_compiler_watch_tracks_subscription_and_alias_boundaries(): Promise<void> {
   const root = fs.realpathSync.native(
@@ -213,327 +211,4 @@ export async function test_vite_compiler_watch_tracks_subscription_and_alias_bou
   } finally {
     await watch.dispose();
   }
-  await assertExistingViteSubscriptionClosesCompileRace(root);
-  await assertExternalViteSubscriptionClosesCompileRace(root);
-  await assertViteHardlinkFallbackInvalidates(root);
-  await assertViteCaseIdentityMemosReset(root);
-  await assertViteDeletedImporterReleasesFallback(root);
-}
-
-/** An existing input must use its event witness when a new proof replaces it. */
-async function assertExistingViteSubscriptionClosesCompileRace(
-  root: string,
-): Promise<void> {
-  const invalidated = new Set<string>();
-  let notify: ((eventType: string, file: string | null) => void) | undefined;
-  const watch = createViteServeInputWatch({
-    watch(_scope, listener) {
-      notify = listener;
-      return { close: () => undefined };
-    },
-  });
-  const importer = path.join(root, "existing-race.ts").replace(/\\/g, "/");
-  const file = path.join(root, "existing-race.txt");
-  const evidence = () => {
-    const baseline = captureWatchInputBaseline(file);
-    assert.ok(baseline);
-    return {
-      identity: baseline.identity,
-      missing: false,
-      state: { codec: "host" as const, hash: baseline.hostHash },
-    };
-  };
-  fs.writeFileSync(file, "stable");
-  watch.attach({
-    config: { root },
-    moduleGraph: {
-      getModulesByFile: (candidate) =>
-        candidate === importer ? new Set([{ file: candidate }]) : undefined,
-      invalidateModule: (node) =>
-        invalidated.add((node as { file: string }).file),
-    },
-  });
-  try {
-    watch.replace(
-      importer,
-      [{ file, evidence: evidence() }],
-      false,
-      watch.begin(),
-    );
-    const startedAt = watch.begin();
-    fs.writeFileSync(file, "transient");
-    const transient = evidence();
-    fs.writeFileSync(file, "stable");
-    assert.ok(notify);
-    notify("change", path.relative(root, file));
-    watch.replace(importer, [{ file, evidence: transient }], false, startedAt);
-    assert.ok(
-      invalidated.has(importer),
-      "an existing subscription must reject restored bytes observed during compilation",
-    );
-  } finally {
-    await watch.dispose();
-  }
-}
-
-/** A scope discovered after compilation must validate the uncovered interval. */
-async function assertExternalViteSubscriptionClosesCompileRace(
-  root: string,
-): Promise<void> {
-  const invalidated = new Set<string>();
-  const watch = createViteServeInputWatch({
-    watch() {
-      return { close: () => undefined };
-    },
-  });
-  const externalRoot = TestProject.tmpdir("ttsc-vite-watch-external-race-");
-  const file = path.join(externalRoot, "value.txt");
-  const importer = path.join(root, "external-race.ts").replace(/\\/g, "/");
-  fs.writeFileSync(file, "before");
-  const baseline = captureWatchInputBaseline(file);
-  assert.ok(baseline);
-  watch.attach({
-    config: { root },
-    moduleGraph: {
-      getModulesByFile: (candidate) =>
-        candidate === importer ? new Set([{ file: candidate }]) : undefined,
-      invalidateModule: (node) =>
-        invalidated.add((node as { file: string }).file),
-    },
-  });
-  try {
-    const startedAt = watch.begin();
-    fs.writeFileSync(file, "after");
-    watch.replace(
-      importer,
-      [
-        {
-          file,
-          evidence: {
-            identity: baseline.identity,
-            missing: false,
-            state: { codec: "host", hash: baseline.hostHash },
-          },
-        },
-      ],
-      false,
-      startedAt,
-    );
-    assert.ok(
-      invalidated.has(importer),
-      "an external scope opened after compilation must reject the uncovered change",
-    );
-  } finally {
-    await watch.dispose();
-  }
-}
-
-/** A hardlink write outside every watched scope must use bounded polling. */
-async function assertViteHardlinkFallbackInvalidates(
-  root: string,
-): Promise<void> {
-  const invalidated = new Set<string>();
-  let poll: (() => void) | undefined;
-  const watch = createViteServeInputWatch({
-    poll(listener) {
-      poll = listener;
-      return { close: () => (poll = undefined) };
-    },
-    watch() {
-      return { close: () => undefined };
-    },
-  });
-  const file = path.join(root, "hardlink-input.txt");
-  const alias = path.join(
-    TestProject.tmpdir("ttsc-vite-watch-hardlink-"),
-    "hardlink-alias.txt",
-  );
-  const importer = path.join(root, "hardlink.ts").replace(/\\/g, "/");
-  fs.writeFileSync(file, "before");
-  fs.linkSync(file, alias);
-  const baseline = captureWatchInputBaseline(file);
-  assert.ok(baseline);
-  watch.attach({
-    config: { root },
-    moduleGraph: {
-      getModulesByFile: (candidate) =>
-        candidate === importer ? new Set([{ file: candidate }]) : undefined,
-      invalidateModule: (node) =>
-        invalidated.add((node as { file: string }).file),
-    },
-  });
-  try {
-    watch.replace(importer, [
-      {
-        file,
-        evidence: {
-          identity: baseline.identity,
-          missing: false,
-          state: { codec: "host", hash: baseline.hostHash },
-        },
-      },
-    ]);
-    const tick = poll;
-    assert.ok(tick, "a multiply linked input must enter the shared fallback");
-    fs.writeFileSync(alias, "after");
-    tick();
-    assert.ok(
-      invalidated.has(importer),
-      "a write through an external hardlink must invalidate the importer",
-    );
-  } finally {
-    await watch.dispose();
-  }
-}
-
-/** A server restart must discard cached physical and case identity facts. */
-async function assertViteCaseIdentityMemosReset(root: string): Promise<void> {
-  let caseProbes = 0;
-  let caseSensitive = true;
-  let emit: ((eventType: string, file: string | null) => void) | undefined;
-  const watch = createViteServeInputWatch({
-    caseSensitive() {
-      caseProbes += 1;
-      return caseSensitive;
-    },
-    platform: "darwin",
-    watch(_root, listener) {
-      emit = listener;
-      return { close: () => undefined };
-    },
-  });
-  const file = path.join(root, "case-memo", "input.txt");
-  const importer = path.join(root, "case-memo.ts").replace(/\\/g, "/");
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, "value");
-  const register = () => {
-    const baseline = captureWatchInputBaseline(file);
-    assert.ok(baseline);
-    watch.attach({ config: { root } });
-    watch.replace(importer, [
-      {
-        file,
-        evidence: {
-          identity: baseline.identity,
-          missing: false,
-          state: { codec: "host", hash: baseline.hostHash },
-        },
-      },
-    ]);
-  };
-
-  register();
-  const firstSessionProbes = caseProbes;
-  assert.ok(firstSessionProbes > 0, "the simulated Darwin host must be probed");
-  // A registration that replaces its inputs removes the old entry, which is
-  // not a topology change, so the remembered policy stands
-  // (samchon/ttsc#1443).
-  const other = path.join(root, "case-memo", "other.txt");
-  fs.writeFileSync(other, "value");
-  watch.replace(importer, [{ file: other }]);
-  register();
-  assert.equal(
-    caseProbes,
-    firstSessionProbes,
-    "replacing an importer's inputs must not re-probe the case policy",
-  );
-  caseSensitive = false;
-  emit?.("rename", file);
-  assert.equal(
-    caseProbes,
-    firstSessionProbes,
-    "a topology event must not switch the identity context underneath live path indexes",
-  );
-  // The rename can have changed the policy of what it moved, so the removal
-  // it causes is what re-probes.
-  watch.replace(importer, [{ file: other }]);
-  register();
-  const afterRename = caseProbes;
-  assert.ok(
-    afterRename > firstSessionProbes,
-    "a removal after a rename must rediscover the case policy",
-  );
-  await watch.dispose();
-  register();
-  try {
-    assert.ok(
-      caseProbes > afterRename,
-      "a replacement server must rediscover case policy instead of retaining the old session's path cache",
-    );
-  } finally {
-    await watch.dispose();
-  }
-}
-
-/** Deleting an importer must release its private hardlink fallback state. */
-async function assertViteDeletedImporterReleasesFallback(
-  root: string,
-): Promise<void> {
-  const plugin = await loadViteAdapterPlugin();
-  assert.equal(
-    typeof plugin.watchChange,
-    "function",
-    "the published Vite adapter must forward source deletion to private input cleanup",
-  );
-  let poll: (() => void) | undefined;
-  let closed = 0;
-  const watch = createViteServeInputWatch({
-    poll(listener) {
-      poll = listener;
-      return {
-        close() {
-          poll = undefined;
-          closed += 1;
-        },
-      };
-    },
-    watch() {
-      return { close: () => undefined };
-    },
-  });
-  const file = path.join(root, "deleted-importer-input.txt");
-  const alias = path.join(
-    TestProject.tmpdir("ttsc-vite-watch-deleted-importer-"),
-    "alias.txt",
-  );
-  const importer = path.join(root, "deleted-importer.ts").replace(/\\/g, "/");
-  const survivor = path.join(root, "surviving-importer.ts").replace(/\\/g, "/");
-  fs.writeFileSync(file, "value");
-  fs.linkSync(file, alias);
-  const baseline = captureWatchInputBaseline(file);
-  assert.ok(baseline);
-  watch.attach({ config: { root } });
-  try {
-    const input = {
-      file,
-      evidence: {
-        identity: baseline.identity,
-        missing: false as const,
-        state: { codec: "host" as const, hash: baseline.hostHash },
-      },
-    };
-    watch.replace(importer, [input]);
-    watch.replace(survivor, [input]);
-    assert.ok(poll, "a multiply linked input must own fallback work");
-    watch.forget(importer);
-    assert.ok(
-      poll,
-      "deleting one importer must retain fallback work owned by another importer",
-    );
-    assert.equal(closed, 0, "shared fallback work must remain open");
-    watch.forget(survivor);
-    assert.equal(
-      poll,
-      undefined,
-      "a deleted importer must leave no fallback work",
-    );
-    assert.equal(
-      closed,
-      1,
-      "the unused shared scheduler must close immediately",
-    );
-  } finally {
-    await watch.dispose();
-  }
-  assert.equal(closed, 1, "server disposal must not re-close the scheduler");
 }

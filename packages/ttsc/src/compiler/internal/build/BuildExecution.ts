@@ -13,6 +13,7 @@ import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResu
 import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonOptions";
 import { outputText } from "../outputText";
 import { readProjectConfig } from "../project/readProjectConfig";
+import { readEffectiveCompilerOptions } from "../readEffectiveCompilerOptions";
 import { resolveBinary } from "../resolveBinary";
 import { resolveTsgo } from "../resolveTsgo";
 import { TSGO_ARGS_ENV } from "../sharedHost/TSGO_ARGS_ENV";
@@ -831,6 +832,13 @@ export namespace BuildExecution {
     args: readonly string[],
   ): TtscBuildResult {
     const env = mergeEnv(options.env, execution.projectRoot);
+    const userOptions = readEffectiveCompilerOptions(
+      execution.project,
+      options.passthrough,
+      execution.tsgo.binary,
+      env,
+    );
+    const userListedEmitted = userOptions?.("listEmittedFiles") === true;
     const run = (
       commandArgs: readonly string[],
     ): { result: TtscBuildResult; completedNormally: boolean } => {
@@ -873,28 +881,40 @@ export namespace BuildExecution {
             run,
           })
         : run(args).result;
-    const emittedFiles = parseEmittedFiles(result.stdout);
-    // The `TSFILE:` lines are tsgo's `--listEmittedFiles` output. ttsc adds that
-    // flag internally to learn the emitted paths and strips the lines back out
-    // as noise — but when the user themselves forwarded `--listEmittedFiles`,
-    // the listing is what they asked for, so it must survive to stdout.
-    // The lookup is schema-driven (FLAG_SCHEMA marks `--listEmittedFiles` with
-    // `internalShadow: true`); see `forwardsInternalShadowFlag` for the RC-2
-    // background.
-    const userListedEmitted = PassthroughFlags.forwardsInternalShadowFlag(
-      options,
-      "--listEmittedFiles",
-    );
-    if (emittedFiles.length !== 0 && !userListedEmitted) {
-      result.stdout = stripEmittedFileLines(result.stdout);
-    }
+    const displayed = applyEmittedFileListing(result, userListedEmitted);
+    const emittedFiles = displayed.emittedFiles ?? [];
     if (options.quiet === false) {
-      result.stdout += verboseBuildSummary(execution, options, emittedFiles);
+      displayed.stdout += verboseBuildSummary(execution, options, emittedFiles);
     }
-    return normalizeBuildOutput(
-      { ...result, emittedFiles },
-      execution.projectRoot,
-    );
+    return normalizeBuildOutput(displayed, execution.projectRoot);
+  }
+
+  /**
+   * Retain emitted-file metadata while displaying only user-selected listing.
+   * The caller supplies the original effective option before internally added
+   * reporting flags. Status, diagnostics and other producer facts are preserved.
+   *
+   * @evidence contracts/common.md#principled-implementation TSFILE lines establish reported emitted files, while the original effective boolean alone owns their user-visible display; internal reporting does not enable the user's option.
+   * @evidence contracts/common.md#clear-and-simple-design One pure operation separates metadata collection from display and is shared by the actual direct compiler build path.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts No producer status or diagnostic is replaced, and option presence is not substituted for the effective config and ordered assignment value.
+   * @evidence contracts/common.md#meaningful-documentation Native prose explains original option ownership, internally added reporting and retained producer facts.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation This stream calculation acquires no native capability; compiler spawning and path representation remain with their existing owners.
+   * @evidence contracts/performance.md#efficient-algorithms Parsing and optional stripping each scan the captured output once; time and transient text/path storage are linear in the output bytes.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each completed producer result has its own bytes and requested display value; no history or shared computation is retained.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The copied result and emitted-file array transfer to the caller without retaining a process or handle.
+   */
+  export function applyEmittedFileListing(
+    result: TtscBuildResult,
+    displayListing: boolean,
+  ): TtscBuildResult {
+    const emittedFiles = parseEmittedFiles(result.stdout);
+    return {
+      ...result,
+      emittedFiles,
+      stdout: displayListing || emittedFiles.length === 0
+        ? result.stdout
+        : stripEmittedFileLines(result.stdout),
+    };
   }
 
   /**

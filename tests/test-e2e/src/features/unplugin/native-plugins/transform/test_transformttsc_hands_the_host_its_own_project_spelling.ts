@@ -1,7 +1,6 @@
-import { TestUnpluginRuntime } from "@ttsc/testing";
+import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import type { TtscWatchInput } from "../../../../../../../packages/unplugin/lib/core/transform/watch/TtscWatchInput.mjs";
@@ -46,7 +45,7 @@ export async function test_transformttsc_hands_the_host_its_own_project_spelling
   const api = await TestUnpluginRuntime.loadUnpluginApi();
   const fixture = createRealNativeEnvelopeFixture();
   const physical = fs.realpathSync.native(fixture.root);
-  const linkRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-link-"));
+  const linkRoot = TestProject.tmpdir("ttsc-link-");
   const linked = path.join(linkRoot, "project");
   fs.symlinkSync(
     physical,

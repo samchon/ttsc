@@ -17,6 +17,10 @@ import (
 // 1. Load a source file so lint diagnostics can be anchored to real text.
 // 2. Shape warning and error diagnostics through the public constructor.
 // 3. Assert counting and plain fallback rendering contracts.
+// @evidence contracts/testing.md#behavioral-verification Loads an authored program, constructs public warning/error diagnostics and asserts zero-width normalization, error count and plain rendering.
+// @evidence contracts/testing.md#independent-expectations Literal line 1, column 1, length 1, error count 2 and src/main.ts:2:4: plain establish the observable DTO and fallback contract.
+// @evidence contracts/testing.md#distinguishing-cases Anchored warning/error diagnostics distinguish severity and zero-width handling; unanchored plain messages exercise fallback counting and rendering.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit calls the in-process program and public diagnostic APIs, closes its program and owns a t.TempDir fixture; no product executable is spawned.
 func TestDriverDiagnosticShapes(t *testing.T) {
   root := t.TempDir()
 

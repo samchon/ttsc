@@ -1,4 +1,4 @@
-import { COMPILER_OPTION_KINDS } from "./COMPILER_OPTION_KINDS";
+import { readCompilerOptionOccurrence } from "./readCompilerOptionOccurrence";
 import type { AnySubcommand } from "./AnySubcommand";
 import type { FlagSpec } from "./FlagSpec";
 import type { ParseOptions } from "./ParseOptions";
@@ -112,20 +112,18 @@ export function parseFlags(opts: ParseOptions): ParseResult {
 
       // The compiler's table owns arity for options the launcher does not own.
       passthrough.push(current);
-      const kind = COMPILER_OPTION_KINDS.get(normalizeFlagToken(token));
-      if (
-        kind !== undefined &&
-        inlineValue === undefined &&
-        head.index < head.tokens.length &&
-        !head.tokens[head.index]!.startsWith("-") &&
-        (kind === "value" ||
-          parseBooleanLiteral(head.tokens[head.index]!) !== undefined)
-      ) {
+      if (readCompilerOptionOccurrence(head.tokens, head.index - 1).width === 2) {
         passthrough.push(head.tokens[head.index++]!);
       }
       continue;
     }
 
+    // Native ignores empty positional tokens; after the entry they remain
+    // program arguments through forwardingTail above.
+    if (current === "") {
+      passthrough.push(current);
+      continue;
+    }
     if (opts.isPositional !== undefined && !opts.isPositional(current)) {
       passthrough.push(current);
       continue;
@@ -263,9 +261,8 @@ function consumeFlag(
  * next token looks like another flag (`-` prefix). Without the "looks like a
  * flag" guard `ttsc --cwd --strict src/main.ts` would silently consume
  * `--strict` as the value of `--cwd`, leaving `--strict` lost and `cwd` set to
- * a junk path. Mirrors the symmetric guard already in
- * `forwardKnownButUnaccepted` (RC-1 fairness — the two value-resolution paths
- * must agree on what counts as "a missing value").
+ * a junk path. This is the launcher's own missing-value policy; native scalar
+ * options instead consume a following dash token through the occurrence reader.
  */
 function takeValueToken(
   flag: string,
@@ -342,6 +339,11 @@ function forwardKnownButUnaccepted(
   isPositional: ((token: string) => boolean) | undefined,
 ): void {
   passthrough.push(original);
+  const native = readCompilerOptionOccurrence(rest.tokens, rest.index - 1);
+  if (native.option !== undefined) {
+    if (native.width === 2) passthrough.push(rest.tokens[rest.index++]!);
+    return;
+  }
   // Boolean flags carry no required value. `--foo=value` is already one token.
   if (flag.kind === "boolean" || inlineValue !== undefined) {
     return;

@@ -7,36 +7,91 @@ import { TtsgraphClient, assert } from "./ttsgraph";
 
 let projectPreparation: Promise<string> | undefined;
 let rawDump: GraphDump | undefined;
-let preparation: Promise<{ client: TtsgraphClient; root: string; initialization: unknown }> | undefined;
+let preparation:
+  | Promise<{
+      client: TtsgraphClient;
+      root: string;
+      observationRoot: string;
+      initialization: unknown;
+    }>
+  | undefined;
 
-/** Borrow the compiler identity project shared by twenty-eight named cases. */
+/**
+ * Borrow one identity project and MCP, including its cold escape and link
+ * transitions.
+ */
 export async function withIdentityBoundary(
-  body: (client: TtsgraphClient, root: string, initialization: unknown) => Promise<void>,
+  body: (
+    client: TtsgraphClient,
+    root: string,
+    initialization: unknown,
+  ) => Promise<void>,
   include?: string[],
 ): Promise<void> {
   preparation ??= prepare();
-  const { client, root, initialization } = await preparation;
-  if (include === undefined) {
-    await body(client, root, initialization);
-    return;
-  }
+  const { client, root, observationRoot, initialization } = await preparation;
+  client.assertReusable();
   // Global ranking oracles need their original complete compiler universe,
   // while the native process itself can safely reload this config generation.
   const configFile = path.join(root, "tsconfig.json");
-  const original = fs.readFileSync(configFile);
-  const config = JSON.parse(original.toString("utf8")) as { include: string[] };
-  fs.writeFileSync(configFile, JSON.stringify({ ...config, include }));
+  const original =
+    include === undefined ? undefined : fs.readFileSync(configFile);
+  const failures: unknown[] = [];
   try {
+    if (original !== undefined) {
+      const config = JSON.parse(original.toString("utf8")) as {
+        include: string[];
+      };
+      client.assertInputMutationAllowed();
+      fs.writeFileSync(configFile, JSON.stringify({ ...config, include }));
+    }
     await body(client, root, initialization);
+  } catch (error) {
+    failures.push(error);
   } finally {
-    fs.writeFileSync(configFile, original);
+    if (original !== undefined) {
+      try {
+        client.assertInputMutationAllowed();
+        fs.writeFileSync(configFile, original);
+      } catch (error) {
+        client.preventInputReuse("Scoped identity config restoration failed");
+        failures.push(error);
+      }
+    }
+    if (client.inputsHaveUnconfirmedReaders()) {
+      for (const ownedRoot of [root, observationRoot]) {
+        try {
+          TestProject.retainTemporaryDirectory(
+            ownedRoot,
+            "Graph request transport left native input readers unconfirmed",
+          );
+        } catch (error) {
+          failures.push(error);
+        }
+      }
+    }
   }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1)
+    throw new AggregateError(
+      failures,
+      "Scoped identity request and reset failed",
+    );
 }
 
-/** Borrow the one public CLI dump used by immutable producer assertions. */
+/**
+ * Borrow the immutable CLI dump; a withdrawn live owner forbids a new producer.
+ * An already captured dump starts no reader and needs no mutable input reuse.
+ */
 export async function getIdentityDump(): Promise<GraphDump> {
+  if (rawDump !== undefined) return rawDump;
   projectPreparation ??= prepareProject();
-  rawDump ??= dumpGraph(await projectPreparation, "tsconfig.json");
+  const root = await projectPreparation;
+  if (preparation !== undefined) {
+    const { client } = await preparation;
+    client.assertReusable();
+  }
+  rawDump ??= dumpGraph(root, "tsconfig.json");
   return rawDump;
 }
 
@@ -47,62 +102,93 @@ export async function closeIdentityBoundary(): Promise<void> {
   if (preparation === undefined) return;
   const pending = preparation;
   preparation = undefined;
-  const { client } = await pending;
-  client.endStdin();
-  const code = await client.waitForExit();
+  const { client, root, observationRoot } = await pending;
+  const failures: unknown[] = [];
+  let code: number | undefined;
+  try {
+    client.endStdin();
+  } catch (error) {
+    failures.push(error);
+  }
+  try {
+    code = await client.waitForExit();
+  } catch (error) {
+    failures.push(error);
+  }
+  try {
+    client.assertNativeChildrenJoined();
+  } catch (error) {
+    failures.push(error);
+  }
+  if (failures.length) {
+    for (const ownedRoot of [root, observationRoot]) {
+      try {
+        TestProject.retainTemporaryDirectory(
+          ownedRoot,
+          "Shared graph MCP/native child closure could not be established",
+        );
+      } catch (retentionError) {
+        failures.push(retentionError);
+      }
+    }
+    if (failures.length === 1) throw failures[0];
+    throw new AggregateError(
+      failures,
+      "Graph closure and input retention failed",
+    );
+  }
   assert.equal(code, 0, client.stderrText());
 }
 
 async function prepareProject(): Promise<string> {
   const members = Array.from(
-      { length: 20 },
-      (_, i) => `  m${String(i)}(): void {}`,
-    );
-  const literals = Array.from(
-      { length: 20 },
-      (_, i) => `'v${String(i)}'`,
-    ).join(" | ");
+    { length: 20 },
+    (_, i) => `  m${String(i)}(): void {}`,
+  );
+  const literals = Array.from({ length: 20 }, (_, i) => `'v${String(i)}'`).join(
+    " | ",
+  );
   const users = Array.from(
-      { length: 20 },
-      (_, i) => `export function u${String(i)}(w: Wide): void { void w; }`,
-    );
-    const before = [
-      "const shorthand = 1;",
-      'const dynamic = Math.random() > 0.5 ? "a" : "b";',
-      "const spread = { fromSpread: true };",
+    { length: 20 },
+    (_, i) => `export function u${String(i)}(w: Wide): void { void w; }`,
+  );
+  const before = [
+    "const shorthand = 1;",
+    'const dynamic = Math.random() > 0.5 ? "a" : "b";',
+    "const spread = { fromSpread: true };",
+    "",
+    "export const shape = (({",
+    "  /* { */",
+    "  real: 1,",
+    '  close: "}",',
+    '  text: "{",',
+    "  shorthand,",
+    '  ["static-key"]: 2,',
+    '  [""]: 4,',
+    "  [1]: true,",
+    "  [dynamic]: 3,",
+    '  method() { return "METHOD_BODY_MUST_NOT_APPEAR"; },',
+    '  get value() { return "ACCESSOR_BODY_MUST_NOT_APPEAR"; },',
+    '  set value(input: number) { void "SETTER_BODY_MUST_NOT_APPEAR"; },',
+    '  run: () => "ARROW_BODY_MUST_NOT_APPEAR",',
+    '  classic: function () { return "FUNCTION_BODY_MUST_NOT_APPEAR"; },',
+    '  klass: class { method() { return "CLASS_BODY_MUST_NOT_APPEAR"; } },',
+    '  list: ["ARRAY_CONTENT_MUST_NOT_APPEAR"],',
+    '  nested: { inner: "NESTED_BODY_MUST_NOT_APPEAR" },',
+    "  ...spread,",
+    "  /* } */",
+    "  afterSpread: true,",
+    "}) as const) satisfies Record<PropertyKey, unknown>;",
+    "",
+  ].join("\n");
+  const source = (name: string, terminator = "\n") =>
+    [
+      `/** ${name} docs. */`,
+      `export function ${name}(): string {`,
+      `  return "${name}";`,
+      "}",
       "",
-      "export const shape = (({",
-      "  /* { */",
-      "  real: 1,",
-      '  close: "}",',
-      '  text: "{",',
-      "  shorthand,",
-      '  ["static-key"]: 2,',
-      '  [""]: 4,',
-      "  [1]: true,",
-      "  [dynamic]: 3,",
-      '  method() { return "METHOD_BODY_MUST_NOT_APPEAR"; },',
-      '  get value() { return "ACCESSOR_BODY_MUST_NOT_APPEAR"; },',
-      '  set value(input: number) { void "SETTER_BODY_MUST_NOT_APPEAR"; },',
-      '  run: () => "ARROW_BODY_MUST_NOT_APPEAR",',
-      '  classic: function () { return "FUNCTION_BODY_MUST_NOT_APPEAR"; },',
-      '  klass: class { method() { return "CLASS_BODY_MUST_NOT_APPEAR"; } },',
-      '  list: ["ARRAY_CONTENT_MUST_NOT_APPEAR"],',
-      '  nested: { inner: "NESTED_BODY_MUST_NOT_APPEAR" },',
-      "  ...spread,",
-      "  /* } */",
-      "  afterSpread: true,",
-      "}) as const) satisfies Record<PropertyKey, unknown>;",
-      "",
-    ].join("\n");
-    const source = (name: string, terminator = "\n") =>
-      [
-        `/** ${name} docs. */`,
-        `export function ${name}(): string {`,
-        `  return "${name}";`,
-        "}",
-        "",
-      ].join(terminator);
+    ].join(terminator);
   const handlers = Array.from(
     { length: 20 },
     (_, i) => `export function handler${i}(): void { auditHelper(); log(); }`,
@@ -114,18 +200,16 @@ async function prepareProject(): Promise<string> {
       `export function rosterCarrier${index}(): void {}`,
       "",
     );
-  const hubImplementations = Array.from(
-    { length: 12 },
-    (_, index) => [
+  const hubImplementations = Array.from({ length: 12 }, (_, index) =>
+    [
       `export class ReverseWidget${index} implements ReverseWidget {`,
       "  public draw(): void {}",
       "}",
       "",
     ].join("\n"),
   ).join("");
-  const chain = Array.from(
-    { length: 14 },
-    (_, index) => index === 13
+  const chain = Array.from({ length: 14 }, (_, index) =>
+    index === 13
       ? `export function n${index}(): void {}`
       : `export function n${index}(): void { n${index + 1}(); }`,
   ).join("\n");
@@ -145,506 +229,506 @@ async function prepareProject(): Promise<string> {
       },
       include: ["src", "packages/app/src"],
     }),
-      "src/addresses.ts": [
-        "/** @evidence docs/pricing.md#sale Implements the pricing rule. */",
-        "export function priced(): void {}",
-        "",
-        "/** @todo Add caching here. */",
-        "export function cached(): void {}",
-        "",
-        "/** @default 4 */",
-        "export const retries = 4;",
-        "",
-        "/** @reference https://example.com/spec#part Background reading. */",
-        "export function referenced(): void {}",
-        "",
-        "/** A function whose name is the prose word. */",
-        "export function Add(): void {}",
-        "",
-        "/** @evidence 문서/가격.md#할인 A non-Latin address. */",
-        "export function nonAscii(): void {}",
-        "",
-        "/** @evidence */",
-        "export function bareTag(): void {}",
-        "",
-      ].join("\n"),
-      "src/notice.ts": [
-        "/**",
-        " * Renders the stacking notice.",
-        " *",
-        " * @evidence docs/discount.md#coupon-stacking States the per-issuer",
-        " *           stacking limit this section defines.",
-        " * @evidence POST:/orders/{orderId}/coupons Explains the rejection.",
-        " */",
-        "export function renderNotice(): string {",
-        "  return 'notice';",
-        "}",
-        "",
-      ].join("\n"),
-      "src/checkout.ts": [
-        "/** @evidence docs/discount.md#coupon-stacking Enforces the same limit. */",
-        "export function applyCoupons(): number {",
-        "  return 0;",
-        "}",
-        "",
-        "/** @reference https://example.com/spec Background reading. */",
-        "export function documented(): void {}",
-        "",
-        "/** Carries no tag at all. */",
-        "export function untagged(): void {}",
-        "",
-      ].join("\n"),
-      "src/document-links.ts": [
-        "export interface ICited {",
-        "  note: string;",
-        "}",
-        "",
-        "export interface IUsed {",
-        "  value: number;",
-        "}",
-        "",
-        "export function helper(): void {}",
-        "",
-        "/**",
-        " * Renders the notice.",
-        " *",
-        " * @evidence {@link ICited} The contract this mirrors.",
-        " */",
-        "export function DocLinkedNotice(input: IUsed): void {",
-        "  helper();",
-        "}",
-        "",
-      ].join("\n"),
-      "src/inherited-dispatch.ts": [
-        "export function persistInherited(): void {}",
-        "",
-        "export abstract class RootWorker {",
-        "  public abstract process(): void;",
-        "",
-        "  public start(): void {",
-        "    this.process();",
-        "  }",
-        "}",
-        "",
-        "export abstract class IntermediateWorker extends RootWorker {}",
-        "",
-        "export class ConcreteWorker extends IntermediateWorker {",
-        "  public process(): void {",
-        "    persistInherited();",
-        "  }",
-        "}",
-        "",
-        "export class InheritedRunner {",
-        "  public constructor(private readonly worker: RootWorker) {}",
-        "",
-        "  public run(): void {",
-        "    this.worker.start();",
-        "  }",
-        "}",
-        "",
-      ].join("\n"),
-      "src/abstract-dispatch.ts": [
-        "export function transform(): void {}",
-        "export function persistAbstract(): void {}",
-        "",
-        "export abstract class AbstractPipeline {",
-        "  public abstract execute(): void;",
-        "",
-        "  public start(): void {",
-        "    this.execute();",
-        "  }",
-        "}",
-        "",
-        "export class TransformAbstractPipeline extends AbstractPipeline {",
-        "  public execute(): void {",
-        "    transform();",
-        "  }",
-        "}",
-        "",
-        "export class PersistAbstractPipeline extends AbstractPipeline {",
-        "  public execute(): void {",
-        "    persistAbstract();",
-        "  }",
-        "}",
-        "",
-        "export class AbstractRunner {",
-        "  public constructor(private readonly pipeline: AbstractPipeline) {}",
-        "",
-        "  public run(): void {",
-        "    this.pipeline.start();",
-        "  }",
-        "}",
-        "",
-      ].join("\n"),
-      "src/checked-dispatch.ts": [
-        "export interface CheckedPipeline {",
-        "  execute(input: number): void;",
-        "}",
-        "",
-        "export function accepted(): void {}",
-        "export function rejected(): void {}",
-        "",
-        "export class Good implements CheckedPipeline {",
-        "  execute(input: number): void {",
-        "    accepted();",
-        "  }",
-        "}",
-        "",
-        "export class Bad implements CheckedPipeline {",
-        "  execute(input: string): void {",
-        "    rejected();",
-        "  }",
-        "}",
-        "",
-        "export class CheckedRunner {",
-        "  constructor(private readonly pipeline: CheckedPipeline) {}",
-        "",
-        "  run(): void {",
-        "    this.pipeline.execute(1);",
-        "  }",
-        "}",
-        "",
-      ].join("\n"),
-      "src/entrypoints.ts": [
-        "/** @evidence docs/boot.md#start Starts the application. */",
-        "export function bootstrap(): void {",
-        "  run();",
-        "}",
-        "",
-        "/** Does the work. */",
-        "export function run(): void {}",
-        "",
-      ].join("\n"),
-      "src/body-facts.ts": [
-        "export function bodyAccepted(): void {}",
-        "export function derivedOnly(): void {}",
-        "",
-        "export interface BodyPipeline {",
-        "  execute(): void;",
-        "}",
-        "",
-        "export class Empty implements BodyPipeline {",
-        "  public execute(): void {}",
-        "}",
-        "",
-        "export function callBodyPipeline(pipeline: BodyPipeline): void {",
-        "  pipeline.execute();",
-        "}",
-        "",
-        "export interface Reader {",
-        "  read(): number;",
-        "}",
-        "",
-        "export class Constant implements Reader {",
-        "  public read(): number {",
-        "    return 1;",
-        "  }",
-        "}",
-        "",
-        "export class Computed implements Reader {",
-        "  public read(): number {",
-        "    let total = 0;",
-        "    for (let i = 0; i < 3; i++) total += i;",
-        "    return total;",
-        "  }",
-        "}",
-        "",
-        "export class Refusing implements Reader {",
-        "  public read(): number {",
-        '    throw "unsupported";',
-        "  }",
-        "}",
-        "",
-        "export function callReader(reader: Reader): number {",
-        "  return reader.read();",
-        "}",
-        "",
-        "export abstract class Task {",
-        "  public abstract perform(): void;",
-        "",
-        "  public start(): void {",
-        "    this.perform();",
-        "  }",
-        "}",
-        "",
-        "export class QuietTask extends Task {",
-        "  public perform(): void {}",
-        "}",
-        "",
-        "export interface Shape {",
-        "  area(): number;",
-        "}",
-        "",
-        "export abstract class BaseShape implements Shape {",
-        "  public abstract area(): number;",
-        "}",
-        "",
-        "export class Square extends BaseShape {",
-        "  public area(): number {",
-        "    return 4;",
-        "  }",
-        "}",
-        "",
-        "export function callShape(shape: Shape): number {",
-        "  return shape.area();",
-        "}",
-        "",
-        "export abstract class Twice {",
-        "  public abstract emit(): void;",
-        "}",
-        "",
-        "export class OnlyOnce extends Twice implements Twice {",
-        "  public emit(): void {}",
-        "}",
-        "",
-        "export function callTwice(twice: Twice): void {",
-        "  twice.emit();",
-        "}",
-        "",
-        "declare class Native {",
-        "  handle(): void;",
-        "}",
-        "",
-        "export class RealNative extends Native {",
-        "  public handle(): void {}",
-        "}",
-        "",
-        "export function callNative(native: Native): void {",
-        "  native.handle();",
-        "}",
-        "",
-        "export class Base {",
-        "  public run(): void {}",
-        "}",
-        "",
-        "export class Derived extends Base {",
-        "  public run(): void {",
-        "    derivedOnly();",
-        "  }",
-        "}",
-        "",
-        "export function callBase(base: Base): void {",
-        "  base.run();",
-        "}",
-        "",
-        "export class Loud {",
-        "  public speak(): void {",
-        "    bodyAccepted();",
-        "  }",
-        "}",
-        "",
-        "export class Louder extends Loud {",
-        "  public speak(): void {",
-        "    derivedOnly();",
-        "  }",
-        "}",
-        "",
-        "export function callLoud(loud: Loud): void {",
-        "  loud.speak();",
-        "}",
-        "",
-        "export class Formatter {",
-        "  public format(value: string): string;",
-        "  public format(value: number): string;",
-        "  public format(value: string | number): string {",
-        "    return String(value);",
-        "  }",
-        "}",
-        "",
-        "export function callFormatter(formatter: Formatter): string {",
-        "  return formatter.format(1);",
-        "}",
-        "",
-      ].join("\n"),
-      "src/audit.ts": [
-        "export function auditHelper(): void {}",
-        "export function log(): void {}",
-        handlers,
-        "export class AuditService {",
-        "  run(): void {",
-        "    auditHelper();",
-        "    handler0();",
-        "  }",
-        "}",
-        "",
-      ].join("\n"),
-      "src/audit.spec.ts": [
-        "import { AuditService } from './audit';",
-        "export function coversRun(): void { new AuditService().run(); }",
-        "",
-      ].join("\n"),
-      "src/all.ts": declarations.join("\n"),
+    "src/addresses.ts": [
+      "/** @evidence docs/pricing.md#sale Implements the pricing rule. */",
+      "export function priced(): void {}",
+      "",
+      "/** @todo Add caching here. */",
+      "export function cached(): void {}",
+      "",
+      "/** @default 4 */",
+      "export const retries = 4;",
+      "",
+      "/** @reference https://example.com/spec#part Background reading. */",
+      "export function referenced(): void {}",
+      "",
+      "/** A function whose name is the prose word. */",
+      "export function Add(): void {}",
+      "",
+      "/** @evidence 문서/가격.md#할인 A non-Latin address. */",
+      "export function nonAscii(): void {}",
+      "",
+      "/** @evidence */",
+      "export function bareTag(): void {}",
+      "",
+    ].join("\n"),
+    "src/notice.ts": [
+      "/**",
+      " * Renders the stacking notice.",
+      " *",
+      " * @evidence docs/discount.md#coupon-stacking States the per-issuer",
+      " *           stacking limit this section defines.",
+      " * @evidence POST:/orders/{orderId}/coupons Explains the rejection.",
+      " */",
+      "export function renderNotice(): string {",
+      "  return 'notice';",
+      "}",
+      "",
+    ].join("\n"),
+    "src/checkout.ts": [
+      "/** @evidence docs/discount.md#coupon-stacking Enforces the same limit. */",
+      "export function applyCoupons(): number {",
+      "  return 0;",
+      "}",
+      "",
+      "/** @reference https://example.com/spec Background reading. */",
+      "export function documented(): void {}",
+      "",
+      "/** Carries no tag at all. */",
+      "export function untagged(): void {}",
+      "",
+    ].join("\n"),
+    "src/document-links.ts": [
+      "export interface ICited {",
+      "  note: string;",
+      "}",
+      "",
+      "export interface IUsed {",
+      "  value: number;",
+      "}",
+      "",
+      "export function helper(): void {}",
+      "",
+      "/**",
+      " * Renders the notice.",
+      " *",
+      " * @evidence {@link ICited} The contract this mirrors.",
+      " */",
+      "export function DocLinkedNotice(input: IUsed): void {",
+      "  helper();",
+      "}",
+      "",
+    ].join("\n"),
+    "src/inherited-dispatch.ts": [
+      "export function persistInherited(): void {}",
+      "",
+      "export abstract class RootWorker {",
+      "  public abstract process(): void;",
+      "",
+      "  public start(): void {",
+      "    this.process();",
+      "  }",
+      "}",
+      "",
+      "export abstract class IntermediateWorker extends RootWorker {}",
+      "",
+      "export class ConcreteWorker extends IntermediateWorker {",
+      "  public process(): void {",
+      "    persistInherited();",
+      "  }",
+      "}",
+      "",
+      "export class InheritedRunner {",
+      "  public constructor(private readonly worker: RootWorker) {}",
+      "",
+      "  public run(): void {",
+      "    this.worker.start();",
+      "  }",
+      "}",
+      "",
+    ].join("\n"),
+    "src/abstract-dispatch.ts": [
+      "export function transform(): void {}",
+      "export function persistAbstract(): void {}",
+      "",
+      "export abstract class AbstractPipeline {",
+      "  public abstract execute(): void;",
+      "",
+      "  public start(): void {",
+      "    this.execute();",
+      "  }",
+      "}",
+      "",
+      "export class TransformAbstractPipeline extends AbstractPipeline {",
+      "  public execute(): void {",
+      "    transform();",
+      "  }",
+      "}",
+      "",
+      "export class PersistAbstractPipeline extends AbstractPipeline {",
+      "  public execute(): void {",
+      "    persistAbstract();",
+      "  }",
+      "}",
+      "",
+      "export class AbstractRunner {",
+      "  public constructor(private readonly pipeline: AbstractPipeline) {}",
+      "",
+      "  public run(): void {",
+      "    this.pipeline.start();",
+      "  }",
+      "}",
+      "",
+    ].join("\n"),
+    "src/checked-dispatch.ts": [
+      "export interface CheckedPipeline {",
+      "  execute(input: number): void;",
+      "}",
+      "",
+      "export function accepted(): void {}",
+      "export function rejected(): void {}",
+      "",
+      "export class Good implements CheckedPipeline {",
+      "  execute(input: number): void {",
+      "    accepted();",
+      "  }",
+      "}",
+      "",
+      "export class Bad implements CheckedPipeline {",
+      "  execute(input: string): void {",
+      "    rejected();",
+      "  }",
+      "}",
+      "",
+      "export class CheckedRunner {",
+      "  constructor(private readonly pipeline: CheckedPipeline) {}",
+      "",
+      "  run(): void {",
+      "    this.pipeline.execute(1);",
+      "  }",
+      "}",
+      "",
+    ].join("\n"),
+    "src/entrypoints.ts": [
+      "/** @evidence docs/boot.md#start Starts the application. */",
+      "export function bootstrap(): void {",
+      "  run();",
+      "}",
+      "",
+      "/** Does the work. */",
+      "export function run(): void {}",
+      "",
+    ].join("\n"),
+    "src/body-facts.ts": [
+      "export function bodyAccepted(): void {}",
+      "export function derivedOnly(): void {}",
+      "",
+      "export interface BodyPipeline {",
+      "  execute(): void;",
+      "}",
+      "",
+      "export class Empty implements BodyPipeline {",
+      "  public execute(): void {}",
+      "}",
+      "",
+      "export function callBodyPipeline(pipeline: BodyPipeline): void {",
+      "  pipeline.execute();",
+      "}",
+      "",
+      "export interface Reader {",
+      "  read(): number;",
+      "}",
+      "",
+      "export class Constant implements Reader {",
+      "  public read(): number {",
+      "    return 1;",
+      "  }",
+      "}",
+      "",
+      "export class Computed implements Reader {",
+      "  public read(): number {",
+      "    let total = 0;",
+      "    for (let i = 0; i < 3; i++) total += i;",
+      "    return total;",
+      "  }",
+      "}",
+      "",
+      "export class Refusing implements Reader {",
+      "  public read(): number {",
+      '    throw "unsupported";',
+      "  }",
+      "}",
+      "",
+      "export function callReader(reader: Reader): number {",
+      "  return reader.read();",
+      "}",
+      "",
+      "export abstract class Task {",
+      "  public abstract perform(): void;",
+      "",
+      "  public start(): void {",
+      "    this.perform();",
+      "  }",
+      "}",
+      "",
+      "export class QuietTask extends Task {",
+      "  public perform(): void {}",
+      "}",
+      "",
+      "export interface Shape {",
+      "  area(): number;",
+      "}",
+      "",
+      "export abstract class BaseShape implements Shape {",
+      "  public abstract area(): number;",
+      "}",
+      "",
+      "export class Square extends BaseShape {",
+      "  public area(): number {",
+      "    return 4;",
+      "  }",
+      "}",
+      "",
+      "export function callShape(shape: Shape): number {",
+      "  return shape.area();",
+      "}",
+      "",
+      "export abstract class Twice {",
+      "  public abstract emit(): void;",
+      "}",
+      "",
+      "export class OnlyOnce extends Twice implements Twice {",
+      "  public emit(): void {}",
+      "}",
+      "",
+      "export function callTwice(twice: Twice): void {",
+      "  twice.emit();",
+      "}",
+      "",
+      "declare class Native {",
+      "  handle(): void;",
+      "}",
+      "",
+      "export class RealNative extends Native {",
+      "  public handle(): void {}",
+      "}",
+      "",
+      "export function callNative(native: Native): void {",
+      "  native.handle();",
+      "}",
+      "",
+      "export class Base {",
+      "  public run(): void {}",
+      "}",
+      "",
+      "export class Derived extends Base {",
+      "  public run(): void {",
+      "    derivedOnly();",
+      "  }",
+      "}",
+      "",
+      "export function callBase(base: Base): void {",
+      "  base.run();",
+      "}",
+      "",
+      "export class Loud {",
+      "  public speak(): void {",
+      "    bodyAccepted();",
+      "  }",
+      "}",
+      "",
+      "export class Louder extends Loud {",
+      "  public speak(): void {",
+      "    derivedOnly();",
+      "  }",
+      "}",
+      "",
+      "export function callLoud(loud: Loud): void {",
+      "  loud.speak();",
+      "}",
+      "",
+      "export class Formatter {",
+      "  public format(value: string): string;",
+      "  public format(value: number): string;",
+      "  public format(value: string | number): string {",
+      "    return String(value);",
+      "  }",
+      "}",
+      "",
+      "export function callFormatter(formatter: Formatter): string {",
+      "  return formatter.format(1);",
+      "}",
+      "",
+    ].join("\n"),
+    "src/audit.ts": [
+      "export function auditHelper(): void {}",
+      "export function log(): void {}",
+      handlers,
+      "export class AuditService {",
+      "  run(): void {",
+      "    auditHelper();",
+      "    handler0();",
+      "  }",
+      "}",
+      "",
+    ].join("\n"),
+    "src/audit.spec.ts": [
+      "import { AuditService } from './audit';",
+      "export function coversRun(): void { new AuditService().run(); }",
+      "",
+    ].join("\n"),
+    "src/all.ts": declarations.join("\n"),
     "src/index.ts": "export class WireWidget {}\n",
-      "node_modules/graph-dependency/package.json": JSON.stringify({
-        name: "graph-dependency",
-        version: "1.0.0",
-        types: "index.d.ts",
-      }),
-      "node_modules/graph-dependency/index.d.ts":
-        "export interface Contract {\n  settle(): void;\n}\n",
-      "src/reverse.ts": [
-        'import { Contract } from "graph-dependency";',
-        "",
-        "export function Reverseaccepted(): void {}",
-        "export function Reverserejected(): void {}",
-        "",
-        "export interface ReversePipeline {",
-        "  execute(input: number): void;",
-        "}",
-        "",
-        "export class ReverseGood implements ReversePipeline {",
-        "  public execute(input: number): void {",
-        "    Reverseaccepted();",
-        "  }",
-        "}",
-        "",
-        "export class ReverseBad implements ReversePipeline {",
-        "  public execute(input: string): void {",
-        "    Reverserejected();",
-        "  }",
-        "}",
-        "",
-        "export class ReverseRunner {",
-        "  public constructor(private readonly pipeline: ReversePipeline) {}",
-        "",
-        "  public run(): void {",
-        "    this.pipeline.execute(1);",
-        "  }",
-        "}",
-        "",
-        "export function main(runner: ReverseRunner): void {",
-        "  runner.run();",
-        "}",
-        "",
-        "export abstract class ReverseTask {",
-        "  public abstract perform(): void;",
-        "}",
-        "",
-        "export class RealTask extends ReverseTask {",
-        "  public perform(): void {",
-        "    startTask(this);",
-        "  }",
-        "}",
-        "",
-        "export function startTask(task: ReverseTask): void {",
-        "  task.perform();",
-        "}",
-        "",
-        "export class Alone {",
-        "  public solo(): void {}",
-        "}",
-        "",
-        "export function callSolo(alone: Alone): void {",
-        "  alone.solo();",
-        "}",
-        "",
-        "export class Settlement implements Contract {",
-        "  public settle(): void {}",
-        "}",
-        "",
-        "export interface ReverseWidget {",
-        "  draw(): void;",
-        "}",
-        "",
-        hubImplementations,
-        "export function paint(widget: ReverseWidget): void {",
-        "  widget.draw();",
-        "}",
-        "",
-      ].join("\n"),
-      "src/reverse.test.ts": [
-        'import { main, ReverseRunner } from "./reverse";',
-        "",
-        "export function exercisesMain(runner: ReverseRunner): void {",
-        "  main(runner);",
-        "}",
-        "",
-      ].join("\n"),
-      "node_modules/path-dependency/package.json": JSON.stringify({
-        name: "path-dependency",
-        version: "1.0.0",
-        types: "index.d.ts",
-      }),
-      "node_modules/path-dependency/index.d.ts":
-        "export declare function externalWork(): void;\n",
-      "src/chain.ts": `${chain}\n`,
-      "src/path-policy.ts": [
-        'import { externalWork } from "path-dependency";',
-        "",
-        "export class Store {",
-        "  public value = 0;",
-        "}",
-        "",
-        "export const store = new Store();",
-        "",
-        "export function seamStart(): void {",
-        "  if (store.value === 0) seamMiddleOne();",
-        "}",
-        "",
-        "function seamMiddleOne(): void {",
-        "  seamMiddleTwo();",
-        "}",
-        "",
-        "function seamMiddleTwo(): void {",
-        "  seamEnd();",
-        "}",
-        "",
-        "export function seamEnd(): number {",
-        "  return store.value;",
-        "}",
-        "",
-        "export function holderA(): number {",
-        "  return store.value;",
-        "}",
-        "",
-        "export function holderB(): number {",
-        "  return store.value + 1;",
-        "}",
-        "",
-        "export function apartLeft(): void {}",
-        "export function apartRight(): void {}",
-        "",
-        "export function edgeStart(): void {",
-        "  edgeMid();",
-        "}",
-        "",
-        "function edgeMid(): void {",
-        "  externalWork();",
-        "}",
-        "",
-        "export function ringA(): void {",
-        "  ringB();",
-        "}",
-        "",
-        "function ringB(): void {",
-        "  ringA();",
-        "}",
-        "",
-        "export interface TypeBase {",
-        "  value: number;",
-        "}",
-        "",
-        "export interface TypeMiddle extends TypeBase {",
-        "  extra: number;",
-        "}",
-        "",
-        "export interface TypeLeaf extends TypeMiddle {",
-        "  more: number;",
-        "}",
-        "",
-        "export interface Emitter {",
-        "  fire(): void;",
-        "}",
-        "",
-        "export class Silent implements Emitter {",
-        "  public fire(): void {}",
-        "}",
-        "",
-        "export function useEmitter(emitter: Emitter): void {",
-        "  emitter.fire();",
-        "}",
-        "",
-      ].join("\n"),
+    "node_modules/graph-dependency/package.json": JSON.stringify({
+      name: "graph-dependency",
+      version: "1.0.0",
+      types: "index.d.ts",
+    }),
+    "node_modules/graph-dependency/index.d.ts":
+      "export interface Contract {\n  settle(): void;\n}\n",
+    "src/reverse.ts": [
+      'import { Contract } from "graph-dependency";',
+      "",
+      "export function Reverseaccepted(): void {}",
+      "export function Reverserejected(): void {}",
+      "",
+      "export interface ReversePipeline {",
+      "  execute(input: number): void;",
+      "}",
+      "",
+      "export class ReverseGood implements ReversePipeline {",
+      "  public execute(input: number): void {",
+      "    Reverseaccepted();",
+      "  }",
+      "}",
+      "",
+      "export class ReverseBad implements ReversePipeline {",
+      "  public execute(input: string): void {",
+      "    Reverserejected();",
+      "  }",
+      "}",
+      "",
+      "export class ReverseRunner {",
+      "  public constructor(private readonly pipeline: ReversePipeline) {}",
+      "",
+      "  public run(): void {",
+      "    this.pipeline.execute(1);",
+      "  }",
+      "}",
+      "",
+      "export function main(runner: ReverseRunner): void {",
+      "  runner.run();",
+      "}",
+      "",
+      "export abstract class ReverseTask {",
+      "  public abstract perform(): void;",
+      "}",
+      "",
+      "export class RealTask extends ReverseTask {",
+      "  public perform(): void {",
+      "    startTask(this);",
+      "  }",
+      "}",
+      "",
+      "export function startTask(task: ReverseTask): void {",
+      "  task.perform();",
+      "}",
+      "",
+      "export class Alone {",
+      "  public solo(): void {}",
+      "}",
+      "",
+      "export function callSolo(alone: Alone): void {",
+      "  alone.solo();",
+      "}",
+      "",
+      "export class Settlement implements Contract {",
+      "  public settle(): void {}",
+      "}",
+      "",
+      "export interface ReverseWidget {",
+      "  draw(): void;",
+      "}",
+      "",
+      hubImplementations,
+      "export function paint(widget: ReverseWidget): void {",
+      "  widget.draw();",
+      "}",
+      "",
+    ].join("\n"),
+    "src/reverse.test.ts": [
+      'import { main, ReverseRunner } from "./reverse";',
+      "",
+      "export function exercisesMain(runner: ReverseRunner): void {",
+      "  main(runner);",
+      "}",
+      "",
+    ].join("\n"),
+    "node_modules/path-dependency/package.json": JSON.stringify({
+      name: "path-dependency",
+      version: "1.0.0",
+      types: "index.d.ts",
+    }),
+    "node_modules/path-dependency/index.d.ts":
+      "export declare function externalWork(): void;\n",
+    "src/chain.ts": `${chain}\n`,
+    "src/path-policy.ts": [
+      'import { externalWork } from "path-dependency";',
+      "",
+      "export class Store {",
+      "  public value = 0;",
+      "}",
+      "",
+      "export const store = new Store();",
+      "",
+      "export function seamStart(): void {",
+      "  if (store.value === 0) seamMiddleOne();",
+      "}",
+      "",
+      "function seamMiddleOne(): void {",
+      "  seamMiddleTwo();",
+      "}",
+      "",
+      "function seamMiddleTwo(): void {",
+      "  seamEnd();",
+      "}",
+      "",
+      "export function seamEnd(): number {",
+      "  return store.value;",
+      "}",
+      "",
+      "export function holderA(): number {",
+      "  return store.value;",
+      "}",
+      "",
+      "export function holderB(): number {",
+      "  return store.value + 1;",
+      "}",
+      "",
+      "export function apartLeft(): void {}",
+      "export function apartRight(): void {}",
+      "",
+      "export function edgeStart(): void {",
+      "  edgeMid();",
+      "}",
+      "",
+      "function edgeMid(): void {",
+      "  externalWork();",
+      "}",
+      "",
+      "export function ringA(): void {",
+      "  ringB();",
+      "}",
+      "",
+      "function ringB(): void {",
+      "  ringA();",
+      "}",
+      "",
+      "export interface TypeBase {",
+      "  value: number;",
+      "}",
+      "",
+      "export interface TypeMiddle extends TypeBase {",
+      "  extra: number;",
+      "}",
+      "",
+      "export interface TypeLeaf extends TypeMiddle {",
+      "  more: number;",
+      "}",
+      "",
+      "export interface Emitter {",
+      "  fire(): void;",
+      "}",
+      "",
+      "export class Silent implements Emitter {",
+      "  public fire(): void {}",
+      "}",
+      "",
+      "export function useEmitter(emitter: Emitter): void {",
+      "  emitter.fire();",
+      "}",
+      "",
+    ].join("\n"),
     "node_modules/trace-dependency/package.json": JSON.stringify({
       name: "trace-dependency",
       version: "1.0.0",
@@ -853,61 +937,61 @@ async function prepareProject(): Promise<string> {
     ].join("\n"),
     "src/object-outline.ts": before,
     "src/identity0.ts": [
-        "export enum Colors {",
-        "  Red = 'red',",
-        "  Green = 'green',",
-        "  Blue = 'blue',",
-        "}",
-        "",
-        "export enum Implicit {",
-        "  First,",
-        "  Second,",
-        "}",
-        "",
-        "// Two members, one value: a type folds these, a declaration does not.",
-        "export enum Dup {",
-        "  A = 'x',",
-        "  B = 'x',",
-        "}",
-        "",
-        "export class Cls {",
-        "  public run(): void {}",
-        "}",
-        "",
-      ].join("\n"),
+      "export enum Colors {",
+      "  Red = 'red',",
+      "  Green = 'green',",
+      "  Blue = 'blue',",
+      "}",
+      "",
+      "export enum Implicit {",
+      "  First,",
+      "  Second,",
+      "}",
+      "",
+      "// Two members, one value: a type folds these, a declaration does not.",
+      "export enum Dup {",
+      "  A = 'x',",
+      "  B = 'x',",
+      "}",
+      "",
+      "export class Cls {",
+      "  public run(): void {}",
+      "}",
+      "",
+    ].join("\n"),
     "src/identity1.ts": [
-        "export class Wide {",
-        ...members,
-        "}",
-        "",
-        `export type Values = ${literals};`,
-        "",
-        ...users,
-        "",
-      ].join("\n"),
+      "export class Wide {",
+      ...members,
+      "}",
+      "",
+      `export type Values = ${literals};`,
+      "",
+      ...users,
+      "",
+    ].join("\n"),
     "src/identity2.ts": [
-        "export type Wrapped =",
-        "  | 'a'",
-        "  | 'b'",
-        "  | 'c'",
-        "  | 'd'",
-        "  | 'e'",
-        "  | 'f'",
-        "  | 'g';",
-        "",
-        "export type Flat = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g';",
-        "",
-        "export enum LiteralColors {",
-        "  Red = 'red',",
-        "  Green = 'green',",
-        "  Blue = 'blue',",
-        "}",
-        "",
-        "export type Indirect = Wrapped | 'h';",
-        "",
-        "export type Widened = Wrapped | string;",
-        "",
-      ].join("\n"),
+      "export type Wrapped =",
+      "  | 'a'",
+      "  | 'b'",
+      "  | 'c'",
+      "  | 'd'",
+      "  | 'e'",
+      "  | 'f'",
+      "  | 'g';",
+      "",
+      "export type Flat = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g';",
+      "",
+      "export enum LiteralColors {",
+      "  Red = 'red',",
+      "  Green = 'green',",
+      "  Blue = 'blue',",
+      "}",
+      "",
+      "export type Indirect = Wrapped | 'h';",
+      "",
+      "export type Widened = Wrapped | string;",
+      "",
+    ].join("\n"),
     "src/identity3.ts": [
       "export function oneLiner(n: number): number { return n * 2; }",
       "",
@@ -920,39 +1004,61 @@ async function prepareProject(): Promise<string> {
       "",
     ].join("\n"),
   });
-    fs.writeFileSync(
-      path.join(root, "src", "Utf8Bom.ts"),
-      Buffer.concat([
-        Buffer.from([0xef, 0xbb, 0xbf]),
-        Buffer.from(source("Utf8Bom")),
-      ]),
-    );
-    fs.writeFileSync(
-      path.join(root, "src", "Utf16Le.ts"),
-      Buffer.concat([
-        Buffer.from([0xff, 0xfe]),
-        Buffer.from(source("Utf16Le"), "utf16le"),
-      ]),
-    );
-    fs.writeFileSync(
-      path.join(root, "src", "Utf16Be.ts"),
-      utf16be(source("Utf16Be")),
-    );
+  fs.writeFileSync(
+    path.join(root, "src", "Utf8Bom.ts"),
+    Buffer.concat([
+      Buffer.from([0xef, 0xbb, 0xbf]),
+      Buffer.from(source("Utf8Bom")),
+    ]),
+  );
+  fs.writeFileSync(
+    path.join(root, "src", "Utf16Le.ts"),
+    Buffer.concat([
+      Buffer.from([0xff, 0xfe]),
+      Buffer.from(source("Utf16Le"), "utf16le"),
+    ]),
+  );
+  fs.writeFileSync(
+    path.join(root, "src", "Utf16Be.ts"),
+    utf16be(source("Utf16Be")),
+  );
 
-    for (const [name, terminator] of [["Lf", "\n"], ["CrLf", "\r\n"], ["Cr", "\r"], ["Ls", "\u2028"], ["Ps", "\u2029"]] as const) {
-      fs.writeFileSync(path.join(root, "src", `${name}.ts`), source(name, terminator));
-    }
+  for (const [name, terminator] of [
+    ["Lf", "\n"],
+    ["CrLf", "\r\n"],
+    ["Cr", "\r"],
+    ["Ls", "\u2028"],
+    ["Ps", "\u2029"],
+  ] as const) {
+    fs.writeFileSync(
+      path.join(root, "src", `${name}.ts`),
+      source(name, terminator),
+    );
+  }
   const workspaceLink = path.join(root, "node_modules", "@scope", "shared");
   fs.mkdirSync(path.dirname(workspaceLink), { recursive: true });
-  fs.symlinkSync(path.join(root, "packages", "shared"), workspaceLink,
-    process.platform === "win32" ? "junction" : "dir");
+  fs.symlinkSync(
+    path.join(root, "packages", "shared"),
+    workspaceLink,
+    process.platform === "win32" ? "junction" : "dir",
+  );
   return root;
 }
 
-async function prepare(): Promise<{ client: TtsgraphClient; root: string; initialization: unknown }> {
+async function prepare(): Promise<{
+  client: TtsgraphClient;
+  root: string;
+  observationRoot: string;
+  initialization: unknown;
+}> {
   projectPreparation ??= prepareProject();
   const root = await projectPreparation;
-  const client = TtsgraphClient.start(root);
+  // Observation writes must not become compiler or auxiliary project inputs.
+  const observationRoot = TestProject.tmpdir("ttsc-graph-native-observation-");
+  const client = TtsgraphClient.start(
+    root,
+    path.join(observationRoot, "native-spawns.jsonl"),
+  );
   try {
     const initialization = await client.request("initialize", {
       protocolVersion: "2025-06-18",
@@ -960,10 +1066,40 @@ async function prepare(): Promise<{ client: TtsgraphClient; root: string; initia
       clientInfo: { name: "test-graph", version: "0.0.0" },
     });
     client.notify("notifications/initialized", {});
-    return { client, root, initialization };
+    return { client, root, observationRoot, initialization };
   } catch (error) {
-    client.endStdin();
-    await client.waitForExit();
+    const failures: unknown[] = [error];
+    try {
+      client.endStdin();
+    } catch (closureError) {
+      failures.push(closureError);
+    }
+    try {
+      await client.waitForExit();
+    } catch (closureError) {
+      failures.push(closureError);
+    }
+    try {
+      client.assertNativeChildrenJoined();
+    } catch (closureError) {
+      failures.push(closureError);
+    }
+    if (failures.length > 1) {
+      for (const ownedRoot of [root, observationRoot]) {
+        try {
+          TestProject.retainTemporaryDirectory(
+            ownedRoot,
+            "Failed graph initialization left child closure unconfirmed",
+          );
+        } catch (retentionError) {
+          failures.push(retentionError);
+        }
+      }
+      throw new AggregateError(
+        failures,
+        "Graph initialization and owned child cleanup failed",
+      );
+    }
     throw error;
   }
 }

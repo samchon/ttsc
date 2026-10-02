@@ -9,51 +9,161 @@ import (
   "testing"
 )
 
-/**
- * Verifies one normalizer run answers a mixed request for both outcomes.
- *
- * The loader sends every miss in one request, so a bridge that stopped at the
- * first rejection would leave the healthy documents beside it unresolved — and
- * they would be reported as "returned no result", a diagnostic that blames the
- * installation rather than the broken file the author actually has to fix.
- *
- *  1. Normalize one valid document and one unsupported document together.
- *  2. Assert each lands on its own side of the result.
- *  3. Assert both carry the digest of their own bytes.
- *
- * @evidence contracts/testing.md#behavioral-verification normalizeSwaggerSources returns valid and rejected siblings with their own digests and a nonempty rejection reason.
- * @evidence contracts/testing.md#independent-expectations Independently authored valid/unsupported documents and literal names specify each result.
- * @evidence contracts/testing.md#distinguishing-cases One failing source must not discard its valid sibling or impose request-wide identity.
- * @evidence contracts/testing.md#execution-ownership TestSwaggerBridgeAnswersEverySourceInOneRequest is a Go test entry of package evidence run by the shared Evidence E2E experiment with go test -tags=e2e of packages/evidence; it calls normalizeSwaggerSources (one Node run for two sources). It starts no native sidecar and builds no TypeScript project.
- * @evidence contracts/e2e.md#necessary-boundary normalizeSwaggerSources starts a Node child (node -e with the embedded Swagger bridge script) that resolves @ttsc/evidence from the fixture root under packages/evidence/native and runs the compiled Swagger normalizer, and Go decodes its JSON. A hand-built result would bypass package resolution, the child and the JSON transport.
- * @evidence contracts/e2e.md#shared-execution normalizeSwaggerSources is called once for both sources, so the test starts 1 Node child process; no resident bridge or batching is used. The only shared prerequisites are the built @ttsc/evidence package and its compiled lib/internal loaders, which this test neither builds nor installs.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity swaggerBridgeRoot creates one fixture directory under packages/evidence/native via MkdirTemp and registers RemoveAll with t.Cleanup; the test adds broken.json into it; the child has exited before the call returns. normalizeSwaggerSources does not consult the swagger document cache.
- * @evidence contracts/e2e.md#preserved-coverage The body asserts the document/problem split by source, each source's own digest and a non-blank rejection reason; the reason text itself is not checked.
- */
+// TestSwaggerBridgeAnswersEverySourceInOneRequest shares one actual request
+// across readable, rejected, unreadable and schema-dependent digest assertions.
+//
+// @evidence contracts/testing.md#behavioral-verification One normalizeSwaggerSources request returns exactly three documents and two problems for five unique source names. Six named assertion groups retain native digest agreement, mixed outcomes, missing identity, reached-schema change and unrelated-operation stability.
+// @evidence contracts/testing.md#independent-expectations Original JSON bytes determine supported/rejected inputs and the absent path is never created. Literal POST:/members and POST:/sales keys must exist with nonempty digests on both original string/number variants before their moved/stable comparisons; native and Node hashing are separate implementations.
+// @evidence contracts/testing.md#distinguishing-cases A readable success and readable unsupported version retain independent byte hashes; an unreadable source has no digest. Changing IMember.name must move only its reached operation, with ISale independently present as the stable control.
+// @evidence contracts/testing.md#execution-ownership This selectable e2e-tagged Go entry owns the four removed Swagger entries plus its mixed-source assertions in six independently collected t.Run groups. The shared GoBoundary process owns discovery and no native sidecar or TypeScript Program starts here.
+// @evidence contracts/e2e.md#necessary-boundary Real package resolution, compiled Swagger normalization, Node process and JSON transport return every source's outcome and operation digests; a supplied response cannot prove these connections.
+// @evidence contracts/e2e.md#shared-execution One root and one existing multi-source call serve all six groups. Original valid and rejected JSON bytes are reused; before.json and after.json disambiguate the two original variants that previously each occupied swagger.json in a separate root. No resident protocol or product change is introduced.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity The five immutable requested names are disjoint and absent.json is never written. Direct normalization consults no native Swagger cache. Parent cleanup runs after all groups and the actual Node child has exited before comparisons. Foundation errors block dependent groups explicitly; cardinality/key failures are collected without hiding other available assertions.
+// @evidence contracts/e2e.md#preserved-coverage Readable digest nonempty/equality, readable rejection equality, missing bridge/native digest emptiness, mixed source identities and reason, operation digest nonemptiness, moved member and stable sales remain. Full source cardinality/uniqueness and both literal operation keys strengthen the old empty-equality limitation.
 func TestSwaggerBridgeAnswersEverySourceInOneRequest(t *testing.T) {
-  root := swaggerBridgeRoot(t, `{"openapi":"3.1.0","info":{"title":"B","version":"1"},"paths":{"/members":{"post":{"responses":{"200":{"description":"OK"}}}}}}`)
-  if err := os.WriteFile(
-    filepath.Join(root, "broken.json"),
-    []byte(`{"openapi":"4.0.0","info":{"title":"B","version":"1"},"paths":{}}`),
-    0o644,
-  ); err != nil {
-    t.Fatal(err)
+  var root string
+  var result swaggerNormalizationResult
+  document := func(memberType string) string {
+    return `{"openapi":"3.1.0","info":{"title":"A","version":"1"},"paths":{
+      "/members":{"post":{"requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/IMember"}}}},"responses":{"200":{"description":"OK"}}}},
+      "/sales":{"post":{"requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ISale"}}}},"responses":{"200":{"description":"OK"}}}}
+    },"components":{"schemas":{
+      "IMember":{"type":"object","properties":{"name":{"type":"`+memberType+`"}},"required":["name"]},
+      "ISale":{"type":"object","properties":{"price":{"type":"number"}},"required":["price"]}
+    }}}`
   }
-  result, err := normalizeSwaggerSources(root, []string{"swagger.json", "broken.json"})
-  if err != nil {
-    t.Fatalf("the bridge must run: %v", err)
+  ready := t.Run("normalizer_foundation", func(foundation *testing.T) {
+    var err error
+    root, err = parserBridgeBatchRoot(t, "loadSwaggerOperations.js")
+    if err != nil {
+      foundation.Errorf("prepare real normalizer fixture: %v", err)
+      return
+    }
+    for source, content := range map[string]string{
+      "swagger.json": `{"openapi":"3.1.0","info":{"title":"B","version":"1"},"paths":{"/members":{"post":{"responses":{"200":{"description":"OK"}}}}}}`,
+      "broken.json": `{"openapi":"4.0.0","info":{"title":"B","version":"1"},"paths":{}}`,
+      "before.json": document("string"),
+      "after.json": document("number"),
+    } {
+      if err := os.WriteFile(filepath.Join(root, source), []byte(content), 0o644); err != nil {
+        foundation.Errorf("write %s: %v", source, err)
+      }
+    }
+    if foundation.Failed() {
+      return
+    }
+    result, err = normalizeSwaggerSources(root, []string{"swagger.json", "broken.json", "absent.json", "before.json", "after.json"})
+    if err != nil {
+      foundation.Errorf("the bridge must run: %v", err)
+    }
+  })
+  documents := map[string][]swaggerDocumentInventory{}
+  problems := map[string][]swaggerDocumentProblem{}
+  for _, value := range result.Documents {
+    documents[value.Source] = append(documents[value.Source], value)
   }
-  if len(result.Documents) != 1 || result.Documents[0].Source != "swagger.json" {
-    t.Fatalf("the valid document must normalize, got %+v", result.Documents)
+  for _, value := range result.Problems {
+    problems[value.Source] = append(problems[value.Source], value)
   }
-  if len(result.Problems) != 1 || result.Problems[0].Source != "broken.json" {
-    t.Fatalf("the unsupported document must be rejected, got %+v", result.Problems)
+  t.Run("complete_source_population", func(group *testing.T) {
+    if !ready {
+      group.Error("BLOCKED: normalizer foundation failed")
+      return
+    }
+    if len(result.Documents) != 3 || len(result.Problems) != 2 {
+      group.Errorf("want three documents and two problems, got %+v / %+v", result.Documents, result.Problems)
+    }
+    expected := map[string]bool{"swagger.json": true, "before.json": true, "after.json": true, "broken.json": false, "absent.json": false}
+    for source, isDocument := range expected {
+      if isDocument && (len(documents[source]) != 1 || len(problems[source]) != 0) ||
+        !isDocument && (len(problems[source]) != 1 || len(documents[source]) != 0) {
+        group.Errorf("%s must have exactly one %s outcome, got %d documents and %d problems", source, map[bool]string{true:"document", false:"problem"}[isDocument], len(documents[source]), len(problems[source]))
+      }
+    }
+    for source := range documents {
+      if _, exists := expected[source]; !exists {
+        group.Errorf("unexpected document source %q", source)
+      }
+    }
+    for source := range problems {
+      if _, exists := expected[source]; !exists {
+        group.Errorf("unexpected problem source %q", source)
+      }
+    }
+  })
+  valid := func(group *testing.T, source string) (swaggerDocumentInventory, bool) {
+    group.Helper()
+    if !ready {
+      group.Error("BLOCKED: normalizer foundation failed")
+      return swaggerDocumentInventory{}, false
+    }
+    if len(documents[source]) != 1 || len(problems[source]) != 0 {
+      group.Errorf("%s must have exactly one document outcome", source)
+      return swaggerDocumentInventory{}, false
+    }
+    return documents[source][0], true
   }
-  if result.Documents[0].Digest != swaggerContentDigest(root, "swagger.json") ||
-    result.Problems[0].Digest != swaggerContentDigest(root, "broken.json") {
-    t.Fatal("each source must carry the digest of its own bytes, not of the request")
+  rejected := func(group *testing.T, source string) (swaggerDocumentProblem, bool) {
+    group.Helper()
+    if !ready {
+      group.Error("BLOCKED: normalizer foundation failed")
+      return swaggerDocumentProblem{}, false
+    }
+    if len(problems[source]) != 1 || len(documents[source]) != 0 {
+      group.Errorf("%s must have exactly one problem outcome", source)
+      return swaggerDocumentProblem{}, false
+    }
+    return problems[source][0], true
   }
-  if strings.TrimSpace(result.Problems[0].Message) == "" {
-    t.Fatal("a rejection must carry the reason the author has to act on")
+  t.Run("TestSwaggerBridgeReportsTheNativeDigest", func(group *testing.T) {
+    value, ok := valid(group, "swagger.json")
+    if !ok { return }
+    native := swaggerContentDigest(root, "swagger.json")
+    if native == "" { group.Error("the native side must hash a readable document") }
+    if value.Digest != native { group.Errorf("bridge/native digest: %q / %q", value.Digest, native) }
+  })
+  t.Run("TestSwaggerBridgeReportsADigestForARejectedDocument", func(group *testing.T) {
+    value, ok := rejected(group, "broken.json")
+    if !ok { return }
+    native := swaggerContentDigest(root, "broken.json")
+    if value.Digest != native { group.Errorf("readable rejection bridge/native digest: %q / %q", value.Digest, native) }
+  })
+  t.Run("TestSwaggerBridgeReportsNoDigestForAnUnreadableDocument", func(group *testing.T) {
+    value, ok := rejected(group, "absent.json")
+    if !ok { return }
+    if value.Digest != "" { group.Errorf("unread source digest: %q", value.Digest) }
+    if swaggerContentDigest(root, "absent.json") != "" { group.Error("native hashing must decline the missing file") }
+  })
+  t.Run("TestSwaggerBridgeAnswersEverySourceInOneRequest", func(group *testing.T) {
+    good, goodOK := valid(group, "swagger.json")
+    bad, badOK := rejected(group, "broken.json")
+    if goodOK && good.Digest != swaggerContentDigest(root, "swagger.json") { group.Error("valid source must carry its own bytes' digest") }
+    if badOK && bad.Digest != swaggerContentDigest(root, "broken.json") { group.Error("rejected source must carry its own bytes' digest") }
+    if badOK && strings.TrimSpace(bad.Message) == "" { group.Error("a rejection must carry its actionable reason") }
+  })
+  digests := func(group *testing.T, source string) (map[string]string, bool) {
+    group.Helper()
+    value, ok := valid(group, source)
+    if !ok { return nil, false }
+    out := map[string]string{}
+    for _, operation := range value.Operations {
+      key := strings.ToUpper(operation.Method)+":"+operation.Path
+      if operation.Digest == "" { group.Errorf("%s %s carries no digest", operation.Method, operation.Path); ok = false }
+      if _, exists := out[key]; exists { group.Errorf("duplicate operation %q", key); ok = false }
+      out[key] = operation.Digest
+    }
+    for _, key := range []string{"POST:/members", "POST:/sales"} {
+      if digest, exists := out[key]; !exists || digest == "" { group.Errorf("%s missing nonempty operation %s", source, key); ok = false }
+    }
+    return out, ok
+  }
+  for _, key := range []string{"POST:/members", "POST:/sales"} {
+    t.Run("TestASwaggerOperationDigestFollowsTheSchemasItNames/"+key, func(group *testing.T) {
+      before, beforeOK := digests(group, "before.json")
+      after, afterOK := digests(group, "after.json")
+      if !beforeOK || !afterOK { return }
+      if key == "POST:/members" && before[key] == after[key] { group.Error("changing a reached schema left its operation digest unmoved") }
+      if key == "POST:/sales" && before[key] != after[key] { group.Error("changing one schema moved an unrelated operation digest") }
+    })
   }
 }

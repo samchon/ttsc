@@ -8,7 +8,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxySuppressesDirtyDocumentExecuteCommand verifies saved-file
+// TestLSPProxySuppressesDirtyDocumentExecuteCommand Verifies saved-file
 // WorkspaceEdits are not returned for dirty document command arguments.
 //
 // The built-in VS Code command bridge passes the document URI as an execute
@@ -19,6 +19,11 @@ import (
 // 1. Mark a document dirty with didChange.
 // 2. Execute an owned command whose argument is that URI.
 // 3. Assert the source command is not called and the response is null.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns raw JSON null for a dirty-URI owned command, never calls the stub, and sends no upstream frame within 150ms.
+// @evidence contracts/testing.md#independent-expectations A saved-file edit must not be computed for the already dirty buffer; the callback flag and null response distinguish refusal from execution.
+// @evidence contracts/testing.md#distinguishing-cases A URI argument after didChange owns the initially dirty request branch; a change during blocked work is covered separately.
+// @evidence contracts/testing.md#execution-ownership The Go test/driver pipe harness runs actual dirty-state dispatch against an injected command callback, without a sidecar.
 func TestLSPProxySuppressesDirtyDocumentExecuteCommand(t *testing.T) {
   called := false
   h := newProxyHarness(t, &stubSource{

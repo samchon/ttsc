@@ -63,6 +63,10 @@ const preambleDiagnosticDeclaration = `export interface Named {
 //     authored ones, derived from the fixture text.
 //  3. Assert the pretty render places the same coordinate, quotes the authored
 //     source, never quotes the preamble, and never names the shifted line.
+// @evidence contracts/testing.md#behavioral-verification Loads five actual preamble project shapes and asserts one diagnostic with exact authored file/line/column/start plus rendered original source and absence of injected text or shifted coordinates.
+// @evidence contracts/testing.md#independent-expectations A test-local marker scan on authored source independently gives coordinates; preamble height is known from literal fixture text and never obtained from corrected diagnostics.
+// @evidence contracts/testing.md#distinguishing-cases No preamble, two/six-line injections, hashbang insertion and noninjected declaration files contrast offset correction with unchanged controls.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go unit runs named scenarios through direct program/diagnostic APIs and closes its private programs; it does not launch a compiler host.
 func TestDiagnosticsCorrectSourcePreambleLineShift(t *testing.T) {
   const preambleTwoLines = "// preamble 1\n// preamble 2\n"
   const preambleSixLines = "// preamble 1\n// preamble 2\n// preamble 3\n// preamble 4\n// preamble 5\n// preamble 6\n"

@@ -59,12 +59,18 @@ export class Service {
 export type Payload = { name: string };
 `
 
-// TestRunLSPAnswersDocumentSymbolForDeclarations proves that when upstream tsgo
-// has not advertised documentSymbol (no initialize handshake here, so the proxy
-// treats it as unsupported), ttscserver falls back to the local graph
-// SymbolProvider and answers with the declarations of the requested file: a
-// function and a class, the class's method nested under it. It also pins that
-// the per-file module node is skipped, so no returned name is a file path.
+// TestRunLSPAnswersDocumentSymbolForDeclarations Verifies that graph documentSymbol fallback returns function, class, nested method, and alias kinds without path-shaped module names.
+//
+// No initialize capability is advertised; only greet's selection start line is asserted.
+//
+// 1. Load and warm a graph provider for the authored function, class, method, and type alias.
+// 2. Request document symbols through the proxy without an upstream initialize capability.
+// 3. Assert local ownership, names, hierarchy, kind values, and greet selection start line.
+//
+// @evidence contracts/testing.md#behavioral-verification Graph documentSymbol fallback returns function, class, nested method, and alias kinds without path-shaped module names.
+// @evidence contracts/testing.md#independent-expectations Authored declarations and literal LSP kind values independently define names and hierarchy.
+// @evidence contracts/testing.md#distinguishing-cases No initialize capability is advertised; only greet's selection start line is asserted.
+// @evidence contracts/testing.md#execution-ownership The Go graph provider loads in process and the pipe proxy routes its local symbol request. Go discovers TestRunLSPAnswersDocumentSymbolForDeclarations under ./test/driver.
 func TestRunLSPAnswersDocumentSymbolForDeclarations(t *testing.T) {
   root, mainURI := writeGraphSymbolProject(t, graphSymbolMainTS)
   provider := graphsymbols.NewProvider(root, "tsconfig.json")

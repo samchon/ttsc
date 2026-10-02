@@ -8,15 +8,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverRewriteReportsMissingNamespacedCall verifies failed rewrites report
-// the full root, namespace, and method being searched.
+// TestDriverRewriteReportsMissingNamespacedCall Verifies that EmitAll reports plugin.ns.missing when that namespaced call is absent.
 //
-// The error text is part of the native plugin debugging contract when a
-// collected call no longer appears in the emitted JavaScript.
+// plugin.make exists but the requested namespace and method do not; either error or diagnostic may carry the identity.
 //
 // 1. Load a project with one plugin call.
 // 2. Register a rewrite for a different namespaced method.
-// 3. Assert emit fails with the namespaced call in the error message.
+// 3. Assert an error or emit diagnostic carries the requested namespaced call identity.
+//
+// @evidence contracts/testing.md#behavioral-verification EmitAll reports plugin.ns.missing when that namespaced call is absent.
+// @evidence contracts/testing.md#independent-expectations The authored absent target independently specifies the required debugging identity.
+// @evidence contracts/testing.md#distinguishing-cases plugin.make exists but the requested namespace and method do not; either error or diagnostic may carry the identity.
+// @evidence contracts/testing.md#execution-ownership A direct Go Program and rewrite set execute without a CLI or external runtime. Go discovers TestDriverRewriteReportsMissingNamespacedCall under ./test/driver.
 func TestDriverRewriteReportsMissingNamespacedCall(t *testing.T) {
   root := t.TempDir()
 

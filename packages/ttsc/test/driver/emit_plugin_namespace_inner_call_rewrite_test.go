@@ -12,17 +12,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerNamespaceInnerCallRewrite extends the namespace
-// writeback regression (R1) past the sibling-numeric-literal case: here the
-// plugin REBUILDS a CallExpression that lives INSIDE the `export namespace`
-// using the emit ec.Factory (callee + a fresh argument), rather than swapping a
-// stray literal next to the namespace. The risk is the same root cause -- when
-// the plugin's visitor reconstructs ancestor nodes (the namespace body, the
-// export const, the call) the synthetic-parent wiring must keep the original
-// parse nodes' parents intact so tsgo's commonjs lowering still emits both the
-// `exports.Foo = Foo = {}` writeback AND the inner `Foo.compute = ...` member
-// export. If parents were clobbered, the namespace IIFE writeback is dropped and
-// `Foo` is `undefined` at runtime.
+// TestEmitWithPluginTransformerNamespaceInnerCallRewrite Verifies rebuilding a namespace call
+// retains the outer writeback and exported inner computation.
+//
+// The rebuilt call is inside the exported namespace, so regeneration crosses the namespace
+// body and exported computation. Both the outer namespace writeback and inner member
+// assignment must survive; a sibling-only transform would not exercise these ancestors.
+//
+// 1. Rebuild the namespace call with the authored replacement expression.
+// 2. Require namespace writeback, the compute export and the seed(7 + 35) call.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls actual transform emission with a rebuilt namespace call and requires outer writeback, Foo.compute export and seed(7 + 35).
+// @evidence contracts/testing.md#independent-expectations Literal Foo/compute identity and independently authored rebuilt call specify structure without a reference emitter.
+// @evidence contracts/testing.md#distinguishing-cases An inner fresh CallExpression forces ancestor regeneration; writeback/member/control checks distinguish retained namespace from skipped rewrite.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit executes an actual emit visitor and compiler with private Program, local write map and deferred close, without runtime execution.
 func TestEmitWithPluginTransformerNamespaceInnerCallRewrite(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

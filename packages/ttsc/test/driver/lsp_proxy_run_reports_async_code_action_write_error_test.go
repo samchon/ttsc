@@ -4,13 +4,14 @@ import (
   "context"
   "errors"
   "io"
+  "sync"
   "testing"
   "time"
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyRunReportsAsyncCodeActionWriteError verifies async code-action
+// TestLSPProxyRunReportsAsyncCodeActionWriteError Verifies async code-action
 // augmentation write failures still terminate the proxy run.
 //
 // Forwarded code-action responses are completed from a goroutine after plugin
@@ -21,8 +22,17 @@ import (
 // 2. Forward a codeAction request and upstream response.
 // 3. Close the editor output reader before releasing the plugin callback.
 // 4. Assert `Proxy.Run` returns the pipe write error.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns io.ErrClosedPipe within three seconds after delayed augmentation writes to a closed output.
+// @evidence contracts/testing.md#independent-expectations The actual closed reader and release channel establish write failure independently.
+// @evidence contracts/testing.md#distinguishing-cases Async augmented-response failure contrasts with synchronous forwarding failures.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyRunReportsAsyncCodeActionWriteError in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyRunReportsAsyncCodeActionWriteError(t *testing.T) {
   release := make(chan struct{})
+  var releaseCallbackOnce sync.Once
+  releaseCallback := func() { releaseCallbackOnce.Do(func() { close(release) }) }
+  t.Cleanup(releaseCallback)
+  defer releaseCallback()
   source := &stubSource{
     actionsWithContext: func(string, driver.LSPCodeActionContext) []driver.LSPCodeAction {
       <-release
@@ -64,7 +74,7 @@ func TestLSPProxyRunReportsAsyncCodeActionWriteError(t *testing.T) {
     t.Fatal(err)
   }
   edOutR.Close()
-  close(release)
+  releaseCallback()
 
   select {
   case err := <-done:

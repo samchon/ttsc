@@ -11,7 +11,7 @@ import (
 )
 
 // TestDriverEmitSkipsBarrelOutputsWhenOnlyUnrelatedSourcesHaveRewrites
-// verifies a sibling barrel output whose source has no registered rewrite is
+// Verifies a sibling barrel output whose source has no registered rewrite is
 // emitted unchanged while the rewritten source in the same directory is patched.
 //
 // The motivating report (nestia-generated barrel `index.ts` files next to
@@ -27,6 +27,11 @@ import (
 //  2. Register a single rewrite on `target.ts`.
 //  3. Assert the emit succeeds, `target.js` gets the replacement, and the
 //     barrel `index.js` is emitted without the replacement or the sentinel.
+//
+// @evidence contracts/testing.md#behavioral-verification EmitAll rewrites target.js while index.js has neither replacement nor marker.
+// @evidence contracts/testing.md#independent-expectations Only target owns a registered replacement; the barrel only re-exports.
+// @evidence contracts/testing.md#distinguishing-cases Rewritten source and untouched sibling barrel contrast; equal basenames in different directories are not exercised.
+// @evidence contracts/testing.md#execution-ownership Go unit TestDriverEmitSkipsBarrelOutputsWhenOnlyUnrelatedSourcesHaveRewrites is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestDriverEmitSkipsBarrelOutputsWhenOnlyUnrelatedSourcesHaveRewrites(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

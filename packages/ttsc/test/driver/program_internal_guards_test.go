@@ -6,7 +6,7 @@ import (
   "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestProgramInternalGuards verifies driver internal diagnostic guards handle
+// TestProgramInternalGuards Verifies driver internal diagnostic guards handle
 // nil inputs.
 //
 // The exported driver facade filters diagnostics from compiler shims that may
@@ -15,6 +15,11 @@ import (
 //
 // 1. Normalize malformed nil diagnostic inputs.
 // 2. Assert both helpers return safe empty values.
+//
+// @evidence contracts/testing.md#behavioral-verification Linked private diagnostic helpers return empty or false for nil inputs.
+// @evidence contracts/testing.md#independent-expectations No diagnostic or overload exists for nil inputs, independently grounding no-op outcomes.
+// @evidence contracts/testing.md#distinguishing-cases Nil slice, singleton nil entry and nil classifier argument hit different guards.
+// @evidence contracts/testing.md#execution-ownership Go unit TestProgramInternalGuards is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestProgramInternalGuards(t *testing.T) {
   if got := driverConvertDiagnostics(nil); len(got) != 0 {
     t.Fatalf("nil diagnostic slice mismatch: %#v", got)

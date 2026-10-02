@@ -23,7 +23,20 @@ import (
 
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
-
+// TestEmitWithPluginTransformerImportStarHelperWithInjectedImport Verifies injected namespace
+// imports coexist with the original default and namespace import helpers and bindings.
+//
+// Original default and namespace imports coexist with the injected namespace import. Both
+// interop helper definitions and three distinct dependency bindings must survive, and each
+// exported member reference must name its own binding.
+//
+// 1. Inject a namespace import beside the authored default and namespace imports.
+// 2. Require both interop helpers, three distinct bindings and each exported reference to its own binding.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs the actual transformer to inject a namespace import and checks both interop helper definitions, three pairwise-distinct require bindings and each source/injected export reference to its own binding.
+// @evidence contracts/testing.md#independent-expectations Literal ./dft, ./star, ./dep module identities and authored m/s/foo members specify independent import/reference relationships; regex captures only correlate generated names.
+// @evidence contracts/testing.md#distinguishing-cases Default import, existing namespace import and newly injected namespace import coexist, detecting helper loss, alias collisions or wrong reference routing.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit directly invokes actual compiler and unique-name transformer APIs with captured writes and Program cleanup; no package installation or runtime execution is claimed.
 func TestEmitWithPluginTransformerImportStarHelperWithInjectedImport(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

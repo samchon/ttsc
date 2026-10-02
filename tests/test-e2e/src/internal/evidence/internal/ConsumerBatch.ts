@@ -1,6 +1,6 @@
 import type { IRunResult } from "../../../../../utils/src/evidence/IRunResult";
-import { consumerCases } from "./consumerCases";
 import { splitEvidenceDiagnostics } from "../../../../../utils/src/evidence/splitEvidenceDiagnostics";
+import { consumerCases } from "./consumerCases";
 
 /**
  * Assembles authored consumer configurations without changing their source
@@ -31,16 +31,9 @@ export namespace ConsumerBatch {
     "overlapping-prisma-claims",
     "swagger-file",
     "typed-config",
-    "selected-hosts-inactive",
     "prisma-graph",
-    "hierarchical-targets",
-    "root-markdown",
     "composed-graph",
     "prisma-carrier-confined",
-    "repeated-positive-evidence",
-    "markdown-checklist-accepted",
-    "reference-policy-accepted",
-    "link-import-scope",
     "readme-cite",
     "readme-configure",
     "readme-markdown-citation",
@@ -140,7 +133,11 @@ export namespace ConsumerBatch {
       write(files, scene.local + "/lint.config.ts", props.lintConfig);
       for (const pattern of props.include ?? ["src", "lint.config.ts"])
         include.push(scene.local + "/" + pattern);
-      const scope = "consumer-scope-" + index + ".ts";
+      const scope =
+        "consumer-scope-" +
+        (succeeds ? "positive-" : "negative-") +
+        index +
+        ".ts";
       files[scope] = [
         "import original from " +
           JSON.stringify("./" + scene.local + "/lint.config.js") +
@@ -162,7 +159,10 @@ export namespace ConsumerBatch {
         lintConfig: graphPhase(
           scene.scenario.props.name,
           "./" + scene.local + "/lint.config.js",
-          "consumer-scope-" + scenes.indexOf(scene) + ".ts",
+          "consumer-scope-" +
+            (succeeds ? "positive-" : "negative-") +
+            scenes.indexOf(scene) +
+            ".ts",
         ),
       })),
       lintConfig: [
@@ -223,7 +223,9 @@ export namespace ConsumerBatch {
     check: (assertion: () => void) => void,
   ): void {
     if (scenes.length !== 1)
-      throw new Error("A consumer response must own exactly one original scene.");
+      throw new Error(
+        "A consumer response must own exactly one original scene.",
+      );
     const chunks = diagnostics(result);
     for (const scene of scenes) {
       if (!successNames.has(scene.scenario.props.name))

@@ -10,17 +10,18 @@ import { spawnGoTool } from "./spawnGoTool";
 
 /**
  * The local directories outside a plugin's Go module that its `go.mod`
- * `replace` directives name, which `go build` reads in place.
+ * `replace` directives name before the build prepares its scratch sources.
  *
  * A `replace` whose target is a filesystem path (Go's rule: absolute, or
  * beginning with `./` or `../`) makes the build compile that directory as the
- * replaced module. One inside the module is copied and keyed with it. One
- * outside is neither, yet the build compiles it, so its sources are part of
- * what the binary is built from: the cache key digests them, the load reports
- * their state among `pluginSources`, and a watch observes them, exactly like
- * the module's own (samchon/ttsc#1506). A relative target also has to resolve
- * from the module's own directory, as it does for `go build` there, and not
- * from the scratch copy the build runs in.
+ * replaced module. A target inside the module is copied and keyed with it. An
+ * outside target supplies a separate source population: the cache key digests
+ * it, the load reports its state among `pluginSources`, and a watch observes
+ * it. buildSourcePlugin snapshots and proves that target's copy, then anchors
+ * the replacement to the copy before compiling (samchon/ttsc#1506,
+ * samchon/ttsc#1527). A relative target also has to resolve from the module's
+ * own directory, as it does for `go build` there, and not from the scratch copy
+ * the build runs in.
  *
  * The directives are read through `go mod edit -json`, Go's own reading of
  * `go.mod`, not a copy of its grammar. Only the main module's directives count,
@@ -30,13 +31,10 @@ import { spawnGoTool } from "./spawnGoTool";
  * @param env The build's effective environment.
  * @param goBinary The Go tool the build runs, or `undefined` to resolve it as
  *   the build does.
- *
  * @returns Each replacement outside the module, sorted by module path: the
  *   replaced module path and version, the target as `go.mod` spells it, and the
  *   target's absolute path.
- *
  * @throws When `go.mod` exists and Go cannot read it, as the build would fail.
- *
  * @evidence contracts/common.md#principled-implementation Go parses its own replace grammar; only unversioned local targets outside the physical main module are reported, resolving relative targets from the original module rather than scratch cwd.
  * @evidence contracts/common.md#clear-and-simple-design A cheap no-replace scan avoids an unnecessary subprocess, while Go JSON parsing and physical containment stay in one owning operation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The implementation uses Go's supported mod-edit interface instead of a handwritten grammar or special-casing particular dependency names.

@@ -18,7 +18,7 @@ import { startViteBuildSession } from "../../../../internal/unplugin/internal/ad
  * @evidence contracts/testing.md#behavioral-verification Watching pass compiles once; closeWatcher followed by new delivery raises compile count to two.
  * @evidence contracts/testing.md#independent-expectations Native byte counter makes disposal observable despite identical source output.
  * @evidence contracts/testing.md#distinguishing-cases Build end retains state, watcher close invalidates state, next pass recreates it.
- * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_build_watch_disposes_the_generation_on_close_watcher is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_build_watch_disposes_the_generation_on_close_watcher is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Driven built Vite hooks connect closeWatcher to native cache ownership; no real build watcher runs here.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Session closes in finally, including assertion failure; its changed inputs and compile log remain private. Tracked roots end at process exit.

@@ -6,7 +6,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverRewriteScannerEdgeBranches verifies rewrite scanner edge branches
+// TestDriverRewriteScannerEdgeBranches Verifies rewrite scanner edge branches
 // reject malformed JavaScript safely.
 //
 // The output rewriter scans printed JavaScript without a second parser. These
@@ -17,6 +17,11 @@ import (
 // 1. Exercise the unexported scanner helpers through linknames.
 // 2. Feed malformed literals and edge-position inputs.
 // 3. Assert each helper returns the safe fallback instead of panicking.
+//
+// @evidence contracts/testing.md#behavioral-verification Private rewrite scanner calls reject unterminated strings, templates, comments, regex and argument lists while returning literal safe join, sentinel and regex-index results.
+// @evidence contracts/testing.md#independent-expectations Authored malformed text cannot be a balanced call; explicit booleans, strings and end positions provide the oracle without another scanner call.
+// @evidence contracts/testing.md#distinguishing-cases Malformed literals, non-paren start, EOF comment, valid regex character-class flags, root-only join, sentinel insertion and splice error cover named defensive branches.
+// @evidence contracts/testing.md#execution-ownership Go test/driver binds the actual private driver scanners through existing linknames and invokes them in process, without compilation or host execution.
 func TestDriverRewriteScannerEdgeBranches(t *testing.T) {
   if got := joinRootAndNamespaces(driver.Rewrite{RootName: "plugin"}); got != "plugin" {
     t.Fatalf("root-only join mismatch: %q", got)

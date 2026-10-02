@@ -9,15 +9,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPFrameReaderRejectsOversizeHeader verifies frame-header size hardening.
+// TestLSPFrameReaderRejectsOversizeHeader Verifies that FrameReader reports ErrFrameTooLarge for oversized headers with and without a newline.
 //
-// Content-Length is already capped before body allocation, but a malicious peer
-// can also send a huge header block. The reader must reject that frame before
-// preserving unbounded header text for proxy forwarding.
+// Completed and unterminated header inputs distinguish both streaming-cap paths.
 //
 // 1. Feed a frame with a header line larger than MaxHeaderBytes.
 // 2. Assert Read returns ErrFrameTooLarge.
 // 3. Repeat without a terminating newline to pin the streaming cap path.
+//
+// @evidence contracts/testing.md#behavioral-verification FrameReader reports ErrFrameTooLarge for oversized headers with and without a newline.
+// @evidence contracts/testing.md#independent-expectations The public MaxHeaderBytes bound and errors.Is identity establish independent expectations.
+// @evidence contracts/testing.md#distinguishing-cases Completed and unterminated header inputs distinguish both streaming-cap paths.
+// @evidence contracts/testing.md#execution-ownership Two in-memory readers exercise the Go header parser without transport processes. Go discovers TestLSPFrameReaderRejectsOversizeHeader under ./test/driver.
 func TestLSPFrameReaderRejectsOversizeHeader(t *testing.T) {
   frame := []byte(
     "X-Long: " + strings.Repeat("x", driver.MaxHeaderBytes+1) +

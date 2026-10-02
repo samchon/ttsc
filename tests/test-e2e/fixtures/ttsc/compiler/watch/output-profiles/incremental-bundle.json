@@ -1,0 +1,1 @@
+{"compilerOptions":{"incremental":true,"module":"commonjs","rootDir":"src","outDir":"dist"},"files":["src/bundle-input.ts"]}

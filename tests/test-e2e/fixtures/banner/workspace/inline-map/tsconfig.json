@@ -1,1 +1,0 @@
-{"extends":"../tsconfig.base.json","compilerOptions":{"inlineSourceMap":true,"outDir":"dist","rootDir":"../shared","plugins":[{"transform":"@ttsc/banner","configFile":"../shared/banner.config.cjs"}]},"include":["../shared"]}

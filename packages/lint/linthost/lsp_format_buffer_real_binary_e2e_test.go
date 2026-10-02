@@ -1,3 +1,5 @@
+//go:build e2e
+
 package linthost
 
 import (
@@ -41,10 +43,10 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Exercises the compiled lint plugin command with proxy-shaped argv and dirty buffer stdin; asserts successful exit, empty stderr, exactly one logical-URI edit containing formatted buffer text, literal null for a clean buffer, and unchanged disk text, distinguishing the named lost connection or changed behavior from valid execution.
 // @evidence contracts/testing.md#independent-expectations Literal buffer/disk texts differ deliberately, and the format/semi contract adds the missing semicolon.
 // @evidence contracts/testing.md#distinguishing-cases This case owns dirty stdin cannot be replaced by disk content and an already formatted buffer returns no edit; portable rule decisions remain in the shared Go unit population.
-// @evidence contracts/testing.md#execution-ownership TestLSPFormatBufferRealBinaryE2E is discovered from test/e2e by the flattened lint runner and called once under TestSelectedLintBoundaries; its named subcases retain inputs, assertions and failure identity.
+// @evidence contracts/testing.md#execution-ownership The lint E2E entry calls nativeLintConnections, which selects TestLSPFormatBufferRealBinaryE2E by exact name through GoBoundary.run with the e2e build tag in packages/lint/linthost. Go test retains this entry and its subcase failure identities; ordinary Go unit execution does not select this tagged file.
 // @evidence contracts/e2e.md#necessary-boundary The actual connection is the compiled lint plugin command with proxy-shaped argv and dirty buffer stdin; direct native operation calls cannot prove that separate evaluator, formatter, binary-stdin or JavaScript runtime behavior.
 // @evidence contracts/e2e.md#shared-execution One real plugin binary and consumer project serve both named dirty/clean subcases; the second request reuses that binary without another Go build.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns copied build tree, binary and project; each child exits before its result is decoded. Separate stdin bytes select each case and the original disk bytes remain fixed.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns the actual standalone binary and consumer project; each child exits before its result is decoded. Separate stdin bytes select each case and the original disk bytes remain fixed.
 // @evidence contracts/e2e.md#preserved-coverage Keeps successful exit, empty stderr, exactly one logical-URI edit containing formatted buffer text, literal null for a clean buffer, and unchanged disk text and every original input/control branch; preparation sharing changes no expected result or admitted case.
 func TestLSPFormatBufferRealBinaryE2E(t *testing.T) {
   bin := buildLintSidecarBinaryForTest(t)
@@ -121,160 +123,31 @@ func TestLSPFormatBufferRealBinaryE2E(t *testing.T) {
   }
 }
 
-// buildLintSidecarBinaryForTest builds the real @ttsc/lint sidecar (the
-// ./plugin main package) into a temp binary and returns its path.
-//
-// The scratch layout produced by `go test` flattens this test
-// into scratch/linthost/<file>.go. Go runs this package from scratch/linthost,
-// so its owned working directory identifies the scratch module independently
-// of compiler debug paths. The module containing plugin/main.go and go.work
-// is one directory up. Mirrors the go-build-into-tempdir idiom in
-// packages/ttsc/test/ttscserver/helpers_test.go.
-//
-// One wrinkle is unique to the lint scratch layout: copyGoTestsFlat flattens
-// EVERY .go file under packages/lint/test/ into scratch/linthost/, including
-// the lone helper that is not named *_test.go
-// (test/rules/control-flow/no_magic_numbers_test_other.go). A plain
-// `go build ./plugin` would compile that helper as part of package linthost in
-// a non-test build, where the *_test.go symbols it references (e.g.
-// assertRuleSkipsSource) do not exist — breaking the build. That is purely an
-// artifact of the test materialization, not a real ttsc defect. To build the
-// production binary cleanly, this helper reconstructs the scratch module into a
-// fresh temp dir and drops the flattened test files from linthost/ (identified
-// by matching basenames under the real packages/lint/test/ tree, located via
-// the runner-provided TTSC_TTSX_BINARY).
+// buildLintSidecarBinaryForTest builds the owning package's actual ./plugin
+// producer once for the dirty and clean buffer requests. Go test runs this
+// package from packages/lint/linthost, whose parent is the module root. The
+// existing workspace and object cache remain authoritative; no source tree or
+// workspace is flattened, copied or rewritten.
 func buildLintSidecarBinaryForTest(t *testing.T) string {
   t.Helper()
   packageRoot, err := os.Getwd()
   if err != nil {
     t.Fatalf("read Go test package working directory: %v", err)
   }
-  scratchRoot := filepath.Dir(packageRoot)
-
-  buildRoot := t.TempDir()
-  if err := copyTree(scratchRoot, buildRoot); err != nil {
-    t.Fatalf("copy scratch module for build: %v", err)
-  }
-  for name := range flattenedLintTestFilenames(t) {
-    _ = os.Remove(filepath.Join(buildRoot, "linthost", name))
-  }
-  // The scratch go.work `use`s the scratch module by its absolute path; after
-  // copying, repoint that entry at buildRoot so the build consumes the
-  // stripped-down linthost/ here, not the polluted original. The other entries
-  // (packages/ttsc + shims) are absolute paths outside the scratch tree and
-  // stay valid.
-  retargetGoWorkRoot(t, filepath.Join(buildRoot, "go.work"), scratchRoot, buildRoot)
-
   bin := filepath.Join(t.TempDir(), "ttsc-lint")
   if filepath.Separator == '\\' {
     bin += ".exe"
   }
-  build := exec.Command("go", "build", "-trimpath", "-o", bin, "./plugin")
-  build.Dir = buildRoot
+  goBinary := os.Getenv("TTSC_GO_BINARY")
+  if goBinary == "" {
+    goBinary = "go"
+  }
+  build := exec.Command(goBinary, "build", "-trimpath", "-o", bin, "./plugin")
+  build.Dir = filepath.Dir(packageRoot)
   if output, err := build.CombinedOutput(); err != nil {
     t.Fatalf("go build ./plugin failed: %v\n%s", err, output)
   }
   return bin
-}
-
-// flattenedLintTestFilenames returns the basenames of every .go file under the
-// real packages/lint/test/ tree. These are exactly the files copyGoTestsFlat
-// pours into scratch/linthost/, so removing them before a non-test build leaves
-// only the genuine linthost library sources. The real test directory is located
-// relative to TTSC_TTSX_BINARY (.../packages/ttsc/lib/launcher/ttsx.js), which
-// `go test` always exports to the go test child.
-func flattenedLintTestFilenames(t *testing.T) map[string]struct{} {
-  t.Helper()
-  ttsx := os.Getenv("TTSC_TTSX_BINARY")
-  if strings.TrimSpace(ttsx) == "" {
-    t.Skip("TTSC_TTSX_BINARY not set; run via `go test` to build the real sidecar")
-  }
-  // .../packages/ttsc/lib/launcher/ttsx.js -> repo root is four dirs up.
-  repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(ttsx)))))
-  testDir := filepath.Join(repoRoot, "packages", "lint", "test")
-  out := map[string]struct{}{}
-  err := filepath.WalkDir(testDir, func(path string, d os.DirEntry, err error) error {
-    if err != nil {
-      return err
-    }
-    if !d.IsDir() && strings.HasSuffix(d.Name(), ".go") {
-      out[d.Name()] = struct{}{}
-    }
-    return nil
-  })
-  if err != nil {
-    t.Fatalf("walk lint test dir %s: %v", testDir, err)
-  }
-  return out
-}
-
-// retargetGoWorkRoot rewrites the `use` entry that points at oldRoot in the
-// go.work at path so it points at newRoot instead. `go test`
-// writes the scratch module entry as the self-relative "." (absolute temp
-// paths fail Go's workspace membership check on Windows), which after
-// copyTree already points at the copied module — nothing to rewrite then.
-// An absolute oldRoot entry (forward slashes, see the runner) is still
-// retargeted for older scratch layouts.
-func retargetGoWorkRoot(t *testing.T, path, oldRoot, newRoot string) {
-  t.Helper()
-  data, err := os.ReadFile(path)
-  if err != nil {
-    t.Fatalf("read go.work: %v", err)
-  }
-  text := string(data)
-  oldSlash := filepath.ToSlash(oldRoot)
-  newSlash := filepath.ToSlash(newRoot)
-  replaced := strings.ReplaceAll(text, oldSlash, newSlash)
-  if replaced == text {
-    if hasSelfRelativeGoWorkUse(text) {
-      return
-    }
-    t.Fatalf("go.work did not reference scratch root %q to retarget:\n%s", oldSlash, text)
-  }
-  if err := os.WriteFile(path, []byte(replaced), 0o644); err != nil {
-    t.Fatalf("write go.work: %v", err)
-  }
-}
-
-// hasSelfRelativeGoWorkUse reports whether the go.work text contains a
-// self-relative `use` entry ("." on its own line inside the use block).
-func hasSelfRelativeGoWorkUse(text string) bool {
-  for _, line := range strings.Split(text, "\n") {
-    if strings.TrimSpace(line) == "." {
-      return true
-    }
-  }
-  return false
-}
-
-// copyTree recursively copies the file tree at src into dst, preserving regular
-// files and directories. Symlinks (the scratch go.work points at shim modules
-// by absolute path, so none are needed inside the tree) are skipped.
-func copyTree(src, dst string) error {
-  return filepath.WalkDir(src, func(path string, d os.DirEntry, err error) error {
-    if err != nil {
-      return err
-    }
-    rel, relErr := filepath.Rel(src, path)
-    if relErr != nil {
-      return relErr
-    }
-    target := filepath.Join(dst, rel)
-    if d.IsDir() {
-      return os.MkdirAll(target, 0o755)
-    }
-    if !d.Type().IsRegular() {
-      return nil
-    }
-    data, readErr := os.ReadFile(path)
-    if readErr != nil {
-      return readErr
-    }
-    if mkErr := os.MkdirAll(filepath.Dir(target), 0o755); mkErr != nil {
-      return mkErr
-    }
-    return os.WriteFile(target, data, 0o644)
-  })
 }
 
 // runLintSidecarFormatBuffer invokes the built sidecar binary with the EXACT

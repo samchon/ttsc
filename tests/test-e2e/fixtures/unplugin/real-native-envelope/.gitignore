@@ -1,0 +1,5 @@
+!base/dependencies/typed-dep/dist/
+!base/dependencies/typed-dep/dist/index.d.ts
+!base/dependencies/typed-dep/dist/index.js
+!resolution/dependencies/exports-pkg/dist/
+!resolution/dependencies/exports-pkg/dist/feature.js

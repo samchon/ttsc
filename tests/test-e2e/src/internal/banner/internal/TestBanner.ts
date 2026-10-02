@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 
 /** Shared expectations for the `@ttsc/banner` E2E experiment. */
 export namespace TestBanner {
-  /** Text of `fixtures/banner/workspace/shared/banner.config.cjs`. */
+  /** Text of `fixtures/utilities/workspace/banner/shared/banner.config.cjs`. */
   export const SHARED_TEXT = "Copyright\nMIT License\nthird line\nfourth line";
 
   /**

@@ -8,9 +8,17 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverNewLintDiagnosticBoundsSourceRanges verifies the public driver
-// exposes and renders the diagnosticwriter shim's normalized source span,
-// rather than retaining the caller's malformed offsets in its DTO.
+// TestDriverNewLintDiagnosticBoundsSourceRanges Verifies that NewLintDiagnostic bounds malformed spans and preserves a valid span, then WritePrettyDiagnostics renders each message.
+//
+// Named rows cover negative, reversed, beyond EOF, zero-width EOF, and valid unchanged ranges.
+//
+// 1. Load a source file and construct diagnostics for all five authored offset rows.
+// 2. Assert each normalized start and length and render the diagnostic to verify its message.
+//
+// @evidence contracts/testing.md#behavioral-verification NewLintDiagnostic bounds malformed spans and preserves a valid span, then WritePrettyDiagnostics renders each message.
+// @evidence contracts/testing.md#independent-expectations Authored source length and literal expected starts and lengths define bounds independently of normalization.
+// @evidence contracts/testing.md#distinguishing-cases Named rows cover negative, reversed, beyond EOF, zero-width EOF, and valid unchanged ranges.
+// @evidence contracts/testing.md#execution-ownership A direct Program supplies SourceFile and Go invokes the diagnostic constructor and writer. Go discovers TestDriverNewLintDiagnosticBoundsSourceRanges under ./test/driver.
 func TestDriverNewLintDiagnosticBoundsSourceRanges(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

@@ -7,7 +7,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverUnusedDeclarationDiagnosticIsNotFiltered verifies unused
+// TestDriverUnusedDeclarationDiagnosticIsNotFiltered Verifies unused
 // non-overload declarations are not filtered.
 //
 // The driver suppresses one tsgo diagnostic shape for ambient overload
@@ -17,6 +17,11 @@ import (
 // 1. Enable noUnusedLocals for an unused interface declaration.
 // 2. Load and diagnose the project.
 // 3. Assert the unused declaration diagnostic is still returned.
+//
+// @evidence contracts/testing.md#behavioral-verification Program.Diagnostics retains a message naming UnusedInterface under noUnusedLocals.
+// @evidence contracts/testing.md#independent-expectations The authored unused non-overload interface is subject to TypeScript unused-declaration diagnostics, so overload filtering must not erase that finding.
+// @evidence contracts/testing.md#distinguishing-cases A regular unused interface owns the negative filtering boundary; ambient overload signatures are covered separately, and this body does not assert diagnostic code or range.
+// @evidence contracts/testing.md#execution-ownership Go test/driver directly loads and diagnoses the temporary Program with ForceNoEmit, without starting a compiler CLI.
 func TestDriverUnusedDeclarationDiagnosticIsNotFiltered(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

@@ -24,6 +24,10 @@ import (
 // 1. Register a linked EmitTransformPlugin (0 -> 100) with one manifest entry.
 // 2. Emit through EmitWithPluginTransformers with a host transform (100 -> 200).
 // 3. Assert the output stalls at `exports.a = 100;`, proving host-then-linked.
+// @evidence contracts/testing.md#behavioral-verification Runs actual host and linked numeric transforms through EmitWithPluginTransformers and requires stalled 100 while rejecting 200.
+// @evidence contracts/testing.md#independent-expectations Authored initial zero, host 100-to-200 and linked zero-to-100 imply literal 100 for host-first ordering.
+// @evidence contracts/testing.md#distinguishing-cases Two dependent transforms distinguish host-first from linked-first ordering; 200 is an explicit forbidden result.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit registers the actual in-process linked transform with test-scoped manifest and closes its private Program after captured emission; no plugin binary executes.
 func TestEmitWithPluginTransformersChainLinkedTransformsAfterHost(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"linked","stage":"transform","config":{}}]`)

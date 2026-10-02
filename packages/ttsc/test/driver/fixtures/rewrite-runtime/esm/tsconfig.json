@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "target": "es2020",
+    "outDir": "bin",
+    "strict": true
+  },
+  "files": ["index.ts", "plugin.ts"]
+}

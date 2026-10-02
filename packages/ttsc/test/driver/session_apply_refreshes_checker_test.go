@@ -8,7 +8,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverSessionApplyRefreshesChecker verifies incremental sessions replace
+// TestDriverSessionApplyRefreshesChecker Verifies incremental sessions replace
 // the Checker lease together with the tsgo Program.
 //
 // UpdateProgram returns a new Program and checker pool even when it reuses all
@@ -19,6 +19,11 @@ import (
 // 1. Open a valid one-file resident Session.
 // 2. Apply an import-stable edit that assigns a string to a number.
 // 3. Assert the current Program reports the post-edit type error.
+//
+// @evidence contracts/testing.md#behavioral-verification Session.Apply returns reused true for an import-stable invalid type edit, and current Program diagnostics contain not assignable to type number.
+// @evidence contracts/testing.md#independent-expectations The literal string assignment to a number must fail TypeScript checking after the edit, making stale pre-edit checker state distinguishable.
+// @evidence contracts/testing.md#distinguishing-cases A valid initial source changes only its body to an invalid assignment; the body does not assert the initial diagnostics or checker pointer identity.
+// @evidence contracts/testing.md#execution-ownership Go test/driver owns and closes an in-process resident Session, applies one overlay edit and queries actual current diagnostics.
 func TestDriverSessionApplyRefreshesChecker(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{"compilerOptions":{"strict":true,"noEmit":true},"files":["index.ts"]}`)

@@ -1,9 +1,0 @@
-datasource db {
-  provider = "postgresql"
-}
-
-// @evidence docs/requirements.md#pricing The sale exists to price an offer.
-model Sale {
-  id    String @id @db.Uuid
-  price Int
-}

@@ -8,18 +8,19 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxySuppressesDirtyDocumentFormatCodeAction verifies source.format
-// actions are not computed from saved disk text for dirty documents.
+// TestLSPProxySuppressesDirtyDocumentFormatCodeAction Verifies that dirty-document source.format requests return empty local actions and do not forward.
 //
-// `source.format` is plugin-only only when a plugin owns the format command.
-// That conditional branch still needs the same saved-state protection as
-// ttsc-only fix-all actions, otherwise formatting can be computed against stale
-// text and returned with wrong offsets.
+// didChange makes the document dirty before its source.format-only request.
 //
 // 1. Configure a plugin source that owns `ttsc.format.document`.
 // 2. Mark a document dirty with didChange.
 // 3. Request only `source.format` for that URI.
 // 4. Assert the request is local, empty, and not forwarded upstream.
+//
+// @evidence contracts/testing.md#behavioral-verification Dirty-document source.format requests return empty local actions and do not forward.
+// @evidence contracts/testing.md#independent-expectations A disk-based plugin action cannot safely target an unsaved generation.
+// @evidence contracts/testing.md#distinguishing-cases didChange makes the document dirty before its source.format-only request.
+// @evidence contracts/testing.md#execution-ownership A format-command-owning Go stub and pipe proxy exercise suppression without a formatter process. Go discovers TestLSPProxySuppressesDirtyDocumentFormatCodeAction under ./test/driver.
 func TestLSPProxySuppressesDirtyDocumentFormatCodeAction(t *testing.T) {
   h := newProxyHarness(t, &stubSource{
     actions:  []driver.LSPCodeAction{{Title: "Format", Kind: "source.format"}},

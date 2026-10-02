@@ -3,13 +3,14 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * One project directory that plugin-free `TtscCompiler` API scenarios share.
+ * One owned project directory that `TtscCompiler` API scenarios share.
  *
  * Every state starts from the authored baseline under `fixtures/ttsc/api/baseline`
  * and overlays only what that state changes (a tsconfig, a source tree or one
- * file) from `fixtures/ttsc/api/<state>`, so the project, its package manifest
- * and the compiler instance outlive the states while sources and configuration
- * never leak from one state into the next.
+ * file) from `fixtures/ttsc/api/<state>`. The directory survives state changes;
+ * each baseline/overlay copy may replace its package manifest. Callers own
+ * compiler objects, real Program lifetimes and any asynchronous workers, and
+ * must join their operations before entering another state or closing the root.
  */
 export namespace CompilerApiWorkspace {
   const FIXTURES = path.resolve(import.meta.dirname, "../../../../fixtures/ttsc/api");
@@ -41,7 +42,8 @@ export namespace CompilerApiWorkspace {
    * Replace the sources and configuration with the baseline plus one overlay.
    *
    * Only `src`, `..src`, `..dist`, `dist`, `packages`, `node_modules` and `tsconfig.json` are reset; the
-   * package manifest stays, and nothing outside the project directory is touched.
+   * baseline and overlay copies may overwrite package.json. Nothing outside
+   * the project directory is touched.
    *
    * @evidence contracts/common.md#principled-implementation Removing exactly the directories a state may populate and copying baseline then overlay leaves one authored input set, so a result can only come from the entered state.
    * @evidence contracts/common.md#clear-and-simple-design A bounded reset replaces creating another project.
@@ -49,7 +51,7 @@ export namespace CompilerApiWorkspace {
    * @evidence contracts/common.md#meaningful-documentation Lists what is reset and what is kept.
    * @evidence contracts/portability.md#os-neutral-implementation Node removal with retry options and path joins only.
    * @evidence contracts/performance.md#efficient-algorithms Visits only the small authored trees.
-   * @evidence contracts/performance.md#reuse-equivalent-work Reuses the project directory and manifest across states.
+   * @evidence contracts/performance.md#reuse-equivalent-work Reuses the project directory while recopying its authored baseline and overlay, including their package manifest; compiler result or producer reuse remains caller-owned.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Leaves only the files of the entered state.
    */
   export function enter(workspace: IWorkspace, state: string): void {
@@ -75,7 +77,7 @@ export namespace CompilerApiWorkspace {
    * @evidence contracts/portability.md#os-neutral-implementation Node retries transient Windows removal failures.
    * @evidence contracts/performance.md#efficient-algorithms Visits each file once.
    * @evidence contracts/performance.md#reuse-equivalent-work Performs the one cleanup of one workspace.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Releases the only directory the workspace owns after the synchronous compiler calls have joined.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Releases the only directory the workspace owns after callers have joined their synchronous operations or asynchronous workers; this directory helper does not itself join a compiler or process.
    */
   export function close(workspace: IWorkspace): void {
     fs.rmSync(workspace.root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });

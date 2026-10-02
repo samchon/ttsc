@@ -8,12 +8,19 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPWriteFramePropagatesBodyWriteError verifies the second leg of
-// the writer error path — the header succeeded but the body write fails.
+// TestLSPWriteFramePropagatesBodyWriteError Verifies the second leg of
+// the writer error path. the header succeeded but the body write fails.
 // Without this branch the proxy would silently truncate outbound frames.
+//
+// The independently counted 21-byte header succeeds before the four-byte body fails.
 //
 // 1. Configure a writer that fails after the header bytes have been written.
 // 2. Assert WriteFrame returns a wrapped body-write error.
+//
+// @evidence contracts/testing.md#behavioral-verification WriteFrame wraps the injected failure with a body-write message.
+// @evidence contracts/testing.md#independent-expectations The independently counted 21-byte header succeeds before the four-byte body fails.
+// @evidence contracts/testing.md#distinguishing-cases Header-success/body-failure isolates the second write branch.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPWriteFramePropagatesBodyWriteError is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestLSPWriteFramePropagatesBodyWriteError(t *testing.T) {
   sentinel := errors.New("body broken")
   // "Content-Length: 4\r\n\r\n" is 21 bytes; fail after them so only the

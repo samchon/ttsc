@@ -20,6 +20,10 @@ import (
 //  1. Load a mixed-case project with a resolved or missing package subpath.
 //  2. Replace its exports target on disk between construction and replay.
 //  3. Assert universal resolution failures and successful fresh compilation.
+// @evidence contracts/testing.md#behavioral-verification Constructs actual programs and transform graphs before and after changing a package target; all returned source edges must report resolution-changed and a fresh program must recover.
+// @evidence contracts/testing.md#independent-expectations Authored original and replacement declarations establish changed identity, and literal resolution-changed defines rejection independently of the graph implementation.
+// @evidence contracts/testing.md#distinguishing-cases Previously resolved retargeting and previously missing appearance both require universal invalidation; initial and fresh graph controls require empty failures.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit invokes actual compiler and graph operations with uncached disk reads, private t.TempDir input and registered program cleanup; it launches no compiler process.
 func TestAutomaticTypeResolutionReplayRejectsChangedTargets(t *testing.T) {
   for _, initiallyMissing := range []bool{false, true} {
     name := "changed target"

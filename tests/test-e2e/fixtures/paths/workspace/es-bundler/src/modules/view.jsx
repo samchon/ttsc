@@ -1,1 +1,0 @@
-export const view = "jsx";

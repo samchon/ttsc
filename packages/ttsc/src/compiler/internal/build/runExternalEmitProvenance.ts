@@ -1,10 +1,8 @@
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { TextDecoder } from "node:util";
 
-import { COMPILER_OPTION_KINDS } from "../../../flags/COMPILER_OPTION_KINDS";
-import { normalizeFlagToken } from "../../../flags/normalizeFlagToken";
+import { readCompilerOptionOccurrence } from "../../../flags/readCompilerOptionOccurrence";
+import { CompilerArgumentsInspection } from "../CompilerArgumentsInspection";
 import { resolveFlagSpec } from "../../../flags/resolveFlagSpec";
 import type { TtscBuildResult } from "../../../structures/internal/TtscBuildResult";
 import { ensureExecutable } from "../ensureExecutable";
@@ -128,7 +126,7 @@ export function runExternalEmitProvenance(options: {
   try {
     for (const [file, before] of probe.responseObservations) {
       if (!stable) break;
-      stable = observeFile(file) === before;
+      stable = CompilerArgumentsInspection.observeInputFile(file) === before;
       if (!stable)
         failure = `Compiler response file changed across emission: ${JSON.stringify(file)}.`;
     }
@@ -140,7 +138,10 @@ export function runExternalEmitProvenance(options: {
     }
     stage = `executable observation of ${JSON.stringify(probe.binaryPath)}`;
     if (stable) {
-      const after = observeFile(probe.binaryPath, "executable");
+      const after = CompilerArgumentsInspection.observeInputFile(
+        probe.binaryPath,
+        "executable",
+      );
       if (after !== probe.binaryObservation) {
         stable = false;
         failure = `Selected executable changed across emission: ${JSON.stringify(probe.binaryPath)} (${observationDifference(probe.binaryObservation, after)}).`;
@@ -149,14 +150,14 @@ export function runExternalEmitProvenance(options: {
     for (const [source, before] of probe.observations) {
       if (!stable) break;
       stage = `source observation of ${JSON.stringify(source)}`;
-      const after = observeFile(source);
+      const after = CompilerArgumentsInspection.observeInputFile(source);
       stable = after === before;
       if (!stable)
         failure = `Selected source changed across emission: ${JSON.stringify(source)} (${observationDifference(before, after)}).`;
     }
     for (const [file, before] of probe.responseObservations) {
       if (!stable) break;
-      stable = observeFile(file) === before;
+      stable = CompilerArgumentsInspection.observeInputFile(file) === before;
       if (!stable)
         failure = `Compiler response file changed during post-emission inspection: ${JSON.stringify(file)}.`;
     }
@@ -219,39 +220,33 @@ function prepareProbe(
     return undefined;
   };
   try {
-    const inspected = inspectResponseArguments(options.args, options.cwd);
-    const last = inspected.args.at(-1);
-    // A native string option consumes even a following dash token as its value.
-    // Appending --showConfig to a missing value can therefore cause emission
-    // instead of inspection. Wrapper schema and the compiler-owned arity table
-    // together identify booleans; unknown and value-taking options stay unsafe.
-    if (last?.startsWith("-")) {
-      const kind =
-        resolveFlagSpec(last)?.kind ??
-        COMPILER_OPTION_KINDS.get(normalizeFlagToken(last.split("=", 1)[0]!));
-      if (kind !== "boolean")
-        return unavailable(
-          `Appending inspection could supply a missing value to the trailing option ${JSON.stringify(last)}.`,
-        );
-    }
+    const inspected = CompilerArgumentsInspection.inspect(
+      options.args,
+      options.cwd,
+    );
     if (
       PassthroughFlags.forwardsTerminalTsgoFlag({ passthrough: inspected.args })
     )
       return unavailable(
         "Original argv selects an effective terminal compiler command; provenance inspection would change its command behavior.",
       );
-    const unsupportedArg = inspected.args.find((arg) => {
+    let unsupportedArg: string | undefined;
+    for (let index = 0; index < inspected.args.length; ) {
+      const arg = inspected.args[index]!;
+      const occurrence = readCompilerOptionOccurrence(inspected.args, index);
       const flag = resolveFlagSpec(arg);
-      const name = arg.startsWith("-")
-        ? normalizeFlagToken(arg.split("=", 1)[0]!)
-        : undefined;
-      return (
+      const name = occurrence.option?.name;
+      if (
         flag?.name === "--build" ||
-        name === "pprofdir" ||
-        name === "generatecpuprofile" ||
-        name === "generatetrace"
-      );
-    });
+        name === "pprofDir" ||
+        name === "generateCpuProfile" ||
+        name === "generateTrace"
+      ) {
+        unsupportedArg = arg;
+        break;
+      }
+      index += occurrence.width;
+    }
     if (unsupportedArg !== undefined)
       return unavailable(
         `Original argv contains ${JSON.stringify(unsupportedArg)}, selecting a build command or profiling/tracing artifact option unsupported by read-only provenance inspection.`,
@@ -261,7 +256,10 @@ function prepareProbe(
     // Match spawnNative's native/script boundary before observing ctime: its
     // first POSIX permission preparation must not invalidate our own producer.
     if (!/\.(?:[cm]?js|ts)$/i.test(binaryPath)) ensureExecutable(binaryPath);
-    const binaryObservation = observeFile(binaryPath, "executable");
+    const binaryObservation = CompilerArgumentsInspection.observeInputFile(
+      binaryPath,
+      "executable",
+    );
     stage = "effective configuration inspection";
     const parsed = readConfig(options);
     if (parsed === undefined)
@@ -283,9 +281,14 @@ function prepareProbe(
       (compilerOptions.rootDir !== undefined &&
         typeof compilerOptions.rootDir !== "string") ||
       (compilerOptions.jsx !== undefined &&
-        !["preserve", "react", "react-jsx", "react-jsxdev"].includes(
-          String(compilerOptions.jsx),
-        ))
+        (typeof compilerOptions.jsx !== "string" ||
+          ![
+            "preserve",
+            "react",
+            "react-native",
+            "react-jsx",
+            "react-jsxdev",
+          ].includes(compilerOptions.jsx)))
     )
       return unavailable(
         `Effective configuration selects unsupported provenance layout or reporting: ${JSON.stringify({ references: config.references?.length, outFile: compilerOptions.outFile, rootDir: compilerOptions.rootDir, outDir: compilerOptions.outDir, jsx: compilerOptions.jsx, explainFiles: compilerOptions.explainFiles, generateTrace: compilerOptions.generateTrace, generateCpuProfile: compilerOptions.generateCpuProfile, pprofDir: compilerOptions.pprofDir })}.`,
@@ -330,10 +333,13 @@ function prepareProbe(
     const observations = new Map<string, string>();
     for (const source of files) {
       stage = `initial source observation of ${JSON.stringify(source)}`;
-      observations.set(source, observeFile(source));
+      observations.set(
+        source,
+        CompilerArgumentsInspection.observeInputFile(source),
+      );
     }
     for (const [file, before] of inspected.observations)
-      if (observeFile(file) !== before)
+      if (CompilerArgumentsInspection.observeInputFile(file) !== before)
         return unavailable(
           `Compiler response file changed during inspection: ${JSON.stringify(file)}.`,
         );
@@ -351,129 +357,6 @@ function prepareProbe(
       `Provenance inspection failed during ${stage}: ${error instanceof Error ? error.message : String(error)}.`,
     );
   }
-}
-
-/**
- * Inspect response tokens while the producer keeps its original argv. Native
- * response parsing recursively parses each file as a separate argument frame:
- * an option value in that frame never consumes a token from its parent.
- * Explicit boolean values in this inspection projection preserve that
- * boundary.
- *
- * This is admission, not a replacement compiler parser. Known value operands
- * are skipped without expanding an operand beginning with @. Ambiguous arity,
- * malformed response text and physical cycles refuse inspection; the emitting
- * producer remains responsible for their diagnostics. Each response read is
- * bracketed by native identity/content observations, with no cross-call reuse.
- */
-function inspectResponseArguments(args: readonly string[], cwd: string) {
-  const observations = new Map<string, string>();
-  if (!args.some((arg) => arg.startsWith("@"))) return { args, observations };
-  const projected: string[] = [];
-  const active = new Set<string>();
-  const frames: {
-    args: readonly string[];
-    index: number;
-    physical?: string;
-  }[] = [{ args, index: 0 }];
-  while (frames.length !== 0) {
-    const frame = frames[frames.length - 1]!;
-    if (frame.index === frame.args.length) {
-      if (frame.physical !== undefined) active.delete(frame.physical);
-      frames.pop();
-      continue;
-    }
-    const token = frame.args[frame.index++]!;
-    if (token.startsWith("@")) {
-      const file = path.resolve(cwd, token.slice(1));
-      const before = observeFile(file);
-      const physical = (JSON.parse(before) as [string])[0];
-      if (active.has(physical))
-        throw new Error(`Cyclic compiler response file: ${file}`);
-      const text = responseText(fs.readFileSync(file));
-      if (observeFile(file) !== before)
-        throw new Error(
-          `Compiler response file changed during reading: ${file}`,
-        );
-      const previous = observations.get(file);
-      if (previous !== undefined && previous !== before)
-        throw new Error(
-          `Compiler response file changed between reads: ${file}`,
-        );
-      observations.set(file, before);
-      active.add(physical);
-      frames.push({ args: responseTokens(text), index: 0, physical });
-      continue;
-    }
-    projected.push(token);
-    if (!token.startsWith("-")) continue;
-    if (token.includes("="))
-      throw new Error(`Unsupported inline compiler response option: ${token}`);
-    const kind =
-      resolveFlagSpec(token)?.kind ??
-      COMPILER_OPTION_KINDS.get(normalizeFlagToken(token));
-    const next = frame.args[frame.index];
-    if (kind === "boolean") {
-      if (next === "true" || next === "false" || next === "null") {
-        projected.push(next);
-        frame.index++;
-      } else projected.push("true");
-    } else {
-      if (
-        kind === undefined ||
-        next === undefined ||
-        next === "" ||
-        next.startsWith("-")
-      )
-        throw new Error(
-          `Unsupported or incomplete compiler response option: ${token}`,
-        );
-      projected.push(next);
-      frame.index++;
-    }
-  }
-  return { args: projected, observations };
-}
-
-/** Native filesystem decoding strips UTF-8/UTF-16 BOMs before tokenization. */
-function responseText(bytes: Buffer): string {
-  if (bytes.length >= 2) {
-    const littleEndian = bytes[0] === 0xff && bytes[1] === 0xfe;
-    const bigEndian = bytes[0] === 0xfe && bytes[1] === 0xff;
-    if (littleEndian || bigEndian) {
-      if (bytes.length % 2 !== 0)
-        throw new Error("Incomplete UTF-16 compiler response text.");
-      return new TextDecoder(littleEndian ? "utf-16le" : "utf-16be", {
-        ignoreBOM: true,
-      }).decode(bytes.subarray(2));
-    }
-  }
-  const start =
-    bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf ? 3 : 0;
-  return bytes.subarray(start).toString("utf8");
-}
-
-/** Native response grammar: ASCII control/space separators and whole quotes. */
-function responseTokens(text: string): string[] {
-  const args: string[] = [];
-  let position = 0;
-  while (position < text.length) {
-    while (position < text.length && text.charCodeAt(position) <= 32)
-      position++;
-    if (position === text.length) break;
-    if (text[position] === '"') {
-      const end = text.indexOf('"', position + 1);
-      if (end === -1) throw new Error("Unterminated compiler response quote.");
-      args.push(text.slice(position + 1, end));
-      position = end + 1;
-    } else {
-      const start = position;
-      while (position < text.length && text.charCodeAt(position) > 32)
-        position++;
-      args.push(text.slice(start, position));
-    }
-  }
-  return args;
 }
 
 /**
@@ -526,42 +409,25 @@ function readConfig(options: Parameters<typeof runExternalEmitProvenance>[0]):
 /** ShowConfig path options are relative to the selected config's directory. */
 function projectBase(args: readonly string[], cwd: string): string | undefined {
   let selected: string | undefined;
-  for (let index = 0; index < args.length; index++) {
-    if (resolveFlagSpec(args[index]!)?.name !== "--tsconfig") continue;
+  for (let index = 0; index < args.length; ) {
+    const occurrence = readCompilerOptionOccurrence(args, index);
+    if (resolveFlagSpec(args[index]!)?.name !== "--tsconfig") {
+      index += occurrence.width;
+      continue;
+    }
     if (args[index]!.includes("=")) return undefined;
-    selected = args[++index];
-    if (selected === undefined || selected.startsWith("-")) return undefined;
+    selected = args[index + 1];
+    if (
+      typeof selected !== "string" ||
+      occurrence.width !== 2 ||
+      selected === "null"
+    )
+      return undefined;
+    index += occurrence.width;
   }
   if (selected === undefined) return undefined;
   const project = path.resolve(cwd, selected);
   return fs.statSync(project).isDirectory() ? project : path.dirname(project);
-}
-
-/** Bracket full metadata around reads; compare executable bytes and object. */
-function observeFile(
-  source: string,
-  kind: "source" | "executable" = "source",
-): string {
-  const physical = fs.realpathSync.native(source);
-  const before = fs.statSync(source, { bigint: true });
-  if (!before.isFile())
-    throw new Error("Observed compiler input is not a regular file.");
-  const hash = createHash("sha256")
-    .update(fs.readFileSync(source))
-    .digest("hex");
-  const after = fs.statSync(source, { bigint: true });
-  const fullSignature = (stat: fs.BigIntStats) =>
-    [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(":");
-  if (
-    fullSignature(before) !== fullSignature(after) ||
-    fs.realpathSync.native(source) !== physical
-  )
-    throw new Error("Compiler input changed during observation.");
-  const signature =
-    kind === "source"
-      ? fullSignature(after)
-      : [after.dev, after.ino, after.size, after.mtimeNs].join(":");
-  return JSON.stringify([physical, signature, hash]);
 }
 
 /** Name only the changed identity premise; retain the original observation gate. */

@@ -21,7 +21,7 @@ import { projectModules } from "../../../../internal/unplugin/internal/transform
  * @evidence contracts/testing.md#behavioral-verification Watching buildEnd preserves one compile, closeWatcher forces two, and one-shot buildEnd forces three.
  * @evidence contracts/testing.md#independent-expectations Native run-log count exposes retention/disposal independent of identical transformed output.
  * @evidence contracts/testing.md#distinguishing-cases Watch phase end versus watcher teardown versus one-shot phase end.
- * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_rollup_disposes_at_the_right_boundary is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_rollup_disposes_at_the_right_boundary is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Built Rollup hooks and real native generation execute with explicitly supplied watchMode, not live watch dispatch.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.

@@ -3,69 +3,139 @@
 package evidence
 
 import (
+  "os"
+  "path/filepath"
   "testing"
 )
 
-/**
- * Verifies the loader materializes a located population end to end.
- *
- * Every piece is exercised alone elsewhere; this is the one case that proves
- * they compose — the walk that finds the files, the bridge that classifies
- * them, and the scan that places them. It is also the only place the fallback
- * would show: a unit whose location never resolved would report line 0 here.
- *
- *  1. Load the inventories for a configured schema through the real loader.
- *  2. Assert the model, its column, and its relation all materialized.
- *  3. Assert each carries the file and line it is written on.
- *
- * @evidence contracts/testing.md#behavioral-verification loadPrismaInventories returns exact file/line locations for the asserted models, column and relations.
- * @evidence contracts/testing.md#independent-expectations Literal schema layout and target-line table independently establish physical positions.
- * @evidence contracts/testing.md#distinguishing-cases The parser's classification (model, column, relation) and the native line scan must compose across both models; Sale.id, Sale.seller_id and Seller.id are present but their lines are not asserted.
- * @evidence contracts/testing.md#execution-ownership TestPrismaLoaderMaterializesALocatedPopulation is a Go test entry of package evidence run by the shared Evidence E2E experiment with go test -tags=e2e of packages/evidence; it calls loadPrismaInventories over a hand-built graphConfig (Node parser only on a schema-cache miss). It starts no native sidecar and builds no TypeScript project.
- * @evidence contracts/e2e.md#necessary-boundary On a schema-cache miss, loadPrismaInventories (via normalizePrismaSet) starts a Node child (node -e with the embedded bridge script) that resolves @ttsc/evidence from the fixture root created under packages/evidence/native through Node package self-reference and runs lib/internal/loadPrismaModels.js with a Prisma schema parser, and Go decodes the child's JSON. A hand-built result struct would bypass package resolution, the child process and the JSON transport.
- * @evidence contracts/e2e.md#shared-execution One loadPrismaInventories call over one fixture root; at most one Node child (none on a schema-cache hit); prismaBridgeSchema is also parsed by sibling tests, so a hit is possible.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The schema is the shared prismaBridgeSchema constant; prismaBridgeRoot creates a fixture directory under packages/evidence/native via MkdirTemp and registers RemoveAll with t.Cleanup. This path reads the in-process prismaSchemas cache keyed by content digest, so when an earlier test in the same process already parsed identical bytes under the same source spelling the Node child is skipped; whether it launches depends on test order and this test does not force a cold parse.
- * @evidence contracts/e2e.md#preserved-coverage The body asserts a clean load, the presence of the schema's inventory, the file path of every unit and the five target/line pairs.
- */
+// TestPrismaLoaderMaterializesALocatedPopulation shares one cold parser answer
+// between column/relation classification and the original physical locations.
+//
+// @evidence contracts/testing.md#behavioral-verification One actual loadPrismaInventories call classifies six original target/symbol pairs and locates five original target/line pairs; every returned unit retains prisma/schema.prisma. Named subtests collect both groups independently.
+// @evidence contracts/testing.md#independent-expectations The unchanged prismaBridgeSchema and the literal six-symbol and five-line tables establish expected identities and positions; no observed output supplies an expectation.
+// @evidence contracts/testing.md#distinguishing-cases Models, scalar foreign-key columns, forward relations and attribute-free back-references cross the same parser/scanner boundary. A missing inventory fails both dependent groups rather than passing on empty maps.
+// @evidence contracts/testing.md#execution-ownership This selectable e2e-tagged Go entry owns the former TestPrismaBridgeClassifiesColumnsAndRelations assertions and its own located-population assertions. The shared GoBoundary package process owns discovery; no sidecar or TypeScript Program is started here.
+// @evidence contracts/e2e.md#necessary-boundary Actual package self-resolution, compiled Prisma loader, WASM parser and JSON transport produce the models consumed by the native locator. A supplied inventory would bypass that connection.
+// @evidence contracts/e2e.md#shared-execution One fixture and one forced-cold loadPrismaInventories call serve both assertion groups. The original two-file native digest entry keeps its separate source-set framing; distinct schemas are not combined.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity The fixture retains exactly prismaBridgeSchema at prisma/schema.prisma. requireColdPrismaSchemaFixture removes only that content-key entry before the load; parent cleanup retains the root through both groups. Transport/fixture failure is recorded as a foundation failure and explicit blocked dependent groups, without retries or fabricated answers.
+// @evidence contracts/e2e.md#preserved-coverage The six original classification pairs, clean load, existing inventory, every unit path and five original physical lines remain executable in separately named subtests. No original assertion is replaced by a parser-count claim.
 func TestPrismaLoaderMaterializesALocatedPopulation(t *testing.T) {
-  root := prismaBridgeRoot(t, map[string]string{
-    "prisma/schema.prisma": prismaBridgeSchema,
-  })
-  inventories, problems := loadPrismaInventories(root, anchoredGraph(root, graphConfig{
-    Claims: []claimSpec{{
-      Type:    artifactTypeScript,
-      Files:   mustGlobSet(t, []string{"src/**/*.ts"}),
-      Symbols: symbolSet{"type": true},
-      References: []referenceSpec{{
-        Type:    artifactPrisma,
-        Files:   mustGlobSet(t, []string{"prisma/**/*.prisma"}),
-        Symbols: symbolSet{"model": true, "column": true, "relation": true},
+  var root string
+  var inventories map[string]*artifactInventory
+  ready := t.Run("cold_parser_foundation", func(foundation *testing.T) {
+    var err error
+    root, err = parserBridgeBatchRoot(t, "loadPrismaModels.js")
+    if err != nil {
+      foundation.Errorf("prepare real parser fixture: %v", err)
+      return
+    }
+    requireColdPrismaSchemaFixture(foundation, root, "prisma/schema.prisma", prismaBridgeSchema)
+    var problems graphDiagnostics
+    inventories, problems = loadPrismaInventories(root, anchoredGraph(root, graphConfig{
+      Claims: []claimSpec{{
+        Type: artifactTypeScript,
+        Files: mustGlobSet(foundation, []string{"src/**/*.ts"}),
+        Symbols: symbolSet{"type": true},
+        References: []referenceSpec{{
+          Type: artifactPrisma,
+          Files: mustGlobSet(foundation, []string{"prisma/**/*.prisma"}),
+          Symbols: symbolSet{"model": true, "column": true, "relation": true},
+        }},
       }},
-    }},
-  }))
-  if len(problems) != 0 {
-    t.Fatalf("a valid schema must load cleanly: %v", problems)
-  }
-  inventory := inventories["prisma/schema.prisma"]
-  if inventory == nil {
-    t.Fatal("the configured schema must have an inventory")
-  }
-  located := map[string]int{}
-  for _, unit := range inventory.Units {
-    if unit.Path != "prisma/schema.prisma" {
-      t.Fatalf("%s filed under %q", unit.Target, unit.Path)
+    }))
+    if len(problems) != 0 {
+      foundation.Errorf("a valid schema must load cleanly: %v", problems)
     }
-    located[unit.Target] = unit.Line
-  }
-  for target, line := range map[string]int{
-    "prisma:Sale":         6,
-    "prisma:Sale.price":   8,
-    "prisma:Sale.seller":  10,
-    "prisma:Seller":       13,
-    "prisma:Seller.sales": 15,
-  } {
-    if located[target] != line {
-      t.Fatalf("%s located at line %d, want %d", target, located[target], line)
+  })
+  t.Run("TestPrismaBridgeClassifiesColumnsAndRelations", func(group *testing.T) {
+    if !ready {
+      group.Error("BLOCKED: cold parser foundation failed")
+      return
     }
+    inventory := inventories["prisma/schema.prisma"]
+    if inventory == nil {
+      group.Error("the configured schema must have an inventory")
+      return
+    }
+    index := map[string]string{}
+    for _, unit := range inventory.Units {
+      index[unit.Target] = unit.Symbol
+    }
+    for target, symbol := range map[string]string{
+      "prisma:Sale": "model",
+      "prisma:Sale.price": "column",
+      "prisma:Sale.seller_id": "column",
+      "prisma:Sale.seller": "relation",
+      "prisma:Seller": "model",
+      "prisma:Seller.sales": "relation",
+    } {
+      if index[target] != symbol {
+        group.Errorf("%s materialized as %q, want %q", target, index[target], symbol)
+      }
+    }
+  })
+  t.Run("TestPrismaLoaderMaterializesALocatedPopulation", func(group *testing.T) {
+    if !ready {
+      group.Error("BLOCKED: cold parser foundation failed")
+      return
+    }
+    inventory := inventories["prisma/schema.prisma"]
+    if inventory == nil {
+      group.Error("the configured schema must have an inventory")
+      return
+    }
+    located := map[string]int{}
+    for _, unit := range inventory.Units {
+      if unit.Path != "prisma/schema.prisma" {
+        group.Errorf("%s filed under %q", unit.Target, unit.Path)
+      }
+      located[unit.Target] = unit.Line
+    }
+    for target, line := range map[string]int{
+      "prisma:Sale": 6,
+      "prisma:Sale.price": 8,
+      "prisma:Sale.seller": 10,
+      "prisma:Seller": 13,
+      "prisma:Seller.sales": 15,
+    } {
+      if located[target] != line {
+        group.Errorf("%s located at line %d, want %d", target, located[target], line)
+      }
+    }
+  })
+}
+
+// parserBridgeBatchRoot returns a workspace-local root without aborting its
+// caller, so preparation failures remain distinguishable from blocked groups.
+// The parent test owns cleanup after all consumers, including foundation errors.
+//
+// Principled implementation: A real enclosing package and built loader remain
+// the resolver's authority; an absolute temporary path is a valid createRequire base.
+// Clear and simple design: This one fixture lifetime serves both parser batches;
+// each test retains its own authored inputs and actual normalization call.
+// Prohibited implementation shortcuts: Errors return to the foundation rather
+// than synthesizing inventories, skipping assertions or replacing the Node loader.
+// Meaningful documentation: The comment states error and cleanup ownership.
+// OS-neutral implementation: Native stat, temporary directory, absolute path and
+// removal APIs preserve platform path semantics without a shell or case folding.
+// Efficient algorithms: Fixed-count path operations prepare one empty fixture.
+// Reuse equivalent work: Consumers share this root through their actual producer;
+// neither parser output nor a prior fixture is returned by this helper.
+// Bound retention and release resources: Parent cleanup removes the exact created
+// root after every dependent group; failed cleanup is reported and no handle is retained.
+func parserBridgeBatchRoot(t *testing.T, loader string) (string, error) {
+  t.Helper()
+  if _, err := os.Stat(filepath.Join("..", "lib", "internal", loader)); err != nil {
+    return "", err
   }
+  created, err := os.MkdirTemp(".", "parser-bridge-")
+  if err != nil {
+    return "", err
+  }
+  t.Cleanup(func() {
+    if err := os.RemoveAll(created); err != nil {
+      t.Errorf("release parser fixture %q: %v", created, err)
+    }
+  })
+  return filepath.Abs(created)
 }

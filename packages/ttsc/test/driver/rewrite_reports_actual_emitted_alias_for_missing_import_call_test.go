@@ -9,7 +9,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverRewriteReportsActualEmittedAliasForMissingImportCall verifies the
+// TestDriverRewriteReportsActualEmittedAliasForMissingImportCall Verifies the
 // missing-call diagnostic retains source ownership and reports the real alias.
 //
 // Alias discovery must not turn an absent target into a silent pass or a decoy
@@ -19,6 +19,11 @@ import (
 // 1. Emit a default import at `_16` whose only call uses another method.
 // 2. Register a rewrite for the missing `plugin.make` call.
 // 3. Assert emit fails with the source call and actual emitted alias in the error.
+//
+// @evidence contracts/testing.md#behavioral-verification EmitAll diagnostics include could not locate plugin.make, tried roots plugin_16.default and index.js for the missing target method.
+// @evidence contracts/testing.md#independent-expectations Fifteen authored colliding names force the import alias to 16, while only plugin.other exists, so the requested make call must report absence with its owned alias.
+// @evidence contracts/testing.md#distinguishing-cases A high-suffix import containing another method owns missing-call reporting; successful high-suffix rewrites are separate cases.
+// @evidence contracts/testing.md#execution-ownership Go test/driver loads and emits the project in process and combines returned errors and diagnostics; no emitted runtime or native host is used.
 func TestDriverRewriteReportsActualEmittedAliasForMissingImportCall(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

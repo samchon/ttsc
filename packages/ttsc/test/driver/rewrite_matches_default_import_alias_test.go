@@ -10,7 +10,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverRewriteMatchesDefaultImportAlias verifies CommonJS default-import
+// TestDriverRewriteMatchesDefaultImportAlias Verifies CommonJS default-import
 // aliases are considered rewrite candidates.
 //
 // TypeScript-Go emits default imports as generated variables such as
@@ -19,6 +19,11 @@ import (
 // 1. Compile a project with a default import named plugin.
 // 2. Register a rewrite using the source-level root name.
 // 3. Assert the generated default-import call is replaced.
+//
+// @evidence contracts/testing.md#behavioral-verification EmitAll replaces a CommonJS default-import call using its source root.
+// @evidence contracts/testing.md#independent-expectations The authored alias replacement grounds the complete expected assignment.
+// @evidence contracts/testing.md#distinguishing-cases Default alias differs from namespace and plain-root matching cases.
+// @evidence contracts/testing.md#execution-ownership Go unit TestDriverRewriteMatchesDefaultImportAlias is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestDriverRewriteMatchesDefaultImportAlias(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

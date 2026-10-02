@@ -19,12 +19,13 @@ import { projectModules } from "../../../../internal/unplugin/internal/transform
  * compiler's `env`, which carries the scratch directory, so the host's
  * environment is never written at all; that the worker follows the compiler's
  * `env` is proven at its owner
- * (`test_ttsccompiler_transformasync_runs_its_worker_under_the_compilers_env`).
- * The rewrite spanned one synchronous call, which no timer interrupts, so what
- * the host observes here is the environment the compile leaves behind.
+ * (`test_ttsccompiler_source_plugin_discovery_shares_one_project`, scenario
+ * `worker_scoped_environment_and_ambient_positive`). The rewrite spanned one
+ * synchronous call, which no timer interrupts, so what the host observes here
+ * is the environment the compile leaves behind.
  *
- * 1. Compile two private consumers sharing one immutable native producer with
- *    a known hold, sampling timers through each compile resolution.
+ * 1. Compile two private consumers sharing one immutable native producer with a
+ *    known hold, sampling timers through each compile resolution.
  * 2. Assert no stall came near the hold, and `TEMP`, `TMP`, and `TMPDIR` are as
  *    the compile found them.
  *
@@ -57,7 +58,10 @@ export async function test_transformttsc_compile_leaves_the_event_loop_and_envir
     let result;
     try {
       result = await transformTtsc(
-        file!, fs.readFileSync(file!, "utf8"), resolveOptions(), undefined,
+        file!,
+        fs.readFileSync(file!, "utf8"),
+        resolveOptions(),
+        undefined,
         createTtscTransformCache(),
       );
     } finally {
@@ -71,16 +75,27 @@ export async function test_transformttsc_compile_leaves_the_event_loop_and_envir
     const final = ended - (ticks.at(-1) ?? started);
     observations.push({
       phase: index === 0 ? "cold" : "same-process shared producer",
-      initial, intertick, final, longest: Math.max(initial, intertick, final),
-      result, found, after: temporary(),
-      runs: fs.readFileSync(project.runLog, "utf8").split(/\r?\n/).filter((line) => line.trim().length !== 0).length,
+      initial,
+      intertick,
+      final,
+      longest: Math.max(initial, intertick, final),
+      result,
+      found,
+      after: temporary(),
+      runs: fs.readFileSync(project.runLog).byteLength,
     });
   }
   // Collect both phases before asserting, so a cold failure cannot hide reuse.
-  console.log("compile responsiveness", observations.map(({ result, found, after, ...clock }) => clock));
+  console.log(
+    "compile responsiveness",
+    observations.map(({ result, found, after, ...clock }) => clock),
+  );
   assert.ok(observations.every((observation) => observation.result));
-  assert.deepEqual(observations.map((observation) => observation.runs), [1, 1],
-    "each private consumer performs its native hold");
+  assert.deepEqual(
+    observations.map((observation) => observation.runs),
+    [1, 1],
+    "each private consumer performs its native hold",
+  );
   assert.deepEqual(
     observations.map((observation) => observation.after),
     observations.map((observation) => observation.found),
@@ -88,8 +103,11 @@ export async function test_transformttsc_compile_leaves_the_event_loop_and_envir
   );
   assert.ok(
     observations.every((observation) => observation.longest < hold / 2),
-    observations.map((observation) =>
-      `${observation.phase}: initial ${observation.initial.toFixed(0)} ms, intertick ${observation.intertick.toFixed(0)} ms, final ${observation.final.toFixed(0)} ms`,
-    ).join("; "),
+    observations
+      .map(
+        (observation) =>
+          `${observation.phase}: initial ${observation.initial.toFixed(0)} ms, intertick ${observation.intertick.toFixed(0)} ms, final ${observation.final.toFixed(0)} ms`,
+      )
+      .join("; "),
   );
 }

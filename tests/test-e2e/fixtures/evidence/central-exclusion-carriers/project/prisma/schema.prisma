@@ -1,7 +1,0 @@
-datasource db {
-  provider = "sqlite"
-}
-
-model Sale {
-  id String @id
-}

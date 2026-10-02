@@ -28,7 +28,7 @@ const esbuild = TestUnpluginProject.REQUIRE_FROM_UNPLUGIN("esbuild");
  * @evidence contracts/testing.md#behavioral-verification Rollup plus later esbuild type stripping yields no SOURCEMAP_BROKEN and maps value to authored main.ts coordinates.
  * @evidence contracts/testing.md#independent-expectations Original source positions and independent map decoder fix oracle outside adapter map generation.
  * @evidence contracts/testing.md#distinguishing-cases Banner line shift followed by second transform composition; missing-map warning is explicitly rejected.
- * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_rollup_build_maps_transformed_modules_to_the_authored_source is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_rollup_build_maps_transformed_modules_to_the_authored_source is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Actual Rollup source-map composition with independent type-stripping plugin checks chaining.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Bundles close in finally; mutable sources and retained caches belong to this fixture. Tracked roots end at process exit.

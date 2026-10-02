@@ -30,23 +30,37 @@ export function test_external_response_refusal_preserves_the_supplied_operation_
     "a.rsp": "@b.rsp\n",
     "b.rsp": "@a.rsp\n",
     "plain.rsp": "--module commonjs\n",
+    "missing.rsp": "--rootDir\n",
+    "unknown.rsp": "--unknown-native-option\n",
   });
-  for (const args of [["@a.rsp"], ["@plain.rsp"], ["--module", "commonjs"]]) {
+  for (const args of [
+    ["@a.rsp"],
+    ["@plain.rsp"],
+    ["--module", "commonjs"],
+    ["@missing.rsp"],
+    ["@unknown.rsp"],
+    ["--rootDir"],
+    ["--composite", "true"],
+  ]) {
     const original = [...args];
     const failure = new Error("caller-owned emission failure");
     let calls = 0;
-    const invoke = () => runExternalEmitProvenance({
-      args,
-      binary: path.join(root, "unavailable-selected-compiler"),
-      cwd: root,
-      env: {},
-      run: (actual) => {
-        calls++;
-        assert.deepEqual(actual, original);
-        throw failure;
-      },
-    });
-    assert.throws(() => vm.runInNewContext("invoke()", { invoke }, { timeout: 500 }), (error) => error === failure);
+    const invoke = () =>
+      runExternalEmitProvenance({
+        args,
+        binary: path.join(root, "unavailable-selected-compiler"),
+        cwd: root,
+        env: {},
+        run: (actual) => {
+          calls++;
+          assert.deepEqual(actual, original);
+          throw failure;
+        },
+      });
+    assert.throws(
+      () => vm.runInNewContext("invoke()", { invoke }, { timeout: 500 }),
+      (error) => error === failure,
+    );
     assert.equal(calls, 1);
     assert.deepEqual(args, original);
   }

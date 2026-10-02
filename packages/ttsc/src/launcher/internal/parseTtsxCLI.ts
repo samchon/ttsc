@@ -1,9 +1,8 @@
-import { COMPILER_OPTION_KINDS } from "../../flags/COMPILER_OPTION_KINDS";
 import { getBoolean } from "../../flags/getBoolean";
 import { getNumber } from "../../flags/getNumber";
 import { getString } from "../../flags/getString";
 import { getStringList } from "../../flags/getStringList";
-import { normalizeFlagToken } from "../../flags/normalizeFlagToken";
+import { readCompilerOptionOccurrence } from "../../flags/readCompilerOptionOccurrence";
 import { parseFlags } from "../../flags/parseFlags";
 import { resolveFlagSpec } from "../../flags/resolveFlagSpec";
 import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
@@ -67,10 +66,14 @@ export function parseTtsxCLI(argv: readonly string[]) {
     if (terminal !== null) return terminal;
     throw error;
   }
-  const terminal = terminalRequest([
-    ...[...result.values.keys()],
-    ...result.passthrough,
-  ]);
+  // Parsed launcher identities are not argv: a scalar key carries no value
+  // here, so joining it to the next key would invent an operand boundary.
+  let terminal: "help" | "version" | null = null;
+  for (const key of result.values.keys()) {
+    if (key === "--help") { terminal = "help"; break; }
+    if (key === "--version") { terminal = "version"; break; }
+  }
+  terminal ??= terminalRequest(result.passthrough);
   if (terminal !== null) return terminal;
   assertNoSolutionBuild(result, "ttsx:");
   assertNoWatch(result);
@@ -123,11 +126,12 @@ export function parseTtsxCLI(argv: readonly string[]) {
  * `--target all` must not read as `--all`.
  */
 function terminalRequest(tokens: readonly string[]): "help" | "version" | null {
-  for (const token of tokens) {
-    if (!token.startsWith("-")) continue;
+  for (let index = 0; index < tokens.length;) {
+    const token = tokens[index]!;
     const flag = resolveFlagSpec(token)?.name;
     if (flag === "--help") return "help";
     if (flag === "--version") return "version";
+    index += ttsxOptionWidth(tokens, index);
   }
   return null;
 }
@@ -141,16 +145,10 @@ function firstPositionalIndex(argv: readonly string[]): number {
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index]!;
     if (token.startsWith("@")) continue;
+    if (token === "") continue;
     if (!token.startsWith("-")) return index;
     if (token.includes("=")) continue;
-    const flag = resolveFlagSpec(token);
-    const next = argv[index + 1];
-    if (next === undefined || next.startsWith("-")) continue;
-    const takesValue =
-      flag !== undefined
-        ? flag.kind !== "boolean"
-        : COMPILER_OPTION_KINDS.get(normalizeFlagToken(token)) === "value";
-    if (takesValue || next === "true" || next === "false") index += 1;
+    index += ttsxOptionWidth(argv, index) - 1;
   }
   return argv.length;
 }
@@ -166,15 +164,28 @@ function firstPositionalIndex(argv: readonly string[]): number {
  * program's own flag and never reaches here.
  */
 function assertNoWatch(result: ReturnType<typeof parseFlags>): void {
-  const watching =
-    result.values.has("--watch") ||
-    result.passthrough.some(
-      (token) =>
-        token.startsWith("-") && resolveFlagSpec(token)?.name === "--watch",
-    );
+  let watching = result.values.has("--watch");
+  for (let index = 0; !watching && index < result.passthrough.length;) {
+    watching = resolveFlagSpec(result.passthrough[index]!)?.name === "--watch";
+    index += readCompilerOptionOccurrence(result.passthrough, index).width;
+  }
   if (!watching) return;
   throw new Error(
     "ttsx: --watch is not supported; ttsx type-checks once and then runs the entry. For a watching type-check use `ttsc --watch --noEmit`; to restart the program on changes use `node --watch --require ttsc/register <entry.ts>`. Arguments after the entry, including --watch, go to the program.",
   );
 }
 
+/** Launcher values keep their missing-value policy; forwarded options use native grammar. */
+function ttsxOptionWidth(argv: readonly string[], index: number): 1 | 2 {
+  const token = argv[index]!;
+  if (token.includes("=")) return 1;
+  const flag = resolveFlagSpec(token);
+  if (flag?.consumedBy.includes("launcher") === true &&
+    flag.subcommands.includes("ttsx")) {
+    const next = argv[index + 1];
+    if (next === undefined) return 1;
+    if (flag.kind === "boolean") return next === "true" || next === "false" ? 2 : 1;
+    return next.startsWith("-") ? 1 : 2;
+  }
+  return readCompilerOptionOccurrence(argv, index).width;
+}

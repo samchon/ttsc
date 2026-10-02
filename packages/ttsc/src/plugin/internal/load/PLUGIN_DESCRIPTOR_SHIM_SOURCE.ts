@@ -33,6 +33,11 @@ export const PLUGIN_DESCRIPTOR_SHIM_SOURCE = [
   `  const candidate = mod.createTtscPlugin ?? mod.default ?? mod.plugin ?? mod;`,
   `  const descriptor =`,
   `    typeof candidate === "function" ? candidate(context) : candidate;`,
+  // Membership must be checked before JSON drops functions, undefined values,
+  // and inherited properties. The parent cannot recover those descriptor keys.
+  `  if (descriptor && typeof descriptor === "object" && ("transformSource" in descriptor || "transformOutput" in descriptor)) {`,
+  `    throw new Error("ttsc: plugin descriptor declares unsupported JS transform functions; declare a native backend instead");`,
+  `  }`,
   `  const serializedDescriptor = JSON.stringify(descriptor);`,
   `  const payload = { observation: PluginDescriptorInputObservation.snapshot() };`,
   `  if (serializedDescriptor !== undefined) payload.descriptor = JSON.parse(serializedDescriptor);`,

@@ -38,7 +38,7 @@ async function driveCapturedLoader(
  * @evidence contracts/testing.md#behavioral-verification CJS then ESM preload yields one captured loader, PLUGIN output and harmless repeated default registrations.
  * @evidence contracts/testing.md#independent-expectations One loader prevents first-match shadowing; fixture PLUGIN output proves tsconfig transform applies.
  * @evidence contracts/testing.md#distinguishing-cases Opposite module evaluation order to explicit-options case, default configuration and locked idempotent calls.
- * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_bun_register_preload_only_registers_a_single_default_plugin is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_bun_register_preload_only_registers_a_single_default_plugin is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Built CJS/ESM entries share runtime registration and real native transform under a Bun global stub.
  * @evidence contracts/e2e.md#shared-execution Built ESM/CJS entries reuse captured runtime within each order; separate scopes isolate registration histories.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Fresh module-entry helpers and local captured arrays separate runtime histories; temporary Bun globals are restored in finally. Transform fixtures use private tracked roots. Captured loader sessions have no per-case disposal assertion; process exit bounds their lifetime.

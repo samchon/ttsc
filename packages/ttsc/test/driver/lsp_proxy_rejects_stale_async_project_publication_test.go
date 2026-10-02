@@ -3,6 +3,7 @@ package driver_test
 import (
   "fmt"
   "strings"
+  "sync"
   "sync/atomic"
   "testing"
   "time"
@@ -10,7 +11,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyRejectsStaleAsyncProjectPublication verifies the project
+// TestLSPProxyRejectsStaleAsyncProjectPublication Verifies the project
 // generation spans diagnostic requests for different source documents and is
 // invalidated when the initiating document becomes dirty.
 //
@@ -22,10 +23,19 @@ import (
 //  2. Publish a newer project result from a second document.
 //  3. Release the old result and assert it never reaches the editor.
 //  4. Block another evaluation, dirty its document, and reject that result too.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run publishes newer project work and suppresses old or dirtied work during 150ms windows.
+// @evidence contracts/testing.md#independent-expectations Channels hold work until newer results or explicit edits establish stale generations.
+// @evidence contracts/testing.md#distinguishing-cases Different-document replacement and dirty-document invalidation are both covered; windows are bounded.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyRejectsStaleAsyncProjectPublication in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyRejectsStaleAsyncProjectPublication(t *testing.T) {
   const configURI = "file:///logical/project/tsconfig.json"
   entered := make(chan struct{})
   release := make(chan struct{})
+  var releaseCallbackOnce sync.Once
+  releaseCallback := func() { releaseCallbackOnce.Do(func() { close(release) }) }
+  t.Cleanup(releaseCallback)
+  defer releaseCallback()
   var calls atomic.Int32
   source := &stubSource{
     diagnosticsResultFor: func(driver.LSPDocumentVersion) driver.LSPDiagnosticsResult {
@@ -58,11 +68,15 @@ func TestLSPProxyRejectsStaleAsyncProjectPublication(t *testing.T) {
   if body := h.recvEditor(); !strings.Contains(string(body), "new project") || strings.Contains(string(body), "stale project") {
     t.Fatalf("new project result should publish first: %s", body)
   }
-  close(release)
+  releaseCallback()
   h.expectNoEditorFrame(150 * time.Millisecond)
 
   dirtyEntered := make(chan struct{})
   dirtyRelease := make(chan struct{})
+  var releaseDirtyCallbackOnce sync.Once
+  releaseDirtyCallback := func() { releaseDirtyCallbackOnce.Do(func() { close(dirtyRelease) }) }
+  t.Cleanup(releaseDirtyCallback)
+  defer releaseDirtyCallback()
   dirtySource := &stubSource{
     diagnosticsResultFor: func(driver.LSPDocumentVersion) driver.LSPDiagnosticsResult {
       close(dirtyEntered)
@@ -84,6 +98,6 @@ func TestLSPProxyRejectsStaleAsyncProjectPublication(t *testing.T) {
   }
   dirtyHarness.sendEditor([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":%q,"version":2},"contentChanges":[{"text":"export const dirty = 2;\n"}]}}`, dirtyURI)))
   _ = dirtyHarness.recvUpstream()
-  close(dirtyRelease)
+  releaseDirtyCallback()
   dirtyHarness.expectNoEditorFrame(150 * time.Millisecond)
 }

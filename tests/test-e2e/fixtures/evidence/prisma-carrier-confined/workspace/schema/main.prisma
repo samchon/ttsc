@@ -1,6 +1,0 @@
-/// A persisted sale.
-///
-/// @evidence docs/spec.md#stored Stores the required sale.
-model sales {
-  id String @id
-}

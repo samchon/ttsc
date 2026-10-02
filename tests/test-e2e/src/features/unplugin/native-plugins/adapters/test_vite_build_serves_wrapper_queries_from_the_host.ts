@@ -24,7 +24,7 @@ const viteBuild: (config: object) => Promise<unknown> =
  * @evidence contracts/testing.md#behavioral-verification Real build keeps original goUpper text in raw, emits a main.ts asset for url, and transforms plain import to PLUGIN.
  * @evidence contracts/testing.md#independent-expectations Authored source literal, asset filename pattern and PLUGIN have independent wrapper/plain meanings.
  * @evidence contracts/testing.md#distinguishing-cases Same file plain, ?raw and ?url in one bundle.
- * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_build_serves_wrapper_queries_from_the_host is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_build_serves_wrapper_queries_from_the_host is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Real Vite query handling and native transform must coexist; core transform alone cannot verify wrapper routing.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Normal end hooks close modeled owners where invoked; failure/cancellation cleanup lacks a finally guarantee here. Runner exit bounds remaining sessions and tracked roots.

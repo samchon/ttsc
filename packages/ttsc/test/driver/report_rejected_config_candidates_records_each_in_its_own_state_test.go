@@ -7,7 +7,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestReportRejectedConfigCandidatesRecordsEachInItsOwnState verifies the two
+// TestReportRejectedConfigCandidatesRecordsEachInItsOwnState Verifies the two
 // halves of a host-input observation are reported together and in the state the
 // candidate was actually found in.
 //
@@ -15,6 +15,15 @@ import (
 // a physical target and declines narrow reuse, and with only the path it has no
 // state to compare at all. An absent candidate carries the paired nils, while a
 // directory carries the directory-kind digest and its own physical path.
+//
+// 1. Prepare absent, present-directory and vanished-directory candidate states.
+// 2. Capture hash and realpath reports for all candidates.
+// 3. Assert absence, physical directory proof and no fabricated vanished realpath.
+//
+// @evidence contracts/testing.md#behavioral-verification ReportRejectedConfigCandidates distinguishes absence, present directory and unresolved vanished directory proofs.
+// @evidence contracts/testing.md#independent-expectations Authored filesystem state and independent filepath.EvalSymlinks establish physical identity; digest bytes are not independently specified.
+// @evidence contracts/testing.md#distinguishing-cases Three hashes and two realpath reports contrast nil absence, existing proof and withheld unprovable path.
+// @evidence contracts/testing.md#execution-ownership Go unit TestReportRejectedConfigCandidatesRecordsEachInItsOwnState is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestReportRejectedConfigCandidatesRecordsEachInItsOwnState(t *testing.T) {
   root := t.TempDir()
   absent := filepath.Join(root, "demo.config.ts")

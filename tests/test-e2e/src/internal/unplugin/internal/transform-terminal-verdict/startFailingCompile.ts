@@ -2,6 +2,7 @@ import { TestUnpluginRuntime } from "@ttsc/testing";
 import fs from "node:fs";
 import path from "node:path";
 
+import type { IRealNativeEnvelopeFixture } from "../real-native-envelope/IRealNativeEnvelopeFixture";
 import { createRealNativeEnvelopeFixture } from "../real-native-envelope/createRealNativeEnvelopeFixture";
 
 /**
@@ -16,14 +17,16 @@ import { createRealNativeEnvelopeFixture } from "../real-native-envelope/createR
  * graph. The adapter bounds repeated attempts by the delivery pass for both
  * these diagnostics and opaque host exceptions.
  */
-export async function startFailingCompile(broken = true): Promise<{
+export async function startFailingCompile(
+  broken = true,
+  fixture: IRealNativeEnvelopeFixture = createRealNativeEnvelopeFixture(),
+): Promise<{
   api: any;
   brokenFile: string;
   cache: Map<string, Promise<unknown>>;
   deliver: (file: string) => Promise<unknown>;
   modules: string[];
 }> {
-  const fixture = createRealNativeEnvelopeFixture();
   const brokenFile = path.join(fixture.root, "src", "broken.ts");
   if (broken) {
     fs.writeFileSync(

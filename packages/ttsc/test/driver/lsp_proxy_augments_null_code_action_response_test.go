@@ -7,7 +7,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyAugmentsNullCodeActionResponse pins the null-result branch
+// TestLSPProxyAugmentsNullCodeActionResponse Verifies the null-result branch
 // of the code-action augment path. Upstream commonly returns null when
 // it has no actions for a range; ttsc must still attach its own actions
 // in that case so the editor gets a meaningful response.
@@ -15,7 +15,12 @@ import (
 // 1. Configure a source with one code action.
 // 2. Forward a codeAction request and drain it upstream.
 // 3. Reply from upstream with result=null.
-// 4. Assert the editor sees an array containing only the plugin action.
+// 4. Assert the editor sees an array of one element; action fields are not checked.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run converts a correlated upstream null result into an array of one element when the plugin supplies an action.
+// @evidence contracts/testing.md#independent-expectations Null upstream actions leave room for the one authored plugin action; this body asserts result length, not the action fields.
+// @evidence contracts/testing.md#distinguishing-cases The null-to-singleton branch is owned here; populated upstream arrays and silent sources are covered separately.
+// @evidence contracts/testing.md#execution-ownership The Go test/driver unit uses the in-process proxy harness with a stub action source and literal request/response frames.
 func TestLSPProxyAugmentsNullCodeActionResponse(t *testing.T) {
   source := &stubSource{
     actions: []driver.LSPCodeAction{{Title: "format", Kind: "source.format"}},

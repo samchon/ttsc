@@ -1,4 +1,3 @@
-import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import {
   TestProject,
   TestUnpluginProject,
@@ -8,6 +7,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import { observeReloadEvents } from "../../../../internal/unplugin/internal/adapter-vite-serve/observeReloadEvents";
 import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-serve/waitFor";
 
@@ -26,7 +26,7 @@ import { waitFor } from "../../../../internal/unplugin/internal/adapter-vite-ser
  * @evidence contracts/testing.md#behavioral-verification Client and SSR start INITIAL with zero runtime resolution edges; edits yield UPDATED, external/asset changes invalidate, deletion rejects, recreation and restart yield RECOVERED/RESTARTED.
  * @evidence contracts/testing.md#independent-expectations Authored secret type literals fix output; a pre-resolver throws if compiler-only paths become runtime imports.
  * @evidence contracts/testing.md#distinguishing-cases Client/SSR, node_modules declaration, non-module asset, delete/failure/recreate and server restart.
- * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_serve_keeps_compiler_inputs_out_of_runtime_imports is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_serve_keeps_compiler_inputs_out_of_runtime_imports is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Actual Vite module graphs, HMR and native plugin inputs connect without fabricated runtime edges.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Server closes in finally on success/failure; restart reuses only this fixture. Tracked roots end at process exit.
@@ -66,7 +66,12 @@ export async function test_vite_serve_keeps_compiler_inputs_out_of_runtime_impor
     "types-only",
     "index.d.ts",
   );
-  TestProject.writeFiles(root, FixtureFiles.read("unplugin/vite_serve_keeps_compiler_inputs_out_of_runtime_imports/inputs-1"));
+  TestProject.writeFiles(
+    root,
+    FixtureFiles.read(
+      "unplugin/vite_serve_keeps_compiler_inputs_out_of_runtime_imports/inputs-1",
+    ),
+  );
   let compilerResolutions = 0;
   const server = await createServer({
     appType: "custom",

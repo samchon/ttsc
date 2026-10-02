@@ -115,9 +115,9 @@ export function computeCacheKey(inputs: {
     environment.digest("hex"),
   );
   hashSourceDirectory(hash, "plugin", inputs.dir, inputs.sourceDigests);
-  // A `replace` target outside the module is compiled in place, so it is as
-  // much a source of the binary as the module itself (samchon/ttsc#1506). A
-  // module without one keys exactly as before.
+  // Local replacement targets outside the module supply separately keyed
+  // sources. buildSourcePlugin snapshots and proves their copies before
+  // redirecting the Go replacement directives to the scratch tree.
   for (const replacement of pluginModuleReplaceDirectories(
     inputs.dir,
     env,

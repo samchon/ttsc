@@ -11,14 +11,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// Verifies noEmitOnError blocks every plugin output on source errors.
+// TestEmitPluginSourceErrorsWithholdOutputs Verifies source errors with noEmitOnError withhold
+// all outputs across four emission modes.
 //
 // The handwritten JavaScript lane must obey the same pre-emit gate as the
 // declaration lane, even when no declaration pass is configured.
 //
-// 1. Load an invalid source with JS-only, declaration and declaration-only output.
+// 1. Load an invalid source with JS-only, declaration, declaration-only and incremental output.
 // 2. Emit without a prior host diagnostic call and capture writes.
 // 3. Assert TS2322, a Go error, truthful context and zero writes.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls EmitWithPluginTransformers without a prior diagnostics query and requires PluginEmitError, exactly TS2322, zero writes and concrete failure context.
+// @evidence contracts/testing.md#independent-expectations The authored string-to-number assignment independently owes TS2322; literal noEmitOnError and zero output define publication policy.
+// @evidence contracts/testing.md#distinguishing-cases JS-only, declarations, declaration-only and incremental options share the pre-emit rejection, preventing output from an ungated lane.
+// @evidence contracts/testing.md#execution-ownership Each named Go driver unit runs actual compiler/emitter APIs on a private Program with deferred close and observable local write callbacks; no executable host or manufactured diagnostics.
 func TestEmitPluginSourceErrorsWithholdOutputs(t *testing.T) {
   for _, options := range []string{"", `,"declaration":true`, `,"declaration":true,"emitDeclarationOnly":true`, `,"incremental":true`} {
     t.Run(options, func(t *testing.T) {

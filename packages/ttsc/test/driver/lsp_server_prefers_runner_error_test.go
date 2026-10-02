@@ -15,17 +15,18 @@ type failingEditorOut struct{ err error }
 
 func (w failingEditorOut) Write([]byte) (int, error) { return 0, w.err }
 
-// TestLSPServerPrefersRunnerError pins the contract that the upstream
-// tsgo server error wins over the proxy error in the final fold. A
-// future refactor that swapped the order (or replaced the slice with
-// errors.Join without an Is-aware unwrap) would silently flip the
-// reported root cause and editors would see the wrong message.
+// TestLSPServerPrefersRunnerError Verifies that RunLSPServer prefers the runner sentinel over a distinct editor-write sentinel.
 //
-// 1. Substitute an upstream runner that writes one frame upstream-to-editor and
-//    then returns a `runnerSentinel` error.
-// 2. Give the editor output a writer that fails with a different, unfolded
-//    `proxySentinel`, so the proxy half also fails.
+// The runner writes a valid frame before failing while editor output also fails.
+//
+// 1. Substitute an upstream runner that writes one frame upstream-to-editor and then returns a `runnerSentinel` error.
+// 2. Give the editor output a writer that fails with a different, unfolded `proxySentinel`, so the proxy half also fails.
 // 3. Assert RunLSPServer returns the runner sentinel, not the proxy sentinel.
+//
+// @evidence contracts/testing.md#behavioral-verification RunLSPServer prefers the runner sentinel over a distinct editor-write sentinel.
+// @evidence contracts/testing.md#independent-expectations Separately authored errors identify the competing failures independently of folding.
+// @evidence contracts/testing.md#distinguishing-cases The runner writes a valid frame before failing while editor output also fails.
+// @evidence contracts/testing.md#execution-ownership An injected Go runner and failing writer exercise server orchestration without booting tsgo. Go discovers TestLSPServerPrefersRunnerError under ./test/driver.
 func TestLSPServerPrefersRunnerError(t *testing.T) {
   runnerSentinel := errors.New("synthetic upstream failure")
   proxySentinel := errors.New("synthetic editor write failure")

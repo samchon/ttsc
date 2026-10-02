@@ -11,7 +11,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyDidOpenBOMFileQueriesPluginSource verifies a file whose disk copy
+// TestLSPProxyDidOpenBOMFileQueriesPluginSource Verifies a file whose disk copy
 // starts with a UTF-8 BOM is classified clean on didOpen when the editor sends
 // BOM-less buffer text, so plugin diagnostics are not suppressed until the first
 // save (#621).
@@ -24,6 +24,11 @@ import (
 // 1. Write disk text that begins with a UTF-8 BOM.
 // 2. didOpen the document with the same text minus the BOM.
 // 3. Assert the plugin source is queried and its diagnostic reaches the editor.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run queries the source and publishes after BOM-less open matches BOM-prefixed disk.
+// @evidence contracts/testing.md#independent-expectations A leading UTF-8 BOM does not represent an unsaved text edit.
+// @evidence contracts/testing.md#distinguishing-cases Disk-only BOM is covered; the body asserts a query and nonempty publication rather than exact message.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyDidOpenBOMFileQueriesPluginSource in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyDidOpenBOMFileQueriesPluginSource(t *testing.T) {
   const content = "const saved = 1;\n"
   uri := writeLSPDiskFileWithBOM(t, content)

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { LintWorkspace } from "../LintWorkspace";
 
 const TSGO_BINARY = TestProject.TSGO_BINARY;
 const TTSX_BIN = TestProject.TTSX_BIN;
@@ -12,14 +13,19 @@ const TTSX_BIN = TestProject.TTSX_BIN;
  * declaration (triggers `no-var`) and a `console.log` call (triggers
  * `no-console`), giving each test a choice of which rule to enable.
  */
-const SOURCE = `var value = 1;\nconsole.log(value);\n`;
+const SOURCE = fs.readFileSync(path.resolve(import.meta.dirname, "../../../../fixtures/lint/workspace/config-source.ts"), "utf8");
 
 type ILintDiagnostic = TestLint.ILintDiagnostic;
 type IRunLintOptions = TestLint.IRunLintOptions;
 
 /** Run a one-shot lint operation and return the result synchronously. */
 function runLint(options: IRunLintOptions): TestLint.IRunLintResult {
-  return TestLint.run(options);
+  const project = createLintProject(options);
+  try {
+    return runLintProject(project.tmpdir);
+  } finally {
+    project.cleanup();
+  }
 }
 
 /**
@@ -27,7 +33,10 @@ function runLint(options: IRunLintOptions): TestLint.IRunLintResult {
  * actually running ttsc. Call `project.cleanup()` in a `finally` block.
  */
 function createLintProject(options: IRunLintOptions): TestLint.IRunLintProject {
-  return TestLint.createProject(options);
+  return TestLint.createProject({
+    ...options,
+    projectRoot: options.projectRoot ?? LintWorkspace.caseRoot(options.name),
+  });
 }
 
 /**

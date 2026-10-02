@@ -11,23 +11,22 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverEmitAllWriteCallbackSurvivesManyParallelEmitIterations brute-forces
-// EmitAll's WriteFile-callback serialization across many emit iterations.
+// TestDriverEmitAllWriteCallbackSurvivesManyParallelEmitIterations Verifies repeated wide
+// emission retains every source output and its independent rewrite.
 //
-// EmitAll's callback touches two pieces of shared mutable state: the internal
-// `cursors` map (per-source rewrite offsets, see rewrite.go::emit) and the
-// caller-supplied `writeFile`, which a caller may back with its own
-// non-thread-safe state (api_compile.go funnels output into a bare map). Both
-// rely on emit()'s `wfMu`. A reverted mutex races probabilistically — TypeScript-Go's
-// parallel emitter only sometimes interleaves two callbacks tightly enough for
-// `-race` to flag it. The single-pass test (emit_rewrites_every_source_under_parallel_emit)
-// pins the rewrite routing; this case re-emits a wide program many times, each
-// pass writing into a fresh unguarded caller map and resolving a real rewrite
-// per source (so `cursors` is mutated too), so a removed mutex fails ~always.
+// Each of two hundred iterations emits twenty-four sources into a fresh
+// unguarded output map and exercises a real rewrite per source. The output
+// assertions require the expected paths and rewritten source values. They
+// do not count duplicate callbacks or certify race-detector coverage.
 //
 // 1. Load one wide multi-file project, each source owning a distinct call.
 // 2. Re-run EmitAll many times with per-source rewrites and an unguarded map.
-// 3. Assert every iteration patches every output exactly once, no losses.
+// 3. Assert every iteration patches every output with its expected rewrite, no losses.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls actual EmitAll two hundred times with twenty-four per-source rewrites and a fresh unguarded callback map; every iteration must contain every file and its own replacement.
+// @evidence contracts/testing.md#independent-expectations Authored file names and literal rewritten-name strings independently establish output cardinality and per-source identity.
+// @evidence contracts/testing.md#distinguishing-cases Many parallel outputs and repeated fresh rewrite sets exercise callback serialization; unique replacements detect wrong routing, while a missing output fails the cardinality guard.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit reuses one immutable in-process Program and private project across repeated emits, with fresh maps and rewrite sets and deferred Program close. No executable compiler runs.
 func TestDriverEmitAllWriteCallbackSurvivesManyParallelEmitIterations(t *testing.T) {
   root := t.TempDir()
 

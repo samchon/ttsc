@@ -7,26 +7,24 @@
       "root": "../..",
       "files": [
         "tests/test-e2e/src/features/**/test_*.ts",
-        "tests/test-e2e/src/features/installation/test_e2e_installation.ts",
-        "tests/test-e2e/src/features/**/case_*.ts"
+        "tests/test-e2e/src/features/test_e2e_installation.ts",
+        "tests/test-e2e/src/features/**/case_*.ts",
+        "tests/test-e2e/src/internal/ttsc/internal/runSourceCompilerProvenanceCorpus.ts",
+        "!tests/test-e2e/src/internal/ttsc/internal/runtime-canonical-readonly-corpus.ts"
       ],
       "symbol": "function",
       "reference": [
         {
           "type": "markdown",
           "root": "../../.agents/skills",
-          "files": [
-            "contracts/testing.md"
-          ],
+          "files": ["contracts/testing.md"],
           "symbol": "h2",
           "checklist": true
         },
         {
           "type": "markdown",
           "root": "../../.agents/skills",
-          "files": [
-            "contracts/e2e.md"
-          ],
+          "files": ["contracts/e2e.md"],
           "symbol": "h2",
           "checklist": true
         }
@@ -45,18 +43,14 @@
         {
           "type": "markdown",
           "root": "../../.agents/skills",
-          "files": [
-            "contracts/testing.md"
-          ],
+          "files": ["contracts/testing.md"],
           "symbol": "h2",
           "checklist": true
         },
         {
           "type": "markdown",
           "root": "../../.agents/skills",
-          "files": [
-            "contracts/e2e.md"
-          ],
+          "files": ["contracts/e2e.md"],
           "symbol": "h2",
           "checklist": true
         }
@@ -67,40 +61,36 @@
       "type": "go",
       "root": "../..",
       "files": [
-        "packages/lint/test/e2e/command/command_check_loads_no_restricted_types_options_from_typescript_config_test.go",
-        "packages/lint/test/e2e/command/lsp_format_buffer_real_binary_e2e_test.go",
-        "packages/lint/test/e2e/command/resident_rules_reuse_executable_config_across_real_and_linked_dependencies_test.go",
-        "packages/lint/test/e2e/command/resident_rule_cache_respects_config_cache_opt_out_test.go",
-        "packages/lint/test/e2e/config/config_cache_invalidates_transitive_dependency_digests_test.go",
-        "packages/lint/test/e2e/config/config_dependency_graph_never_publishes_the_filesystem_root_test.go",
-        "packages/lint/test/e2e/config/load_rule_config_javascript_config_file_round_trips_format_block_test.go",
-        "packages/lint/test/e2e/config/load_rule_config_loads_javascript_config_file_test.go",
-        "packages/lint/test/e2e/config/load_rule_config_loads_typescript_config_file_test.go",
-        "packages/lint/test/e2e/config/load_rule_config_typescript_config_file_round_trips_format_block_test.go",
-        "packages/lint/test/e2e/config/load_rule_config_typescript_config_merges_spread_default_wrapper_test.go",
-        "packages/lint/test/e2e/config/load_rule_config_typescript_factory_merges_returned_default_wrapper_test.go",
-        "packages/lint/test/e2e/config/script_config_loader_tracks_local_dependency_graph_test.go",
-        "packages/lint/test/e2e/fix/await_thenable_suggestion_preserves_microtask_boundary_test.go",
-        "packages/lint/test/e2e/format/format_prettier_conformance_test.go",
-        "packages/lint/test/e2e/format/format_sort_imports_preserves_binding_import_evaluation_order_test.go"
+        "packages/lint/linthost/command_check_loads_no_restricted_types_options_from_typescript_config_e2e_test.go",
+        "packages/lint/linthost/lsp_format_buffer_real_binary_e2e_test.go",
+        "packages/lint/linthost/resident_rules_reuse_executable_config_across_real_and_linked_dependencies_e2e_test.go",
+        "packages/lint/linthost/resident_rule_cache_respects_config_cache_opt_out_e2e_test.go",
+        "packages/lint/linthost/config_cache_invalidates_transitive_dependency_digests_e2e_test.go",
+        "packages/lint/linthost/config_dependency_graph_never_publishes_the_filesystem_root_e2e_test.go",
+        "packages/lint/linthost/load_rule_config_javascript_config_file_round_trips_format_block_e2e_test.go",
+        "packages/lint/linthost/load_rule_config_loads_javascript_config_file_e2e_test.go",
+        "packages/lint/linthost/load_rule_config_loads_typescript_config_file_e2e_test.go",
+        "packages/lint/linthost/load_rule_config_typescript_config_file_round_trips_format_block_e2e_test.go",
+        "packages/lint/linthost/load_rule_config_typescript_config_merges_spread_default_wrapper_e2e_test.go",
+        "packages/lint/linthost/load_rule_config_typescript_factory_merges_returned_default_wrapper_e2e_test.go",
+        "packages/lint/linthost/script_config_loader_tracks_local_dependency_graph_e2e_test.go",
+        "packages/lint/linthost/await_thenable_suggestion_preserves_microtask_boundary_e2e_test.go",
+        "packages/lint/linthost/format_prettier_conformance_e2e_test.go",
+        "packages/lint/linthost/format_sort_imports_preserves_binding_import_evaluation_order_e2e_test.go"
       ],
       "symbol": "function",
       "reference": [
         {
           "type": "markdown",
           "root": "../../.agents/skills",
-          "files": [
-            "contracts/testing.md"
-          ],
+          "files": ["contracts/testing.md"],
           "symbol": "h2",
           "checklist": true
         },
         {
           "type": "markdown",
           "root": "../../.agents/skills",
-          "files": [
-            "contracts/e2e.md"
-          ],
+          "files": ["contracts/e2e.md"],
           "symbol": "h2",
           "checklist": true
         }
@@ -111,18 +101,16 @@
       "type": "go",
       "root": "../..",
       "files": [
-        "packages/lint/test/os-boundaries/windows/*_test.go",
+        "packages/lint/linthost/windows_junction_treats_paths_as_data_e2e_test.go",
         "packages/evidence/native/a_diagnostic_for_a_shared_schema_names_the_sets_spelling_e2e_test.go",
         "packages/evidence/native/a_prisma_digest_follows_the_declaration_e2e_test.go",
         "packages/evidence/native/a_schema_hard_linked_inside_one_population_is_cited_once_e2e_test.go",
-        "packages/evidence/native/a_swagger_operation_digest_follows_the_schemas_it_names_e2e_test.go",
         "packages/evidence/native/an_added_prisma_field_moves_the_scope_and_not_the_model_e2e_test.go",
         "packages/evidence/native/an_exclusion_in_a_shared_file_is_placed_by_every_name_that_reads_it_e2e_test.go",
         "packages/evidence/native/first_selected_prisma_model_activates_coverage_e2e_test.go",
         "packages/evidence/native/one_schema_hard_linked_into_two_roots_is_parsed_once_e2e_test.go",
         "packages/evidence/native/one_schema_reached_through_a_linked_directory_is_parsed_once_e2e_test.go",
         "packages/evidence/native/prisma_bridge_carries_doc_comments_e2e_test.go",
-        "packages/evidence/native/prisma_bridge_classifies_columns_and_relations_e2e_test.go",
         "packages/evidence/native/prisma_bridge_rejects_an_invalid_schema_with_its_location_e2e_test.go",
         "packages/evidence/native/prisma_bridge_reports_no_digest_for_an_unreadable_set_e2e_test.go",
         "packages/evidence/native/prisma_bridge_reports_the_native_digest_e2e_test.go",
@@ -136,12 +124,8 @@
         "packages/evidence/native/prisma_implicit_many_to_many_materializes_relations_only_e2e_test.go",
         "packages/evidence/native/prisma_loader_materializes_a_located_population_e2e_test.go",
         "packages/evidence/native/prisma_loader_reports_an_unparseable_schema_e2e_test.go",
-        "packages/evidence/native/prisma_schema_fixture_support_test.go",
         "packages/evidence/native/require_review_matches_a_prisma_file_level_exclusion_e2e_test.go",
         "packages/evidence/native/swagger_bridge_answers_every_source_in_one_request_e2e_test.go",
-        "packages/evidence/native/swagger_bridge_reports_a_digest_for_a_rejected_document_e2e_test.go",
-        "packages/evidence/native/swagger_bridge_reports_no_digest_for_an_unreadable_document_e2e_test.go",
-        "packages/evidence/native/swagger_bridge_reports_the_native_digest_e2e_test.go",
         "packages/evidence/native/two_claims_over_one_shared_schema_each_owe_their_own_reference_e2e_test.go",
         "packages/evidence/native/two_roots_differing_only_in_case_reach_one_schema_e2e_test.go",
         "packages/evidence/native/two_roots_naming_two_schemas_keep_both_in_the_set_e2e_test.go",
@@ -152,18 +136,14 @@
         {
           "type": "markdown",
           "root": "../../.agents/skills",
-          "files": [
-            "contracts/testing.md"
-          ],
+          "files": ["contracts/testing.md"],
           "symbol": "h2",
           "checklist": true
         },
         {
           "type": "markdown",
           "root": "../../.agents/skills",
-          "files": [
-            "contracts/e2e.md"
-          ],
+          "files": ["contracts/e2e.md"],
           "symbol": "h2",
           "checklist": true
         }
@@ -182,18 +162,14 @@
         {
           "type": "markdown",
           "root": "../../.agents/skills",
-          "files": [
-            "contracts/testing.md"
-          ],
+          "files": ["contracts/testing.md"],
           "symbol": "h2",
           "checklist": true
         },
         {
           "type": "markdown",
           "root": "../../.agents/skills",
-          "files": [
-            "contracts/e2e.md"
-          ],
+          "files": ["contracts/e2e.md"],
           "symbol": "h2",
           "checklist": true
         }
@@ -225,17 +201,12 @@
       "name": "Evidence project release ownership",
       "type": "typescript",
       "root": "../..",
-      "files": [
-        "tests/test-e2e/src/internal/evidence/internal/withEvidenceProject.ts"
-      ],
+      "files": ["tests/utils/src/evidence/withEvidenceProject.ts"],
       "symbol": "function",
       "reference": {
         "type": "markdown",
         "root": "../../.agents/skills",
-        "files": [
-          "contracts/common.md",
-          "contracts/performance.md"
-        ],
+        "files": ["contracts/common.md", "contracts/performance.md"],
         "symbol": "h2",
         "checklist": true
       }
@@ -253,7 +224,14 @@
         "tests/test-e2e/src/internal/ttsc/internal/ProjectFixtures.ts",
         "tests/test-e2e/src/internal/metro/internal/MetroWorkspace.ts",
         "tests/test-e2e/src/internal/evidence/internal/TransitionProject.ts",
-        "tests/test-e2e/src/internal/GoBoundary.ts"
+        "tests/test-e2e/src/internal/evidence/internal/prepareFileRuleBatch.ts",
+        "tests/test-e2e/src/internal/evidence/internal/EvidenceConsumerCorpus.ts",
+        "tests/test-e2e/src/internal/unplugin/internal/real-native-envelope/realNativeEnvelopeContributor.ts",
+        "tests/test-e2e/src/internal/GoBoundary.ts",
+        "tests/test-e2e/src/internal/ttsc/nativeCompilerConnections.ts",
+        "tests/test-e2e/src/internal/lint/nativeLintConnections.ts",
+        "tests/test-e2e/src/internal/ttsc/internal/runtime-native-root-links.ts",
+        "!tests/test-e2e/src/internal/ttsc/internal/runtime-canonical-readonly-corpus.ts"
       ],
       "symbol": "function",
       "reference": {
@@ -269,19 +247,44 @@
       }
     },
     {
-      "name": "Evidence fixture preparation inputs",
+      "name": "Runtime producer and boundary ownership",
       "type": "typescript",
       "root": "../..",
       "files": [
-        "tests/test-e2e/src/internal/evidence/internal/ICreateProjectProps.ts"
+        "tests/test-e2e/src/internal/ttsc/internal/runtime-clean-owner-assembly.ts",
+        "tests/test-e2e/src/internal/ttsc/internal/runtime-native-dependency-publication.ts",
+        "tests/test-e2e/src/internal/ttsc/internal/runtime-canonical-readonly-corpus.ts",
+        "tests/utils/src/isOrdinarilyClosedReadonlyLauncher.ts",
+        "tests/test-e2e/src/internal/ttsc/internal/runtime-canonical-profile-assembly.ts",
+        "tests/test-e2e/src/internal/ttsc/internal/runtime-canonical-commonjs-orphan-profiles.ts",
+        "tests/test-e2e/src/internal/ttsc/internal/runtime-canonical-orphan-decorator-map-profile.ts",
+        "tests/test-e2e/src/internal/ttsc/internal/runtime-canonical-checked-output-profiles.ts"
       ],
-      "symbol": "type",
+      "symbol": "function",
       "reference": {
         "type": "markdown",
         "root": "../../.agents/skills",
         "files": [
-          "contracts/common.md"
+          "contracts/common.md",
+          "contracts/performance.md",
+          "contracts/portability.md",
+          "contracts/testing.md",
+          "contracts/e2e.md"
         ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Evidence fixture preparation inputs",
+      "type": "typescript",
+      "root": "../..",
+      "files": ["tests/utils/src/evidence/ICreateProjectProps.ts"],
+      "symbol": "type",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": ["contracts/common.md"],
         "symbol": "h2",
         "checklist": true
       }
@@ -303,18 +306,14 @@
         {
           "type": "markdown",
           "root": "../../.agents/skills",
-          "files": [
-            "contracts/testing.md"
-          ],
+          "files": ["contracts/testing.md"],
           "symbol": "h2",
           "checklist": true
         },
         {
           "type": "markdown",
           "root": "../../.agents/skills",
-          "files": [
-            "contracts/e2e.md"
-          ],
+          "files": ["contracts/e2e.md"],
           "symbol": "h2",
           "checklist": true
         }
@@ -324,8 +323,72 @@
       "name": "Evidence benchmark dependency preparation ownership",
       "type": "typescript",
       "root": "../..",
+      "files": ["benchmarks/evidence/src/EvidenceBenchmarkWorkspace.ts"],
+      "symbol": "function",
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/common.md",
+          "contracts/performance.md",
+          "contracts/portability.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "Go compiler and server connections",
+      "type": "go",
+      "root": "../..",
       "files": [
-        "benchmarks/evidence/src/EvidenceBenchmarkWorkspace.ts"
+        "packages/ttsc/test/cli/process_exit_transport_e2e_test.go",
+        "packages/ttsc/test/platform/process_exit_transport_e2e_test.go",
+        "packages/ttsc/test/ttscserver/process_exit_transport_e2e_test.go",
+        "packages/ttsc/test/ttscserver/command_handles_stdio_shutdown_e2e_test.go",
+        "packages/ttsc/test/ttscserver/command_uses_process_cwd_e2e_test.go",
+        "packages/ttsc/test/driver/lsp_native_plugin_source_accepts_null_code_action_edit_e2e_test.go",
+        "packages/ttsc/test/driver/lsp_native_plugin_source_accepts_stdout_at_limit_e2e_test.go",
+        "packages/ttsc/test/driver/lsp_native_plugin_source_drops_commandless_code_action_e2e_test.go",
+        "packages/ttsc/test/driver/lsp_native_plugin_source_drops_direct_code_action_edit_e2e_test.go",
+        "packages/ttsc/test/driver/lsp_native_plugin_source_drops_unowned_code_action_command_e2e_test.go",
+        "packages/ttsc/test/driver/lsp_native_plugin_source_ignores_duplicate_command_id_e2e_test.go",
+        "packages/ttsc/test/driver/lsp_native_plugin_source_pipes_content_stdin_e2e_test.go",
+        "packages/ttsc/test/driver/lsp_native_plugin_source_rejects_document_changes_workspace_edit_e2e_test.go",
+        "packages/ttsc/test/driver/lsp_native_plugin_source_rejects_oversized_stdout_e2e_test.go",
+        "packages/ttsc/test/driver/lsp_native_plugin_source_routes_sidecar_protocol_e2e_test.go",
+        "packages/ttsc/test/driver/lsp_native_plugin_source_truncates_failure_stderr_e2e_test.go",
+        "packages/ttsc/test/driver/lsp_server_default_runner_constructs_real_server_e2e_test.go",
+        "packages/ttsc/test/driver/rewrite_runtime_batch_e2e_test.go"
+      ],
+      "symbol": "function",
+      "reference": [
+        {
+          "type": "markdown",
+          "root": "../../.agents/skills",
+          "files": ["contracts/testing.md"],
+          "symbol": "h2",
+          "checklist": true
+        },
+        {
+          "type": "markdown",
+          "root": "../../.agents/skills",
+          "files": ["contracts/e2e.md"],
+          "symbol": "h2",
+          "checklist": true
+        }
+      ]
+    },
+    {
+      "name": "Go compiler connection producer lifetimes",
+      "type": "go",
+      "root": "../..",
+      "files": [
+        "packages/ttsc/test/cli/helpers_e2e_test.go",
+        "packages/ttsc/test/platform/helpers_e2e_test.go",
+        "packages/ttsc/test/ttscserver/helpers_e2e_test.go",
+        "packages/ttsc/test/driver/lsp_native_plugin_source_helpers_e2e_test.go",
+        "packages/ttsc/test/driver/rewrite_runtime_batch_helpers_e2e_test.go"
       ],
       "symbol": "function",
       "reference": {

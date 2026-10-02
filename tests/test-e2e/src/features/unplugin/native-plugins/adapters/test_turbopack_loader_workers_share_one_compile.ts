@@ -22,7 +22,7 @@ import { projectModules } from "../../../../internal/unplugin/internal/transform
  * @evidence contracts/testing.md#behavioral-verification Two concurrent Node workers return PROBED for different modules while native run log contains one byte.
  * @evidence contracts/testing.md#independent-expectations Fixture probe marker and compile counter independently distinguish shared compilation from two correct separate outputs.
  * @evidence contracts/testing.md#distinguishing-cases Two workers, two modules and one inherited session.
- * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_turbopack_loader_workers_share_one_compile is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_turbopack_loader_workers_share_one_compile is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Actual process environment and session transport coordinate built loader workers.
  * @evidence contracts/e2e.md#shared-execution Two concurrent worker processes share one session, project and native result; separate workers are the coordination boundary.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Child completion is awaited or collected synchronously; sessions and consumers have private tracked roots. Abrupt cancellation is not explicitly verified.

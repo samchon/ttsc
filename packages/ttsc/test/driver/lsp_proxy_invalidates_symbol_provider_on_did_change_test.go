@@ -7,10 +7,9 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyInvalidatesSymbolProviderOnDidChange verifies the proxy discards
-// the SymbolProvider's cached graph on textDocument/didChange so a later
-// documentSymbol/references request reflects the edit instead of the stale
-// first-request snapshot (#620).
+// TestLSPProxyInvalidatesSymbolProviderOnDidChange Verifies the proxy calls
+// SymbolProvider.Invalidate when it forwards textDocument/didChange. The
+// recording provider observes the hook, not a refreshed compiler result.
 //
 // The graph provider caches its compiler load; nothing invalidated it, so an
 // editor session froze at the first outline. The proxy now calls Invalidate on
@@ -19,6 +18,11 @@ import (
 // 1. Wire a recording SymbolProvider.
 // 2. Send textDocument/didChange from the editor.
 // 3. Assert the provider was invalidated (and the notification still forwards).
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run forwards didChange unchanged and records a positive SymbolProvider invalidation count.
+// @evidence contracts/testing.md#independent-expectations An editor content change must invalidate the provider cache before later outline queries; the recording provider exposes that hook independently.
+// @evidence contracts/testing.md#distinguishing-cases A single didChange owns the invalidation trigger; this body does not query a refreshed documentSymbol or references result.
+// @evidence contracts/testing.md#execution-ownership Go test/driver uses a temporary URI and recording provider with the in-process pipe proxy, without a native compiler host.
 func TestLSPProxyInvalidatesSymbolProviderOnDidChange(t *testing.T) {
   provider := &recordingSymbolProvider{}
   h := newProxyHarnessWithOptions(t, nil, driver.ProxyOptions{SymbolProvider: provider})

@@ -8,16 +8,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyClearsCleanProjectPublication verifies a project finding is
-// removed when the next evaluation becomes clean.
+// TestLSPProxyClearsCleanProjectPublication Verifies that the proxy replaces a prior project finding with an empty unversioned config publication.
 //
-// LSP diagnostics replace the full set for a URI. An explicit empty project
-// result therefore has to produce an empty, unversioned config publication
-// even when the requested source document never had plugin diagnostics.
+// The first callback publishes a finding and the second is clean while document findings remain absent.
 //
-//  1. Publish one project finding during didOpen.
-//  2. Return an empty project set during didSave.
-//  3. Assert the config URI receives an empty replacement publication.
+// 1. Publish one project finding during didOpen.
+// 2. Return an empty project set during didSave.
+// 3. Assert the config URI receives an empty replacement publication.
+//
+// @evidence contracts/testing.md#behavioral-verification The proxy replaces a prior project finding with an empty unversioned config publication.
+// @evidence contracts/testing.md#independent-expectations LSP publications replace the full URI set, so an explicitly empty project set clears the finding.
+// @evidence contracts/testing.md#distinguishing-cases The first callback publishes a finding and the second is clean while document findings remain absent.
+// @evidence contracts/testing.md#execution-ownership Two notifications drive the actual Go proxy and stub through private pipes. Go discovers TestLSPProxyClearsCleanProjectPublication under ./test/driver.
 func TestLSPProxyClearsCleanProjectPublication(t *testing.T) {
   const configURI = "file:///logical/project/tsconfig.json"
   calls := 0

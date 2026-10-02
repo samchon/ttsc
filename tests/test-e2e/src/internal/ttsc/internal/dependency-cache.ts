@@ -68,53 +68,6 @@ function dependencyCacheLibraryPath(module: string): string {
 }
 
 /**
- * A CommonJS worker that acquires the lock, records its lease, waits for a
- * release barrier file, then runs its normal `finally` release. The role is
- * fixed only by the lease/release/result barrier files passed in the
- * environment, so the same script drives both a held generation and its
- * successor.
- */
-function writeLockHolderScript(root: string, lockDir: string): string {
-  const script = path.join(root, "lock-holder.cjs");
-  fs.writeFileSync(
-    script,
-    [
-      `const fs = require("node:fs");`,
-      `const { acquireDependencyBuildLock } = require(${JSON.stringify(
-        dependencyCacheLibraryPath("acquireDependencyBuildLock"),
-      )});`,
-      `const { releaseDependencyBuildLock } = require(${JSON.stringify(
-        dependencyCacheLibraryPath("releaseDependencyBuildLock"),
-      )});`,
-      `const lockDir = ${JSON.stringify(lockDir)};`,
-      `const leaseFile = process.env.LOCK_LEASE_FILE;`,
-      `const releaseFile = process.env.LOCK_RELEASE_FILE;`,
-      `const resultFile = process.env.LOCK_RESULT_FILE;`,
-      `let lease = null;`,
-      `const acquireDeadline = Date.now() + 120000;`,
-      `while (lease === null) {`,
-      `  lease = acquireDependencyBuildLock(lockDir);`,
-      `  if (lease === null) {`,
-      `    if (Date.now() > acquireDeadline) throw new Error("timed out acquiring lock");`,
-      `    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);`,
-      `  }`,
-      `}`,
-      `fs.writeFileSync(leaseFile, JSON.stringify(lease), "utf8");`,
-      `const releaseDeadline = Date.now() + 120000;`,
-      `while (!fs.existsSync(releaseFile)) {`,
-      `  if (Date.now() > releaseDeadline) throw new Error("timed out waiting to release");`,
-      `  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);`,
-      `}`,
-      `const released = releaseDependencyBuildLock(lockDir, lease);`,
-      `fs.writeFileSync(resultFile, JSON.stringify({ released }), "utf8");`,
-      ``,
-    ].join("\n"),
-    "utf8",
-  );
-  return script;
-}
-
-/**
  * Polls `predicate` every 25 ms until it holds, failing with `description`
  * after `timeoutMs`. This observes an explicit barrier another process
  * definitely produces; correctness never depends on how long the wait took.
@@ -145,5 +98,4 @@ export {
   releaseDependencyBuildLock,
   spawnNodeWorker,
   waitForCondition,
-  writeLockHolderScript,
 };

@@ -10,15 +10,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyRunReportsEditorAugmentedWriteError covers the
-// augmented-write branch of pumpUpstreamToEditor: a valid envelope
-// gets through augmentUpstream and then the editor pipe write fails.
-// The same write path serves every forwarded upstream frame, so a failing
-// editor pipe must surface cleanly here.
+// TestLSPProxyRunReportsEditorAugmentedWriteError Verifies that Proxy.Run returns wrapped io.ErrClosedPipe when a valid notification writes to a closed editor output.
+//
+// A parseable envelope reaches the ordinary augmented write path; malformed frames are not this case.
 //
 // 1. Build a proxy with the editor consumer closed.
 // 2. Send a valid (parseable) upstream notification.
 // 3. Assert Proxy.Run returns a wrapped io.ErrClosedPipe.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns wrapped io.ErrClosedPipe when a valid notification writes to a closed editor output.
+// @evidence contracts/testing.md#independent-expectations The closed pipe independently provides the standard error identity.
+// @evidence contracts/testing.md#distinguishing-cases A parseable envelope reaches the ordinary augmented write path; malformed frames are not this case.
+// @evidence contracts/testing.md#execution-ownership Private io.Pipe ends and direct Go Proxy.Run exercise the failure and join its result. Go discovers TestLSPProxyRunReportsEditorAugmentedWriteError under ./test/driver.
 func TestLSPProxyRunReportsEditorAugmentedWriteError(t *testing.T) {
   edInR, edInW := io.Pipe()
   edOutR, edOutW := io.Pipe()

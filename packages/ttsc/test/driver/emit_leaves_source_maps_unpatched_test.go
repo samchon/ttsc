@@ -19,6 +19,10 @@ import (
 // 1. Compile a source-map-enabled project with one plugin call.
 // 2. Register a rewrite against the TypeScript source.
 // 3. Assert JavaScript is patched while the source map has no sentinel.
+// @evidence contracts/testing.md#behavioral-verification Calls EmitAll with source maps and an authored rewrite; JavaScript must carry the sentinel/replacement, a source map must exist and that map must carry neither.
+// @evidence contracts/testing.md#independent-expectations Literal mapped replacement independently establishes patched JavaScript; the configured sourceMap option owes a nonempty map unaffected by executable call rewriting.
+// @evidence contracts/testing.md#distinguishing-cases Paired JS/map outputs distinguish extension routing, and map existence prevents a vacuous negative if maps disappear.
+// @evidence contracts/testing.md#execution-ownership This owning Go driver unit runs direct compiler/rewrite APIs and records local write callbacks with deferred Program close, without an executable host.
 func TestDriverEmitLeavesSourceMapsUnpatched(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{
@@ -68,6 +72,9 @@ export const value = plugin.make();
   }
   if !strings.Contains(emitted["index.js"], driver.RewriteSentinel) || !strings.Contains(emitted["index.js"], `"mapped"`) {
     t.Fatalf("JavaScript output was not patched:\n%s", emitted["index.js"])
+  }
+  if emitted["index.js.map"] == "" {
+    t.Fatal("source-map-enabled emission produced no source map")
   }
   if strings.Contains(emitted["index.js.map"], driver.RewriteSentinel) || strings.Contains(emitted["index.js.map"], `"mapped"`) {
     t.Fatalf("source map should not be patched:\n%s", emitted["index.js.map"])

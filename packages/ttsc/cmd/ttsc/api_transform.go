@@ -60,45 +60,47 @@ type apiTransformResult struct {
 
 // runAPITransform implements the `api-transform` sub-command. It loads the
 // TypeScript program in no-emit mode and returns the source text of every
-// non-library file as a JSON object, keyed by the same relative-path
+// non-declaration file as a JSON object, keyed by the same relative-path
 // convention as api-compile. Diagnostics are included; partial results are
 // returned even when diagnostics are present.
+//
+// The actual preparation supplies ForceNoEmit and resolved argv/cwd. This
+// wrapper owns its one LoadProgram call and closes a nonnil acquired Program
+// after the borrowed source-response operation returns. That response owner
+// constructs the graph before linked source hooks and never emits files.
 func runAPITransform(args []string) int {
-  fs := flag.NewFlagSet("api-transform", flag.ContinueOnError)
-  fs.SetOutput(stderr)
-  tsconfigPath := fs.String("tsconfig", "tsconfig.json", "path to tsconfig.json")
-  cwdOverride := fs.String("cwd", "", "override the working directory")
-  singleThreaded := fs.Bool("singleThreaded", false, "run TypeScript-Go single-threaded")
-  checkers := fs.Int("checkers", 0, "type-checker pool size (0 = TypeScript-Go default)")
-  tsgoArgsRaw := fs.String("tsgo-args", "", "JSON array of forwarded tsgo CLI flags")
-  // See cmd/ttsc/build.go's filterHostArgs call for the rationale.
-  if err := fs.Parse(filterHostArgs(args)); err != nil {
-    return 2
+  request, code := prepareAPITransformInvocation(args)
+  if code != 0 {
+    return code
   }
-
-  cwd, err := cwdutil.Resolve(*cwdOverride, getwd)
-  if err != nil {
-    fmt.Fprintf(stderr, "ttsc: %v\n", err)
-    return 2
-  }
-
-  tsgoArgs, err := decodeTsgoArgs(*tsgoArgsRaw)
-  if err != nil {
-    fmt.Fprintf(stderr, "ttsc: %v\n", err)
-    return 2
-  }
-
-  prog, diags, err := driver.LoadProgram(cwd, *tsconfigPath, driver.LoadProgramOptions{
-    ForceNoEmit:        true,
-    SemanticConfigPath: os.Getenv(driver.SemanticConfigPathEnv),
-    SingleThreaded:     *singleThreaded,
-    Checkers:           *checkers,
-    TsgoArgs:           tsgoArgs,
-  })
+  cwd := request.cwd
+  prog, diags, err := driver.LoadProgram(cwd, request.tsconfigPath, request.options)
   if err != nil {
     fmt.Fprintf(stderr, "ttsc api-transform: %v\n", err)
     return 2
   }
+  if prog != nil {
+    defer prog.Close()
+  }
+  return writeTransformedProgramResponse(prog, diags, cwd)
+}
+
+// writeTransformedProgramResponse borrows the loaded generation for the actual
+// source/reference-graph envelope and performs no emit operation. The caller
+// owns Close after all consumers. This operation does not require changing the
+// Program's NoEmit option; runAPITransform still loads with ForceNoEmit:true.
+//
+// Go Evidence addresses exported declarations only; these private native
+// review grounds remain attached to the owning operation and its callers.
+// Common: Principled implementation: The borrowed Program supplies the actual graph before SourceFiles hooks, source texts, diagnostics and observation metadata in the original sequence.
+// Common: Clear and simple design: The wrapper owns parse/load/Close and this operation owns the unchanged no-emission source envelope.
+// Common: Prohibited implementation shortcuts: No source text or graph is fabricated, diagnostic omitted, option silently toggled or cached response replayed; nil Program/config-diagnostic and writer-error branches remain.
+// Common: Meaningful documentation: Borrowing and the distinct ForceNoEmit true wrapper policy are explicit; callers must close only after all consumers.
+// Portability: OS-neutral implementation: Existing apiOutputKey and native JSON serialization preserve path and byte conventions without a subprocess or new filesystem-case assumption.
+// Performance: Efficient algorithms: The original graph, resident-file enumeration and one JSON encoding remain; work scales with actual graph/source/envelope bytes.
+// Performance: Reuse equivalent work: An immutable no-plugin generation already emitted to memory can supply its original source text and graph without a second load. This is operation-level reuse, not a claim of equal compile/transform loader policies.
+// Performance: Bound retention and release resources: The caller retains the checker lease across borrowing and closes it once after the final consumer; this operation creates invocation-local envelope collections and does not own the lease or a retained cache.
+func writeTransformedProgramResponse(prog *driver.Program, diags []driver.Diagnostic, cwd string) int {
   typescript := map[string]string{}
   var dependencies driver.TransformDependencies
   var graph *driver.TransformGraph
@@ -107,7 +109,6 @@ func runAPITransform(args []string) int {
   var hostInputRealpaths map[string]*string
   var observationsComplete *bool
   if prog != nil {
-    defer prog.Close()
     // Compute the reference graph before SourceFiles() runs linked plugin
     // hooks: those mutate parsed ASTs in place, and the graph must describe
     // the original source's resolved references — the transform's inputs —
@@ -150,4 +151,64 @@ func runAPITransform(args []string) int {
     return 2
   }
   return 0
+}
+
+// prepareAPITransformLoadOptions is the exact options policy used by the real
+// runAPITransform parse path. It explicitly keeps ForceNoEmit:true distinct
+// from compile's ForceEmit:true; no mutable Program option is flipped for reuse.
+//
+// Go Evidence addresses exported declarations only; these private native
+// review grounds remain attached to the owning operation and its callers.
+// Common: Principled implementation: The real runAPITransform parse path consumes the exact ForceNoEmit true policy while preserving all parsed threading, semantic-config and tsgo argument fields.
+// Common: Clear and simple design: One value constructor isolates loader policy from the borrowed source-envelope operation.
+// Common: Prohibited implementation shortcuts: Original compile/transform policy differences remain explicit and are not merged merely to lower a producer count.
+// Common: Meaningful documentation: Native prose identifies the actual caller and forbids mutable Program option flipping for reuse.
+// Portability: OS-neutral implementation: Existing native path and argv values are forwarded without shell or separator conversion.
+// Performance: Efficient algorithms: Constant-size value construction forwards the parsed argv slice without an extra traversal.
+// Performance: Reuse equivalent work: The constructor performs no compilation or result replay and stores no prior request state.
+// Performance: Bound retention and release resources: Parsed values remain caller-owned through synchronous loading; no independent resource or retention owner is introduced.
+func prepareAPITransformLoadOptions(semanticConfigPath string, singleThreaded bool, checkers int, tsgoArgs []string) driver.LoadProgramOptions {
+  return driver.LoadProgramOptions{ForceNoEmit: true, SemanticConfigPath: semanticConfigPath, SingleThreaded: singleThreaded, Checkers: checkers, TsgoArgs: tsgoArgs}
+}
+
+// prepareAPITransformInvocation parses the original native API argv and returns its exact cwd, selected config and loader policy.
+// The real wrapper consumes this operation directly; tests observe preparation
+// separately from actual loaded compiler work and never replay a command result.
+//
+// Go Evidence addresses exported declarations only; these private native
+// review grounds remain with the owning operation and its actual callers.
+// Common: Principled implementation: Original flags, cwd resolution, diagnostic branches and status/stream ownership remain in this actual production path.
+// Common: Clear and simple design: Preparation and loaded-program work have explicit separate owners; no hidden second compiler producer is added.
+// Common: Prohibited implementation shortcuts: No loader is mocked, public export invented, option difference hidden, source result fabricated or previous status returned as an actual invocation.
+// Common: Meaningful documentation: Native prose identifies actual wrapper consumption, borrowing boundaries and independent preparation versus compiler observations.
+// Portability: OS-neutral implementation: Existing native cwd/path and argument-array semantics remain; no symlink, shell, forced separator or filesystem-case policy is introduced.
+// Performance: Efficient algorithms: Native flag parsing scales with argv; loaded compiler/output work remains in the existing driver and JSON/emit owners.
+// Performance: Reuse equivalent work: No request or command-result cache is retained. Immutable input sharing belongs to a local test family with separately declared selected configurations and load modes.
+// Performance: Bound retention and release resources: One FlagSet and decoded argv/options value transfer to the synchronous caller; no Program lease or process is acquired during preparation.
+func prepareAPITransformInvocation(args []string) (apiCommandRequest, int) {
+  fs := flag.NewFlagSet("api-transform", flag.ContinueOnError)
+  fs.SetOutput(stderr)
+  tsconfigPath := fs.String("tsconfig", "tsconfig.json", "path to tsconfig.json")
+  cwdOverride := fs.String("cwd", "", "override the working directory")
+  singleThreaded := fs.Bool("singleThreaded", false, "run TypeScript-Go single-threaded")
+  checkers := fs.Int("checkers", 0, "type-checker pool size (0 = TypeScript-Go default)")
+  tsgoArgsRaw := fs.String("tsgo-args", "", "JSON array of forwarded tsgo CLI flags")
+  // See cmd/ttsc/build.go's filterHostArgs call for the rationale.
+  if err := fs.Parse(filterHostArgs(args)); err != nil {
+    return apiCommandRequest{}, 2
+  }
+
+  cwd, err := cwdutil.Resolve(*cwdOverride, getwd)
+  if err != nil {
+    fmt.Fprintf(stderr, "ttsc: %v\n", err)
+    return apiCommandRequest{}, 2
+  }
+
+  tsgoArgs, err := decodeTsgoArgs(*tsgoArgsRaw)
+  if err != nil {
+    fmt.Fprintf(stderr, "ttsc: %v\n", err)
+    return apiCommandRequest{}, 2
+  }
+
+  return apiCommandRequest{cwd: cwd, tsconfigPath: *tsconfigPath, options: prepareAPITransformLoadOptions(os.Getenv(driver.SemanticConfigPathEnv), *singleThreaded, *checkers, tsgoArgs)}, 0
 }

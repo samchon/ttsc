@@ -7,7 +7,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyDidSaveVersionlessAfterDirtyDropsOlderUpstream verifies dirty
+// TestLSPProxyDidSaveVersionlessAfterDirtyDropsOlderUpstream Verifies dirty
 // upstream diagnostics are cached only for the latest dirty version.
 //
 // TypeScript-Go can publish diagnostics for an older dirty buffer after the
@@ -19,6 +19,11 @@ import (
 // 2. Receive an upstream diagnostic for stale version 2.
 // 3. Send a versionless didSave.
 // 4. Assert the plugin publish does not include the version-2 diagnostic.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run excludes stale version-2 diagnostics from the plugin publication after dirty version 3 receives a versionless save.
+// @evidence contracts/testing.md#independent-expectations Version 2 cannot describe the latest dirty version 3; the authored stale and fresh message literals distinguish the merged result.
+// @evidence contracts/testing.md#distinguishing-cases Two dirty versions, an older upstream publication and a save without version exercise stale cache rejection before fresh plugin merge.
+// @evidence contracts/testing.md#execution-ownership The Go test/driver pipe harness runs the proxy with authored frames and stub diagnostics, not an actual editor or TypeScript-Go server.
 func TestLSPProxyDidSaveVersionlessAfterDirtyDropsOlderUpstream(t *testing.T) {
   source := &stubSource{
     diagnostics: map[string][]driver.LSPDiagnostic{

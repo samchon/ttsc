@@ -1,3 +1,0 @@
-/// Lint-only schema exclusions.
-///
-/// @evidenceExclude docs/schema.md#persistence This fixture intentionally stores no requirement-owned model.

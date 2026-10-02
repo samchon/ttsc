@@ -9,11 +9,17 @@ import path from "node:path";
  * irrelevant file would bust the cached binary (or a relevant one would not),
  * and the build must run with the same toolchain environment the key hashed.
  *
- * @evidence contracts/common.md#principled-implementation One policy defines real Go inputs, fixed artifact flags and local build residue so hashing, copying, compilation and observers agree about which changes affect the binary.
+ * Membership is ttsc's declared snapshot naming policy, not Go dependency
+ * discovery. Excluded entries are neither copied nor hashed, even when Go could
+ * embed them in the original package. File-backed plugin data must use names
+ * and directories included by this policy. Generated workspace files belong
+ * to the scratch build; the caller's excluded workspace bytes are not preserved.
+ *
+ * @evidence contracts/common.md#principled-implementation One policy defines the selected source snapshot and fixed artifact flags so hashing, copying and observers agree on its population; name exclusions do not establish which files a raw Go package could consume.
  * @evidence contracts/common.md#clear-and-simple-design Source-name predicates and invocation-environment construction are centralized for consumers instead of copying their policies across loaders and watchers.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Omitted names are actual dependency/build residue boundaries; GOWORK and managed GOCACHE reflect the scratch build protocol rather than fixture-specific exceptions.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why residue is omitted and distinguish metadata probes from cache-writing builds; artifact-flag documentation identifies logical runtime source locations and unchanged embedded bytes.
- * @evidence contracts/portability.md#os-neutral-implementation Native roots use Node path APIs; platform sidecar names are omitted as residue without deriving filesystem capabilities from the running OS.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The declared naming exclusions apply uniformly to source consumers, including deliberately embedded data with matching names; GOWORK and managed GOCACHE express the scratch build protocol rather than fixture-specific exceptions.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish the snapshot naming policy from Go input discovery and describe excluded data and workspace ownership; invocation and artifact-flag prose explains their separate build responsibilities.
+ * @evidence contracts/portability.md#os-neutral-implementation Native roots use Node path APIs; the same configured sidecar-name exclusions apply across platforms without deriving filesystem capabilities from the running OS.
  *
  * @evidenceExclude contracts/performance.md#efficient-algorithms The namespace groups input policies; each function owns its environment or membership processing.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Fixed policies are not retained computation; this namespace owns no runtime memo.
@@ -30,7 +36,7 @@ export namespace GoSourceInputs {
   export const BUILD_FLAGS: readonly string[] = Object.freeze(["-trimpath"]);
 
   /**
-   * Names of directories that never contribute plugin source: a nested
+   * Names of directories excluded below a plugin source root: a nested
    * `node_modules`, a repository's `.git`, and ttsc's own `.ttsc`. An observer
    * outside this package, such as `ttscserver`'s native host, is handed this
    * list rather than a copy of it (samchon/ttsc#1507).
@@ -105,12 +111,12 @@ export namespace GoSourceInputs {
   }
 
   /**
-   * Whether a directory never contributes plugin source: `node_modules`,
-   * `.git`, and ttsc's own `.ttsc`.
+   * Whether a directory is excluded from the source snapshot: `node_modules`,
+   * `.git`, and `.ttsc`. Membership is by name, even for caller-owned data.
    *
-   * @evidence contracts/common.md#principled-implementation Exact membership in the shared residue-directory set makes every source consumer use the same omission rule.
+   * @evidence contracts/common.md#principled-implementation Exact membership in the shared directory-name set makes every source consumer use the same snapshot omission rule.
    * @evidence contracts/common.md#clear-and-simple-design One predicate exposes policy without requiring walkers to duplicate its set.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts These names are package/repository/cache ownership boundaries, not consumer-specific source exclusions.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts These are declared subtree exclusions, not a test of whether every matching directory is owned by a package manager, repository or cache.
    * @evidence contracts/common.md#meaningful-documentation Native prose names the omitted directory categories, with a blank line before tags.
    *
    * @evidenceExclude contracts/portability.md#os-neutral-implementation This name-membership predicate performs no native lookup or path interpretation.
@@ -125,10 +131,10 @@ export namespace GoSourceInputs {
   }
 
   /**
-   * Names of files that are local build residue rather than plugin source:
-   * generated workspace files and operating-system sidecars. They drift
-   * independently of the Go source and would otherwise enter the cache key and
-   * bust the cached binary on every unrelated editor or file-browser visit. An
+   * Names of files excluded from the snapshot: workspace files and names
+   * commonly used for operating-system sidecars. Excluding them avoids key
+   * changes on unrelated workspace or file-browser writes, but also excludes
+   * caller-authored data with those names. An
    * observer that runs outside this package, such as `ttscserver`'s native
    * host, is handed this list rather than a copy of it (samchon/ttsc#1507).
    */
@@ -139,8 +145,9 @@ export namespace GoSourceInputs {
   ];
 
   /**
-   * Suffixes of files that are local build residue rather than plugin source:
-   * `npm pack` tarballs and editor backups ending in `~`.
+   * File suffixes excluded from the snapshot: archive names commonly produced
+   * by `npm pack`, and backup names ending in `~`. These suffixes remain
+   * excluded when the files hold deliberately authored plugin data.
    */
   export const OMITTED_SOURCE_FILE_SUFFIXES: readonly string[] = [
     ".tgz",
@@ -149,12 +156,12 @@ export namespace GoSourceInputs {
   ];
 
   /**
-   * Whether a file is local build residue rather than plugin source
+   * Whether a file name is excluded from the source snapshot
    * (`OMITTED_SOURCE_FILE_NAMES`, `OMITTED_SOURCE_FILE_SUFFIXES`).
    *
-   * @evidence contracts/common.md#principled-implementation Exact names and defined residue suffixes decide omission consistently for source digests, copies and observers.
-   * @evidence contracts/common.md#clear-and-simple-design Shared name/suffix lists keep the complete file-residue policy visible to external observers and this predicate.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts The categories represent editor, archive and generated-workspace residue; they do not hide source files to satisfy known examples.
+   * @evidence contracts/common.md#principled-implementation Exact names and defined suffixes decide snapshot omission consistently for source digests, copies and observers, independently of Go embed directives.
+   * @evidence contracts/common.md#clear-and-simple-design Shared name/suffix lists keep the complete file-exclusion policy visible to external observers and this predicate.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts The published name policy applies without inspecting file contents or treating matching embedded data as an exception; it does not claim all excluded files are irrelevant to Go.
    * @evidence contracts/common.md#meaningful-documentation Native prose points to the documented categories rather than inventing an additional omission policy.
    *
    * @evidenceExclude contracts/portability.md#os-neutral-implementation This string predicate does not interpret native path identity or access the filesystem.

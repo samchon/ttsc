@@ -24,7 +24,7 @@ import { createWebpackConfig } from "../../../../internal/unplugin/internal/adap
  * @evidence contracts/testing.md#behavioral-verification Without graph, initial ID: STRING remains after type edit and second bundle lacks AGE: NUMBER.
  * @evidence contracts/testing.md#independent-expectations Fixture V1/V2 contents define staleness; intentionally stale control verifies graph-positive test is informative.
  * @evidence contracts/testing.md#distinguishing-cases No graph or reported dependency with kept filesystem cache; positive twin owns fresh result.
- * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_webpack_filesystem_cache_control_serves_stale_without_a_graph is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_webpack_filesystem_cache_control_serves_stale_without_a_graph is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Actual webpack persistent-cache restore loses the erased type-only module edge by design.
  * @evidence contracts/e2e.md#shared-execution One fixture/config and kept filesystem cache serve both builds; separate compiler lifetimes prove persisted restoration.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. buildOnce closes successful compilers and preserves configured cache; early failure is not protected by finally, a cleanup limitation. Cache roots are private; tracked roots end at process exit.

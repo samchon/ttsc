@@ -9,50 +9,38 @@
 // Correcting the one row that surfaced would close the witness and leave the
 // class open, so the comparison runs as a check instead.
 //
-// Oracle: `tsc --help --all` from the pinned `typescript` package, which prints
-// each compiler option's `type:` line. `type: boolean` means the option occupies
-// one token (and peeks a following `true`/`false` literal); every other type
-// means it takes a value, as does an enumerated option, which prints `one of:`
-// or `one or more:` instead of a type. Every schema row whose name the upstream table
-// describes with a type is compared, whichever layer the row says consumes it —
-// a shared name is itself the reason the arity has to agree. Options printed
-// without a `type:` line (the `### Command-line Options` section) carry no
-// arity information, so they are left uncompared rather than guessed at. The
-// reader is shared with the generator of `COMPILER_OPTION_KINDS`
-// (`readUpstreamOptionTable.mts`).
+// Oracle: exported OptionsDeclarations and OptionsForWatch of the pinned native
+// module, read by the same shim-backed reader as the generated option metadata.
+// This checks nominal boolean versus value kind for every matching schema name.
+// Native scalar/list/config-only consumption is separately owned by the typed
+// occurrence reader; a matching nominal kind does not certify token consumption.
 //
 // Run through `pnpm run check:flags`.
 import { FLAG_SCHEMA } from "../src/flags/FLAG_SCHEMA.ts";
-import {
-  type UpstreamOption,
-  normalize,
-  readUpstreamOptionTable,
-} from "./readUpstreamOptionTable.mts";
+import { normalizeFlagToken } from "../src/flags/normalizeFlagToken.ts";
+import type { CompilerOptionSpec } from "../src/flags/CompilerOptionSpec.ts";
+import { readCompilerOptionTable } from "./readCompilerOptionTable.mts";
 
-const table = readUpstreamOptionTable();
-if (table === null) {
-  process.stderr.write("ttsc flag schema: kind comparison skipped.\n");
-  process.exit(0);
-}
+const table = readCompilerOptionTable().options;
 process.exit(compareKinds(table) ? 0 : 1);
 
 /**
- * Compare every schema row the upstream table describes with an explicit type.
+ * Compare every schema row whose canonical name exists in native declarations.
  * Returns `true` when no row contradicts the compiler.
  */
-function compareKinds(table: ReadonlyMap<string, UpstreamOption>): boolean {
+function compareKinds(table: ReadonlyMap<string, CompilerOptionSpec>): boolean {
   const contradictions: string[] = [];
   let compared = 0;
   for (const flag of FLAG_SCHEMA) {
-    const upstream = table.get(normalize(flag.name));
-    if (upstream?.type === undefined) continue;
+    const upstream = table.get(normalizeFlagToken(flag.name));
+    if (upstream === undefined) continue;
     compared += 1;
-    const upstreamBoolean = upstream.type === "boolean";
+    const upstreamBoolean = upstream.kind === "boolean";
     const schemaBoolean = flag.kind === "boolean";
     if (upstreamBoolean === schemaBoolean) continue;
     contradictions.push(
       `  ${flag.name}: schema kind ${JSON.stringify(flag.kind)} contradicts upstream ` +
-        `${JSON.stringify(upstream.type)} (${upstreamBoolean ? "expected boolean" : "expected a value-taking kind"})`,
+        `${JSON.stringify(upstream.kind)} (${upstreamBoolean ? "expected boolean" : "expected a value-taking kind"})`,
     );
   }
   if (contradictions.length !== 0) {
@@ -71,4 +59,3 @@ function compareKinds(table: ReadonlyMap<string, UpstreamOption>): boolean {
   );
   return true;
 }
-

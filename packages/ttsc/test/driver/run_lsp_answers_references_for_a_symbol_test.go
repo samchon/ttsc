@@ -8,12 +8,23 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/internal/graphsymbols"
 )
 
-// TestRunLSPAnswersReferencesForASymbol proves that when upstream tsgo has not
+// TestRunLSPAnswersReferencesForASymbol Verifies that when upstream tsgo has not
 // advertised references (no initialize handshake here, so the proxy treats it as
 // unsupported), ttscserver falls back to the local graph SymbolProvider and
 // answers with the usage sites of the symbol under the cursor, honoring
 // context.includeDeclaration. In the fixture greet() is declared on line 0 and
 // called from Service.run on line 6.
+//
+// Authored source lines 0 and 6 establish reference locations independently of provider output.
+//
+// 1. Warm the local graph provider for the authored declaration and call.
+// 2. Request references without the declaration and check call line 6.
+// 3. Include the declaration and check source lines 0 and 6.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns call site alone or declaration plus call according to includeDeclaration.
+// @evidence contracts/testing.md#independent-expectations Authored source lines 0 and 6 establish reference locations independently of provider output.
+// @evidence contracts/testing.md#distinguishing-cases False/true includeDeclaration differ under local fallback; no-upstream observation lasts 150ms.
+// @evidence contracts/testing.md#execution-ownership Go unit TestRunLSPAnswersReferencesForASymbol in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestRunLSPAnswersReferencesForASymbol(t *testing.T) {
   root, mainURI := writeGraphSymbolProject(t, graphSymbolMainTS)
   provider := graphsymbols.NewProvider(root, "tsconfig.json")

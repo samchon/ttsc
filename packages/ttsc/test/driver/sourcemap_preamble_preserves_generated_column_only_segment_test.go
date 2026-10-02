@@ -7,26 +7,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestAdjustSourceMapForPreamblePreservesGeneratedColumnOnlySegment verifies
-// that a generated-column-only (1-field) mapping segment survives the rewrite at
-// its correct absolute generated column.
+// TestAdjustSourceMapForPreamblePreservesGeneratedColumnOnlySegment Verifies that AdjustSourceMapForPreamble keeps the source-less segment at column 6 and shifts the sourced segment to line 2.
 //
-// A 1-field segment has a generated column but no source position; the rewrite
-// keeps it and re-encodes its genCol delta against the running output column.
-// buildMappings cannot express 1-field segments, so this branch had no coverage:
-// a wrong impl that dropped it, or re-encoded its column as an absolute instead
-// of a delta after a preceding real segment, would corrupt the generated column
-// of everything after it on that line yet pass every other test.
+// The source-less delta 4 differs from absolute column 6, detecting a delta/absolute mix-up.
 //
-//  1. Hand-encode one generated line: a 4-field real segment then a 1-field
-//     generated-column-only segment.
-//  2. Run AdjustSourceMapForPreamble (dropLines 3).
-//  3. Decode and assert the real segment (genCol 2) shifted to source line 2 and the
-//     column-only segment is still present at absolute generated column 6 with no
-//     source position.
+// 1. Hand-encode one generated line: a 4-field real segment then a 1-field generated-column-only segment.
+// 2. Run AdjustSourceMapForPreamble (dropLines 3).
+// 3. Decode and assert the real segment (genCol 2) shifted to source line 2 and the column-only segment is still present at absolute generated column 6 with no source position.
 //
-// The real segment starts at genCol 2, so the delta (4) and the absolute column
-// (6) of the column-only segment differ and a delta/absolute mix-up is detected.
+// @evidence contracts/testing.md#behavioral-verification AdjustSourceMapForPreamble keeps the source-less segment at column 6 and shifts the sourced segment to line 2.
+// @evidence contracts/testing.md#independent-expectations Authored columns 2 and 6 and the three-line subtraction independently define positions.
+// @evidence contracts/testing.md#distinguishing-cases The source-less delta 4 differs from absolute column 6, detecting a delta/absolute mix-up.
+// @evidence contracts/testing.md#execution-ownership The public Go transformer is inspected by test-local VLQ decoding, without a compiler. Go discovers TestAdjustSourceMapForPreamblePreservesGeneratedColumnOnlySegment under ./test/driver.
 func TestAdjustSourceMapForPreamblePreservesGeneratedColumnOnlySegment(t *testing.T) {
   const dropLines = 3
   // The real segment sits at genCol 2 so a column-only segment re-encoded as an

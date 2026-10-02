@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
@@ -42,39 +43,87 @@ interface Pending {
  * A minimal MCP stdio client: it spawns the `@ttsc/graph` launcher and
  * exchanges newline-delimited JSON-RPC 2.0 messages, mirroring how an agent's
  * MCP client drives the server.
+ *
+ * The shared identity owner enables a process-diagnostics preload. It records
+ * successful exact-producer children and their process/stdio close events in an
+ * owned file without replacing spawn. Synchronous observation may alter
+ * scheduling, so it establishes ownership counts rather than race timings.
  */
 export class TtsgraphClient {
   private readonly child: ChildProcessWithoutNullStreams;
   private readonly closed: Promise<number>;
   private failure: Error | undefined;
+  private unconfirmedTransport = false;
+  private closing = false;
   private buffer = "";
   private stderr = "";
   private nextId = 0;
   private readonly pending = new Map<number, Pending>();
 
-  static start(cwd: string): TtsgraphClient {
-    return new TtsgraphClient(cwd);
-  }
-
-  private constructor(cwd: string) {
-    this.child = spawn(
+  static start(cwd: string, nativeSpawnReceipt?: string): TtsgraphClient {
+    if (nativeSpawnReceipt !== undefined)
+      fs.writeFileSync(nativeSpawnReceipt, "", { flag: "wx" });
+    const child = spawn(
       process.execPath,
-      [resolveGraphLauncher(), "--cwd", cwd],
+      [
+        ...(nativeSpawnReceipt === undefined
+          ? []
+          : [
+              "--import",
+              new URL("./nativeSpawnObserver.mjs", import.meta.url).href,
+            ]),
+        resolveGraphLauncher(),
+        "--cwd",
+        cwd,
+      ],
       {
         stdio: ["pipe", "pipe", "pipe"],
         // The launcher resolves the native graph binary from TTSC_GRAPH_BINARY, so the
         // test project needs no installed `ttsc` of its own.
-        env: { ...process.env, TTSC_GRAPH_BINARY: resolveTtscgraphBinary() },
+        env: {
+          ...process.env,
+          TTSC_GRAPH_BINARY: resolveTtscgraphBinary(),
+          ...(nativeSpawnReceipt === undefined
+            ? {}
+            : { TTSC_E2E_GRAPH_SPAWN_RECEIPT: nativeSpawnReceipt }),
+        },
         windowsHide: true,
       },
     );
+    return TtsgraphClient.connect(child, nativeSpawnReceipt);
+  }
+
+  /** Attach this same stdio owner to an actual caller-owned Node child. */
+  static connect(
+    child: ChildProcessWithoutNullStreams,
+    nativeSpawnReceipt?: string,
+  ): TtsgraphClient {
+    return new TtsgraphClient(child, nativeSpawnReceipt);
+  }
+
+  private constructor(
+    child: ChildProcessWithoutNullStreams,
+    private readonly nativeSpawnReceipt?: string,
+  ) {
+    this.child = child;
     this.closed = new Promise<number>((resolve) => {
-      this.child.once("error", (error) => this.fail(error));
+      this.child.once("error", (error) => this.fail(error, true));
       this.child.once("close", (code) => {
-        this.fail(new Error(`ttsc-graph closed (${String(code)})\nstderr: ${this.stderr}`));
+        this.fail(
+          new Error(
+            `ttsc-graph closed (${String(code)})\nstderr: ${this.stderr}`,
+          ),
+          !this.closing || this.pending.size !== 0,
+        );
         resolve(code ?? 1);
       });
     });
+    for (const stream of [
+      this.child.stdin,
+      this.child.stdout,
+      this.child.stderr,
+    ])
+      stream.on("error", (error) => this.fail(error, true));
     this.child.stdout.setEncoding("utf8");
     this.child.stdout.on("data", (chunk: string) => this.onData(chunk));
     this.child.stderr.setEncoding("utf8");
@@ -92,11 +141,11 @@ export class TtsgraphClient {
     const id = ++this.nextId;
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.pending.delete(id);
-        reject(
+        this.fail(
           new Error(
             `ttsc-graph ${method} timed out after ${timeoutMs}ms\nstderr: ${this.stderr}`,
           ),
+          true,
         );
       }, timeoutMs);
       this.pending.set(id, { resolve, reject, timer });
@@ -122,11 +171,27 @@ export class TtsgraphClient {
       const line = this.buffer.slice(0, newline).trim();
       this.buffer = this.buffer.slice(newline + 1);
       if (line === "") continue;
-      const message = JSON.parse(line) as {
+      let message: {
         id?: number;
         result?: unknown;
         error?: { message: string };
       };
+      try {
+        const decoded: unknown = JSON.parse(line);
+        if (
+          decoded === null ||
+          typeof decoded !== "object" ||
+          Array.isArray(decoded)
+        )
+          throw new Error("Graph MCP transport returned a non-object frame");
+        message = decoded as typeof message;
+      } catch (error) {
+        this.fail(
+          error instanceof Error ? error : new Error(String(error)),
+          true,
+        );
+        return;
+      }
       if (typeof message.id === "number" && this.pending.has(message.id)) {
         const entry = this.pending.get(message.id)!;
         this.pending.delete(message.id);
@@ -138,26 +203,38 @@ export class TtsgraphClient {
   }
 
   endStdin(): void {
+    this.closing = true;
     this.child.stdin.end();
   }
 
   async waitForExit(timeoutMs = 30_000): Promise<number> {
-    let timeout: Error | undefined;
-    const timer = setTimeout(() => {
-      timeout = new Error(`ttsc-graph did not exit within ${timeoutMs}ms`);
-      this.fail(timeout);
-      this.child.kill();
-    }, timeoutMs);
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const code = await this.closed;
-      if (timeout !== undefined) throw timeout;
-      return code;
+      return await Promise.race([
+        this.closed,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            const timeout = new Error(
+              `ttsc-graph did not exit within ${timeoutMs}ms`,
+            );
+            this.fail(timeout, true);
+            try {
+              this.child.kill();
+            } catch (error) {
+              reject(new AggregateError([timeout, error], timeout.message));
+              return;
+            }
+            reject(timeout);
+          }, timeoutMs);
+        }),
+      ]);
     } finally {
-      clearTimeout(timer);
+      if (timer !== undefined) clearTimeout(timer);
     }
   }
 
-  private fail(error: Error): void {
+  private fail(error: Error, unconfirmedTransport = false): void {
+    this.unconfirmedTransport ||= unconfirmedTransport;
     this.failure ??= error;
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer);
@@ -168,5 +245,69 @@ export class TtsgraphClient {
 
   stderrText(): string {
     return this.stderr;
+  }
+
+  /** Withdraw subsequent borrowing when shared input restoration failed. */
+  preventInputReuse(reason: string): void {
+    this.fail(new Error(`Shared graph inputs cannot be reused: ${reason}`));
+  }
+
+  /** Reject consumers whose shared transport or restored inputs are unavailable. */
+  assertReusable(): void {
+    if (this.failure !== undefined) throw this.failure;
+  }
+
+  /** A timed-out or lost transport may still have a native input reader. */
+  inputsHaveUnconfirmedReaders(): boolean {
+    return this.unconfirmedTransport;
+  }
+
+  /** Refuse filesystem edits until the experiment establishes actual child EOF. */
+  assertInputMutationAllowed(): void {
+    if (this.unconfirmedTransport)
+      throw new Error(
+        "Graph input mutation refused while child completion is unconfirmed",
+        { cause: this.failure },
+      );
+  }
+
+  /**
+   * Read synchronous receipts of successful native children for this session's
+   * exact producer.
+   */
+  nativeSpawnCount(): number {
+    if (this.nativeSpawnReceipt === undefined)
+      throw new Error("Native observation was not enabled for this client");
+    return fs
+      .readFileSync(this.nativeSpawnReceipt, "utf8")
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as { event: string })
+      .filter((entry) => entry.event === "spawned").length;
+  }
+
+  /**
+   * Require a delivered process-and-stdio close receipt for every observed
+   * native child.
+   */
+  assertNativeChildrenJoined(): void {
+    if (this.nativeSpawnReceipt === undefined)
+      throw new Error("Native observation was not enabled for this client");
+    const receipts = fs
+      .readFileSync(this.nativeSpawnReceipt, "utf8")
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as { event: string; id: number });
+    const spawned = receipts
+      .filter((entry) => entry.event === "spawned")
+      .map((entry) => entry.id);
+    const closed = receipts
+      .filter((entry) => entry.event === "closed")
+      .map((entry) => entry.id)
+      .sort((a, b) => a - b);
+    if (JSON.stringify(spawned) !== JSON.stringify(closed))
+      throw new Error(
+        `Observed native child lifetimes were not all joined: ${JSON.stringify(receipts)}`,
+      );
   }
 }

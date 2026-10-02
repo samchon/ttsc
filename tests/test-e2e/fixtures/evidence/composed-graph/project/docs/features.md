@@ -1,1 +1,0 @@
-## Cart Badge {#cart-badge}

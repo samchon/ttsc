@@ -13,19 +13,8 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerAncestorRegenerationPreservesExportResolution is
-// regression 7 widened beyond the leaf-identifier case. The existing prototype
-// tests only swap a single `foo` identifier 1:1. Here the plugin regenerates the
-// WHOLE ancestor (the VariableDeclaration of `a`): it rebuilds the initializer
-// into a fresh binary expression `foo + 41` and re-creates the declaration node
-// around it, where the `foo` leaf is a fresh ec.Factory identifier SetOriginal-
-// linked back to the parse-tree initializer. Even though the parent expression
-// and the declaration node are brand new (they never existed in the parse tree),
-// the original threading on the leaf must still let tsgo's module-transform
-// alias `foo` to the require binding, and the binder symbol of `a` must still
-// resolve so the `exports.a =` writeback survives. A broken original/parent
-// wiring would drop the alias (printing bare `foo + 41`) or drop the export
-// assignment.
+// TestEmitWithPluginTransformerAncestorRegenerationPreservesExportResolution Verifies
+// rebuilding an exported declaration preserves the imported leaf's alias and export writeback.
 //
 // The alias and the binding it names are asserted together, which is the point
 // rather than a belt-and-braces extra. An alias without its binding is
@@ -34,6 +23,14 @@ import (
 // `const dep_1 = require("./dep");` anywhere in the file, which throws
 // `ReferenceError: dep_1 is not defined` the moment the module loads. This test
 // passed on that output for as long as it only matched the alias.
+//
+// 1. Transform an imported leaf while rebuilding its ancestor with retained original identity.
+// 2. Require the emitted require binding, matching alias use and exported assignment.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs EmitWithPluginTransformer using an actual fresh ancestor and original-linked imported leaf; emitted text must have matching alias use, require binding and exported assignment.
+// @evidence contracts/testing.md#independent-expectations Literal ./dep module, foo member and +41 expression independently specify semantic structure; extracted generated alias only correlates declaration and use rather than supplying expected behavior.
+// @evidence contracts/testing.md#distinguishing-cases Rebuilt ancestor plus original-linked leaf distinguishes this route from a parse-tree leaf, and require/export checks reject dangling aliases or lost export binding.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit directly runs the actual transformer/compiler and captures its writes with private Program cleanup; this test inspects generated structure and does not execute the output.
 func TestEmitWithPluginTransformerAncestorRegenerationPreservesExportResolution(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

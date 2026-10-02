@@ -7,20 +7,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyForwardsReferencesWhenUpstreamAdvertises verifies the proxy
-// forwards textDocument/references to upstream tsgo when tsgo advertised the
-// capability, instead of hijacking it with the local graph SymbolProvider.
+// TestLSPProxyForwardsReferencesWhenUpstreamAdvertises Verifies that advertised references forward unchanged without consulting the local provider.
 //
-// tsgo implements references with its compiler-exact language service. When its
-// initialize result advertises referencesProvider and the local provider is not
-// forced, the proxy must leave the request to tsgo so the editor gets every real
-// usage rather than the graph's coarse edge set (#620).
+// The advertised route complements graph fallback coverage and observes bounded local silence.
 //
-//  1. Complete an initialize handshake whose upstream result advertises
-//     referencesProvider: true.
-//  2. Send textDocument/references from the editor.
-//  3. Assert the request reaches upstream verbatim and the local provider is
-//     never consulted.
+// 1. Complete an initialize handshake whose upstream result advertises referencesProvider: true.
+// 2. Send textDocument/references from the editor.
+// 3. Assert the request reaches upstream verbatim and the local provider is never consulted.
+//
+// @evidence contracts/testing.md#behavioral-verification Advertised references forward unchanged without consulting the local provider.
+// @evidence contracts/testing.md#independent-expectations The capability assigns upstream ownership; authored request bytes and zero calls define expectations.
+// @evidence contracts/testing.md#distinguishing-cases The advertised route complements graph fallback coverage and observes bounded local silence.
+// @evidence contracts/testing.md#execution-ownership A recording SymbolProvider and private Go proxy session inspect dispatch without a server process. Go discovers TestLSPProxyForwardsReferencesWhenUpstreamAdvertises under ./test/driver.
 func TestLSPProxyForwardsReferencesWhenUpstreamAdvertises(t *testing.T) {
   provider := &recordingSymbolProvider{}
   h := newProxyHarnessWithOptions(t, nil, driver.ProxyOptions{SymbolProvider: provider})

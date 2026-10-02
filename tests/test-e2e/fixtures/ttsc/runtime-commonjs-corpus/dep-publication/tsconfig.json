@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true,"composite":true,"declaration":true,"declarationDir":"types","tsBuildInfoFile":"state/dep.tsbuildinfo","outDir":"lib","rootDir":".","types":[]},"include":["src"]}

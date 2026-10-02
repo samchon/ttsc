@@ -25,6 +25,10 @@ import (
 //  2. Repeat with a generated config and with a pnpm-shaped package link.
 //  3. Assert exact containing filenames, unchanged replay and graph proofs,
 //     and an ordinary source's independent type-reference context.
+// @evidence contracts/testing.md#behavioral-verification Loads real authored configurations and inspects actual resolution tasks, unchanged replay and graph proof failures through the in-process compiler API.
+// @evidence contracts/testing.md#independent-expectations Literal required directive names, missing-types unresolved status and exact lexical synthetic/source filenames are established from authored fixture layout; expected filenames are composed without the resolver.
+// @evidence contracts/testing.md#distinguishing-cases Four wrapper/link combinations retain mixed-case cwd, package/scoped/relative/wildcard directives and the ordinary source reference; unchanged proofs are distinguished from the sibling retargeting case.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go entry runs each named layout in process and closes its programs. Windows Node creates only a junction fixture; no compiled host or package installation is exercised.
 func TestAutomaticTypeResolutionReplayPreservesConfigSpelling(t *testing.T) {
   for _, wrapped := range []bool{false, true} {
     for _, linked := range []bool{false, true} {

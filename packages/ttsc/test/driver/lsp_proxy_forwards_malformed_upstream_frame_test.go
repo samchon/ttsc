@@ -5,13 +5,20 @@ import (
   "testing"
 )
 
-// TestLSPProxyForwardsMalformedUpstreamFrame mirrors the editor-side
+// TestLSPProxyForwardsMalformedUpstreamFrame Verifies Proxy.Run forwards non-JSON upstream bytes unchanged.
 // fail-safe on the upstream-to-editor pump. The proxy must not eat
-// frames whose envelope fails to decode — the editor's parser will tell
+// frames whose envelope fails to decode. the editor's parser will tell
 // the user, which is more useful than silent dropping.
+//
+// The authored upstream blob supplies independent expected bytes.
 //
 // 1. Send a non-JSON body from upstream.
 // 2. Assert the editor receives the same bytes.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run forwards non-JSON upstream bytes unchanged.
+// @evidence contracts/testing.md#independent-expectations The authored upstream blob supplies independent expected bytes.
+// @evidence contracts/testing.md#distinguishing-cases Malformed upstream envelope contrasts with the separate editor-direction case.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyForwardsMalformedUpstreamFrame in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyForwardsMalformedUpstreamFrame(t *testing.T) {
   h := newProxyHarness(t, nil)
   payload := []byte("upstream blob")

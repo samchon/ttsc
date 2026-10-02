@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { readCompilerOptionOccurrence } from "../../flags/readCompilerOptionOccurrence";
 import type { parseTtsxCLI } from "./parseTtsxCLI";
 
 /**
@@ -16,37 +17,47 @@ import type { parseTtsxCLI } from "./parseTtsxCLI";
  */
 export namespace TtsxEntryOptions {
   /**
-   * Lists the options JavaScript entries cannot apply to an up-front TypeScript build.
+   * Lists the options JavaScript entries cannot apply to an up-front TypeScript
+   * build.
    *
-   * Values and program arguments are not options; their spelling remains intact.
+   * Values and program arguments are not options; their spelling remains
+   * intact.
    *
-   * @evidence contracts/common.md#principled-implementation The parsed launcher fields name up-front build policy and forwarded tokens beginning with dash or at name compiler/response-file requests; JavaScript entries have no up-front program to apply them to.
-   * @evidence contracts/common.md#clear-and-simple-design A fixed field projection followed by one forwarded-token filter preserves deterministic diagnostic order.
+   * @evidence contracts/common.md#principled-implementation The parsed launcher fields name up-front build policy; native occurrence widths distinguish compiler and response-file requests from their scalar operands before JavaScript entry applicability is reported.
+   * @evidence contracts/common.md#clear-and-simple-design A fixed field projection followed by one native-frame traversal preserves original request spellings and deterministic diagnostic order.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The result is the actual caller diagnostic input, not a second CLI parser or a test-only whitelist.
    * @evidence contracts/common.md#meaningful-documentation Native purpose and operation prose explain launcher/Node ownership and optional-value meaning, separated from acknowledgment tags.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation This pure option record and token classification resolves no filesystem path and starts no process.
-   * @evidence contracts/performance.md#efficient-algorithms Filtering T forwarded tokens is O(T) time and O(T) returned string references; the fixed launcher fields require bounded additional work.
+   * @evidence contracts/performance.md#efficient-algorithms Traversing T forwarded tokens advances by each native occurrence width in O(T+B) time for their B inspected token/list bytes and retains at most O(T) returned request references; the fixed launcher fields require bounded additional work.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This invocation-local projection coordinates no shared computation and retains no historical answer cache.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only call-local arrays or a returned path string exist; no process, directory, handle or task is acquired.
    */
-  export function unsupportedJavaScriptBuildOptions(parsed: Exclude<ReturnType<typeof parseTtsxCLI>, "help" | "version">): string[] {
+  export function unsupportedJavaScriptBuildOptions(
+    parsed: Exclude<ReturnType<typeof parseTtsxCLI>, "help" | "version">,
+  ): string[] {
+    const forwarded: string[] = [];
+    for (let index = 0; index < parsed.tsgoFlags.length; ) {
+      const token = parsed.tsgoFlags[index]!;
+      if (token.startsWith("-") || token.startsWith("@")) forwarded.push(token);
+      index += readCompilerOptionOccurrence(parsed.tsgoFlags, index).width;
+    }
     return [
-    ...(parsed.project !== undefined ? ["--project"] : []),
-    ...(parsed.cacheDir !== undefined ? ["--cache-dir"] : []),
-    ...(parsed.checkers !== undefined ? ["--checkers"] : []),
-    ...(parsed.noPlugins ? ["--no-plugins"] : []),
-    ...(parsed.singleThreaded ? ["--singleThreaded"] : []),
-    ...parsed.tsgoFlags.filter(
-      (token) => token.startsWith("-") || token.startsWith("@"),
-    ),
-  ];
+      ...(parsed.project !== undefined ? ["--project"] : []),
+      ...(parsed.cacheDir !== undefined ? ["--cache-dir"] : []),
+      ...(parsed.checkers !== undefined ? ["--checkers"] : []),
+      ...(parsed.noPlugins ? ["--no-plugins"] : []),
+      ...(parsed.singleThreaded ? ["--singleThreaded"] : []),
+      ...forwarded,
+    ];
   }
 
   /**
-   * Anchors file preloads to the invocation directory and leaves package names to Node.
+   * Anchors file preloads to the invocation directory and leaves package names
+   * to Node.
    *
-   * Relative file spellings and already absolute paths use native path resolution;
-   * scoped and subpath package requests must not be anchored to the launcher install.
+   * Relative file spellings and already absolute paths use native path
+   * resolution; scoped and subpath package requests must not be anchored to the
+   * launcher install.
    *
    * @evidence contracts/common.md#principled-implementation Native absolute paths and explicit relative spellings denote files, while other requests remain module specifiers for Node resolution.
    * @evidence contracts/common.md#clear-and-simple-design One native absolute check and one lexical relative check precede path.resolve; package specifiers return unchanged.
@@ -58,21 +69,24 @@ export namespace TtsxEntryOptions {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only call-local arrays or a returned path string exist; no process, directory, handle or task is acquired.
    */
   export function resolvePreload(cwd: string, preload: string): string {
-  if (path.isAbsolute(preload) || isRelativeSpecifier(preload)) {
-    return path.resolve(cwd, preload);
+    if (path.isAbsolute(preload) || isRelativeSpecifier(preload)) {
+      return path.resolve(cwd, preload);
+    }
+    return preload;
   }
-  return preload;
-}
 
-  /** Explicit relative file spellings; bare package specifiers remain module requests. */
+  /**
+   * Explicit relative file spellings; bare package specifiers remain module
+   * requests.
+   */
   function isRelativeSpecifier(specifier: string): boolean {
-  return (
-    specifier === "." ||
-    specifier === ".." ||
-    specifier.startsWith("./") ||
-    specifier.startsWith("../") ||
-    specifier.startsWith(".\\") ||
-    specifier.startsWith("..\\")
-  );
-}
+    return (
+      specifier === "." ||
+      specifier === ".." ||
+      specifier.startsWith("./") ||
+      specifier.startsWith("../") ||
+      specifier.startsWith(".\\") ||
+      specifier.startsWith("..\\")
+    );
+  }
 }

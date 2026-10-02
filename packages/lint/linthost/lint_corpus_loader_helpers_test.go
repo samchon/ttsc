@@ -31,9 +31,6 @@ import (
 // module's linthost package, where the Go tests execute.
 var lintCorpusRoot = filepath.Join("..", "test", "testdata", "corpus")
 
-// lintFormatProjectsRoot is the committed formatter project directory.
-var lintFormatProjectsRoot = filepath.Join("..", "test", "testdata", "format-projects")
-
 type corpusExpectation struct {
   Rule     string
   Severity string

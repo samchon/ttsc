@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2020",
+    "outDir": "../outside-bin"
+  },
+  "files": ["index.ts"]
+}

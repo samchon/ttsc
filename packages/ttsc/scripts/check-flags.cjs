@@ -35,14 +35,22 @@ const targets = [
   path.join(repoRoot, "packages/lint/linthost/flags_gen.go"),
   path.join(repoRoot, "website/src/content/docs/ttsc/flags.mdx"),
   path.join(ttscRoot, "src/flags/COMPILER_OPTION_KINDS.ts"),
+  path.join(ttscRoot, "src/flags/COMPILER_OPTIONS.ts"),
+  path.join(ttscRoot, "src/flags/COMPILER_ENUM_WHITESPACE.ts"),
+  path.join(ttscRoot, "src/flags/COMPILER_OPTION_ASCII_FOLDS.ts"),
 ];
 
 function main() {
-  const before = snapshot(targets);
+  const compilerOptionsOnly = process.argv.includes("--compiler-options-only");
+  const selectedTargets = compilerOptionsOnly
+    ? targets.filter(target => target.endsWith(".ts"))
+    : targets;
+  const before = snapshot(selectedTargets);
 
   const result = child.spawnSync(
     process.execPath,
-    [...STRIP_TYPES_NODE_ARGS, path.join(here, "gen-flags.mts")],
+    [...STRIP_TYPES_NODE_ARGS, path.join(here, "gen-flags.mts"),
+      ...(compilerOptionsOnly ? ["--compiler-options-only"] : [])],
     { stdio: "inherit" },
   );
   if (result.status !== 0) {
@@ -52,7 +60,7 @@ function main() {
   // gofmt the generated Go files so alignment matches the committed copy. The
   // generator emits raw key:value entries and gofmt aligns the `:` column;
   // skipping this step here would surface as drift on any local edit.
-  for (const target of targets) {
+  for (const target of selectedTargets) {
     if (!target.endsWith(".go")) continue;
     const script = path.join(repoRoot, ".vscode/gofmt-2spaces.sh");
     const gofmt = child.spawnSync(
@@ -69,11 +77,11 @@ function main() {
     }
   }
 
-  const after = snapshot(targets);
-  const drift = computeDrift(before, after, targets);
+  const after = snapshot(selectedTargets);
+  const drift = computeDrift(before, after, selectedTargets);
   if (drift.length !== 0) {
     process.stderr.write(
-      "ttsc flag schema: generated output drifted from src/flags/FLAG_SCHEMA.ts:\n",
+      "ttsc flag schema: generated output drifted from launcher schema or pinned native declarations:\n",
     );
     for (const file of drift) {
       process.stderr.write(`  ${path.relative(repoRoot, file)}\n`);

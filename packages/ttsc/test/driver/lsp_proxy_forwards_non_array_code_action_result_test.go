@@ -7,9 +7,9 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyForwardsNonArrayCodeActionResult covers the result-shape
+// TestLSPProxyForwardsNonArrayCodeActionResult Verifies the result-shape
 // guard in appendCodeActions. LSP allows editors to reuse ids after a
-// response is observed — if the editor cancels a codeAction id and
+// response is observed. If the editor cancels a codeAction id and
 // reuses it for a different method, the upstream response carries a
 // non-array result. Without the guard the proxy would unmarshal that
 // foreign result, prepend ttsc actions, and corrupt the answer.
@@ -18,6 +18,11 @@ import (
 // 2. Send a codeAction request and drain it upstream.
 // 3. Reply with id-matching response whose result is an object (e.g. hover).
 // 4. Assert the editor receives the object response unmodified.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run forwards the correlated object result byte-for-byte instead of replacing it with a plugin action array.
+// @evidence contracts/testing.md#independent-expectations A foreign object result must keep its shape and contents; literal hover-text response bytes detect accidental array augmentation.
+// @evidence contracts/testing.md#distinguishing-cases An id-correlated codeAction request followed by an object result owns the result-shape guard; this body does not cancel or reuse the id.
+// @evidence contracts/testing.md#execution-ownership Go test/driver executes the pipe proxy with a configured stub action and authored frames, without upstream process execution.
 func TestLSPProxyForwardsNonArrayCodeActionResult(t *testing.T) {
   source := &stubSource{actions: []driver.LSPCodeAction{{Title: "ignored"}}}
   h := newProxyHarness(t, source)

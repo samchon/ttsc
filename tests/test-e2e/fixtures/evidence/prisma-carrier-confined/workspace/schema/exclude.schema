@@ -1,3 +1,0 @@
-/// Lint-only carrier for schema exclusions.
-///
-/// @evidenceExclude docs/spec.md#deferred The frontend owns this presentation-only section; reject this exclusion if it gains persisted state.

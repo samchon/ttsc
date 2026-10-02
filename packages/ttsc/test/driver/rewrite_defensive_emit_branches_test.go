@@ -9,14 +9,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestRewriteDefensiveEmitBranches verifies rewrite emit defensive branches.
+// TestRewriteDefensiveEmitBranches Verifies rewrite emit defensive branches.
 //
 // Rewrites may run with nil inputs, already-patched output, or the default disk
 // writer. These cases keep command hosts from needing their own guard logic.
 //
-// 1. Assert nil Program raw emit fails cleanly.
-// 2. Emit already-sentinel output through the default writer.
-// 3. Emit a rewrite through the default writer.
+// 1. Reject raw emit on a nil Program.
+// 2. Preserve a marked call despite its registered rewrite and allow a nil rewrite set.
+// 3. Emit an unmarked call through the default writer and check its replacement.
+// 4. Give the private helper an absent call and check the long error preview.
+//
+// @evidence contracts/testing.md#behavioral-verification EmitAllRaw rejects nil Program; EmitAll preserves marked calls, permits nil rewrites, writes normal replacement and reports missing-call preview.
+// @evidence contracts/testing.md#independent-expectations Authored marked and unmarked calls establish preservation versus replacement; a long literal grounds error preview content.
+// @evidence contracts/testing.md#distinguishing-cases Nil receiver, marker, nil set, default writer and absent call differ; nil-set output bytes are not checked.
+// @evidence contracts/testing.md#execution-ownership Go unit TestRewriteDefensiveEmitBranches is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestRewriteDefensiveEmitBranches(t *testing.T) {
   var nilProgram *driver.Program
   if _, _, err := nilProgram.EmitAllRaw(nil); err == nil {

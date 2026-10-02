@@ -26,18 +26,18 @@ func (*completionHintPluginSource) CompletionHints() []driver.LSPCompletionHint 
   }}
 }
 
-// TestLSPProxyAppendsEmbedderCompletionHintsToUpstreamResponse verifies a
-// PluginSource written outside ttsc, importing only the public driver package,
-// can publish completion hints and have the proxy append them to the upstream
-// completion answer.
+// TestLSPProxyAppendsEmbedderCompletionHintsToUpstreamResponse Verifies that the proxy appends a JSDoc hint while retaining the upstream item, response ID, hint fields, and zero-width cursor range.
 //
-// 1. Build a proxy over an embedder source whose only contribution is one
-//    JSDoc hint triggered after "@evidence ".
-// 2. Open a document whose cursor sits right after "@evidence " in a JSDoc
-//    comment and send textDocument/completion; assert it is forwarded upstream.
-// 3. Answer from upstream with one compiler item and assert the editor receives
-//    both items, the hint item carrying its label, insert text, detail and a
-//    zero-width replace range at the cursor, while the upstream item survives.
+// The positive JSDoc scope complements the line-comment negative in the sibling entry.
+//
+// 1. Build a proxy over an embedder source whose only contribution is one JSDoc hint triggered after "@evidence ".
+// 2. Open a document whose cursor sits right after "@evidence " in a JSDoc comment and send textDocument/completion; assert it is forwarded upstream.
+// 3. Answer from upstream with one compiler item and assert the editor receives both items, the hint item carrying its label, insert text, detail and a zero-width replace range at the cursor, while the upstream item survives.
+//
+// @evidence contracts/testing.md#behavioral-verification The proxy appends a JSDoc hint while retaining the upstream item, response ID, hint fields, and zero-width cursor range.
+// @evidence contracts/testing.md#independent-expectations The embedder's literal hint, authored compiler item, and cursor position independently specify the result.
+// @evidence contracts/testing.md#distinguishing-cases The positive JSDoc scope complements the line-comment negative in the sibling entry.
+// @evidence contracts/testing.md#execution-ownership newProxyHarness runs the owning Go proxy over io.Pipe with an embedder source, without tsgo. Go discovers TestLSPProxyAppendsEmbedderCompletionHintsToUpstreamResponse under ./test/driver.
 func TestLSPProxyAppendsEmbedderCompletionHintsToUpstreamResponse(t *testing.T) {
   h := newProxyHarness(t, &completionHintPluginSource{PluginSource: driver.NullPluginSource{}})
 
@@ -102,9 +102,17 @@ func TestLSPProxyAppendsEmbedderCompletionHintsToUpstreamResponse(t *testing.T) 
   }
 }
 
-// TestLSPProxyLeavesCompletionAloneOutsideJSDoc is the negative twin: the same
-// trigger text on a line that is not inside a JSDoc comment must not make the
-// proxy add the hint, so the upstream answer is forwarded byte for byte.
+// TestLSPProxyLeavesCompletionAloneOutsideJSDoc Verifies that a line-comment trigger leaves the upstream completion response unchanged.
+//
+// The same hint and trigger as the positive sibling isolate comment scope.
+//
+// 1. Open a document with the hint trigger in a line comment and request completion.
+// 2. Answer upstream with one compiler item and assert the editor receives the original bytes.
+//
+// @evidence contracts/testing.md#behavioral-verification A line-comment trigger leaves the upstream completion response unchanged.
+// @evidence contracts/testing.md#independent-expectations The authored original response is expected because the trigger is outside JSDoc scope.
+// @evidence contracts/testing.md#distinguishing-cases The same hint and trigger as the positive sibling isolate comment scope.
+// @evidence contracts/testing.md#execution-ownership An embedder source and Go pipe proxy execute one completion exchange without a server process. Go discovers TestLSPProxyLeavesCompletionAloneOutsideJSDoc under ./test/driver.
 func TestLSPProxyLeavesCompletionAloneOutsideJSDoc(t *testing.T) {
   h := newProxyHarness(t, &completionHintPluginSource{PluginSource: driver.NullPluginSource{}})
 

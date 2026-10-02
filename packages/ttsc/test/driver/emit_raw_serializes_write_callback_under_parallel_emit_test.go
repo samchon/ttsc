@@ -10,25 +10,30 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverEmitRawSerializesWriteCallbackUnderParallelEmit verifies that
+// TestDriverEmitRawSerializesWriteCallbackUnderParallelEmit Verifies that
 // EmitAllRaw funnels its WriteFile callback through one mutex even though
 // TypeScript-Go emits files in parallel.
 //
 // With SingleThreaded dropped (PR #112), TypeScript-Go runs one emitter
 // goroutine per source file. EmitAll already serializes its callback, but
-// EmitAllRaw — the seam a plugin's own output rewriter uses (e.g. @nestia/core,
-// which carries per-file rewrite cursors and a runtime-alias cache) — used to
+// EmitAllRaw. the seam a plugin's own output rewriter uses (e.g. @nestia/core,
+// which carries per-file rewrite cursors and a runtime-alias cache). used to
 // hand the callback straight to the parallel emitter. A stateful callback then
 // tripped `fatal error: concurrent map read and map write` (issue #115). This
 // case mutates a bare, unguarded map from inside the callback across many
 // sources, so `go test -race` flags the regression if the mutex is ever
-// removed. A single-source fixture cannot surface it — only one emitter spawns.
+// removed. A single-source fixture cannot surface it. only one emitter spawns.
 //
 // 1. Load a multi-file project so the parallel emitter actually fans out.
 // 2. EmitAllRaw with a callback that reads and writes a shared unguarded map.
 // 3. Assert the callback recorded one distinct output path per source (a lost
 //    write lowers the count; a doubled write is not detected here, and a
 //    missing mutex surfaces only under `go test -race` or a runtime map fault).
+//
+// @evidence contracts/testing.md#behavioral-verification EmitAllRaw records eight distinct outputs through an unguarded callback map.
+// @evidence contracts/testing.md#independent-expectations Eight authored source names establish the output count independently.
+// @evidence contracts/testing.md#distinguishing-cases Multiple sources exercise callback concurrency; duplicate callbacks are not distinguished and race detection requires -race or a runtime map fault.
+// @evidence contracts/testing.md#execution-ownership Go unit TestDriverEmitRawSerializesWriteCallbackUnderParallelEmit is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestDriverEmitRawSerializesWriteCallbackUnderParallelEmit(t *testing.T) {
   root := t.TempDir()
 

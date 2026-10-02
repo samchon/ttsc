@@ -1,3 +1,0 @@
-## Contract {#contract}
-
-## Pricing {#pricing}

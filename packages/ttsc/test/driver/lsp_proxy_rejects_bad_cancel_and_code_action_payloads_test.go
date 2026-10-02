@@ -7,16 +7,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyRejectsBadCancelAndCodeActionPayloads verifies malformed payload
-// branches forward unchanged.
+// TestLSPProxyRejectsBadCancelAndCodeActionPayloads Verifies that malformed cancel params, unsupported cancel IDs, and invalid action-result JSON forward unchanged.
 //
-// Cancellation and code-action augmentation both parse optional JSON payloads.
-// Invalid shapes must not corrupt the proxy state or produce synthetic errors;
-// the editor and upstream server should still see the original frames.
+// A bad params string, boolean ID, and invalid result JSON exercise separate parse paths.
 //
 // 1. Forward cancel notifications with malformed and unsupported ids.
 // 2. Remember a codeAction request.
 // 3. Forward an upstream codeAction result whose JSON cannot be merged.
+//
+// @evidence contracts/testing.md#behavioral-verification Malformed cancel params, unsupported cancel IDs, and invalid action-result JSON forward unchanged.
+// @evidence contracts/testing.md#independent-expectations Original authored frames define safe forwarding for uninterpretable payloads.
+// @evidence contracts/testing.md#distinguishing-cases A bad params string, boolean ID, and invalid result JSON exercise separate parse paths.
+// @evidence contracts/testing.md#execution-ownership Each explicit malformed frame enters the actual Go proxy's normal framing pumps. Go discovers TestLSPProxyRejectsBadCancelAndCodeActionPayloads under ./test/driver.
 func TestLSPProxyRejectsBadCancelAndCodeActionPayloads(t *testing.T) {
   h := newProxyHarness(t, &stubSource{
     actions: []driver.LSPCodeAction{{Title: "local action"}},

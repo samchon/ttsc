@@ -18,6 +18,10 @@ import (
 // 1. Load a real project containing a semantic type error.
 // 2. Convert diagnostics through the public Program facade.
 // 3. Assert location, counting, and pretty rendering remain observable.
+// @evidence contracts/testing.md#behavioral-verification Calls actual program Diagnostics, CountErrors and WritePrettyDiagnostics on an authored semantic error, asserting file/nonnull location, positive error count and useful rendered text.
+// @evidence contracts/testing.md#independent-expectations A string assigned to number independently owes an error concerning number and index.ts; empty rendering must remain silent. This case asserts location presence, not exact coordinates or wording.
+// @evidence contracts/testing.md#distinguishing-cases Semantic anchored diagnostics contrast the explicit empty render; DTO-only fallback rendering has a separate unit.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go unit loads and closes an in-process Program on its private fixture; output is captured in bytes.Buffer without a host executable.
 func TestDriverDiagnosticSemanticRendering(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

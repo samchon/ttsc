@@ -17,7 +17,7 @@ import { UtilityWorkspace } from "../../../internal/UtilityWorkspace";
  * @evidence contracts/testing.md#behavioral-verification The launcher must fail the build and report TS2322 once at main.ts line 5 without quoting banner text, in either rendered position form.
  * @evidence contracts/testing.md#independent-expectations The authored source places the error on line 5 and the TypeScript error code is TS2322; neither is derived from the plugin.
  * @evidence contracts/testing.md#distinguishing-cases A positive line check detects an uncorrected banner shift, the single-count check detects duplicate reporting per lane, and banner-text absence detects a code frame over transformed text.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_banner with the shared workspace; real launcher stderr is inspected because rendering depends on the native host and recovery pass.
+ * @evidence contracts/testing.md#execution-ownership Called by test_e2e_utilities with the shared workspace; real launcher stderr is inspected because rendering depends on the native host and recovery pass.
  * @evidence contracts/e2e.md#necessary-boundary Diagnostic collection, the banner transform and rendering meet in the native host; only the public command output shows the position a user sees.
  * @evidence contracts/e2e.md#shared-execution Reuses the shared workspace, package link, plugin cache and configuration; its erroneous source is the only distinct input and requires its own failing compile.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The scenario owns its source and writes no output that another scenario reads; the process is joined before assertions.

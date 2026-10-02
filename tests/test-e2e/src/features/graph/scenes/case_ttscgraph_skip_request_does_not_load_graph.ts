@@ -1,9 +1,12 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
-import { TestProject } from "@ttsc/testing";
+import fs from "node:fs";
+import path from "node:path";
 
-import { TtsgraphClient, assert } from "../../../internal/graph/internal/ttsgraph";
+import { FixtureFiles } from "../../../internal/FixtureFiles";
+import { withIdentityBoundary } from "../../../internal/graph/internal/identityBoundary";
+import { assert } from "../../../internal/graph/internal/ttsgraph";
 
 interface ToolResult {
+  isError?: boolean;
   content: { type: string; text: string }[];
   structuredContent?: unknown;
 }
@@ -29,60 +32,102 @@ const graphArguments = () => ({
  * Verifies escape does not load the resident graph.
  *
  * The graph launcher builds the TypeScript graph lazily on the first real graph
- * operation. A bad tsconfig would fail that load, so a successful escape proves
- * the escape branch returns before starting the native session or any graph
- * traversal.
+ * operation. A bad tsconfig would fail that load; successful escape retains the
+ * invalid-config control, while exact successful-child receipts establish that
+ * the installed graph producer was not created.
  *
- * 1. Materialize a project with an intentionally invalid tsconfig.
- * 2. Initialize the MCP server and call only escape.
- * 3. Assert the tool succeeds and the process exits cleanly.
+ * 1. Borrow the shared MCP before any native graph request and corrupt its config.
+ * 2. Require escape to succeed with zero observed successful native child
+ *    creations.
+ * 3. Restore config bytes and require a real Recoverable lookup in the same
+ *    session.
+ * 4. The package experiment joins this shared process after all its consumers.
  *
- * @evidence contracts/testing.md#behavioral-verification MCP escape succeeds and reports skipped even when the fixture tsconfig is invalid, then the client exits normally.
+ * @evidence contracts/testing.md#behavioral-verification MCP escape succeeds and reports skipped with invalid config and zero exact-producer successful-spawn receipts; restored config yields Recoverable and one native spawn. The experiment retains the clean shared-process exit assertion.
  * @evidence contracts/testing.md#independent-expectations The deliberately invalid JSON would prevent an actual graph load; literal skipped and non-error results independently establish that escape remains usable.
- * @evidence contracts/testing.md#distinguishing-cases A graph-free request faces a configuration that graph access cannot accept. This is an indirect no-load oracle, not a direct assertion of child spawn counts.
- * @evidence contracts/testing.md#execution-ownership Called by test_e2e_graph, the exported scene case_ttscgraph_skip_request_does_not_load_graph starts the installed MCP launcher and exercises its graph-free escape branch without requiring native graph facts; it remains selected by the E2E runner/Evidence population.
+ * @evidence contracts/testing.md#distinguishing-cases A graph-free cold request faces invalid config, then a real graph request uses restored input. The observational preload subscribes to Node process diagnostics and successful spawn events without replacing native calls; its synchronous receipt write can affect timing, so this is not a race-timing oracle.
+ * @evidence contracts/testing.md#execution-ownership Called first by test_e2e_graph, the exported scene starts the installed MCP launcher, observes its cold graph-free escape, then requires real Recoverable facts after config restoration in that same MCP. It remains selected by the E2E runner/Evidence population.
  * @evidence contracts/e2e.md#necessary-boundary Installed MCP startup and lazy application dispatch must permit escape without resolving a compiler project; direct escape calls would bypass lazy server assembly.
- * @evidence contracts/e2e.md#shared-execution One invalid fixture and client reuse the suite launcher artifact; this request does not itself need compiler facts. Sharing with compatible lazy-start checks remains unfinished.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity The case owns its invalid config, never warms a graph in that session, ends stdin in finally and checks normal exit.
- * @evidence contracts/e2e.md#preserved-coverage Original non-error, skipped and exit assertions remain. No fake capability or suppressed compiler failure is used to certify the escape branch.
+ * @evidence contracts/e2e.md#shared-execution This runs first and borrows the identity project's existing MCP lifetime; the restored lookup warms the same producer later graph cases consume. No separate invalid project or MCP child is prepared.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Original config bytes restore after a settled response before another consumer; failed restoration blocks reuse. A timed-out or lost transport forbids reset and retains project and receipt inputs until the experiment attempts actual child joins. Zero initial successful-spawn receipts forbids an already-warmed session from satisfying the cold oracle. Diagnostics end with the MCP, and the exclusive receipt has a separate owned directory outside compiler inputs.
+ * @evidence contracts/e2e.md#preserved-coverage Original escape type, skipped and clean exit remain; exact native spawn observation and restored real declaration strengthen the original invalid-config control.
  */
 export const case_ttscgraph_skip_request_does_not_load_graph = async () => {
-  const root = TestProject.createProject(FixtureFiles.read("graph/ttscgraph_skip_request_does_not_load_graph/inputs-1"));
+  await withIdentityBoundary(async (client, root) => {
+    const configFile = path.join(root, "tsconfig.json");
+    const original = fs.readFileSync(configFile);
+    assert.equal(
+      client.nativeSpawnCount(),
+      0,
+      "escape must run before the shared native producer is loaded",
+    );
+    const failures: unknown[] = [];
+    try {
+      fs.writeFileSync(
+        configFile,
+        FixtureFiles.read(
+          "graph/ttscgraph_skip_request_does_not_load_graph/inputs-1",
+        )["tsconfig.json"]!,
+      );
 
-  const client = TtsgraphClient.start(root);
-  try {
-    await client.request("initialize", {
-      protocolVersion: "2025-06-18",
-      capabilities: {},
-      clientInfo: { name: "test-graph", version: "0.0.0" },
-    });
-    client.notify("notifications/initialized", {});
-
-    const result = (await client.request("tools/call", {
+      const result = (await client.request("tools/call", {
+        name: GRAPH_TOOL_NAME,
+        arguments: graphArguments(),
+      })) as ToolResult;
+      assert.equal(result.isError, undefined, JSON.stringify(result));
+      const parsed = (result.structuredContent ?? {}) as {
+        result?: { type?: string; skipped?: boolean };
+      };
+      assert.equal(
+        parsed.result?.type,
+        "escape",
+        `skip branch should return its own result: ${JSON.stringify(parsed)}`,
+      );
+      assert.equal(
+        parsed.result?.skipped,
+        true,
+        `skip branch should mark the graph operation skipped: ${JSON.stringify(parsed)}`,
+      );
+      assert.equal(
+        client.nativeSpawnCount(),
+        0,
+        "escape started the exact native graph producer",
+      );
+    } catch (error) {
+      failures.push(error);
+    } finally {
+      try {
+        client.assertInputMutationAllowed();
+        fs.writeFileSync(configFile, original);
+      } catch (error) {
+        client.preventInputReuse("Cold escape config restoration failed");
+        failures.push(error);
+      }
+    }
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1)
+      throw new AggregateError(failures, "Cold escape and input reset failed");
+    const recovered = (await client.request("tools/call", {
       name: GRAPH_TOOL_NAME,
-      arguments: graphArguments(),
-    })) as ToolResult;
-    const parsed = (result.structuredContent ?? {}) as {
-      result?: { type?: string; skipped?: boolean };
-    };
-    assert.equal(
-      parsed.result?.type,
-      "escape",
-      `skip branch should return its own result: ${JSON.stringify(parsed)}`,
+      arguments: {
+        question: "Find Recoverable after restoring the compiler project.",
+        draft: {
+          reason: "Verify the restored project in the same session.",
+          type: "lookup",
+        },
+        review: "Use the restored compiler snapshot.",
+        request: { type: "lookup", query: "Recoverable" },
+      },
+    })) as ToolResult & { isError?: boolean };
+    assert.equal(recovered.isError, undefined, JSON.stringify(recovered));
+    assert.match(
+      JSON.stringify(recovered.structuredContent ?? {}),
+      /Recoverable/,
     );
     assert.equal(
-      parsed.result?.skipped,
-      true,
-      `skip branch should mark the graph operation skipped: ${JSON.stringify(parsed)}`,
+      client.nativeSpawnCount(),
+      1,
+      "the restored lookup must reach the real resident producer once",
     );
-  } finally {
-    client.endStdin();
-  }
-
-  const code = await client.waitForExit();
-  assert.equal(
-    code,
-    0,
-    `the launcher should exit cleanly without loading the bad tsconfig\nstderr: ${client.stderrText()}`,
-  );
+  });
 };

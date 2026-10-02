@@ -9,7 +9,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPServerEndsTheSessionOnExitWithoutTheEditorsEOF pins that the LSP
+// TestLSPServerEndsTheSessionOnExitWithoutTheEditorsEOF Verifies that the LSP
 // `exit` notification ends the session while the editor's stream stays open.
 //
 // The specification has `exit` ask the server to exit its process, and plain
@@ -24,6 +24,11 @@ import (
 //  2. Send `shutdown`, then `exit`, and keep the input open.
 //  3. Assert RunLSPServer returns nil promptly and the editor got the
 //     `shutdown` response.
+//
+// @evidence contracts/testing.md#behavioral-verification RunLSPServer returns nil after shutdown/exit despite uncloseable input and delivers a nonempty response id.
+// @evidence contracts/testing.md#independent-expectations LSP shutdown-before-exit requires clean completion independently of editor EOF.
+// @evidence contracts/testing.md#distinguishing-cases Open uncloseable reader is covered; the response checks nonempty id rather than exact id 1.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPServerEndsTheSessionOnExitWithoutTheEditorsEOF in test/driver invokes RunLSPServer with an injected in-process upstream runner. No native upstream artifact is built or started.
 func TestLSPServerEndsTheSessionOnExitWithoutTheEditorsEOF(t *testing.T) {
   editorInR, editorInW := io.Pipe()
   defer editorInW.Close()

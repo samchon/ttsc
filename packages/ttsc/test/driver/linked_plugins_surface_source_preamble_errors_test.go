@@ -14,7 +14,7 @@ func (linkedPreambleErrorPlugin) SourcePreamble(driver.PluginContext) (string, e
   return "", errors.New("preamble failed")
 }
 
-// TestDriverLinkedPluginsSurfaceSourcePreambleErrors verifies that source
+// TestDriverLinkedPluginsSurfaceSourcePreambleErrors Verifies that source
 // preamble hook errors abort Program load.
 //
 // Source preambles are collected while the Program loads. A failing hook must
@@ -24,6 +24,11 @@ func (linkedPreambleErrorPlugin) SourcePreamble(driver.PluginContext) (string, e
 // 2. Load a Program with one linked manifest entry.
 // 3. Assert LoadProgram returns an error containing the hook's message (what
 //    the parser saw is not observed).
+//
+// @evidence contracts/testing.md#behavioral-verification LoadProgram propagates the SourcePreamble failure message.
+// @evidence contracts/testing.md#independent-expectations The injected hook returns the independent preamble failed sentinel.
+// @evidence contracts/testing.md#distinguishing-cases One failing hook is covered; any partial Program is closed but its absence is not asserted.
+// @evidence contracts/testing.md#execution-ownership Go unit TestDriverLinkedPluginsSurfaceSourcePreambleErrors is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestDriverLinkedPluginsSurfaceSourcePreambleErrors(t *testing.T) {
   resetLinkedPluginRegistry()
   driver.RegisterPlugin(linkedPreambleErrorPlugin{})

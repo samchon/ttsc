@@ -9,7 +9,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyForwardsDidSaveWhileAPublicationWriteIsHeld verifies the editor
+// TestLSPProxyForwardsDidSaveWhileAPublicationWriteIsHeld Verifies the editor
 // pump forwards a document notification upstream while a diagnostics
 // publication is still writing to the editor (samchon/ttsc#1441).
 //
@@ -25,6 +25,11 @@ import (
 //  2. Assert the save reaches upstream, and a second save after it too, while
 //     the publication is still held.
 //  3. Release the write and assert the editor receives both publications.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run forwards two saves while the first diagnostic write is gated, then writes two saved publications after the gate opens.
+// @evidence contracts/testing.md#independent-expectations Editor output backpressure must not hold the document-state lock needed for upstream forwarding; the controlled write gate fixes the blocked interval.
+// @evidence contracts/testing.md#distinguishing-cases A first save inside the held write and a second save arriving during that hold detect pump blocking; both released publication contents are checked.
+// @evidence contracts/testing.md#execution-ownership Go test/driver wraps the proxy pipe writer with editorGate and uses a stub diagnostic source; it exercises in-process lock ownership, not a child protocol.
 func TestLSPProxyForwardsDidSaveWhileAPublicationWriteIsHeld(t *testing.T) {
   source := &stubSource{
     diagnosticsFor: func(driver.LSPDocumentVersion) []driver.LSPDiagnostic {

@@ -6,7 +6,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestAdjustSourceMapForPreambleKeepsGenColAfterSameLineDrop verifies that
+// TestAdjustSourceMapForPreambleKeepsGenColAfterSameLineDrop Verifies that
 // dropping a preamble-region segment that shares a generated line with a kept
 // segment does not corrupt the kept segment's generated column or source column.
 //
@@ -24,6 +24,11 @@ import (
 // The dropped segment sits at genCol 3, not 0, so a re-encoder that advanced its
 // output genCol cumulant over the drop would encode the survivor's genCol delta
 // as 7 instead of 10.
+//
+// @evidence contracts/testing.md#behavioral-verification AdjustSourceMapForPreamble drops one segment and keeps generated column 10, source column 8 and shifted line 2.
+// @evidence contracts/testing.md#independent-expectations The separate test VLQ codec decodes authored absolute coordinates; three-line subtraction establishes line 2.
+// @evidence contracts/testing.md#distinguishing-cases Dropped column 3 and kept column 10 share a generated line, exposing incorrect column accumulation.
+// @evidence contracts/testing.md#execution-ownership Go unit TestAdjustSourceMapForPreambleKeepsGenColAfterSameLineDrop is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestAdjustSourceMapForPreambleKeepsGenColAfterSameLineDrop(t *testing.T) {
   const dropLines = 3
   input := makeMapJSON([]string{"src/a.ts"}, buildMappings([]absSeg{

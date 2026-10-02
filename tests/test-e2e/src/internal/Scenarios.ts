@@ -3,8 +3,11 @@ export namespace Scenarios {
   /**
    * Run every independent scenario and report each failure under its name.
    *
-   * A failed scenario does not stop the others, because they own separate
-   * directories of one workspace and none consumes another's output.
+   * A failed verdict does not stop later independent observations. Callers may
+   * share a settled producer, workspace or output when their authored oracles
+   * remain independent. Each caller owns the reuse gate: unresolved readers or
+   * failed input restoration must prevent unsafe later mutations and launches;
+   * collecting an error does not grant permission to reuse its inputs.
    *
    * @evidence contracts/common.md#principled-implementation Each scenario runs to its own verdict and its failure is wrapped with the scenario name and original cause, so the aggregate preserves failure identity.
    * @evidence contracts/common.md#clear-and-simple-design A loop and one aggregate error replace a runner abstraction; ordering follows the declaration.
@@ -26,7 +29,10 @@ export namespace Scenarios {
         await run();
       } catch (error) {
         failures.push(
-          new Error(`${name}: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}`, { cause: error }),
+          new Error(
+            `${name}: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}`,
+            { cause: error },
+          ),
         );
       }
     }

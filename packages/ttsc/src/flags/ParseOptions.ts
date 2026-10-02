@@ -48,10 +48,11 @@ export interface ParseOptions {
    * When provided, a bare token that fails the predicate is appended to
    * `passthrough` in its original position instead of `positional`, so an
    * unknown `--flag value` pair reaches tsgo with its adjacency and relative
-   * order intact. A compiler option the pinned compiler documents never reaches
-   * the predicate: its arity comes from `COMPILER_OPTION_KINDS`. The predicate
-   * only decides the token after an option that neither the schema nor the
-   * compiler's table knows.
+   * order intact. The native occurrence reader consumes compiler-owned operands
+   * before this predicate runs, using scalar, list and config-only metadata.
+   * Unconsumed lookahead remains a bare token, including whitespace the native
+   * list parser does not consume; empty tokens stay compiler passthrough and
+   * do not become launcher positionals.
    *
    * Every path that can move a bare token out of `positional` consults it: the
    * main loop below and `forwardKnownButUnaccepted`, which answers the same

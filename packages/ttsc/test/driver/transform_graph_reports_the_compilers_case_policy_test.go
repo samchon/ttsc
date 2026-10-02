@@ -8,19 +8,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestTransformGraphReportsTheCompilersCasePolicy verifies the transform graph
-// carries the case policy the compiler matched the project with.
+// TestTransformGraphReportsTheCompilersCasePolicy Verifies that NewTransformGraph forwards the Program's case policy and JSON retains its field even when false.
 //
-// TypeScript-Go decides whether file names compare case-sensitively from the
-// filesystem its executable lives on, not from the platform. A host deciding
-// the same project membership guessed the policy from the platform instead,
-// so on a case-sensitive macOS volume or a case-insensitive Linux one the two
-// disagreed (samchon/ttsc#1545). The graph now reports the compiler's answer,
-// false included.
+// The live policy and field presence are asserted; alternate-volume capabilities are not manufactured.
 //
-//  1. Load a one-file project and compute its transform graph.
-//  2. Assert the graph's policy is the program's, false on Windows.
-//  3. Assert the encoded graph carries the field even when it is false.
+// 1. Load a one-file project and compute its transform graph.
+// 2. Assert the graph's policy is the program's, false on Windows.
+// 3. Assert the encoded graph carries the field even when it is false.
+//
+// @evidence contracts/testing.md#behavioral-verification NewTransformGraph forwards the Program's case policy and JSON retains its field even when false.
+// @evidence contracts/testing.md#independent-expectations TSProgram supplies the compiler policy for the adapter; Windows false is independently checked, while other platforms' volume policies are not independently probed.
+// @evidence contracts/testing.md#distinguishing-cases The live policy and field presence are asserted; alternate-volume capabilities are not manufactured.
+// @evidence contracts/testing.md#execution-ownership The Go entry loads a Program, builds and marshals its graph, and closes it. Go discovers TestTransformGraphReportsTheCompilersCasePolicy under ./test/driver.
 func TestTransformGraphReportsTheCompilersCasePolicy(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{"files": ["index.ts"]}`)

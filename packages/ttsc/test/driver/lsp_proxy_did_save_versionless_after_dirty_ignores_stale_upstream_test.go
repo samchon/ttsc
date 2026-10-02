@@ -8,17 +8,19 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyDidSaveVersionlessAfterDirtyIgnoresStaleUpstream verifies dirty
-// transitions clear cached upstream diagnostics.
+// TestLSPProxyDidSaveVersionlessAfterDirtyIgnoresStaleUpstream Verifies that a versionless save after didChange publishes fresh plugin diagnostics without the prior upstream finding.
 //
-// Some clients send versionless `didSave`. If the proxy kept pre-change
-// upstream diagnostics after `didChange`, a save-triggered plugin publish would
-// merge stale TypeScript diagnostics into the freshly saved plugin result.
+// Initial publication, dirty clearing, and versionless save form the asserted state chain.
 //
 // 1. Publish upstream and plugin diagnostics for version 1.
 // 2. Mark the document dirty and observe the clearing frame.
 // 3. Send a versionless didSave.
 // 4. Assert the plugin publish does not include the stale upstream diagnostic.
+//
+// @evidence contracts/testing.md#behavioral-verification A versionless save after didChange publishes fresh plugin diagnostics without the prior upstream finding.
+// @evidence contracts/testing.md#independent-expectations A dirty transition invalidates diagnostics computed for the earlier generation.
+// @evidence contracts/testing.md#distinguishing-cases Initial publication, dirty clearing, and versionless save form the asserted state chain.
+// @evidence contracts/testing.md#execution-ownership A fixed Go stub and pipe proxy execute generation and cache behavior without a sidecar. Go discovers TestLSPProxyDidSaveVersionlessAfterDirtyIgnoresStaleUpstream under ./test/driver.
 func TestLSPProxyDidSaveVersionlessAfterDirtyIgnoresStaleUpstream(t *testing.T) {
   source := &stubSource{
     diagnostics: map[string][]driver.LSPDiagnostic{

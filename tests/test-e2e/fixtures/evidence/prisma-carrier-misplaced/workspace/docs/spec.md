@@ -1,3 +1,0 @@
-## Stored {#stored}
-
-## Deferred {#deferred}

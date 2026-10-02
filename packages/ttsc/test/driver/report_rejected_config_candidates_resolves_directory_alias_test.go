@@ -8,13 +8,22 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestReportRejectedConfigCandidatesResolvesDirectoryAlias verifies a lexical
+// TestReportRejectedConfigCandidatesResolvesDirectoryAlias Verifies a lexical
 // alias is never published as a directory candidate's physical identity.
 //
 // Plugin discovery and the linked native plugin observe the same candidate in
 // two stages. The JavaScript stage reports a realpath. If this Go stage reports
 // the symlink spelling instead, the envelope merge drops the conflicting proof
 // and every persistent adapter recompiles the whole project per module.
+//
+// 1. Prepare a physical directory and its symlink alias.
+// 2. Resolve the physical candidate independently through filepath.EvalSymlinks.
+// 3. Capture ReportRejectedConfigCandidates and require the physical identity.
+//
+// @evidence contracts/testing.md#behavioral-verification ReportRejectedConfigCandidates publishes a non-nil physical path equal to filepath.EvalSymlinks for the aliased directory candidate.
+// @evidence contracts/testing.md#independent-expectations The independent filesystem symlink resolver supplies the physical identity oracle; the lexical alias must not stand in for that identity.
+// @evidence contracts/testing.md#distinguishing-cases One directory candidate behind a symlink owns the alias distinction; unsupported symlink creation is reported as a capability skip.
+// @evidence contracts/testing.md#execution-ownership Go test/driver calls the reporting operation with a captured callback and real directory fixture, without building a plugin or adapter.
 func TestReportRejectedConfigCandidatesResolvesDirectoryAlias(t *testing.T) {
   root := t.TempDir()
   targetRoot := filepath.Join(root, "physical")

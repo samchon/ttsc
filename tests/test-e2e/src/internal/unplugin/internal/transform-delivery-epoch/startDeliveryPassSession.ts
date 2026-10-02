@@ -8,10 +8,20 @@ import type { IDeliveryPassSession } from "./IDeliveryPassSession";
 /** Start a session over a fresh graph-bearing fixture project. */
 export async function startDeliveryPassSession(
   fileCount = 4,
+  observation?: {
+    graphFanout: number;
+    realpath: (location: string) => string;
+    addWatchFile: (file: string, input: string) => void;
+  },
 ): Promise<IDeliveryPassSession> {
   const api = await TestUnpluginRuntime.loadUnpluginApi();
-  const project = createCacheProject({ fileCount, graphFanout: 1 });
-  const cache = api.createTtscTransformCache();
+  const project = createCacheProject({
+    fileCount,
+    graphFanout: observation?.graphFanout ?? 1,
+  });
+  const cache = api.createTtscTransformCache(
+    observation === undefined ? undefined : { realpath: observation.realpath },
+  );
   const options = api.resolveOptions();
   return {
     close: () => api.resetTtscTransformCache(cache),
@@ -26,7 +36,10 @@ export async function startDeliveryPassSession(
         options,
         undefined,
         cache,
-        { addWatchFile: () => undefined },
+        {
+          addWatchFile: (input: string) =>
+            observation?.addWatchFile(file, input),
+        },
       ),
     modules: projectModules(project.root),
     pass: () => api.beginTtscTransformBuild(cache),

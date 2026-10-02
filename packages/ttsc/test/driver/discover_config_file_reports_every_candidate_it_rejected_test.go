@@ -17,6 +17,14 @@ import (
 // serving output built from a config a cold run would no longer choose
 // (samchon/ttsc#1271). The search must also stop at the first directory that
 // answers, so a candidate above the match is neither probed nor reported.
+//
+// 1. Place the selected config above a nested starting directory.
+// 2. Discover upward and compare the complete rejected-path set and absent kinds with each authored candidate.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls DiscoverConfigFile from a nested directory and asserts the selected root plus the complete rejected-candidate path set and absent kind.
+// @evidence contracts/testing.md#independent-expectations Five literal fixture-relative candidate paths are independently enumerated from the supplied two names and three directory levels.
+// @evidence contracts/testing.md#distinguishing-cases Absent leaf/intermediate candidates and the alternate beside the match are included; candidates above the matched root must be absent from the complete result.
+// @evidence contracts/testing.md#execution-ownership This owning driver Go unit calls the real upward search with disposable filesystem input and no compiler host or installed consumer.
 func TestDiscoverConfigFileReportsEveryCandidateItRejected(t *testing.T) {
   root := t.TempDir()
   nested := filepath.Join(root, "packages", "app")

@@ -9,17 +9,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverLoadProgramForceNoEmitSuppressesRawEmit verifies ForceNoEmit updates
-// compiler options before program creation.
+// TestDriverLoadProgramForceNoEmitSuppressesRawEmit Verifies that ForceNoEmit allows project load but makes EmitAllRaw record no outputs.
 //
-// The command path uses this option for check-only flows, where the driver must
-// still load the project without writing JavaScript. The test observes that the
-// load succeeds with no diagnostics and that raw emit writes nothing; it does
-// not itself run a type check.
+// This case covers successful load and suppressed raw output, not a semantic type check.
 //
 // 1. Load a project with ForceNoEmit enabled.
 // 2. Run raw emit through a recording WriteFile callback.
 // 3. Assert no JavaScript output is written.
+//
+// @evidence contracts/testing.md#behavioral-verification ForceNoEmit allows project load but makes EmitAllRaw record no outputs.
+// @evidence contracts/testing.md#independent-expectations Check-only configuration requires zero output writes independently of output text.
+// @evidence contracts/testing.md#distinguishing-cases This case covers successful load and suppressed raw output, not a semantic type check.
+// @evidence contracts/testing.md#execution-ownership The direct Go Program records raw callback writes and is closed after the assertion. Go discovers TestDriverLoadProgramForceNoEmitSuppressesRawEmit under ./test/driver.
 func TestDriverLoadProgramForceNoEmitSuppressesRawEmit(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

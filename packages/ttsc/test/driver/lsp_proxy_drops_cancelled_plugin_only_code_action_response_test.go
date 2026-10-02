@@ -1,6 +1,7 @@
 package driver_test
 
 import (
+  "sync"
   "sync/atomic"
   "testing"
   "time"
@@ -8,7 +9,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyDropsCancelledPluginOnlyCodeActionResponse verifies local source
+// TestLSPProxyDropsCancelledPluginOnlyCodeActionResponse Verifies local source
 // actions honor request cancellation.
 //
 // Plugin-only code actions are handled locally instead of being forwarded to
@@ -20,9 +21,18 @@ import (
 // 2. Send `$/cancelRequest` for that request id.
 // 3. Release the plugin callback.
 // 4. Assert no editor response is written.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run sends no local action response during 150ms after cancellation and release.
+// @evidence contracts/testing.md#independent-expectations The cancel id matches the blocked local request independently of plugin output.
+// @evidence contracts/testing.md#distinguishing-cases Local-only cancellation is covered; arbitrarily late responses are not ruled out.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyDropsCancelledPluginOnlyCodeActionResponse in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyDropsCancelledPluginOnlyCodeActionResponse(t *testing.T) {
   started := make(chan struct{})
   release := make(chan struct{})
+  var releaseCallbackOnce sync.Once
+  releaseCallback := func() { releaseCallbackOnce.Do(func() { close(release) }) }
+  t.Cleanup(releaseCallback)
+  defer releaseCallback()
   var called atomic.Bool
   source := &stubSource{
     actionsWithContext: func(uri string, ctx driver.LSPCodeActionContext) []driver.LSPCodeAction {
@@ -45,6 +55,6 @@ func TestLSPProxyDropsCancelledPluginOnlyCodeActionResponse(t *testing.T) {
   }
   h.sendEditor([]byte(`{"jsonrpc":"2.0","method":"$/cancelRequest","params":{"id":10}}`))
   _ = h.recvUpstream()
-  close(release)
+  releaseCallback()
   h.expectNoEditorFrame(150 * time.Millisecond)
 }

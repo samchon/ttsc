@@ -13,7 +13,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitPluginUniqueImportAvoidsDownlevelTempShadow verifies emit plugins:
+// TestEmitPluginUniqueImportAvoidsDownlevelTempShadow Verifies emit plugins:
 // unique import bindings survive ES2015 downlevel temps.
 //
 // Locks the generated-name collision between a synthetic namespace import and
@@ -24,6 +24,11 @@ import (
 // 1. Inject a namespace import and reference it inside a nullish expression.
 // 2. Emit the source at ES2015 so tsgo allocates a function-scoped temp.
 // 3. Assert the downlevel temp does not shadow the injected import binding.
+//
+// @evidence contracts/testing.md#behavioral-verification EmitWithPluginTransformer keeps its injected import referenced and distinct from the downlevel temp.
+// @evidence contracts/testing.md#independent-expectations Authored dep.foo access requires a separate import and function temp; extracted names avoid assuming suffixes.
+// @evidence contracts/testing.md#distinguishing-cases ES2015 optional chaining and an injected namespace reference coexist in one function.
+// @evidence contracts/testing.md#execution-ownership Go unit TestEmitPluginUniqueImportAvoidsDownlevelTempShadow is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestEmitPluginUniqueImportAvoidsDownlevelTempShadow(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

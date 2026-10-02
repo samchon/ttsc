@@ -7,15 +7,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverLoadProgramReportsMissingTSConfig verifies missing project files
-// stay an error path instead of becoming diagnostics.
+// TestDriverLoadProgramReportsMissingTSConfig Verifies that LoadProgram returns no Program or diagnostics and reports tsconfig not found for an absent config.
 //
-// A tsconfig path that does not exist must fail before any Program is built,
-// so this covers the path-existence branch ahead of JSON parsing.
+// The missing-file branch runs before JSON parsing; malformed existing config belongs elsewhere.
 //
 // 1. Create an empty temporary project directory.
 // 2. Load a tsconfig path that does not exist.
 // 3. Assert no program is returned and the error names the missing tsconfig.
+//
+// @evidence contracts/testing.md#behavioral-verification LoadProgram returns no Program or diagnostics and reports tsconfig not found for an absent config.
+// @evidence contracts/testing.md#independent-expectations missing.json was never authored, so the configuration existence precondition requires rejection.
+// @evidence contracts/testing.md#distinguishing-cases The missing-file branch runs before JSON parsing; malformed existing config belongs elsewhere.
+// @evidence contracts/testing.md#execution-ownership The public loader reads a temporary directory directly in Go without a CLI. Go discovers TestDriverLoadProgramReportsMissingTSConfig under ./test/driver.
 func TestDriverLoadProgramReportsMissingTSConfig(t *testing.T) {
   root := t.TempDir()
   prog, diags, err := driver.LoadProgram(root, "missing.json", driver.LoadProgramOptions{})

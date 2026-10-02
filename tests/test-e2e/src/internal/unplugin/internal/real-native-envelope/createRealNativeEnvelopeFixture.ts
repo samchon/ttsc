@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import type { IRealNativeEnvelopeFixture } from "./IRealNativeEnvelopeFixture";
+import { realNativeEnvelopeContributor } from "./realNativeEnvelopeContributor";
 
 interface IRealNativeEnvelopeFixtureOptions {
   /** Stage config and declaration races across consecutive compile attempts. */
@@ -11,14 +12,15 @@ interface IRealNativeEnvelopeFixtureOptions {
   resolutionCorpus?: boolean;
 }
 
-let sharedContributorRoot: string | undefined;
-
 /**
  * Materialize a package-resolution fixture driven by ttsc's utility host.
  *
- * The Go package is deliberately not `main`: ttsc copies it into the ordinary
- * utility host as a linked contributor, whose no-op `ApplyProgram` method runs
- * in the same native invocation that produces `driver.NewTransformGraph`.
+ * The manifest selects banner, paths, strip and the Program probe in the same
+ * order as the utility experiment. The first three use actual package links;
+ * the probe's non-main Go package comes from the shared source provider. Its
+ * ApplyProgram observes the same invocation that produces the native graph. The
+ * envelope profile uses a real nonblank banner and explicit empty strip lists.
+ * Paths still rewrites the larger corpus's actual configured alias.
  */
 export function createRealNativeEnvelopeFixture(
   options: IRealNativeEnvelopeFixtureOptions = {},
@@ -116,247 +118,55 @@ export function createRealNativeEnvelopeFixture(
       }
     : {};
 
-  TestProject.writeFiles(root, {
-    "go.mod": "module example.com/ttscunpluginrealenvelope\n\ngo 1.26\n",
-    "package.json": JSON.stringify({ private: true, type: "module" }, null, 2),
-    "compile-probe/probe.go": [
-      "package cacheprobe",
-      "",
-      "import (",
-      '  "fmt"',
-      '  "os"',
-      '  "path/filepath"',
-      "",
-      '  "github.com/samchon/ttsc/packages/ttsc/driver"',
-      ")",
-      "",
-      "type plugin struct{}",
-      "",
-      "func (plugin) ApplyProgram(_ *driver.Program, context driver.PluginContext) error {",
-      '  runLog, ok := context.Entry.Config["runLog"].(string)',
-      '  if !ok || runLog == "" {',
-      '    return fmt.Errorf("real-envelope compile probe requires a runLog string")',
-      "  }",
-      "  if !filepath.IsAbs(runLog) {",
-      "    runLog = filepath.Join(context.Cwd, runLog)",
-      "  }",
-      "  file, err := os.OpenFile(runLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)",
-      "  if err != nil {",
-      "    return err",
-      "  }",
-      "  info, err := file.Stat()",
-      "  if err != nil {",
-      "    _ = file.Close()",
-      "    return err",
-      "  }",
-      "  attempt := info.Size()",
-      "  if _, err := file.Write([]byte{1}); err != nil {",
-      "    _ = file.Close()",
-      "    return err",
-      "  }",
-      "  if err := file.Close(); err != nil {",
-      "    return err",
-      "  }",
-      '  raceAttempt, _ := context.Entry.Config["raceAttempt"].(float64)',
-      "  if attempt == int64(raceAttempt) {",
-      '    raceFile, _ := context.Entry.Config["raceFile"].(string)',
-      '    raceContent, _ := context.Entry.Config["raceContent"].(string)',
-      '    if raceFile != "" && raceContent != "" {',
-      "      if !filepath.IsAbs(raceFile) {",
-      "        raceFile = filepath.Join(context.Cwd, raceFile)",
-      "      }",
-      "      if err := os.WriteFile(raceFile, []byte(raceContent), 0o644); err != nil {",
-      "        return err",
-      "      }",
-      "    }",
-      "  }",
-      "  return nil",
-      "}",
-      "",
-      "func init() {",
-      "  driver.RegisterPlugin(plugin{})",
-      "}",
-      "",
-    ].join("\n"),
-    "tsconfig.json": JSON.stringify(
-      {
-        extends: "./presets/base.json",
-        compilerOptions: {
-          allowJs: true,
-          module: "NodeNext",
-          moduleResolution: "NodeNext",
-          moduleSuffixes: [".native", ""],
-          noImplicitAny: false,
-          plugins: [
-            {
-              name: "real-envelope-compile-probe",
-              raceAttempt:
-                options.raceInputsAcrossAttempts === true ? 99 : undefined,
-              raceContent:
-                options.raceInputsAcrossAttempts === true
-                  ? "export interface Shared { label: string; revision?: number; }\n"
-                  : undefined,
-              raceFile:
-                options.raceInputsAcrossAttempts === true
-                  ? declaration
-                  : undefined,
-              runLog,
-              transform: "./plugin.cjs",
-            },
-          ],
-          ...(resolutionCorpus
-            ? {
-                jsx: "preserve",
-                paths: { "@fixture/value": ["./paths/value"] },
-                rootDirs: ["src", "generated"],
-              }
-            : {}),
-          strict: true,
-          target: "ES2022",
-          // #1353: @types primary lookup hides a lowercased synthetic
-          // containing file. A package subpath exercises secondary lookup
-          // through the real host, including generated compiler overlays.
-          types: ["*", "envelope-client/client"],
-        },
-        include: ["src"],
-      },
-      null,
-      2,
-    ),
-    "presets/base.json": JSON.stringify({
-      compilerOptions: {
-        outDir: "${configDir}\\src\\generated",
-        rootDir: "${configDir}",
-      },
-    }),
-    [`src/${excludedDirectory}/ignored.ts`]:
-      'export const ignored = "the templated outDir excludes this source";\n',
-    "node_modules/typed-dep/package.json": JSON.stringify(
-      {
-        main: "dist/index.js",
-        name: "typed-dep",
-        type: "module",
-        types: "dist/index.d.ts",
-        version: "0.0.0",
-      },
-      null,
-      2,
-    ),
-    "node_modules/typed-dep/dist/index.d.ts":
-      "export interface Shared { label: string; }\n",
-    "node_modules/typed-dep/dist/index.js": 'export const runtime = "typed";\n',
-    "node_modules/@types/fixture-types/index.d.ts":
-      "declare const realEnvelopeFixtureGlobal: string;\n",
-    "node_modules/envelope-client/package.json": JSON.stringify({
-      exports: { "./client": "./client.d.ts" },
-      name: "envelope-client",
-      version: "1.0.0",
-    }),
-    "node_modules/envelope-client/client.d.ts":
-      "declare const realEnvelopeClientGlobal: string;\n",
-    ...(resolutionCorpus
-      ? {
-          "node_modules/linked-pkg/package.json": JSON.stringify(
-            {
-              main: "index.js",
-              name: "linked-pkg",
-              type: "module",
-              version: "0.0.0",
-            },
-            null,
-            2,
-          ),
-          "node_modules/linked-pkg/index.d.ts":
-            "export declare const linked: string;\n",
-          "node_modules/linked-pkg/index.js": 'export const linked = "js";\n',
-          "node_modules/exports-pkg/package.json": JSON.stringify(
-            {
-              exports: { "./feature": "./dist/feature.js" },
-              name: "exports-pkg",
-              type: "module",
-              version: "0.0.0",
-            },
-            null,
-            2,
-          ),
-          "node_modules/exports-pkg/dist/feature.js":
-            'export const feature = "exports";\n',
-          "generated/rooted.js": 'export const rooted = "rootDirs";\n',
-          "paths/value.js": 'export const pathValue = "paths";\n',
-          "src/esm.mjs": 'export const esm = "mjs";\n',
-          "src/react.jsx": 'export const jsx = "jsx";\n',
-          "src/relative.js": 'export const relative = "relative";\n',
-        }
-      : {}),
-    "node_modules/punycode/package.json": JSON.stringify(
-      {
-        main: "punycode.js",
-        name: "punycode",
-        version: "0.0.0",
-      },
-      null,
-      2,
-    ),
-    "node_modules/punycode/punycode.js":
-      "module.exports = { encode(value) { return value; } };\n",
-    "node_modules/punycode.js/package.json": JSON.stringify(
-      {
-        main: "punycode.js",
-        name: "punycode.js",
-        version: "0.0.0",
-      },
-      null,
-      2,
-    ),
-    "node_modules/punycode.js/punycode.js":
-      "module.exports = { encode(value) { return `other:${value}`; } };\n",
-    "src/common.cjs": 'exports.common = "cjs";\n',
-    ...Object.fromEntries(
-      modules.map((file, index) => [
-        path.relative(root, file),
-        file.endsWith(".cts")
-          ? [
-              'import { common } from "./common.cjs";',
-              ...(resolutionCorpus
-                ? ['import { pathValue } from "@fixture/value";']
-                : []),
-              'import { encode } from "punycode";',
-              "",
-              `export const predicate = encode("proof") + common${resolutionCorpus ? " + pathValue" : ""};`,
-              "",
-            ].join("\n")
-          : [
-              'import type { Shared } from "typed-dep";',
-              ...(resolutionCorpus
-                ? [
-                    'import { linked } from "linked-pkg";',
-                    ...(index === 0
-                      ? [
-                          'import { esm } from "./esm.mjs";',
-                          'import { relative } from "./relative.js";',
-                        ]
-                      : []),
-                    ...(index === 2
-                      ? ['import { rooted } from "./rooted.js";']
-                      : []),
-                    ...(index === 3
-                      ? [
-                          'import { feature } from "exports-pkg/feature";',
-                          'import { jsx } from "./react.jsx";',
-                        ]
-                      : []),
-                  ]
-                : []),
-              "",
-              resolutionCorpus
-                ? `export const value${index}: Shared = { label: [linked, ${JSON.stringify(String(index))}${index === 0 ? ", esm, relative" : index === 2 ? ", rooted" : index === 3 ? ", feature, jsx" : ""}].join(":") };`
-                : `export const value${index}: Shared = { label: ${JSON.stringify(String(index))} };`,
-              "",
-            ].join("\n"),
-      ]),
-    ),
+  const fixtureRoot = path.join(
+    TestProject.WORKSPACE_ROOT,
+    "tests",
+    "test-e2e",
+    "fixtures",
+    "unplugin",
+    "real-native-envelope",
+  );
+  copyFixtureLayer(path.join(fixtureRoot, "base"), root);
+  if (resolutionCorpus) {
+    copyFixtureLayer(path.join(fixtureRoot, "resolution"), root);
+  }
+  const scope = path.join(root, "node_modules", "@ttsc");
+  fs.mkdirSync(scope, { recursive: true });
+  for (const name of ["banner", "paths", "strip"]) {
+    fs.symlinkSync(
+      path.join(TestProject.WORKSPACE_ROOT, "packages", name),
+      path.join(scope, name),
+      "junction",
+    );
+  }
+  const config = path.join(root, "tsconfig.json");
+  const parsed = JSON.parse(fs.readFileSync(config, "utf8"));
+  const probe = parsed.compilerOptions.plugins.find(
+    (entry: { transform?: string }) => entry.transform === "./plugin.cjs",
+  );
+  if (probe === undefined)
+    throw new Error("Native envelope manifest has no Program probe");
+  Object.assign(probe, {
+    runLog,
+    raceAttempt: options.raceInputsAcrossAttempts === true ? 99 : undefined,
+    raceFile:
+      options.raceInputsAcrossAttempts === true ? declaration : undefined,
+    raceContent:
+      options.raceInputsAcrossAttempts === true
+        ? "export interface Shared { label: string; revision?: number; }\n"
+        : undefined,
   });
-  const contributorRoot = sharedRealNativeContributor(root);
+  fs.writeFileSync(config, JSON.stringify(parsed, null, 2), "utf8");
+  if (options.raceInputsAcrossAttempts === true) {
+    const originalExcluded = path.join(root, "src", "generated", "ignored.ts");
+    fs.mkdirSync(path.dirname(excludedSource), { recursive: true });
+    fs.renameSync(originalExcluded, excludedSource);
+  }
+  fs.copyFileSync(
+    path.join(TestUnpluginProject.sharedNativeFixtureSource(), "go.mod"),
+    path.join(root, "go.mod"),
+  );
+  const contributorRoot = realNativeEnvelopeContributor();
   fs.writeFileSync(
     path.join(root, "plugin.cjs"),
     [
@@ -382,25 +192,15 @@ export function createRealNativeEnvelopeFixture(
   };
 }
 
-function sharedRealNativeContributor(root: string): string {
-  sharedContributorRoot ??= path.join(
-    TestUnpluginProject.materializeSharedSource(
-      "real-native-envelope-module",
-      (moduleRoot) => {
-        fs.writeFileSync(
-          path.join(moduleRoot, "go.mod"),
-          "module example.com/ttscunpluginrealenvelope\n\ngo 1.26\n",
-          "utf8",
-        );
-        const contributor = path.join(moduleRoot, "compile-probe");
-        fs.mkdirSync(contributor, { recursive: true });
-        fs.copyFileSync(
-          path.join(root, "compile-probe", "probe.go"),
-          path.join(contributor, "probe.go"),
-        );
-      },
-    ),
-    "compile-probe",
-  );
-  return sharedContributorRoot;
+/** Copy authored dependencies to their runtime node_modules spelling. */
+function copyFixtureLayer(source: string, root: string): void {
+  for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
+    const input = path.join(source, entry.name);
+    const output = path.join(
+      root,
+      entry.name === "dependencies" ? "node_modules" : entry.name,
+    );
+    if (entry.isDirectory()) TestProject.copyDirectory(input, output);
+    else if (entry.isFile()) fs.copyFileSync(input, output);
+  }
 }

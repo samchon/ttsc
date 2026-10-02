@@ -71,7 +71,7 @@ func (s *externalProjectDiagnosticsSource) InvalidateResidentProgramsForWatchedC
 }
 
 // TestLSPProxyExternalInputRefreshesProjectDiagnosticsWithoutOpenDocument
-// verifies a declared watched-file event immediately replaces project
+// Verifies a declared watched-file event immediately replaces project
 // diagnostics without borrowing a source-document URI.
 //
 // External events are debounced, tagged for resident Program retention, and
@@ -81,6 +81,11 @@ func (s *externalProjectDiagnosticsSource) InvalidateResidentProgramsForWatchedC
 //  1. Send one declared external event with no open document and observe it.
 //  2. Send a created/deleted burst and assert one empty replacement publication.
 //  3. Send unrelated local and remote events and keep contributors quiet.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run publishes then clears project findings and ignores unrelated watched events.
+// @evidence contracts/testing.md#independent-expectations A stub first-call finding and exact total count two ground replacement and debounce expectations.
+// @evidence contracts/testing.md#distinguishing-cases No open document, created/deleted burst, local and remote unrelated events differ; silence lasts 150ms and invalidation-list count is not asserted.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyExternalInputRefreshesProjectDiagnosticsWithoutOpenDocument in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyExternalInputRefreshesProjectDiagnosticsWithoutOpenDocument(t *testing.T) {
   const externalURI = "file:///project/docs/spec.md"
   source := &externalProjectDiagnosticsSource{externalURI: externalURI}

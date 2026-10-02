@@ -449,14 +449,16 @@ function resolveRuntimeSourceRoot(
 ): string {
   // A `--rootDir` forwarded before the entry reaches the compiler after the
   // config, so it is the root the outputs are laid out against. Invalid
-  // arguments fail the build on their own; the config's root stands until then.
+  // arguments fail the build on their own; an unreadable effective config keeps
+  // the declared root until then. A readable explicit reset uses the project
+  // default instead of reviving the declared root.
   const effective = readEffectiveCompilerOptions(
     project,
     options.passthrough,
     options.binary,
-  )?.("rootDir");
+  );
   const rootDir =
-    typeof effective === "string" ? effective : project.compilerOptions.rootDir;
+    effective === null ? project.compilerOptions.rootDir : effective("rootDir");
   const identities = createFilesystemPathIdentityContext({
     throwOnRealpathError: false,
   });

@@ -1,0 +1,17 @@
+const plugin_1 = 1;
+const plugin_2 = 2;
+const plugin_3 = 3;
+const plugin_4 = 4;
+const plugin_5 = 5;
+const plugin_6 = 6;
+const plugin_7 = 7;
+const plugin_8 = 8;
+const plugin_9 = 9;
+const plugin_10 = 10;
+const plugin_11 = 11;
+const plugin_12 = 12;
+const plugin_13 = 13;
+const plugin_14 = 14;
+const plugin_15 = 15;
+import plugin from "./plugin";
+export const value = plugin.make("input");

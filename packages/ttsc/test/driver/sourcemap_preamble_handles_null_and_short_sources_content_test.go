@@ -7,21 +7,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestAdjustSourceMapForPreambleHandlesNullAndShortSourcesContent verifies the
-// two defensive branches of the sourcesContent stripper: a null entry and an
-// entry with fewer than dropLines lines are both left alone (no panic).
+// TestAdjustSourceMapForPreambleHandlesNullAndShortSourcesContent Verifies that AdjustSourceMapForPreamble preserves null and short content and strips three lines from long content.
 //
-// tsgo emits `null` in sourcesContent for a source it could not read, and the
-// `len(parts) <= dropLines` guard protects against a content shorter than the
-// preamble. Dropping either guard would panic (nil deref / index out of range)
-// on real input. The happy-path stripper test uses only a normal long string,
-// so these branches were unexercised.
+// Null, fewer-than-dropLines, and strippable entries are checked; mappings are not asserted.
 //
-//  1. Build a map with three preamble-target sources whose sourcesContent is
-//     [null, a 2-line string, a long strippable string], dropLines 3.
-//  2. Run AdjustSourceMapForPreamble.
-//  3. Assert no panic, the null stays null, the short string is untouched, and
-//     the long string is stripped.
+// 1. Build a map with three preamble-target sources whose sourcesContent is [null, a 2-line string, a long strippable string], dropLines 3.
+// 2. Run AdjustSourceMapForPreamble.
+// 3. Assert no panic, the null stays null, the short string is untouched, and the long string is stripped.
+//
+// @evidence contracts/testing.md#behavioral-verification AdjustSourceMapForPreamble preserves null and short content and strips three lines from long content.
+// @evidence contracts/testing.md#independent-expectations Literal source-content strings independently define retained and stripped results.
+// @evidence contracts/testing.md#distinguishing-cases Null, fewer-than-dropLines, and strippable entries are checked; mappings are not asserted.
+// @evidence contracts/testing.md#execution-ownership The public Go map transformer operates on authored JSON without compiler preparation. Go discovers TestAdjustSourceMapForPreambleHandlesNullAndShortSourcesContent under ./test/driver.
 func TestAdjustSourceMapForPreambleHandlesNullAndShortSourcesContent(t *testing.T) {
   const dropLines = 3
   doc := map[string]any{

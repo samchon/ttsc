@@ -1,1 +1,0 @@
-## Sale Price {#sale-price}

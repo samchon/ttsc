@@ -7,7 +7,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyDidSavePublishesVersionlessPluginDiagnostics verifies document
+// TestLSPProxyDidSavePublishesVersionlessPluginDiagnostics Verifies document
 // notifications do not reuse a cached upstream version.
 //
 // Real LSP didSave notifications carry a TextDocumentIdentifier, not a
@@ -18,6 +18,11 @@ import (
 // 1. Cache an upstream publishDiagnostics notification with version 7.
 // 2. Send a versionless didSave notification.
 // 3. Assert the plugin publish has no version field.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run publishes saved without inheriting cached upstream version 7.
+// @evidence contracts/testing.md#independent-expectations LSP didSave has an unversioned identifier; the stub only accepts versionless queries.
+// @evidence contracts/testing.md#distinguishing-cases Versioned upstream cache contrasts with later versionless save.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyDidSavePublishesVersionlessPluginDiagnostics in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyDidSavePublishesVersionlessPluginDiagnostics(t *testing.T) {
   source := &stubSource{
     diagnosticsFor: func(doc driver.LSPDocumentVersion) []driver.LSPDiagnostic {

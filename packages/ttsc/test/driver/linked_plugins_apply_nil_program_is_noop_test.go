@@ -6,15 +6,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverLinkedPluginsApplyNilProgramIsNoop verifies that applying linked
-// plugins to a nil Program is a no-op.
+// TestDriverLinkedPluginsApplyNilProgramIsNoop Verifies that ApplyLinkedPlugins returns nil for a nil Program.
 //
-// The public method is intentionally defensive so callers can defer cleanup or
-// error-path plugin application without extra nil guards.
+// Only the nil branch is asserted; non-nil hook execution belongs to other linked-plugin cases.
 //
 // 1. Declare a nil Program pointer.
 // 2. Call ApplyLinkedPlugins.
 // 3. Assert no error is returned.
+//
+// @evidence contracts/testing.md#behavioral-verification ApplyLinkedPlugins returns nil for a nil Program.
+// @evidence contracts/testing.md#independent-expectations The defensive nil-receiver contract requires a no-op rather than a panic.
+// @evidence contracts/testing.md#distinguishing-cases Only the nil branch is asserted; non-nil hook execution belongs to other linked-plugin cases.
+// @evidence contracts/testing.md#execution-ownership This entry directly calls the public method on a nil pointer in Go. Go discovers TestDriverLinkedPluginsApplyNilProgramIsNoop under ./test/driver.
 func TestDriverLinkedPluginsApplyNilProgramIsNoop(t *testing.T) {
   var prog *driver.Program
   if err := prog.ApplyLinkedPlugins(); err != nil {

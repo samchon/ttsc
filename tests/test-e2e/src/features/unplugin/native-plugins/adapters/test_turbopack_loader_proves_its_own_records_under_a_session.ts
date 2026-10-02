@@ -37,7 +37,7 @@ import { writeProjectRecordFile } from "../../../../../../../packages/unplugin/l
  * @evidence contracts/testing.md#behavioral-verification Production worker under a shared session leaves an unrelated sibling record present and moves its signal from zero.
  * @evidence contracts/testing.md#independent-expectations Deliberately impossible sibling input hash requires proof to move signal; worker never compiles sibling so delivery cannot mask missing startup proof.
  * @evidence contracts/testing.md#distinguishing-cases Session present, production mode, separate project record below worker root.
- * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_turbopack_loader_proves_its_own_records_under_a_session is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_turbopack_loader_proves_its_own_records_under_a_session is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Real Node worker imports built loader and proves records under rootContext, distinct from in-process channel captures.
  * @evidence contracts/e2e.md#shared-execution One worker proves loaded and sibling records under one root; sibling is deliberately never compiled.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Child completion is awaited or collected synchronously; sessions and consumers have private tracked roots. Abrupt cancellation is not explicitly verified.

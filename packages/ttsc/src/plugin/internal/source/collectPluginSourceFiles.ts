@@ -8,8 +8,8 @@ import { GoSourceInputs } from "./GoSourceInputs";
  * on, as absolute paths in sorted order.
  *
  * Every regular file below the directory counts, except those in a directory
- * that never contributes plugin source (`node_modules`, `.git`, `.ttsc`), local
- * build residue (generated workspace files, package tarballs, editor sidecars),
+ * excluded by the snapshot policy (`node_modules`, `.git`, `.ttsc`), files
+ * with excluded workspace, archive or sidecar names,
  * and editor backups ending in `~`. The one reading of that rule: the cache key
  * hashes these files (`computeCacheKey`), and the transform envelope reports
  * their digest (`pluginSourceDigest`) within each directory's state
@@ -17,6 +17,11 @@ import { GoSourceInputs } from "./GoSourceInputs";
  * source is (samchon/ttsc#1487). A consumer that keeps a digest while the
  * metadata of these files holds still, rather than reading their bytes on every
  * proof, stats exactly this list, through the `ttsc/plugin-source` entry.
+ *
+ * Selection follows ttsc's declared naming policy, not Go's EmbedFiles. Data
+ * under excluded names or directories is omitted even when a raw Go package
+ * can embed it. The returned population describes the materialized source
+ * snapshot, not every input the original package could use.
  *
  * A link (a symbolic link or a Windows junction) outside those directories is
  * refused rather than skipped. The build would compile what it names, which
@@ -31,8 +36,8 @@ import { GoSourceInputs } from "./GoSourceInputs";
  *
  * @evidence contracts/common.md#principled-implementation The recursive Dirent walk selects regular files under the same prune/omit policy as copying and refuses contributing links, so bytes read outside the keyed tree cannot enter a build unnoticed.
  * @evidence contracts/common.md#clear-and-simple-design One private traversal owns enumeration and one final sort establishes deterministic file order for every downstream digest.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Shared source rules exclude build residue by declared kind/name policy instead of adapting the key to observed fixtures.
- * @evidence contracts/common.md#meaningful-documentation The native paragraphs identify counted files, omitted residue, link rejection and the common reader used by keys and proofs.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Shared source rules apply the declared kind/name exclusions instead of adapting the key to observed fixtures or inferring Go dependency membership from names.
+ * @evidence contracts/common.md#meaningful-documentation The native paragraphs identify counted files, explicit exclusions, the Go embed limitation, link rejection and the common reader used by keys and proofs.
  * @evidence contracts/portability.md#os-neutral-implementation Native path joining and Dirent kinds distinguish ordinary files, directories and links, including junctions; neither case folding nor slash-only identity is assumed.
  * @evidence contracts/performance.md#efficient-algorithms Enumeration visits each unpruned directory entry once and sorts F selected files in O(F log F); it retains file paths and recursion depth rather than loading content during listing.
  *

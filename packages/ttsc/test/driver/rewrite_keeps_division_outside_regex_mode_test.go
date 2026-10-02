@@ -7,15 +7,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestDriverRewriteKeepsDivisionOutsideRegexMode verifies division operators do
-// not get parsed as regex literals while matching calls.
+// TestDriverRewriteKeepsDivisionOutsideRegexMode Verifies that EmitAll replaces a call whose first argument uses division.
 //
-// The scanner uses the previous significant token to distinguish regex starts
-// from division, and this public emit fixture keeps that branch covered.
+// Division precedes a second argument; the adjacent regex entry owns literal scanning.
 //
 // 1. Compile a plugin call whose first argument uses numeric division.
 // 2. Register a consuming rewrite for the plugin call.
 // 3. Assert the division expression does not prevent the call replacement.
+//
+// @evidence contracts/testing.md#behavioral-verification EmitAll replaces a call whose first argument uses division.
+// @evidence contracts/testing.md#independent-expectations The literal full replacement statement detects treating division as a regex opener.
+// @evidence contracts/testing.md#distinguishing-cases Division precedes a second argument; the adjacent regex entry owns literal scanning.
+// @evidence contracts/testing.md#execution-ownership emitIndexWithRewrite loads, rewrites, records, and closes an in-process Go Program. Go discovers TestDriverRewriteKeepsDivisionOutsideRegexMode under ./test/driver.
 func TestDriverRewriteKeepsDivisionOutsideRegexMode(t *testing.T) {
   js := emitIndexWithRewrite(t, `declare const plugin: { make(...args: unknown[]): string };
 declare const total: number;

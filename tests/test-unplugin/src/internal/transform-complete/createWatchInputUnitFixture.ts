@@ -1,15 +1,19 @@
+import path from "node:path";
 import type { ITtscCompilerTransformation } from "ttsc";
+
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import { notifyWatchInputs } from "../../../../../packages/unplugin/src/core/transform/watch/notifyWatchInputs";
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 import { TestProject } from "../../../../utils/src/TestProject";
-import path from "node:path";
 
 /** Create literal consumer inputs; no compiler, plugin binary or host is run. */
 export function createWatchInputUnitFixture(): {
   root: string;
   universal: string[];
-  collect: (result: ITtscCompilerTransformation.ISuccess) => string[];
+  collect: (
+    result: ITtscCompilerTransformation.ISuccess,
+    file?: string,
+  ) => string[];
 } {
   const root = TestProject.tmpdir("ttsc-watch-input-unit-");
   TestProject.writeFiles(root, {
@@ -27,7 +31,7 @@ export function createWatchInputUnitFixture(): {
   return {
     root,
     universal,
-    collect: (result) => {
+    collect: (result, file = path.join(root, "src", "main.ts")) => {
       const watched: string[] = [];
       notifyWatchInputs(
         { addWatchFile: (input) => watched.push(input) },
@@ -38,9 +42,9 @@ export function createWatchInputUnitFixture(): {
           result,
           tsconfig,
         },
-        path.join(root, "src", "main.ts"),
+        file,
         {
-          consulted: [nearer, tsconfig],
+          consulted: [path.join(path.dirname(file), "tsconfig.json"), tsconfig],
           filesystem: DEFAULT_FILESYSTEM_OPERATIONS,
           tsconfig,
         },

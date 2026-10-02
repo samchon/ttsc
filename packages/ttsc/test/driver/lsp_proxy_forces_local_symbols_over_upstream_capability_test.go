@@ -7,7 +7,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyForcesLocalSymbolsOverUpstreamCapability verifies
+// TestLSPProxyForcesLocalSymbolsOverUpstreamCapability Verifies
 // ForceLocalSymbolProvider makes the proxy answer documentSymbol from the local
 // graph SymbolProvider even when upstream tsgo advertised the capability.
 //
@@ -20,6 +20,11 @@ import (
 //     documentSymbolProvider: true, with ForceLocalSymbolProvider set.
 //  2. Send textDocument/documentSymbol from the editor.
 //  3. Assert the local provider answered and the request never reached upstream.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns alpha and calls the forced local provider once.
+// @evidence contracts/testing.md#independent-expectations ForceLocalSymbolProvider overrides an upstream capability; the recording stub owns alpha.
+// @evidence contracts/testing.md#distinguishing-cases Upstream provider true with forced local mode is covered; no-forward observation lasts 150ms.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyForcesLocalSymbolsOverUpstreamCapability in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyForcesLocalSymbolsOverUpstreamCapability(t *testing.T) {
   provider := &recordingSymbolProvider{
     symbols: []driver.LSPDocumentSymbol{{Name: "alpha", Kind: driver.LSPSymbolKind(13)}},

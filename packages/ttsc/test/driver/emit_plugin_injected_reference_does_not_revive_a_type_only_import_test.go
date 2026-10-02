@@ -12,9 +12,8 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerInjectedReferenceDoesNotReviveATypeOnlyImport
-// pins the limit of the plugin emit contract, so it stays a stated boundary
-// rather than an accident of where references are marked.
+// TestEmitWithPluginTransformerInjectedReferenceDoesNotReviveATypeOnlyImport Verifies an
+// injected reference does not revive an existing import used only as a type.
 //
 // A plugin cannot keep a pre-existing import alive by referencing it from
 // injected code: it must synthesize its own import, which elision preserves
@@ -31,6 +30,11 @@ import (
 //     exists only in the transformed tree.
 //  3. Assert `./dep` is still elided and the injected statement was emitted, so
 //     the limit is visible rather than hidden by a transform that never ran.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs the actual source-appending transformer and requires emitted Foo.bar() while a pre-existing type-position-only ./dep import remains elided.
+// @evidence contracts/testing.md#independent-expectations The stated plugin contract preserves only imports marked by original value use or independently synthesized imports; authored Foo.bar call and absent require establish that precise limitation.
+// @evidence contracts/testing.md#distinguishing-cases A synthetic value reference does not revive an original type-only import; actual call presence prevents a no-op transform from passing.
+// @evidence contracts/testing.md#execution-ownership The owning Go unit executes direct transformer/compiler APIs with captured output and Program cleanup. It certifies the documented emission limitation, not executable validity of a plugin that fails to synthesize its needed import.
 func TestEmitWithPluginTransformerInjectedReferenceDoesNotReviveATypeOnlyImport(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

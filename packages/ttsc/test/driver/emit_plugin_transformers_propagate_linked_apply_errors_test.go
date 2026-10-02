@@ -32,6 +32,10 @@ func (*linkedApplyError) Error() string { return "linked apply boom" }
 // 1. Register a linked ProgramPlugin whose ApplyProgram always errors.
 // 2. Emit through EmitWithPluginTransformers.
 // 3. Assert the emit returns that error and writes no output.
+// @evidence contracts/testing.md#behavioral-verification Calls actual emission with a failing registered ProgramPlugin and requires linked apply boom plus zero captured output.
+// @evidence contracts/testing.md#independent-expectations The authored plugin returns a literal linked apply boom error; independent zero writes defines failure publication.
+// @evidence contracts/testing.md#distinguishing-cases First application failure contrasts the adjacent previously-latched failure and clean linked-hook cases.
+// @evidence contracts/testing.md#execution-ownership The owning driver Go unit invokes actual registered in-process plugin/compiler APIs with private Program cleanup and test-scoped manifest; no canned producer or subprocess.
 func TestEmitWithPluginTransformersPropagateLinkedApplyErrors(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"boom","stage":"transform","config":{}}]`)
@@ -66,15 +70,21 @@ func TestEmitWithPluginTransformersPropagateLinkedApplyErrors(t *testing.T) {
   }
 }
 
-// TestEmitWithPluginTransformersReportLatchedLinkedApplyErrors is the
-// swallowed-first-report companion: SourceFiles ignores the apply error by
-// contract, and before the error latch that first call also consumed the
-// once-only apply, so the emit that followed saw a clean no-op and wrote
-// output over the half-applied program.
+// TestEmitWithPluginTransformersReportLatchedLinkedApplyErrors Verifies an earlier ignored
+// linked-plugin apply error remains latched and prevents subsequent emit writes.
+//
+// SourceFiles triggers linked application but ignores its returned error. The later emit
+// must recover the same latched failure rather than treat the once-only application as a
+// successful no-op and publish output from a partially applied program.
 //
 // 1. Register a linked ProgramPlugin whose ApplyProgram always errors.
 // 2. Call SourceFiles first (the swallowing lane).
 // 3. Assert the emit still fails with the latched error and writes nothing.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls SourceFiles to trigger the real failing hook before emission; emission must still return linked apply boom and write nothing.
+// @evidence contracts/testing.md#independent-expectations Literal hook error and zero output are independently required after the known first application attempt.
+// @evidence contracts/testing.md#distinguishing-cases A read-only initial trigger contrasts first-trigger emission, detecting loss of failure through once-only hook state.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit uses actual source access and emitter operations on a private Program with captured writes and deferred close and scoped manifest; no plugin binary runs.
 func TestEmitWithPluginTransformersReportLatchedLinkedApplyErrors(t *testing.T) {
   resetLinkedPluginRegistry()
   t.Setenv(driver.LinkedPluginsEnv, `[{"name":"boom","stage":"transform","config":{}}]`)

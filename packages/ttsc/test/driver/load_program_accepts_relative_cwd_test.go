@@ -8,7 +8,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLoadProgramAcceptsRelativeCwd verifies LoadProgram accepts relative cwd
+// TestLoadProgramAcceptsRelativeCwd Verifies LoadProgram accepts relative cwd
 // values.
 //
 // Command callers may pass a project directory relative to the current process
@@ -19,6 +19,11 @@ import (
 // 2. Load it with the relative cwd "project".
 // 3. Assert a Program is produced without diagnostics (the tsconfig and its
 //    source file were found; the resolved path itself is not inspected).
+//
+// @evidence contracts/testing.md#behavioral-verification LoadProgram accepts project relative to a temporary current directory and returns a non-nil Program without config diagnostics.
+// @evidence contracts/testing.md#independent-expectations The authored parent/project fixture must be locatable from the supplied relative cwd; the test does not inspect the resolved absolute spelling.
+// @evidence contracts/testing.md#distinguishing-cases This owns the relative-cwd success case and restores process cwd afterward; missing config is covered separately.
+// @evidence contracts/testing.md#execution-ownership Go test/driver calls LoadProgram directly after os.Chdir, with no compiler CLI; this case is not parallel because cwd is process state.
 func TestLoadProgramAcceptsRelativeCwd(t *testing.T) {
   parent := t.TempDir()
   project := filepath.Join(parent, "project")

@@ -1,0 +1,1 @@
+export const value = class { private hidden = 1; };

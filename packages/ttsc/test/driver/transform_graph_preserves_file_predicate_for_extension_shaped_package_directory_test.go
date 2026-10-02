@@ -8,6 +8,18 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
+// TestTransformGraphPreservesFilePredicateForExtensionShapedPackageDirectory Verifies NewTransformGraph observes FileExists=false, null legacy proofs and no failure for a directory candidate.
+//
+// A directory-shaped fixture exercises resolution directly in the compiler.
+//
+// 1. Load the fixture with an extension-shaped package directory candidate.
+// 2. Construct the transform graph from the loaded Program.
+// 3. Require a negative file predicate, null legacy proofs and no proof failure.
+//
+// @evidence contracts/testing.md#behavioral-verification NewTransformGraph observes FileExists=false, null legacy proofs and no failure for a directory candidate.
+// @evidence contracts/testing.md#independent-expectations The authored node_modules/punycode.js is a directory, independently grounding the negative file predicate.
+// @evidence contracts/testing.md#distinguishing-cases A resolvable package coexists with the extension-shaped speculative directory; this checks resolver behavior.
+// @evidence contracts/testing.md#execution-ownership Go unit TestTransformGraphPreservesFilePredicateForExtensionShapedPackageDirectory is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestTransformGraphPreservesFilePredicateForExtensionShapedPackageDirectory(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

@@ -12,7 +12,8 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// Verifies emit-context member accesses remain generated during enum inlining.
+// TestEmitWithSyntheticMemberAccessDoesNotPanicWithConstEnum Verifies synthetic member access
+// emits without panic while genuine const-enum members remain inlined.
 //
 // The inliner follows original mappings before consulting the resolver. An
 // emit-factory access has no parse original and must never enter the checker,
@@ -21,6 +22,11 @@ import (
 // 1. Load a const-enum project and inject nested synthetic member accesses.
 // 2. Emit through the real plugin pipeline.
 // 3. Assert both real enum inlining and unchanged generated accesses.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls actual synthetic member injection and plugin emission, requiring clean result, real enum constants one/two and intact synthObj.X[3] output.
+// @evidence contracts/testing.md#independent-expectations Explicit enum constants and independently constructed generated access define the expected output relationships.
+// @evidence contracts/testing.md#distinguishing-cases Nested synthetic property/element access contrasts real enum member accesses in the same program, distinguishing generated checker exclusion from disabled inlining.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit invokes real compiler/visitor APIs with private Program and captured writes and deferred close; successful emitted structure, not runtime binding of synthObj, is claimed.
 func TestEmitWithSyntheticMemberAccessDoesNotPanicWithConstEnum(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{"compilerOptions":{"module":"commonjs","target":"es2020","outDir":"bin","strict":true},"files":["index.ts"]}`)

@@ -45,7 +45,7 @@ export function test_plugin_composition_preserves_one_hop_host_identity_and_reje
     composes: ["./plugins/b.cjs"], contributors,
     capabilities: { emitProvenance: true },
   };
-  const target: ITtscPlugin = { name: "compose-target", source: "missing-target", capabilities: { threadingArgs: true } };
+  const target: ITtscPlugin = { name: "compose-target", source: "missing-target", capabilities: { threadingArgs: true, emitProvenance: true } };
   const inherited = composePluginSources(entries.slice(0, 2), [aggregate, target]);
   assert.equal(inherited.length, 2);
   assert.ok(inherited[1]);
@@ -53,7 +53,10 @@ export function test_plugin_composition_preserves_one_hop_host_identity_and_reje
   assert.equal(inherited[1].contributors, contributors);
   assert.equal(inherited[1].capabilities, aggregate.capabilities);
   assert.equal(target.source, "missing-target");
-  for (const capabilities of [undefined, {}, { threadingArgs: false, emitProvenance: false }]) {
+  const capabilityDeclarations: ITtscPlugin["capabilities"][] = [
+    undefined, {}, { threadingArgs: false },
+  ];
+  for (const capabilities of capabilityDeclarations) {
     const selectedHost = { ...aggregate, capabilities };
     const targetBefore = structuredClone(target);
     const redirected = composePluginSources(entries.slice(0, 2), [selectedHost, target]);

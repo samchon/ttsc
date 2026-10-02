@@ -9,19 +9,19 @@ import {
 } from "../../internal/source-build-unit";
 
 /**
- * Verifies computeCacheKey changes when embedded data changes.
+ * Verifies computeCacheKey changes when selected embedded rules.json changes.
  *
- * Go plugins that use `//go:embed` bake static data files into their binary. If
- * an embedded file (e.g. a rules database) changes between builds, the cached
- * binary is stale. The cache key must fingerprint embedded data files in
- * addition to `.go` source.
+ * The snapshot policy includes ordinary rules.json data alongside Go source.
+ * This unit verifies that changing its bytes changes the key, independently of
+ * unchanged Go declarations. It does not cover excluded file names or build an
+ * artifact to inspect embedded bytes.
  *
  * 1. Create a plugin with a `//go:embed rules.json` directive.
  * 2. Compute the cache key, then update the embedded file.
  * 3. Assert the cache key changes.
  *
- * @evidence contracts/testing.md#behavioral-verification Embedded rules.json bytes are part of the artifact input even though they are not Go source; the unchanged plugin then changed version data must produce distinct keys.
- * @evidence contracts/testing.md#independent-expectations Go embed includes rules.json bytes in the binary, so a different rules version cannot reuse the original artifact even with unchanged Go source.
+ * @evidence contracts/testing.md#behavioral-verification The selected rules.json data file enters the source digest even though it is not Go source; unchanged declarations and changed version data must produce distinct keys.
+ * @evidence contracts/testing.md#independent-expectations The declared snapshot policy includes the authored ordinary rules.json name; different literal rules bytes must distinguish keys even with unchanged Go source. No binary is built by this unit.
  * @evidence contracts/testing.md#distinguishing-cases The Go source and entry stay identical while rules.json moves from version 1 to version 2, so a key derived from .go source alone would collide.
  * @evidence contracts/testing.md#execution-ownership A unit test calling computeCacheKey directly on a temp Go module with no goBinary and no go.mod replace directive, so no Go process is spawned and no native build or consumer host is involved.
  */

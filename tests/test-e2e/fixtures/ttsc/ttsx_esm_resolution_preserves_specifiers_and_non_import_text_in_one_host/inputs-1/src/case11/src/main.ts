@@ -1,2 +1,2 @@
-import { paint } from "pub-dep";
+import { paint } from "paint-dep";
 console.log(paint());

@@ -6,19 +6,21 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPEnvelopeIDKeyNormalizesEquivalentNumerics covers four
+// TestLSPEnvelopeIDKeyNormalizesEquivalentNumerics Verifies four
 // behavior groups in IDKey's numeric path so the proxy correlates ids
 // regardless of how the peer formatted them on the wire:
 //
-//  1. Integer-shape and integer-valued float collapse to the same
-//     canonical decimal (`1` vs `1.0` → "1").
-//  2. Non-integer floats keep their literal form (`1.5` → "1.5").
-//  3. Exponent-form integer-valued literals collapse to the canonical
-//     decimal (`1e0`, `1E0`, `1.0E0` → "1"), defending the
-//     `strings.ContainsAny(".eE")` discriminator against an
-//     accidental lowercase-only refactor.
-//  4. Float→integer collapse: `1e2` and `100` produce the same key,
-//     pinning the float-shape safe-range integer-collapse branch.
+// Literal numeric equality grounds keys 1, 1.5 and 100.
+//
+// 1. Parse ids 1 and 1.0 and require the same literal key 1.
+// 2. Parse fractional id 1.5 and keep that key.
+// 3. Parse lower/uppercase exponent forms of 1 and require key 1.
+// 4. Compare exponent id 1e2 with decimal id 100.
+//
+// @evidence contracts/testing.md#behavioral-verification ParseEnvelope and IDKey normalize integer-valued forms and retain 1.5.
+// @evidence contracts/testing.md#independent-expectations Literal numeric equality grounds keys 1, 1.5 and 100.
+// @evidence contracts/testing.md#distinguishing-cases Decimal, fractional, lowercase/uppercase exponent and exponent/integer equality differ.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPEnvelopeIDKeyNormalizesEquivalentNumerics is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestLSPEnvelopeIDKeyNormalizesEquivalentNumerics(t *testing.T) {
   intEnv, err := driver.ParseEnvelope([]byte(`{"jsonrpc":"2.0","id":1,"method":"ping"}`))
   if err != nil {
@@ -70,7 +72,8 @@ func TestLSPEnvelopeIDKeyNormalizesEquivalentNumerics(t *testing.T) {
   if err != nil {
     t.Fatalf("100 parse failed: %v", err)
   }
-  if hundredFloat.IDKey() != hundredInt.IDKey() {
+  if hundredFloat.IDKey() != "100" || hundredInt.IDKey() != "100" ||
+    hundredFloat.IDKey() != hundredInt.IDKey() {
     t.Fatalf("1e2 and 100 must collide: got %q vs %q", hundredFloat.IDKey(), hundredInt.IDKey())
   }
 }

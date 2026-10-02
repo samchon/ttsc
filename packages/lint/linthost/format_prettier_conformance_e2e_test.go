@@ -1,0 +1,370 @@
+//go:build e2e
+
+package linthost
+
+import (
+  "encoding/json"
+  "fmt"
+  "os"
+  "os/exec"
+  "sort"
+  "strings"
+  "testing"
+
+  shimast "github.com/microsoft/typescript-go/shim/ast"
+)
+
+// TestFormatPrettierConformance verifies every registered format rule has a
+// real formatter corpus case checked against the pinned Prettier module.
+//
+// A rule-local expectation can prove that a rule fired without proving its
+// output agrees with the formatter it claims to mirror. The corpus is keyed by
+// rule name and compared through the native disk-backed fix path, so adding a format rule
+// without an oracle witness fails this test. Every ordinary case must make
+// Prettier change the source; a canonical input cannot prove a formatter path
+// ran. The two documented ttsc-only extensions (`jsDoc` and `sortImports`) are
+// intentionally marked as canonical because core Prettier has no equivalent
+// option to use as their oracle. A true Prettier no-op (such as
+// quoteProps:"preserve") is marked the same way, but its rule must still have
+// another changing witness.
+//
+//  1. Match the conformance corpus against the registered format-rule set.
+//  2. Format each source through pinned Prettier 3.8.3.
+//  3. Translate the public `format` block through expandFormatBlock, then run
+//     only that rule through ttsc's native disk-backed fixer.
+//  4. Require byte equality, without letting a sibling rule's known divergence
+//     obscure the rule being measured.
+//
+// @evidence contracts/testing.md#behavioral-verification Exercises every named formatter corpus input through its owning native fix operation and the pinned Prettier formatter; asserts exact per-case bytes, required changing/canonical witnesses, registered rule coverage and each Visits node kind, distinguishing the named lost connection or changed behavior from valid execution.
+// @evidence contracts/testing.md#independent-expectations Pinned Prettier 3.8.3 is an independent formatter oracle; explicit canonical exceptions are jsdoc/sort-imports extensions or genuine public-option no-ops with complementary changing witnesses.
+// @evidence contracts/testing.md#distinguishing-cases This case owns all 61 original rule/name/source/options cases remain, including semicolon/member boundaries, ASI guards, width constructs, import effects and CRLF; portable rule decisions remain in the shared Go unit population.
+// @evidence contracts/testing.md#execution-ownership The lint E2E entry calls nativeLintConnections, which selects TestFormatPrettierConformance by exact name through GoBoundary.run with the e2e build tag in packages/lint/linthost. Go test retains this entry and its subcase failure identities; ordinary Go unit execution does not select this tagged file.
+// @evidence contracts/e2e.md#necessary-boundary The actual connection is every named formatter corpus input through its owning native fix operation and the pinned Prettier formatter; direct native operation calls cannot prove that separate evaluator, formatter, binary-stdin or JavaScript runtime behavior.
+// @evidence contracts/e2e.md#shared-execution One Node process imports the same pinned core module once and formats all inputs serially. Fresh option objects and per-row IDs/count validation preserve ownership; oracle errors remain individual named subtest failures while later rows still execute.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity Oracle inputs/results live for this test only, no user plugins or config search are supplied, and each request supplies complete parser/options. Each native fix fixture owns its temporary state; Node exits after writing the complete result array.
+// @evidence contracts/e2e.md#preserved-coverage Keeps exact per-case bytes, required changing/canonical witnesses, registered rule coverage and each Visits node kind and every original input/control branch; preparation sharing changes no expected result or admitted case.
+func TestFormatPrettierConformance(t *testing.T) {
+  cases := []prettierConformanceCase{
+    {"format/arrow-parens", "default", "const identity = value => value;\n", nil, false},
+    {"format/arrow-parens", "avoid", "const identity = (value) => value;\n", map[string]any{"arrowParens": "avoid"}, false},
+    {"format/bracket-spacing", "mapped-type", "type Picked = {[Key in keyof Source]: Source[Key]};\n", nil, false},
+    {"format/bracket-spacing", "import-attributes", "import data from \"data\" with {type: \"json\"};\n", nil, false},
+    {"format/bracket-spacing", "bindings-and-clauses", "import {read, write} from \"module\";\nexport {read, write};\nconst {value} = source;\ntype Shape = {value: string};\n", nil, false},
+    {"format/bracket-spacing", "disabled", "const value = { item: 1 };\n", map[string]any{"bracketSpacing": false}, false},
+    {"format/clause-join", "control-flow", "if (ready)\n  run();\nwhile (ready)\n  tick();\nfor (let i = 0; i < count; i++)\n  visit(i);\nfor (const item of items)\n  visit(item);\nfor (const key in record)\n  visit(key);\n", nil, false},
+    {"format/clause-join", "keyword-and-label-anchored", "if (ready)\n  run();\nelse\n  stop();\ndo\n  tick();\nwhile (ready);\nwith (scope)\n  visit();\nouter:\nfor (const item of items) {\n  break outer;\n}\n", nil, false},
+    {"format/brace-continuation", "pulled-up-and-pushed-down", "if (a) {\n  x();\n}\nelse {\n  y();\n}\ntry {\n  x();\n}\ncatch (error) {\n  y();\n}\nfinally {\n  z();\n}\ndo {\n  tick();\n}\nwhile (ready);\nif (b) run(); else stop();\n", nil, false},
+    {"format/declaration-header", "interface", "interface Result\nextends Base {}\n", nil, false},
+    {"format/declaration-header", "class", "class Result\nextends Base {}\n", nil, false},
+    {"format/declaration-header", "multi-type-width", "interface Result extends First, Second, Third, Fourth, Fifth, Sixth {\n  value: number;\n}\n", map[string]any{"printWidth": 50}, false},
+    {"format/indent", "tab-width", "function value() {\n        return 1;\n}\n", map[string]any{"tabWidth": 4}, false},
+    {"format/indent", "tabs", "function value() {\n    return 1;\n}\n", map[string]any{"useTabs": true}, false},
+    {"format/jsdoc", "extension-canonical", "/**\n * @returns A value.\n */\nfunction value(): number {\n  return 1;\n}\n", map[string]any{"jsDoc": true}, true},
+    {"format/orphan-semi", "asi-guard", "// guard\n;\n(bar as Baz).qux()\n", map[string]any{"semi": false}, false},
+    {"format/parameter-properties", "multiple-properties", "class Value {\n  constructor(private first: First, public second: Second) {}\n}\n", map[string]any{"trailingComma": "none"}, false},
+    {"format/parameter-properties", "override-only", "class Ctrl extends Base {\n  constructor(override rate: number, kind: string) {\n    super();\n  }\n}\n", map[string]any{"trailingComma": "none"}, false},
+    {"format/print-width", "object", "const value = { first: 1, second: 2, third: 3 };\n", map[string]any{"printWidth": 20}, false},
+    {"format/print-width", "array", "const values = [first, second, third];\n", map[string]any{"printWidth": 20}, false},
+    {"format/print-width", "call", "process(aaaaaa, bbbbbb, cccccc);\n", map[string]any{"printWidth": 24}, false},
+    {"format/print-width", "new", "new Factory(aaaaaa, bbbbbb, cccccc);\n", map[string]any{"printWidth": 20}, false},
+    {"format/print-width", "named-import", "import { alpha, bravo, charlie } from \"module\";\n", map[string]any{"printWidth": 30}, false},
+    {"format/print-width", "named-export", "export { alpha, bravo, charlie };\n", map[string]any{"printWidth": 20}, false},
+    {"format/print-width", "conditional", "const result = aaaaaaaaaa ? bbbbbbbbbb ? cccccccccc : dddddddddd : eeeeeeeeee;\n", map[string]any{"printWidth": 40}, false},
+    {"format/print-width", "statement-for", "run(() => {\n  for (let i = 0; i < n; i++) { f(i); }\n});\n", nil, false},
+    {"format/print-width", "statement-for-of", "run(() => {\n  for (const value of values) { f(value); }\n});\n", nil, false},
+    {"format/print-width", "statement-for-in", "run(() => {\n  for (const key in record) { f(key); }\n});\n", nil, false},
+    {"format/print-width", "statement-while", "run(() => {\n  while (ready) { tick(); }\n});\n", nil, false},
+    {"format/print-width", "statement-if", "run(() => {\n  if (ready) { start(); } else { stop(); }\n});\n", nil, false},
+    {"format/print-width", "statement-try", "run(() => {\n  try { work(); } catch (error) { recover(error); } finally { cleanup(); }\n});\n", nil, false},
+    {"format/print-width", "statement-switch", "run(() => {\n  switch (value) { case 1: handle(); break; default: fallback(); }\n});\n", nil, false},
+    {"format/print-width", "statement-variable", "run(() => {\n  const task = () => { work(); };\n});\n", nil, false},
+    {"format/print-width", "statement-throw", "run(() => {\n  throw makeError(() => { explain(); });\n});\n", nil, false},
+    {"format/print-width", "expression-block-object-member", "export const value = { method() { return 1; } };\n", nil, false},
+    {"format/print-width", "expression-block-callback", "run(() => { first(); second(); });\n", nil, false},
+    {"format/print-width", "expression-block-array-element", "export const callbacks = [() => { run(); }];\n", nil, false},
+    {"format/print-width", "expression-block-conditional-arm", "export const callback = ready ? () => { start(); } : () => { stop(); };\n", nil, false},
+    {"format/print-width", "expression-block-parenthesized-object-body", "run(() => ({ method() { return 1; } }));\n", nil, false},
+    {"format/print-width", "expression-block-call-bodied-arrow", "run(() => nested(() => { work(); }));\n", nil, false},
+    {"format/print-width", "expression-block-comment-only", "run(() => { /* keep */ });\n", nil, false},
+    {"format/quote-props", "consistent-object", "const value = { first: 1, \"second-value\": 2 };\n", map[string]any{"quoteProps": "consistent"}, false},
+    {"format/quote-props", "class-method", "class Value {\n  \"method\"(): void {}\n}\n", nil, false},
+    {"format/quote-props", "class-expression-and-types", "const Value = class {\n  \"method\"(): void {}\n};\ninterface Shape {\n  \"value\": string;\n}\ntype Alias = {\n  \"name\": string;\n};\n", nil, false},
+    {"format/quote-props", "preserve-canonical", "const value = { \"item\": 1 };\n", map[string]any{"quoteProps": "preserve"}, true},
+    {"format/quotes", "single-quote", "const value = \"text\";\n", map[string]any{"singleQuote": true}, false},
+    {"format/quotes", "double-quote", "const value = 'text';\n", nil, false},
+    {"format/semi", "all-asi-terminators", "import value from \"value\"\nimport required = require(\"required\")\nexport * from \"all\"\nexport = value\nlet count = 1\ntype Count = number\nclass Value {\n  field = 1;\n  get value(): number {\n    return this.field;\n  }\n  set value(next: number) {\n    this.field = next;\n  }\n}\ninterface Shape {\n  value: string;\n  method(): void;\n  [key: string]: string;\n  (): void;\n  new (): Shape;\n}\nJSON.stringify(count)\nfunction loop() {\n  do {} while (false)\n  for (;;) {\n    break\n  }\n  for (;;) {\n    continue\n  }\n  return 1\n  throw 1\n}\ndebugger\n", nil, false},
+    // Every member spelling of a body written across lines, measured
+    // against the oracle rather than assumed symmetric with its siblings:
+    // the seven type-member kinds and a class index signature and ambient
+    // accessor take the terminator, while the inline object type, the
+    // braced class accessor, and the comma-separated object-literal
+    // accessor must come back untouched.
+    {"format/semi", "broken-member-terminators", "interface Shape {\n  value: string\n  method(): void\n  [key: string]: string\n  (): void\n  new (): Shape\n  get first(): string\n  set first(next: string)\n}\ntype Broken = {\n  name: string\n};\ntype Inline = { name: string };\ndeclare class Ambient {\n  get first(): string\n}\nclass Value {\n  [key: string]: string\n  get first(): string {\n    return \"first\";\n  }\n}\nconst holder = {\n  get first(): string {\n    return \"first\";\n  },\n};\n", nil, false},
+    // A mapped type carries the same terminator through a kind that holds
+    // no member node, and an authored `,` is the same member separator
+    // spelled the other way; both are measured here rather than only at
+    // rule level, because the rule owns the whole separator and not just
+    // the `;` spelling of it.
+    {"format/semi", "broken-mapped-type", "type Mapped = {\n  [Key in string]: string\n};\n", nil, false},
+    {"format/semi", "comma-member-separator", "type Shape = {\n  value: number,\n  name: string\n};\n", nil, false},
+    {"format/semi", "disabled", "const value = 1;\n", map[string]any{"semi": false}, false},
+    // The strip direction's own oracle witness: a broken body loses every
+    // separator, while the flat body's inter-member `;` is the one
+    // semi:false keeps, because the flat branch of Prettier's
+    // `ifBreak(semi, ";")` is a literal `";"`.
+    {"format/semi", "disabled-members", "interface Shape {\n  value: number;\n  name: string;\n}\ntype Flat = { first: number; second: string };\n", map[string]any{"semi": false}, false},
+    {"format/sort-imports", "extension-canonical", "import { alpha, beta } from \"module\";\n", map[string]any{"sortImports": true}, true},
+    {"format/statement-split", "same-line-statements", "const first = 1; const second = 2;\n", nil, false},
+    {"format/ternary-nullish-parens", "all-positions", "const value = first ?? second ? third ?? fourth : fifth ?? sixth;\n", nil, false},
+    {"format/trailing-comma", "es5-type-level", "enum Values {\n  Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n  Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n}\ntype Pair = [\n  Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n  Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n];\nfunction pair<\n  Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n  Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n>() {}\n", map[string]any{"printWidth": 40, "trailingComma": "es5"}, false},
+    {"format/trailing-comma", "none-removes", "const values = [\n  Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n  Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,\n];\ncallWithLongName(\n  Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n  Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,\n);\n", map[string]any{"printWidth": 40, "trailingComma": "none"}, false},
+    {"format/trailing-comma", "all-governed-list-kinds", "const object = {\n  firstProperty: Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n  secondProperty: Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n};\nnew ConstructorWithLongName(\n  Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n  Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n);\nimport {\n  Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n  Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n} from \"module\";\nexport {\n  Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n  Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n};\nconst expression = function (\n  firstParameter: Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n  secondParameter: Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n) {};\nconst arrow = (\n  firstParameter: Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n  secondParameter: Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n) => {};\nclass Value {\n  method(\n    firstParameter: Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n    secondParameter: Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n  ) {}\n  constructor(\n    firstParameter: Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n    secondParameter: Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n  ) {}\n  get value() {\n    return this.stored;\n  }\n  set value(nextParameter: Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa) {}\n}\ninterface Shape {\n  method(\n    firstParameter: Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n    secondParameter: Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n  ): void;\n  (\n    firstParameter: Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n    secondParameter: Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n  ): void;\n  new (\n    firstParameter: Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n    secondParameter: Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n  ): Shape;\n}\ntype Callable = (\n  firstParameter: Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n  secondParameter: Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n) => void;\ntype Constructable = new (\n  firstParameter: Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,\n  secondParameter: Bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n) => Shape;\n", map[string]any{"printWidth": 80, "trailingComma": "all"}, false},
+    {"format/whitespace", "crlf", "const value = 1;\n", map[string]any{"endOfLine": "crlf"}, false},
+    {"format/whitespace", "default", "const value = 1; ", nil, false},
+  }
+  assertPrettierConformanceCorpusCoversFormatRules(t, cases)
+  oracle := formatWithPinnedPrettierBatch(t, cases)
+  for index, testCase := range cases {
+    testCase := testCase
+    expected := oracle[index]
+    t.Run(testCase.rule+"/"+testCase.name, func(t *testing.T) {
+      format := normalizePrettierFormatOptions(testCase.format)
+      if expected.Error != "" {
+        t.Fatalf("pinned Prettier failed: %s", expected.Error)
+      }
+      want := expected.Output
+      if want == "" {
+        t.Fatal("pinned Prettier returned an empty result")
+      }
+      if testCase.prettierCanonical {
+        if want != testCase.source {
+          t.Fatalf("%s/%s must be canonical for Prettier: got %q", testCase.rule, testCase.name, want)
+        }
+      } else if want == testCase.source {
+        t.Fatalf("%s/%s is already Prettier-canonical; add a real oracle witness", testCase.rule, testCase.name)
+      }
+      got := formatOneRuleWithResolvedFormatOptions(t, testCase.rule, testCase.source, format)
+      if got != want {
+        t.Fatalf("%s/%s result mismatch:\nwant %q\ngot  %q", testCase.rule, testCase.name, want, got)
+      }
+    })
+  }
+}
+
+type prettierConformanceCase struct {
+  rule              string
+  name              string
+  source            string
+  format            map[string]any
+  prettierCanonical bool
+}
+
+func normalizePrettierFormatOptions(format map[string]any) map[string]any {
+  if format != nil {
+    return format
+  }
+  return map[string]any{}
+}
+
+func assertPrettierConformanceCorpusCoversFormatRules(t *testing.T, cases []prettierConformanceCase) {
+  t.Helper()
+  covered := make(map[string]struct{}, len(cases))
+  witnessed := make(map[string]bool, len(cases))
+  visitCoverage := make(map[string]map[shimast.Kind]struct{}, len(cases))
+  namedCases := make(map[string]struct{}, len(cases))
+  for _, testCase := range cases {
+    if testCase.rule == "" || testCase.name == "" {
+      t.Fatalf("Prettier conformance cases require both rule and name: %+v", testCase)
+    }
+    key := testCase.rule + "/" + testCase.name
+    if _, exists := namedCases[key]; exists {
+      t.Fatalf("duplicate Prettier conformance case %q", key)
+    }
+    namedCases[key] = struct{}{}
+    covered[testCase.rule] = struct{}{}
+    if !testCase.prettierCanonical {
+      witnessed[testCase.rule] = true
+    }
+    kinds := visitCoverage[testCase.rule]
+    if kinds == nil {
+      kinds = make(map[shimast.Kind]struct{})
+      visitCoverage[testCase.rule] = kinds
+    }
+    for kind := range sourceNodeKinds(t, testCase.source) {
+      kinds[kind] = struct{}{}
+    }
+  }
+  var registeredNames []string
+  for _, name := range AllRuleNames() {
+    rule := LookupRule(name)
+    if rule != nil && strings.HasPrefix(name, "format/") && isFormatRule(rule) {
+      registeredNames = append(registeredNames, name)
+    }
+  }
+  sort.Strings(registeredNames)
+  var missing, missingWitness, missingVisits, unknown []string
+  for _, name := range registeredNames {
+    if _, exists := covered[name]; !exists {
+      missing = append(missing, name)
+      continue
+    }
+    if !witnessed[name] && !formatRuleHasNoPrettierOracle(name) {
+      missingWitness = append(missingWitness, name)
+    }
+    for _, kind := range LookupRule(name).Visits() {
+      if _, found := visitCoverage[name][kind]; !found {
+        missingVisits = append(missingVisits, fmt.Sprintf("%s:%d", name, kind))
+      }
+    }
+  }
+  for name := range covered {
+    if rule := LookupRule(name); rule == nil || !strings.HasPrefix(name, "format/") || !isFormatRule(rule) {
+      unknown = append(unknown, name)
+    }
+  }
+  sort.Strings(unknown)
+  if len(missing) > 0 || len(missingWitness) > 0 || len(missingVisits) > 0 || len(unknown) > 0 {
+    t.Fatalf("Prettier conformance corpus mismatch: missing=%v missingWitness=%v missingVisits=%v unknown=%v", missing, missingWitness, missingVisits, unknown)
+  }
+}
+
+func formatRuleHasNoPrettierOracle(name string) bool {
+  return name == "format/jsdoc" || name == "format/sort-imports"
+}
+
+// sourceNodeKinds walks a parsed corpus source and returns every node kind it
+// actually contains. The registry check above makes a new `Visits()` kind a
+// test failure until a real oracle case contains that syntax.
+func sourceNodeKinds(t *testing.T, source string) map[shimast.Kind]struct{} {
+  t.Helper()
+  kinds := make(map[shimast.Kind]struct{})
+  var walk func(*shimast.Node)
+  walk = func(node *shimast.Node) {
+    if node == nil {
+      return
+    }
+    kinds[node.Kind] = struct{}{}
+    node.ForEachChild(func(child *shimast.Node) bool {
+      walk(child)
+      return false
+    })
+  }
+  walk(parseTS(t, source).AsNode())
+  return kinds
+}
+
+type prettierOracleResult struct {
+  ID string `json:"id"`
+  Output string `json:"output"`
+  Error string `json:"error"`
+}
+
+// formatWithPinnedPrettierBatch loads the pinned, stateless core formatter once.
+// Each source/options pair uses a fresh options object and keeps its own named
+// result, including errors, so one oracle rejection does not hide later cases.
+func formatWithPinnedPrettierBatch(t *testing.T, cases []prettierConformanceCase) []prettierOracleResult {
+  t.Helper()
+  module := os.Getenv("TTSC_PRETTIER_MODULE")
+  if module == "" {
+    t.Fatal("TTSC_PRETTIER_MODULE is required for the Prettier conformance corpus")
+  }
+  type oracleInput struct {
+    ID string `json:"id"`
+    Source string `json:"source"`
+    Format map[string]any `json:"format"`
+  }
+  inputs := make([]oracleInput, len(cases))
+  for index, testCase := range cases {
+    inputs[index] = oracleInput{
+      ID: testCase.rule + "/" + testCase.name,
+      Source: testCase.source,
+      Format: normalizePrettierFormatOptions(testCase.format),
+    }
+  }
+  input, err := json.Marshal(inputs)
+  if err != nil {
+    t.Fatalf("marshal Prettier input batch: %v", err)
+  }
+  script := `
+import fs from "node:fs";
+import { pathToFileURL } from "node:url";
+const inputs = JSON.parse(fs.readFileSync(0, "utf8"));
+const module = await import(pathToFileURL(process.env.TTSC_PRETTIER_MODULE).href);
+const prettier = module.default ?? module;
+const results = [];
+for (const input of inputs) {
+  try {
+    const output = await prettier.format(input.source, { parser: "typescript", ...input.format });
+    results.push({ id: input.id, output });
+  } catch (error) {
+    results.push({ id: input.id, error: String(error?.stack ?? error) });
+  }
+}
+process.stdout.write(JSON.stringify(results));
+`
+  command := exec.Command("node", "--input-type=module", "--eval", script)
+  command.Env = os.Environ()
+  command.Stdin = strings.NewReader(string(input))
+  output, err := command.Output()
+  if err != nil {
+    var stderr strings.Builder
+    if exitError, ok := err.(*exec.ExitError); ok {
+      stderr.Write(exitError.Stderr)
+    }
+    t.Fatalf("pinned Prettier batch failed: %v\n%s", err, stderr.String())
+  }
+  var results []prettierOracleResult
+  if err := json.Unmarshal(output, &results); err != nil {
+    t.Fatalf("decode pinned Prettier batch: %v", err)
+  }
+  if len(results) != len(inputs) {
+    t.Fatalf("pinned Prettier batch returned %d rows, want %d", len(results), len(inputs))
+  }
+  for index, result := range results {
+    if result.ID != inputs[index].ID {
+      t.Fatalf("pinned Prettier batch row %d: ID %q, want %q", index, result.ID, inputs[index].ID)
+    }
+  }
+  return results
+}
+
+// formatOneRuleWithResolvedFormatOptions resolves the same public format block
+// users configure, then applies only `ruleName`. Per-rule execution is
+// deliberate: #856 owns whole-file fixed-point formatting, while this harness
+// must identify which format rule differs from the pinned Prettier oracle.
+func formatOneRuleWithResolvedFormatOptions(
+  t *testing.T,
+  ruleName string,
+  source string,
+  format map[string]any,
+) string {
+  t.Helper()
+  expanded, err := expandFormatBlock(format)
+  if err != nil {
+    t.Fatalf("expand format options for %s: %v", ruleName, err)
+  }
+  entry, ok := expanded[ruleName]
+  if !ok {
+    t.Fatalf("format block did not enable %s", ruleName)
+  }
+  values, ok := entry.([]any)
+  if !ok || len(values) != 2 {
+    t.Fatalf("invalid expanded format entry for %s: %#v", ruleName, entry)
+  }
+  options, err := json.Marshal(values[1])
+  if err != nil {
+    t.Fatalf("marshal resolved options for %s: %v", ruleName, err)
+  }
+
+  root, filePath, findings := runRuleFindingsSnapshot(t, ruleName, source, options)
+  if len(findings) > 0 {
+    if _, err := applyFindingFixes(root, findings); err != nil {
+      t.Fatalf("apply %s fixes: %v", ruleName, err)
+    }
+  }
+  output, err := os.ReadFile(filePath)
+  if err != nil {
+    t.Fatalf("read %s result: %v", ruleName, err)
+  }
+  return string(output)
+}

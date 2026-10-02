@@ -1,7 +1,0 @@
-datasource db {
-  provider = "postgresql"
-}
-
-model Sale {
-  id String @id @db.Uuid
-}

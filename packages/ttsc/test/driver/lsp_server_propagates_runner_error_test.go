@@ -10,13 +10,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPServerPropagatesRunnerError covers the error-fold path at the
+// TestLSPServerPropagatesRunnerError Verifies the error-fold path at the
 // end of RunLSPServer. A failing upstream runner must produce a non-nil
 // return so the launcher reports the failure to the editor host.
+//
+// errors.Is checks the independently allocated failure rather than any non-nil result.
 //
 // 1. Substitute an upstream runner that returns a sentinel error.
 // 2. Drive editor pipes that close immediately so the proxy exits cleanly.
 // 3. Assert RunLSPServer returns the sentinel.
+//
+// @evidence contracts/testing.md#behavioral-verification RunLSPServer preserves the injected runner sentinel when no exit was requested.
+// @evidence contracts/testing.md#independent-expectations errors.Is checks the independently allocated failure rather than any non-nil result.
+// @evidence contracts/testing.md#distinguishing-cases Closed editor input without requested exit contrasts with exit-confirmed folding.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPServerPropagatesRunnerError in test/driver invokes RunLSPServer with an injected in-process upstream runner. No native upstream artifact is built or started.
 func TestLSPServerPropagatesRunnerError(t *testing.T) {
   sentinel := errors.New("upstream blew up")
   failing := func(_ context.Context, _ io.Reader, _ io.Writer, _ driver.LSPServerOptions) error {

@@ -13,18 +13,20 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestEmitWithPluginTransformerEnumRuntimeObjectPreserved guards the emit
-// contract for a plain (non-const) TypeScript `enum` that lives next to a node
-// the plugin rewrites. tsgo lowers a runtime enum into the canonical commonjs
-// IIFE shape (`var E; (function (E) { ... })(E || (E = {}));`) that builds the
-// enum's runtime object. The regression this pins: when the plugin rebuilds the
-// SourceFile to mutate a *sibling* statement, the enum's own statements must
-// keep their original parent links so tsgo's enum-transform still produces the
-// IIFE and the enum object survives at runtime instead of collapsing to nothing.
+// TestEmitWithPluginTransformerEnumRuntimeObjectPreserved Verifies numeric transformation
+// retains the runtime enum object and its member writebacks.
 //
 // The synthetic plugin only touches the sibling `const x = 0` initializer (it
-// becomes `1`); it never visits the enum. If parent threading were broken the
+// becomes `1`); it does not replace enum members. If parent threading were broken the
 // enum would mis-lower and the assertions on the IIFE / member writebacks fail.
+//
+// 1. Emit the runtime-enum fixture after the sibling numeric transform.
+// 2. Require its object, member writes, bootstrap and export binding together with the sibling replacement.
+//
+// @evidence contracts/testing.md#behavioral-verification Calls actual plugin-transform emission and checks sibling rewrite, enum variable/IIFE/bootstrap/export binding plus populated Red/Blue member writes.
+// @evidence contracts/testing.md#independent-expectations Authored exported Color, member names and sibling replacement one independently define required structures; extracted IIFE name only correlates the same generated binding.
+// @evidence contracts/testing.md#distinguishing-cases Nonconst enum object creation and exported bootstrap contrast enum loss, empty object output or discarded sibling transformation.
+// @evidence contracts/testing.md#execution-ownership This owning Go driver unit captures direct synthetic-transform/compiler output and closes its Program, without executing emitted JavaScript or a compiler host.
 func TestEmitWithPluginTransformerEnumRuntimeObjectPreserved(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.json", `{

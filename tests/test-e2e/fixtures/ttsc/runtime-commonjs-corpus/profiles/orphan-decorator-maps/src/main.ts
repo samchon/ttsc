@@ -1,0 +1,6 @@
+declare const process: { exitCode: number };
+export {};
+try { const name: string = "dep-map-module-1"; const dep = await import(name); dep.run(); console.log("dep-map-module-1" + ":NO_ERROR"); } catch (error) { console.log(JSON.stringify({ name: "dep-map-module-1", stack: error instanceof Error ? error.stack : String(error) })); process.exitCode = 1; }
+try { const name: string = "dep-map-module-2"; const dep = await import(name); dep.run(); console.log("dep-map-module-2" + ":NO_ERROR"); } catch (error) { console.log(JSON.stringify({ name: "dep-map-module-2", stack: error instanceof Error ? error.stack : String(error) })); process.exitCode = 1; }
+try { const name: string = "dep-map-commonjs-1"; const dep = await import(name); dep.run(); console.log("dep-map-commonjs-1" + ":NO_ERROR"); } catch (error) { console.log(JSON.stringify({ name: "dep-map-commonjs-1", stack: error instanceof Error ? error.stack : String(error) })); process.exitCode = 1; }
+try { const name: string = "dep-map-commonjs-2"; const dep = await import(name); dep.run(); console.log("dep-map-commonjs-2" + ":NO_ERROR"); } catch (error) { console.log(JSON.stringify({ name: "dep-map-commonjs-2", stack: error instanceof Error ? error.stack : String(error) })); process.exitCode = 1; }

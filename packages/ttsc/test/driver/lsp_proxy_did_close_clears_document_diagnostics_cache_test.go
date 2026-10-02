@@ -7,18 +7,19 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyDidCloseClearsDocumentDiagnosticsCache verifies closed documents
-// do not keep stale upstream diagnostics.
+// TestLSPProxyDidCloseClearsDocumentDiagnosticsCache Verifies that didClose prevents a later versionless plugin publication from including old cached upstream diagnostics.
 //
-// Plugin diagnostics are published asynchronously and merged with the latest
-// cached upstream diagnostics for the same URI. When a document closes, that
-// URI's cache belongs to the old editor session and must not be reused after a
-// later save/open notification.
+// Cached upstream data, close, and versionless save distinguish eviction from stale reuse.
 //
 // 1. Cache an upstream TypeScript diagnostic for `file:///a.ts`.
 // 2. Send didClose for the same URI.
 // 3. Send a versionless didSave that contributes one plugin diagnostic.
 // 4. Assert the plugin publish does not include the old upstream diagnostic.
+//
+// @evidence contracts/testing.md#behavioral-verification didClose prevents a later versionless plugin publication from including old cached upstream diagnostics.
+// @evidence contracts/testing.md#independent-expectations Closing a document ends its prior diagnostic session; the stub independently supplies plugin.
+// @evidence contracts/testing.md#distinguishing-cases Cached upstream data, close, and versionless save distinguish eviction from stale reuse.
+// @evidence contracts/testing.md#execution-ownership The private Go pipe harness drives the actual proxy's diagnostic cache. Go discovers TestLSPProxyDidCloseClearsDocumentDiagnosticsCache under ./test/driver.
 func TestLSPProxyDidCloseClearsDocumentDiagnosticsCache(t *testing.T) {
   source := &stubSource{
     diagnosticsFor: func(doc driver.LSPDocumentVersion) []driver.LSPDiagnostic {

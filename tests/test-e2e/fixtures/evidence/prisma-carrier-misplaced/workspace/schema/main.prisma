@@ -1,7 +1,0 @@
-/// A persisted sale.
-///
-/// @evidence docs/spec.md#stored Stores the required sale.
-/// @evidenceExclude docs/spec.md#deferred The frontend owns this presentation-only section; reject this exclusion if it gains persisted state.
-model sales {
-  id String @id
-}

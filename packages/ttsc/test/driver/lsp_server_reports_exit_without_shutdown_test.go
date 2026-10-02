@@ -10,7 +10,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPServerReportsExitWithoutShutdown pins the status the LSP
+// TestLSPServerReportsExitWithoutShutdown Verifies the status the LSP
 // specification gives an `exit` that no `shutdown` request preceded.
 //
 // The specification ends the server with status 0 when `shutdown` came before
@@ -23,6 +23,11 @@ import (
 //     returns on `exit`.
 //  2. Send only `exit`.
 //  3. Assert RunLSPServer returns ErrLSPExitWithoutShutdown promptly.
+//
+// @evidence contracts/testing.md#behavioral-verification RunLSPServer returns ErrLSPExitWithoutShutdown promptly with uncloseable input.
+// @evidence contracts/testing.md#independent-expectations LSP exit without prior shutdown requires the unsuccessful-exit API outcome.
+// @evidence contracts/testing.md#distinguishing-cases Exit-only contrasts with the shutdown/exit companion.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPServerReportsExitWithoutShutdown in test/driver invokes RunLSPServer with an injected in-process upstream runner. No native upstream artifact is built or started.
 func TestLSPServerReportsExitWithoutShutdown(t *testing.T) {
   editorInR, editorInW := io.Pipe()
   defer editorInW.Close()

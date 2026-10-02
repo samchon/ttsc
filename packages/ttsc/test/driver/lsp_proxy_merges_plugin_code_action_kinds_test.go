@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestLSPProxyMergesPluginCodeActionKinds verifies initialize capability
+// TestLSPProxyMergesPluginCodeActionKinds Verifies initialize capability
 // augmentation preserves upstream kind restrictions while adding plugin kinds.
 //
 // Some LSP clients use `codeActionProvider.codeActionKinds` to decide which
@@ -16,6 +16,11 @@ import (
 // 1. Configure a source that advertises `source.fixAll.ttsc`.
 // 2. Return upstream initialize capabilities with a restricted kind list.
 // 3. Assert both upstream and plugin code action kinds are present.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run retains quickfix and adds source.fixAll.ttsc.
+// @evidence contracts/testing.md#independent-expectations The two independent provider lists establish required union membership.
+// @evidence contracts/testing.md#distinguishing-cases Restricted upstream plus plugin kind is covered; ordering, duplicates and extras are not asserted.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyMergesPluginCodeActionKinds in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyMergesPluginCodeActionKinds(t *testing.T) {
   h := newProxyHarness(t, &stubSource{
     commands:        []string{"ttsc.lint.fixAll"},

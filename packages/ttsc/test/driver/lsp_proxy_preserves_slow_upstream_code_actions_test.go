@@ -8,7 +8,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyPreservesSlowUpstreamCodeActions verifies plugin actions do not
+// TestLSPProxyPreservesSlowUpstreamCodeActions Verifies plugin actions do not
 // race out ahead of a slow upstream response.
 //
 // LSP responses are single-shot. If ttsc answers before tsgo, the later
@@ -20,8 +20,13 @@ import (
 // 2. Send a normal codeAction request and drain it upstream; the proxy holds the
 //    request open until upstream replies (no wall-clock delay is injected).
 // 3. Reply from upstream with a TypeScript action.
-// 4. Assert the single editor response holds both the upstream and plugin
+// 4. Assert the observed editor response holds both the upstream and plugin
 //    actions (two entries).
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run returns a two-element action array containing both Add missing import and ttsc fix after the upstream response arrives.
+// @evidence contracts/testing.md#independent-expectations One response must preserve both independently authored action contributions rather than discard the upstream fix.
+// @evidence contracts/testing.md#distinguishing-cases Upstream response order is controlled by the test, without an injected wall-clock delay or an explicit earlier no-response assertion.
+// @evidence contracts/testing.md#execution-ownership The Go test/driver pipe harness exercises request correlation and merge using a stub source and simulated upstream frames.
 func TestLSPProxyPreservesSlowUpstreamCodeActions(t *testing.T) {
   h := newProxyHarness(t, &stubSource{
     actions: []driver.LSPCodeAction{{Title: "ttsc fix", Kind: "source.fixAll.ttsc"}},

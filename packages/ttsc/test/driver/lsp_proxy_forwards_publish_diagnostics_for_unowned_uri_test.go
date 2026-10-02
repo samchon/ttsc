@@ -8,7 +8,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestLSPProxyForwardsPublishDiagnosticsForUnownedURI pins that an upstream
+// TestLSPProxyForwardsPublishDiagnosticsForUnownedURI Verifies an upstream
 // publishDiagnostics for a URI the plugin source has no opinion on reaches the
 // editor as the original upstream bytes, and that the proxy publishes no
 // additional merged frame for it afterwards. (The proxy forwards the upstream
@@ -20,6 +20,11 @@ import (
 // 2. Send upstream publishDiagnostics for /b.ts.
 // 3. Assert the editor receives the original bytes.
 // 4. Assert no further editor frame arrives within a short window.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run forwards the upstream /b.ts publication unchanged and emits no additional frame within 150ms when the plugin contributes only for /a.ts.
+// @evidence contracts/testing.md#independent-expectations The authored upstream bytes and distinct URI ownership establish that /b.ts has no plugin merge to publish.
+// @evidence contracts/testing.md#distinguishing-cases Owned /a.ts source data versus unowned /b.ts input is the contrast; the trailing bounded silence check detects a spurious second publication.
+// @evidence contracts/testing.md#execution-ownership The Go test/driver pipe harness runs the proxy against a URI-keyed diagnostic stub, without a real sidecar.
 func TestLSPProxyForwardsPublishDiagnosticsForUnownedURI(t *testing.T) {
   source := &stubSource{
     diagnostics: map[string][]driver.LSPDiagnostic{

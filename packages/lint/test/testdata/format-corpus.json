@@ -1,0 +1,229 @@
+[
+  {
+    "name": "format-block-reindent",
+    "format": {},
+    "sources": {
+      "main.ts": "function demo() {\n  const x = 1;\n  const y = 2;\n  return x + y;\n}\n"
+    },
+    "expected": {
+      "main.ts": "function demo() {\n  const x = 1;\n  const y = 2;\n  return x + y;\n}\n"
+    },
+    "positive": {
+      "source": "function demo() {\nconst x = 1; const y = 2;\n      return x + y;\n}\n",
+      "expected": "function demo() {\n  const x = 1;\n  const y = 2;\n  return x + y;\n}\n",
+      "revision": "7f627daac943c6c9c203052116f6c626a509a4f2"
+    }
+  },
+  {
+    "name": "format-comment-gaps",
+    "format": {},
+    "sources": {
+      "main.ts": "function run(): void {\n  const a = 1;\n  const b = 2;\n  // standalone leading comment\n  const c = 3;\n  const d = 4; // trailing line comment\n  /** A block comment on its own lines */\n  const e = 5;\n  console.log(a, b, c, d, e);\n}\n"
+    },
+    "expected": {
+      "main.ts": "function run(): void {\n  const a = 1;\n  const b = 2;\n  // standalone leading comment\n  const c = 3;\n  const d = 4; // trailing line comment\n  /** A block comment on its own lines */\n  const e = 5;\n  console.log(a, b, c, d, e);\n}\n"
+    },
+    "positive": {
+      "source": "function run(): void {\nconst a = 1; const b = 2;\n  // standalone leading comment\nconst c = 3;\nconst d = 4; // trailing line comment\n  /**\n   * a block comment on its own lines\n   */\nconst e = 5;\n  console.log(a, b, c, d, e);\n}\n",
+      "expected": "function run(): void {\n  const a = 1;\n  const b = 2;\n  // standalone leading comment\n  const c = 3;\n  const d = 4; // trailing line comment\n  /**\n   * a block comment on its own lines\n   */\n  const e = 5;\n  console.log(a, b, c, d, e);\n}\n",
+      "revision": "7f627daac943c6c9c203052116f6c626a509a4f2"
+    }
+  },
+  {
+    "name": "format-jsdoc",
+    "format": {
+      "jsDoc": true,
+      "severity": "error"
+    },
+    "sources": {
+      "main.ts": "/**\n * Build a greeting.\n *\n * Legacy description tag.\n *\n * @param name The recipient.\n * @param greeting The greeting prefix.\n * @returns The combined greeting.\n */\nexport function greet(name: string, greeting: string): string {\n  return greeting + name;\n}\n"
+    },
+    "expected": {
+      "main.ts": "/**\n * Build a greeting.\n *\n * Legacy description tag.\n *\n * @param name The recipient.\n * @param greeting The greeting prefix.\n * @returns The combined greeting.\n */\nexport function greet(name: string, greeting: string): string {\n  return greeting + name;\n}\n"
+    }
+  },
+  {
+    "name": "format-mixed-file",
+    "format": {},
+    "sources": {
+      "main.ts": "import { readFileSync } from \"node:fs\";\nimport { join } from \"node:path\";\n\nclass Loader {\n  public readonly root: string = \"/tmp\";\n  public count: number = 0;\n  constructor(public readonly base: string) {}\n}\n\nfunction makeConfig(): Record<string, unknown> {\n  const config = {\n    name: \"alpha\",\n    retries: 3,\n    timeout: 1000,\n    verbose: true,\n    mode: \"fast\",\n  };\n  const hosts = [\n    \"alpha.example.com\",\n    \"bravo.example.com\",\n    \"charlie.example.com\",\n  ];\n  return { config, hosts };\n}\n\nfunction main(): void {\n  const loader = new Loader(\"/tmp\");\n  const cfg = makeConfig();\n  const total = loader.count;\n  const full = join(loader.root, \"x.txt\");\n  const raw = readFileSync(full, \"utf8\");\n  console.log(cfg, total, raw);\n}\n"
+    },
+    "expected": {
+      "main.ts": "import { readFileSync } from \"node:fs\";\nimport { join } from \"node:path\";\n\nclass Loader {\n  public readonly root: string = \"/tmp\";\n  public count: number = 0;\n  constructor(public readonly base: string) {}\n}\n\nfunction makeConfig(): Record<string, unknown> {\n  const config = {\n    name: \"alpha\",\n    retries: 3,\n    timeout: 1000,\n    verbose: true,\n    mode: \"fast\",\n  };\n  const hosts = [\n    \"alpha.example.com\",\n    \"bravo.example.com\",\n    \"charlie.example.com\",\n  ];\n  return { config, hosts };\n}\n\nfunction main(): void {\n  const loader = new Loader(\"/tmp\");\n  const cfg = makeConfig();\n  const total = loader.count;\n  const full = join(loader.root, \"x.txt\");\n  const raw = readFileSync(full, \"utf8\");\n  console.log(cfg, total, raw);\n}\n"
+    },
+    "positive": {
+      "source": "import { readFileSync } from \"node:fs\";\nimport { join } from \"node:path\";\n\nclass Loader {\n  public readonly root: string = \"/tmp\";\n  public count: number = 0;\n  constructor(public readonly base: string) {}\n}\n\nfunction makeConfig(): Record<string, unknown> {\nconst config = { name: \"alpha\", retries: 3, timeout: 1000, verbose: true, mode: \"fast\" };\nconst hosts = [\"alpha.example.com\", \"bravo.example.com\", \"charlie.example.com\"];\n  return { config, hosts };\n}\n\nfunction main(): void {\nconst loader = new Loader(\"/tmp\"); const cfg = makeConfig(); const total = loader.count;\nconst full = join(loader.root, \"x.txt\"); const raw = readFileSync(full, \"utf8\");\nconsole.log(cfg, total, raw);\n}\n",
+      "expected": "import { readFileSync } from \"node:fs\";\nimport { join } from \"node:path\";\n\nclass Loader {\n  public readonly root: string = \"/tmp\";\n  public count: number = 0;\n  constructor(public readonly base: string) {}\n}\n\nfunction makeConfig(): Record<string, unknown> {\n  const config = {\n    name: \"alpha\",\n    retries: 3,\n    timeout: 1000,\n    verbose: true,\n    mode: \"fast\",\n  };\n  const hosts = [\n    \"alpha.example.com\",\n    \"bravo.example.com\",\n    \"charlie.example.com\",\n  ];\n  return { config, hosts };\n}\n\nfunction main(): void {\n  const loader = new Loader(\"/tmp\");\n  const cfg = makeConfig();\n  const total = loader.count;\n  const full = join(loader.root, \"x.txt\");\n  const raw = readFileSync(full, \"utf8\");\n  console.log(cfg, total, raw);\n}\n",
+      "revision": "7f627daac943c6c9c203052116f6c626a509a4f2"
+    }
+  },
+  {
+    "name": "format-namespaces",
+    "format": {},
+    "sources": {
+      "main.ts": "export namespace Outer {\n  export const version = 1;\n  export const name = \"outer\";\n  export namespace Inner {\n    const secret = 42;\n    export const exposed = secret;\n    export function compute(): number {\n      let acc = 0;\n      acc += secret;\n      return acc;\n    }\n  }\n}\n"
+    },
+    "expected": {
+      "main.ts": "export namespace Outer {\n  export const version = 1;\n  export const name = \"outer\";\n  export namespace Inner {\n    const secret = 42;\n    export const exposed = secret;\n    export function compute(): number {\n      let acc = 0;\n      acc += secret;\n      return acc;\n    }\n  }\n}\n"
+    },
+    "positive": {
+      "source": "export namespace Outer {\nexport const version = 1; export const name = \"outer\";\n  export namespace Inner {\nconst secret = 42; export const exposed = secret;\nexport function compute(): number {\nlet acc = 0; acc += secret; return acc;\n    }\n  }\n}\n",
+      "expected": "export namespace Outer {\n  export const version = 1;\n  export const name = \"outer\";\n  export namespace Inner {\n    const secret = 42;\n    export const exposed = secret;\n    export function compute(): number {\n      let acc = 0;\n      acc += secret;\n      return acc;\n    }\n  }\n}\n",
+      "revision": "7f627daac943c6c9c203052116f6c626a509a4f2"
+    }
+  },
+  {
+    "name": "format-nested-blocks",
+    "format": {},
+    "sources": {
+      "main.ts": "function process(items: number[]): number {\n  let total = 0;\n  let count = 0;\n  if (items.length > 0) {\n    for (const item of items) {\n      const doubled = item * 2;\n      total += doubled;\n      count += 1;\n      {\n        const note = count;\n        total += note;\n      }\n    }\n  }\n  return total;\n}\n"
+    },
+    "expected": {
+      "main.ts": "function process(items: number[]): number {\n  let total = 0;\n  let count = 0;\n  if (items.length > 0) {\n    for (const item of items) {\n      const doubled = item * 2;\n      total += doubled;\n      count += 1;\n      {\n        const note = count;\n        total += note;\n      }\n    }\n  }\n  return total;\n}\n"
+    },
+    "positive": {
+      "source": "function process(items: number[]): number {\nlet total = 0; let count = 0;\n   if (items.length > 0) {\nfor (const item of items) {\nconst doubled = item * 2; total += doubled; count += 1;\n        {\nconst note = count; total += note;\n      }\n    }\n  }\n      return total;\n}\n",
+      "expected": "function process(items: number[]): number {\n  let total = 0;\n  let count = 0;\n  if (items.length > 0) {\n    for (const item of items) {\n      const doubled = item * 2;\n      total += doubled;\n      count += 1;\n      {\n        const note = count;\n        total += note;\n      }\n    }\n  }\n  return total;\n}\n",
+      "revision": "7f627daac943c6c9c203052116f6c626a509a4f2"
+    }
+  },
+  {
+    "name": "format-print-width",
+    "format": {
+      "printWidth": 80,
+      "severity": "error"
+    },
+    "sources": {
+      "main.ts": "class Singleton {\n  constructor(public readonly factory: () => unknown) {}\n}\n\nfunction registerHandler(event: string, handler: () => void): void {\n  void event;\n  void handler;\n}\n\nfunction configure(options: Record<string, unknown>): void {\n  void options;\n}\n\nfunction run(task: () => void): void {\n  void task;\n}\n\nfunction defer(task: () => void): void {\n  void task;\n}\n\nfunction setup(): void {}\nfunction flush(): void {}\nfunction start(): void {}\n\nconst enabled = true;\n\nconst widget = new Singleton(() => {\n  setup();\n  return widget;\n});\n\nregisterHandler(\"ready\", () => {\n  flush();\n});\n\nconfigure({\n  name: \"alpha\",\n  retries: 3,\n  timeout: 1000,\n  nested: { mode: \"fast\", verbose: true },\n});\n\nrun(() => {\n  defer(() => {\n    start();\n  });\n});\n\nrun(() => {\n  if (enabled) {\n    start();\n  }\n});\n"
+    },
+    "expected": {
+      "main.ts": "class Singleton {\n  constructor(public readonly factory: () => unknown) {}\n}\n\nfunction registerHandler(event: string, handler: () => void): void {\n  void event;\n  void handler;\n}\n\nfunction configure(options: Record<string, unknown>): void {\n  void options;\n}\n\nfunction run(task: () => void): void {\n  void task;\n}\n\nfunction defer(task: () => void): void {\n  void task;\n}\n\nfunction setup(): void {}\nfunction flush(): void {}\nfunction start(): void {}\n\nconst enabled = true;\n\nconst widget = new Singleton(() => {\n  setup();\n  return widget;\n});\n\nregisterHandler(\"ready\", () => {\n  flush();\n});\n\nconfigure({\n  name: \"alpha\",\n  retries: 3,\n  timeout: 1000,\n  nested: { mode: \"fast\", verbose: true },\n});\n\nrun(() => {\n  defer(() => {\n    start();\n  });\n});\n\nrun(() => {\n  if (enabled) {\n    start();\n  }\n});\n"
+    },
+    "positive": {
+      "source": "class Singleton {\n  constructor(public readonly factory: () => unknown) {}\n}\n\nfunction registerHandler(event: string, handler: () => void): void {\n  void event;\n  void handler;\n}\n\nfunction configure(options: Record<string, unknown>): void {\n  void options;\n}\n\nfunction run(task: () => void): void {\n  void task;\n}\n\nfunction defer(task: () => void): void {\n  void task;\n}\n\nfunction setup(): void {}\nfunction flush(): void {}\nfunction start(): void {}\n\nconst enabled = true;\n\nconst widget = new Singleton(() => {\n      setup();\n        return widget;\n});\n\nregisterHandler(\"ready\", () => {\n        flush();\n});\n\nconfigure({\n    name: \"alpha\",\n      retries: 3,\n  timeout: 1000,\n        nested: { mode: \"fast\", verbose: true },\n});\n\nrun(() => {\n    defer(() => {\n            start();\n    });\n});\n\nrun(() => {\n  if (enabled) {\n    start();\n  }\n});\n",
+      "expected": "class Singleton {\n  constructor(public readonly factory: () => unknown) {}\n}\n\nfunction registerHandler(event: string, handler: () => void): void {\n  void event;\n  void handler;\n}\n\nfunction configure(options: Record<string, unknown>): void {\n  void options;\n}\n\nfunction run(task: () => void): void {\n  void task;\n}\n\nfunction defer(task: () => void): void {\n  void task;\n}\n\nfunction setup(): void {}\nfunction flush(): void {}\nfunction start(): void {}\n\nconst enabled = true;\n\nconst widget = new Singleton(() => {\n  setup();\n  return widget;\n});\n\nregisterHandler(\"ready\", () => {\n  flush();\n});\n\nconfigure({\n  name: \"alpha\",\n  retries: 3,\n  timeout: 1000,\n  nested: { mode: \"fast\", verbose: true },\n});\n\nrun(() => {\n  defer(() => {\n    start();\n  });\n});\n\nrun(() => {\n  if (enabled) {\n    start();\n  }\n});\n",
+      "revision": "50d869b201f37c042dbd3ea3731f3ace0323074d"
+    }
+  },
+  {
+    "name": "format-quotes",
+    "format": {
+      "singleQuote": false,
+      "severity": "error"
+    },
+    "sources": {
+      "main.ts": "const greeting = \"hello\";\nconst phrase = \"don't\";\nconst preserved = 'say \"hi\"';\nconst empty = \"\";\nJSON.stringify({ greeting, phrase, preserved, empty });\n"
+    },
+    "expected": {
+      "main.ts": "const greeting = \"hello\";\nconst phrase = \"don't\";\nconst preserved = 'say \"hi\"';\nconst empty = \"\";\nJSON.stringify({ greeting, phrase, preserved, empty });\n"
+    }
+  },
+  {
+    "name": "format-semi",
+    "format": {
+      "semi": true,
+      "severity": "error"
+    },
+    "sources": {
+      "main.ts": "const greeting = \"hello\";\nconst recipients = [\"world\", \"agents\"];\n\nfunction announce(name: string) {\n  return `${greeting}, ${name}`;\n}\n\nfor (const recipient of recipients) {\n  JSON.stringify(announce(recipient));\n}\n"
+    },
+    "expected": {
+      "main.ts": "const greeting = \"hello\";\nconst recipients = [\"world\", \"agents\"];\n\nfunction announce(name: string) {\n  return `${greeting}, ${name}`;\n}\n\nfor (const recipient of recipients) {\n  JSON.stringify(announce(recipient));\n}\n"
+    }
+  },
+  {
+    "name": "format-sort-imports",
+    "format": {
+      "sortImports": {
+        "order": [
+          "<THIRD_PARTY_MODULES>",
+          "",
+          "^[./]"
+        ]
+      },
+      "severity": "error"
+    },
+    "sources": {
+      "ambient.d.ts": "declare module \"node:fs\" {\n  export function readFileSync(path: string): string;\n  export function writeFileSync(path: string, data: string): void;\n}\n\ndeclare module \"node:path\" {\n  export function resolve(...segments: string[]): string;\n}\n",
+      "local-a.ts": "export const x = \"local-a\";\n",
+      "local-b.ts": "export function reduce(value: string): string {\n  return value;\n}\n",
+      "main.ts": "import { readFileSync, writeFileSync } from \"node:fs\";\nimport { resolve } from \"node:path\";\n\nimport { x } from \"./local-a\";\nimport { reduce } from \"./local-b\";\n\nJSON.stringify({ reduce, writeFileSync, readFileSync, x, resolve });\n"
+    },
+    "expected": {
+      "main.ts": "import { readFileSync, writeFileSync } from \"node:fs\";\nimport { resolve } from \"node:path\";\n\nimport { x } from \"./local-a\";\nimport { reduce } from \"./local-b\";\n\nJSON.stringify({ reduce, writeFileSync, readFileSync, x, resolve });\n"
+    }
+  },
+  {
+    "name": "format-statements",
+    "format": {},
+    "sources": {
+      "main.ts": "const a: string = \"Hello, World!\";\nlet b: number = 42;\nvar c: boolean = true;\nconsole.log(a, b, c);\n"
+    },
+    "expected": {
+      "main.ts": "const a: string = \"Hello, World!\";\nlet b: number = 42;\nvar c: boolean = true;\nconsole.log(a, b, c);\n"
+    },
+    "positive": {
+      "source": "  const a: string = \"Hello, World!\"; let b: number = 42; var c: boolean = true; console.log(a, b, c);\n\n  \n",
+      "expected": "const a: string = \"Hello, World!\";\nlet b: number = 42;\nvar c: boolean = true;\nconsole.log(a, b, c);\n",
+      "revision": "7f627daac943c6c9c203052116f6c626a509a4f2"
+    }
+  },
+  {
+    "name": "format-template-interleave",
+    "format": {},
+    "sources": {
+      "main.ts": "const head = 1;\n\nconst tpl = `first line   \n  indented body line\t\n\nvalue is ${head} done`;\n\nconst nested = `outer ${`inner   \nmulti`} tail`;\nconst after = 2;\n"
+    },
+    "expected": {
+      "main.ts": "const head = 1;\n\nconst tpl = `first line   \n  indented body line\t\n\nvalue is ${head} done`;\n\nconst nested = `outer ${`inner   \nmulti`} tail`;\nconst after = 2;\n"
+    },
+    "positive": {
+      "source": "\n\nconst head = 1;   \n\n\n\nconst tpl = `first line   \n  indented body line\t\n\nvalue is ${head} done`;   \n\nconst nested = `outer ${`inner   \nmulti`} tail`;\nconst after = 2;   \n\n\n",
+      "expected": "const head = 1;\n\nconst tpl = `first line   \n  indented body line\t\n\nvalue is ${head} done`;\n\nconst nested = `outer ${`inner   \nmulti`} tail`;\nconst after = 2;\n",
+      "revision": "7f627daac943c6c9c203052116f6c626a509a4f2"
+    }
+  },
+  {
+    "name": "format-trailing-comma",
+    "format": {
+      "trailingComma": "all",
+      "severity": "error"
+    },
+    "sources": {
+      "main.ts": "const numbers = [1, 2, 3];\n\nconst settings = {\n  retries: 3,\n  timeout: 1000,\n};\n\nfunction describe(label: string, payload: { name: string; value: number }) {\n  return JSON.stringify(\n    {\n      label,\n      payload,\n    },\n    null,\n    2,\n  );\n}\n\nJSON.stringify({\n  numbers,\n  settings,\n  sample: describe(\"a\", { name: \"x\", value: 1 }),\n});\n\nlet received: number;\nlet others: { timeout: number };\n({ received, ...others } = { received: 1, timeout: 2 });\n"
+    },
+    "expected": {
+      "main.ts": "const numbers = [1, 2, 3];\n\nconst settings = {\n  retries: 3,\n  timeout: 1000,\n};\n\nfunction describe(label: string, payload: { name: string; value: number }) {\n  return JSON.stringify(\n    {\n      label,\n      payload,\n    },\n    null,\n    2,\n  );\n}\n\nJSON.stringify({\n  numbers,\n  settings,\n  sample: describe(\"a\", { name: \"x\", value: 1 }),\n});\n\nlet received: number;\nlet others: { timeout: number };\n({ received, ...others } = { received: 1, timeout: 2 });\n"
+    }
+  },
+  {
+    "name": "format-whitespace",
+    "format": {},
+    "sources": {
+      "main.ts": "const a = 1;\n\nconst b = `line with trailing space   \ninside template`;\n"
+    },
+    "expected": {
+      "main.ts": "const a = 1;\n\nconst b = `line with trailing space   \ninside template`;\n"
+    },
+    "positive": {
+      "source": "const a = 1;   \n\n\n\nconst b = `line with trailing space   \ninside template`;   \n",
+      "expected": "const a = 1;\n\nconst b = `line with trailing space   \ninside template`;\n",
+      "revision": "7f627daac943c6c9c203052116f6c626a509a4f2"
+    }
+  },
+  {
+    "name": "format-whitespace-edges",
+    "format": {},
+    "sources": {
+      "main.ts": "const a = 1;\n\nfunction f() {\n  let x = 1;\n  let y = 2;\n  return x + y;\n}\n\nconst b = 2;\n"
+    },
+    "expected": {
+      "main.ts": "const a = 1;\n\nfunction f() {\n  let x = 1;\n  let y = 2;\n  return x + y;\n}\n\nconst b = 2;\n"
+    },
+    "positive": {
+      "source": "\r\nconst a = 1;   \r\n\r\n\r\n\r\nfunction f() {\r\nlet x = 1; let y = 2;   \r\n  return x + y;\r\n}\r\n\r\nconst b = 2;",
+      "expected": "const a = 1;\n\nfunction f() {\n  let x = 1;\n  let y = 2;\n  return x + y;\n}\n\nconst b = 2;\n",
+      "revision": "7f627daac943c6c9c203052116f6c626a509a4f2"
+    }
+  }
+]

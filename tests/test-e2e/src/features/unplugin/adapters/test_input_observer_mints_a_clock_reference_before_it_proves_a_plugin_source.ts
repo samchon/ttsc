@@ -1,5 +1,3 @@
-import { FixtureFiles } from "../../../internal/FixtureFiles";
-import { TestProject } from "../../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -10,6 +8,8 @@ import { refreshFilesystemClockReference } from "../../../../../../packages/unpl
 import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../../packages/unplugin/src/core/transform/filesystem/DEFAULT_FILESYSTEM_OPERATIONS";
 import { pluginSourceState } from "../../../../../../packages/unplugin/src/core/transform/inputs/pluginSourceState";
 import type { TtscWatchInput } from "../../../../../../packages/unplugin/src/core/transform/watch/TtscWatchInput";
+import { TestProject } from "../../../../../utils/src/TestProject";
+import { FixtureFiles } from "../../../internal/FixtureFiles";
 
 /**
  * Verifies the input observer mints a clock reference of its own when it proves
@@ -32,6 +32,7 @@ import type { TtscWatchInput } from "../../../../../../packages/unplugin/src/cor
  *    host's filesystem.
  * 2. Edit a file below the source, and assert the owner is reloaded and a
  *    reference exists again, minted by the check.
+ *
  * @evidence contracts/testing.md#behavioral-verification
  *   Authored observer checks a source-tree proof after a clock-reference reset; the input edit must reload its owner and leave one newly minted filesystem reference.
  * @evidence contracts/testing.md#independent-expectations
@@ -43,14 +44,20 @@ import type { TtscWatchInput } from "../../../../../../packages/unplugin/src/cor
  *
  * @evidence contracts/e2e.md#necessary-boundary The observer must establish current filesystem clock authority before accepting a source proof produced by the actual Go build-environment provider. Direct digest composition cannot establish this Go provider connection; the original actual source/environment assertions remain here.
  * @evidence contracts/e2e.md#shared-execution All authored edits share the private module and one Node process with the installed Go toolchain; unchanged environment observations reuse the provider reading, and no plugin binary or consumer installation is prepared.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns private fixture roots; original environment restoration and observer disposal remain unchanged. Each deliberately changed source or environment receives its original fresh proof.
- * @evidence contracts/e2e.md#preserved-coverage The transferred case retains every original input, literal assertion, negative control and cleanup statement. Only physical execution ownership changes from features/unit to features/e2e.
+ * @evidence contracts/e2e.md#state-isolation-and-reuse-validity TestProject owns the private module; observer disposal runs in finally. The entry clears the process filesystem-clock map deliberately, then checks the reference created for this source. It neither changes nor restores process environment variables.
+ * @evidence contracts/e2e.md#preserved-coverage The initial quiet report, zero-reference reset, edited-source owner reload and exactly one new clock reference remain in this E2E entry. The source digest rollback tests separately distinguish metadata trust after clock rollback; this entry observes the actual provider connection and reference creation.
  */
 export async function test_input_observer_mints_a_clock_reference_before_it_proves_a_plugin_source(): Promise<void> {
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-input-observer-clock-reference-"),
   );
-  TestProject.writeFiles(root, FixtureFiles.read("input_observer_mints_a_clock_reference_before_it_proves_a_plugin_source/inputs-1", "unplugin"));
+  TestProject.writeFiles(
+    root,
+    FixtureFiles.read(
+      "input_observer_mints_a_clock_reference_before_it_proves_a_plugin_source/inputs-1",
+      "unplugin",
+    ),
+  );
   const source = path.join(root, "plugin");
   const owner = path.join(root, "owner");
   const input = (): TtscWatchInput => ({

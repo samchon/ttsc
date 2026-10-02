@@ -32,6 +32,10 @@ import (
 //     keeps a full authored anchor.
 //  3. Assert the render places the authored error, reports the preamble error
 //     through the anchor-less form, and never quotes the preamble text.
+// @evidence contracts/testing.md#behavioral-verification Loads actual authored and injected errors and requires both survive, only injected coordinates disappear, authored coordinates remain exact, error count is two and rendering excludes injected text.
+// @evidence contracts/testing.md#independent-expectations Literal unresolved import, authored bad marker, exact error count two and independent marker coordinates establish the expected attribution.
+// @evidence contracts/testing.md#distinguishing-cases One injected missing import and one ordinary type error in the same Program distinguish coordinate suppression from diagnostic loss or overbroad stripping.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit uses in-process Program and diagnostics APIs with a private fixture and deferred close; rendered output stays in a local buffer.
 func TestDiagnosticsInsideASourcePreambleLoseOnlyTheirPosition(t *testing.T) {
   const preamble = "import { missing } from \"./nowhere\";\n"
   const source = "export const bad: number = \"not a number\";\n"

@@ -3,21 +3,19 @@ import type { SpawnSyncReturns } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { realNativeEnvelopeContributor } from "./unplugin/internal/real-native-envelope/realNativeEnvelopeContributor";
 
 /**
- * One shared project tree for a utility plugin package's E2E experiment.
+ * One owned project tree for the three utility plugins' shared experiment.
  *
  * `@ttsc/banner`, `@ttsc/paths` and `@ttsc/strip` are driven the same way: a
  * project whose tsconfig names the plugin, a `node_modules/@ttsc/<name>` link
  * to the checkout's package, and `ttsc --emit` through the built launcher. The
- * package experiment opens one workspace from `fixtures/<name>/workspace`, and
+ * experiment opens `fixtures/utilities/workspace` once, and
  * every scenario owns a sibling directory that differs from the others only by
  * the configuration, discovery or compiler-option state it asserts.
  */
 export namespace UtilityWorkspace {
-  /** Utility plugin packages that own a workspace fixture. */
-  export type Utility = "banner" | "paths" | "strip";
-
   /** Process result of one launcher invocation. */
   export type Result = SpawnSyncReturns<string>;
 
@@ -26,8 +24,10 @@ export namespace UtilityWorkspace {
     /** Physical root of the temporary copy. */
     readonly root: string;
 
-    /** Checkout package linked into the copy's `node_modules/@ttsc`. */
-    readonly packageRoot: string;
+    /** Checkout packages linked into the copy's `node_modules/@ttsc`. */
+    readonly packageRoots: readonly string[];
+    /** Actual ApplyProgram observations from the shared linked probe. */
+    readonly programRunLog: string;
 
     /** Toolchain path and plugin cache every launcher invocation receives. */
     readonly env: {
@@ -37,44 +37,58 @@ export namespace UtilityWorkspace {
   }
 
   /**
-   * Copy a utility package's static workspace once and link its real package.
+   * Copy the combined static workspace once and link all three real packages.
    *
    * The copy keeps authored bytes through the existing directory copier. The
-   * package link is the same junction-or-symlink the former per-case projects
+   * package links are the same junctions or symlinks the former per-case projects
    * created, made once at the workspace root so every scenario directory
    * resolves the plugin through ordinary upward `node_modules` lookup. Scenarios
    * are sibling directories, so no scenario's manifest or configuration lies on
    * another scenario's ancestor path, and the workspace root itself carries
    * neither a manifest nor a plugin configuration.
    *
-   * @evidence contracts/common.md#principled-implementation The workspace is the authored fixture copied byte for byte plus one real package link, so scenarios observe the same upward tsconfig, package and node_modules resolution an installed consumer has; no compiler result is synthesized.
+   * @evidence contracts/common.md#principled-implementation The workspace is the authored fixture copied byte for byte plus three real package links, so scenarios observe the same upward tsconfig, package and node_modules resolution an installed consumer has; no compiler result is synthesized.
    * @evidence contracts/common.md#clear-and-simple-design One function owns copy, link and the per-scenario process environment; scenarios own their assertions and expected strings, and no executor framework is introduced beyond the failure collector.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Neither the launcher nor plugin cache is replaced or stubbed. The cache directory is the content-keyed shared owner, and cold-cache behavior is not asserted by these scenarios.
-   * @evidence contracts/common.md#meaningful-documentation Describes the shared tree, the one package link and the manifest rule that keeps scenario discovery independent.
+   * @evidence contracts/common.md#meaningful-documentation Describes the shared tree, the three package links and the manifest rule that keeps scenario discovery independent.
    * @evidence contracts/portability.md#os-neutral-implementation The link is a junction type on Windows and a directory symlink elsewhere through Node's single call; paths use path.join and the Go toolchain directory is prepended with the platform delimiter.
    * @evidence contracts/performance.md#efficient-algorithms Copying visits each fixture entry once, so cost is linear in authored files.
-   * @evidence contracts/performance.md#reuse-equivalent-work One copy, one package link and one environment serve every scenario of the package; the plugin binary comes from the content-keyed shared cache, and results are never shared between scenarios.
+   * @evidence contracts/performance.md#reuse-equivalent-work One copy, three package links and one environment serve all utility scenes; the content-keyed shared cache supplies plugin binaries. The combined CommonJS scenes explicitly share one completed emit and runtime, while distinct configuration states emit fresh results.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The copy is a tracked temporary directory that the experiment releases through close; an interrupted process still removes it at exit.
    */
-  export function open(utility: Utility): IWorkspace {
-    const root = TestProject.tmpdir(`ttsc-${utility}-e2e-`);
+  export function open(): IWorkspace {
+    const root = TestProject.tmpdir("ttsc-utilities-e2e-");
     const source = path.resolve(
       import.meta.dirname,
       "../../fixtures",
-      utility,
+      "utilities",
       "workspace",
     );
     TestProject.copyDirectory(source, root);
 
     const scope = path.join(root, "node_modules", "@ttsc");
     fs.mkdirSync(scope, { recursive: true });
-    const packageRoot = path.join(TestProject.WORKSPACE_ROOT, "packages", utility);
-    fs.symlinkSync(packageRoot, path.join(scope, utility), "junction");
+    const packageRoots = ["banner", "paths", "strip"].map((name) => {
+      const packageRoot = path.join(TestProject.WORKSPACE_ROOT, "packages", name);
+      fs.symlinkSync(packageRoot, path.join(scope, name), "junction");
+      return packageRoot;
+    });
 
     const localGo = path.join(os.homedir(), "go-sdk", "go", "bin");
+    const programRunLog = path.join(root, "baseline-program-runs.bin");
+    const baselineConfig = path.join(root, "banner", "external-maps", "tsconfig.json");
+    const baseline = JSON.parse(fs.readFileSync(baselineConfig, "utf8"));
+    baseline.compilerOptions.plugins.push({
+      name: "real-envelope-compile-probe",
+      transform: "./compile-probe.cjs",
+      fixtureSource: realNativeEnvelopeContributor(),
+      runLog: programRunLog,
+    });
+    fs.writeFileSync(baselineConfig, JSON.stringify(baseline), "utf8");
     return {
       root,
-      packageRoot,
+      packageRoots,
+      programRunLog,
       env: {
         PATH: fs.existsSync(localGo)
           ? `${localGo}${path.delimiter}${process.env.PATH ?? ""}`
@@ -137,12 +151,14 @@ export namespace UtilityWorkspace {
    * @evidence contracts/performance.md#bound-retention-and-release-resources The process is joined before return.
    */
   export function emit(workspace: IWorkspace, scenario: string): Result {
-    return run(
+    const result = run(
       workspace,
       TestProject.TTSC_BIN,
       ["--cwd", project(workspace, scenario), "--emit"],
       scenario,
     );
+    console.log("Utility compiler invocation " + JSON.stringify({ scenario, pid: result.pid, status: result.status }));
+    return result;
   }
 
   /**
@@ -193,7 +209,8 @@ export namespace UtilityWorkspace {
     fs.rmSync(workspace.root, { recursive: true, force: true });
     if (fs.existsSync(workspace.root))
       throw new Error("Workspace was not removed: " + workspace.root);
-    if (!fs.existsSync(path.join(workspace.packageRoot, "package.json")))
-      throw new Error("Workspace cleanup reached the linked package: " + workspace.packageRoot);
+    for (const packageRoot of workspace.packageRoots)
+      if (!fs.existsSync(path.join(packageRoot, "package.json")))
+        throw new Error("Workspace cleanup reached the linked package: " + packageRoot);
   }
 }

@@ -1,2 +1,2 @@
-import { report } from "enum-dep";
+import { report } from "built-dep";
 console.log(report());

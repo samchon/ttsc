@@ -11,7 +11,7 @@ import (
   "github.com/samchon/ttsc/packages/ttsc/driver"
 )
 
-// TestTransformGraphReportsTypeOnlyEdgesGlobalsAndConfigs verifies
+// TestTransformGraphReportsTypeOnlyEdgesGlobalsAndConfigs Verifies
 // driver.NewTransformGraph exposes the `tsc --incremental` reference bound:
 // per-file direct resolved reference edges (type-only imports and
 // `/// <reference>` targets included), files contributing to the global
@@ -33,6 +33,11 @@ import (
 //     negative twins: no self edges, no module files in globals, an explicit
 //     empty node and compiler-time proof for a file without references, and no
 //     bundled library anywhere.
+//
+// @evidence contracts/testing.md#behavioral-verification NewTransformGraph reports reference edges, leaf proofs, globals and config chain while excluding modules and bundled libraries.
+// @evidence contracts/testing.md#independent-expectations Authored imports/config inheritance and independent standard SHA-256 ground graph and hash expectations.
+// @evidence contracts/testing.md#distinguishing-cases Type-only, triple-slash, ambient/module, empty leaf and bundled exclusion differ; realpath is only checked as absolute.
+// @evidence contracts/testing.md#execution-ownership Go unit TestTransformGraphReportsTypeOnlyEdgesGlobalsAndConfigs is discovered by go test in test/driver and invokes source/shim operations directly. Temporary filesystem inputs do not install a consumer or build a host artifact.
 func TestTransformGraphReportsTypeOnlyEdgesGlobalsAndConfigs(t *testing.T) {
   root := t.TempDir()
   writeProjectFile(t, root, "tsconfig.base.json", `{

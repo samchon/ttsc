@@ -1,4 +1,5 @@
 import type { FlagSpec } from "../../../flags/FlagSpec";
+import { readCompilerOptionOccurrence } from "../../../flags/readCompilerOptionOccurrence";
 import { resolveFlagSpec } from "../../../flags/resolveFlagSpec";
 import type { TtscCommonOptions } from "../../../structures/internal/TtscCommonOptions";
 
@@ -129,10 +130,12 @@ export namespace PassthroughFlags {
     // Resolution covers the bare form (`--pretty`), the inline-value form
     // (`--pretty=true`), and case variants (`--PRETTY`). This is identity
     // recognition, not acceptance of an inline boolean value by tsgo.
-    return passthrough.some((token) => {
-      const spec = resolveFlagSpec(token);
-      return spec?.internalShadow === true && spec.name === flag;
-    });
+    for (let index = 0; index < passthrough.length;) {
+      const spec = resolveFlagSpec(passthrough[index]!);
+      if (spec?.internalShadow === true && spec.name === flag) return true;
+      index += readCompilerOptionOccurrence(passthrough, index).width;
+    }
+    return false;
   }
 
   /**
@@ -145,7 +148,13 @@ export namespace PassthroughFlags {
    * compiler that receives the rest still reports the malformed argv instead of
    * ttsc erasing it into a successful build.
    *
-   * @evidence contracts/common.md#principled-implementation Only valid boolean occurrences and the exact value token the compiler consumes are removed; malformed spelling and unrelated input tokens survive.
+   * An empty token preserves an unconsumed lookahead boundary when deletion
+   * would otherwise bind later data to a retained boolean, list or config-only
+   * option. A surviving dash option already preserves that boundary; adjacent
+   * removals defer the fence until they expose data or the end of the frame.
+   * Native parsing ignores the empty token as a positional input.
+   *
+   * @evidence contracts/common.md#principled-implementation The native cursor identifies valid boolean assignments and skips scalar operands. Removal retains malformed spelling and inserts a native-ignored empty lookahead fence when needed to preserve the remaining options, files and diagnostics.
    * @evidence contracts/common.md#clear-and-simple-design One indexed argv walk uses the shared occurrence parser and builds a fresh output array without modifying caller tokens.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid argv is preserved for the compiler's real diagnostic instead of being normalized into a successful request.
    * @evidence contracts/common.md#meaningful-documentation Native examples explain inline rejection and unconsumed uppercase values, giving the reason preservation matters.
@@ -159,13 +168,26 @@ export namespace PassthroughFlags {
     names: readonly string[],
   ): string[] {
     const out: string[] = [];
-    for (let i = 0; i < passthrough.length; i++) {
-      const occurrence = booleanOccurrence(passthrough, i);
-      if (occurrence !== undefined && names.includes(occurrence.flag.name)) {
-        i += occurrence.width - 1;
+    let previousNeedsFence = false;
+    for (let i = 0; i < passthrough.length;) {
+      const occurrence = readCompilerOptionOccurrence(passthrough, i);
+      const flag = resolveFlagSpec(passthrough[i]!);
+      if (occurrence.booleanValue !== undefined && flag !== undefined &&
+        names.includes(flag.name)) {
+        // Native ignores an empty positional token. It also prevents a
+        // retained boolean/list/config-only option from consuming newly
+        // adjacent data after the removed option disappears.
+        const next = passthrough[i + occurrence.width];
+        if (previousNeedsFence && (next === undefined || !next.startsWith("-"))) {
+          out.push("");
+          previousNeedsFence = false;
+        }
+        i += occurrence.width;
         continue;
       }
-      out.push(passthrough[i]!);
+      out.push(...passthrough.slice(i, i + occurrence.width));
+      previousNeedsFence = occurrence.needsFence;
+      i += occurrence.width;
     }
     return out;
   }
@@ -177,43 +199,15 @@ export namespace PassthroughFlags {
   function effectiveBooleanFlags(options: TtscCommonOptions): FlagSpec[] {
     const passthrough = options.passthrough ?? [];
     const values = new Map<FlagSpec, boolean>();
-    for (let i = 0; i < passthrough.length; i++) {
-      const occurrence = booleanOccurrence(passthrough, i);
-      if (occurrence === undefined) continue;
-      values.set(occurrence.flag, occurrence.value);
-      i += occurrence.width - 1;
+    for (let i = 0; i < passthrough.length;) {
+      const occurrence = readCompilerOptionOccurrence(passthrough, i);
+      if (occurrence.booleanValue !== undefined) {
+        const flag = resolveFlagSpec(passthrough[i]!);
+        if (flag !== undefined) values.set(flag, occurrence.booleanValue);
+      }
+      i += occurrence.width;
     }
     return [...values].filter(([, value]) => value).map(([flag]) => flag);
   }
 
-  /**
-   * Read one argv position the way TypeScript-Go's command-line parser reads a
-   * boolean option.
-   *
-   * The name matches case-insensitively after one or two dashes, and an inline
-   * `=` is not split, so `--flag=false` names no option at all. A following
-   * token is consumed only when it is exactly `true`, `false`, or `null`; only
-   * `false` and `null` turn the option off. Any other following token stays an
-   * argument of its own, and the option is on.
-   */
-  function booleanOccurrence(
-    argv: readonly string[],
-    index: number,
-  ):
-    | {
-        readonly flag: FlagSpec;
-        readonly value: boolean;
-        readonly width: 1 | 2;
-      }
-    | undefined {
-    const token = argv[index]!;
-    if (token.includes("=")) return undefined;
-    const flag = resolveFlagSpec(token);
-    if (flag === undefined || flag.kind !== "boolean") return undefined;
-    const next = argv[index + 1];
-    if (next === "true") return { flag, value: true, width: 2 };
-    if (next === "false" || next === "null")
-      return { flag, value: false, width: 2 };
-    return { flag, value: true, width: 1 };
-  }
 }

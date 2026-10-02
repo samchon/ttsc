@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestLSPProxyForwardsUnownedSourceFormatCodeAction verifies generic source
+// TestLSPProxyForwardsUnownedSourceFormatCodeAction Verifies generic source
 // format requests are not reserved when no plugin owns formatting.
 //
 // The proxy may answer source-only requests locally only when the active plugin
@@ -16,6 +16,11 @@ import (
 // 1. Initialize with upstream `codeActionProvider: true` and an empty source.
 // 2. Request only `source.format`.
 // 3. Assert the request is forwarded to upstream.
+//
+// @evidence contracts/testing.md#behavioral-verification Proxy.Run forwards source.format when its source owns no formatting.
+// @evidence contracts/testing.md#independent-expectations Upstream supports actions and an unowned generic kind remains upstream work.
+// @evidence contracts/testing.md#distinguishing-cases Empty source with upstream enabled is covered; fields identify forwarding without full byte equality.
+// @evidence contracts/testing.md#execution-ownership Go unit TestLSPProxyForwardsUnownedSourceFormatCodeAction in test/driver invokes NewProxy and Proxy.Run on in-memory pipes with injected sources/providers. No installed editor, sidecar or upstream process is launched.
 func TestLSPProxyForwardsUnownedSourceFormatCodeAction(t *testing.T) {
   h := newProxyHarness(t, &stubSource{})
   h.sendEditor([]byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}`))

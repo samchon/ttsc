@@ -7,7 +7,8 @@ import { readJsoncFile } from "../../../compiler/internal/project/readJsoncFile"
 import { readProjectConfig } from "../../../compiler/internal/project/readProjectConfig";
 import { resolveTsgo } from "../../../compiler/internal/resolveTsgo";
 import { spawnNative } from "../../../compiler/internal/spawnNative";
-import { resolveFlagSpec } from "../../../flags/resolveFlagSpec";
+import { normalizeCompilerEnumValue } from "../../../flags/normalizeCompilerEnumValue";
+import { readCompilerOptionValues } from "../../../flags/readCompilerOptionValues";
 import { type ProjectInputPathIdentityContext } from "../../../internal/pathIdentity/ProjectInputPathIdentityContext";
 import { createProjectInputPathIdentityContext } from "../../../internal/pathIdentity/createProjectInputPathIdentityContext";
 import { isProjectInputPathIdentityWithin } from "../../../internal/pathIdentity/isProjectInputPathIdentityWithin";
@@ -40,24 +41,25 @@ import { watchDirectory } from "./watchDirectory";
 /**
  * Keeps the launcher watch set aligned with the compiler's current program.
  *
- * TypeScript-Go's `--listFilesOnly` output is the authority for source and
- * declaration inputs. Configuration files, project-reference roots, and the
- * source trees of selected native plugins supplement that list, while compiler
- * outputs are filtered before any watcher is installed.
+ * The default compiler-input reader uses TypeScript-Go's `--listFilesOnly`
+ * output for source and declaration membership. An explicit reader supplies the
+ * same absolute-path membership and failure contract for each resolved project.
+ * Configuration files, project-reference roots, output inference and native
+ * filesystem identity remain this topology's responsibility.
  *
  * `TTSC_WATCH_DEBUG_INPUTS` reports the named event, observed population deltas
  * and reload decision. These diagnostics reuse the decision's existing inputs;
  * they perform no extra filesystem observations.
  *
- * @evidence contracts/common.md#principled-implementation Compiler-provided membership, published rule inputs and actual content fingerprints qualify notifications; post-registration reconciliation closes observation handoff gaps without treating matching territory as changed content. Explicit observer operations preserve native defaults without replacing global filesystem methods; compiler membership remains compiler-owned.
- * @evidence contracts/common.md#clear-and-simple-design Compiler, plugin and project-input watch populations keep their own baselines and callbacks under one topology owner; small classifiers separate membership, selection and handle replacement. Three distinct operations own directory subscriptions, file subscriptions and immediate reload-directory reads; existing callers need no new argument.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported native backends and explicit gap/replacement ownership replace foreign watcher patching; failed observation is reported rather than represented as complete coverage. The constructor manufactures no observations and bypasses no input or content proof; supplied operations retain the existing callback and result contracts.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain membership authority, plugin fingerprinting, publication races, physical registration and public lifecycle operations following the documentation skill. Parameters identify each supplied operation and native default beside the constructor.
- * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node APIs and registration uses realpath; compiler/plugin maps preserve lexical aliases and fold only measured insensitive ASCII components. Project inputs use physical identities, while unknown/native Unicode relations remain conservative event candidates rather than identity proof. Registration paths and native read options are passed unchanged; providers do not determine path case or compiler membership.
+ * @evidence contracts/common.md#principled-implementation The compiler-input operation's membership, published rule inputs and actual content fingerprints qualify notifications; its native default obtains the real compiler list. Post-registration reconciliation closes observation handoff gaps without treating matching territory as changed content. Explicit operations preserve native defaults without replacing global filesystem or compiler methods. Project-input attribution: Observed member deltas establish attribution; stale selected names cannot override them, while directory names retain supported population causality and unrelated multiple members remain unnamed.
+ * @evidence contracts/common.md#clear-and-simple-design Compiler, plugin and project-input watch populations keep their own baselines and callbacks under one topology owner; small classifiers separate membership, selection and handle replacement. Four distinct operations own directory subscriptions, file subscriptions, immediate reload-directory reads and compiler membership; existing callers need no new argument. Project-input attribution: One private reconciliation separates member deltas from immediate resolution-directory digests before choosing a supported event name or an observed single member.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported native backends and explicit gap/replacement ownership replace foreign watcher patching; failed observation is reported rather than represented as complete coverage. The constructor manufactures no observations and bypasses no input or content proof; supplied operations retain the existing callback and result contracts. Project-input attribution: Native event names do not manufacture a delta; the current and previous physical membership identify already observed names without filename or fixture exceptions.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain membership authority, plugin fingerprinting, publication races, physical registration and public lifecycle operations following the documentation skill. Parameters identify each supplied operation and native default beside the constructor. Project-input attribution: Native paragraphs explain stale attention, directory causality, accompanying resolution digests and unselected immediate entries.
+ * @evidence contracts/portability.md#os-neutral-implementation Native paths use Node APIs and registration uses realpath; compiler/plugin maps preserve lexical aliases and fold only measured insensitive ASCII components. Project inputs use physical identities, while unknown/native Unicode relations remain conservative event candidates rather than identity proof. Registration paths and read options are passed unchanged; compiler-input readers supply absolute membership paths without replacing the topology's native identity policy. Project-input attribution: The supplied filesystem identity transaction establishes selected names and ancestry without an OS-wide case assumption or lexical alias guess.
  *
- * @evidence contracts/performance.md#efficient-algorithms Identity-keyed maps separate current membership, content baselines and handle registries; public reconciliation operations own traversal and hashing, while constructor retains operation references without an additional filesystem observation or build.
- * @evidence contracts/performance.md#reuse-equivalent-work Current membership, content baselines and live registrations belong to one topology; reconciliation owners decide their reuse against fresh premises. Supplied operation identities are retained without adding an observation-result cache or assuming changed inputs remain equivalent.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Current and pending input maps belong to the topology and reconciliation retires obsolete populations; watcher registries close or rearm their acquired handles under error and shutdown ownership. Constructor acquires no handle and directory-read arrays remain call-owned.
+ * @evidence contracts/performance.md#efficient-algorithms Identity-keyed maps separate current membership, content baselines and handle registries; public reconciliation operations own traversal and hashing, while constructor retains operation references without an additional filesystem observation or build. Project-input attribution: R resolution-directory identities form one Set; C deltas and A distinct member ancestors require O(R+C+A) indexed visits before at most C event-ancestry comparisons. Shared ancestor keys terminate repeated walks and the supplied transaction shares native observations.
+ * @evidence contracts/performance.md#reuse-equivalent-work Current membership, content baselines and live registrations belong to one topology; reconciliation owners decide their reuse against fresh premises. Supplied operation identities are retained without adding an observation-result cache or assuming changed inputs remain equivalent. Project-input attribution: This classifier borrows one scan's deltas and identity transaction without retaining cross-event answers.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Current and pending input maps belong to the topology and reconciliation retires obsolete populations; watcher registries close or rearm their acquired handles under error and shutdown ownership. Constructor acquires no handle and directory-read arrays remain call-owned. Project-input attribution: Delta arrays and keys remain call-local; the helper acquires no subscription, descriptor or retained history.
  */
 export class WatchTopology {
   private analysisOnly = false;
@@ -131,9 +133,14 @@ export class WatchTopology {
    * @param openDirectoryWatch The backend every directory watch goes through:
    *   `watchDirectory`, which chooses the platform's, unless the caller
    *   observes the watch set through another.
-   * @param openFileWatch File subscriptions use this owned observer; native fs.watch by default.
-   * @param readDirectory Immediate reload-directory fingerprints use this reader; native readdirSync by default.
-   *
+   * @param openFileWatch File subscriptions use this owned observer; native
+   *   fs.watch by default.
+   * @param readDirectory Immediate reload-directory fingerprints use this
+   *   reader; native readdirSync by default.
+   * @param getCompilerInputs Read each resolved project's absolute compiler
+   *   membership; the default invokes the native compiler. Readers throw
+   *   listing failures and retain ownership of their returned array, which this
+   *   topology does not mutate.
    */
   public constructor(
     private readonly options: WatchTopologyOptions,
@@ -141,6 +148,7 @@ export class WatchTopology {
     private readonly openDirectoryWatch: typeof watchDirectory = watchDirectory,
     private readonly openFileWatch: typeof fs.watch = fs.watch,
     private readonly readDirectory: typeof fs.readdirSync = fs.readdirSync,
+    private readonly getCompilerInputs: typeof listCompilerInputs = listCompilerInputs,
   ) {}
 
   /**
@@ -148,12 +156,12 @@ export class WatchTopology {
    * Errors propagate to the caller; native watcher registration failures are
    * reported through onError while previous coverage remains live.
    *
-   * @evidence contracts/common.md#principled-implementation The real compiler list defines input membership; new coverage is registered before stale coverage retires, and registration reconciliation compares against pre-registration baselines.
+   * @evidence contracts/common.md#principled-implementation The compiler-input operation defines membership and its native default reads the actual compiler list; new coverage is registered before stale coverage retires, and registration reconciliation compares against pre-registration baselines.
    * @evidence contracts/common.md#clear-and-simple-design One refresh delegates compiler population resolution, watcher synchronization and notification classification to separate private owners.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Predicted outputs never subtract from compiler-reported inputs; failed registration cannot claim complete replacement coverage.
    * @evidence contracts/common.md#meaningful-documentation Native prose states notification gating, thrown errors and registration error ownership following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Compiler processes use explicit argv/env; native APIs own path grammar and backend differences. Lexical membership uses measured component case policy, keeping unknown names and symlink aliases distinct instead of folding all Windows paths.
-   * @evidence contracts/performance.md#efficient-algorithms Resolving compiler membership requires the native compiler list; F current inputs update indexed snapshots in linear passes. Broad reconciliation stats F files and hashes only metadata/owner movement, while named/gap events request strong reads. Windows root pruning still uses pairwise D directory containment checks.
+   * @evidence contracts/performance.md#efficient-algorithms The native compiler-input operation obtains one list per resolved project; supplied readers own their listing cost. F current inputs update indexed snapshots in linear passes. Broad reconciliation stats F files and hashes only metadata/owner movement, while named/gap events request strong reads. Windows root pruning still uses pairwise D directory containment checks.
    * @evidence contracts/performance.md#reuse-equivalent-work Existing live watchers and unchanged fingerprints are reused by key; one fresh synchronous transaction shares parent case probes across membership, output and directory keys. Registration microtasks coalesce gap work while actual compiler membership is refreshed rather than inferred from quiet notifications.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Current file snapshots prune removed members and replaced watcher populations retire handles; observed directories persist only while still relevant. Owner close retires all handle maps, and partial registration retains old coverage until reconciliation succeeds or shutdown.
    */
@@ -170,6 +178,7 @@ export class WatchTopology {
       this.options,
       this.extraInputs,
       this.lexicalIdentities,
+      this.getCompilerInputs,
     );
     const compilerProgramMembershipChange =
       next.analysisOnly &&
@@ -270,7 +279,10 @@ export class WatchTopology {
     changed: readonly string[],
   ): boolean {
     const matches = this.collectProjectInputMatches();
-    const fingerprints = fingerprintProjectInputMatches(matches, this.readDirectory);
+    const fingerprints = fingerprintProjectInputMatches(
+      matches,
+      this.readDirectory,
+    );
     const changedInputs = projectInputChangedPaths({
       next: matches,
       nextFingerprints: fingerprints,
@@ -1724,6 +1736,7 @@ function resolveWatchTopology(
   options: WatchTopologyOptions,
   extraInputs: readonly string[],
   identities: ProjectInputPathIdentityContext,
+  getCompilerInputs: typeof listCompilerInputs,
 ): ResolvedWatchTopology {
   let analysisOnly = options.emit === false;
   const files = new Map<string, string>();
@@ -1772,7 +1785,7 @@ function resolveWatchTopology(
       roots.push(project.root);
       addPaths(files, project.configPaths, identities);
       addPaths(reloadFiles, project.configPaths, identities);
-      const compilerInputs = listCompilerInputs(project, options);
+      const compilerInputs = getCompilerInputs(project, options);
       const compilerOutputs = resolveCompilerOutputs(project, options);
       addPaths(outputFiles, compilerOutputs.files, identities);
       addPaths(
@@ -1806,8 +1819,10 @@ function watchTopologyAnalysisOnly(
 ): boolean {
   if (options.emit !== undefined) return options.emit === false;
   const noEmit =
-    passthroughBooleanOption(options.passthrough, "--noEmit") ??
-    project.compilerOptions.noEmit === true;
+    passthroughBooleanOption(
+      readCompilerOptionValues(options.passthrough).values,
+      "--noEmit",
+    ) ?? project.compilerOptions.noEmit === true;
   return noEmit;
 }
 
@@ -2043,7 +2058,7 @@ function effectiveCompilerEmit(
   options: WatchTopologyOptions,
 ): EffectiveCompilerEmit {
   const compilerOptions = project.compilerOptions;
-  const passthrough = options.passthrough;
+  const passthrough = readCompilerOptionValues(options.passthrough).values;
   const noEmit =
     passthroughBooleanOption(passthrough, "--noEmit") ??
     (options.emit === false
@@ -2091,8 +2106,14 @@ function effectiveCompilerEmit(
     passthrough,
     "--tsBuildInfoFile",
   );
-  const jsx =
-    passthroughStringOption(passthrough, "--jsx") ?? compilerOptions.jsx;
+  // Presence carries explicit null/empty enum resets. A configured JSX string
+  // follows JSON's lowercase-only contract, never the CLI whitespace trim.
+  const rawJsx = passthrough.has("jsx")
+    ? passthrough.get("jsx")
+    : typeof compilerOptions.jsx === "string"
+      ? normalizeCompilerEnumValue(compilerOptions.jsx, "json")
+      : undefined;
+  const jsx = typeof rawJsx === "string" ? rawJsx : undefined;
   const compilerCwd = project.root;
   return {
     declaration,
@@ -2163,53 +2184,23 @@ function replaceOutputExtension(location: string, extension: string): string {
 }
 
 function passthroughBooleanOption(
-  tokens: readonly string[] | undefined,
+  values: ReadonlyMap<string, unknown>,
   name: string,
 ): boolean | undefined {
-  let value: boolean | undefined;
-  for (let index = 0; index < (tokens?.length ?? 0); index++) {
-    const token = tokens?.[index];
-    if (token === undefined) continue;
-    if (!passthroughOptionMatches(token, name)) continue;
-    const next = tokens?.[index + 1];
-    if (next === "true" || next === "false" || next === "null") {
-      value = next === "true";
-      index++;
-    } else {
-      value = true;
-    }
-  }
-  return value;
+  const value = values.get(name.slice(2));
+  return typeof value === "boolean"
+    ? value
+    : value === null
+      ? false
+      : undefined;
 }
 
 function passthroughPathOption(
-  tokens: readonly string[] | undefined,
+  values: ReadonlyMap<string, unknown>,
   name: string,
 ): string | null | undefined {
-  let value: string | null | undefined;
-  for (let index = 0; index < (tokens?.length ?? 0); index++) {
-    const token = tokens?.[index];
-    if (token === undefined) continue;
-    if (!passthroughOptionMatches(token, name)) continue;
-    if (index + 1 < (tokens?.length ?? 0)) {
-      const next = tokens?.[++index];
-      value = next === "null" ? null : next;
-    }
-  }
-  return value;
-}
-
-function passthroughStringOption(
-  tokens: readonly string[] | undefined,
-  name: string,
-): string | undefined {
-  return passthroughPathOption(tokens, name)?.toLowerCase() ?? undefined;
-}
-
-function passthroughOptionMatches(token: string, name: string): boolean {
-  if (!token.startsWith("-")) return false;
-  if (token.includes("=")) return false;
-  return resolveFlagSpec(token)?.name === resolveFlagSpec(name)?.name;
+  const value = values.get(name.slice(2));
+  return typeof value === "string" || value === null ? value : undefined;
 }
 
 function collectTopologyDirectories(
@@ -2409,22 +2400,13 @@ function matchesProjectInput(
  *
  * Observer attention can arrive late for bytes already admitted while another
  * member has changed. Such a name must not consume that member's delta under
- * the wrong path or select execution reload for unchanged selection bytes.
- * A directory event remains a valid cause when it contains every changed
- * member. Ancestor resolution-directory digests accompany those members rather
- * than replace their identity; unrelated directory deltas remain separate.
- * When only those digests changed, an untracked native name can still explain
- * an immediate-entry change whose member was not selected, but not another
+ * the wrong path or select execution reload for unchanged selection bytes. A
+ * directory event remains a valid cause when it contains every changed member.
+ * Ancestor resolution-directory digests accompany those members rather than
+ * replace their identity; unrelated directory deltas remain separate. When only
+ * those digests changed, an untracked native name can still explain an
+ * immediate-entry change whose member was not selected, but not another
  * directory's independent delta.
- *
- * @evidence contracts/common.md#principled-implementation Observed member deltas establish attribution; stale selected names cannot override them, while directory names retain supported population causality and unrelated multiple members remain unnamed.
- * @evidence contracts/common.md#clear-and-simple-design One private reconciliation separates member deltas from immediate resolution-directory digests before choosing a supported event name or an observed single member.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Native event names do not manufacture a delta; the current and previous physical membership identify already observed names without filename or fixture exceptions.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain stale attention, directory causality, accompanying resolution digests and unselected immediate entries.
- * @evidence contracts/portability.md#os-neutral-implementation The supplied filesystem identity transaction establishes selected names and ancestry without an OS-wide case assumption or lexical alias guess.
- * @evidence contracts/performance.md#efficient-algorithms R resolution-directory identities form one Set; C deltas and A distinct member ancestors require O(R+C+A) indexed visits before at most C event-ancestry comparisons. Shared ancestor keys terminate repeated walks and the supplied transaction shares native observations.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work This classifier borrows one scan's deltas and identity transaction without retaining cross-event answers.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Delta arrays and keys remain call-local; the helper acquires no subscription, descriptor or retained history.
  */
 function reconcileProjectInputChange(input: {
   changed?: string;
@@ -2435,7 +2417,9 @@ function reconcileProjectInputChange(input: {
   reloadDirectories: readonly string[];
 }): string | undefined {
   const directories = new Set(
-    input.reloadDirectories.map((location) => input.identities.resolve(location).key),
+    input.reloadDirectories.map(
+      (location) => input.identities.resolve(location).key,
+    ),
   );
   const members = input.changedInputs.filter(
     (location) => !directories.has(input.identities.resolve(location).key),
@@ -2460,13 +2444,16 @@ function reconcileProjectInputChange(input: {
   if (changed !== undefined) {
     const key = input.identities.resolve(changed).key;
     if (
-      observed.every((location) => input.identities.isWithin(changed, location)) ||
+      observed.every((location) =>
+        input.identities.isWithin(changed, location),
+      ) ||
       (members.length === 0 &&
         !input.previous.has(key) &&
         !input.next.has(key) &&
-        observed.every((location) =>
-          input.identities.resolve(location).key ===
-          input.identities.resolve(path.dirname(changed)).key,
+        observed.every(
+          (location) =>
+            input.identities.resolve(location).key ===
+            input.identities.resolve(path.dirname(changed)).key,
         ))
     ) {
       return changed;
@@ -2587,7 +2574,10 @@ function fingerprintProjectInputFile(location: string): string {
   }
 }
 
-function fingerprintProjectInputDirectory(location: string, readDirectory: typeof fs.readdirSync): string {
+function fingerprintProjectInputDirectory(
+  location: string,
+  readDirectory: typeof fs.readdirSync,
+): string {
   try {
     const entries = readDirectory(location, { withFileTypes: true })
       .map((entry) => {
@@ -2746,7 +2736,10 @@ function watcherRegistrationPath(location: string): string {
   }
 }
 
-/** Report the actual decision inputs, without additional filesystem observations. */
+/**
+ * Report the actual decision inputs, without additional filesystem
+ * observations.
+ */
 function reportProjectInputDecision(decision: Record<string, unknown>): void {
   if (!process.env.TTSC_WATCH_DEBUG_INPUTS) return;
   process.stdout.write(

@@ -19,7 +19,7 @@ import { touchUnrelatedInput } from "../../../../internal/unplugin/internal/adap
  * @evidence contracts/testing.md#behavioral-verification After first compile and plugin edit, all remaining modules deliver with total one compile.
  * @evidence contracts/testing.md#independent-expectations Run-log count and successful remaining outputs distinguish startup coherence from project revalidation.
  * @evidence contracts/testing.md#distinguishing-cases First deliveries of unseen modules after change; repeated-module twin requires replacement.
- * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_serve_without_a_watcher_takes_the_build_scoped_cache is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-unplugin start; its body owns the cases above.
+ * @evidence contracts/testing.md#execution-ownership Native-plugin E2E entry test_vite_serve_without_a_watcher_takes_the_build_scoped_cache is discovered under native-plugins/adapters by src/index.ts and @ttsc/test-e2e start; its body owns the cases above.
  * @evidence contracts/e2e.md#necessary-boundary Built Vite watcherless hooks and native cache execute in one driven session.
  * @evidence contracts/e2e.md#shared-execution Related deliveries reuse fixture and loaded adapter; additional passes/builds own the lifecycle, configuration or host differences above. Fixture builders reuse native artifacts through shared TTSC_CACHE_DIR.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Private fixture project paths separate mutable inputs and project cache identity from other entries. Session closes in finally, including assertion failure; its changed inputs and compile log remain private. Tracked roots end at process exit.

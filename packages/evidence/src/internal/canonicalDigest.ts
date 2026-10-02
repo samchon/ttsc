@@ -40,12 +40,16 @@ export const canonicalJson = (value: unknown): string =>
  * Renders one value, refusing to descend into a container already on the path
  * above it.
  *
- * A source document can be cyclic: a YAML anchor referring to its own parent
- * loads, upgrades, and would then recurse until the stack ends. The failure
- * that produced was a diagnostic blaming an upgrade that had succeeded, so the
- * cycle is answered here with a marker instead. Two documents that differ only
- * in where a cycle closes still differ, because the marker is emitted at the
- * position the cycle closes at.
+ * A YAML anchor can create an object cycle that parsing and conversion retain.
+ * This renderer terminates such values with the string marker "[circular]".
+ * The marker aliases an authored literal string, and identifies the position
+ * where traversal stopped rather than which ancestor was reached. It is not
+ * an injective encoding of cyclic object graphs.
+ *
+ * Swagger currently resolves references before invoking this renderer. A
+ * reachable object cycle in that traversal fails with a stack overflow before
+ * a declaration digest is emitted; this marker does not make that loader path
+ * accept cycles. Finite recursive $ref strings use its separate reference guard.
  */
 const render = (value: unknown, seen: Set<object>): string => {
   if (value === null || typeof value !== "object") return stringify(value);

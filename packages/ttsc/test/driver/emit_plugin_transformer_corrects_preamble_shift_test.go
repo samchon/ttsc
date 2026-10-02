@@ -36,6 +36,10 @@ func (preambleEmitPlugin) SourcePreamble(driver.PluginContext) (string, error) {
 //  2. Emit through EmitWithPluginTransformer with an identity transform.
 //  3. Decode the `.js.map` and assert every mapping segment names a source line
 //     in {0, 1} (not the shifted {4, 5}) and that both lines 0 and 1 are mapped.
+// @evidence contracts/testing.md#behavioral-verification Registers a real preamble plugin and emits through the actual identity-transform route, decoding source-map JSON/VLQ and requiring mappings to both authored zero/one lines and no shifted lines.
+// @evidence contracts/testing.md#independent-expectations Literal two authored lines and four injected lines independently establish permitted original mapping coordinates; test-local decoding does not call production map correction.
+// @evidence contracts/testing.md#distinguishing-cases Applied preamble presence plus nonempty mappings and both source-line controls prevent vacuous success from absent preamble or map output.
+// @evidence contracts/testing.md#execution-ownership The owning Go driver unit executes actual registered plugin/compiler/emitter APIs with test-scoped manifest, private Program cleanup and local writes, without building a transform host.
 func TestEmitWithPluginTransformerCorrectsPreambleShift(t *testing.T) {
   resetLinkedPluginRegistry()
   driver.RegisterPlugin(preambleEmitPlugin{})
