@@ -5,7 +5,6 @@ import path from "node:path";
 import { assertSharedHostCompatibility } from "../../../../../packages/ttsc/src/compiler/internal/sharedHost/assertSharedHostCompatibility";
 import { pluginLabel } from "../../../../../packages/ttsc/src/plugin/internal/load/pluginLabel";
 import { resolveNativeSource } from "../../../../../packages/ttsc/src/plugin/internal/load/resolveNativeSource";
-import type { ITtscPlugin } from "../../../../../packages/ttsc/src/structures/ITtscPlugin";
 import type { ITtscLoadedNativePlugin } from "../../../../../packages/ttsc/src/structures/internal/ITtscLoadedNativePlugin";
 
 /**
@@ -26,13 +25,12 @@ import type { ITtscLoadedNativePlugin } from "../../../../../packages/ttsc/src/s
  */
 export function test_native_source_classification_keeps_fake_labels_out_of_host_ownership(): void {
   const root = TestProject.physicalPath(TestProject.tmpdir("native-source-classification-"));
-  const input = (directory: string, module: string, source: string): string => {
-    const target = path.join(root, directory); fs.mkdirSync(target);
-    fs.writeFileSync(path.join(target, "go.mod"), `module ${module}\n\ngo 1.26\n`);
-    fs.writeFileSync(path.join(target, "main.go"), source); return target;
-  };
-  const mainA = input("fake-banner", "example.com/fakebanner", "package main\n\nfunc main() {}\n");
-  const mainB = input("fake-strip", "example.com/fakestrip", "package main\n\nfunc main() {}\n");
+  TestProject.copyDirectory(path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "native_source_classification_keeps_fake_labels_out_of_host_ownership", "inputs-1"), root);
+  for (const directory of ["fake-banner", "fake-strip", "linked", "no-package"])
+    fs.renameSync(path.join(root, directory, "main.go.txt"), path.join(root, directory, "main.go"));
+  fs.renameSync(path.join(root, "no-package", "only_test.go.txt"), path.join(root, "no-package", "only_test.go"));
+  const mainA = path.join(root, "fake-banner");
+  const mainB = path.join(root, "fake-strip");
   const classify = (source: string, name: string) => resolveNativeSource(source, { name, source }, { transform: "./plugins/" + name + ".cjs" }, 0);
   const a = classify(mainA, "@ttsc/banner"); const b = classify(mainB, "@ttsc/strip");
   assert.deepEqual(a, { kind: "executable", moduleRoot: mainA });
@@ -45,15 +43,14 @@ export function test_native_source_classification_keeps_fake_labels_out_of_host_
   assert.throws(() => assertSharedHostCompatibility([first, second], "source-to-source"), { message: "ttsc: multiple transform native backends cannot share one source-to-source pass; compose transform libraries through one aggregate native host" });
   assertSharedHostCompatibility([first, { ...second, binary: first.binary }], "emit");
   assertSharedHostCompatibility([], "emit"); assertSharedHostCompatibility([first], "source-to-source");
-  const library = input("linked", "example.com/linked", "package actual_library\n");
+  const library = path.join(root, "linked");
   const linked = classify(library, "arbitrary-label"); assert.deepEqual(linked, { kind: "linked", moduleRoot: library });
   const contributor = record(library, "arbitrary-label", linked);
   assertSharedHostCompatibility([contributor, first], "emit");
   assert.throws(() => assertSharedHostCompatibility([{ ...contributor, stage: "check" }, first], "emit"), /multiple compiler native backends/);
-  const invalid = input("no-package", "example.com/no_package", "// no production package declaration\n");
-  fs.writeFileSync(path.join(invalid, "only_test.go"), "package main\n");
+  const invalid = path.join(root, "no-package");
   assert.throws(() => classify(invalid, "missing-package"), { message: `ttsc: plugin "missing-package" source must contain at least one non-test ".go" file with a package declaration: ${invalid}` });
   assert.equal(pluginLabel({ name: "chosen", source: mainA }, { transform: "specifier" }, 7), "chosen");
   assert.equal(pluginLabel({ name: "", source: mainA }, { transform: "specifier" }, 7), "specifier");
-  assert.equal(pluginLabel({ name: "", source: mainA } as ITtscPlugin, { transform: "" }, 7), "#7");
+  assert.equal(pluginLabel({ name: "", source: mainA }, { transform: "" }, 7), "#7");
 }

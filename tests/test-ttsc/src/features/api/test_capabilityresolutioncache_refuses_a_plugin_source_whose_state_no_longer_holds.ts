@@ -23,10 +23,10 @@ import { pluginSourceState } from "../../../../../packages/ttsc/src/plugin/inter
  * 2. Edit the module's Go source and require the entry to be refused although the
  *    recorded binary still exists.
  * 3. Restore the original bytes and require the entry to hit again, then record
- *    an entry with a state no source can have and require it to be refused.
+ *    an entry with a state different from the observed one and require refusal.
  *
  * @evidence contracts/testing.md#behavioral-verification writeCapabilityResolution and readCapabilityResolution run over a real Go module directory and a real binary file: the unchanged source hits, an edited main.go makes the reader return null while the binary file remains, the restored bytes hit again, and an entry recording an all-zero source state returns null.
- * @evidence contracts/testing.md#independent-expectations The expected outcomes follow from the rule that a recorded source state must match the sources now: authored byte edits and an authored impossible state decide hit or miss, and the unchanged and restored controls prove each miss is attributable to the edit. The positive control's recorded state is read through pluginSourceState, so this test does not independently certify that digest's value.
+ * @evidence contracts/testing.md#independent-expectations Authored edits, restoration and a recorded all-zero state established as different from the observed state decide hit or miss under the cache contract. Positive controls use pluginSourceState to record the state, so this test verifies cache invalidation rather than independently certifying the digest value.
  * @evidence contracts/testing.md#distinguishing-cases The positive cases are the unchanged and restored sources; the negatives are an edited source with an existing binary and a state that never matched. The writer also records a source digest and metadata signature when the files are separable from its clock reference, so which of the full-read or metadata-accelerated proofs a given run takes is decided by the writer; the unchanged and restored controls and the edit must hold under either, and the accelerated branch alone is not pinned.
  * @evidence contracts/testing.md#execution-ownership A unit test calling the TypeScript capability reader, writer and source-state composer directly over files in a private temp directory with TTSC_CACHE_DIR pointing at it; it reads the Go build environment through the product reader but builds no plugin and starts no ttsc host.
  */
@@ -37,10 +37,9 @@ export function test_capabilityresolutioncache_refuses_a_plugin_source_whose_sta
   const binary = path.join(cwd, "plugin.exe");
   const tsconfig = path.join(cwd, "tsconfig.json");
   const manifest = path.join(cwd, "package.json");
-  const original = "package main\n\nfunc main() {}\n";
-  fs.mkdirSync(source);
-  fs.writeFileSync(path.join(source, "go.mod"), "module example.test/plugin\n\ngo 1.24\n");
-  fs.writeFileSync(path.join(source, "main.go"), original);
+  TestProject.copyDirectory(path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "capabilityresolutioncache_refuses_a_plugin_source_whose_state_no_longer_holds", "inputs-1"), source);
+  fs.renameSync(path.join(source, "main.go.txt"), path.join(source, "main.go"));
+  const original = fs.readFileSync(path.join(source, "main.go"), "utf8");
   fs.writeFileSync(tsconfig, JSON.stringify({ compilerOptions: {} }));
   fs.writeFileSync(manifest, JSON.stringify({ name: "fixture" }));
   fs.writeFileSync(binary, "binary");
@@ -62,7 +61,10 @@ export function test_capabilityresolutioncache_refuses_a_plugin_source_whose_sta
     });
   };
 
-  record(pluginSourceState(source));
+  const initialState = pluginSourceState(source);
+  const differentState = "0".repeat(64);
+  assert.notEqual(initialState, differentState);
+  record(initialState);
   assert.notEqual(
     readCapabilityResolution(key),
     null,
@@ -87,10 +89,10 @@ export function test_capabilityresolutioncache_refuses_a_plugin_source_whose_sta
     "the restored plugin source no longer matched its recorded state",
   );
 
-  record("0".repeat(64));
+  record(differentState);
   assert.equal(
     readCapabilityResolution(key),
     null,
-    "a state no source can have was believed",
+    "a state different from the observed source was believed",
   );
 }

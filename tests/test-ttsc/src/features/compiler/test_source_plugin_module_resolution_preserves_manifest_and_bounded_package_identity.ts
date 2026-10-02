@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { TestProject } from "../../../../utils/src/TestProject";
 
 import { resolvePluginGoModule } from "../../../../../packages/ttsc/src/plugin/internal/source/resolvePluginGoModule";
 
@@ -27,8 +28,9 @@ import { resolvePluginGoModule } from "../../../../../packages/ttsc/src/plugin/i
 export function test_source_plugin_module_resolution_preserves_manifest_and_bounded_package_identity(): void {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-module-resolution-"));
   try {
+    const fixtures = path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "source_plugin_module_resolution_preserves_manifest_and_bounded_package_identity");
     const manifest = path.join(root, "go.mod");
-    fs.writeFileSync(manifest, "module example.test/plugin\n\ngo 1.24\n");
+    TestProject.copyDirectory(path.join(fixtures, "inputs-1"), root);
     const third = path.join(root, "a", "b", "c");
     const fourth = path.join(third, "d");
     fs.mkdirSync(fourth, { recursive: true });
@@ -45,12 +47,13 @@ export function test_source_plugin_module_resolution_preserves_manifest_and_boun
       message: `ttsc: plugin "go-source-plugin-too-deep" source must be inside a Go module with go.mod within 3 parent directories: ${fourth}`,
     });
     const nested = path.join(root, "a");
-    fs.writeFileSync(path.join(nested, "go.mod"), "module example.test/nested\n");
+    TestProject.copyDirectory(path.join(fixtures, "inputs-2"), root);
     assert.deepEqual(resolvePluginGoModule(fourth, "nearest"), {
       entry: "./b/c/d", moduleRoot: nested, packageDir: fourth,
     });
     const sourceFile = path.join(root, "main.go");
-    fs.writeFileSync(sourceFile, "package main\n");
+    TestProject.copyDirectory(path.join(fixtures, "inputs-3"), root);
+    fs.renameSync(`${sourceFile}.txt`, sourceFile);
     assert.throws(() => resolvePluginGoModule(sourceFile, "file"), {
       message: `ttsc: plugin "file" source must be a Go package directory or go.mod file: ${sourceFile}`,
     });

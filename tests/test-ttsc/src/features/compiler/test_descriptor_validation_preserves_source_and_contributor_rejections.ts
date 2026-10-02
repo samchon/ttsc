@@ -36,14 +36,16 @@ export function test_descriptor_validation_preserves_source_and_contributor_reje
     assert.throws(() => rejectJsTransformFunctions("./plugins/invalid-js-transform.cjs", candidate), { message: 'ttsc: plugin "./plugins/invalid-js-transform.cjs" declares unsupported JS transform functions; declare a native backend instead' });
   }
   const root = TestProject.tmpdir("descriptor-validation-");
+  TestProject.copyDirectory(path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "descriptor_validation_preserves_source_and_contributor_rejections", "inputs-1"), root);
+  for (const parts of [["contrib_a", "a.go"], ["contrib_b", "b.go"], ["test-only", "only_test.go"]]) {
+    const file = path.join(root, ...parts);
+    fs.renameSync(`${file}.txt`, file);
+  }
   const absent = path.join(root, "no-such-dir");
   requirePluginSource(root, "valid");
   assert.throws(() => requirePluginSource(absent, "missing"), { message: `ttsc: plugin "missing" source does not exist: ${absent}\n  Plugin descriptors run without CommonJS globals: __dirname, __filename, and require are undefined when ttsc loads a descriptor through ttsx or as ESM. If this path was derived from one of them, use context.dirname / context.filename (the descriptor's own directory and file, populated in every load mode), or resolve it from context.projectRoot, e.g. createRequire(path.join(context.projectRoot, "package.json")).resolve("<your-package>/package.json").` });
   const sourceA = path.join(root, "contrib_a");
   const sourceB = path.join(root, "contrib_b");
-  fs.mkdirSync(sourceA); fs.mkdirSync(sourceB);
-  fs.writeFileSync(path.join(sourceA, "a.go"), "package dupe\n");
-  fs.writeFileSync(path.join(sourceB, "b.go"), "package dupe\n");
   const validate = (contributors: unknown) => validatePluginContributors(plugin({ name: "host", contributors }));
   assert.equal(validate(undefined), undefined);
   assert.equal(validate([]), undefined);
@@ -55,6 +57,6 @@ export function test_descriptor_validation_preserves_source_and_contributor_reje
   assert.throws(() => validate([{ name: "valid", source: "" }]), { message: 'ttsc: plugin "host" contributors[0].source must be a non-empty string' });
   assert.throws(() => validate([{ name: "valid", source: "relative" }]), { message: 'ttsc: plugin "host" contributors[0].source must be an absolute path; got "relative"' });
   assert.throws(() => validate([{ name: "valid", source: absent }]), { message: `ttsc: plugin "host" contributors[0].source must be an existing directory: ${absent}` });
-  const testOnly = path.join(root, "test-only"); fs.mkdirSync(testOnly); fs.writeFileSync(path.join(testOnly, "only_test.go"), "package valid\n");
+  const testOnly = path.join(root, "test-only");
   assert.throws(() => validate([{ name: "valid", source: testOnly }]), { message: `ttsc: plugin "host" contributors[0].source must contain at least one non-test ".go" file: ${testOnly}` });
 }
