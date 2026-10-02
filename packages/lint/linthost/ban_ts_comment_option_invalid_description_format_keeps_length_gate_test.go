@@ -11,11 +11,12 @@ import (
 // TestBanTsCommentOptionInvalidDescriptionFormatKeepsLengthGate verifies
 // an uncompilable `descriptionFormat` degrades to the length gate only.
 //
-// Upstream would throw while constructing the RegExp; this host cannot
-// fail the run from inside a rule, so the deliberate fallback keeps the
-// description requirement the object form implies and drops only the
-// unenforceable pattern. Silently allowing everything would erase the
-// user's clear intent to police descriptions.
+// Upstream constructs a RegExp for a nonempty format. This host explicitly
+// handles Go regexp compilation failure by keeping the description-length
+// requirement and leaving the format matcher absent. The short rejection
+// and long allowance distinguish that fallback from silently allowing every
+// directive or banning every use. This case does not exercise panic recovery
+// or the consumer config-loading boundary.
 //
 // 1. Configure `ts-expect-error: { descriptionFormat: "(" }`.
 // 2. Assert a bare directive still reports requires-description.
