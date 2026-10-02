@@ -35,9 +35,9 @@ import { formatDiagnostics } from "./formatDiagnostics";
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   The generation's fixed diagnostic envelope and mutable reporting fields
  *   skip formatting and writing for repeated requests in the recorded epoch.
- *   Undefined
- *   persistent epochs still admit the first attempt because the boolean is
- *   separate. Failed attempts retain suppression rather than claiming success.
+ *   Undefined persistent epochs still admit the first attempt because the
+ *   boolean is separate. Failed attempts retain suppression rather than
+ *   claiming success.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Two scalar reporting fields remain with the generation without per-request
  *   history. Formatted text is not cached here; stderr owns buffered bytes and
