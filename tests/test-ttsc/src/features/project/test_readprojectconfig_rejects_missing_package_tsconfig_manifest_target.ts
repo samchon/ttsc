@@ -54,6 +54,10 @@ export const test_readprojectconfig_rejects_missing_package_tsconfig_manifest_ta
         readProjectConfig({
           tsconfig: path.join(project, "tsconfig.json"),
         }),
-      /^ttsc: extended tsconfig not found: .*missing\.json$/,
+      (error: unknown) =>
+        error instanceof Error &&
+        /^ttsc: extended tsconfig not found: .*missing\.json$/.test(
+          error.message,
+        ),
     );
   };
