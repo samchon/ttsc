@@ -26,10 +26,12 @@ import type createBanner from "../../../../packages/banner/src/index";
  *    native order, the file digest, the directory marker digest and nulls.
  * 3. Re-anchor through `pluginConfigDir` and an absolute `configFile`, and
  *    assert the walk then starts at, or stops on, the named location.
+ * 4. Create a nearer config, change its bytes without changing their length,
+ *    and add a sibling candidate; assert each observation reflects that state.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls createBanner without configFile and asserts hostInputs, hostInputHashes and hostInputRealpaths for a two-level walk; the descriptor must stop at the first directory that holds a real config file and must treat the directory-shaped candidate as unread bytes with a marker digest.
+ * @evidence contracts/testing.md#behavioral-verification Calls createBanner without configFile and asserts hostInputs, hostInputHashes and hostInputRealpaths for a two-level walk; the descriptor must stop at the first directory that holds a real config file and must treat the directory-shaped candidate as unread bytes with a marker digest. Repeated calls after creating and editing a nearer config and adding a sibling must observe the new bytes and retain every sibling candidate.
  * @evidence contracts/testing.md#independent-expectations Digests are computed with node:crypto over literal bytes and the documented marker string, the candidate order is the authored seven-name list, and the physical target of the directory candidate is the junction target the test created, none of it read back from the factory.
- * @evidence contracts/testing.md#distinguishing-cases Positive observations (file digest, directory marker, junction target) contrast with absent candidates reporting null, the parent walk stops at the matching directory so the grandparent is absent from the inputs, an anchor override changes the starting directory and an absolute configFile yields exactly one observed path.
+ * @evidence contracts/testing.md#distinguishing-cases Positive observations (file digest, directory marker, junction target) contrast with absent candidates reporting null. An anchor override changes the starting directory and anchors a relative explicit path; an absolute configFile yields exactly one observed path. Creating a nearer config shortens discovery, an equal-length content edit changes its digest, and a sibling config remains observed for native ambiguity validation rather than being omitted.
  * @evidence contracts/testing.md#execution-ownership The matching src/features function runs the authored factory in the source-unit Node process over a temporary directory removed in finally; no config is evaluated, no native code is built and no product host starts.
  */
 export function test_banner_factory_observes_config_discovery_candidates(): void {
@@ -128,6 +130,56 @@ export function test_banner_factory_observes_config_discovery_candidates(): void
       [explicit]: sha256("grandparent"),
     });
     assert.deepEqual(absolute.hostInputRealpaths, { [explicit]: explicit });
+
+    const relative = factory({
+      ...context,
+      pluginConfigDir: project,
+      plugin: { ...entry, configFile: "./banner.config.json" },
+    });
+    const parentConfig = path.join(project, "banner.config.json");
+    assert.deepEqual(relative.hostInputs, [parentConfig]);
+    assert.deepEqual(relative.hostInputHashes, {
+      [parentConfig]: sha256('{"text":"parent"}'),
+    });
+    assert.deepEqual(relative.hostInputRealpaths, {
+      [parentConfig]: parentConfig,
+    });
+
+    const nearerConfig = path.join(nested, "banner.config.json");
+    fs.writeFileSync(nearerConfig, '{"text":"near-a"}');
+    const nearer = factory({ ...context, plugin: entry });
+    assert.deepEqual(
+      nearer.hostInputs,
+      names.map((name) => path.join(nested, name)),
+    );
+    assert.equal(
+      nearer.hostInputHashes?.[nearerConfig],
+      sha256('{"text":"near-a"}'),
+    );
+    assert.equal(nearer.hostInputRealpaths?.[nearerConfig], nearerConfig);
+    assert.equal(nearer.hostInputHashes?.[parentConfig], undefined);
+
+    fs.writeFileSync(nearerConfig, '{"text":"near-b"}');
+    const edited = factory({ ...context, plugin: entry });
+    assert.deepEqual(edited.hostInputs, nearer.hostInputs);
+    assert.equal(
+      edited.hostInputHashes?.[nearerConfig],
+      sha256('{"text":"near-b"}'),
+    );
+
+    const siblingConfig = path.join(nested, "banner.config.cjs");
+    fs.writeFileSync(siblingConfig, "module.exports = { text: 'sibling' };");
+    const siblings = factory({ ...context, plugin: entry });
+    assert.deepEqual(siblings.hostInputs, nearer.hostInputs);
+    assert.equal(
+      siblings.hostInputHashes?.[siblingConfig],
+      sha256("module.exports = { text: 'sibling' };"),
+    );
+    assert.equal(siblings.hostInputRealpaths?.[siblingConfig], siblingConfig);
+    assert.equal(
+      siblings.hostInputHashes?.[nearerConfig],
+      sha256('{"text":"near-b"}'),
+    );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
