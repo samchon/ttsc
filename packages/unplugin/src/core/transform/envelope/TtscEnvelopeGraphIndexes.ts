@@ -26,13 +26,20 @@ export interface TtscEnvelopeGraphIndexes {
   /** Identity of each direct-edge source -> its resolved absolute targets. */
   readonly edges: Map<string, string[]>;
 
-  /** Identity of each direct-edge source -> its absolute spelling. */
+  /**
+   * Native identity -> selected absolute spelling for sources, targets and
+   * universal/candidate members. Later edge-source declarations replace that
+   * identity's spelling; other categories retain an existing choice.
+   */
   readonly spellings: Map<string, string>;
 
   /** Importer-owned resolver-input entries, sources pre-identified. */
   readonly candidates: { source: string; files: string[] }[];
 
-  /** Resolved absolute `graph.globals` members, inputs of every source file. */
+  /**
+   * Resolved absolute `graph.globals` members in the ordinary language bound;
+   * an admitted complete plugin declaration can replace this contribution.
+   */
   readonly globals: string[];
 
   /** Resolved absolute `graph.configs` members: the tsconfig `extends` chain. */
