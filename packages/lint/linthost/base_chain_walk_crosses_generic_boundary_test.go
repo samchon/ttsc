@@ -8,31 +8,19 @@ import (
   shimchecker "github.com/microsoft/typescript-go/shim/checker"
 )
 
-// TestBaseChainWalkCrossesGenericBoundary is a shim-completeness probe, not a
-// lint test: it runs a real Checker over a ttsc-owned fixture and asserts the
-// EXPOSED type-walk surface can traverse a class base chain end-to-end —
-// including past a generic boundary. This is the mechanical, consumer-free net
-// for the recurring "missing shim" class (#246 and its siblings): a dead-end in
-// an exposed traversal shows up here as a red `pnpm test:go`, instead of as a
-// downstream consumer issue filed weeks later.
+// TestBaseChainWalkCrossesGenericBoundary exercises the exposed checker
+// traversal over an authored Base <- Mid<T> <- Sub inheritance graph.
 //
-// The closure auditor (packages/ttsc/tools/shim_audit) and the compile-time guards can only
-// see whether a symbol is NAMEABLE or whether a composition COMPILES — never
-// whether a traversal actually COMPLETES at runtime. `Checker_getBaseTypes`
-// nil-derefs on a generic `Reference` base (the `Mid<string>` in
-// `class Sub extends Mid<string>`), so a base-chain walk dead-ends at the
-// generic boundary and an ancestor's `#private` field is unreachable —
-// undetected until a consumer crashes. `Checker_getDeclaredTypeOfSymbol` (#246)
-// resolves the Reference's symbol back to a ClassOrInterface instance type that
-// IS safe to feed to `getBaseTypes`, so the walk continues.
+// The pinned compiler's base-type query expects an interface-type payload.
+// A generic reference needs its symbol resolved to the declared instance type
+// before continuing the walk. The guarded naive mode records Mid and stops;
+// the bridged mode must reach Base while excluding the disconnected Unrelated
+// class. This owns ancestry traversal, not private-field emit or consumer
+// crashes, and does not test whether repository symbols are merely nameable.
 //
-//  1. Compile a fixture: `Base{ #brand }` <- `Mid<T>` <- `Sub extends Mid<string>`.
-//  2. Walk `Sub`'s base chain through ONLY the exposed shim ops, two ways: the
-//     naive walk (ClassOrInterface bases only, the pre-#246 safe workaround) and
-//     the bridged walk (resolving a generic Reference base via
-//     getDeclaredTypeOfSymbol).
-//  3. Assert the naive walk dead-ends BEFORE `Base` (the gap is real) while the
-//     bridged walk reaches `Base` and does not over-reach to an unrelated class.
+// 1. Load the real fixture checker and acquire Sub's declared instance type.
+// 2. Walk exposed base/type-name operations without and with the symbol bridge.
+// 3. Assert the naive generic boundary, bridged Base and unrelated-class absence.
 //
 // @evidence contracts/testing.md#behavioral-verification The real standalone checker and exposed base/type-name/declared-type operations reach Base from Sub through Mid<string> only with the declared-type bridge; the naive boundary-limited traversal reaches Mid but not Base, and the bridged traversal excludes Unrelated.
 // @evidence contracts/testing.md#independent-expectations The authored inheritance graph Sub->Mid<T>->Base and disconnected Unrelated define expected membership independently of traversal results. The naive stop at the generic reference pins the premise for the bridge regression without using the successful traversal as its oracle.
@@ -52,7 +40,7 @@ func TestBaseChainWalkCrossesGenericBoundary(t *testing.T) {
 }
 `)
   // Base carries a #private field reachable only THROUGH the generic Mid<T>
-  // boundary — the exact shape classify must see to refuse an unsafe field-copy.
+  // boundary; this test asserts ancestry membership, not a field-copy decision.
   writeFile(t, filepath.Join(root, "src", "main.ts"), `class Base {
   #brand = 0;
   brand(): number {
@@ -103,8 +91,8 @@ void Unrelated;
   }
 
   // The bridged walk MUST reach Base. If this fails, the declared-type bridge
-  // is gone or broken — the #246 dead-end is back, and a consumer's base-chain
-  // walk silently misses an inherited #private ancestor.
+  // does not preserve traversal through this authored generic boundary; the
+  // observable failure is missing Base membership.
   if !bridged["Base"] {
     t.Fatal("Checker_getDeclaredTypeOfSymbol did not bridge the generic boundary: base-chain walk dead-ended at Mid<string> and never reached Base")
   }
@@ -135,7 +123,7 @@ func classSymbol(t *testing.T, prog *program, name string) *shimast.Symbol {
 // collectAncestorNames walks the base chain of start through the exposed shim
 // surface and returns the set of type names it reaches. getBaseTypes is only
 // safe on a ClassOrInterface type; a generic Reference base nil-derefs it, so
-// the boundary name is recorded but only crossed when bridge is set — by
+// the boundary name is recorded but only crossed when bridge is set by
 // resolving the Reference's symbol to its declared (instance) type via
 // Checker_getDeclaredTypeOfSymbol, which IS a ClassOrInterface and safe to keep
 // walking. bridge=false mirrors the pre-#246 workaround that dead-ends there.
