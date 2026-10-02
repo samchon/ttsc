@@ -412,54 +412,9 @@ func (getterReturn) Check(ctx *Context, node *shimast.Node) {
   if accessor == nil || accessor.Body == nil {
     return
   }
-  if !getterBodyAlwaysReturns(accessor.Body) {
+  if !statementCannotComplete(accessor.Body, true) {
     ctx.Report(node, "Getter must return a value.")
   }
-}
-
-// getterBodyAlwaysReturns walks a `get` accessor body and reports
-// whether every reachable exit point returns a value. This is a
-// shallow approximation — sufficient for the common case where the
-// getter's body is a sequence of statements ending in `return X`.
-func getterBodyAlwaysReturns(body *shimast.Node) bool {
-  if body == nil || body.Kind != shimast.KindBlock {
-    return false
-  }
-  statements := body.Statements()
-  if len(statements) == 0 {
-    return false
-  }
-  last := statements[len(statements)-1]
-  return statementReturnsValue(last)
-}
-
-// statementReturnsValue checks if a statement is a value-returning
-// `return X;`, a `throw`, a block that ends in one of those, or a
-// conditional whose every branch returns a value.
-func statementReturnsValue(stmt *shimast.Node) bool {
-  if stmt == nil {
-    return false
-  }
-  switch stmt.Kind {
-  case shimast.KindReturnStatement:
-    ret := stmt.AsReturnStatement()
-    return ret != nil && ret.Expression != nil
-  case shimast.KindThrowStatement:
-    return true
-  case shimast.KindBlock:
-    stmts := stmt.Statements()
-    if len(stmts) == 0 {
-      return false
-    }
-    return statementReturnsValue(stmts[len(stmts)-1])
-  case shimast.KindIfStatement:
-    ifStmt := stmt.AsIfStatement()
-    if ifStmt == nil || ifStmt.ThenStatement == nil || ifStmt.ElseStatement == nil {
-      return false
-    }
-    return statementReturnsValue(ifStmt.ThenStatement) && statementReturnsValue(ifStmt.ElseStatement)
-  }
-  return false
 }
 
 // noNewSymbol reports `new Symbol(...)`. `Symbol` is a function but not
