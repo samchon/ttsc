@@ -10,10 +10,10 @@ import (
 // TestBanTsCommentDefaultReportsIndentedIgnoreWithPosition verifies a
 // mid-file, indented `@ts-ignore` reports at the comment's own offset.
 //
-// Upstream's unreachable-code case pins line 3 column 3: the finding must
-// anchor on the comment token, not the enclosing statement or the file
-// start. A range derived from the wrong node would break editor
-// diagnostics and `// expect:` line pinning alike.
+// The authored comment is on line 2 after two indentation spaces. The finding
+// must span that exact comment substring instead of the enclosing statement,
+// preceding indentation or file start. The column-zero sibling owns the
+// complete upgrade message and suggestion assertions.
 //
 // 1. Lint `// @ts-ignore: Unreachable code error` nested in an if block.
 // 2. Assert one finding whose range equals the comment's byte range.
