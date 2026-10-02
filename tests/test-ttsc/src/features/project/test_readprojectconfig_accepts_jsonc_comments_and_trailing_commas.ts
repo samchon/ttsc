@@ -12,7 +12,7 @@ import {
  * Verifies readProjectConfig accepts JSONC comments and trailing commas.
  *
  * TypeScript's own `tsconfig.json` parser accepts JSONC (JSON with Comments and
- * trailing commas). `readProjectConfig` uses the same JSONC parser so that
+ * trailing commas). `readProjectConfig` reads these supported JSONC forms so that
  * plugin configuration embedded in tsconfig follows the same relaxed syntax
  * users already rely on for their compiler options.
  *
