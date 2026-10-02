@@ -24,7 +24,7 @@ import type { LinuxWatchHelper } from "./LinuxWatchHelper";
  *   than shell syntax, native separators or filesystem case assumptions.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Serialization is call-local; submitted bytes transfer to the helper stdin queue, whose lifetime belongs to the process/stream owner. Request acknowledgment and cancellation belong to the caller, and this adapter retains no descriptor or history.
  * @evidence contracts/performance.md#efficient-algorithms One JSON serialization and newline framing process the request's supplied path text and escaped output; stream encoding and submission follow serialized byte length. Temporary storage follows serialized/framed text. A queued backpressured write is not retried or reserialized here.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A request is an effect; its answer is awaited by the caller.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each write is a distinct protocol effect. Opening and sync owners await their replies; removal has no acknowledgment. No returned computation is cached or shared here.
  */
 export function sendLinuxWatchHelper(
   helper: LinuxWatchHelper,
