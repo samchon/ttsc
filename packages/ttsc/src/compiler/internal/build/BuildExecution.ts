@@ -252,8 +252,10 @@ export namespace BuildExecution {
    * not report them); transform-stage hosts then emit through one shared host.
    * Without plugins, TypeScript-Go runs directly.
    *
-   * Format mode only performs configured formatting and never adds an unrelated
-   * type-check or transform pass. Launch and compatibility errors may throw.
+   * The supported format lane supplies emit:false and returns after configured
+   * checks without a later type-check or transform pass; conflicting internal
+   * emit/format selections are not validated here. Launch and compatibility
+   * errors may throw.
    * Required emit provenance keeps the selected producer: an opted-in native
    * host reports its captured generation, while the direct compiler adapter
    * admits only a stable observed selection and supported output layout.
@@ -264,9 +266,9 @@ export namespace BuildExecution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Format bypass follows its write-only contract; capability-based diagnostics/provenance and failure fallback preserve supported producer semantics without plugin-name shortcuts, foreign mutation or filename-based ownership guesses.
    * @evidence contracts/common.md#meaningful-documentation Native prose states ordering, format effects and thrown boundary failures; branch comments explain nonobvious emission and display policies.
    * @evidence contracts/portability.md#os-neutral-implementation Commands preserve native executable/argv/cwd boundaries; provenance uses a canonical unique temporary directory and absolute native wire paths without post-compile realpath reconstruction or OS-derived case folding.
-   * @evidence contracts/performance.md#efficient-algorithms Plugin selection scans the configured population; required external proof adds read-only compiler probes and linear source/executable-byte observations, while phase output accumulation may recopy earlier report bytes.
+   * @evidence contracts/performance.md#efficient-algorithms Plugin/stage selection scans the configured population; each command includes argv/env publication and native runtime probes under its helpers. Required proof adds artifact or external inspection/JSON/source-executable observation work, plus association/path processing. Accumulating phase reports can recopy earlier bytes; there is no supplied bound on total reports, proof bytes or child duration.
    * @evidence contracts/performance.md#reuse-equivalent-work A check host declaring TypeScript diagnostics avoids an equivalent extra successful check, while compatible transform plugins share one host; effectful configured checks still execute in order.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Command/proof bytes grow with reports and output-source associations, but remain build-local; native proof owns one private file/directory released with directory-identity checks in finally on success, nonzero or throw. Replaced directories stay untouched and cleanup failure preserves the primary outcome; no history or resident sidecar is retained.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Phase results and command/proof records stay build-local and returned data transfer to the caller, with uncapped report/association bytes. Native proof setup observes ownership before finally, so setup failure can leave allocation unclaimed; accepted artifacts reach identity-checked cleanup attempts. Replaced parents remain untouched. Cleanup aggregates an earlier throw or nonzero result; other cleanup errors propagate without certifying release. Delegated capture/descendant release remains with its owner; no resident history is retained here.
    */
   export function runPreparedBuild(
     options: RunBuildOptions,
@@ -1067,18 +1069,21 @@ export namespace BuildExecution {
    * caller's context (e.g. `"ttsc.check"` or `"ttsc.build"`) is preserved.
    *
    * Nonzero exits are results; launch failures throw. Timing records the
-   * completed native invocation before launch failure is reported.
+   * returned spawn result before its launch error is reported. Environment,
+   * capture/read or other thrown failures can occur before timing is recorded;
+   * the elapsed interval also includes environment preparation, not only
+   * execution of the selected plugin.
    *
    * @evidence contracts/common.md#principled-implementation The selected plugin receives the composed invocation context, and actual exit status/output become a normalized result while native launch errors remain thrown failures.
    * @evidence contracts/common.md#clear-and-simple-design One command boundary owns environment publication, timing and output normalization for native build and check phases.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Execution uses the loaded binary and supported protocol rather than patching its implementation or manufacturing success on launch failure.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes result failures, thrown launch failures and error/timing label attribution.
    * @evidence contracts/portability.md#os-neutral-implementation spawnNative receives executable and argv separately with native project cwd; platform-aware environment helpers publish compiler/context payloads without shell interpolation.
-   * @evidence contracts/performance.md#efficient-algorithms One synchronous native invocation and one normalization pass are performed, with captured-output storage proportional to produced bytes.
+   * @evidence contracts/performance.md#efficient-algorithms The interval includes environment key scans, linked payload serialization and delegated runtime capability probes before plugin launch. Argv/native work, complete capture/decode, timing label formatting and diagnostic normalization follow their actual text/record sizes; one wrapper call does not bound native duration or output bytes.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A requested effectful plugin command cannot be reused merely because argv matches; scheduling and shared-host compatibility belong to orchestration.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The synchronous child completes before return; timing/result data transfer to the build owner without retaining a process.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Timing lines stay in the build-owned ledger and returned diagnostic/output records transfer to the caller. No timeout or output ceiling is supplied here; delegated capture cleanup is best effort and does not certify native descendant release. This wrapper stores no child handle or historical result.
    */
   export function runNativePluginCommand(
     plugin: ITtscLoadedNativePlugin,
