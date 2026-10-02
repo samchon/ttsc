@@ -11,6 +11,7 @@ import "testing"
  *  1. Leave one public method undocumented on an exported class.
  *  2. Run the rule.
  *  3. Assert the method is reported under its qualified name.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over a documented `export class Service` with an undocumented `public run()` method; assertReported requires exactly one diagnostic, `Missing JSDoc on exported function 'Service.prototype.run'`.
  * @evidence contracts/testing.md#independent-expectations The expected name is authored from the addressing contract: a public method is a function unit and claim host, so it must be demanded under its qualified instance address.
  * @evidence contracts/testing.md#distinguishing-cases One public method on a documented class; the field half is owned by the sibling fields entry.

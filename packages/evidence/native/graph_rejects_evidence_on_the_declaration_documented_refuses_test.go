@@ -14,6 +14,7 @@ import "testing"
  *  1. Cite the same section from a class and from an enum in the same file.
  *  2. Run the graph with the same claim.
  *  3. Assert the out-of-scope host diagnostic for the enum.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a type claim over src/Sale.ts, which cites `docs/spec.md#contract` on `export class Sale` and on `export enum Status`; assertProblemContains requires a diagnostic containing `unsupported or non-exported declaration`.
  * @evidence contracts/testing.md#independent-expectations The expected message is authored from the host contract: an enum materializes no unit, so it is the declaration both the documented rule asks nothing of and the graph refuses a tag on; a change that made an enums a unit would break this case and the two rules should then be revisited together.
  * @evidence contracts/testing.md#distinguishing-cases A class (a valid host) and an enum (refused) citing the same section in one file; only containment of the refusal wording is asserted, so which declaration it names is not pinned.

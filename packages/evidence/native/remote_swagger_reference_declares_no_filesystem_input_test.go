@@ -16,6 +16,7 @@ import (
  *  1. Configure one URL Swagger reference beside a Markdown reference.
  *  2. Publish the rule's project inputs.
  *  3. Assert the Markdown glob survives and no file input is declared.
+ *
  * @evidence contracts/testing.md#behavioral-verification graphRule.ProjectInputs, called through declaredInputs with one claim holding an https Swagger reference and a Markdown reference, must declare zero file inputs and exactly one glob, the Markdown reference's docs pattern for .md files.
  * @evidence contracts/testing.md#independent-expectations The configuration and the expected sets (no file input, one literal glob) are authored; that a remote URL is not a watchable filesystem input follows from the project-input contract. The host's rejection behavior is not executed, only the declared inputs are inspected.
  * @evidence contracts/testing.md#distinguishing-cases The remote Swagger reference is the negative case and the local Markdown reference the positive one in the same configuration; assertDeclares compares exact set sizes. A local Swagger file path, which does declare a file input, is not exercised here.

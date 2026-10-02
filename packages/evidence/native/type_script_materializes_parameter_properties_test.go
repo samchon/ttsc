@@ -26,6 +26,7 @@ import (
  *     protected constructor parameters beside a body field.
  *  2. Collect the inventory.
  *  3. Assert only the public parameter properties join the body field.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert only the public parameter properties join the body field.
  * @evidence contracts/testing.md#independent-expectations `constructor(public readonly price: number)` declares the same public instance field as `readonly price: number` in the class body, so the two syntaxes must materialize the same unit. The ordinary parameter beside it is the negative twin that keeps the modifier check falsifiable: without it, a collector that had started selecting every constructor parameter would look identical here. The authored scenario requires this outcome: Assert only the public parameter properties join the body field.
  * @evidence contracts/testing.md#distinguishing-cases Declare public, readonly, override, modifier-less, private, and protected constructor parameters beside a body field. Collect the inventory. Assert only the public parameter properties join the body field.

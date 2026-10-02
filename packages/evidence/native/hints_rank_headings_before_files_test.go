@@ -15,6 +15,7 @@ import (
  *  1. Select both the file and its headings.
  *  2. Take the published corpus.
  *  3. Assert the heading precedes the file target.
+ *
  * @evidence contracts/testing.md#behavioral-verification runGraphHints and targetHintsAt expose citation insertion order; both the heading and document must exist and the heading index must precede the file index.
  * @evidence contracts/testing.md#independent-expectations The completion contract ranks hard-to-reproduce anchors before visible file paths. Literal fixture targets identify the two entries independently of their computed indexes.
  * @evidence contracts/testing.md#distinguishing-cases A selected file with one selected heading distinguishes reversed ranking from correct order; requiring both entries rejects a corpus that silently drops either.

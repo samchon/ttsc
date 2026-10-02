@@ -15,6 +15,7 @@ import (
  *  1. Mix backslash and slash patterns.
  *  2. Exclude a subtree and re-include one file.
  *  3. Assert separators normalize, order applies, and case does not.
+ *
  * @evidence contracts/testing.md#behavioral-verification newGlobSet is compiled for `docs\**\*.md`, `!docs/private/**` and `docs/private/public.md`; matches must be true for `docs/spec.md`, `docs\nested\spec.md` and `docs/private/public.md`, false for `docs/private/secret.md`, and false for `Docs/spec.md`.
  * @evidence contracts/testing.md#independent-expectations The expected results are authored from the portability contract: backslash separators are normalized in patterns and paths, a later positive pattern re-includes a file excluded by an earlier negation, and matching stays case-sensitive.
  * @evidence contracts/testing.md#distinguishing-cases One mixed-separator set covering normalization, ordered exclusion with re-inclusion and a differently cased path in the same set; matching a path under a case-insensitive rule would flip the last assertion.

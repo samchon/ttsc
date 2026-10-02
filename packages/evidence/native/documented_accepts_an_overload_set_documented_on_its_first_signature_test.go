@@ -11,6 +11,7 @@ import "testing"
  *  1. Document only the first of two signatures plus an implementation.
  *  2. Run the rule.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over `format` written as two overload signatures and an implementation, with a block only above the first signature; assertSilent requires no diagnostics.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the documented-rule contract: the overload signatures are one identity and the convention is a block above the first, with nothing asked of the rest.
  * @evidence contracts/testing.md#distinguishing-cases A block on the first signature only; the all-signatures-documented case is a sibling accept entry and the later-only and undocumented rejections are owned by sibling report entries.

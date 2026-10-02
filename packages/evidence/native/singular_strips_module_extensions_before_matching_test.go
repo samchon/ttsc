@@ -14,6 +14,7 @@ import (
  *  1. Declare one identity in an `.mts` and a `.cts` file of the same name.
  *  2. Run the rule.
  *  3. Assert both are silent.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert both are silent.
  * @evidence contracts/testing.md#independent-expectations `.mts` and `.cts` are ordinary source files to this rule, and a comparison that stripped only `.ts` would leave `handler.mts` comparing as `handler.mts`, reporting a correctly named file. The authored scenario requires this outcome: Assert both are silent.
  * @evidence contracts/testing.md#distinguishing-cases Declare one identity in an `.mts` and a `.cts` file of the same name. Run the rule. Assert both are silent.

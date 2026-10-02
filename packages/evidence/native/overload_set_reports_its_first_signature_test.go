@@ -15,6 +15,7 @@ import (
  *  1. Declare two overload signatures and their implementation.
  *  2. Materialize the inventory.
  *  3. Assert the unit's line is the first signature.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the unit's line is the first signature.
  * @evidence contracts/testing.md#independent-expectations Overload signatures are several declarations of one identity down a different collector branch than declaration merging, so the ordering rule has to hold there too or a callable's diagnostics point at whichever signature happens to be last. The authored scenario requires this outcome: Assert the unit's line is the first signature.
  * @evidence contracts/testing.md#distinguishing-cases Declare two overload signatures and their implementation. Materialize the inventory. Assert the unit's line is the first signature.

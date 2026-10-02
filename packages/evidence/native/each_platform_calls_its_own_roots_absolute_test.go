@@ -24,6 +24,7 @@ import (
  *  2. Read what the resolution then did with each.
  *  3. Assert the answers are the platform's, and that the message clause about
  *     resolving against the project root follows them.
+ *
  * @evidence contracts/testing.md#behavioral-verification For six declared root spellings (`contracts`, `../contracts`, `/srv/contracts`, `C:/contracts`, `D:/` and `//server/share`) the test calls declaredRootIsAbsolute and compares it with a per-platform expected value, then checks that resolvePopulationBase joined the project root exactly when the root is relative, and that describeBaseDirectoryProblem contains `it resolves against the ttsc project root` exactly when it is relative.
  * @evidence contracts/testing.md#independent-expectations The expected answers are an authored per-platform table (a volume-less rooted path is absolute on POSIX and relative on Windows, a drive-letter path the reverse, UNC absolute on both), chosen with runtime.GOOS so each platform asserts its own contract rather than the predicate under test; the join check recomputes the join with filepath.Join as an independent check on the resolver.
  * @evidence contracts/testing.md#distinguishing-cases Relative, parent-relative, rooted-without-volume, drive-letter, drive-root and UNC spellings: the two platform-dependent forms invert between POSIX and Windows, so a predicate written from the spelling alone fails one platform. The loop iterates the map directly rather than as named subtests.

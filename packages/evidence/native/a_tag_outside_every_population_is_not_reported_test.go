@@ -19,6 +19,7 @@ import (
  *  1. Write the same unreadable tag inside and outside the claim's glob.
  *  2. Evaluate the claim.
  *  3. Assert only the governed one is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule returns no problems for stray tags in each unselected path, then reports exactly the unreadable citation at line 4 when that text is placed inside src/contracts.ts.
  * @evidence contracts/testing.md#independent-expectations Governance follows configured source globs, not every file under the root. The explicit src/** selector and authored outside paths independently determine which comment belongs to the claim.
  * @evidence contracts/testing.md#distinguishing-cases tools/scratch.ts, node_modules/vendor/index.ts and unrelated/legacy.ts are separate negative subcases; the governed source positive control prevents indiscriminate suppression.

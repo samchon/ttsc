@@ -14,6 +14,7 @@ import "testing"
  *  1. Put a reasonless declaration one line after an HTML comment opens.
  *  2. Trigger the malformed-declaration diagnostic.
  *  3. Assert its location identifies the actual tag line.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies multiline Markdown declarations report the tag's line rather than the opening HTML comment's line. The original assertions check assert its location identifies the actual tag line.
  * @evidence contracts/testing.md#independent-expectations Declaration locations are part of the repair path. Trimming the comment body before parsing erases its leading newline and points the diagnostic at `<!--`, which is especially misleading when several declarations share one comment. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
  * @evidence contracts/testing.md#distinguishing-cases Put a reasonless declaration one line after an HTML comment opens. Trigger the malformed-declaration diagnostic. Assert its location identifies the actual tag line. The assertions and inputs in this function retain its own failure identity.

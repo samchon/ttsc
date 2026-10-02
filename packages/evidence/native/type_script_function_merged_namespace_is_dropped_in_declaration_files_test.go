@@ -20,6 +20,7 @@ import (
  *  2. Collect the inventory.
  *  3. Assert the accessor and its namespace identity survive and nothing else
  *     does.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the accessor and its namespace identity survive and nothing else does.
  * @evidence contracts/testing.md#independent-expectations A published SDK ships its accessors as `.d.ts`, where nothing carries an export modifier of the kind a source file uses and namespace members are implicitly public instead. That is a different path to the same population, so it needs its own case, a correction that held only for `.ts` would leave every consumer selecting an installed package exactly where they started. The authored scenario requires this outcome: Assert the accessor and its namespace identity survive and nothing else does.
  * @evidence contracts/testing.md#distinguishing-cases Declare the accessor ambiently with `declare function` and `declare namespace`. Collect the inventory. Assert the accessor and its namespace identity survive and nothing else does.

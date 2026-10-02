@@ -18,6 +18,7 @@ import (
  *  1. Comment out a documented declaration whose block carries a citation.
  *  2. Evaluate the same claim.
  *  3. Assert the tag is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runUnreadableRule reports exactly the citation stranded at source line 6 in a commented-out declaration.
  * @evidence contracts/testing.md#independent-expectations Retiring code removes its documentation host without erasing the remaining comment tokens. The authored retired tag line must still be diagnosed while the live pricing citation remains valid.
  * @evidence contracts/testing.md#distinguishing-cases A block-shaped declaration is entirely line-commented, including its tag. The exact assertion distinguishes reporting the stranded citation from silencing comments that contain block-like text.

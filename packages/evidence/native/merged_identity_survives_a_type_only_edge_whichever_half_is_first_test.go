@@ -18,6 +18,7 @@ import (
  *  1. Write the merge in both orders behind a type-only re-export.
  *  2. Read each population.
  *  3. Assert both keep the member.
+ *
  * @evidence contracts/testing.md#behavioral-verification assertReexportedFrom exercises the authored fixture. Assert both keep the member.
  * @evidence contracts/testing.md#independent-expectations One unit can be written by two collectors: `interface Order { member }` beside `namespace Order { export const member }` is one `property` unit spelled by the member collector and by the variable one. Recording which space it is reached through by assignment made the last writer win, so the answer followed declaration order, and the suppression it feeds is silent in both directions. Type-space wins instead, because the interface half really is reachable without a value. The authored scenario requires this outcome: Assert both keep the member.
  * @evidence contracts/testing.md#distinguishing-cases Write the merge in both orders behind a type-only re-export. Read each population. Assert both keep the member.

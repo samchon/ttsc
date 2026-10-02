@@ -14,6 +14,7 @@ import (
  *  1. Configure the rule with an unsupported artifact type.
  *  2. Run it.
  *  3. Assert it reports and publishes no corpus.
+ *
  * @evidence contracts/testing.md#behavioral-verification runGraphHints receives an unsupported artifact type, must return at least one diagnostic and no hints.
  * @evidence contracts/testing.md#independent-expectations Unsupported artifact types cannot produce a valid graph state, and the modeled passing gate must withhold a corpus. The test asserts failure existence rather than the exact decoding diagnostic.
  * @evidence contracts/testing.md#distinguishing-cases The nonsense artifact type owns the invalid configuration branch; passing graph publication is the complementary TestHintsFollowThePassingGate case.

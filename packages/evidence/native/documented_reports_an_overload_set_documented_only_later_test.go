@@ -11,6 +11,7 @@ import "testing"
  *  1. Leave the first signature bare and document the second.
  *  2. Run the rule.
  *  3. Assert the callable is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over `format` written as a bare first overload signature, a documented second signature and an implementation; assertReported requires exactly one diagnostic, `Missing JSDoc on exported function 'format'`.
  * @evidence contracts/testing.md#independent-expectations The expected report is authored from the founding-declaration contract: the first signature is the basis of an overload set, so a block on a later signature must not satisfy it.
  * @evidence contracts/testing.md#distinguishing-cases The rejecting counterpart of the first-signature-documented accept entry: only the position of the one block differs, and exactly one report is required for the whole set.

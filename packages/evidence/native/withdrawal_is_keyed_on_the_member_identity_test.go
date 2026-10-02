@@ -18,6 +18,7 @@ import (
  *  1. Withdraw a static member beside an instance member of the same name.
  *  2. Collect the inventory.
  *  3. Assert only the static identity carries the tag.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert only the static identity carries the tag.
  * @evidence contracts/testing.md#independent-expectations Withdrawal follows the unit identity, and an instance member and a static member of one name are two identities with two addresses. Resolving it by the bare name would let `@internal` on one silently withdraw the other, which is a public declaration leaving the population with nothing said about it. The authored scenario requires this outcome: Assert only the static identity carries the tag.
  * @evidence contracts/testing.md#distinguishing-cases Withdraw a static member beside an instance member of the same name. Collect the inventory. Assert only the static identity carries the tag.

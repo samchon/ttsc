@@ -20,6 +20,7 @@ import (
  *  1. Cite a section from the second declarator of a two-declarator statement.
  *  2. Evaluate a `singleEvidencePerSymbol` reference over it.
  *  3. Assert only the untagged sibling is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a property claim over src/** and a Markdown reference with `singleEvidencePerSymbol`, where `export const alpha = 1, /** @evidence docs/spec.md#pricing ... *\/ beta = 2;` cites on the second declarator only; assertReported requires exactly one diagnostic, containing `'alpha' at src/contracts.ts:2`.
  * @evidence contracts/testing.md#independent-expectations The expected single report is authored from the host contract: a citation on an inner declarator belongs to that declarator's own unit, so `beta` counts as citing one unit and only the untagged `alpha` is reported as citing none.
  * @evidence contracts/testing.md#distinguishing-cases The untagged sibling is the control: if the policy had stopped counting hosts, neither would be reported, and if the citation resolved to no host both would be, so the exactly-one result names `alpha` alone at its own line 2.

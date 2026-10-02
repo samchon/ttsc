@@ -14,6 +14,7 @@ import (
  *  1. Default-export an anonymous arrow function.
  *  2. Run the rule.
  *  3. Assert the anonymous-default message.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert the anonymous-default message.
  * @evidence contracts/testing.md#independent-expectations An anonymous default exposes something no file name can match and no consumer can address by name, so it needs its own message rather than a mismatch complaint naming an empty identity. The authored scenario requires this outcome: Assert the anonymous-default message.
  * @evidence contracts/testing.md#distinguishing-cases Default-export an anonymous arrow function. Run the rule. Assert the anonymous-default message.

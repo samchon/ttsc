@@ -19,6 +19,7 @@ import (
  *  1. Write a citation in a line comment directly above a documentation block.
  *  2. Evaluate the same claim.
  *  3. Assert the tag is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runUnreadableRule reports exactly the unreadable citation at source line 4 even when a documentation block follows that line comment.
  * @evidence contracts/testing.md#independent-expectations A following JSDoc block cannot absorb an earlier // comment into a readable documentation span. The authored comment line and exact one-finding assertion define the expected result.
  * @evidence contracts/testing.md#distinguishing-cases A valid pricing citation on limit is followed by an unreadable line comment and a separate JSDoc block on other. This pins the documented-declaration boundary absent from the bare line-comment case.

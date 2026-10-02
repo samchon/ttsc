@@ -20,6 +20,7 @@ import (
  *  1. Take the fingerprint the graph asks for, for each cited declarator.
  *  2. Add a documentation block on the inner one.
  *  3. Assert the graph stays clean.
+ *
  * @evidence contracts/testing.md#behavioral-verification everyExpectedFingerprint runs the graph rule over a two-declarator spec file (`alpha = 1, beta = 2`) with both declarators cited and unreviewed and collects the fingerprints it asks for; the test then writes those fingerprints as reviews, adds a documentation block on `beta`, and runIndexRule must report no diagnostic.
  * @evidence contracts/testing.md#independent-expectations The fingerprints come from the graph's own message for the undocumented spec, so the test does not know the hash algorithm: it establishes only that adding a block on the cited declarator does not invalidate a review recorded before it; a wrong or missing fingerprint would fail the clean assertion rather than pass vacuously.
  * @evidence contracts/testing.md#distinguishing-cases Both declarators of one statement are cited and reviewed, so the single clean outcome covers alpha and beta together; the block is added on the inner declarator only. Content edits that must expire a review are owned by sibling digest entries.

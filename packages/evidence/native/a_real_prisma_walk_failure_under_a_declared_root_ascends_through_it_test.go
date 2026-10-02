@@ -18,6 +18,7 @@ import (
  *  1. Root a Prisma population above the project.
  *  2. Make a directory inside it unreadable and collect the addresses.
  *  3. Assert the failure is spelled through the declared root.
+ *
  * @evidence contracts/testing.md#behavioral-verification The test makes schema/models/private (a sibling of the project directory) unreadable, skipping where permissions cannot be dropped, decodes a Prisma reference with root `../schema` and files models/**\/*.prisma, and calls configuredPrismaAddressesWithHealth; it requires a problem containing `could not inspect '../schema/models/private':` and exactly one failed base.
  * @evidence contracts/testing.md#independent-expectations The expected spelling is the authored root-relative path that a reader can open from the project directory; the failed-base count follows from the one declared population.
  * @evidence contracts/testing.md#distinguishing-cases The base ascends out of the project, which is the case where a project-relative composition would print the wrong path; the non-ascending Prisma case is owned by the sibling project-relative entry.

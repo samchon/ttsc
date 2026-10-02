@@ -12,6 +12,7 @@ import "testing"
  *  1. Import a callable under an alias and cite the alias.
  *  2. Evaluate the graph.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the import-scope configuration over a view that imports `{ get as fetchQuestion }` from a module declaring `get` and cites `{@link fetchQuestion}`; assertNoProblems requires an empty list.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the resolution contract: the citation uses the local alias while the unit lives under the exporting module's name `get`, so the alias must be resolved back to `get` rather than reported as unreachable.
  * @evidence contracts/testing.md#distinguishing-cases A named import with an alias; the plain named and namespace import forms are owned by sibling entries.

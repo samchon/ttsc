@@ -17,6 +17,7 @@ import (
  *  1. Publish one tagged and one untagged callable through an entry.
  *  2. Cite neither.
  *  3. Assert only the untagged one is reported as missing.
+ *
  * @evidence contracts/testing.md#behavioral-verification For each of `@internal`, `@hidden` and `@ignore` a t.Run subtest runs the graph rule with a function claim over test/** and a function reference over src/index.ts, where `reset` carries the tag and `check` does not and nothing is cited; the diagnostics must contain `Missing acknowledgement for 'check'` and exactly one `Missing acknowledgement`.
  * @evidence contracts/testing.md#independent-expectations The expected single report is authored from the withdrawal contract: a declaration the source already marks as not API must not be in the reference population, so only the untagged `check` is owed.
  * @evidence contracts/testing.md#distinguishing-cases Three withdrawal tag spellings are separate subtests; the untagged sibling keeps the claim active and owed, so the case cannot pass by selecting nothing, and the count of one fails if `reset` is also owed.

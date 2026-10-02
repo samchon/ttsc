@@ -15,6 +15,7 @@ import "testing"
  *  1. Export an undocumented class with no members, and an undocumented enum.
  *  2. Run the rule with the default selection.
  *  3. Assert the class alone is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over an undocumented `export class Service {}` and an undocumented `export enum Mode`; assertReported requires exactly one diagnostic, `Missing JSDoc on exported type 'Service'`.
  * @evidence contracts/testing.md#independent-expectations The expected report is authored from the population contract: a class is a type unit the graph can select as a claim host and an enum is not, so only the class may be demanded.
  * @evidence contracts/testing.md#distinguishing-cases The class (reported) beside the enum (ignored) separates a rule that selects the claim-host population from one that demands a block on every declaration.

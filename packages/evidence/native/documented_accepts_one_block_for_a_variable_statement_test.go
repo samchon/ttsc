@@ -13,6 +13,7 @@ import "testing"
  *  1. Document one statement declaring two exported bindings.
  *  2. Run the rule.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over one documented `export const maximumItems = 10, maximumCoupons = 2;` statement; assertSilent requires no diagnostics.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the documented-rule contract: TypeScript attaches a variable's leading JSDoc to the statement, so one block documents every binding the statement declares and neither declarator may be reported.
  * @evidence contracts/testing.md#distinguishing-cases Two bindings in one statement under one block, the shape in which a rule that inspected declarations directly would report the documented statement; the undocumented-statement report case is owned by a sibling entry.

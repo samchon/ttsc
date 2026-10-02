@@ -14,6 +14,7 @@ import (
  *  1. Match one Markdown file containing the selected H2 host.
  *  2. Materialize one unacknowledged Markdown heading.
  *  3. Assert the selected heading activates missing-acknowledgement coverage.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a Markdown claim over docs/claim.md (one `## Contract` heading) and a Markdown reference over docs/reference.md (one `## Requirement` heading); assertProblemContains requires `Missing acknowledgement`.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the activation contract: a claim is active once its own population holds a selected host, so one H2 in the claim file makes the reference obligation owed and unmet.
  * @evidence contracts/testing.md#distinguishing-cases The active counterpart of the inactive cases owned by sibling activation entries: file matching alone is insufficient, and here a selected H2 host is present. Only the presence of the diagnostic is asserted, not its target text.

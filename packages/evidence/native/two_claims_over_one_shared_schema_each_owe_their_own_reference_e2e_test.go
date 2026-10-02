@@ -24,6 +24,7 @@ import (
  *  1. Hard-link one schema so two rooted claims each own a name for it.
  *  2. Give each claim a different document to answer to.
  *  3. Assert one acknowledgement per claim, each naming its own document.
+ *
  * @evidence contracts/testing.md#behavioral-verification One schema (model sale, no citation) is hard-linked at store/ and mirror/; two prisma claims, one rooted at each name, reference docs/installed.md and docs/source.md respectively. runIndexRuleAtRoot must return exactly two messages, one containing "Missing acknowledgement for 'docs/installed.md#installed'" and one containing "Missing acknowledgement for 'docs/source.md#source'", each containing 'on a selected prisma host'.
  * @evidence contracts/testing.md#independent-expectations Each claim owes one acknowledgement of its own document's section, so the expected count is two by construction of the fixture; the messages' host location (mirror vs store) is not asserted.
  * @evidence contracts/testing.md#distinguishing-cases Two claims share one file through two names and answer to different documents, so the obligations must be separate and each must name its own document; a single claim and identical documents are not run.

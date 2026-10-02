@@ -31,6 +31,7 @@ import (
  *  2. Collect the inventory.
  *  3. Assert both answer identically, and that only the alias and the data
  *     member are properties.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory parses `interface ISale` and `type TSale = {...}` each with `charge: () => void`, `aliased: Handler`, `label: string` and `run(): void` (the interface also with an `overloaded` two-signature run), and the sorted units must equal exactly function for charge, run and overloaded (interface) and charge, run (alias), property for aliased and label on both, and the two type units.
  * @evidence contracts/testing.md#independent-expectations The expected kinds are authored from the classification contract: interface and alias members classify as class members do, syntactically (a directly spelled function type or method signature is a function, an alias-typed or data member is a property), with no type checker consulted.
  * @evidence contracts/testing.md#distinguishing-cases Both containers asserted together, an alias-typed member that stays a property although `Handler` is spelled as a function type, a method signature, and an overload run that counts once; the exact list fails if either container drifts.

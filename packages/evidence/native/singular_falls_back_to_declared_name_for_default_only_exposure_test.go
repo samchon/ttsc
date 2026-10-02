@@ -15,6 +15,7 @@ import (
  *  1. Declare a local const and default-export it without exporting the name.
  *  2. Run the rule against a file named after the declaration.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert silence.
  * @evidence contracts/testing.md#independent-expectations `default` names no identity, so a file whose only exposure is a default export has nothing addressable to match. Falling back to the declared name is what makes `export default x` in `x.ts` legal. The authored scenario requires this outcome: Assert silence.
  * @evidence contracts/testing.md#distinguishing-cases Declare a local const and default-export it without exporting the name. Run the rule against a file named after the declaration. Assert silence.

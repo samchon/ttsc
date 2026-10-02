@@ -16,6 +16,7 @@ import (
  *  1. Take clean, unclean, absolute, and separator-mixed spellings.
  *  2. Normalize each through the loader.
  *  3. Assert the shortcut and the general form agree.
+ *
  * @evidence contracts/testing.md#behavioral-verification typeScriptLoader.projectPath must leave clean project-relative inputs unchanged and match generalProjectPath for every nonempty input. The empty input executes the loader but has no comparison assertion, so this test does not establish its normalized result.
  * @evidence contracts/testing.md#independent-expectations generalProjectPath uses filepath.FromSlash, IsAbs, Join, Clean and Rel directly rather than calling the loader. That standard-library calculation provides the differential expectation; the clean-input check additionally requires identity. Shared interpretation mistakes and the empty result remain oracle limitations.
  * @evidence contracts/testing.md#distinguishing-cases Named subcases contain ordinary source paths, scoped-package declaration paths, dot-slash, parent traversal that returns inside the root, backslashes, an absolute source and an empty input. The clean inputs pin identity; nonempty inputs pin equivalence to the general helper.

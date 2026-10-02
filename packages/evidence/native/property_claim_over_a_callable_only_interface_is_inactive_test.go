@@ -19,6 +19,7 @@ import (
  *     function-typed member.
  *  2. Point a `property` claim at it with an unacknowledged Markdown heading.
  *  3. Assert the inactive claim reports nothing.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs graphRule.Check with a property claim over an interface whose only members are a method signature and a function-typed member and a Markdown reference with an uncited h2; assertNoProblems requires no diagnostic at all.
  * @evidence contracts/testing.md#independent-expectations The interface, claim and uncited heading are authored literals; the expectation of silence follows from the contract that a property claim with no selected property host is inactive and owes nothing, not from a recorded graph output.
  * @evidence contracts/testing.md#distinguishing-cases Only the negative direction is exercised: callable members select no property host. The adjacent positive case (an interface with a data member making the claim live) is not in this body, and silence alone cannot separate an inactive claim from an unevaluated one.

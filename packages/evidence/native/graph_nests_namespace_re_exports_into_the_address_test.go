@@ -13,6 +13,7 @@ import "testing"
  *  1. Nest two resource modules under namespace re-exports.
  *  2. Cite one operation by its full accessor path.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the shared entry claim over an index `export * as functional` that forwards `export * as questions` of a module declaring `get`, with a view citing `{@link api.functional.questions.get}`; assertNoProblems requires an empty list.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the addressing contract: each `export * as ns` nests the target's surface one segment deeper, so the full accessor path `functional.questions.get` is the address that resolves; flattening would collapse the resource modules into one namespace.
  * @evidence contracts/testing.md#distinguishing-cases Two nested namespace hops cited by the full path; the flat and aliased address forms are owned by sibling entries. Silence shows the citation resolved and acknowledged the one function.

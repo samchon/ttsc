@@ -31,6 +31,7 @@ import (
  *     neither names a cause the filesystem did not give, that a reason ending
  *     in a period does not double the one this rule writes, and that a
  *     TypeScript root still explains what it does with the directory.
+ *
  * @evidence contracts/testing.md#behavioral-verification describeBaseDirectoryProblem is called on a base for `../contracts` with a permission-denied stat error, a Windows-style error whose text ends in a period, and an ErrNotExist stat error; the test checks the could-not-examine wording, the passed-through reason and repair clause, the TypeScript explanation, and that only the absent case says `create that directory`.
  * @evidence contracts/testing.md#independent-expectations Expected substrings are authored literals for the message contract: a stat failure that does not say the path is absent must not be called missing or ask for creation, the filesystem reason is passed through without doubling its terminator, and an absent path is known to be absent; no wording is read back from the builder.
  * @evidence contracts/testing.md#distinguishing-cases An unexaminable root (permission denied) against an absent root separates the two repairs; the period-terminated reason covers the doubled-terminator boundary (`.. ` must not appear); and the TypeScript form of the permission error must still explain the re-basing.

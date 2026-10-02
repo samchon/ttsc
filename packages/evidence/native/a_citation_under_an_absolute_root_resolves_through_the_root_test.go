@@ -17,6 +17,7 @@ import (
  *  1. Root the same reference absolutely.
  *  2. Cite the document by its path inside that root.
  *  3. Assert the graph closes.
+ *
  * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn runs the graph rule over a temp workspace holding docs/requirements/pricing.md and project/src/sale.ts, whose interface cites requirements/pricing.md#discounts under a Markdown reference rooted at the absolute workspace docs directory; the test asserts the rule reports no diagnostic.
  * @evidence contracts/testing.md#independent-expectations The expectation follows from the root contract that a citation is addressed relative to the declared root, not the project: the authored document defines a literal discounts heading and the citation names it by its root-relative path, so any resolver that ignores the absolute root would leave an unresolved citation diagnostic.
  * @evidence contracts/testing.md#distinguishing-cases This is the positive absolute-root case only: one resolvable citation on the one selected heading. The negative case (an uncited heading owing an acknowledgement) is not exercised here, so the silence alone cannot distinguish a resolver that loaded no population.

@@ -17,6 +17,7 @@ import (
  *  1. Make a directory inside a Prisma population unreadable.
  *  2. Collect the configured addresses and their health.
  *  3. Assert the failure is project-relative and the base is recorded failed.
+ *
  * @evidence contracts/testing.md#behavioral-verification The test makes prisma/private unreadable (skipping where permissions cannot be dropped), decodes a TypeScript claim with a Prisma reference over prisma/**\/*.prisma, and calls configuredPrismaAddressesWithHealth; it requires problems containing `could not inspect 'prisma/private':` and `configured Prisma sources can be indexed`, and exactly one failed base.
  * @evidence contracts/testing.md#independent-expectations The expected path spelling and the repair clause are authored literals, and the failed-base count of one follows from the single declared population whose walk failed; none is taken from the walker's own output.
  * @evidence contracts/testing.md#distinguishing-cases One unreadable directory under one declared Prisma population, so the walk failure must be recorded as a failed base rather than an empty population. The Prisma bridge and a root above the project are not exercised here; the latter belongs to a sibling entry.

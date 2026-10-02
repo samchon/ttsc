@@ -21,6 +21,7 @@ import (
  *  1. Root two claims at the two names of one hard-linked schema.
  *  2. Write one citation in it whose target nothing materializes.
  *  3. Assert the report locates it at the set's spelling and at no other.
+ *
  * @evidence contracts/testing.md#behavioral-verification A schema with a citation to the absent target docs/absent.md#nothing is hard-linked at store/ and mirror/; two prisma claims are rooted at the two names. runIndexRuleAtRoot must report "Unresolved evidence target 'docs/absent.md#nothing' at mirror/main.prisma:1" and no message may mention store/main.prisma.
  * @evidence contracts/testing.md#independent-expectations The expected spelling is the lexicographically smallest of the file's spellings, the rule distinctPrismaSources states (sorted spellings, first wins); the expected string is a literal authored from that rule, so this test pins the rule rather than deriving it independently from outside the implementation.
  * @evidence contracts/testing.md#distinguishing-cases The same citation is read from two claims rooted at the two names; the message must use mirror (smaller) and the other claim's name store must never appear. No case with a single name or a different ordering of names is run.

@@ -29,6 +29,7 @@ import (
  *  2. Collect the inventory.
  *  3. Assert the only functions are a `const` initialized with a function and
  *     the class's written-as callables.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the only functions are a `const` initialized with a function and the class's written-as callables.
  * @evidence contracts/testing.md#independent-expectations A class field is a callable when it is written as one, annotation included. A variable is a callable only when a `const` is initialized with a function: the annotation never decides, and neither does the initializer on a `let` or a `var`. Several documents draw that contrast, and this case is where it is asserted as a contrast rather than as two rules that happen to be pinned in files which never mention each other. The authored scenario requires this outcome: Assert the only functions are a `const` initialized with a function and the class's written-as callables.
  * @evidence contracts/testing.md#distinguishing-cases Declare every variable form beside the class fields they contrast with. Collect the inventory. Assert the only functions are a `const` initialized with a function and the class's written-as callables.

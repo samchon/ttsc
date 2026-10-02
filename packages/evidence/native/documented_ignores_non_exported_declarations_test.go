@@ -12,6 +12,7 @@ import "testing"
  *  1. Declare two undocumented local helpers beside one documented export.
  *  2. Run the rule.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over a file with an undocumented local `cache` const and an undocumented local `normalize` function beside one documented exported `parse`; assertSilent requires no diagnostics.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the documented-rule contract: only the public surface needs blocks, so local helpers must not be reported.
  * @evidence contracts/testing.md#distinguishing-cases Two kinds of undocumented non-exported declarations (a const and a function) beside a documented export; the exported-and-undocumented report case is owned by a sibling entry, so silence here shows scope rather than a disabled rule.

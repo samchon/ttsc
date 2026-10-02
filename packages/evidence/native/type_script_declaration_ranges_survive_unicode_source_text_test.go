@@ -15,6 +15,7 @@ import (
  *  1. Put Korean text before a JSDoc evidence declaration.
  *  2. Use a Korean reason to exercise the complete comment slice.
  *  3. Assert the selected TypeScript host still acknowledges the source.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the selected TypeScript host still acknowledges the source.
  * @evidence contracts/testing.md#independent-expectations TypeScript AST offsets and Go string slices must use the same coordinate system. If they diverge after multibyte text, the rule slices the wrong bytes and silently loses an otherwise valid declaration. The authored scenario requires this outcome: Assert the selected TypeScript host still acknowledges the source.
  * @evidence contracts/testing.md#distinguishing-cases Put Korean text before a JSDoc evidence declaration. Use a Korean reason to exercise the complete comment slice. Assert the selected TypeScript host still acknowledges the source.

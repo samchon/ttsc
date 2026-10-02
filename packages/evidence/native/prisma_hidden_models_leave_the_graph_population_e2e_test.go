@@ -21,6 +21,7 @@ import (
  *  2. Run a TypeScript claim referencing the schema, citing the tagged model.
  *  3. Assert only the untagged model is owed, and the citation of the tagged
  *     one names the tag.
+ *
  * @evidence contracts/testing.md#behavioral-verification A schema with `/// @internal` Ledger and an untagged Sale, plus a TypeScript function citing prisma:Ledger, is run with a typescript claim referencing the schema's models and columns. The report must contain "Hidden evidence target 'prisma:Ledger'" with "carries '@internal' in its documentation comment", "Missing acknowledgement for 'prisma:Sale'", and no "Missing acknowledgement for 'prisma:Ledger" message.
  * @evidence contracts/testing.md#independent-expectations Expected messages are literal fragments authored from the rule: hidden units are withdrawn from what a reference owes and a citation of one is refused with its cause; they are not copied from a prior output.
  * @evidence contracts/testing.md#distinguishing-cases A hidden model versus a visible model in one schema, from both sides (the hidden one is cited; the visible one is owed). Hidden columns (a model's hidden fields) and a hidden column on a visible model are not run here; TestPrismaHidingTagsWithdrawModelsAndColumns and TestPrismaHiddenUnitsHostNothing own those.

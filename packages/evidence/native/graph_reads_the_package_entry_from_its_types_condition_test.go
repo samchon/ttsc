@@ -12,6 +12,7 @@ import "testing"
  *  1. Point `main` at a JavaScript file and `types` at the declarations.
  *  2. Select the package and acknowledge what its declarations expose.
  *  3. Assert silence, which is only reachable through the `types` condition.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/views/** and the `@org/api` package reference (main pointing at lib/index.js, types condition at lib/index.d.ts), where a view cites `{@link api.get}`; assertNoProblems requires an empty list.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the entry-resolution contract: `main` names the JavaScript a consumer runs while a citation addresses declarations, so the `types` condition supplies the entry; following `main` would resolve to a file with no declarations.
  * @evidence contracts/testing.md#distinguishing-cases Both a JavaScript file and a declaration file exist for `get`; silence requires `get` to be found in the declarations and cited, and an empty population from `main` would also be silent, so the sibling bare-types entry (which asserts an owed diagnostic) is the control that a population is read at all.

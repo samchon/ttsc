@@ -20,6 +20,7 @@ import (
  *  1. Point `TTSC_NODE_BINARY` at a nonexistent executable.
  *  2. Load Swagger inventories for a graph referencing only Markdown.
  *  3. Assert no problem is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification loadSwaggerInventories runs on a configuration whose only reference is Markdown while TTSC_NODE_BINARY names an absent executable; the assertions require zero problems and zero inventories.
  * @evidence contracts/testing.md#independent-expectations With no Swagger reference the authored expectation is an empty result: nothing materialized and nothing reported. Production has two independent early returns (no configured sources, nothing pending), so the absent executable shows no spawn occurred but not which guard returned.
  * @evidence contracts/testing.md#distinguishing-cases The negative arm of a pair: TestSwaggerNormalizerIsSpawnedWhenReferenced runs the same absent executable with a declared Swagger source and must report. Only a Markdown reference is varied here; no mixed Swagger and Markdown configuration is exercised.

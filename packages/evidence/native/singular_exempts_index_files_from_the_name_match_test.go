@@ -14,6 +14,7 @@ import (
  *  1. Declare one identity and re-export two barrels from an index file.
  *  2. Run the rule.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert silence.
  * @evidence contracts/testing.md#independent-expectations The plugin's own entry point is exactly this shape, one declared identity beside re-export barrels, and no identifier can be named `index`. The authored scenario requires this outcome: Assert silence.
  * @evidence contracts/testing.md#distinguishing-cases Declare one identity and re-export two barrels from an index file. Run the rule. Assert silence.

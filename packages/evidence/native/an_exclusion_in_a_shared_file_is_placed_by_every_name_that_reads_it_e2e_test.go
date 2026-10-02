@@ -23,6 +23,7 @@ import (
  *  1. Hard-link one schema so a single claim selects it under two names.
  *  2. Confine the exclusions to the name the carriers select.
  *  3. Assert the exclusion is accepted and discharges its obligation.
+ *
  * @evidence contracts/testing.md#behavioral-verification A schema carrying `/// @evidenceExclude docs/pricing.md#discounts ...` above model sale is hard-linked under store/ and mirror/; one prisma claim selects every .prisma file with evidenceExcludeCarriers limited to the mirror directory, against markdown docs/pricing.md. runIndexRuleAtRoot must report no message at all, i.e. the exclusion is accepted and the model's obligation to the discounts section is discharged.
  * @evidence contracts/testing.md#independent-expectations The expected result (silence) follows from the claim configuration: the tag sits in a file that one of its own names (mirror/main.prisma) selects as an exclusion carrier. Silence alone would also be produced if the exclusion obligation were dropped for another reason, and the refusal case (no carrier name selected) is not run here.
  * @evidence contracts/testing.md#distinguishing-cases Only the accepting layout runs: one file with two names, one of which matches the carrier pattern. No layout where no name is a carrier is exercised in this body, and the hard-link skip applies on filesystems without hard links.

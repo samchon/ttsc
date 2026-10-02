@@ -14,6 +14,7 @@ import "testing"
  *  2. Narrow the reference to the area alone.
  *  3. Assert the re-exported operation is demanded under the address the package
  *     entry gives it, and a neighbouring area still stays out.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/views/** and a package reference `@org/api` narrowed to `lib/questions/index.d.ts`, whose barrel re-exports get.d.ts and a `details` namespace of detail.d.ts, beside an unselected lib/reviews/erase.d.ts; the diagnostics must contain `Missing acknowledgement for 'questions.get'` and `Missing acknowledgement for 'questions.details.detail'` and none for `'erase'`.
  * @evidence contracts/testing.md#independent-expectations The expected addresses are authored from the package-entry addressing contract: an area narrowed by glob is a barrel plus the modules it re-exports, owed under the address the package entry gives them, while a neighboring area stays out.
  * @evidence contracts/testing.md#distinguishing-cases The matched barrel's re-exported module and nested namespace are demanded while the sibling area is not; only containment of the two demanded messages and the absence of `erase` are asserted.

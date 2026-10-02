@@ -19,6 +19,7 @@ import (
  *     text.
  *  2. Cite the namespace alone.
  *  3. Assert the nested member is covered and the longer name is still owed.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a type claim over src/ledger.ts and a TypeScript reference over src/index.ts selecting type and property, where the module has `namespace Order { interface Line }` and a separate `interface OrderLine { id }` and the ledger cites only `{@link Order}`; the test requires exactly two `Missing acknowledgement` diagnostics, for `'OrderLine'` and `'OrderLine.id'`.
  * @evidence contracts/testing.md#independent-expectations The expected owed units are authored from the containment contract: a citation covers what is below the target at a segment boundary, so `Order` covers `Order.Line` and has nothing to do with the longer name `OrderLine`.
  * @evidence contracts/testing.md#distinguishing-cases A nested member and a longer name sharing the cited name's text: a text-prefix ownership would credit `OrderLine` and its property (count zero), while a segment rule leaves exactly those two owed.

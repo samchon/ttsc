@@ -16,6 +16,7 @@ import (
  *  1. Let a disabled claim acknowledge the shared requirement.
  *  2. Leave an enabled sibling that cites the same requirement unacknowledged.
  *  3. Assert the enabled obligation still fails.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule over a disabled claim on src/staged.ts, which cites `docs/requirement.md#shared`, and an enabled claim on the uncited src/live.ts with a reference to the same requirement; the test requires exactly one message, mentioning `Claim 2` and `Missing acknowledgement`.
  * @evidence contracts/testing.md#independent-expectations The expected single report is authored from the claim-locality contract: a declaration that exists only under a disabled claim must disappear with it, so the enabled sibling's obligation stays unmet and the disabled claim adds no message.
  * @evidence contracts/testing.md#distinguishing-cases The two claims share one requirement and differ by `disabled`; covering the enabled claim from the disabled file would give no message, and reporting the disabled claim would give a second message.

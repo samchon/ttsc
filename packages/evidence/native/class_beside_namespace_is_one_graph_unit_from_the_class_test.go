@@ -17,6 +17,7 @@ import (
  *  1. Declare a class and a value-exporting namespace of one name.
  *  2. Materialize the inventory.
  *  3. Assert the type unit reports the class, and both halves contribute.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory parses `export class Sale { price() }` followed by `export namespace Sale { export const version }` and the test requires a `type:Sale` unit at line 2, a `function:Sale.prototype.price` unit and a `property:Sale.version` unit.
  * @evidence contracts/testing.md#independent-expectations The expected units and line are authored from the merged-identity contract: a class beside a namespace is one type unit reported from the class, while each half still contributes its own members; line 2 is where the class is written in the fixture.
  * @evidence contracts/testing.md#distinguishing-cases The class-first order with a value-exporting namespace; the type unit's line must be the class's, and both halves' members must survive. The namespace-first ambient order is owned by a sibling entry. Only presence of these three targets is asserted, not exclusivity of the unit set.

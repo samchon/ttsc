@@ -13,6 +13,7 @@ import (
  *  1. Cite the containing document from one host under an H2 checklist, beside a second host carrying no tag.
  *  2. Assert the aggregate target is reported, its items are not listed again on its own host, and the silent host still owes both.
  *  3. Exclude the same document from the citing host and assert it passes.
+ *
  * @evidence contracts/testing.md#behavioral-verification Under a function checklist, runIndexRule is run with `broad` citing the whole document and `silent` carrying no tag, and must produce exactly two messages: `Aggregate @evidence target 'docs/rules.md'` (naming the scope's two items and `Cite each item this host answers for`) and the `silent` host owing `2 of 2` items; with `broad` instead carrying `@evidenceExclude docs/rules.md` the only message must be the silent host's shortfall.
  * @evidence contracts/testing.md#independent-expectations The expected wording and counts are authored from the checklist contract: an aggregate positive citation is refused by name, while an aggregate exclusion is one reviewed decision that discharges its own host; the citing host contributes no checklist shortfall in either arm.
  * @evidence contracts/testing.md#distinguishing-cases The silent host is the control that separates per-host suppression from claim-wide suppression, and the exact message counts (two, then one) pin that the citing host adds no extra diagnostic; the aggregate citation and the aggregate exclusion are the two arms that must differ.

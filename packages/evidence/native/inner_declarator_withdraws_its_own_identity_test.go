@@ -19,6 +19,7 @@ import (
  *  1. Withdraw one declarator of a two-declarator statement.
  *  2. Collect the inventory.
  *  3. Assert only that identity carries the tag.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory parses `export const live = 1, /** @internal *\/ gone = 2;` and the sorted rows `symbol:target hidden=<tag>` must equal exactly `property:gone hidden=@internal` and `property:live hidden=`.
  * @evidence contracts/testing.md#independent-expectations The expected rows are authored from the withdrawal contract: a withdrawal tag on an inner declarator withdraws only that declarator's identity, not the statement or its public sibling.
  * @evidence contracts/testing.md#distinguishing-cases One tagged and one untagged declarator in one statement: taking the withdrawal from the statement wrapper would hide both or neither, and the exact row list fails in either case.

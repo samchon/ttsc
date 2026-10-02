@@ -15,6 +15,7 @@ import (
  *  1. Materialize four Markdown source headings.
  *  2. Cite one from each documented callable host form.
  *  3. Assert the function-only claim group is complete.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the function-only claim group is complete.
  * @evidence contracts/testing.md#independent-expectations These declarations attach JSDoc to different AST shapes. Exercising them through the complete project rule prevents one syntactic form from becoming a source unit that can never bear a valid acknowledgement. The authored scenario requires this outcome: Assert the function-only claim group is complete.
  * @evidence contracts/testing.md#distinguishing-cases Materialize four Markdown source headings. Cite one from each documented callable host form. Assert the function-only claim group is complete.

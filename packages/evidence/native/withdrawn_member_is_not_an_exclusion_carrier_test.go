@@ -15,6 +15,7 @@ import (
  *  1. Exclude a section from the untagged half of a withdrawn member.
  *  2. Evaluate a `symbol: "function"` claim over that file.
  *  3. Assert the carrier is refused and the section stays unacknowledged.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the carrier is refused and the section stays unacknowledged.
  * @evidence contracts/testing.md#independent-expectations Carrier eligibility is wider than host eligibility, and it reads the same host set, so a leak there is a second way for a withdrawn declaration to settle an obligation. Excluding through one is worse than citing through one: the reason field makes it read as a reviewed decision. The authored scenario requires this outcome: Assert the carrier is refused and the section stays unacknowledged.
  * @evidence contracts/testing.md#distinguishing-cases Exclude a section from the untagged half of a withdrawn member. Evaluate a `symbol: "function"` claim over that file. Assert the carrier is refused and the section stays unacknowledged.

@@ -17,6 +17,7 @@ import (
  *  1. Write a citation behind three slashes and another behind four.
  *  2. Evaluate the same claim.
  *  3. Assert both are reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runUnreadableRule must report unreadable citations at source lines 4 and 7 for triple- and quadruple-slash comments.
  * @evidence contracts/testing.md#independent-expectations Extra slashes do not turn a real line comment into supported JSDoc or remove its tag. The two independently authored line locations require both findings.
  * @evidence contracts/testing.md#distinguishing-cases Three and four opening slashes exercise normalization of adjacent comment forms beside one valid citation. Each subset assertion preserves the corresponding failure identity but does not exclude extra diagnostics.

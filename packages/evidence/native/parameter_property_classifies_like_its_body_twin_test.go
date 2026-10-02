@@ -25,6 +25,7 @@ import (
  *  2. Collect the inventory.
  *  3. Assert each pair classifies identically, the data pair included, so the
  *     agreement is not one every field would satisfy.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert each pair classifies identically, the data pair included, so the agreement is not one every field would satisfy.
  * @evidence contracts/testing.md#independent-expectations A field written as a callable is a function unit in the class body, so the shorthand has to agree. If the two disagreed, moving a field into the constructor would change which selector owns it, which is the dependence on declaration syntax this shorthand support exists to remove. The authored scenario requires this outcome: Assert each pair classifies identically, the data pair included, so the agreement is not one every field would satisfy.
  * @evidence contracts/testing.md#distinguishing-cases Declare function-typed, alias-typed, function-valued and plain-data parameter properties beside their body twins. Collect the inventory. Assert each pair classifies identically, the data pair included, so the agreement is not one every field would satisfy.

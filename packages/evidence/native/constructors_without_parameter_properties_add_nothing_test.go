@@ -19,6 +19,7 @@ import (
  *  1. Declare an empty constructor in one class and an overload run in another.
  *  2. Collect the inventory.
  *  3. Assert only the implementation's parameter property materializes.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory parses class `Empty` with `constructor() {}` and class `Overloaded` with two constructor overload signatures and an implementation taking `public readonly price`, and the sorted `symbol:target` list must equal exactly property:Overloaded.prototype.price, type:Empty and type:Overloaded.
  * @evidence contracts/testing.md#independent-expectations The expected set is authored from the materialization contract: only a parameter property creates a unit from a constructor, so an empty constructor adds nothing and the overload signatures neither add nor drop the implementation's one property.
  * @evidence contracts/testing.md#distinguishing-cases An empty constructor and a three-node overload run in separate classes; the exact list fails if either shape materializes an extra unit or if the overload walk loses or duplicates the parameter property.

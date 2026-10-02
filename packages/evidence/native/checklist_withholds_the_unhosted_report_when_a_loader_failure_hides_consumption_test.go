@@ -13,6 +13,7 @@ import (
  *  1. Evaluate a checklist beside a sibling reference, once failed and once healthy but empty.
  *  2. Leave an eligible carrier exclusion on a host the claim does not select.
  *  3. Assert the unhosted report is withheld under the failure and fires beside the healthy twin, while the host's shortfall survives both.
+ *
  * @evidence contracts/testing.md#behavioral-verification evaluateEvidenceGraph is called directly on hand-built claim states holding a function host, a carrier `@evidenceExclude` on an unselected type, a checklist Markdown reference with one item and an ordinary sibling reference whose Healthy flag is false in one run and true in the other; the failed run must contain no `Unhosted` diagnostic, the healthy run must contain `Unhosted @evidenceExclude at src/ledger.ts:1`, and both must report the host owing `1 of 1` item.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the rule that an unhosted report claims the tag is consumed nowhere, which is unknowable while a sibling population failed to load; the states are built by hand to reach that combination directly, so this pins the evaluator rule rather than an end-to-end flow.
  * @evidence contracts/testing.md#distinguishing-cases Failed sibling against healthy-but-empty sibling with otherwise identical states: only the sibling health differs, and the host's checklist shortfall must survive in both.

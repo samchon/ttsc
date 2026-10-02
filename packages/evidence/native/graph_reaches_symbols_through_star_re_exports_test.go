@@ -14,6 +14,7 @@ import "testing"
  *  1. Re-export a module's whole surface from a matched barrel.
  *  2. Cite the symbol under the barrel-relative address.
  *  3. Assert silence, which requires both resolution and coverage to succeed.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the shared entry claim over an index `export * from "./questions.js"` (the declaring module is outside the entry glob) and a view citing `{@link api.get}`; assertNoProblems requires an empty list.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the population contract: a glob selects modules and the population is what they publish, so `get` belongs to the obligation through the barrel and is nameable by its barrel-relative address.
  * @evidence contracts/testing.md#distinguishing-cases A single star re-export cited by the flat address; a population that held only the barrel's own declarations would find the citation unresolved, and the nested namespace forms are owned by sibling entries.

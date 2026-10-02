@@ -17,6 +17,7 @@ import (
  *  1. Export representative object and array binding patterns.
  *  2. Add namespace, alias, and private negative twins.
  *  3. Assert the exact public property inventory.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the exact public property inventory.
  * @evidence contracts/testing.md#independent-expectations Object and array binding patterns have no declaration-level identifier. Recursing through their leaves must preserve renamed, nested, rest, namespace, and later export-list bindings without guessing callable values. The authored scenario requires this outcome: Assert the exact public property inventory.
  * @evidence contracts/testing.md#distinguishing-cases Export representative object and array binding patterns. Add namespace, alias, and private negative twins. Assert the exact public property inventory.

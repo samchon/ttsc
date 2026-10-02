@@ -14,6 +14,7 @@ import "testing"
  *  1. Document a namespace member named `f` and leave a top-level `f` bare.
  *  2. Run the rule.
  *  3. Assert the top-level declaration is still reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over a documented `namespace A` containing a documented `function f` and an undocumented top-level `export function f`; assertReported requires exactly one diagnostic, `Missing JSDoc on exported function 'f'`.
  * @evidence contracts/testing.md#independent-expectations The expected report is authored from the documented-rule contract: identities are qualified, so `A.f` and `f` are different obligations and the inner block cannot excuse the outer declaration.
  * @evidence contracts/testing.md#distinguishing-cases The same bare name at two nesting levels with only the inner one documented; a grouping on the bare name would find a block and stay silent, failing the exactly-one assertion.

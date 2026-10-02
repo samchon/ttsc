@@ -15,6 +15,7 @@ import (
  *  1. Compile an ordinary project-relative pattern.
  *  2. Compile drive-absolute and drive-relative patterns.
  *  3. Assert only the project-relative form is accepted.
+ *
  * @evidence contracts/testing.md#behavioral-verification newGlobSet must accept `docs/**\/*.md` and must return an error for `C:\docs\**\*.md` and `C:docs\**\*.md`.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored from the project-relative contract: a drive-letter path, including the drive-relative `C:docs`, resolves against a drive rather than the project root and must be refused wherever the test runs.
  * @evidence contracts/testing.md#distinguishing-cases A drive-absolute and a drive-relative spelling against an ordinary relative pattern; only the presence of an error is asserted, not its wording.

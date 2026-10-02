@@ -10,6 +10,7 @@ import "testing"
  *  1. Cite an item from one host while two other hosts exclude it.
  *  2. Assert no duplicate or conflict is reported across those hosts.
  *  3. Cite and exclude the same item on one host and assert the conflict returns.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function-host checklist over a one-item document: one host cites the item while two others exclude it, which must give no diagnostics; a single host that both cites and excludes the same item must give `Conflicting acknowledgements for 'docs/rules.md#only-rule'`.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored from the checklist contract that each host answers every item independently, so the same item being cited and excluded on different hosts, or excluded twice, is the expected state, while a contradiction within one host is still a conflict.
  * @evidence contracts/testing.md#distinguishing-cases Across-host cite and double exclusion (must be silent) against within-host cite plus exclude (must conflict): the first would be reported as duplicate and conflict if the keys were obligation-wide, the second would be silent if they ignored the host.

@@ -14,6 +14,7 @@ import (
  *  1. Export `parse` from `parse.helper.ts`.
  *  2. Run the rule.
  *  3. Assert the mismatch is reported against the full base name.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert the mismatch is reported against the full base name.
  * @evidence contracts/testing.md#independent-expectations Only the final extension is stripped, so `parse.helper.ts` compares against `parse.helper`, which no identifier can equal. Stripping every extension would silently accept two files claiming one identity name. The authored scenario requires this outcome: Assert the mismatch is reported against the full base name.
  * @evidence contracts/testing.md#distinguishing-cases Export `parse` from `parse.helper.ts`. Run the rule. Assert the mismatch is reported against the full base name.

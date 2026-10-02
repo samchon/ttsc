@@ -14,6 +14,7 @@ import (
  *  1. Export one function under a name the file does not carry.
  *  2. Run the rule.
  *  3. Assert the message offers the rename in both directions.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert the message offers the rename in both directions.
  * @evidence contracts/testing.md#independent-expectations A diagnostic that named only the mismatch would leave the reader to guess which side moves, and either side is valid here. The authored scenario requires this outcome: Assert the message offers the rename in both directions.
  * @evidence contracts/testing.md#distinguishing-cases Export one function under a name the file does not carry. Run the rule. Assert the message offers the rename in both directions.

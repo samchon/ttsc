@@ -13,6 +13,7 @@ import (
  *  1. Declare an ordinary and a checklist reference over one document in one claim.
  *  2. Exclude one item from an exported interface the claim's `symbol` does not select, and cite the other item from a function.
  *  3. Assert the ordinary reference is silent, the checklist host owes only its unanswered item, and no unhosted report fires.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with one function claim carrying an ordinary and a checklist Markdown reference over one document, where an interface (unselected kind) carries `@evidenceExclude` for `no-whack-a-mole` and a function cites `no-hardcoding`; the test requires no `Unhosted` and no `Missing acknowledgement` diagnostic, a diagnostic for `TypeScript function 'first'` owing `1 of 2` (`no-whack-a-mole`), and exactly one message in total.
  * @evidence contracts/testing.md#independent-expectations The expected single shortfall is authored from the contract that a carrier exclusion consumed by the ordinary sibling reference is legitimate and must not be reported as unhosted by the checklist reference, while the checklist host still owes the item that exclusion does not answer for it.
  * @evidence contracts/testing.md#distinguishing-cases The exact message count separates three regressions: reporting the tag as unhosted (count two), losing the carrier exclusion for the ordinary reference (a missing-acknowledgement message), and crediting the checklist host with the excluded item (count zero).

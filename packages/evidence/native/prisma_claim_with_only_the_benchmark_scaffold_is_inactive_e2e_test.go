@@ -20,6 +20,7 @@ import (
  *  2. Apply a model claim with an unreadable Markdown reference behind it.
  *  3. Reuse that real model-free inventory in the whole graph with data-only TypeScript and H1-only Markdown.
  *  4. Add a TypeScript function or H2 independently and require its missing reference to fail.
+ *
  * @evidence contracts/testing.md#behavioral-verification A cold real Prisma schema load must be clean and activeGraphConfig must drop its zero-model claim. The same root/schema then runs graphRule.Check with all three artifact claims: zero selected hosts yields failed=false and no messages, while independently adding a TypeScript function or H2 produces failed=true and names its own missing reference root.
  * @evidence contracts/testing.md#independent-expectations The expectation (a matched file with no selected model leaves the claim inactive) is the claimIsInactive contract; the fixture is a model-free scaffold of two generators and a datasource, and its equality to any benchmark fixture is not checked.
  * @evidence contracts/testing.md#distinguishing-cases Model-free Prisma, a numeric TypeScript export and H1-only Markdown form the inactive whole graph. Separate function and H2 additions detect blanket suppression. The first-model whole-rule missing-reference contrast is owned by TestFirstSelectedPrismaModelActivatesCoverage. The legacy two-generator scaffold and the consumer's one-generator scaffold share zero selected models; their bytes are not claimed identical.

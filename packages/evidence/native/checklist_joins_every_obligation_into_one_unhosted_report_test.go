@@ -13,6 +13,7 @@ import (
  *  1. Record one carrier exclusion in two checklist references over one document, with nothing consuming it.
  *  2. Assert exactly one unhosted report fires.
  *  3. Assert it names both obligations and the selected host kinds the repair points at.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with one claim selecting function and property units and two identical Markdown checklist references, over an `@evidenceExclude` on an interface with no property host and a cited function; the test requires exactly one `Unhosted` diagnostic containing `for Claim 1 reference 1 (markdown, symbols: h2); Claim 1 reference 2 (markdown, symbols: h2)` and `Move the tag onto a host of a selected kind (function, property) in a claim that owes it`.
  * @evidence contracts/testing.md#independent-expectations The expected sentence parts are authored: one tag recorded by two obligations draws one report that names both of them, and the host-kind list is the claim's own selection of function and property.
  * @evidence contracts/testing.md#distinguishing-cases Two obligations over the same document guard against one message per obligation (count two) and against dropping an obligation from the join (only one reference named); two selected kinds show the parenthetical follows the claim's selection.

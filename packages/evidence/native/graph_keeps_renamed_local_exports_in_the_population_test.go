@@ -15,6 +15,7 @@ import "testing"
  *  1. Expose a declaration under a different public name.
  *  2. Select the module and cite the ordinary declaration beside it.
  *  3. Assert the renamed declaration is still owed and is citable by that name.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a type claim over src/ledger.ts and a reference over src/contracts.ts selecting type and property, where the module has `interface IShape` and `const local` exported as `renamed`; citing only `{@link IShape}` must report `Missing acknowledgement for 'renamed'`, and also citing `{@link renamed}` must give no diagnostics.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored from the population contract: a declaration exposed under another public name is inventoried under that name, so it must stay owed until cited by the exposed name and an obligation must not vanish because its local binding differs.
  * @evidence contracts/testing.md#distinguishing-cases The uncited and cited runs over the same module differ only by the citation of the renamed export, so the missing-acknowledgement and clean outcomes pin that the renamed unit exists and is citable.

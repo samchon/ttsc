@@ -15,6 +15,7 @@ import (
  *  1. Attach an evidence tag to one implicit ambient function.
  *  2. Select function hosts and one Markdown heading.
  *  3. Assert the complete graph accepts the declaration.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the complete graph accepts the declaration.
  * @evidence contracts/testing.md#independent-expectations Unit visibility and JSDoc host eligibility share the same public boundary. Fixing only inventory materialization leaves the function visible as evidence but unable to claim its own evidence. The authored scenario requires this outcome: Assert the complete graph accepts the declaration.
  * @evidence contracts/testing.md#distinguishing-cases Attach an evidence tag to one implicit ambient function. Select function hosts and one Markdown heading. Assert the complete graph accepts the declaration.

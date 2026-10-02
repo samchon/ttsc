@@ -14,6 +14,7 @@ import (
  *  1. Augment the global scope and declare nothing else public.
  *  2. Run the rule against an unrelated file name.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert silence.
  * @evidence contracts/testing.md#independent-expectations `declare global` is a module declaration whose name is the identifier `global`, so a rule reading the name alone would demand the file be called `global.ts`. The authored scenario requires this outcome: Assert silence.
  * @evidence contracts/testing.md#distinguishing-cases Augment the global scope and declare nothing else public. Run the rule against an unrelated file name. Assert silence.

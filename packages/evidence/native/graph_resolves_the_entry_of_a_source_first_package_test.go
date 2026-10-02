@@ -15,6 +15,7 @@ import "testing"
  *  1. Install a package whose `exports` names TypeScript source directly.
  *  2. Select it through a glob, so membership and addressing differ.
  *  3. Assert the obligation is addressed from the entry, not from the module.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/views/** and a package reference `@org/api` selecting `src/**`, where the manifest's `main` and `exports` both name `./src/index.ts` and the entry nests `functional` and `health` namespaces over a `get` function; assertProblemContains requires `Missing acknowledgement for 'functional.health.get'`.
  * @evidence contracts/testing.md#independent-expectations The expected address is authored from the entry-resolution contract: a source-first package's `exports` target is its entry, so units are addressed from the entry (`functional.health.get`) and not from the module that matched (`get`).
  * @evidence contracts/testing.md#distinguishing-cases A glob selection (membership) differs from the entry (addressing); if the TypeScript-source entry were refused, the unit would be addressed as `get` and the expected message would not appear.

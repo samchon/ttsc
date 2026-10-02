@@ -23,6 +23,7 @@ import (
  *     in one source file.
  *  2. Acknowledge only the four type identities from a TypeScript claim.
  *  3. Assert the omitted source selector creates no additional obligation.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs graphRule.Check with a TypeScript reference that omits symbol; the ledger cites Shape, Options, Sale and Api only, and the graph must be clean. The four links must resolve, and the uncited top-level functions draw and render must not be demanded.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the contract that the omitted source selector means types, classes and namespaces. Uncited top-level callables would be reported unmet if the default included them. Members of cited Sale/Api and properties of Shape are discharged by their cited ancestor, so this case cannot show they are outside the default.
  * @evidence contracts/testing.md#distinguishing-cases The adjacent inputs draw and render are exported callables left uncited and must stay silent; the four cited kinds must stay resolvable. No case here selects callables explicitly to contrast the default.

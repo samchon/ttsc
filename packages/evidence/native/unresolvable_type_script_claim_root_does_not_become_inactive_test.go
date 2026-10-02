@@ -17,6 +17,7 @@ import (
  *  1. Resolve a TypeScript claim against a root that does not exist.
  *  2. Materialize its claim-side population and apply activation.
  *  3. Assert the unresolvable claim remains active for diagnostic evaluation.
+ *
  * @evidence contracts/testing.md#behavioral-verification activeGraphConfig, typeScriptBaseProblems is exercised with the scenario below; the assertions require the unresolvable claim remains active for diagnostic evaluation.
  * @evidence contracts/testing.md#independent-expectations A missing root yields the same zero matched paths as an intentionally empty population, but the failure means the absence is not evidence. Activation learns this the way it learns every other broken population, from the failure the claim-side pass recorded against the base; TypeScript walks nothing, so typeScriptBaseProblems is what records it there. Handing this an empty map would test a state the pipeline cannot produce.
  * @evidence contracts/testing.md#distinguishing-cases Resolve a TypeScript claim against a root that does not exist. Materialize its claim-side population and apply activation. Assert the unresolvable claim remains active for diagnostic evaluation.

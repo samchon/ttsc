@@ -16,6 +16,7 @@ import (
  *  1. Declare a Markdown reference under one directory.
  *  2. Ask the predicate about that directory and about unrelated ones.
  *  3. Assert only the reachable directory may be descended.
+ *
  * @evidence contracts/testing.md#behavioral-verification couldContainConfiguredMarkdown, resolvePopulationBase is exercised with the scenario below; the assertions require only the reachable directory may be descended.
  * @evidence contracts/testing.md#independent-expectations This is the pruning contract itself, and it is what keeps a cycle's cost proportional to the declared document tree rather than to the repository. It is a consequence of how the walk is written rather than anything stated, so losing it would cost a full tree traversal per cycle; `node_modules` included; while every result-level case stayed green.
  * @evidence contracts/testing.md#distinguishing-cases Declare a Markdown reference under one directory. Ask the predicate about that directory and about unrelated ones. Assert only the reachable directory may be descended.

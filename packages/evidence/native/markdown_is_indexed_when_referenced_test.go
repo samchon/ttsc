@@ -14,6 +14,7 @@ import (
  *  1. Place the same document in a project.
  *  2. Configure a Markdown reference selecting it.
  *  3. Assert exactly one Markdown inventory loads without problems.
+ *
  * @evidence contracts/testing.md#behavioral-verification loadMarkdownInventories reads the authored docs/spec.md selected by a Markdown reference. The assertions require no loader problems and exactly one inventory; they do not inspect that inventory's headings.
  * @evidence contracts/testing.md#independent-expectations Without it the complementary case is equally satisfied by a loader that indexes nothing ever, which is the failure mode a pruning optimization actually risks.
  * @evidence contracts/testing.md#distinguishing-cases One existing document is selected by the recursive Markdown glob under docs and produces one inventory. TestMarkdownIsNotIndexedWithoutAMarkdownReference supplies the zero-inventory case with the same document but no Markdown reference. Heading contents are not asserted here.

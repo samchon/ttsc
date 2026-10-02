@@ -13,6 +13,7 @@ import "testing"
  *  1. Configure a Markdown symbol on a TypeScript rule.
  *  2. Run the rule.
  *  3. Assert the message names `evidence/documented`.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule over an exported `parse` function with the options `{"symbol":"h2"}`; assertReported is called twice and requires exactly one diagnostic that contains both `Invalid evidence/documented configuration` and `symbol 'h2' is not supported`.
  * @evidence contracts/testing.md#independent-expectations The expected wording is authored from the diagnostic contract: an unsupported symbol value (the Markdown vocabulary decodes as a valid string) must be rejected with the owning rule's name in the message.
  * @evidence contracts/testing.md#distinguishing-cases This covers the symbol-decoder branch of the shared option decoding; the unknown-key branch is covered by the sibling TestDocumentedNamesItselfInConfigurationDiagnostics, so fixing only one would leave the other failing.

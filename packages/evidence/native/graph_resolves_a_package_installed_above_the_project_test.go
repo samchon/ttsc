@@ -19,6 +19,7 @@ import (
  *  1. Install the package one directory above the project root.
  *  2. Select it from the nested project.
  *  3. Assert the obligation carries the address the entry gives it.
+ *
  * @evidence contracts/testing.md#behavioral-verification The test installs `@org/api` (exports `./src/index.ts`, re-exporting `health`) in a node_modules directory one level above the project directory `test`, and runIndexRuleAtRoot runs the graph rule from that project with a function claim over features/** and a package reference over `src/**`; assertProblemContains requires `Missing acknowledgement for 'health.get'`.
  * @evidence contracts/testing.md#independent-expectations The expected address is authored from the package-entry contract: the package manager installed one level up, so the manifest must be found there and units addressed through the specifier a citation can spell (`health.get`), not through the matched module.
  * @evidence contracts/testing.md#distinguishing-cases A package reachable only from the parent of the project root; a resolver that looked beside the project only would find no manifest and address the unit by its module path instead.

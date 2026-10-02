@@ -14,6 +14,7 @@ import (
  *  1. Export two bindings from one variable statement.
  *  2. Run the rule.
  *  3. Assert both are named.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert both are named.
  * @evidence contracts/testing.md#independent-expectations A single `export const a = 1, b = 2;` declares two identities behind one statement node, so a walker that stopped at the statement would miss the second. The authored scenario requires this outcome: Assert both are named.
  * @evidence contracts/testing.md#distinguishing-cases Export two bindings from one variable statement. Run the rule. Assert both are named.

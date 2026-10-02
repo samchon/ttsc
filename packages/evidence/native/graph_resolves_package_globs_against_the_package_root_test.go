@@ -12,6 +12,7 @@ import "testing"
  *  1. Publish a package with two areas, both reachable from its entry.
  *  2. Narrow the reference to one of them with a package-relative glob.
  *  3. Assert only that area is demanded, under the address the entry gives it.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/views/** and a package reference `@org/api` narrowed to `lib/questions/**`, where the package entry re-exports `questions` and `reviews` namespaces; the diagnostics must contain `Missing acknowledgement for 'questions.get'` and none for `'reviews.erase'`.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored from the glob contract: package globs are relative to the package root, so the selected area is demanded under the address the entry gives it, and the other reachable area is not owed.
  * @evidence contracts/testing.md#distinguishing-cases Two areas both reachable from the entry with a package-relative glob selecting one; a glob resolved against the project root would match nothing, leaving no owed units.

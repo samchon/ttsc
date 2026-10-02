@@ -13,6 +13,7 @@ import "testing"
  *  1. Document every signature of an overload set.
  *  2. Run the rule.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over `format` written as two overload signatures and an implementation, each preceded by its own content block; assertSilent requires no diagnostics.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the documented-rule contract: only the founding declaration of an identity is judged, so additional blocks on the other signatures neither help nor count against it.
  * @evidence contracts/testing.md#distinguishing-cases Every signature documented, against the first-signature-only accept case and the undocumented or later-only report cases owned by sibling entries; a rule that counted blocks per signature would fail here.

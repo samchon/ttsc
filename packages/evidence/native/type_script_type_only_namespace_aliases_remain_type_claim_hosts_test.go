@@ -16,6 +16,7 @@ import (
  *  2. Export it only through a type alias.
  *  3. Assert a type-only claim accepts the host and an imported Public ancestor covers the original type/property population.
  *  4. Require the original uncited interface alone, then remove only the import and require unimported Public evidence and its uncovered obligations.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule accepts the local namespace host and the original imported Public ancestor citation. Appending BoundaryNamespaceUncited produces exactly its missing acknowledgement without unresolved targets; removing only the Public import produces the unimported Public diagnostic and exactly the five original type/property obligations.
  * @evidence contracts/testing.md#independent-expectations The alias changes public resolution, not JSDoc ownership. A source inventory fix that omits the declaration host would leave the new type target one-way. The local Markdown heading and imported Public declarations prescribe coverage independently. BoundaryNamespaceUncited is deliberately outside that ancestor; the missing-import contrast must refuse Public rather than infer an unrelated global target.
  * @evidence contracts/testing.md#distinguishing-cases The original local host and imported contracts/claim/use modules preserve type-only namespace resolution. An uncited interface activates one independent obligation; the missing-import twin keeps the declarations but removes the claimant's resolution authority.

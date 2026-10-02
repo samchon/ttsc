@@ -17,6 +17,7 @@ import (
  *  1. Cite a Markdown section from an exported interface.
  *  2. Evaluate a `symbol: "function"` claim over that file.
  *  3. Assert the host is refused and the section stays owed.
+ *
  * @evidence contracts/testing.md#behavioral-verification assertHostRefused runs the graph rule with a claim whose symbol is `function` over a documented `export interface ISale` carrying `@evidence docs/spec.md#contract` beside `export function activate()`; it requires `host kind 'type' is not selected (function)` and `Missing acknowledgement for 'docs/spec.md#contract'`.
  * @evidence contracts/testing.md#independent-expectations The expected messages are authored from the host-eligibility contract: an interface registers only the `type` kind, so a function claim must refuse a citation on it; an over-broad registration would accept the tag and discharge the section, which the owed-section assertion would catch.
  * @evidence contracts/testing.md#distinguishing-cases The interface (refused) beside an uncited function (keeps the claim active); the property-claim refusal of the same source is owned by the sibling entry.

@@ -13,6 +13,7 @@ import (
  *  1. Write a review between the braces of a destructuring pattern.
  *  2. Evaluate the same claim.
  *  3. Assert the tag is reported under the name it was written as.
+ *
  * @evidence contracts/testing.md#behavioral-verification runUnreadableRule must include Unreadable @evidenceReview at src/contracts.ts:4 for the inner review block.
  * @evidence contracts/testing.md#independent-expectations A review in a binding-element comment has no documentation host and cannot satisfy review policy. The literal expected tag kind and line distinguish losing or misclassifying it.
  * @evidence contracts/testing.md#distinguishing-cases The valid outer citation keeps coverage satisfied, while the inner review contains a dummy digest. This case asserts unreadability rather than digest validation and permits additional findings.

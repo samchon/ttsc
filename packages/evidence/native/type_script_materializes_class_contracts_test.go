@@ -19,6 +19,7 @@ import (
  *  1. Declare public and non-public members of every class member shape.
  *  2. Collect the inventory.
  *  3. Assert the exact unit set with its symbol kinds.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the exact unit set with its symbol kinds.
  * @evidence contracts/testing.md#independent-expectations The class is the subject an obligation belongs to, its methods are what the subject does, and its member variables are the measured facts it carries. The unexported members and the nameless ones are the negative twins: each is a member the loop reaches and must decline for a different reason, so an over-broad filter cannot hide behind the positives. The authored scenario requires this outcome: Assert the exact unit set with its symbol kinds.
  * @evidence contracts/testing.md#distinguishing-cases Declare public and non-public members of every class member shape. Collect the inventory. Assert the exact unit set with its symbol kinds.

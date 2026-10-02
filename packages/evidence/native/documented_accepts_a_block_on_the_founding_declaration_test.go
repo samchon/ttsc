@@ -12,6 +12,7 @@ import "testing"
  *  1. Document only the class half of a merged class identity.
  *  2. Run the rule.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over `export class Sale` and `export namespace Sale`, where the class and its `price` field and the namespace's `version` const carry documentation blocks but the namespace itself has none; assertSilent requires no diagnostics.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the documented-rule contract: a merged identity is judged by its first (founding) declaration, so documenting only the class half satisfies the pair; the companion rejection case for a block only on a later declaration is TestDocumentedRejectsABlockOnALaterMergedDeclaration.
  * @evidence contracts/testing.md#distinguishing-cases A merged class-and-namespace pair with a block on the first declaration only; this is the accepting counterpart of the later-declaration rejection, so silence here fails if the rule demanded a block on every half.

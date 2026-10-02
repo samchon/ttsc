@@ -12,6 +12,7 @@ import (
  *  1. Satisfy one strict TypeScript reference through a real imported symbol.
  *  2. Read positive and exclusion completion triggers.
  *  3. Assert only positive evidence receives the inline-link route.
+ *
  * @evidence contracts/testing.md#behavioral-verification runGraphHints exposes the {@link opener at the positive trigger and must omit that opener at the exclusion trigger for a strict TypeScript reference.
  * @evidence contracts/testing.md#independent-expectations The inline-link route follows the same noEvidenceExclude contract as concrete Markdown targets. A strict reference still allows a positive citation, so both trigger expectations are independently required.
  * @evidence contracts/testing.md#distinguishing-cases A real parsed imported IContract citation satisfies the TypeScript reference; the unit compares returned hint lists and does not start a language service.

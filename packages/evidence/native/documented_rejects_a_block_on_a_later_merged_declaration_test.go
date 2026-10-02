@@ -15,6 +15,7 @@ import "testing"
  *  1. Document only the namespace half of a merged class identity.
  *  2. Run the rule.
  *  3. Assert the identity is still reported, because the class founds it.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over an undocumented `export class Sale` (documented field) followed by a documented merged `export namespace Sale`; assertReported requires exactly one diagnostic, `Missing JSDoc on exported type 'Sale'`.
  * @evidence contracts/testing.md#independent-expectations The expected report is authored from the founding-declaration contract: the class is written first and so founds the identity, and a block on the later namespace half is not where the identity is judged from.
  * @evidence contracts/testing.md#distinguishing-cases The rejecting counterpart of the founding-declaration accept case, with the documentation placed only on the later half; the exactly-one result also shows the documented members do not cause extra reports.

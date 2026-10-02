@@ -13,6 +13,7 @@ import (
  *  1. Select properties and declare two of them in one statement under one block.
  *  2. Answer both items there and assert the claim passes.
  *  3. Drop one item and assert both identities report it.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a property claim and a two-item Markdown checklist over `export var price: number = 1, live: number = 2;` under one documentation block; with both items cited the graph must be silent, and with only `no-hardcoding` cited exactly two `checklist item(s)` diagnostics must appear, naming `'price'` and `'live'` and `has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'`.
  * @evidence contracts/testing.md#independent-expectations The expected counts are authored from the checklist contract that one block on a statement is the answer for every identity it declares, so both declarators are credited together and both owe a dropped item; the item text and documentation are literal fixtures.
  * @evidence contracts/testing.md#distinguishing-cases A complete answer (silence) against a partial one (two reports, one per identity) over the same statement: a ledger keyed so that one identity absorbs the credit would report only one of the two names, and the exact count of two excludes that.

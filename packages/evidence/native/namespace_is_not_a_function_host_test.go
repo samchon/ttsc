@@ -14,6 +14,7 @@ import (
  *  1. Cite a Markdown section from an exported namespace.
  *  2. Evaluate a `symbol: "function"` claim over that file.
  *  3. Assert the host is refused and the section stays owed.
+ *
  * @evidence contracts/testing.md#behavioral-verification assertHostRefused exercises the authored fixture. Assert the host is refused and the section stays owed.
  * @evidence contracts/testing.md#independent-expectations A namespace contains callables and data, so its own registration is the one most likely to be widened to whatever it holds. Nothing inside it is callable, so the activating declaration for this row sits outside it. The authored scenario requires this outcome: Assert the host is refused and the section stays owed.
  * @evidence contracts/testing.md#distinguishing-cases Cite a Markdown section from an exported namespace. Evaluate a `symbol: "function"` claim over that file. Assert the host is refused and the section stays owed.

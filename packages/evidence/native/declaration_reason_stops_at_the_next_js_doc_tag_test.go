@@ -13,6 +13,7 @@ import "testing"
  *  1. Write an `@evidence` target without a reason.
  *  2. Follow it with an unrelated JSDoc tag.
  *  3. Assert the declaration remains malformed.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule over a function whose block holds `@evidence docs/spec.md#contract` with no reason followed by `@returns Nothing.`, under a function claim and a Markdown reference over docs/spec.md; assertProblemContains requires `Malformed @evidence declaration` and `Missing acknowledgement`.
  * @evidence contracts/testing.md#independent-expectations The expected diagnostics are authored from the grammar contract: a reason may wrap across prose lines but a following JSDoc tag begins a new field, so the declaration stays without its mandatory reason and the section remains unacknowledged.
  * @evidence contracts/testing.md#distinguishing-cases A reason-less declaration followed by an unrelated JSDoc tag; the two assertions are independent (malformed report and uncovered section) and only containment is asserted. A reason that legitimately wraps is owned by other entries.

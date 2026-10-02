@@ -20,6 +20,7 @@ import (
  *  1. Digest one leaf of a destructuring pattern.
  *  2. Change the shared initializer, then reword the block above the pattern.
  *  3. Assert the first moved it and the second did not.
+ *
  * @evidence contracts/testing.md#behavioral-verification variableDigestOf parses `export const { gamma, delta } = source;` and returns the gamma unit digest; the test compares it with the digest from a fixture whose initializer is a different variable (`other`) and from a fixture with a JSDoc block added above the pattern.
  * @evidence contracts/testing.md#independent-expectations The expectation comes from the review-expiry contract, not from the digest code: the leaves of one pattern share one declarator and initializer, so changing the initializer must change a leaf digest, while documentation above the pattern is excluded from it and must not.
  * @evidence contracts/testing.md#distinguishing-cases One positive change (initializer swapped, digests must differ) and one negative control (block comment added, digests must be equal) on the same leaf; only gamma is digested, so the delta leaf and other declarator forms are not asserted here.

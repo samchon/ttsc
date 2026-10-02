@@ -27,6 +27,7 @@ import (
  *  2. Collect the inventory.
  *  3. Assert the shared member is one unit and every merged member takes the
  *     instance address, while the unmerged interface is untouched.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory parses `class Sale { charge() }` merged with `interface Sale { charge(); extra(); rate }` beside an unmerged `interface IPlain { run() }`, and the sorted units must equal exactly function:IPlain.run, function:Sale.prototype.charge, function:Sale.prototype.extra, property:Sale.prototype.rate, type:IPlain and type:Sale.
  * @evidence contracts/testing.md#independent-expectations The expected addresses are authored from the merge contract: an interface merged into a class describes the instance side, so its members take the `prototype` address and the member the class also declares is one unit, while an unmerged interface keeps its plain addresses.
  * @evidence contracts/testing.md#distinguishing-cases A shared member, two interface-only members (one method, one data member) and an unmerged interface as control; sending every interface member through `prototype` or duplicating `charge` would change the exact list.

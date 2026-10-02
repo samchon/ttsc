@@ -16,6 +16,7 @@ import (
  *  2. Run the rule against a file named after the declaration, then against one
  *     that is not.
  *  3. Assert the declared name is what the file must carry.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert the declared name is what the file must carry.
  * @evidence contracts/testing.md#independent-expectations TypeScript's export assignment reaches the rule through the same node kind as `export default`, distinguished only by a flag the rule deliberately ignores. Both expose one declaration under no addressable name, so both fall back to the declared name. The authored scenario requires this outcome: Assert the declared name is what the file must carry.
  * @evidence contracts/testing.md#distinguishing-cases Declare a local const and expose it with `export =`. Run the rule against a file named after the declaration, then against one that is not. Assert the declared name is what the file must carry.

@@ -14,6 +14,7 @@ import (
  *  1. Declare two local helpers beside one exported identity.
  *  2. Run the rule against a file named after the export.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert silence.
  * @evidence contracts/testing.md#independent-expectations The rule is about the public surface. A module with helpers and one export must be judged on the export alone, or every implementation file with private helpers becomes a violation. The authored scenario requires this outcome: Assert silence.
  * @evidence contracts/testing.md#distinguishing-cases Declare two local helpers beside one exported identity. Run the rule against a file named after the export. Assert silence.

@@ -19,6 +19,7 @@ import (
  *  1. Root one population with a leading `**` pattern and one with a segment.
  *  2. Make the root unlistable in both.
  *  3. Assert both name the root and neither derives a glob diagnostic.
+ *
  * @evidence contracts/testing.md#behavioral-verification For each of two reference patterns (`**\/*.md` and `requirements/**\/*.md`) the test makes the temp `documents` directory unreadable (skipping where permissions cannot be dropped) and runRootedGraphIn runs the graph rule with a Markdown reference rooted at `../documents`; every run must contain `could not walk Markdown root '../documents':` and none may contain `matched no markdown files`.
  * @evidence contracts/testing.md#independent-expectations The expected outcome is authored from the contract that a base belongs to its population regardless of glob shape, so an unlistable base must be named under both a leading `**` pattern and a segment-leading one.
  * @evidence contracts/testing.md#distinguishing-cases Two glob shapes over the same filesystem state, the pair that previously answered differently (reported versus swallowed); the loop runs both as plain iterations, not named subtests, and the test skips where permissions cannot be dropped.

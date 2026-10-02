@@ -11,6 +11,7 @@ import "testing"
  *  1. Document a namespace but leave a nested type and a nested const bare.
  *  2. Run the rule.
  *  3. Assert both members are reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over a documented `namespace Orders` containing an undocumented `export interface IInput` (documented `id`) and an undocumented `export const version`; assertReportedAmong requires a diagnostic for `exported type 'Orders.IInput'` and one for `exported property 'Orders.version'`.
  * @evidence contracts/testing.md#independent-expectations The expected names are authored from the addressing contract: namespace members are public units of their own and must be demanded with their qualified names.
  * @evidence contracts/testing.md#distinguishing-cases A nested type and a nested const as two member kinds; only containment is asserted, so additional diagnostics would not fail the test.

@@ -17,6 +17,7 @@ import "testing"
  *  1. Cite a Markdown section from a Markdown claim, braced.
  *  2. Evaluate the graph.
  *  3. Assert the explanatory rejection names the inline link itself.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a Markdown claim over docs/reader.md (symbol file), which cites `<!-- @evidence {@link pricing} ... -->`, against a Markdown reference over docs/spec.md; the diagnostics must contain `Inline link target '{@link pricing}'` and `a markdown comment has none`.
  * @evidence contracts/testing.md#independent-expectations The expected wording is authored from the diagnostic contract: a braced target in a Markdown comment has no import scope to resolve against, so the author must be told why it cannot be used rather than given a generic failure.
  * @evidence contracts/testing.md#distinguishing-cases A Markdown reference is used on purpose, so the rejection is observed without any code population to resolve against; only containment of the two fragments is asserted.

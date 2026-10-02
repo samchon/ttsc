@@ -14,6 +14,7 @@ import (
  *  1. Default-export an unnamed class.
  *  2. Run the rule.
  *  3. Assert the anonymous-default message.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert the anonymous-default message.
  * @evidence contracts/testing.md#independent-expectations An unnamed class declaration carries the same export and default modifiers as an unnamed function but arrives under a different node kind, so the branch that names neither has to be reached from both. The authored scenario requires this outcome: Assert the anonymous-default message.
  * @evidence contracts/testing.md#distinguishing-cases Default-export an unnamed class. Run the rule. Assert the anonymous-default message.

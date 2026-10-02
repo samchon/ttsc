@@ -13,6 +13,7 @@ import "testing"
  *  1. Give two selected headings the same explicit anchor.
  *  2. Cite that path-and-anchor target once.
  *  3. Assert resolution reports both sections as ambiguous.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule over docs/spec.md with two headings both given the explicit anchor `{#shared}` and a cited `docs/spec.md#shared` from an interface; the test requires `Ambiguous evidence target 'docs/spec.md#shared'` naming `Markdown H2 'First'` and `Markdown H2 'Second'`.
  * @evidence contracts/testing.md#independent-expectations The expected ambiguity and both heading names are authored from the fixture: a repeated anchor must stay two source units and make the target ambiguous rather than letting heading order choose a section.
  * @evidence contracts/testing.md#distinguishing-cases Two headings sharing one anchor against a single citation; a collapse by target would credit one section silently and produce no ambiguity. Unique anchors are the implicit control in other entries.

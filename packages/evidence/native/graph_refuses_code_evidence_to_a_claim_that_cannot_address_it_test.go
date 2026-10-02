@@ -11,6 +11,7 @@ import "testing"
  *  1. Configure a Markdown claim over a TypeScript reference.
  *  2. Evaluate the graph.
  *  3. Assert the bare citation is rejected and the file-qualified repair named.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a Markdown claim over docs/spec.md (symbol file) and a TypeScript function reference over src/api/**, where the document cites the bare token `get`; the diagnostics must contain `Code evidence target 'get'`, `@link` and `Missing acknowledgement`.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored from the addressing contract: file-qualified links enable this population without restoring repository-wide name lookup, so an unqualified symbol from a Markdown claim stays an error that names the `@link` repair and leaves the operation owed.
  * @evidence contracts/testing.md#distinguishing-cases A bare code symbol cited from Markdown; the file-qualified and inline forms that resolve are owned by the file-link entries.

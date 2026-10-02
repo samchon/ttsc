@@ -19,6 +19,7 @@ import (
  *  1. Normalize an absolute root written with backslashes.
  *  2. Resolve it against a project root.
  *  3. Assert the stored spelling and the printed label are the slashed form.
+ *
  * @evidence contracts/testing.md#behavioral-verification normalizeRootPath is called on `C:\contracts` and must return `C:/contracts` with no problem; resolvePopulationBase for a temp project and that value must record Declared `C:/contracts`, and populationRootLabel of it must be `C:/contracts`.
  * @evidence contracts/testing.md#independent-expectations The expected strings are authored literals; the path is handled as a string by the normalizer, so the result is the same on POSIX and Windows even though a drive-letter path is absolute on only one of them.
  * @evidence contracts/testing.md#distinguishing-cases One Windows-style absolute spelling checked at three stages (normalized, stored, printed label); a root written with slashes or a relative backslash root is owned by sibling entries.

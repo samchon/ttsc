@@ -24,6 +24,7 @@ import (
  *  2. Declare a namespace holding an interface of the class's name.
  *  3. Assert the nested interface keeps its own address and the static and
  *     instance members stay apart.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory parses a module-scope class `Sale` (static `rate`) merged with `interface Sale { rate }` and a `namespace Outer` holding its own `interface Sale { rate }`, and the sorted `symbol:target` list must equal exactly property:Outer.Sale.rate, property:Sale.prototype.rate, property:Sale.rate, type:Outer, type:Outer.Sale and type:Sale.
  * @evidence contracts/testing.md#independent-expectations The expected addresses are authored from the declaration-merging rule: merging happens inside one declaration space, so the nested interface does not merge with the module-scope class and keeps `Outer.Sale.rate` with no prototype segment, while the module-scope merged instance member gets `Sale.prototype.rate`.
  * @evidence contracts/testing.md#distinguishing-cases A static and an instance member of the same name stay as two addresses (`Sale.rate` and `Sale.prototype.rate`), and the same type name inside a namespace stays separate; the exact set also fails if a shared index moved the nested members onto a prototype path.

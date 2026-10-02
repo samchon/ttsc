@@ -18,6 +18,7 @@ import (
  *  1. Check two files against one invalid option and one cycle state.
  *  2. Repeat with a fresh cycle state.
  *  3. Assert each cycle reports exactly once and the later cycle recovers.
+ *
  * @evidence contracts/testing.md#behavioral-verification documentedRule.Check is run over two files per cycle through rule.NewContextWithProjectResults with a graphCycleState; with the misspelled option `{"symbols":"type"}` the first cycle and a second fresh cycle must each report exactly one `Invalid evidence/documented configuration` diagnostic across both files, and a third fresh cycle with the corrected option `{"symbol":"type"}` must report none.
  * @evidence contracts/testing.md#independent-expectations The expected counts are authored from the cycle contract: one cycle state deduplicates the configuration failure across parallel file checks, while a new state (a later watch cycle) must report a still-invalid option again and stop reporting once it is repaired.
  * @evidence contracts/testing.md#distinguishing-cases Two files under one state (exactly-once rather than twice), a second fresh state (not suppressed forever), and a repaired option (recovers); the local runCycle closure drives all three.

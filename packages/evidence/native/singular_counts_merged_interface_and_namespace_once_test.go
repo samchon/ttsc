@@ -16,6 +16,7 @@ import (
  *  1. Declare an interface and a namespace of the same exported name.
  *  2. Run the rule against a file named after them.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert silence.
  * @evidence contracts/testing.md#independent-expectations This is the form the rule exists to permit. A rule that counted exports would report the everyday `interface` plus `namespace` idiom as two, which is why the counted unit is an identity and why this case, not the single-declaration one, is the anchor of the design. The authored scenario requires this outcome: Assert silence.
  * @evidence contracts/testing.md#distinguishing-cases Declare an interface and a namespace of the same exported name. Run the rule against a file named after them. Assert silence.

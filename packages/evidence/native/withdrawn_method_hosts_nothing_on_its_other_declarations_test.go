@@ -17,6 +17,7 @@ import (
  *  1. Withdraw the first declaration of an overload run and cite the second.
  *  2. Evaluate a `symbol: "function"` claim over that file.
  *  3. Assert the citation is refused and the section stays unacknowledged.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the citation is refused and the section stays unacknowledged.
  * @evidence contracts/testing.md#independent-expectations An overload run is one member spelled several times, and the tag sits on whichever declaration the author documented. Resolving withdrawal per node marked the unit and still registered the untagged sibling as a claim host, so a method taken out of the API kept discharging coverage, silently, because the unit really was marked. The unit assertion alone cannot see that: it is the host side that leaks. The authored scenario requires this outcome: Assert the citation is refused and the section stays unacknowledged.
  * @evidence contracts/testing.md#distinguishing-cases Withdraw the first declaration of an overload run and cite the second. Evaluate a `symbol: "function"` claim over that file. Assert the citation is refused and the section stays unacknowledged.

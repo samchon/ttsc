@@ -14,6 +14,7 @@ import (
  *  1. Parse a file with no statements.
  *  2. Run the rule.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert silence.
  * @evidence contracts/testing.md#independent-expectations The zero case for the whole rule: no statements means no identity, and a walker that assumed at least one would fault on the emptiest input a project can contain. The authored scenario requires this outcome: Assert silence.
  * @evidence contracts/testing.md#distinguishing-cases Parse a file with no statements. Run the rule. Assert silence.

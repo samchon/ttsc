@@ -15,6 +15,7 @@ import (
  *  1. Parse one silent model and one positively citing model through the real bridge and project rule.
  *  2. Assert only the silent model fails single-evidence cardinality.
  *  3. Make two models cite one unit, then give each its own, and assert unique evidence rejects the first and accepts the second.
+ *
  * @evidence contracts/testing.md#behavioral-verification Three runs against a prisma claim with markdown policy singleEvidencePerSymbol and uniqueEvidence: (1) one citing model and one silent model -> exactly one singleEvidencePerSymbol failure naming Prisma model 'Untagged' with 'cites 0 distinct selected evidence unit(s)' and none for 'Positive'; (2) two models citing one section -> 'has 2 distinct positive evidence host(s); uniqueEvidence allows at most 1'; (3) each citing its own section -> no problems.
  * @evidence contracts/testing.md#independent-expectations Expected counts and message fragments are literals authored from the policy definitions (single evidence per symbol, unique evidence) and the fixtures' citation counts; they are not copied from a previous output.
  * @evidence contracts/testing.md#distinguishing-cases Silent host vs positive host (cardinality 0 vs 1), shared evidence unit across hosts (rejected) vs distinct units (accepted); a model citing the same unit twice and column/relation hosts are not run here.

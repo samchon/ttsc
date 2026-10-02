@@ -14,6 +14,7 @@ import (
  *  1. Leave every signature of an overload set undocumented.
  *  2. Run the rule.
  *  3. Assert exactly one finding for the set.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over `format` written as two undocumented overload signatures and an implementation; the test requires exactly one message, containing `Missing JSDoc on exported function 'format'`.
  * @evidence contracts/testing.md#independent-expectations The expected count is authored from the identity contract: an overload run is one identity, so it is reported once rather than per signature, and merging the run must not become skipping it.
  * @evidence contracts/testing.md#distinguishing-cases A three-declaration overload set with no blocks: reporting each node would give three messages and skipping the set would give none.

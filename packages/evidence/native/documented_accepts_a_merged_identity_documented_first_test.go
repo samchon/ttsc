@@ -12,6 +12,7 @@ import "testing"
  *  1. Document only the interface half of a merged identity.
  *  2. Run the rule with the default selection.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over a documented `export interface ISale` (with a documented `id`) merged with an undocumented `export namespace ISale` holding a documented `ICreate` interface; assertSilent requires no diagnostics.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the documented-rule contract: the identity is judged by its first declaration, so one block on the interface satisfies the pair and the namespace half owes nothing.
  * @evidence contracts/testing.md#distinguishing-cases A block on the first half only (interface) with no block on the namespace; the both-halves case and the later-only rejection are owned by sibling entries. Silence alone would also occur if the rule ignored merged identities, which the sibling rejection entries guard against.

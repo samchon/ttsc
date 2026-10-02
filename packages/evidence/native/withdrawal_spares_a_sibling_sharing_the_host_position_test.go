@@ -27,6 +27,7 @@ import (
  *  2. Evaluate a `symbol: "property"` claim over that file, against a reference
  *     holding one cited and one uncited section.
  *  3. Assert the uncited section is the only thing reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the uncited section is the only thing reported.
  * @evidence contracts/testing.md#independent-expectations `export var price, live` is two identities and one statement, because TypeScript attaches their documentation block to the wrapper. Giving up that position whenever any identity reaching it is withdrawn refused a citation on `live`, which nobody had tagged and which is fully public. The rule is that a position is given up only when every identity reaching it is gone. The authored scenario requires this outcome: Assert the uncited section is the only thing reported.
  * @evidence contracts/testing.md#distinguishing-cases Withdraw one identity through a merged namespace and cite its public sibling on the shared statement. Evaluate a `symbol: "property"` claim over that file, against a reference holding one cited and one uncited section. Assert the uncited section is the only thing reported.

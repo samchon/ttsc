@@ -16,6 +16,7 @@ import (
  *  1. Write a citation between the braces of a destructuring pattern.
  *  2. Evaluate a claim selecting the variables it declares.
  *  3. Assert the tag is reported at its own line.
+ *
  * @evidence contracts/testing.md#behavioral-verification runUnreadableRule must include Unreadable @evidence at src/contracts.ts:4 for a block inside an object binding pattern.
  * @evidence contracts/testing.md#independent-expectations Binding-element comments do not become JSDoc hosts under the supported grammar. The authored fourth line fixes the diagnostic location independently of the scanner.
  * @evidence contracts/testing.md#distinguishing-cases A valid statement-level citation discharges pricing, while the inner pattern block remains unreadable. assertReportedAmong checks this finding without certifying the complete diagnostic set.

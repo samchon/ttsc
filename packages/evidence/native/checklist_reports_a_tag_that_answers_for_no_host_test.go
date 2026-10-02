@@ -10,6 +10,7 @@ import "testing"
  *  1. Select functions as hosts and put an exclusion on an exported interface, with no other obligation to consume it.
  *  2. Assert the tag is reported with the obligation that recorded it and its target.
  *  3. Assert the hosts still owe every item, so nothing was discharged by it.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function checklist over an interface carrying `@evidenceExclude ...#no-whack-a-mole` and a cited function `first`; the test requires `Unhosted @evidenceExclude at src/ledger.ts:1 for Claim 1 reference 1 (markdown, symbols: h2), target 'docs/rules.md#no-whack-a-mole'`, `sits on no selected host and discharges no other obligation`, the move-the-tag repair for kind (function), and `first` still owing `1 of 2` items.
  * @evidence contracts/testing.md#independent-expectations The expected sentences are authored from the checklist contract that a tag on a declaration the claim does not select answers for no host: it must be reported with its obligation and target, and must not discharge the item for the real host.
  * @evidence contracts/testing.md#distinguishing-cases With no sibling obligation consuming the tag the report must fire; the consumed-by-sibling and consumed-by-overlap cases that suppress it are owned by sibling entries. The still-owed item on `first` shows the tag was not spread across hosts.

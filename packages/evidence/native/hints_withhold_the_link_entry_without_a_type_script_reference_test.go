@@ -16,6 +16,7 @@ import (
  *  1. Satisfy a graph whose only reference is Markdown.
  *  2. Take the published corpus.
  *  3. Assert no entry inserts the opener.
+ *
  * @evidence contracts/testing.md#behavioral-verification runGraphHints evaluates a passing Markdown-only graph and rejects every insert beginning with {@link.
  * @evidence contracts/testing.md#independent-expectations A Markdown-only reference population cannot resolve TypeScript inline-link targets, so no opener should be offered. The forbidden prefix is literal rather than inferred from returned inserts.
  * @evidence contracts/testing.md#distinguishing-cases The passing Markdown-only graph is the negative twin of TestHintsRouteIntoTypeScriptCompletion; it checks all hints rather than only the first entry.

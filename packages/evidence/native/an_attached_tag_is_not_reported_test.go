@@ -15,6 +15,7 @@ import (
  *  1. Cite a section from a documentation block on a declaration.
  *  2. Evaluate the same claim.
  *  3. Assert nothing is reported at all.
+ *
  * @evidence contracts/testing.md#behavioral-verification runUnreadableRule returns no problems when the ordinary leading documentation block cites pricing from limit.
  * @evidence contracts/testing.md#independent-expectations The supported JSDoc host and valid literal section citation must both be accepted. Silence is derived from the authored complete graph, rather than used as the expectation for malformed positions.
  * @evidence contracts/testing.md#distinguishing-cases One ordinary attached tag is the negative control for unreadable pattern and line-comment cases; it would fail if the scanner reported every tag indiscriminately.

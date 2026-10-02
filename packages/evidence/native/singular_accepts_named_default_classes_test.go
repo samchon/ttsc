@@ -14,6 +14,7 @@ import (
  *  1. Default-export a named class.
  *  2. Run the rule against a file of that name.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert silence.
  * @evidence contracts/testing.md#independent-expectations The negative twin of the anonymous class above: the branch must key on the missing name, never on the default modifier, or every named default export becomes a violation. The authored scenario requires this outcome: Assert silence.
  * @evidence contracts/testing.md#distinguishing-cases Default-export a named class. Run the rule against a file of that name. Assert silence.

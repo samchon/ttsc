@@ -15,6 +15,7 @@ import (
  *  1. Export a const and default-export the same binding.
  *  2. Run the rule against a file named after the const.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert silence.
  * @evidence contracts/testing.md#independent-expectations `export default something` exposes the name `default`, which names no identity. Counting public names rather than identities would report this file, and the plugin's own entry point uses exactly this shape. The authored scenario requires this outcome: Assert silence.
  * @evidence contracts/testing.md#distinguishing-cases Export a const and default-export the same binding. Run the rule against a file named after the const. Assert silence.

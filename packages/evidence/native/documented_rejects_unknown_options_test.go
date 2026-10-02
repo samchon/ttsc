@@ -12,6 +12,7 @@ import "testing"
  *  1. Configure a misspelled option key.
  *  2. Run the rule.
  *  3. Assert a configuration diagnostic instead of a scan.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule over an undocumented `parse` function with the misspelled option key `{"symbols":"type"}`; assertReported requires exactly one diagnostic, containing `unknown property`.
  * @evidence contracts/testing.md#independent-expectations The expected outcome is authored from the option contract: an unknown property must be refused rather than decoded to the zero value, which would silently restore the default population; the exactly-one result also shows the undocumented export was not scanned.
  * @evidence contracts/testing.md#distinguishing-cases One misspelled key; the unsupported-symbol-value branch and the graph-name attribution are covered by sibling entries.

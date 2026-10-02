@@ -15,6 +15,7 @@ import (
  *  1. Attach evidence to a data auto-accessor beside a real field.
  *  2. Select property hosts and one Markdown heading.
  *  3. Assert the declaration is reported as unsupported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the declaration is reported as unsupported.
  * @evidence contracts/testing.md#independent-expectations The property population is where an accessor most looks like it belongs, so the exclusion has to hold on that side too. Without this twin, an accessor refused as a callable could still slip in as a field and quietly discharge an obligation the class never took. The authored scenario requires this outcome: Assert the declaration is reported as unsupported.
  * @evidence contracts/testing.md#distinguishing-cases Attach evidence to a data auto-accessor beside a real field. Select property hosts and one Markdown heading. Assert the declaration is reported as unsupported.

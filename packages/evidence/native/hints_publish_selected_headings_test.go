@@ -16,6 +16,7 @@ import (
  *  1. Satisfy a graph over one document with a selected heading.
  *  2. Take the published corpus.
  *  3. Assert the heading's target is offered with its text alongside.
+ *
  * @evidence contracts/testing.md#behavioral-verification runGraphHints must return a silent passing graph whose citation hints contain docs/pricing.md#sale-price and whose matching detail contains Sale Price.
  * @evidence contracts/testing.md#independent-expectations The explicit {#sale-price} fixture anchor and authored heading text independently specify the inserted target and detail; a title-only insert or lost heading label fails.
  * @evidence contracts/testing.md#distinguishing-cases One selected H2 under a file-wide acknowledgement exercises both target identity and readable detail. TestHintsOmitUnselectedHeadings owns an adjacent unselected H3.

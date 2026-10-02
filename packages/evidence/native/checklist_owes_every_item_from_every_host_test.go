@@ -13,6 +13,7 @@ import (
  *  1. Select two functions and a two-item Markdown checklist.
  *  2. Cite both items from one host and only the first from the other.
  *  3. Assert the complete host passes and the partial host is reported with just its missing item.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule over a function checklist with a `complete` host citing both items and a `partial` host citing only `no-hardcoding`; exactly one `checklist item(s)` diagnostic must appear, naming `TypeScript function 'partial'` and `has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'`, and none naming `'complete'`.
  * @evidence contracts/testing.md#independent-expectations The expected single report is authored from the checklist contract that every host is judged against the whole item population, so a thorough host does not answer for another host.
  * @evidence contracts/testing.md#distinguishing-cases One complete and one partial host in the same claim: an ordinary once-per-reference coverage would pass both, and a checklist that reported every host would also report `complete`.

@@ -17,6 +17,7 @@ import (
  *  1. Root a Markdown reference above the project.
  *  2. Make a directory inside it unreadable and run the rule.
  *  3. Assert the failure ascends exactly as the file locations beside it do.
+ *
  * @evidence contracts/testing.md#behavioral-verification The test makes documents/requirements/private unreadable (skipping where permissions cannot be dropped) and runRootedGraphIn runs the graph rule with a Markdown reference rooted at `../documents` over requirements/**\/*.md; it requires a diagnostic containing `could not inspect '../documents/requirements/private':`.
  * @evidence contracts/testing.md#independent-expectations The expected spelling is the authored root-relative path a reader can open from the project directory, written as a literal rather than derived from the walker.
  * @evidence contracts/testing.md#distinguishing-cases The root ascends out of the project, the case where a base-relative path without the root prefix would be wrong; the non-ascending Markdown case is owned by the sibling project-relative entry. Only containment of the single message is asserted.

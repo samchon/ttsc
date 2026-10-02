@@ -32,6 +32,7 @@ import (
  *     section alone.
  *  2. Evaluate the claim.
  *  3. Assert only the untouched section is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule drives graphRule.Check over a class whose readonly property and overload implementation each carry an @evidenceExclude under a symbol "function" claim, and assertReported requires exactly one diagnostic, the missing acknowledgement for the untouched Uncited section.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the exclusion contract: of three Markdown sections, two are excluded by tags on live class members, so exactly the third must remain owed, with the literal message "Missing acknowledgement for 'docs/spec.md#uncited'"; it is not read back from the implementation.
  * @evidence contracts/testing.md#distinguishing-cases A positive-acceptance case only: both exclusions are honored, one on a member kind the claim does not select (the property) and one on the implementation half of an overload run, and the still-owed third section separates honored exclusions from a claim that never ran. The refused or withdrawn-carrier counterpart is not run in this body.

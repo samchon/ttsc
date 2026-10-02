@@ -22,6 +22,7 @@ import (
  *  1. Declare the same merged identity with neither half withdrawn.
  *  2. Cite one of two sections from the same untagged declarator.
  *  3. Assert only the uncited section is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule drives graphRule.Check over a merged namespace variable whose withdrawing @internal block has been cut out, with the second declarator citing docs/spec.md#pricing, and assertReported requires exactly one diagnostic: the missing acknowledgement for Uncited.
  * @evidence contracts/testing.md#independent-expectations The literal expectation follows from the citation contract: a live, unwithdrawn identity answers for the section its tag names, so Pricing is discharged and only Uncited stays owed. The fixture is the shared mergedWithdrawnVariable constant with the tag and block edited by string replacement, an input rather than an oracle.
  * @evidence contracts/testing.md#distinguishing-cases A single positive control: the same merged identity that sibling tests withdraw with @internal is here left unwithdrawn, so the citation is honored; the still-owed Uncited section separates this from a silent or deactivated claim. The withdrawn variants are owned by the sibling tests and are not run here.

@@ -19,6 +19,7 @@ import (
  *  1. Declare the root with backslashes.
  *  2. Read the root diagnostic.
  *  3. Assert it names the slash-separated spelling and carries no backslash.
+ *
  * @evidence contracts/testing.md#behavioral-verification runRootedGraph runs the graph rule with a TypeScript claim whose root is written `..\contracts` (a missing directory); the test requires a diagnostic containing `the typescript root '../contracts'` and that no message contains `\contracts`.
  * @evidence contracts/testing.md#independent-expectations The expected spelling is the authored slash-separated form of the same path, following the contract that diagnostics print paths with slashes; the check is on the message text, not a value recomputed by the decoder.
  * @evidence contracts/testing.md#distinguishing-cases One backslash-written root against its slash spelling in the message; the loop over all messages guards against any other diagnostic leaking the backslash form. A root already written with slashes is covered by sibling entries.

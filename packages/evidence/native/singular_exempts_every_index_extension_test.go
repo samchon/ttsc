@@ -14,6 +14,7 @@ import (
  *  1. Declare one differently named identity in each index extension.
  *  2. Run the rule.
  *  3. Assert every extension is exempt from the name match.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert every extension is exempt from the name match.
  * @evidence contracts/testing.md#independent-expectations A project's entry point is `index.ts`, `index.tsx`, `index.mts`, or `index.cts` depending on its module setup, and an exemption that matched only one of them would report the others for a name no identifier can have. The authored scenario requires this outcome: Assert every extension is exempt from the name match.
  * @evidence contracts/testing.md#distinguishing-cases Declare one differently named identity in each index extension. Run the rule. Assert every extension is exempt from the name match.

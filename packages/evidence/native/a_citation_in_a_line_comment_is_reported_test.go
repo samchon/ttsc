@@ -15,6 +15,7 @@ import (
  *  1. Write a citation in a line comment above a declaration.
  *  2. Evaluate the same claim.
  *  3. Assert the tag is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runUnreadableRule must include the unreadable citation diagnostic at authored source line 4 for a line comment above an export.
  * @evidence contracts/testing.md#independent-expectations A // comment is not TypeScript JSDoc, so its tag must be reported rather than accepted. The fixture line number and literal diagnostic clause do not come from the scanner.
  * @evidence contracts/testing.md#distinguishing-cases An attached citation on limit is the valid control; other carries the unreadable line comment. The subset assertion checks that diagnostic without requiring an otherwise empty report.

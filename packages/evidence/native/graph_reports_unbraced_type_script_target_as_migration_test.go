@@ -13,6 +13,7 @@ import "testing"
  *  1. Cite a real symbol without braces from a TypeScript claim.
  *  2. Evaluate the graph.
  *  3. Assert the migration diagnostic spells the inline link form.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the import-scope configuration over a view that cites the unbraced token `get`; the diagnostics must contain `Unbraced TypeScript evidence target 'get'` and `'@evidence {@link get} <reason>'`.
  * @evidence contracts/testing.md#independent-expectations The expected wording is authored from the migration contract: the old spelling names a real unit, so the message must say only its form is wrong and spell the exact braced replacement instead of reporting an unresolved target.
  * @evidence contracts/testing.md#distinguishing-cases An unbraced code target from a TypeScript claim; the Markdown path target that must not receive this diagnostic is owned by TestGraphKeepsMarkdownTargetsUnbraced.

@@ -13,6 +13,7 @@ import "testing"
  *  1. Import a module as a namespace and cite one of its callables.
  *  2. Evaluate the graph.
  *  3. Assert no diagnostic at all, so both resolution and coverage succeeded.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the import-scope configuration over a view that imports `* as questions` from a module declaring `get` and cites `{@link questions.get}`; assertNoProblems requires an empty list.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the resolution contract: a namespace import contributes no segment of its own, so `questions.get` means `get` inside the resolved module and both resolution and coverage must succeed.
  * @evidence contracts/testing.md#distinguishing-cases A namespace import with one qualified segment; an off-by-one segment shift would leave the citation unreachable or the callable owed, and the named and aliased forms are owned by sibling entries.

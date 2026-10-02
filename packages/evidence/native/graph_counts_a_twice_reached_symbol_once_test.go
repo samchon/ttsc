@@ -13,6 +13,7 @@ import "testing"
  *  1. Expose one declaration flat and under a namespace from the same entry.
  *  2. Acknowledge its one coverage obligation through either address.
  *  3. Assert silence, so the other address created no second obligation.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the shared entry claim (function claim over src/views/**, function reference over src/api/index.ts) where the index has both `export * from "./questions.js"` and `export * as questions from "./questions.js"`; a citation `{@link api.get}` and then a citation `{@link api.questions.get}` must each give no diagnostics.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the coverage contract: both addresses are real to an importer and must resolve, and a symbol reached twice remains one coverage unit, so neither citation leaves a second obligation owed.
  * @evidence contracts/testing.md#distinguishing-cases The flat and the namespace-qualified address of one function, each cited alone; if the namespace re-export doubled the unit, either single citation would leave a missing acknowledgement.

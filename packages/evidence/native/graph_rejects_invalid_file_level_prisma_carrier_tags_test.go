@@ -15,6 +15,7 @@ import (
  *  1. Exercise file-level ownership and each invalid comment form.
  *  2. Scan every case through the native Prisma declaration locator.
  *  3. Assert every case names its exact invalid boundary.
+ *
  * @evidence contracts/testing.md#behavioral-verification Four t.Run rows call prismaClaimOf on a one-line schema fragment and each joined problem list must contain its fragment: a file-level `/// @evidence` gives `only @evidenceExclude may be unattached at file level`, a `//` exclusion gives `'//' line comment`, a `/* *\/` exclusion gives `documents no declaration`, and a `////` exclusion gives `buried behind an extra slash`.
  * @evidence contracts/testing.md#independent-expectations The expected fragments are authored from the carrier contract: only a triple-slash file-level `@evidenceExclude` is a carrier, a detached positive tag would claim schema ownership without a model, and the other comment forms are not the carrier syntax.
  * @evidence contracts/testing.md#distinguishing-cases One valid-syntax-but-wrong-tag row and three wrong-syntax rows, each its own subtest with its own diagnostic; the accepted carrier form is owned by TestGraphAcceptsFileLevelPrismaExclusionCarrier.

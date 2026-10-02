@@ -24,6 +24,7 @@ import (
  *     field.
  *  2. Collect the inventory.
  *  3. Assert the class and that field are the whole set.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory parses a class `Sale` with members named `["literal"]`, `[key]` and `[Symbol.iterator]` beside an ordinary `named` field, and the sorted `symbol:target` list must equal exactly `property:Sale.prototype.named` and `type:Sale`.
  * @evidence contracts/testing.md#independent-expectations The expected set is authored from the contract that a computed member name has no target an author could write, even when it is a literal, so those members must not materialize while the ordinary field and the class do.
  * @evidence contracts/testing.md#distinguishing-cases Three computed-name shapes (literal, variable, well-known symbol) beside one ordinary field; the ordinary field distinguishes a correct filter from a collector that materialized no class members at all.

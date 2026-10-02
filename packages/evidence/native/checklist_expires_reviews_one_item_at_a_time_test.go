@@ -13,6 +13,7 @@ import (
  *  1. Answer a two-item checklist from two hosts, each review carrying the fingerprint the graph asks for.
  *  2. Assert the reviewed checklist passes.
  *  3. Edit the body of one item and assert both hosts go stale on that item alone.
+ *
  * @evidence contracts/testing.md#behavioral-verification Under a requireReview checklist, two function hosts review both items with fingerprints collected from the graph and runIndexRule must be silent; editing only the `no-hardcoding` body must yield exactly two `Stale @evidenceReview` diagnostics and none mentioning `no-whack-a-mole`; a document-wide citation with a review must produce `Aggregate @evidence target 'docs/rules.md'` and neither `Unreviewed @evidence` nor `Stale @evidenceReview`, while the same source without the checklist option must be asked for a fingerprint for the document.
  * @evidence contracts/testing.md#independent-expectations The expected counts and the aggregate wording are authored from the per-item expiry contract; the item fingerprints come from the graph itself, so the test checks acceptance and expiry transitions rather than the hash algorithm.
  * @evidence contracts/testing.md#distinguishing-cases Reviewed (silent) versus one item edited (both hosts stale on that item only) versus the document-wide shortcut that the checklist forbids; the ordinary-reference twin proves the refusal comes from the checklist option and not from the fixture.

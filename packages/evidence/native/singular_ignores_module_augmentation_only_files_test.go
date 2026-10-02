@@ -14,6 +14,7 @@ import (
  *  1. Augment another module and declare nothing else.
  *  2. Run the rule against a file named after the augmented interface.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert silence.
  * @evidence contracts/testing.md#independent-expectations An augmentation names another module with a string literal. Counting it would report every typings file that tightens a dependency's interface, and this repository ships one. The authored scenario requires this outcome: Assert silence.
  * @evidence contracts/testing.md#distinguishing-cases Augment another module and declare nothing else. Run the rule against a file named after the augmented interface. Assert silence.

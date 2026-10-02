@@ -12,6 +12,7 @@ import "testing"
  *  1. Leave a same-named property undocumented on two interfaces.
  *  2. Run the rule.
  *  3. Assert each finding carries its owner.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over documented interfaces `IAlpha` and `IBeta`, each with an undocumented `id` property; assertReportedAmong requires one diagnostic containing `exported property 'IAlpha.id'` and one containing `exported property 'IBeta.id'`.
  * @evidence contracts/testing.md#independent-expectations The expected names are authored from the addressing contract: the graph addresses these units as `IAlpha.id` and `IBeta.id`, so a finding must carry the owner or the two findings could not be told apart.
  * @evidence contracts/testing.md#distinguishing-cases The same property name on two owners, so a diagnostic naming a bare `id` could not satisfy both assertions; only containment is asserted, so extra diagnostics would not fail the test.

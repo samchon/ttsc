@@ -10,6 +10,7 @@ import "testing"
  *  1. Select H3 items under two different H2 parents.
  *  2. Cite one unselected H2, which contains one of the two items.
  *  3. Assert the refusal names that item and the host still owes the other.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with an h3 checklist over a document with `alpha` (child `one`) and `beta` (child `two`), where a function cites the unselected h2 `alpha`; the test requires `Aggregate @evidence target 'docs/rules.md#alpha'` naming a scope of 1 item (`docs/rules.md#one`), and `has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#two'`.
  * @evidence contracts/testing.md#independent-expectations The expected item lists are authored from the document structure: the refused aggregate names only the item it contains, so the suppression covers `one` and the other item `two` must still be owed by the host.
  * @evidence contracts/testing.md#distinguishing-cases The aggregate covers half of the population rather than all of it, which is what separates suppressing only the named items from suppressing the host's whole shortfall; a whole-population aggregate is owned by a sibling entry.

@@ -12,6 +12,7 @@ import "testing"
  *  1. Document an export with a multi-line block of bare asterisks.
  *  2. Run the rule.
  *  3. Assert the emptiness message.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over `export function parse` preceded by a multi-line `/**` block whose only line holds a bare asterisk; assertReported requires exactly one diagnostic, `Empty JSDoc on exported function 'parse'`.
  * @evidence contracts/testing.md#independent-expectations The expected message is authored from the emptiness contract: decoration (the leading asterisks and whitespace) is stripped as the tag parser strips it, so a block of bare asterisks says nothing and is empty, not missing.
  * @evidence contracts/testing.md#distinguishing-cases A multi-line decorated empty block against the single-line `/** *\/` form owned by the sibling empty-block entry.

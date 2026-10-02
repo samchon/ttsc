@@ -18,6 +18,7 @@ import (
  *  1. Merge an interface with a namespace declaring a nested variant.
  *  2. Collect the inventory.
  *  3. Assert the merged name is one unit and every nested member survives.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the merged name is one unit and every nested member survives.
  * @evidence contracts/testing.md#independent-expectations `IShoppingSale` beside `namespace IShoppingSale` is how a type family spells its variants, and both declarations are symbol `type` under one identity, so they already materialize one unit and nothing competes for the name. The correction must not reach it: dropping the namespace's members here would erase `IShoppingSale.ICreate` from every population that selects types. The authored scenario requires this outcome: Assert the merged name is one unit and every nested member survives.
  * @evidence contracts/testing.md#distinguishing-cases Merge an interface with a namespace declaring a nested variant. Collect the inventory. Assert the merged name is one unit and every nested member survives.

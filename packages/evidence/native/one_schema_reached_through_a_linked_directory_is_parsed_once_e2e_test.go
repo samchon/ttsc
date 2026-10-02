@@ -25,6 +25,7 @@ import (
  *  1. Write one schema and link its directory under a second name.
  *  2. Root one Prisma reference at each.
  *  3. Assert the set parsed cleanly and both populations carry the one result.
+ *
  * @evidence contracts/testing.md#behavioral-verification store/ holds the schema and mirror is created as a directory symlink to it; a typescript claim references prisma roots store and mirror. loadPrismaInventories must report no problem and assertBothPopulationsServed must hold (two inventories, shared unit and declaration pointers, smallest-spelling location mirror/main.prisma).
  * @evidence contracts/testing.md#independent-expectations Expectations are literal paths and unit IDs plus the smallest-spelling rule; os.SameFile identity is what the product uses to merge them, so the test pins that merged result rather than computing it independently.
  * @evidence contracts/testing.md#distinguishing-cases A directory-level link (two spellings of one directory); the hard-linked-file spelling and the case-only spelling are in sibling tests. A Windows junction is not created here: os.Symlink is used and the test skips when it fails.

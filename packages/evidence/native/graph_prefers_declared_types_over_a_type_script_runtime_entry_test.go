@@ -12,6 +12,7 @@ import "testing"
  *  1. Declare `types` beside an `exports` target that names TypeScript source.
  *  2. Acknowledge only what the declarations expose.
  *  3. Assert silence, which is reachable only through `types`.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/views/** and a package reference `@org/api` whose manifest has `types: ./lib/index.d.ts` and an `exports` target `./src/index.ts`; lib/index.d.ts declares only `get` while src/index.ts declares `get` and `erase`, and a view cites `{@link api.get}`; assertNoProblems requires an empty list.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the entry-resolution contract: a package that names its declarations has said where they are, so `types` wins and following the TypeScript runtime entry is only a last resort; silence is reachable only if `erase` (declared in the source entry alone) is not part of the population.
  * @evidence contracts/testing.md#distinguishing-cases The two candidate entries differ by one function: reading the source entry would leave `erase` owed and fail, while reading the declarations leaves only the cited `get`.

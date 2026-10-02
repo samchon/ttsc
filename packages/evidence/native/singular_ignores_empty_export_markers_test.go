@@ -13,6 +13,7 @@ import (
  *  1. Write only an empty export list.
  *  2. Run the rule.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert silence.
  * @evidence contracts/testing.md#independent-expectations `export {}` exists to make a file a module and declares nothing. Treating an export list as ownership regardless of its contents would report it. The authored scenario requires this outcome: Assert silence.
  * @evidence contracts/testing.md#distinguishing-cases Write only an empty export list. Run the rule. Assert silence.

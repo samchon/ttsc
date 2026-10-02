@@ -13,6 +13,7 @@ import (
  *  1. Re-export the module with `export type * from`.
  *  2. Point the same reference at the barrel.
  *  3. Assert the same population.
+ *
  * @evidence contracts/testing.md#behavioral-verification assertReexportedPopulation exercises the authored fixture. Assert the same population.
  * @evidence contracts/testing.md#independent-expectations The star form has no clause to carry a per-name mark, so the declaration's own is the whole answer and a fix keyed on the clause would miss it entirely. The authored scenario requires this outcome: Assert the same population.
  * @evidence contracts/testing.md#distinguishing-cases Re-export the module with `export type * from`. Point the same reference at the barrel. Assert the same population.

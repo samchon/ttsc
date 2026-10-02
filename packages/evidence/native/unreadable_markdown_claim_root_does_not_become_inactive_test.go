@@ -16,6 +16,7 @@ import (
  *  1. Resolve a Markdown claim against a missing root.
  *  2. Record the population failure the claim-side loader records.
  *  3. Assert the unreadable claim remains active for diagnosis.
+ *
  * @evidence contracts/testing.md#behavioral-verification activeGraphConfig is called on a decoded Markdown claim whose root is missing and whose Markdown inventory holds only the failure record that recordPopulationFailure writes for that base; the test requires the claim to stay in the returned configuration. The loader itself is not run; the failure record is injected by calling recordPopulationFailure directly.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the contract that an unhealthy population cannot prove emptiness, so a claim with zero matched files but a recorded load failure stays active (one claim kept). The recorded failure is the only input that differs from a healthy empty population.
  * @evidence contracts/testing.md#distinguishing-cases Only the failed-base case runs; the contrasting healthy-empty population that must become inactive is not exercised here, so a function that never dropped any claim would also pass.

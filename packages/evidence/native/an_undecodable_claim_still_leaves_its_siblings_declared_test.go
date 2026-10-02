@@ -17,6 +17,7 @@ import (
  *  1. Configure one claim with an unsupported artifact type and one valid claim.
  *  2. Publish the rule's project inputs.
  *  3. Assert the valid claim's glob is declared and nothing panicked.
+ *
  * @evidence contracts/testing.md#behavioral-verification declaredInputs calls graphRule.ProjectInputs on a configuration holding one claim of the unsupported type `nonsense` (with a Markdown reference over never/**) and one valid TypeScript claim whose Markdown reference selects docs/spec/**\/*.md; assertDeclares requires the glob inputs to be exactly docs/spec/**\/*.md.
  * @evidence contracts/testing.md#independent-expectations The expected single glob is authored: the valid claim's reference population must still be declared, and nothing from the undecodable claim (docs/** or never/**) may be declared; a panic in the input declaration would fail the test.
  * @evidence contracts/testing.md#distinguishing-cases One broken claim beside one healthy sibling; the exact-set check separates silencing the healthy claim (empty set) from declaring the broken claim's globs (extra patterns). Fully valid configurations are owned by sibling input entries.

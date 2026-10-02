@@ -12,6 +12,7 @@ import "testing"
  *  1. Parse Markdown and Swagger targets.
  *  2. Read back each target and reason.
  *  3. Assert neither is treated as an inline link.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseDeclarations is called on `@evidence docs/spec.md#pricing ...` and `@evidence POST:/members ...`; each must yield exactly one declaration whose target is not an inline link target and equals `docs/spec.md#pricing` and `POST:/members` respectively.
  * @evidence contracts/testing.md#independent-expectations The expected targets are authored literals: Markdown and Swagger targets remain one whitespace-delimited token and the braced inline-link grammar must not reinterpret them.
  * @evidence contracts/testing.md#distinguishing-cases A Markdown path target and a Swagger operation target are the two non-braced forms; the braced forms are covered by sibling entries, and the loop covers the map's two entries as plain iterations.

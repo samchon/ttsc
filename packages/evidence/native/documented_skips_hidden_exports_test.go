@@ -14,6 +14,7 @@ import (
  *  1. Withdraw one undocumented export and leave another bare beside it.
  *  2. Run the documented rule over function hosts.
  *  3. Assert only the untagged export is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification For each of the hidden tags `@internal`, `@hidden` and `@ignore` (hiddenTagCases) a t.Run subtest runs the documented rule with `{"symbol":["function"]}` over a hidden-tagged `export function reset` beside an undocumented `export function check`; assertReported requires exactly one diagnostic, `Missing JSDoc on exported function 'check'`.
  * @evidence contracts/testing.md#independent-expectations The expected single report is authored from the population contract: a withdrawn declaration is neither citable nor selectable, so the rule must not demand a block on it, while its undocumented sibling is still demanded.
  * @evidence contracts/testing.md#distinguishing-cases Each of the three hidden-tag spellings is its own subtest; the untagged sibling `check` is the control that shows the rule still fires, and the exactly-one assertion fails if `reset` is also reported.

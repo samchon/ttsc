@@ -19,6 +19,7 @@ import (
  *  1. Declare a destructured parameter carrying a property modifier.
  *  2. Collect the inventory.
  *  3. Assert only the ordinary parameter property materializes.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory parses `interface IOptions { a; b }` and `class Sale { constructor(public { a, b }: IOptions, public readonly price: number) {} }`, and the sorted units must equal exactly property:IOptions.a, property:IOptions.b, property:Sale.prototype.price, type:IOptions and type:Sale.
  * @evidence contracts/testing.md#independent-expectations The expected set is authored from the materialization contract: a destructured parameter with a property modifier is invalid TypeScript and must create no `Sale.prototype.a` or `Sale.prototype.b` unit, while the ordinary parameter property beside it still does.
  * @evidence contracts/testing.md#distinguishing-cases The destructured parameter (materializes nothing) beside a plain parameter property (control that materializes one unit); the interface members appear in the expected set only as IOptions units, which also pins that they are not re-addressed under the class.

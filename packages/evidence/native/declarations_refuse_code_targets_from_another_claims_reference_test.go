@@ -20,6 +20,7 @@ import "testing"
  *     Markdown, in one graph.
  *  2. Cite the code symbol by plain token from the Markdown claim.
  *  3. Assert it is refused, naming the citing artifact and the repair.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a TypeScript claim (reference over src/contracts.ts exporting `Shared`) and a Markdown claim whose document cites `docs/spec.md#pricing` and the plain token `Shared`; the test requires diagnostics containing `Code evidence target 'Shared'`, `unqualified symbol has no module identity` and `@link`.
  * @evidence contracts/testing.md#independent-expectations The expected sentence parts are authored from the addressing contract: a Markdown claim cannot address code by a plain token, so a plain-token code target must be refused with the reason and the `{@link}` repair rather than resolve through another claim's TypeScript reference or be reported merely as unresolved.
  * @evidence contracts/testing.md#distinguishing-cases The symbol exists and is materialized by a different claim's reference, which is the case where the refusal must still fire; the document citation in the same file is the valid control. Only containment of the three fragments is asserted.

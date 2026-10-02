@@ -17,6 +17,7 @@ import (
  *  1. Hand the decision a path the population does not read.
  *  2. Read what it returns.
  *  3. Assert it reports nothing.
+ *
  * @evidence contracts/testing.md#behavioral-verification unreadableEntryProblem is called with a base for `../documents`, an entry `assets/private` under that root and a relevance callback accepting only `requirements/private`; it must return relevant=false and an empty problem.
  * @evidence contracts/testing.md#independent-expectations The expectation is the authored rule that a directory the population never reads owes no diagnostic: the callback and the entry are both chosen by the test, so the silent result is not read back from the implementation.
  * @evidence contracts/testing.md#distinguishing-cases The negative twin of the relevant-entry cases: same base and cause, but an entry the population does not select; the relevant case is owned by sibling entries.

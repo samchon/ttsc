@@ -16,6 +16,7 @@ import (
  *     another.
  *  2. Collect the inventory.
  *  3. Assert only the tagged declaration is withdrawn.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert only the tagged declaration is withdrawn.
  * @evidence contracts/testing.md#independent-expectations Prose describing something as internal is not a declaration that it is, and a substring match would let a sentence delete an obligation nobody meant to withdraw. The positive twin one line away is what keeps this from passing on a collector that ignores the tag entirely. The authored scenario requires this outcome: Assert only the tagged declaration is withdrawn.
  * @evidence contracts/testing.md#distinguishing-cases Mention the tag mid-sentence on one declaration and write it as a tag on another. Collect the inventory. Assert only the tagged declaration is withdrawn.

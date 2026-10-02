@@ -12,6 +12,7 @@ import (
  *  1. Select one section through strict and ordinary references.
  *  2. Satisfy both with one positive citation.
  *  3. Assert the shared target remains an exclusion hint.
+ *
  * @evidence contracts/testing.md#behavioral-verification runGraphHints keeps docs/spec.md#contract in exclusion hints when strict and ordinary references select the same section.
  * @evidence contracts/testing.md#independent-expectations The cursorless corpus is the union of targets legal under any enabled reference; an ordinary reference independently permits the target even when another forbids exclusion.
  * @evidence contracts/testing.md#distinguishing-cases Two references to the same authored H2 differ only in noEvidenceExclude and share one positive citation. This is the permissive twin of the strict-only exclusion test.

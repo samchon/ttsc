@@ -27,6 +27,7 @@ import (
  *  2. Read the message.
  *  3. Assert the reason survives verbatim, that it is not doubled, and that the
  *     path this rule prints is still its own.
+ *
  * @evidence contracts/testing.md#behavioral-verification unreadableWalkEntryProblem is called for a base `../documents`, entry `requirements/private` and a cause whose text is `open C:\Users\one\documents\private: Access is denied.`; the message must contain that text with its period followed by `. Fix filesystem access`, must not contain `.. `, and must quote `'../documents/requirements/private'`.
  * @evidence contracts/testing.md#independent-expectations The expected reason is the cause text written in the test, so the check is that the operating-system sentence, including its Windows path and separators, is kept verbatim and only its terminator is normalized; the rule's own path is asserted separately.
  * @evidence contracts/testing.md#distinguishing-cases A cause that already ends in a period and embeds a native absolute path covers the doubled-terminator boundary and the no-rewriting-of-the-cause boundary; a cause without a terminator is covered by the causeReason entry.

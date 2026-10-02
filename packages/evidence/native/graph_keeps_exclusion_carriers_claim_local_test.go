@@ -13,6 +13,7 @@ import "testing"
  *  1. Point function and type claims at the same carrier file.
  *  2. Give the claims distinct Markdown populations and exclude both targets.
  *  3. Assert each declaration participates only in the obligation it resolves.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim `operations` (reference docs/api.md) and a type claim `shapes` (reference docs/dto.md) over the same src/** population, where one EVIDENCE_EXCLUDE.ts carrier excludes `docs/api.md#operation` and `docs/dto.md#shape` beside a selected function and a selected interface; assertNoProblems requires an empty list.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the carrier contract: each exclusion must resolve into a reference owned by its own claim, so both headings are acknowledged without the carrier becoming a package-wide exemption.
  * @evidence contracts/testing.md#distinguishing-cases Two claims reading the same ledger with different Markdown populations; an exclusion applied to the wrong claim would leave one heading owed or report an unresolved target. Silence alone does not show claim isolation beyond that.

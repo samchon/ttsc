@@ -17,6 +17,7 @@ import (
  *  1. Put an `@evidence` tag on a member of a function-merged namespace.
  *  2. Evaluate a claim selecting function hosts.
  *  3. Assert the ineligible host is named and the obligation stays open.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/api/health.ts, where `namespace get` merged with `function get` has a member `path` carrying `@evidence docs/spec.md#contract`; the diagnostics must contain `host kind 'unsupported or non-exported declaration' is not selected` and `Missing acknowledgement for 'docs/spec.md#contract'`.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored from the unit-model contract: a function-merged namespace member is the function's static side and no longer a public unit, so a tag already written there must be reported and the target it meant to cover stays owed rather than being dropped silently.
  * @evidence contracts/testing.md#distinguishing-cases The citation sits on the static member while the function `get` remains the selected host; both halves (host named out of scope, obligation still open) are asserted by containment.

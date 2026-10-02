@@ -15,6 +15,7 @@ import (
  *  1. Attach evidence to a callable auto-accessor beside a real function unit.
  *  2. Select function hosts and one Markdown heading.
  *  3. Assert the declaration is reported as unsupported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the declaration is reported as unsupported.
  * @evidence contracts/testing.md#independent-expectations Excluding only the source unit is insufficient because supported-host collection can still accept the same declaration as an outgoing function claim. The authored scenario requires this outcome: Assert the declaration is reported as unsupported.
  * @evidence contracts/testing.md#distinguishing-cases Attach evidence to a callable auto-accessor beside a real function unit. Select function hosts and one Markdown heading. Assert the declaration is reported as unsupported.

@@ -17,6 +17,7 @@ import (
  *  1. Configure one disabled claim under unreadable roots.
  *  2. Run the project rule with no source population.
  *  3. Assert it passes and publishes an empty corpus and no hints.
+ *
  * @evidence contracts/testing.md#behavioral-verification graphRule.Check is run through rule.NewProjectContext with no sources and one disabled TypeScript claim whose root and reference root name directories that do not exist; the capturing reporter must record no failure or message, the published graphCycleState must hold zero claims and empty Markdown, Prisma and Swagger corpora, and graphRule.Hints on that state must return no hint.
  * @evidence contracts/testing.md#independent-expectations The expectation is the staged-authoring contract that a configuration whose claims are all disabled passes silently with an empty published corpus; the roots are deliberately nonexistent, so any attempt to resolve them before the disabled gate would surface as a loader message.
  * @evidence contracts/testing.md#distinguishing-cases A single disabled claim with missing roots against an enabled-claim case that would report a root failure; mixed enabled and disabled claims are owned by sibling configuration entries.

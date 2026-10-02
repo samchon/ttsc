@@ -16,6 +16,7 @@ import (
  *  1. Write a line opening with a citation inside a template literal.
  *  2. Evaluate the same claim.
  *  3. Assert nothing is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runUnreadableRule returns no problems for an exported template literal containing a line shaped like an evidence tag.
  * @evidence contracts/testing.md#independent-expectations Template contents are string data rather than comment tokens. The valid documentation citation discharges pricing; reporting the embedded line would violate lexical comment boundaries.
  * @evidence contracts/testing.md#distinguishing-cases The template contains the same tag spelling as documentation, but its location changes the expected result to silence. Line-comment siblings own actual unreadable comments.

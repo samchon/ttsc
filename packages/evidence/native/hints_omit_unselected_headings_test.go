@@ -15,6 +15,7 @@ import (
  *  1. Select `h2` only, and declare an `h3` beneath the `h2`.
  *  2. Take the published corpus.
  *  3. Assert the `h3` target is absent while the `h2` is present.
+ *
  * @evidence contracts/testing.md#behavioral-verification runGraphHints returns the selected sale-price target and must omit rounding from every returned hint insert.
  * @evidence contracts/testing.md#independent-expectations The reference selects file and h2, so the authored H2 is available while the nested H3 is outside the completion population, regardless of containment coverage.
  * @evidence contracts/testing.md#distinguishing-cases The same document contains H2 sale-price and H3 rounding; presence of the H2 prevents empty completion output from satisfying the H3 absence check.

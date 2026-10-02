@@ -15,6 +15,7 @@ import (
  *  1. Compile one exact subtree glob and one `**` glob.
  *  2. Check matching and impossible directory prefixes.
  *  3. Assert configured folder names remain traversable.
+ *
  * @evidence contracts/testing.md#behavioral-verification newGlobSet is built for `lib/contracts/**` and `**\/*.md`; couldMatchDescendant must be true for `lib` and `lib/contracts` and false for `docs` and `lib/other` on the first set, and true for `node_modules/package` on the second.
  * @evidence contracts/testing.md#independent-expectations The expected answers are authored from the pruning contract: a subtree may be skipped only when no configured positive pattern can match below it, and folder names such as `lib` or `node_modules` are ordinary segments when a pattern selects them.
  * @evidence contracts/testing.md#distinguishing-cases A scoped prefix glob (matching and impossible directories) against a leading `**` glob that must keep every directory, including one named node_modules; the pruning behavior for negated patterns is owned by sibling glob entries.

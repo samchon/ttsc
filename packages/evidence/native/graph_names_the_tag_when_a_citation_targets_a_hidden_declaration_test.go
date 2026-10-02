@@ -18,6 +18,7 @@ import (
  *  2. Evaluate the graph.
  *  3. Assert the diagnostic names the tag, the withdrawn declaration, and both
  *     repairs.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over test/** and a function reference over src/index.ts, where `reset` carries `@internal` and a test cites both `{@link api.reset}` and `{@link api.check}`; the diagnostics must contain `Hidden evidence target '{@link api.reset}'`, `carries '@internal' in its documentation comment` and `Remove the tag if the declaration is public contract`, and exactly one `Hidden evidence target`.
  * @evidence contracts/testing.md#independent-expectations The expected wording is authored from the diagnostic contract: the target resolves to a real declaration, so the message must name the withdrawal tag and both repairs instead of reporting an unresolved target that sends the author hunting for a typo.
  * @evidence contracts/testing.md#distinguishing-cases A withdrawn function and a public one cited together: only the withdrawn one may produce the hidden-target report, shown by the count of one.

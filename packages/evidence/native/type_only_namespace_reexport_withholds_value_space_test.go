@@ -15,6 +15,7 @@ import (
  *  1. Re-export the module with `export type * as api from`.
  *  2. Point the same reference at the barrel.
  *  3. Assert the same population, addressed through the segment.
+ *
  * @evidence contracts/testing.md#behavioral-verification assertReexportedPopulation exercises the authored fixture. Assert the same population, addressed through the segment.
  * @evidence contracts/testing.md#independent-expectations `export type * as api from` nests the whole surface one segment deeper, so this row also pins that the withholding travels with the address rather than being decided at the top of it. The authored scenario requires this outcome: Assert the same population, addressed through the segment.
  * @evidence contracts/testing.md#distinguishing-cases Re-export the module with `export type * as api from`. Point the same reference at the barrel. Assert the same population, addressed through the segment.

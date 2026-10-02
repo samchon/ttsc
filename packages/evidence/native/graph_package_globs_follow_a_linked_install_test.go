@@ -19,6 +19,7 @@ import (
  *  1. Install the package outside `node_modules` and link it into place.
  *  2. Select it with a glob, exactly as a monorepo consumer does.
  *  3. Assert the operation behind the link is still demanded.
+ *
  * @evidence contracts/testing.md#behavioral-verification The test writes a package under packages/api, links it to node_modules/@org/api with a directory symlink, and runIndexRuleAtRoot runs the graph rule with a function claim over src/views/** and a package reference `@org/api` with files `lib/**`; the diagnostics must contain `Missing acknowledgement for 'questions.get'`.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the install contract: a workspace dependency is a link, and a walker that treated the link as a plain entry would report an empty population that demands nothing, so the operation behind the link must still be owed.
  * @evidence contracts/testing.md#distinguishing-cases A package reached only through a symlink with a glob selection; the Windows junction twin is a separate Windows-only entry, and an unavailable symlink fails the fixture rather than skipping.

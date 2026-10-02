@@ -13,6 +13,7 @@ import (
  *  1. Select a document containing no H2 section.
  *  2. Run a checklist reference over it with one selected host.
  *  3. Assert the empty population is the only diagnostic and the host is not judged.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function checklist over `docs/rules.md` containing only prose (no h2) and one function host; the test requires exactly one diagnostic, containing `found no selected evidence units (h2)`.
  * @evidence contracts/testing.md#independent-expectations The expected single message is authored: an empty healthy population is named once by the materializer and the checklist host loop must not derive a per-host finding beneath it.
  * @evidence contracts/testing.md#distinguishing-cases Empty item population with one selected host: a checklist loop that judged the host against zero items would report nothing or something per host, and the exact count of one with the empty-population wording excludes both.

@@ -13,6 +13,7 @@ import "testing"
  *  1. Forward four names from one module through an entry.
  *  2. Acknowledge all four by their entry-relative addresses.
  *  3. Assert silence, so every forwarded name both resolved and was covered.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the shared entry claim over an index `export { get, post, patch, erase } from "./operations.js"` and a view citing all four names as `{@link api.<name>}`; assertNoProblems requires an empty list.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the barrel contract: every name forwarded by one wide re-export must resolve and be covered by its entry-relative address.
  * @evidence contracts/testing.md#distinguishing-cases Four names forwarded from one module, all cited; a traversal that dropped a name would leave it owed, and one that failed to resolve a citation would report it. The linear-cost grouping is not measured here.

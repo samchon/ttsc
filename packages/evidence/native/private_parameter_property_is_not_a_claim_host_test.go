@@ -15,6 +15,7 @@ import (
  *  1. Cite a Markdown section from a private parameter property.
  *  2. Evaluate a `symbol: "property"` claim over that file.
  *  3. Assert the unsupported-host diagnostic.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule writes a Markdown spec and a class whose private constructor parameter property carries an @evidence tag, runs graphRule.Check with a property claim, and one reported diagnostic must contain "unsupported or non-exported declaration".
  * @evidence contracts/testing.md#independent-expectations Source, claim configuration and the expected diagnostic fragment are authored literals; that a tag on a declaration that is not a unit must be refused rather than silently counted follows from the host contract, not from a recorded run.
  * @evidence contracts/testing.md#distinguishing-cases The private parameter property is the only negative case; the assertion is a substring match among all diagnostics (assertProblemContains), and the public sibling property in the fixture is not separately asserted as accepted.

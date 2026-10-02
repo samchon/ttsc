@@ -13,6 +13,7 @@ import (
  *  1. Select whole plan documents as hosts and a two-item rules document as the checklist.
  *  2. Answer both items in one plan and nothing in the other.
  *  3. Assert the answering plan passes and the silent plan owes both items.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a Markdown claim over plans/** (symbol file) against a two-item checklist document, where alpha.md cites both items, gamma.md cites one and beta.md none; the test requires exactly two checklist diagnostics, beta.md owing `2 of 2` items, gamma.md owing `1 of 2` (no-whack-a-mole), and no mention of alpha.md.
  * @evidence contracts/testing.md#independent-expectations The expected counts and item lists are authored from the checklist contract that each host owes every item and is discharged only when all are answered; they are literals tied to the fixture comments, not read back from the grader.
  * @evidence contracts/testing.md#distinguishing-cases A fully answering host, a partial host and a silent host in one run: the partial host guards against discharging on the first acknowledgement, and the alpha exclusion guards against reporting a satisfied host. TypeScript hosts are owned by sibling entries.

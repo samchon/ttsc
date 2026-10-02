@@ -16,6 +16,7 @@ import (
  *  1. Disable the only claim that references a staged Markdown section.
  *  2. Cite that staged section beside a valid citation in an enabled claim.
  *  3. Assert the staged target is unresolved rather than leaked globally.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule over a disabled claim whose reference is docs/staged.md and an enabled claim over src/live.ts whose interface cites both `docs/live.md#live` and `docs/staged.md#staged`; the test requires exactly one message, containing `Unresolved evidence target 'docs/staged.md#staged'`.
  * @evidence contracts/testing.md#independent-expectations The expected message is authored from the activation contract: target lookup is built from active obligations only, so a section referenced solely by a disabled claim must be unresolved for the enabled claim's citation rather than leaking globally.
  * @evidence contracts/testing.md#distinguishing-cases The live citation resolves and is satisfied while the staged citation does not; the exact count of one message separates a leak (no message) from an additional participation failure (two messages).

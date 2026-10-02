@@ -36,6 +36,7 @@ import (
  *     type-only alias and one inside the type-only namespace.
  *  3. Assert both merges expose their names alone while both unmerged
  *     interfaces expose their members.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert both merges expose their names alone while both unmerged interfaces expose their members.
  * @evidence contracts/testing.md#independent-expectations The class half is already suppressed under a type-only alias, because every member address runs through the class value the alias does not expose. Moving the interface half's members onto that same `prototype` address put them back at exactly the address the suppression exists to keep empty, so the guard has to travel with the merge rather than sit on one collector. The authored scenario requires this outcome: Assert both merges expose their names alone while both unmerged interfaces expose their members.
  * @evidence contracts/testing.md#distinguishing-cases Export a class merged with an interface through a type-only alias, and a second such merge through a type-only namespace projection. Put an interface no class merges with beside each half, one under the type-only alias and one inside the type-only namespace. Assert both merges expose their names alone while both unmerged interfaces expose their members.

@@ -12,6 +12,7 @@ import "testing"
  *  1. Point a reference at a module that does not exist.
  *  2. Evaluate the graph.
  *  3. Assert the diagnostic names the attempted population.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the shared entry claim (function claim over src/views/**, function reference over src/api/index.ts) with no src/api/index.ts present; assertProblemContains requires `matched no typescript files for ['src/api/index.ts']`.
  * @evidence contracts/testing.md#independent-expectations The expected message is authored from the population contract: a reference that resolves to no module must be reported against what it tried to select, because a silent empty population would read as a satisfied obligation.
  * @evidence contracts/testing.md#distinguishing-cases A reference glob matching no file; the package-glob outside the entry surface and the matched-but-no-selected-kind cases are owned by sibling entries.

@@ -16,6 +16,7 @@ import (
  *  1. Put a file where a TypeScript claim's root is declared.
  *  2. Read the root diagnostic.
  *  3. Assert it states what is there and asks for a replacement.
+ *
  * @evidence contracts/testing.md#behavioral-verification runRootedGraph creates a plain file at `contracts` beside the project and runs the graph rule with a TypeScript claim whose root is `../contracts`; the test requires diagnostics containing `because that path is not a directory` and `replace that path with a directory and make its sources part of the tsconfig Program`.
  * @evidence contracts/testing.md#independent-expectations The expected wording is authored: a root occupied by a file must be told to be replaced and to hold sources in the tsconfig Program, not told to add a directory that already exists as a file.
  * @evidence contracts/testing.md#distinguishing-cases Only the file-where-a-claim-root-is-declared state for a TypeScript claim is covered; the Markdown root clause and the missing-directory state belong to sibling entries, and the second assertion names the TypeScript-specific sources clause.

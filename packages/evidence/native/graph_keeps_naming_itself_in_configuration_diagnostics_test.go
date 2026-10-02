@@ -12,6 +12,7 @@ import "testing"
  *  1. Configure `evidence/graph` with a misspelled property.
  *  2. Run the project rule.
  *  3. Assert the message still names `evidence/graph`.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a claim carrying the misspelled key `symbolz`; assertProblemContains requires `Invalid evidence/graph configuration at claims[0].symbolz`.
  * @evidence contracts/testing.md#independent-expectations The expected message is an authored literal: the graph rule must keep naming itself (and the exact claim path) in configuration diagnostics after the shared decoders were made owner-aware for the documented rule.
  * @evidence contracts/testing.md#distinguishing-cases One unknown claim key on the graph rule; the documented rule's own attribution is covered by the sibling documented entries, so a regression that retitled the graph's messages fails only here.

@@ -23,6 +23,7 @@ import (
  *     an overload run bare.
  *  2. Run the rule.
  *  3. Assert exactly two findings, one per undocumented identity.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over a documented `interface ISale` whose documented `price` and documented arrow-typed `charge` sit beside an undocumented method `settle()` and an undocumented two-signature `refund` overload run; the test requires exactly two diagnostics, `Missing JSDoc on exported function 'ISale.settle'` and `Missing JSDoc on exported function 'ISale.refund'`.
  * @evidence contracts/testing.md#independent-expectations The expected findings are authored from the unit-model contract: interface callables are function units that the rule must demand a block on without any claim configured, and an overload run is one identity so it is reported once.
  * @evidence contracts/testing.md#distinguishing-cases The documented members keep the count exact: a rule that reported the whole interface or each refund signature separately would exceed two, and one that ignored interface methods would report none.

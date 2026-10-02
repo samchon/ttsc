@@ -23,6 +23,7 @@ import (
  *  1. Select two classes' fields, mixing both syntaxes in the cited one.
  *  2. Cite that class itself, once, from another module.
  *  3. Assert the uncited class's parameter property is the only thing reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a claim over src/ledger.ts and a TypeScript reference over src/Sale.ts selecting only `property`, where `Sale` has a body field and a constructor parameter property and `Uncited` has one parameter property, with ILedger citing `{@link Sale}`; assertReported requires exactly one diagnostic, `Missing acknowledgement for 'Uncited.prototype.rate'`.
  * @evidence contracts/testing.md#independent-expectations The expected single diagnostic is authored from the scope contract: one citation on the class discharges both its field syntaxes, so only the uncited class's parameter property remains owed.
  * @evidence contracts/testing.md#distinguishing-cases The uncited sibling declares its field only through the shorthand, so the exactly-one result fails if parameter properties stop materializing (the claim would be silent) or if the cited class's shorthand were left owing (a second diagnostic).

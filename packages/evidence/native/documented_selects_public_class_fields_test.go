@@ -13,6 +13,7 @@ import "testing"
  *  1. Leave one public field undocumented on an exported class.
  *  2. Run the rule.
  *  3. Assert the field is reported under its qualified name.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over a documented `export class Service` with an undocumented `public readonly retries` field; assertReported requires exactly one diagnostic, `Missing JSDoc on exported property 'Service.prototype.retries'`.
  * @evidence contracts/testing.md#independent-expectations The expected name is authored from the addressing contract: a public field is a property unit and claim host, so it must be demanded under its qualified instance address.
  * @evidence contracts/testing.md#distinguishing-cases One public field on a documented class; the public method half is owned by the sibling methods entry and non-public members by the non-public entry.

@@ -12,6 +12,7 @@ import "testing"
  *  1. Document the const and leave the default export bare.
  *  2. Run the rule.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over a documented `export const evidence = {...}` followed by an undocumented `export default evidence;`; assertSilent requires no diagnostics.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the documented-rule contract: `export default x` declares nothing and materializes no unit, so the documented const is the only declaration that needs a block.
  * @evidence contracts/testing.md#distinguishing-cases The bare default export of an already-documented const; the sibling entry that reports a const documented only at its default export is the rejecting counterpart.

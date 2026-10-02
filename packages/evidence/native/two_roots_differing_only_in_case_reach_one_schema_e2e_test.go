@@ -26,6 +26,7 @@ import (
  *  1. Write one schema and name its directory again in another case.
  *  2. Root one Prisma reference at each spelling.
  *  3. Assert one parse, and both populations carrying it.
+ *
  * @evidence contracts/testing.md#behavioral-verification store/main.prisma is written and the test skips unless STORE/main.prisma also resolves (case-insensitive volume). A typescript claim references prisma roots store and STORE; loadPrismaInventories must report no problem, expose populations STORE/main.prisma and store/main.prisma, give each the units prisma:sale and prisma:sale.id, and the first unit must be pointer-identical across both.
  * @evidence contracts/testing.md#independent-expectations Expected paths, unit IDs and pointer identity are literals/identities authored from the contract that one physical file is one parse; there is no external oracle for the volume's case rule beyond the os.Stat probe of the upper-case root.
  * @evidence contracts/testing.md#distinguishing-cases Case-only difference between roots (no link involved), contrasted with the hard-link and linked-directory siblings; it runs only on case-insensitive volumes, so on a case-sensitive volume nothing is asserted.

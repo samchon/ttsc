@@ -14,6 +14,7 @@ import (
  *  1. Re-export the module as a namespace from an inner barrel.
  *  2. Re-export that barrel with `export type * from` at the entry.
  *  3. Assert the entry publishes the type-only population under the segment.
+ *
  * @evidence contracts/testing.md#behavioral-verification assertReexportedFrom runs the graph rule over src/sale.ts, a middle barrel `export * as api from "./sale.js"`, and an entry `export type * from "./middle.js"`, and requires the entry's unacknowledged population to equal exactly api.IPlain, api.IPlain.rate and api.Sale.
  * @evidence contracts/testing.md#independent-expectations The expected list is an authored literal: the type-only star withholds the value members and the function under the namespace segment, while the namespace segment `api` is kept in each address.
  * @evidence contracts/testing.md#distinguishing-cases The type-only edge sits above a namespace re-export, so the test fails both if value members leak and if the segment is dropped from the address; the named and value-star shapes are owned by sibling entries.

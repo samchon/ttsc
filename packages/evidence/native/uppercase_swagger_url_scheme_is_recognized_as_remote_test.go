@@ -15,6 +15,7 @@ import (
  *  1. Configure a Swagger reference whose scheme is uppercase.
  *  2. Publish the rule's project inputs.
  *  3. Assert nothing at all is declared.
+ *
  * @evidence contracts/testing.md#behavioral-verification graphRule.ProjectInputs through declaredInputs is exercised with the scenario below; the assertions require nothing at all is declared.
  * @evidence contracts/testing.md#independent-expectations `normalizeSwaggerSource` validates the scheme case-insensitively and then stores the author's spelling, so a source reaches this contract spelled however it was written. A literal `https://` prefix comparison would let `HTTPS://` through and hand the host a pattern it rejects.
  * @evidence contracts/testing.md#distinguishing-cases Configure a Swagger reference whose scheme is uppercase. Publish the rule's project inputs. Assert nothing at all is declared.

@@ -18,6 +18,7 @@ import (
  *  1. Parse declaration-file and `export declare namespace` members.
  *  2. Parse adjacent ordinary and unexported declaration-file namespaces.
  *  3. Assert the exact public type, property, and function inventory.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the exact public type, property, and function inventory.
  * @evidence contracts/testing.md#independent-expectations TypeScript makes every member of an ambient namespace visible without an `export` keyword. Applying that rule at file scope would overexpose global declarations, so the positive and negative namespaces pin the traversal boundary rather than only one missing member. The authored scenario requires this outcome: Assert the exact public type, property, and function inventory.
  * @evidence contracts/testing.md#distinguishing-cases Parse declaration-file and `export declare namespace` members. Parse adjacent ordinary and unexported declaration-file namespaces. Assert the exact public type, property, and function inventory.

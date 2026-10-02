@@ -15,6 +15,7 @@ import (
  *  1. Declare an exported class and its companion namespace.
  *  2. Run the rule against a file named after them.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert silence.
  * @evidence contracts/testing.md#independent-expectations A class occupies both the type and value space, so a counter keyed on declaration kind rather than on name would double it the moment a namespace joins. The authored scenario requires this outcome: Assert silence.
  * @evidence contracts/testing.md#distinguishing-cases Declare an exported class and its companion namespace. Run the rule against a file named after them. Assert silence.

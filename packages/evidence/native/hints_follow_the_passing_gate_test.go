@@ -29,6 +29,7 @@ export interface ILedger {}
  * 1. Satisfy one Markdown graph and require a nonempty corpus.
  * 2. Remove its citation and require a report.
  * 3. Require the modeled gate to withhold the failing graph corpus.
+ *
  * @evidence contracts/testing.md#behavioral-verification runGraphHints produces a nonempty corpus for a satisfied graph, then reports an uncited graph and suppresses its corpus through the helper gate.
  * @evidence contracts/testing.md#independent-expectations The modeled host gate permits hints only after Check reports no failure and supplies state. Presence of a report and absence of hints specify the failing half; the test does not invoke the production LSP gate.
  * @evidence contracts/testing.md#distinguishing-cases Two otherwise equivalent document graphs differ only by the source acknowledgement. The passing half rejects unconditional withholding, and the reporting half rejects unconditional publication.

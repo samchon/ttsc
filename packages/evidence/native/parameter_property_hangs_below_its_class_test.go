@@ -14,6 +14,7 @@ import (
  *  1. Declare one body field and one parameter property.
  *  2. Materialize the inventory.
  *  3. Assert both point at the class unit.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert both point at the class unit.
  * @evidence contracts/testing.md#independent-expectations The shorthand has to reach the same containment scope, or a citation on the class would acknowledge the fields written in the body and silently miss the ones written in the constructor. The authored scenario requires this outcome: Assert both point at the class unit.
  * @evidence contracts/testing.md#distinguishing-cases Declare one body field and one parameter property. Materialize the inventory. Assert both point at the class unit.

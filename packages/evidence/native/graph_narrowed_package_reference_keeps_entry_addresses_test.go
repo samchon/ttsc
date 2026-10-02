@@ -17,6 +17,7 @@ import "testing"
  *     reference narrowed to one subtree and once with no narrowing at all.
  *  3. Assert both are silent, so the narrowing changed the population and not
  *     the address.
+ *
  * @evidence contracts/testing.md#behavioral-verification With the nested-accessor package fixture, runIndexRule over a package reference narrowed by `files: lib/functional/health/**` must give no diagnostics for a citation of `{@link api.functional.health.get}`; with an unnarrowed reference and a citation of both `api.functional.health.get` and `api.functional.reviews.erase` it must also give none.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored from the addressing contract: narrowing a package reference changes the population but not the address a consumer can write, which stays relative to the package entry (the only module a consumer has a specifier for).
  * @evidence contracts/testing.md#distinguishing-cases The same entry-relative address under a narrowed and an unnarrowed reference; an implementation that made each matched module its own traversal entry would collapse the address to `get` and leave the citation unresolved in the narrowed run.

@@ -12,6 +12,7 @@ import "testing"
  *  1. Import from a module that does not exist and cite through it.
  *  2. Evaluate the graph.
  *  3. Assert the unresolved-module diagnostic names the specifier.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the import-scope configuration over a view that imports `* as missing from "./../api/absent.js"` (no such module) and cites `{@link missing.get}`; assertProblemContains requires `Unresolved module './../api/absent.js'`.
  * @evidence contracts/testing.md#independent-expectations The expected message is authored from the diagnostic contract: the import exists but the module does not, which is repaired elsewhere than a missing import, so the message must name the specifier rather than fold into the unimported case.
  * @evidence contracts/testing.md#distinguishing-cases An import whose specifier resolves to no file, against the missing-import case in the sibling entry and the missing-member case in the unreachable-segment entry.

@@ -11,6 +11,7 @@ import "testing"
  *  1. Leave the const bare and document its default export.
  *  2. Run the rule.
  *  3. Assert the identity is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over an undocumented `export const evidence = {...}` followed by a documented `export default evidence;`; assertReported requires exactly one diagnostic, `Missing JSDoc on exported property 'evidence'`.
  * @evidence contracts/testing.md#independent-expectations The expected report is authored from the documented-rule contract: a default export re-exposes the const and declares nothing, so a block there does not document the const's declaration.
  * @evidence contracts/testing.md#distinguishing-cases The rejecting counterpart of the const-documented-before-its-default-export accept entry, with the block moved to the default export.

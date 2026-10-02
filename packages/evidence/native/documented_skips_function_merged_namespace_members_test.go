@@ -17,6 +17,7 @@ import (
  *  2. Run the documented rule over function hosts.
  *  3. Assert silence, then assert the rule still fires on an ordinary
  *     namespace's undocumented member.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with `{"symbol":["function"]}`: over a documented `function get` merged with a namespace whose `path` and `simulate` consts are undocumented assertSilent requires no diagnostics, and over a plain `namespace health` with an undocumented `probe` arrow const assertReported requires exactly one diagnostic, `Missing JSDoc on exported function 'health.probe'`.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored from the shared unit-collection contract: namespace members merged with a function are the function's static side and are not public units, so the documented rule must not demand blocks on them, while an ordinary namespace's callable member still is demanded.
  * @evidence contracts/testing.md#distinguishing-cases The function-merged namespace (silent) against an ordinary namespace (reported) under the same function selection; the second assertion keeps the first from being satisfied by a rule that reports nothing.

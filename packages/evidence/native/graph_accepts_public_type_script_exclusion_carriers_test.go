@@ -13,6 +13,7 @@ import "testing"
  *  1. Select function and type ownership hosts in separate claim files.
  *  2. Put each exclusion on a public property carrier in its matching file.
  *  3. Assert both claims are completely acknowledged without widening symbols.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule over two claims (`api-operations`, function hosts under src/controllers, and `dto-types`, type hosts under src/structures), each file carrying an `@evidenceExclude` for its own Markdown heading on a public `export const ..._EVIDENCE_EXCLUDE = true` beside one selected host; assertNoProblems requires an empty list.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the carrier contract: central exclusion ledgers are public data exports, so a property carrier may exclude a section for a claim whose selected hosts are functions or types without the selector being widened to properties.
  * @evidence contracts/testing.md#distinguishing-cases A function claim and a type claim, each with a carrier of another symbol kind in its own file; a rule that required the carrier's kind to be selected would leave an unacknowledged heading in both.

@@ -14,6 +14,7 @@ import (
  *  1. Export one scalar variable from a matched TypeScript file.
  *  2. Select only function hosts and configure an unreadable reference root.
  *  3. Assert the healthy zero-function claim remains inactive and silent.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/**\/*.ts containing only `export const value = 1;` and a Markdown reference rooted at the nonexistent `missing-docs`; assertNoProblems requires an empty list.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the activation contract: the claim's own population must contain the selected kind, so a scalar const is not a function host, the claim stays inactive, and the unreadable reference root is never evaluated.
  * @evidence contracts/testing.md#distinguishing-cases The nonexistent reference root is the probe: if the scalar activated the function claim, the root failure would be reported. The callable-variable twin that does activate the claim is owned by TestCallableVariableActivatesFunctionClaim.

@@ -17,6 +17,7 @@ import (
  *  1. Satisfy a graph whose claim cites a TypeScript reference.
  *  2. Take the published corpus.
  *  3. Assert the entry leads, and inserts `{@link ` with its trailing space.
+ *
  * @evidence contracts/testing.md#behavioral-verification runGraphHints returns citation hints whose first insert is exactly the unclosed {@link opener with its trailing space and contains no closing brace.
  * @evidence contracts/testing.md#independent-expectations The insert contract leaves the cursor inside inline-link grammar. The literal {@link space expectation is independently authored and detects a closed or reordered opener.
  * @evidence contracts/testing.md#distinguishing-cases A satisfied TypeScript reference with an imported ISale enables the route. This unit checks published insertion text and ranking, without asserting an actual editor completion response.

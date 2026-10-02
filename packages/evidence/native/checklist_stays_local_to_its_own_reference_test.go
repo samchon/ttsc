@@ -13,6 +13,7 @@ import (
  *  1. Configure an ordinary and a checklist reference over one document.
  *  2. Answer every item from one host only.
  *  3. Assert the ordinary reference is silent and only the checklist reference reports the other host.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with one function claim carrying an ordinary and a checklist Markdown reference over the same document, with a `complete` host citing both items and a `quiet` undocumented host; the test requires exactly one `checklist item(s)` diagnostic, mentioning `Claim 1 reference 2` and `TypeScript function 'quiet'`, and no `Missing acknowledgement` message.
  * @evidence contracts/testing.md#independent-expectations The expected outcome is authored from the reference-local contract: the ordinary reference is satisfied once by the complete host and stays silent, while only the checklist reference judges the quiet host.
  * @evidence contracts/testing.md#distinguishing-cases The same two hosts are judged by two references that differ only by the checklist option, so the single checklist report and the absence of a missing-acknowledgement message separate a checklist that leaked into the ordinary reference from one that did not apply.

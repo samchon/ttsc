@@ -15,6 +15,7 @@ import (
  *  1. Select one source from disabled and enabled claims.
  *  2. Satisfy only the enabled claim's live reference.
  *  3. Assert the enabled overlapping obligation is evaluated and passes.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule must return no diagnostic when disabled and enabled claims select the same IShared source and its docs/live.md#live citation satisfies the live reference. Silence rejects an erroneous disabled-root failure; by itself it cannot distinguish valid activation from incorrectly dropping the enabled claim.
  * @evidence contracts/testing.md#independent-expectations `disabled` removes an obligation, not a physical file. Filtering shared inventories by path would make the enabled claim vanish merely because a disabled claim selected the same source.
  * @evidence contracts/testing.md#distinguishing-cases The staged claim selects the same physical source but points to a missing reference root; the enabled claim selects an existing live section and cites it. This positive overlap case expects silence. TestDisabledClaimCannotCoverAnEnabledSibling supplies the negative enabled-coverage case.

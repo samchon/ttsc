@@ -17,6 +17,7 @@ import (
  *  1. Declare public and private namespaces, variables, and callable variables.
  *  2. Collect every materialized target with its kind.
  *  3. Assert the exact public semantic inventory.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the exact public semantic inventory.
  * @evidence contracts/testing.md#independent-expectations Module-level data and namespace state are public contract units just as type properties are. Callable const variables retain the existing function kind so one target never materializes as two selected kinds. The authored scenario requires this outcome: Assert the exact public semantic inventory.
  * @evidence contracts/testing.md#distinguishing-cases Declare public and private namespaces, variables, and callable variables. Collect every materialized target with its kind. Assert the exact public semantic inventory.

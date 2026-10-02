@@ -18,6 +18,7 @@ import (
  *     root, one of which the decoder reduces before this is ever reached.
  *  2. Assert each is the default base and carries no declared spelling.
  *  3. Run a claim with `root: "."` and one with no root, and compare the output.
+ *
  * @evidence contracts/testing.md#behavioral-verification resolvePopulationBase marks omitted, dot and dot-slash roots as default, with empty Declared and the project root as label. The rule diagnostics for omitted root and root dot must also agree exactly; this comparison supplements independent literal base-field expectations.
  * @evidence contracts/testing.md#independent-expectations The base-field expectations are authored literals from the contract that a root resolving onto the project root is the default base (Default true, empty Declared, label the slash-form project root). The diagnostic comparison has no literal oracle, only equality between two graph runs.
  * @evidence contracts/testing.md#distinguishing-cases Three spellings ('', '.', './') fold to the default base, and a '.' root is compared against an omitted root through the graph. No root resolving elsewhere is exercised here, and the test does not assert the compared diagnostic lists are non-empty.

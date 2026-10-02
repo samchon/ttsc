@@ -15,6 +15,7 @@ import (
  *  1. Parse the same namespace under all declaration-file extensions.
  *  2. Collect its implicit function member.
  *  3. Assert each extension materializes the member.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert each extension materializes the member.
  * @evidence contracts/testing.md#independent-expectations The parser derives ambient context from the physical file name. Testing only `.d.ts` would leave the module-specific `.d.mts` and `.d.cts` paths able to regress independently. The authored scenario requires this outcome: Assert each extension materializes the member.
  * @evidence contracts/testing.md#distinguishing-cases Parse the same namespace under all declaration-file extensions. Collect its implicit function member. Assert each extension materializes the member.

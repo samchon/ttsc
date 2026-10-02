@@ -17,6 +17,7 @@ import (
  *  1. Export a class and an enum.
  *  2. Run the rule.
  *  3. Assert both count.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert both count.
  * @evidence contracts/testing.md#independent-expectations An enum is deliberately not a unit for `evidence/graph`, so a rule reusing that classification would let an exported enum share a file with anything. This rule counts public identities, not evidence units, and the class beside the enum is the control: it counts here for the same reason, independently of being a type unit. The authored scenario requires this outcome: Assert both count.
  * @evidence contracts/testing.md#distinguishing-cases Export a class and an enum. Run the rule. Assert both count.

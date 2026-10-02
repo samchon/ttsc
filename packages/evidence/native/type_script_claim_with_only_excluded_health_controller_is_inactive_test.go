@@ -14,6 +14,7 @@ import (
  *  1. Match all controller files and exclude exactly `HealthController.ts`.
  *  2. Supply HealthController as the only controller and an unreadable reference.
  *  3. Assert the resulting healthy zero-path claim is inactive and silent.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the resulting healthy zero-path claim is inactive and silent.
  * @evidence contracts/testing.md#independent-expectations This is the benchmark controller boundary: `HealthController.ts` is a real exported controller but is intentionally outside the evidence claim. Once that exact exclusion removes the only path, its references must not load. The authored scenario requires this outcome: Assert the resulting healthy zero-path claim is inactive and silent.
  * @evidence contracts/testing.md#distinguishing-cases Match all controller files and exclude exactly `HealthController.ts`. Supply HealthController as the only controller and an unreadable reference. Assert the resulting healthy zero-path claim is inactive and silent.

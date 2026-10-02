@@ -20,6 +20,7 @@ import (
  *  1. Compose a set of two files under two roots, neither present to be read.
  *  2. Give the outcome a model, so the scan can locate nothing at all.
  *  3. Assert both populations carry it, addressed by the one location there is.
+ *
  * @evidence contracts/testing.md#behavioral-verification prismaUnitsFromOutcome is called with a two-source set (alpha/main.prisma, beta/main.prisma, neither present on disk) and an outcome holding one model `sale` with an `id` field; the test requires no problems and that both the alpha and beta inventories carry exactly `prisma:sale@alpha/main.prisma,prisma:sale.id@alpha/main.prisma`.
  * @evidence contracts/testing.md#independent-expectations The expected unit identities and the first-source fallback location are authored literals following the rule that an unlocated model keeps a file-level location and is filed under every population of the set; they are not read back from the locator.
  * @evidence contracts/testing.md#distinguishing-cases The positive case is the unlocatable model reaching both populations; the contrast is a resolver that files it only under the first source, which would leave beta empty and fail the beta comparison. A located model and a rejected outcome are not covered here.

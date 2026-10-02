@@ -15,6 +15,7 @@ import (
  *  1. Put one declaration below offset 20 and another beyond offset 100.
  *  2. Scan the TypeScript inventory.
  *  3. Assert declaration order follows numeric source positions.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert declaration order follows numeric source positions.
  * @evidence contracts/testing.md#independent-expectations JSDoc ranges are deduplicated through position keys. Sorting those keys as strings places offset 100 before offset 20 and makes a later duplicate appear to be the first acknowledgement in diagnostics. The authored scenario requires this outcome: Assert declaration order follows numeric source positions.
  * @evidence contracts/testing.md#distinguishing-cases Put one declaration below offset 20 and another beyond offset 100. Scan the TypeScript inventory. Assert declaration order follows numeric source positions.

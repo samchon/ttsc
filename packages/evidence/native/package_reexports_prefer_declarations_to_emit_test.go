@@ -13,6 +13,7 @@ import (
  * 1. Install a declaration barrel beside its emitted JavaScript sibling.
  * 2. Supply only the citing TypeScript file to the Program.
  * 3. Verify its existing inline citation resolves to the package declaration.
+ *
  * @evidence contracts/testing.md#behavioral-verification fileLinkFixture.check exercises the authored fixture. Verify its existing inline citation resolves to the package declaration.
  * @evidence contracts/testing.md#independent-expectations The package's files are absent from the Program, as promised by package populations. Otherwise Program-first lookup would hide the disk resolver bug. The authored scenario requires this outcome: Verify its existing inline citation resolves to the package declaration.
  * @evidence contracts/testing.md#distinguishing-cases Install a declaration barrel beside its emitted JavaScript sibling. Supply only the citing TypeScript file to the Program. Verify its existing inline citation resolves to the package declaration.

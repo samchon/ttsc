@@ -16,6 +16,7 @@ import (
  *  1. Scan one parsed source twice and assert the second scan is the first.
  *  2. Reparse the same path with different content.
  *  3. Assert the new source is scanned afresh and materializes the new unit.
+ *
  * @evidence contracts/testing.md#behavioral-verification newTypeScriptInventoryCache().scan is called with one parsed source of `export interface IBefore {}`, which must return an inventory with one unit `IBefore` and the identical pointer on a second scan of the same source; scanning a newly parsed source of the same path with `export interface IAfter {}` must return a different inventory holding the single unit `IAfter`.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored from the cache contract: a scan is bound to the exact parsed source object, so the same object is reused while a reparsed source (a new object, as the compiler returns after an edit) is scanned afresh and shows the new content.
  * @evidence contracts/testing.md#distinguishing-cases Same source scanned twice (pointer equality required) against an edited source of the same path (pointer inequality and new target required); a content-keyed or path-keyed cache would serve the stale unit.

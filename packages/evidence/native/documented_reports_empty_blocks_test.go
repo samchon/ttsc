@@ -13,6 +13,7 @@ import "testing"
  *  1. Document an export with an empty block.
  *  2. Run the rule.
  *  3. Assert the emptiness message rather than the missing one.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over `export function parse` preceded by an empty `/** *\/` block; assertReported requires exactly one diagnostic, `Empty JSDoc on exported function 'parse'`.
  * @evidence contracts/testing.md#independent-expectations The expected wording is authored from the documented-rule contract: a block with neither prose nor tag satisfies nothing but must be reported as empty rather than missing, since the author is looking at a block.
  * @evidence contracts/testing.md#distinguishing-cases One empty block on a function; the asterisk-only block and the empty first declaration of a merged identity are owned by sibling entries.

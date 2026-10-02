@@ -15,6 +15,7 @@ import (
  *  1. Cite the same section from the same interface.
  *  2. Evaluate a `symbol: "property"` claim over that file.
  *  3. Assert the host is refused and the section stays owed.
+ *
  * @evidence contracts/testing.md#behavioral-verification assertHostRefused runs the graph rule with a claim whose symbol is `property` over the same documented `export interface ISale` carrying `@evidence docs/spec.md#contract` beside `export function activate()`; it requires `host kind 'type' is not selected (property)` and `Missing acknowledgement for 'docs/spec.md#contract'`.
  * @evidence contracts/testing.md#independent-expectations The expected messages are authored from the host-eligibility contract: the interface container registers only `type` (its property members register separately), so a property claim must refuse a citation on the container.
  * @evidence contracts/testing.md#distinguishing-cases The property-selector counterpart of the function-selector refusal in the sibling entry, using the identical fixture so only the claim selector differs.

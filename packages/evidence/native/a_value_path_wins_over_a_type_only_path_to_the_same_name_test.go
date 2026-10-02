@@ -17,6 +17,7 @@ import (
  *  1. Reach one module through a type-only barrel and a value barrel.
  *  2. Forward both from a middle barrel, in each order, and re-export by name.
  *  3. Assert both orders publish the value population.
+ *
  * @evidence contracts/testing.md#behavioral-verification assertReexportedFrom runs the graph rule twice over one module reached through a type-only barrel (`export type *`) and a value barrel (`export *`) forwarded from a middle barrel in both statement orders and re-exported by name from the entry; each run must report exactly IPlain, IPlain.rate, Sale, Sale.prototype.charge, Sale.prototype.price and run.
  * @evidence contracts/testing.md#independent-expectations The expected list is an authored literal of everything the declaring file publishes: a population is the union of its paths, so a value path to the same declaration must win over a type-only path whatever the statement order.
  * @evidence contracts/testing.md#distinguishing-cases The two statement orders are the distinguishing variable; a traversal that kept whichever path it saw first would withhold the value members in the type-only-first order and fail that run. The type-only-only case is owned by sibling entries.

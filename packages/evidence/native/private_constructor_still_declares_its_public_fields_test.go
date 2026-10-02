@@ -18,6 +18,7 @@ import (
  *  1. Declare a public parameter property on a private constructor.
  *  2. Collect the inventory.
  *  3. Assert the field materializes and the non-public parameter does not.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory parses a class with a private constructor taking one public readonly and one private parameter property plus a static create, and its unit list must equal exactly function:Sale.create, property:Sale.prototype.price and type:Sale.
  * @evidence contracts/testing.md#independent-expectations The class source and the three expected symbol:target strings are authored literals; that a constructor's own visibility does not hide the public instance field it declares, and that a private parameter property is no unit, follow from TypeScript semantics rather than from the scanner's output.
  * @evidence contracts/testing.md#distinguishing-cases The public parameter property is the positive case and the private one (ledger) the adjacent negative case within one private constructor; the sorted whole-list comparison also rejects an extra unit. A public constructor and non-parameter fields are owned by other tests.

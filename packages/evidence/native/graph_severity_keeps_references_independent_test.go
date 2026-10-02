@@ -15,6 +15,7 @@ import (
  * 1. Select the same uncited requirement twice at different levels.
  * 2. Add an off reference naming a missing root.
  * 3. Assert one warning and one error with the original reference indexes.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRuleAtSeverity runs the graph rule under an error severity over a warning-level typescript claim whose three references are the same uncited Markdown requirement (inherited warning), an `off` reference with the nonexistent root `missing`, and the same requirement at `error`; exactly two findings must result, the one naming `reference 3` at error and the other at warning, and none mentioning `missing`.
  * @evidence contracts/testing.md#independent-expectations The expected levels are authored from the severity contract: identical populations must not pool their severities or coverage, and an off reference must not load its source.
  * @evidence contracts/testing.md#distinguishing-cases Two references over one requirement with different levels plus an off reference with a bad root: pooling would give one finding, and loading the off reference would add a root failure.

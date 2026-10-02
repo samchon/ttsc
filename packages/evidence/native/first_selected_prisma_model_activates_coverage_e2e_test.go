@@ -18,6 +18,7 @@ import (
  *  2. Apply the activation filter to the real loaded inventory.
  *  3. Assert the selected model keeps the claim active.
  *  4. Reuse the loaded model in the whole rule and require its missing Markdown root to fail.
+ *
  * @evidence contracts/testing.md#behavioral-verification A cold real schema load must be clean and keep one active model claim. The same loaded schema then runs graphRule.Check with a missing Markdown root, which must produce failed=true and a diagnostic naming missing-prisma-docs rather than silently deactivating the model.
  * @evidence contracts/testing.md#independent-expectations The expectation (a selected model activates its claim; one claim stays) is the activation contract stated in claimIsInactive (a claim is inactive only if it selects no visible unit); the literal `len(active.Claims) != 1` is authored independently of the loader's result.
  * @evidence contracts/testing.md#distinguishing-cases One selected model both survives activation and makes its missing reference fail in the whole rule; the same healthy zero-model decision and TypeScript/Markdown activation contrasts belong to TestPrismaClaimWithOnlyTheBenchmarkScaffoldIsInactive. Hidden units and failed own populations are not tested here.

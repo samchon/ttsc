@@ -16,6 +16,7 @@ import (
  *  1. Exclude the same section from the same untagged declarator.
  *  2. Evaluate the same claim.
  *  3. Assert the carrier is refused and the section stays owed.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the carrier is refused and the section stays owed.
  * @evidence contracts/testing.md#independent-expectations Carrier eligibility reads the same host set through a wider door, so a leak there is a second way for a withdrawn declaration to settle an obligation, and the worse of the two: the reason field makes it read as a reviewed decision rather than a citation. The authored scenario requires this outcome: Assert the carrier is refused and the section stays owed.
  * @evidence contracts/testing.md#distinguishing-cases Exclude the same section from the same untagged declarator. Evaluate the same claim. Assert the carrier is refused and the section stays owed.

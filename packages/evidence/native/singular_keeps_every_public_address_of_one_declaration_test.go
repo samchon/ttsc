@@ -14,6 +14,7 @@ import (
  *  1. Export one local const under two public names.
  *  2. Run the rule against a file named after each in turn.
  *  3. Assert both are silent.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert both are silent.
  * @evidence contracts/testing.md#independent-expectations Exporting one declaration twice is legal, and collapsing the pair to a single address would report a file legitimately named after the dropped one. That is a false positive, which is the failure mode that gets a rule disabled. The authored scenario requires this outcome: Assert both are silent.
  * @evidence contracts/testing.md#distinguishing-cases Export one local const under two public names. Run the rule against a file named after each in turn. Assert both are silent.

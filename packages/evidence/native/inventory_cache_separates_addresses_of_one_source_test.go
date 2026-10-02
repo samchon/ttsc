@@ -15,6 +15,7 @@ import (
  *  1. Scan one parsed source under two addresses.
  *  2. Assert the two scans are distinct.
  *  3. Assert each keeps its own address.
+ *
  * @evidence contracts/testing.md#behavioral-verification newTypeScriptInventoryCache().scan is called with one parsed source under the default base's address and under the address of a base `Absolute /repo/api, Display ../api`; the two inventories must be different pointers and must have different Address values.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the identity contract: a unit identity carries the address it was materialized under, so one physical file selected by two differently rooted populations is two inventories, and keying the cache by the source alone would hand the second population the first one's addresses.
  * @evidence contracts/testing.md#distinguishing-cases The same source object under two addresses; the same address on an edited source is covered by TestInventoryCacheFollowsTheParsedSource.

@@ -13,6 +13,7 @@ import "testing"
  *  1. Install a package whose entry publishes one area and not another.
  *  2. Narrow the reference to the unpublished area.
  *  3. Assert the empty population names the entry as the reason.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/views/** and a package reference `@org/api` narrowed to `lib/internal/**`, where the package entry publishes only `questions` and lib/internal/tool.d.ts is not re-exported by it; assertProblemContains requires `reachable from the package entry`.
  * @evidence contracts/testing.md#independent-expectations The expected message fragment is authored from the addressing contract: a unit the entry does not publish has no address a consumer can write, so selecting it yields an empty population that must be reported with the entry as the reason.
  * @evidence contracts/testing.md#distinguishing-cases A glob matching a real but unpublished module; the entry-published area is the contrast, and only containment of the reason fragment is asserted.

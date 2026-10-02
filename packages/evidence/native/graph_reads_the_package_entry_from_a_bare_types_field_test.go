@@ -11,6 +11,7 @@ import "testing"
  *  1. Publish a package whose manifest carries only `types`.
  *  2. Select it as evidence.
  *  3. Assert its symbol is demanded.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/views/** and a package reference `legacy-api` whose manifest holds only `types: ./index.d.ts` (no exports map), declaring `get`; assertProblemContains requires `Missing acknowledgement for 'get'`.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the entry-resolution contract: a bare `types` field is a valid entry for older packages, so its declared function must be owed when uncited rather than the population being empty.
  * @evidence contracts/testing.md#distinguishing-cases A manifest with `types` and no `exports`; the `types` condition inside an exports map is owned by the sibling entry, and a resolver that understood only `exports` would report nothing.

@@ -20,6 +20,7 @@ import (
  *     question mark, a bare period, and an empty string.
  *  2. Read each result, and the same rule reached through an error.
  *  3. Assert one terminator is removed and nothing else is.
+ *
  * @evidence contracts/testing.md#behavioral-verification causeReason is called on six literal reasons (`Access is denied.`, `permission denied`, a doubled trailing period, `is it?`, a bare `.`, and an empty string) and compared with literal results, and causeText is called on an fs.PathError wrapping the error `Access is denied.` and must yield text ending in `denied`.
  * @evidence contracts/testing.md#independent-expectations Each expected string is a literal authored here: exactly one trailing period is removed and every other character is kept; the causeText check is a suffix check, so it only establishes that the error path also drops the terminator, not its full wording.
  * @evidence contracts/testing.md#distinguishing-cases Reasons with a period, without one, with a doubled period, ending in a question mark, a lone period and the empty string cover the removal and the no-op boundaries; the causeText case covers the same rule reached through an error.

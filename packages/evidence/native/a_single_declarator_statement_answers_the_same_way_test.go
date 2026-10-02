@@ -20,6 +20,7 @@ import (
  *  1. Digest a single-declarator statement carrying a block.
  *  2. Reword the block, then change the initializer.
  *  3. Assert the first did not move it and the second did.
+ *
  * @evidence contracts/testing.md#behavioral-verification variableDigestOf returns the `limit` unit digest for `/** First wording. *\/ export const limit = 1;`; the test requires it to equal the digest after the block is reworded and to differ after the initializer changes to 2.
  * @evidence contracts/testing.md#independent-expectations The expected relation follows from the review-expiry contract rather than from the digest code: documentation written on a variable is excluded from its digest, while its initializer is content; the digest value itself is deliberately not asserted.
  * @evidence contracts/testing.md#distinguishing-cases One negative case (reworded block, equality required) and one positive case (changed initializer, inequality required) on the ordinary single-declarator shape, complementing the multi-declarator entries.

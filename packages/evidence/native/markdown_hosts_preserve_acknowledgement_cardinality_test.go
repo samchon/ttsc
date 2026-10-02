@@ -15,6 +15,7 @@ import (
  *  1. Repeat positive evidence across headings and then within one heading.
  *  2. Repeat an exclusion across headings.
  *  3. Assert only the same-host positive and repeated exclusion fail.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies Markdown declaration hosts obey positive and exclusion cardinality. The original assertions check assert only the same-host positive and repeated exclusion fail.
  * @evidence contracts/testing.md#independent-expectations Markdown has no AST declaration node, so its scanner must preserve heading identity explicitly. Without that identity, same-host positive duplicates disappear or separate headings collapse into one host. The authored fixture and literal assertions below pin that contract; this test does not treat the reported result as its expected result.
  * @evidence contracts/testing.md#distinguishing-cases Repeat positive evidence across headings and then within one heading. Repeat an exclusion across headings. Assert only the same-host positive and repeated exclusion fail. The assertions and inputs in this function retain its own failure identity.

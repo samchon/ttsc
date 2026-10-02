@@ -16,6 +16,7 @@ import (
  *  1. Configure a Markdown reference with one positive and one negative glob.
  *  2. Publish the rule's project inputs.
  *  3. Assert only the positive glob is declared.
+ *
  * @evidence contracts/testing.md#behavioral-verification declaredInputs calls graphRule.ProjectInputs on a configuration whose Markdown reference selects `docs/**\/*.md` and `!docs/private/**`; assertDeclares requires the glob inputs to be exactly `docs/**\/*.md`.
  * @evidence contracts/testing.md#independent-expectations The expected set is authored from the host contract: the host's dependency model has no negation, so a negated pattern published as an input would be watched as a population, the inverse of what the author wrote.
  * @evidence contracts/testing.md#distinguishing-cases One positive and one negated pattern in the same selection: dropping the whole set would publish nothing and publishing the negation would add a second pattern, so the exact one-element set pins the filter to the negated pattern only.

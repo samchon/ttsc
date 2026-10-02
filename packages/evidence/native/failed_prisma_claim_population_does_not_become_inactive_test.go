@@ -14,6 +14,7 @@ import (
  *  1. Match one Prisma claim inventory marked as parse-failed.
  *  2. Apply the shared own-population activation gate.
  *  3. Assert the failed claim remains active for its direct diagnostic.
+ *
  * @evidence contracts/testing.md#behavioral-verification The test decodes a Prisma claim over prisma/schema/main.prisma, supplies a unitless Prisma inventory for that address marked LoadFailed, and calls activeGraphConfig; the resulting config must still contain exactly one claim.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the activation contract: a parse failure may have hidden every selected model, so a unitless failed inventory is not evidence of a healthy empty population and the claim must stay active to carry the loader's own diagnostic.
  * @evidence contracts/testing.md#distinguishing-cases The failed-inventory case only; a healthy empty population that deactivates a claim is owned by sibling activation entries, and the TypeScript form of this rule is covered by TestFailedTypeScriptClaimPopulationDoesNotBecomeInactive.

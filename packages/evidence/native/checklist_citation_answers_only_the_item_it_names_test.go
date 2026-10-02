@@ -13,6 +13,7 @@ import (
  *  1. Cite the document under the default selector, where the file is an item and the headings are items too.
  *  2. Assert the file item is answered and both headings are still owed.
  *  3. Repeat with an explicit ancestor and descendant selection and assert the descendant survives its parent's citation.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule twice: with the default Markdown selector a function cites `docs/rules.md` (the file item) and the test requires no `Aggregate @evidence target` refusal plus `has not acknowledged 2 of 3 checklist item(s)` naming both headings; with an explicit h2/h3 selector a citation of the h2 heading must leave `1 of 2` owing `docs/rules.md#fixtures`.
  * @evidence contracts/testing.md#independent-expectations The expected counts (3 items and 2 owed; 2 items and 1 owed) are authored from the contract that a checklist citation answers only the item it names and never its descendants, so the usual subtree cascade must not discharge headings.
  * @evidence contracts/testing.md#distinguishing-cases The file-as-item case and the explicit ancestor/descendant case are the two shapes where a cascade would discharge descendants; the first also checks the file citation is legal rather than refused as an aggregate. The aggregate refusal itself is owned by a sibling entry.

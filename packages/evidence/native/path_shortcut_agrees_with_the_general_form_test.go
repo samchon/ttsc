@@ -28,6 +28,7 @@ import (
  *  1. Take roots and paths that sit below, beside, above, and beyond each other.
  *  2. Answer each through `relativeProjectPath`.
  *  3. Assert the answer matches the general form's, shortcut or not.
+ *
  * @evidence contracts/testing.md#behavioral-verification relativeProjectPath must agree in both returned path and membership flag with generalRelativeProjectPath for every named subcase. This distinguishes a shortcut that admits case-different siblings or path prefixes without a separator from the standard containment calculation.
  * @evidence contracts/testing.md#independent-expectations generalRelativeProjectPath is a test helper that calls filepath.Rel directly, rejects parent traversal, normalizes separators and trims a leading dot-slash. It does not call relativeProjectPath. Agreement verifies the shortcut against that general contract; a mistake shared by both interpretations is outside this differential oracle.
  * @evidence contracts/testing.md#distinguishing-cases The named rows cover nested and direct children, unclean and ascending segments, siblings, case-different roots and files, a sibling sharing only a string prefix, the root itself, empty root and empty path. t.Run retains each row's failure name.

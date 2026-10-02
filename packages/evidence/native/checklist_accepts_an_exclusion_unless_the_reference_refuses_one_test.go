@@ -10,6 +10,7 @@ import "testing"
  *  1. Cite one item and exclude the other from a single host.
  *  2. Assert the host passes.
  *  3. Re-run the same source under `noEvidenceExclude` and assert the exclusion is forbidden and its item still owed.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule over a function host that cites `no-hardcoding` and excludes `no-whack-a-mole` against a two-item Markdown checklist; the default reference must produce no diagnostics, and the same source under `noEvidenceExclude` must report `Forbidden @evidenceExclude for 'docs/rules.md#no-whack-a-mole'`, `has not acknowledged 1 of 2 checklist item(s): 'docs/rules.md#no-whack-a-mole'` and `this reference forbids @evidenceExclude`.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored from the checklist contract that an exclusion is an honest answer for an item that does not apply unless the reference forbids exclusions, in which case the item is owed again; the document, citation and exclusion are literal fixtures.
  * @evidence contracts/testing.md#distinguishing-cases The same source is judged under two reference policies, so the accepted and refused outcomes differ only by the noEvidenceExclude option; a plain uncited item and a citation-only host are owned by sibling entries.

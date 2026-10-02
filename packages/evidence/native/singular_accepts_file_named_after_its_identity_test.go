@@ -13,6 +13,7 @@ import (
  *  1. Export one interface.
  *  2. Run the rule against a file of the same name.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert silence.
  * @evidence contracts/testing.md#independent-expectations The positive anchor for every mismatch complementary case. Without it a rule that fired unconditionally would still satisfy them. The authored scenario requires this outcome: Assert silence.
  * @evidence contracts/testing.md#distinguishing-cases Export one interface. Run the rule against a file of the same name. Assert silence.

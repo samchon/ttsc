@@ -16,6 +16,7 @@ import (
  *  1. Materialize one failed and one healthy TypeScript claim inventory.
  *  2. Give each claim its own healthy Markdown reference.
  *  3. Assert only the healthy claim derives a missing acknowledgement.
+ *
  * @evidence contracts/testing.md#behavioral-verification Two named TypeScript claims, `failed` (src/failed.ts marked LoadFailed) and `healthy` (src/healthy.ts, `export interface Healthy {}`), each with its own Markdown reference, are passed through materializeClaimStates and evaluateEvidenceGraph; the test requires the first claim state unhealthy and the second healthy, exactly one `Missing acknowledgement` diagnostic, and one naming `Claim 2 ('healthy')`.
  * @evidence contracts/testing.md#independent-expectations The expected count and claim label are authored from the coverage contract: a claim with an unreadable selected file has no complete denominator and must not derive coverage, while an independent healthy claim must still fail normally; the failed inventory is constructed by the test.
  * @evidence contracts/testing.md#distinguishing-cases One failed and one healthy claim run together: reporting coverage for both would give two missing acknowledgements, and suppressing both would give none.

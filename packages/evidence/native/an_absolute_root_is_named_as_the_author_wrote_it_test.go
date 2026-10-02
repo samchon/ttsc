@@ -20,6 +20,7 @@ import (
  *  2. Read the root diagnostic.
  *  3. Assert it names the declared spelling and neither restates nor
  *     mis-explains a resolution that never happened.
+ *
  * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn runs the graph rule with a TypeScript claim whose root is the absolute, slash-normalized temp `contracts` directory, which is absent; the test requires a message containing `found no directory at the typescript root '<that path>'. Correct the 'root' property` and none containing `which resolves to` or `it resolves against the ttsc project root`.
  * @evidence contracts/testing.md#independent-expectations The expected root text is the path string the test allocated and wrote into the configuration, so the author's spelling is the oracle; the absent clauses follow from the contract that an absolute root lands on itself and has nothing to restate.
  * @evidence contracts/testing.md#distinguishing-cases The absolute-root counterpart of the relative-root case that must keep the resolution clauses; here both resolution sentences must be absent. A root occupied by a file is owned by a sibling entry.

@@ -11,6 +11,7 @@ import "testing"
  *  1. Precede an export with a non-JSDoc block comment.
  *  2. Run the rule.
  *  3. Assert the export is still reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over an `export function parse` preceded only by a `/* ... *\/` (non-JSDoc) block comment containing an `@evidence` tag; assertReported requires exactly one diagnostic, `Missing JSDoc on exported function 'parse'`.
  * @evidence contracts/testing.md#independent-expectations The expected report is authored from the same constraint as the line-comment case: a block comment that is not a JSDoc block is unreadable to the tag collector, so it must not satisfy the rule.
  * @evidence contracts/testing.md#distinguishing-cases A non-JSDoc block comment on an otherwise bare export, the syntactic neighbor of the `//` form owned by a sibling entry.

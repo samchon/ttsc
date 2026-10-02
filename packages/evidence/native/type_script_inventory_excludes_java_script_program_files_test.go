@@ -19,6 +19,7 @@ import (
  *  1. Parse equivalent `.ts` and `.js` source files under one project root.
  *  2. Build the TypeScript inventory from both Program entries.
  *  3. Assert only the TypeScript path is available to globs.
+ *
  * @evidence contracts/testing.md#behavioral-verification loadTypeScriptInventories exercises the authored fixture. Assert only the TypeScript path is available to globs.
  * @evidence contracts/testing.md#independent-expectations SourceFile ASTs can represent both languages, but the public variant is explicitly `"typescript"`. Its file inventory therefore accepts TypeScript extensions and leaves JavaScript for a future artifact variant. The authored scenario requires this outcome: Assert only the TypeScript path is available to globs.
  * @evidence contracts/testing.md#distinguishing-cases Parse equivalent `.ts` and `.js` source files under one project root. Build the TypeScript inventory from both Program entries. Assert only the TypeScript path is available to globs.

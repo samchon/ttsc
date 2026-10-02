@@ -13,6 +13,7 @@ import (
  *  1. Cite the same section from the same dotted namespace.
  *  2. Evaluate a `symbol: "property"` claim over that file.
  *  3. Assert the host is refused and the section stays owed.
+ *
  * @evidence contracts/testing.md#behavioral-verification assertHostRefused runs the graph rule with a claim whose symbol is `property` over `export namespace Outer.Inner` carrying `@evidence docs/spec.md#contract` beside `export const activate = 1`; it requires `host kind 'type' is not selected (property)` and `Missing acknowledgement for 'docs/spec.md#contract'`.
  * @evidence contracts/testing.md#independent-expectations The expected messages are authored from the host-eligibility contract: a dotted namespace registers its outer declaration as a type host, which a property claim must refuse; the data const keeps the claim active.
  * @evidence contracts/testing.md#distinguishing-cases The property-claim counterpart of the function-claim refusal in the sibling dotted-namespace entry; the same fixture form is refused under both wrong selectors.

@@ -12,6 +12,7 @@ import (
  * 1. Configure disabled Markdown and TypeScript references.
  * 2. Satisfy one enabled Markdown reference.
  * 3. Require the citation list to contain only docs/live.md#live.
+ *
  * @evidence contracts/testing.md#behavioral-verification runGraphHints returns a silent graph and exactly one citation-trigger insert, docs/live.md#live, despite configured staged Markdown and TypeScript references.
  * @evidence contracts/testing.md#independent-expectations A disabled claim contributes no active reference population. The authored live target and exact singleton citation list establish the expected result independently of staged selections.
  * @evidence contracts/testing.md#distinguishing-cases A disabled claim contains both strict Markdown and TypeScript references beside one satisfied enabled Markdown claim. The assertion covers citation-trigger output only; it does not inspect exclusion-trigger routes.

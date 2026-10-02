@@ -19,6 +19,7 @@ import (
  *     owning nested members.
  *  2. Collect the inventory once per tag.
  *  3. Assert only the untagged sibling and its members survive.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert only the untagged sibling and its members survive.
  * @evidence contracts/testing.md#independent-expectations The three tags are equivalent statements that a declaration is not API, so treating them separately would leave two of them silently inert. The untagged sibling is the negative twin: without it, a collector that dropped every declaration in a file carrying any tag would pass just as well. The authored scenario requires this outcome: Assert only the untagged sibling and its members survive.
  * @evidence contracts/testing.md#distinguishing-cases Tag an interface, a namespace, a function, and a class in one file, each owning nested members. Collect the inventory once per tag. Assert only the untagged sibling and its members survive.

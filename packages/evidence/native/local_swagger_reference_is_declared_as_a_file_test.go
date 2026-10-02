@@ -17,6 +17,7 @@ import (
  *  1. Configure a claim citing a project-relative Swagger document.
  *  2. Publish the rule's project inputs.
  *  3. Assert the document is declared exactly once, as a file.
+ *
  * @evidence contracts/testing.md#behavioral-verification declaredInputs calls graphRule.ProjectInputs on a TypeScript claim referencing a local Swagger file, and assertDeclares requires exactly one file-kind input, assets/swagger.json, and no glob-kind input.
  * @evidence contracts/testing.md#independent-expectations The literal expectation of a single file input with the configured path follows from the ProjectInputs contract that a Swagger reference is one exact path; it is authored in the test, not computed by the implementation.
  * @evidence contracts/testing.md#distinguishing-cases The file-kind assertion and the empty glob-kind assertion separate a file declaration from a glob declaration, and the TypeScript claim's own src/** files add no input; remote URL sources, rooted references and Markdown or Prisma globs are not run in this body.

@@ -17,6 +17,7 @@ import (
  *  1. Root a Prisma population at a directory the process may not list.
  *  2. Collect the configured addresses and their health.
  *  3. Assert the root is named once and the base is recorded failed.
+ *
  * @evidence contracts/testing.md#behavioral-verification The test makes the temp `schema` directory unreadable (skipping where permissions cannot be dropped), decodes a Prisma reference rooted at `../schema` over models/**\/*.prisma, and calls configuredPrismaAddressesWithHealth; it requires a problem containing `could not walk Prisma root '../schema':`, zero selected addresses and exactly one failed base.
  * @evidence contracts/testing.md#independent-expectations The expected message text, zero addresses and one failed base are authored from the contract that an unlistable base is reported at its cause and recorded as failed rather than treated as an empty population.
  * @evidence contracts/testing.md#distinguishing-cases One unlistable declared Prisma root; the Markdown walker's identical decision is covered by sibling entries, so this entry owns the Prisma-kind branch.

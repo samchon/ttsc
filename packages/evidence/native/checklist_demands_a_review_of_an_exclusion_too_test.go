@@ -10,6 +10,7 @@ import "testing"
  *  1. Require reviews on a checklist and answer one item by citation and one by exclusion on one host.
  *  2. Assert each tag is reported unreviewed and the graph names a fingerprint for its item.
  *  3. Write both reviews with the fingerprints the graph asks for and assert the claim passes.
+ *
  * @evidence contracts/testing.md#behavioral-verification With a checklist reference that sets requireReview, runIndexRule is run over one function host that cites `no-hardcoding` and excludes `no-whack-a-mole`, and must report `Unreviewed @evidence for 'docs/rules.md#no-hardcoding'` and `Unreviewed @evidenceExclude for 'docs/rules.md#no-whack-a-mole'`; everyExpectedFingerprint must name a fingerprint for both targets, and writing an @evidenceReview and an @evidenceExcludeReview carrying them must make the graph silent.
  * @evidence contracts/testing.md#independent-expectations The unreviewed and clean outcomes are authored from the checklist review contract; the fingerprint values are read from the graph's own request, so this checks the accepted-review state transition rather than the hash algorithm.
  * @evidence contracts/testing.md#distinguishing-cases The probing pass deliberately omits both reviews, since a blank exclusion review would not be asked for a fingerprint and the case would silently probe the citation alone; the test requires a fingerprint for each of the two tag kinds before writing the reviews.

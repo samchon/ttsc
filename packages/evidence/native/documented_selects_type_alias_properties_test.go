@@ -11,6 +11,7 @@ import "testing"
  *  1. Leave one property of an exported type alias undocumented.
  *  2. Run the rule.
  *  3. Assert the property is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over a documented `export type Sale = { price: number }`; assertReported requires exactly one diagnostic, `Missing JSDoc on exported property 'Sale.price'`.
  * @evidence contracts/testing.md#independent-expectations The expected name is authored from the unit-model contract: the graph materializes object-type alias members as property units, so the rule must demand them just as it does interface properties.
  * @evidence contracts/testing.md#distinguishing-cases The alias form of an object type with one undocumented member; the interface form is owned by the sibling default-selection entry.

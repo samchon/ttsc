@@ -14,6 +14,7 @@ import (
  *  1. Export two unrelated constants.
  *  2. Run the rule.
  *  3. Assert one diagnostic naming both identities.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert one diagnostic naming both identities.
  * @evidence contracts/testing.md#independent-expectations The merged-declaration complementary cases prove the rule stays quiet; without this twin they would equally be satisfied by a rule that never fires at all. The authored scenario requires this outcome: Assert one diagnostic naming both identities.
  * @evidence contracts/testing.md#distinguishing-cases Export two unrelated constants. Run the rule. Assert one diagnostic naming both identities.

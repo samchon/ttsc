@@ -18,6 +18,7 @@ import (
  *  1. Take the fingerprint the graph asks for, for each cited declarator.
  *  2. Change the first declarator's initializer and nothing else.
  *  3. Assert exactly one diagnostic, naming that declarator.
+ *
  * @evidence contracts/testing.md#behavioral-verification everyExpectedFingerprint runs the graph rule over a two-declarator spec (`alpha = 1, beta = 2`) with both declarators cited and unreviewed to collect the fingerprints it asks for; the test records them as reviews, changes only alpha's initializer to 9, and assertReported requires exactly one diagnostic, `Stale @evidenceReview for '{@link alpha}'`.
  * @evidence contracts/testing.md#independent-expectations The fingerprints come from the graph's own messages, so the test checks invalidation and acceptance rather than the hash algorithm; the expected single stale review for alpha follows from the review-expiry contract that an edit expires only the identity it changed.
  * @evidence contracts/testing.md#distinguishing-cases Two reviews recorded, one declarator edited: a digest covering the whole statement would report two stale reviews, one covering nothing would report none, and the exactly-one assertion naming alpha excludes both.

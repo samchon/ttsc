@@ -15,6 +15,7 @@ import (
  *  1. Build one Markdown heading and one Swagger operation.
  *  2. Project the corpus population.
  *  3. Assert the operation is offered after the heading.
+ *
  * @evidence contracts/testing.md#behavioral-verification selectedCompletionUnits projects manually authored Markdown and Swagger inventories and must return sale-price before POST:/members.
  * @evidence contracts/testing.md#independent-expectations The declared ranking places Markdown anchors ahead of Swagger operation targets. The two literal targets and their authored artifact kinds define the expected order, rather than taking a snapshot of the returned units.
  * @evidence contracts/testing.md#distinguishing-cases One H2 and one POST operation distinguish reversed order and omitted entries through exact joined output. The test does not run the Swagger parser or assert Readable text separately.

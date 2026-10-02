@@ -16,6 +16,7 @@ import (
  *  2. Run the rule against a file named after neither the declaration nor
  *     `default`.
  *  3. Assert the declared name is demanded.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert the declared name is demanded.
  * @evidence contracts/testing.md#independent-expectations Both forms expose one declaration under no addressable name. Treating the list form as no exposure at all would let the rule miss the file entirely, and a rule that silently sees nothing is indistinguishable from one that passed. The authored scenario requires this outcome: Assert the declared name is demanded.
  * @evidence contracts/testing.md#distinguishing-cases Expose a local declaration through an export list as `default`. Run the rule against a file named after neither the declaration nor `default`. Assert the declared name is demanded.

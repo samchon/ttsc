@@ -13,6 +13,7 @@ import "testing"
  *  1. Cite a symbol without importing it.
  *  2. Evaluate the graph.
  *  3. Assert the unimported diagnostic and its repair.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the import-scope configuration over a view that cites `{@link questions.get}` without importing `questions`; the diagnostics must contain `Unimported evidence target '{@link questions.get}'` and `'import type' is enough`.
  * @evidence contracts/testing.md#independent-expectations The expected wording is authored from the grammar contract: a target naming a symbol the citing module never references is not a reference, and the repair must name `import type`, the form that creates no runtime edge.
  * @evidence contracts/testing.md#distinguishing-cases A citation with no import at all; the dangling-specifier and unreachable-segment causes, which have an import, are owned by sibling entries.

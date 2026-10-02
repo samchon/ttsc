@@ -21,6 +21,7 @@ import (
  *     multi-line pattern.
  *  2. Collect the file.
  *  3. Assert every unit names the line it is declared on.
+ *
  * @evidence contracts/testing.md#behavioral-verification assertReportedLines inventories a file holding `alpha = 1,` then a documented `beta = 2;`, then a multi-line `export const { gamma, delta } = source;`, and requires exactly the sorted rows alpha:2, beta:4, delta:7 and gamma:6.
  * @evidence contracts/testing.md#independent-expectations The expected line numbers are read off the authored source text (the line each name is written on), not computed by the scanner; the full-start position of a bare identifier would put beta two lines early and the pattern leaves one line early.
  * @evidence contracts/testing.md#distinguishing-cases A first declarator, a declarator behind a documentation block and the leaves of a multi-line pattern are the three shapes where the position before the name differs from the name's own line; the exact row list also fails if a unit is missing or extra.

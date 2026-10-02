@@ -20,6 +20,7 @@ import (
  *  1. Export local type, function, class, and namespace declarations by alias.
  *  2. Export a second function through `export type` only.
  *  3. Assert public aliases materialize and local/runtime-only names do not.
+ *
  * @evidence contracts/testing.md#behavioral-verification scanTypeScriptInventory exercises the authored fixture. Assert public aliases materialize and local/runtime-only names do not.
  * @evidence contracts/testing.md#independent-expectations An exported contract need not carry an `export` modifier on its declaration. When `export { Local as Public }` exposes it, evidence targets must use the public name; a type-only export must not expose runtime callable behavior. The authored scenario requires this outcome: Assert public aliases materialize and local/runtime-only names do not.
  * @evidence contracts/testing.md#distinguishing-cases Export local type, function, class, and namespace declarations by alias. Export a second function through `export type` only. Assert public aliases materialize and local/runtime-only names do not.

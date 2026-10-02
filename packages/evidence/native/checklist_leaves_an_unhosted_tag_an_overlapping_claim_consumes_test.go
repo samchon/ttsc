@@ -10,6 +10,7 @@ import "testing"
  *  1. Declare a checklist claim over functions and an ordinary claim over types, both selecting the same files and document.
  *  2. Exclude the document from the interface the ordinary claim selects, and answer every checklist item from the function.
  *  3. Assert the whole graph passes.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function checklist claim and a type claim over the same files and document, where an interface carries `@evidenceExclude docs/rules.md` and a function cites both checklist items; assertNoProblems requires an empty diagnostic list.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the overlap contract: a tag on a declaration that another claim selects as its host is that claim's answer, so the checklist claim must not report it as unhosted; every checklist item is answered by the function, so nothing is owed.
  * @evidence contracts/testing.md#distinguishing-cases Two claims selecting different host kinds over the same file set; the unhosted report without any consuming claim is owned by a sibling entry, and silence here would fail if the checklist claim refused a tag another claim owns.

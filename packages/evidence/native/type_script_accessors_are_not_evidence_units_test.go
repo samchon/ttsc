@@ -26,6 +26,7 @@ import (
  *     and on an interface.
  *  2. Collect the inventory.
  *  3. Assert only the ordinary members materialize.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert only the ordinary members materialize.
  * @evidence contracts/testing.md#independent-expectations Auto-accessors share PropertyDeclaration shape with ordinary fields but retain accessor semantics, and a get/set pair is not a member variable either. The ordinary field and method in the same class are the positive controls: without them a collector that had stopped materializing class members entirely would pass this case. The authored scenario requires this outcome: Assert only the ordinary members materialize.
  * @evidence contracts/testing.md#distinguishing-cases Declare ordinary members beside callable and data accessors, on a class and on an interface. Collect the inventory. Assert only the ordinary members materialize.

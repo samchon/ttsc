@@ -18,6 +18,7 @@ import (
  *  1. Comment out every declaration of the only file a claim selects.
  *  2. Evaluate the claim, which therefore activates nothing.
  *  3. Assert the stranded citation is still reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule reports exactly the unreadable citation at source line 1 after every selected declaration has been commented out.
  * @evidence contracts/testing.md#independent-expectations Declared file governance survives claim deactivation: no materialized property does not make a configured source comment disappear. The literal retired tag and line fix the expected diagnostic.
  * @evidence contracts/testing.md#distinguishing-cases A commented-out variable and export {} leave the property population empty while src/** still selects the file. This distinguishes declared governance from active-unit selection.

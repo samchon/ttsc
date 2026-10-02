@@ -12,6 +12,7 @@ import "testing"
  *  1. Document the first of two adjacent, differently named functions.
  *  2. Run the rule.
  *  3. Assert the second is still reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over a documented `export function format` followed by an undocumented `export function parse`; assertReported requires exactly one diagnostic, `Missing JSDoc on exported function 'parse'`.
  * @evidence contracts/testing.md#independent-expectations The expected report is authored from the documented-rule contract: only identical names form an overload set, so adjacent functions with different names are separate hosts and one block cannot excuse the other.
  * @evidence contracts/testing.md#distinguishing-cases Two adjacent single-signature functions with different names; the overload-set cases that must share one identity are owned by sibling entries, and the exactly-one assertion fails if `format` is reported or if `parse` is excused.

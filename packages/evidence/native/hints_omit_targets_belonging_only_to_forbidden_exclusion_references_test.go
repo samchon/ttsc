@@ -12,6 +12,7 @@ import (
  *  1. Satisfy a strict Markdown reference with positive evidence.
  *  2. Read the passing graph's two completion triggers.
  *  3. Assert the target remains positive-only.
+ *
  * @evidence contracts/testing.md#behavioral-verification runGraphHints retains docs/spec.md#contract under positive evidence and removes it under the exclusion trigger for a strict-only reference.
  * @evidence contracts/testing.md#independent-expectations noEvidenceExclude prohibits negative declarations without prohibiting positive citations. The literal contract target must therefore differ between the two independently narrowed trigger lists.
  * @evidence contracts/testing.md#distinguishing-cases One satisfied strict Markdown reference tests positive presence and exclusion absence together; TestHintsKeepTargetsAllowedByAnyReference owns a permissive twin.

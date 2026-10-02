@@ -15,6 +15,7 @@ import (
  *  1. Satisfy a graph citing a real exported type.
  *  2. Take the published corpus.
  *  3. Assert no hint inserts the selected type's name.
+ *
  * @evidence contracts/testing.md#behavioral-verification runGraphHints evaluates a passing graph referencing ISale and verifies no returned hint inserts ISale as its own entry.
  * @evidence contracts/testing.md#independent-expectations Symbol completion belongs to the TypeScript language service; the plugin corpus should not repeat the cited symbol name. This assertion forbids the literal ISale only and does not prove absence of every possible symbol or presence of the opener.
  * @evidence contracts/testing.md#distinguishing-cases The fixture selects one exported type and supplies a valid imported citation. TestHintsRouteIntoTypeScriptCompletion owns opener presence; this case owns that type name absence.

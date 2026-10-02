@@ -19,6 +19,7 @@ import (
  *  2. Point the same reference at the barrel.
  *  3. Assert the class name and the whole unmerged interface survive and
  *     nothing else does.
+ *
  * @evidence contracts/testing.md#behavioral-verification assertReexportedPopulation exercises the authored fixture. Assert the class name and the whole unmerged interface survive and nothing else does.
  * @evidence contracts/testing.md#independent-expectations The mark stopped at the boundary: `collectLocalExportNames` skips any export declaration carrying a module specifier, so a barrel published every class member the declaring file held while the same intent written locally withheld them. The criterion had become the specifier rather than the export's own kind, which is a distinction with nothing behind it, and every surface that stated the type-only rule had to carry a caveat about it. The authored scenario requires this outcome: Assert the class name and the whole unmerged interface survive and nothing else does.
  * @evidence contracts/testing.md#distinguishing-cases Re-export the same three declarations with `export type { … } from`. Point the same reference at the barrel. Assert the class name and the whole unmerged interface survive and nothing else does.

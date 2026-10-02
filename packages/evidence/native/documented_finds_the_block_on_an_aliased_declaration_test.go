@@ -12,6 +12,7 @@ import "testing"
  *  1. Document a local declaration and export it under another name.
  *  2. Run the rule.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over a documented non-exported `interface Local` (with a documented `id`) exported by `export { Local as Other };`; assertSilent requires no diagnostics.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the documented-rule contract: the block sits on the declaration while the export list carries the public name, and the rule must find the declaration's block rather than look for one at the export list.
  * @evidence contracts/testing.md#distinguishing-cases An aliased export of a documented local declaration; the undocumented export and re-export cases are owned by sibling entries. Silence alone would also occur if the rule ignored aliased exports, which the sibling report entries do not directly guard.

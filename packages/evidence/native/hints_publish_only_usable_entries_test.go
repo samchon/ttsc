@@ -16,6 +16,7 @@ import (
  *  1. Publish a corpus.
  *  2. Inspect every hint's trigger.
  *  3. Assert each carries a scope and an `After` ending where a target begins.
+ *
  * @evidence contracts/testing.md#behavioral-verification runGraphHints must publish at least one entry, and every entry must have a nonempty scope and insert plus an After string ending in a space.
  * @evidence contracts/testing.md#independent-expectations The hint envelope requires a scope, insertion text and a trigger ending at the target position. These literal structural requirements are independent of the returned corpus; they do not prove real host admission.
  * @evidence contracts/testing.md#distinguishing-cases Every entry from one passing Markdown graph is inspected. The initial nonempty assertion prevents a vacuous loop, while separate guards identify the malformed field.

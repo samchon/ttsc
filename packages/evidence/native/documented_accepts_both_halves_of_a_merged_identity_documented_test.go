@@ -12,6 +12,7 @@ import "testing"
  *  1. Document both halves of a merged identity.
  *  2. Run the rule.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over a documented `export interface ISale` and a documented merged `export namespace ISale` (with documented members); assertSilent requires no diagnostics.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the documented-rule contract: the first declaration decides and nothing polices the others, so a block on a companion namespace as well must not be reported.
  * @evidence contracts/testing.md#distinguishing-cases Both halves carrying a block, which is the case a rule that counted blocks per identity would wrongly report; the first-only and later-only cases are owned by sibling entries.

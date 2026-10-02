@@ -10,6 +10,7 @@ import "testing"
  *  1. Evaluate a checklist reference whose claim materialized no host.
  *  2. Leave the unit unacknowledged.
  *  3. Assert the population-wide missing acknowledgement is still reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification evaluateEvidenceGraph is called directly on one hand-built healthy claim state (function symbols, path src/test.ts, no hosts) with a checklist Markdown reference holding one unacknowledged h2 unit `docs/rules.md#only-rule`; assertProblemContains requires `Missing acknowledgement for 'docs/rules.md#only-rule'`.
  * @evidence contracts/testing.md#independent-expectations The expected message is an authored literal: when a checklist reference has no selected host to carry per-host reporting, the population-wide coverage question must still be answered. The claim state is built by hand because the shape is not reachable through the normal activation path, so this pins the evaluator invariant rather than an end-to-end flow.
  * @evidence contracts/testing.md#distinguishing-cases One empty-host-set checklist against one unacknowledged unit; the per-host reports with hosts present are owned by sibling checklist entries.

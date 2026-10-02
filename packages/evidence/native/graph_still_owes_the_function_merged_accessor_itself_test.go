@@ -16,6 +16,7 @@ import (
  *  1. Publish the same accessor with no citation anywhere.
  *  2. Evaluate the graph.
  *  3. Assert one missing acknowledgement, for the accessor itself.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule over the merged-accessor fixture with a function reference over src/index.ts and a test host citing nothing; the test requires exactly one `Missing acknowledgement` and that it is `Missing acknowledgement for 'functional.health.get' (TypeScript function 'get'`.
  * @evidence contracts/testing.md#independent-expectations The expected single message and its address are authored from the unit-model contract: the accessor is one real unit, so an uncited accessor owes exactly one acknowledgement, which distinguishes a real unit from one that materialized nothing and is silent either way.
  * @evidence contracts/testing.md#distinguishing-cases The uncited counterpart of TestGraphResolvesAFunctionMergedAccessorToOneUnit: the same files, no citation, so the one-unit claim is checked from the owed side.

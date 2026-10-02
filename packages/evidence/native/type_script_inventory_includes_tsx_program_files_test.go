@@ -19,6 +19,7 @@ import (
  *  1. Parse a TSX Program entry containing an exported arrow component.
  *  2. Load TypeScript inventories from that Program.
  *  3. Assert the TSX path and callable unit are present.
+ *
  * @evidence contracts/testing.md#behavioral-verification loadTypeScriptInventories exercises the authored fixture. Assert the TSX path and callable unit are present.
  * @evidence contracts/testing.md#independent-expectations The Program, rather than a filesystem crawl, owns TypeScript availability. An extension filter that accidentally recognizes only `.ts` would make a valid exported callable disappear even though ttsc parsed the file. The authored scenario requires this outcome: Assert the TSX path and callable unit are present.
  * @evidence contracts/testing.md#distinguishing-cases Parse a TSX Program entry containing an exported arrow component. Load TypeScript inventories from that Program. Assert the TSX path and callable unit are present.

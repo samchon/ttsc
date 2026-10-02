@@ -13,6 +13,7 @@ import (
  *  1. Select H2 and H3 as checklist items.
  *  2. Cite both from one host and cite the document from another.
  *  3. Assert only the document citation is refused, and the host that named the items directly is silent.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a checklist selecting h2 and h3 over a document with `no-hardcoding` and its child `fixtures`, where one host cites both headings and another cites the whole document; the test requires exactly one `Aggregate @evidence target` diagnostic, for `'docs/rules.md' at src/document.ts`, and no diagnostic naming `'section'`.
  * @evidence contracts/testing.md#independent-expectations The expected single refusal is authored from the aggregate contract that a target is refused because it is not a selected item, not because it has descendants: the h2 is both an item and a scope here, so citing it stays legal while the unselected document is refused.
  * @evidence contracts/testing.md#distinguishing-cases The h2 that also contains a selected h3 (must stay accepted) beside the document citation (must be refused) separates the selection-based rule from a descendant-based one; the same-reference default-selector case is owned by a sibling entry.

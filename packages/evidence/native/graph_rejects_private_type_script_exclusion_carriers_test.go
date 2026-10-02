@@ -13,6 +13,7 @@ import "testing"
  *  1. Put an exclusion on an unexported constant beside a selected function.
  *  2. Materialize one Markdown obligation for that active function claim.
  *  3. Assert the carrier is rejected and the obligation remains missing.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/controllers/**\/*.ts, where an unexported `const CONTROLLER_EVIDENCE_EXCLUDE` carries `@evidenceExclude docs/spec.md#contract` beside an exported `selectedController()`; the diagnostics must contain `Out-of-scope @evidenceExclude carrier`, `unsupported or non-exported declaration` and `Missing acknowledgement for 'docs/spec.md#contract'`.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored from the carrier contract: eligibility follows the public declaration inventory, so a private constant must not become an acknowledgement surface and the section it meant to exclude stays owed.
  * @evidence contracts/testing.md#distinguishing-cases The unexported twin of the exported carrier accepted in the sibling public-carriers entry: only the export keyword differs, and containment of the three fragments is asserted.

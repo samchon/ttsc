@@ -20,6 +20,7 @@ import (
  *  1. Declare each form with a block above it.
  *  2. Collect the file.
  *  3. Assert every unit names its declaration's line, not its block's.
+ *
  * @evidence contracts/testing.md#behavioral-verification assertReportedLines inventories a file holding a documented interface with a documented member, a class with a documented method, a function, an object alias and a namespace with a documented const, and requires exactly the sorted rows ISale:2, ISale.price:4, Orders:20, Orders.state:22, Sale:8, Sale.prototype.charge:10, TSale:17, TSale.rate:17 and draw:14.
  * @evidence contracts/testing.md#independent-expectations The expected line numbers are read off the authored source text (each is the line of the declaration, not of the documentation block above it), not computed by the scanner.
  * @evidence contracts/testing.md#distinguishing-cases Each declaration form carries a block above it, the trivia that would move a line taken from a full start; the variable form is owned by the sibling variable-line entry, and the fallback branch below the identifier case is not reachable from any form here.

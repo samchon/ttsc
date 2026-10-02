@@ -13,6 +13,7 @@ import "testing"
  *  1. Scan a comment-only file-level exclusion run.
  *  2. Materialize it without any parsed model inventory.
  *  3. Assert its target, empty host set, and carrier flag.
+ *
  * @evidence contracts/testing.md#behavioral-verification prismaClaimOf is called with a comment-only schema holding a file-level `///` run that ends in `@evidenceExclude docs/spec.md#contract ...` and no model inventory; it must return no problems and exactly one declaration whose Tag is the exclusion tag, Target is `docs/spec.md#contract`, Hosts is empty and ExclusionCarrier is true.
  * @evidence contracts/testing.md#independent-expectations The expected declaration fields are authored from the carrier contract: an unattached top-level triple-slash run is preserved as an exclusion declaration that claims no model host and is marked eligible only as a carrier.
  * @evidence contracts/testing.md#distinguishing-cases One file-level run with no model; hosted model comments and invalid carrier tags are owned by sibling entries. The Prisma parser itself is not involved because no model inventory is supplied.

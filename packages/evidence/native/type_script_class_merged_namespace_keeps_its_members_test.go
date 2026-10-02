@@ -18,6 +18,7 @@ import (
  *  1. Merge a class with a namespace declaring companion members.
  *  2. Collect the inventory.
  *  3. Assert the class callables and every namespace member survive.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the class callables and every namespace member survive.
  * @evidence contracts/testing.md#independent-expectations Both halves of `class Service` beside `namespace Service` are `type` under one identity, so they fold into one unit rather than colliding, and the ambiguity a function-merged namespace carries never arises there. A correction keyed on the namespace rather than on its merge partner would have caught it anyway and erased the companion object every such class publishes. The authored scenario requires this outcome: Assert the class callables and every namespace member survive.
  * @evidence contracts/testing.md#distinguishing-cases Merge a class with a namespace declaring companion members. Collect the inventory. Assert the class callables and every namespace member survive.

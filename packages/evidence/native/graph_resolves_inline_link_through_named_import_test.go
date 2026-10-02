@@ -12,6 +12,7 @@ import "testing"
  *  1. Import one callable by name and cite it.
  *  2. Evaluate the graph.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the import-scope configuration over a view that imports `{ get }` from a module declaring `get` and cites `{@link get}`; assertNoProblems requires an empty list.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the resolution contract: a named import contributes its own segment (unlike a namespace import), so the citation `get` resolves to the imported unit and acknowledges it.
  * @evidence contracts/testing.md#distinguishing-cases A plain named import without alias; the aliased and namespace forms are owned by sibling entries, so a resolver that shared one code path across forms would fail one of the three.

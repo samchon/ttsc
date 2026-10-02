@@ -15,6 +15,7 @@ import (
  *  1. Configure a graph with no Markdown on either side.
  *  2. Ask the predicate about the directories a project always has.
  *  3. Assert every one of them is pruned.
+ *
  * @evidence contracts/testing.md#behavioral-verification couldContainConfiguredMarkdown, resolvePopulationBase is exercised with the scenario below; the assertions require every one of them is pruned.
  * @evidence contracts/testing.md#independent-expectations The zero case, and the one that makes a TypeScript-only graph free: with no Markdown reference anywhere in the configuration, the walk has no reason to enter a single directory.
  * @evidence contracts/testing.md#distinguishing-cases Configure a graph with no Markdown on either side. Ask the predicate about the directories a project always has. Assert every one of them is pruned.

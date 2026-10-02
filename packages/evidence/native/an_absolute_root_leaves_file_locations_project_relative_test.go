@@ -17,6 +17,7 @@ import (
  *  1. Root a Markdown reference at an absolute directory holding one document.
  *  2. Leave its selected section uncited.
  *  3. Assert the location ascends project-relatively and the target does not.
+ *
  * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn runs the graph rule with a Markdown reference rooted at the absolute temp `docs` directory (a sibling of the project) over requirements/**, with the one section left uncited; the test requires `Missing acknowledgement for 'requirements/pricing.md#discounts'` and a message containing `at ../docs/requirements/pricing.md:1`.
  * @evidence contracts/testing.md#independent-expectations Both strings are authored literals: the target is addressed relative to the declared root, while the file location ascends project-relatively so a reader can open it from the project directory.
  * @evidence contracts/testing.md#distinguishing-cases The target spelling (root-relative) and the location spelling (project-relative) must differ in the same diagnostic; a resolver that used either spelling for both would fail one of the two assertions.

@@ -13,6 +13,7 @@ import "testing"
  *  1. Scan a Markdown and TypeScript declaration at the same path and line.
  *  2. Compare their internal declaration identities.
  *  3. Assert the artifact-specific identities remain distinct.
+ *
  * @evidence contracts/testing.md#behavioral-verification scanProjectMarkdown scans one `<!-- @evidence ... -->` declaration and parseTypeScriptInventory scans one `/** @evidence ... *\/` declaration, both registered at the same path `src/mixed.ts` and the same line; each inventory must hold exactly one declaration and the two declaration IDs must differ.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the identity contract that the artifact kind is part of a declaration's identity: the path and line are made identical on purpose, so equal IDs would show the discriminator is missing.
  * @evidence contracts/testing.md#distinguishing-cases One Markdown and one TypeScript declaration at the same location are the only pair compared; the same-artifact duplicate and different-line cases are owned by other entries, and the ID's exact format is not asserted.

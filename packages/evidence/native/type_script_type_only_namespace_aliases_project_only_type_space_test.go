@@ -29,6 +29,7 @@ import (
  *  2. Include nested type and value declarations, an interface callable, an
  *     object-shaped type alias callable, and a class with its members.
  *  3. Assert the exact full and type-only projections.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the exact full and type-only projections.
  * @evidence contracts/testing.md#independent-expectations A namespace spans TypeScript's type and value spaces. Treating a type-only export as fully public creates false function/property obligations, while dropping it loses valid imported type paths. The authored scenario requires this outcome: Assert the exact full and type-only projections.
  * @evidence contracts/testing.md#distinguishing-cases Export one namespace through full and both type-only alias syntaxes. Include nested type and value declarations, an interface callable, an object-shaped type alias callable, and a class with its members. Assert the exact full and type-only projections.

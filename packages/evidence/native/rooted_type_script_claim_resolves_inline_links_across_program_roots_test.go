@@ -18,6 +18,7 @@ import (
  *  1. Supply a rooted API claim and its imported backend contract in one Program.
  *  2. Cite the imported contract through an inline link.
  *  3. Assert the complete graph resolves without a diagnostic.
+ *
  * @evidence contracts/testing.md#behavioral-verification graphRule.Check runs over two parsed sources (packages/api ISale, with claim root ../api, and packages/backend IContract, the unrooted reference) under a project rooted at packages/backend; ISale cites IContract through {@link IContract} and the captured reporter must receive no message.
  * @evidence contracts/testing.md#independent-expectations The expectation (no diagnostic) follows from the authored layout: the one reference unit IContract is cited by the one claim host, so a correct resolver leaves nothing unresolved or uncovered. A resolver that failed to relate the sibling-root import path to the backend root would surface an unresolved target or missing acknowledgement.
  * @evidence contracts/testing.md#distinguishing-cases Only the accepting case executes: there is no unresolvable-link twin in this entry, and the silence is meaningful only because an unresolved or uncovered unit would be reported. The config.Claims length check merely guards the helper's decoded configuration.

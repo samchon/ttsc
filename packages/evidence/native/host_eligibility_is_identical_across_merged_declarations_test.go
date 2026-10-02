@@ -15,6 +15,7 @@ import (
  *  1. Select only `type` hosts.
  *  2. Cite from each half in turn.
  *  3. Assert neither is reported as an out-of-scope host.
+ *
  * @evidence contracts/testing.md#behavioral-verification For two sources (the `@evidence docs/spec.md#sale-price` block on `interface ISale`, and the same kind of block on the merged `namespace ISale`), runIndexRule runs the graph rule with a claim selecting only `type` hosts; the diagnostics must contain no message with `Out-of-scope` in either run.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the host contract: both an interface and a namespace are type hosts, so the same citation must be in scope whichever half carries it, not in or out depending on where it was written.
  * @evidence contracts/testing.md#distinguishing-cases The two placements are iterated over a map with the name in the failure message (plain iterations, not named subtests); only the absence of an out-of-scope diagnostic is asserted, not full silence.

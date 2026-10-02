@@ -15,6 +15,7 @@ import (
  *  1. Export two bindings from one undocumented statement.
  *  2. Run the rule.
  *  3. Assert one finding naming both bindings.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over an undocumented `export const maximumItems = 10, maximumCoupons = 2;`; the test requires exactly one message, containing `'maximumItems', 'maximumCoupons'`.
  * @evidence contracts/testing.md#independent-expectations The expected message is authored from the variable-statement contract: two bindings share one block position, so they are one obligation with one repair and are reported together in one diagnostic.
  * @evidence contracts/testing.md#distinguishing-cases The reporting counterpart of the one-block-per-variable-statement accept entry: the count of one fails both if each binding were reported separately and if variables were skipped.

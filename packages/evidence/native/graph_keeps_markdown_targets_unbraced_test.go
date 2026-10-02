@@ -12,6 +12,7 @@ import "testing"
  *  1. Cite a Markdown heading from a TypeScript claim, unbraced.
  *  2. Evaluate the graph.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/views/** and a Markdown reference over docs/spec.md, where the function cites the unbraced `docs/spec.md#pricing`; assertNoProblems requires an empty list.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the grammar contract: a Markdown address is never an inline link, so the migration diagnostic for unbraced code targets must not fire on it.
  * @evidence contracts/testing.md#distinguishing-cases The negative twin of the unbraced-TypeScript-target migration entry: same unbraced shape, but the target is a Markdown path and resolves and acknowledges the heading.

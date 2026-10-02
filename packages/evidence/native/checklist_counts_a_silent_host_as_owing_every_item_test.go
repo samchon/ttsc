@@ -13,6 +13,7 @@ import (
  *  1. Select a function with no documentation comment beside a two-item checklist.
  *  2. Run the graph.
  *  3. Assert one diagnostic names the host and both unanswered items.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over `export function silent(): void {}` with no documentation against a two-item Markdown checklist; the test requires exactly one `checklist item(s)` diagnostic naming `TypeScript function 'silent'`, `has not acknowledged 2 of 2 checklist item(s)` with both item targets, and the repair sentence `Do what each item requires and cite it with @evidence on this host`.
  * @evidence contracts/testing.md#independent-expectations The expected text is authored from the checklist contract that a host that writes nothing still owes every item, in one diagnostic rather than one per host-item pair.
  * @evidence contracts/testing.md#distinguishing-cases A silent host with two items distinguishes a per-host denominator that counts only hosts that wrote a tag (no diagnostic) and a per-pair report (two diagnostics) from the required single report.

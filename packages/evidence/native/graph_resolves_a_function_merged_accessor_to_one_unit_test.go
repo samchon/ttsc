@@ -20,6 +20,7 @@ import (
  *  2. Cite it once from a host under `singleEvidencePerSymbol`.
  *  3. Assert silence, which requires one resolution, one obligation, and a
  *     count of exactly one.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over test/** and a function reference over src/index.ts with `singleEvidencePerSymbol`, over the merged-accessor fixture (nested barrels for a generated SDK) and a host citing `{@link api.functional.health.get}` once; assertNoProblems requires an empty list.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the unit-model contract: a function-merged accessor is exactly one unit, so one citation resolves, one obligation exists and the host counts as citing exactly one unit under singleEvidencePerSymbol; the namespace members must not promote an ambiguous aggregate scope.
  * @evidence contracts/testing.md#distinguishing-cases Resolution and cardinality are asserted together through one silent run; the companion that the accessor itself is still owed when uncited is TestGraphStillOwesTheFunctionMergedAccessorItself.

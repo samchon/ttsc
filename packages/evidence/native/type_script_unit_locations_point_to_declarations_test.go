@@ -15,6 +15,7 @@ import (
  *  1. Put comments and blank lines before an interface and callable.
  *  2. Materialize type, property, and function units.
  *  3. Assert each unit records the line containing its declaration name.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert each unit records the line containing its declaration name.
  * @evidence contracts/testing.md#independent-expectations AST node full starts may include blank lines and JSDoc. Those positions are useful for comment attachment but misleading in an ambiguous-target or missing-acknowledgement diagnostic that names the contract itself. The authored scenario requires this outcome: Assert each unit records the line containing its declaration name.
  * @evidence contracts/testing.md#distinguishing-cases Put comments and blank lines before an interface and callable. Materialize type, property, and function units. Assert each unit records the line containing its declaration name.

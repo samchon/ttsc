@@ -14,6 +14,7 @@ import (
  *  1. Write an exclusion between the braces of a destructuring pattern.
  *  2. Evaluate the same claim.
  *  3. Assert the tag is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runUnreadableRule must include Unreadable @evidenceExclude at src/contracts.ts:4 for an exclusion inside the pattern.
  * @evidence contracts/testing.md#independent-expectations An exclusion requires a readable host just as a citation does. The literal tag kind and authored fourth line require a diagnostic instead of silently recording an exclusion.
  * @evidence contracts/testing.md#distinguishing-cases The pattern carries an inner exclusion and a valid outer citation. Citation and review siblings own the other tag kinds; this assertion accepts additional diagnostics.

@@ -26,6 +26,7 @@ import (
  *  1. Reach two different classes of one name, one type-only and one by value.
  *  2. Forward both from a middle barrel, in each order, and re-export by name.
  *  3. Assert neither order publishes the type-only declaration's member.
+ *
  * @evidence contracts/testing.md#behavioral-verification reexportedFrom runs the graph rule over two classes named Sale (a.ts with `alpha`, b.ts with `beta`) forwarded from a middle barrel by `export type * from a` and `export { Sale } from b` in both orders, re-exported by name from the entry; the test fails if the reported population contains `Sale.prototype.alpha` for either order.
  * @evidence contracts/testing.md#independent-expectations The oracle is the type-only contract that nothing reached only through a type-only edge may publish its value members; it deliberately permits either declaration to win the shared name, so which declaration wins is not asserted.
  * @evidence contracts/testing.md#distinguishing-cases Two orders of the same pair of paths guard against a mark unioned across different declarations. The assertion is one-sided: it does not require `Sale.prototype.beta` or any other member to be published, so a traversal that published nothing would also pass.

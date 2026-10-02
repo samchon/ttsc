@@ -16,6 +16,7 @@ import (
  *  1. Repeat positive evidence across models and then on one model.
  *  2. Repeat an exclusion across models.
  *  3. Assert only the same-host positive and repeated exclusion fail.
+ *
  * @evidence contracts/testing.md#behavioral-verification runPrismaAcknowledgementGraph scans an authored schema with scanPrismaFile, attaches its comments to supplied model units and evaluates the claim graph against a Markdown heading; three subtests expect no problems for one @evidence per model, one "Duplicate @evidence" finding for a repeat on a single model, and one "Duplicate @evidenceExclude" finding for an exclusion repeated across two models.
  * @evidence contracts/testing.md#independent-expectations The schemas are literal and the expected counts follow from the cardinality contract (one @evidence per host and target, one @evidenceExclude per target across the claim), asserted as literal counts or silence rather than a recorded graph output.
  * @evidence contracts/testing.md#distinguishing-cases Repeated positive evidence across two models is the allowed case and the same evidence twice on one model the failing case; a repeated exclusion across two models is a failing case for exclusions. Mixed evidence and exclusion, and hierarchical overlap, belong to other tests.

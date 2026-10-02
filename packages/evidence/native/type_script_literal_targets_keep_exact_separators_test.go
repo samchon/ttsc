@@ -21,6 +21,7 @@ import (
  *  1. Export slash and backslash static literal methods.
  *  2. Acknowledge each exact target by link from one TypeScript claim.
  *  3. Assert both callable units resolve without collision.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert both callable units resolve without collision.
  * @evidence contracts/testing.md#independent-expectations Both literals are legal public method names, and treating either separator as structure makes two distinct callable units ambiguous, leaving neither exact target independently acknowledgeable. The authored scenario requires this outcome: Assert both callable units resolve without collision.
  * @evidence contracts/testing.md#distinguishing-cases Export slash and backslash static literal methods. Acknowledge each exact target by link from one TypeScript claim. Assert both callable units resolve without collision.

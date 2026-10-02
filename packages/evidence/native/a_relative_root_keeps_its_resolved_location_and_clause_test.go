@@ -17,6 +17,7 @@ import (
  *  1. Declare the same claim with an ascending relative root.
  *  2. Read the root diagnostic.
  *  3. Assert the resolved location and the resolution clause are both present.
+ *
  * @evidence contracts/testing.md#behavioral-verification runRootedGraph runs the graph rule with a TypeScript claim whose root is the missing relative path `../contracts`; the test requires diagnostics containing `found no directory at the typescript root '../contracts', which resolves to '`, `it resolves against the ttsc project root` and `add that directory and make its sources part of the tsconfig Program`, and none containing `because that path is not a directory`.
  * @evidence contracts/testing.md#independent-expectations The expected sentences are authored literals for a relative root that holds nothing: the author's spelling, the resolved location and the project-root clause must all appear, and the occupied-by-a-file wording must not.
  * @evidence contracts/testing.md#distinguishing-cases The negative twin of the absolute-root and non-directory cases: a relative root that does not exist must keep both spellings and the resolution clause and must not use the file-in-the-way repair wording.

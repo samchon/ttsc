@@ -16,6 +16,7 @@ import "testing"
  *  1. Document a constructor with `@param` and leave its parameter bare.
  *  2. Run the rule, then run it again with the block moved onto the parameter.
  *  3. Assert the first is reported and the second is silent.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options twice over class `Sale`: with a `@param price` block on the constructor and a bare `public readonly price` parameter, assertReported requires exactly one diagnostic `Missing JSDoc on exported property 'Sale.prototype.price'`; with the block moved onto the parameter, assertSilent requires none.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored from the documented-rule contract: a constructor block cannot host a citation for a parameter property, so the parameter property itself needs a block, and a `@param` on the constructor does not stand in for it.
  * @evidence contracts/testing.md#distinguishing-cases The same class in a reported form (constructor `@param` only) and an accepted form (block on the parameter), so only the block position differs; a rule that accepted the constructor block would fail the first assertion.

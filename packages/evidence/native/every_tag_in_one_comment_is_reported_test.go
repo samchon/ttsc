@@ -17,6 +17,7 @@ import (
  *     between them.
  *  2. Evaluate the same claim.
  *  3. Assert both are reported at their own lines.
+ *
  * @evidence contracts/testing.md#behavioral-verification runUnreadableRule must report both unreadable citations at source lines 5 and 7 inside one ordinary block comment.
  * @evidence contracts/testing.md#independent-expectations Each tag line is its own declaration, so a slash-prefixed intervening note cannot suppress either. The authored fifth and seventh lines independently specify both locations.
  * @evidence contracts/testing.md#distinguishing-cases Two citations surround a //-prefixed note in a non-JSDoc block. Separate subset assertions catch losing either tag and allow unrelated findings.

@@ -15,6 +15,7 @@ import (
  *  1. Export an interface and arrow function named `Shared` from one file.
  *  2. Select only `"function"` and assert `Shared` resolves to the callable.
  *  3. Select both kinds and assert the shared target becomes ambiguous.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs graphRule.Check twice over one fixture exporting an interface and a callable const both named Shared: with symbol "function" the graph must be clean, and with ["type","function"] it must contain a diagnostic with "Ambiguous evidence target '{@link Shared}'".
  * @evidence contracts/testing.md#independent-expectations The expectation follows from TypeScript allowing a type and a value of the same name and from a bare link naming one target; one kind leaves it unique, two kinds make it ambiguous. The expected message text is a literal authored here, not computed from the rule.
  * @evidence contracts/testing.md#distinguishing-cases The same sources and citation differ only in the reference symbol selector, giving a no-finding case for the single kind and a finding for both kinds.

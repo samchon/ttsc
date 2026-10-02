@@ -13,6 +13,7 @@ import "testing"
  *  1. Select a function host and cite the target from an exported property.
  *  2. Use `@evidence`, not `@evidenceExclude`, on that carrier.
  *  3. Assert the selected-host diagnostic and missing obligation both remain.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/controllers/**\/*.ts, where a CONTROLLER_EVIDENCE_EXCLUDE.ts file carries `@evidence docs/spec.md#contract` on an exported data const beside `selectedController()`; the diagnostics must contain `Out-of-scope @evidence host`, `host kind 'property' is not selected` and `Missing acknowledgement for 'docs/spec.md#contract'`.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored from the carrier contract: the carrier relaxation applies to `@evidenceExclude` only, so `@evidence` on the same public export remains bound to the selected host kind, is refused, and leaves the obligation owed.
  * @evidence contracts/testing.md#distinguishing-cases The positive tag on a carrier-eligible declaration, whose exclusion twin is accepted in the sibling public-carriers entry; only containment of the three fragments is asserted.

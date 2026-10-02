@@ -25,6 +25,7 @@ import (
  *  1. Destructure a function into an object pattern and into an array pattern.
  *  2. Collect the inventory.
  *  3. Assert every leaf is a property.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory parses `export const { length: named, name: labelled } = function target() {};` and `export const [firstLeaf, ...restLeaves] = (): void => {};`, and the sorted `symbol:target` list must equal exactly property:firstLeaf, property:labelled, property:named and property:restLeaves.
  * @evidence contracts/testing.md#independent-expectations The expected list is authored from the leaf-classification contract: each leaf of a binding pattern is a property because the pattern's function initializer is not the leaf's own value, so no leaf becomes a function; the array row is not type-correct but exercises the same guard.
  * @evidence contracts/testing.md#distinguishing-cases An object pattern and an array pattern (with a rest element) initialized by a function expression and an arrow function, the only shapes that could route a leaf to the callable branch; the exact set also fails if a leaf is missing or the statement itself becomes a unit.

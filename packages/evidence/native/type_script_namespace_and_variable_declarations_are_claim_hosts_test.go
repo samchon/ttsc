@@ -15,6 +15,7 @@ import (
  *  1. Cite one Markdown section from an exported namespace and one variable.
  *  2. Select the matching host kind in two independent claims.
  *  3. Assert both graphs are complete.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert both graphs are complete.
  * @evidence contracts/testing.md#independent-expectations Materializing a target without making its declaration a legal claim host creates a one-way graph surface. The two claims prove both new kinds can own outgoing evidence edges through the complete rule. The authored scenario requires this outcome: Assert both graphs are complete.
  * @evidence contracts/testing.md#distinguishing-cases Cite one Markdown section from an exported namespace and one variable. Select the matching host kind in two independent claims. Assert both graphs are complete.

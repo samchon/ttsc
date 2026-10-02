@@ -15,6 +15,7 @@ import (
  *  1. Publish project inputs for options that are not an object at all.
  *  2. Repeat for an empty claim array and for absent options.
  *  3. Assert each declares nothing without panicking.
+ *
  * @evidence contracts/testing.md#behavioral-verification graphRule.ProjectInputs through declaredInputs is exercised with the scenario below; the assertions require each declares nothing without panicking.
  * @evidence contracts/testing.md#independent-expectations `Check` reports the configuration failure with a position and a repair; this contract has no reporter and runs before a Program exists, so its only sound answer is an empty declaration. Returning an error or panicking here would convert one rule's misconfiguration into a failed build for the whole project.
  * @evidence contracts/testing.md#distinguishing-cases Publish project inputs for options that are not an object at all. Repeat for an empty claim array and for absent options. Assert each declares nothing without panicking.

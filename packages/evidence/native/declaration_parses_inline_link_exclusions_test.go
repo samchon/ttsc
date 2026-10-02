@@ -12,6 +12,7 @@ import "testing"
  *  1. Parse an exclusion whose target is an inline link.
  *  2. Read back the tag kind and the target.
  *  3. Assert both survive.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseDeclarations is called on `/** @evidenceExclude {@link ISale} This screen intentionally omits it. *\/`; it must return exactly one declaration whose Tag is the exclusion tag and whose inlineLinkTarget is `ISale`.
  * @evidence contracts/testing.md#independent-expectations The expected tag and target are authored: the exclusion tag shares the target grammar with `@evidence`, so an exclusion must be able to name an inline link target.
  * @evidence contracts/testing.md#distinguishing-cases One exclusion with a braced target; the same grammar for the positive tag is covered by sibling entries, so this entry owns the exclusion tag kind.

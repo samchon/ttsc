@@ -14,6 +14,7 @@ import (
  *  1. Declare two identities beside an anonymous default.
  *  2. Run the rule.
  *  3. Assert exactly one finding, naming the count.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert exactly one finding, naming the count.
  * @evidence contracts/testing.md#independent-expectations A file with both problems gets one finding, and it must be the structural one: the extra identity has to move before the file's name can mean anything, and stacking two findings on one file teaches readers to skim them. The authored scenario requires this outcome: Assert exactly one finding, naming the count.
  * @evidence contracts/testing.md#distinguishing-cases Declare two identities beside an anonymous default. Run the rule. Assert exactly one finding, naming the count.

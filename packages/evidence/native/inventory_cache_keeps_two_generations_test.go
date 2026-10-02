@@ -16,6 +16,7 @@ import (
  *  1. Scan one source and retire the generation it landed in once.
  *  2. Assert it still hits.
  *  3. Retire twice with no hit and assert it is scanned afresh.
+ *
  * @evidence contracts/testing.md#behavioral-verification newTypeScriptInventoryCache().scan is called on one parsed source and the inventory kept; after one beginCycle a second scan of the same source must return the identical pointer, and after two further beginCycle calls with no hit in between a scan must return a different pointer.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored from the retention contract: two generations keep a hit across one intervening rebuild (a cycle touching another project) and bound memory at twice the file set, so an entry unused for two retirements must be dropped; pointer identity distinguishes reuse from rescanning.
  * @evidence contracts/testing.md#distinguishing-cases One retirement (must survive) against two retirements without a hit (must be dropped): a cache that dropped on the first retirement fails the first check, and one that never retired fails the second.

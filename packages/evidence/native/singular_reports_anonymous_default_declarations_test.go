@@ -14,6 +14,7 @@ import (
  *  1. Default-export an unnamed function declaration.
  *  2. Run the rule.
  *  3. Assert the anonymous-default message.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert the anonymous-default message.
  * @evidence contracts/testing.md#independent-expectations `export default function () {}` is a declaration rather than an expression, so it reaches the rule down a different branch than the arrow expression in TestSingularReportsAnonymousDefaultExpressions and would otherwise pass unreported. The authored scenario requires this outcome: Assert the anonymous-default message.
  * @evidence contracts/testing.md#distinguishing-cases Default-export an unnamed function declaration. Run the rule. Assert the anonymous-default message.

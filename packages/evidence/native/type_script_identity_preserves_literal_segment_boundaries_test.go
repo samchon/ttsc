@@ -16,6 +16,7 @@ import (
  *  1. Export an instance `run` and static `"prototype.run"` method.
  *  2. Cite their shared displayed target.
  *  3. Assert resolution sees two distinct callable units.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert resolution sees two distinct callable units.
  * @evidence contracts/testing.md#independent-expectations The displayed target intentionally stays human-readable, but its internal identity must retain segment boundaries. Otherwise a static literal method silently overwrites an instance method rather than making the target ambiguous. The authored scenario requires this outcome: Assert resolution sees two distinct callable units.
  * @evidence contracts/testing.md#distinguishing-cases Export an instance `run` and static `"prototype.run"` method. Cite their shared displayed target. Assert resolution sees two distinct callable units.

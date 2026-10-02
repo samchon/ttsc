@@ -13,6 +13,7 @@ import "testing"
  *  1. Parse an `@evidence` tag whose target is an inline link.
  *  2. Read back the target and the reason.
  *  3. Assert the interior is the target and the rest is the reason.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseDeclarations is called on `/** @evidence {@link api.functional.questions.get} Renders this operation. *\/`; it must return one declaration whose target is an inline link target with interior `api.functional.questions.get` and whose Reason is `Renders this operation.`.
  * @evidence contracts/testing.md#independent-expectations The expected target and reason are authored literals from the braced-grammar contract: an inline link target is consumed through its closing brace, so the symbol name must not leak into the reason.
  * @evidence contracts/testing.md#distinguishing-cases One dotted inline-link target followed by prose: a whitespace-delimited parse would stop at `{@link` and leave the name in the reason, failing both the target and the reason checks. Spelling variants and malformed links are owned by sibling entries.

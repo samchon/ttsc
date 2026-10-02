@@ -15,6 +15,7 @@ import (
  *  1. Cite a Markdown section from the second declarator of a statement.
  *  2. Evaluate a `symbol: "type"` claim over that file.
  *  3. Assert the host is refused and the section stays owed.
+ *
  * @evidence contracts/testing.md#behavioral-verification assertHostRefused exercises the authored fixture. Assert the host is refused and the section stays owed.
  * @evidence contracts/testing.md#independent-expectations The other position, and the one the complementary case cannot reach: a block above the statement is the statement's, so an over-registration on the declarator stayed invisible however many statement-level citations the suite wrote. A tag on an inner declarator is what consults it. The authored scenario requires this outcome: Assert the host is refused and the section stays owed.
  * @evidence contracts/testing.md#distinguishing-cases Cite a Markdown section from the second declarator of a statement. Evaluate a `symbol: "type"` claim over that file. Assert the host is refused and the section stays owed.

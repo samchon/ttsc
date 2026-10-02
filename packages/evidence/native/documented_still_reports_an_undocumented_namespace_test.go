@@ -12,6 +12,7 @@ import "testing"
  *  1. Leave a standalone namespace undocumented.
  *  2. Run the rule.
  *  3. Assert it is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over a standalone `export namespace Orders` with no block (its `version` member is documented); assertReported requires exactly one diagnostic, `Missing JSDoc on exported type 'Orders'`.
  * @evidence contracts/testing.md#independent-expectations The expected report is authored from the documented-rule contract: folding merged declarations into one identity must not exempt a namespace that is genuinely undocumented.
  * @evidence contracts/testing.md#distinguishing-cases A namespace with no merge partner and an undocumented founding declaration, the control against a merge fix that would stop reporting namespaces; the documented member does not rescue it.

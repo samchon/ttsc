@@ -12,6 +12,7 @@ import "testing"
  *  1. Leave an empty block on the interface and a real one on the namespace.
  *  2. Run the rule.
  *  3. Assert the emptiness diagnostic.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over an `export interface ISale` preceded by an empty `/** *\/` block and a merged documented `export namespace ISale`; assertReported requires exactly one diagnostic, `Empty JSDoc on exported type 'ISale'`.
  * @evidence contracts/testing.md#independent-expectations The expected message is authored from the documented-rule contract: only the founding declaration is read, so a block with content on a later half cannot rescue an empty first block, and the author is told the block is empty rather than missing.
  * @evidence contracts/testing.md#distinguishing-cases An empty block on the first half against a real block on the second; the plain empty-block and asterisk-only forms are owned by sibling entries, and this case also separates the empty message from the missing message.

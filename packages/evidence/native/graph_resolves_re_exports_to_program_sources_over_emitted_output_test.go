@@ -15,6 +15,7 @@ import "testing"
  *  1. Put a compiled `wide.js` on disk beside the `wide.ts` the Program holds.
  *  2. Re-export `./wide.js` from the selected barrel.
  *  3. Assert the declaration from the TypeScript source is the obligation.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/views/** and a type reference over src/api/index.ts, where `export * from "./wide.js"` has both a TypeScript source `wide.ts` (declaring `IWide`) and a compiled `wide.js` beside it, and a view cites `{@link api.IWide}`; assertNoProblems requires an empty list.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the module-resolution contract: under nodenext the specifier `./wide.js` names the compiled sibling of `wide.ts`, and resolving to the emitted JavaScript would lose the module's declarations, so `IWide` must be reachable and cited.
  * @evidence contracts/testing.md#distinguishing-cases A real emitted `wide.js` on disk beside the source; if resolution read the JavaScript, `IWide` would be unreachable and the citation reported. Silence alone is the oracle.

@@ -13,6 +13,7 @@ import "testing"
  *  1. Match both a barrel and the module it forwards.
  *  2. Cite the declaration through the barrel, then through the declaring module.
  *  3. Assert each citation alone resolves and completes the obligation.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/views/** and a function reference over src/api/** (which matches both a barrel `export * from "./questions.js"` and the declaring module); a view citing `{@link api.get}` through the barrel and then a view citing `{@link questions.get}` through the declaring module must each give no diagnostics.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the population contract: a glob that matches a barrel and the modules beneath it makes the symbol citable through either, and the two paths to one declaration must leave one obligation, so each citation alone must complete it.
  * @evidence contracts/testing.md#distinguishing-cases The same files cited through each of the two reachable modules; if the two paths created two obligations, either single citation would leave one owed.

@@ -18,6 +18,7 @@ import (
  *     other.
  *  2. Evaluate a `symbol: "property"` claim over that file.
  *  3. Assert the citation is refused and the section stays unacknowledged.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the citation is refused and the section stays unacknowledged.
  * @evidence contracts/testing.md#independent-expectations The host set is filled one node at a time by whichever collector walked the container, and withdrawal belongs to the identity, so every declaration form that can spell one identity twice has the same leak. An interface declared twice is the second such form: TypeScript accepts a repeated member whose type matches, and the untagged copy kept discharging coverage. Closing the class once rather than per container is what this pins. The authored scenario requires this outcome: Assert the citation is refused and the section stays unacknowledged.
  * @evidence contracts/testing.md#distinguishing-cases Withdraw a property in one interface declaration and cite it from the other. Evaluate a `symbol: "property"` claim over that file. Assert the citation is refused and the section stays unacknowledged.

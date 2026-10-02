@@ -15,6 +15,7 @@ import (
  *  1. Declare two overload signatures and their implementation.
  *  2. Run the rule against a file named after the function.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert silence.
  * @evidence contracts/testing.md#independent-expectations Overload signatures are separate FunctionDeclaration nodes sharing a name, so a per-declaration counter reports a three-signature function as three identities. The authored scenario requires this outcome: Assert silence.
  * @evidence contracts/testing.md#distinguishing-cases Declare two overload signatures and their implementation. Run the rule against a file named after the function. Assert silence.

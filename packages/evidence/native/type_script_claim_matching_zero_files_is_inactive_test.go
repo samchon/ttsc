@@ -15,6 +15,7 @@ import (
  *  1. Miss every TypeScript source with a typo in the claim glob.
  *  2. Give the empty claim an unreadable Markdown reference root.
  *  3. Assert the whole claim remains inactive and silent.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises the authored fixture. Assert the whole claim remains inactive and silent.
  * @evidence contracts/testing.md#independent-expectations A typo and an intentionally empty folder are indistinguishable from the selected Program population alone. Both therefore have the same activation semantics: without one matching selected export, no reference is loaded and no acknowledgement diagnostic is emitted. The authored scenario requires this outcome: Assert the whole claim remains inactive and silent.
  * @evidence contracts/testing.md#distinguishing-cases Miss every TypeScript source with a typo in the claim glob. Give the empty claim an unreadable Markdown reference root. Assert the whole claim remains inactive and silent.

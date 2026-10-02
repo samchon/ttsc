@@ -21,6 +21,7 @@ import (
  *  1. Declare a root and walk from a different directory, as a link does.
  *  2. Hand the decision a path under the directory actually walked.
  *  3. Assert the message names the declared root and not the walked one.
+ *
  * @evidence contracts/testing.md#behavioral-verification unreadableEntryProblem is called with a base resolved for `../documents`, a walked directory `target` that differs from the declared root, an entry under it and a permission-denied cause; it must report the entry relevant and name `'../documents/requirements/private'`, and must not quote the walked directory in slash or native spelling.
  * @evidence contracts/testing.md#independent-expectations The expected spelling is authored: a reader opens the declared root, never the directory a link resolved to, so the walked path (computed by the test from its own workspace) must not appear as a quoted segment.
  * @evidence contracts/testing.md#distinguishing-cases A walk rooted away from the declared base, as a linked population is, against a relevance callback that accepts the relative entry; the negative checks cover both slash and native separators, since the historical leak printed the callback argument.

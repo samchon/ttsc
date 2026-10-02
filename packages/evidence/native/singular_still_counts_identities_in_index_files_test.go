@@ -14,6 +14,7 @@ import (
  *  1. Declare two identities in an index file.
  *  2. Run the rule.
  *  3. Assert the count is still enforced.
+ *
  * @evidence contracts/testing.md#behavioral-verification runSingularRule exercises the authored fixture. Assert the count is still enforced.
  * @evidence contracts/testing.md#independent-expectations The name match is what an index file cannot satisfy; the one-identity limit is unrelated, and exempting it would turn every barrel into a legal dumping ground. The authored scenario requires this outcome: Assert the count is still enforced.
  * @evidence contracts/testing.md#distinguishing-cases Declare two identities in an index file. Run the rule. Assert the count is still enforced.

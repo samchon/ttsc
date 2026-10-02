@@ -12,6 +12,7 @@ import "testing"
  *  1. Parse a tag whose inline link is never closed.
  *  2. Read back the target.
  *  3. Assert it is not an inline link target.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseDeclarations is called on `/** @evidence {@link ISale Mirrors the contract. *\/` (the link is never closed); it must return exactly one declaration whose target is not an inline link target.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the grammar contract: an unterminated link must be left to the malformed-declaration path rather than being retargeted by whitespace splitting into the target `{@link`.
  * @evidence contracts/testing.md#distinguishing-cases One unterminated link against the well-formed spellings of sibling entries; only the target kind is asserted, not the target text or the reason, so the exact fallback value is not pinned.

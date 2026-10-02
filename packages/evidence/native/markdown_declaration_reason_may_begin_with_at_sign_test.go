@@ -13,6 +13,7 @@ import "testing"
  *  1. Put a Markdown declaration target on one line.
  *  2. Begin its explanation with an at-prefixed approval marker on the next.
  *  3. Assert the non-empty explanation satisfies coverage.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule exercises this case: Verifies Markdown explanation prose is not constrained by JSDoc tag boundaries. The original assertions check assert the non-empty explanation satisfies coverage.
  * @evidence contracts/testing.md#independent-expectations The expectation of zero diagnostics follows from the grammar contract that an HTML comment has no JSDoc field syntax, so a line starting with an unrelated @architecture belongs to the reason above it; were it treated as a boundary the reason would be empty and a Malformed declaration diagnostic would appear.
  * @evidence contracts/testing.md#distinguishing-cases A single positive case: the target line has no reason of its own and the at-prefixed continuation line must supply it. The JSDoc counterpart where a real tag does stop a reason is not run in this body.

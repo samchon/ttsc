@@ -13,6 +13,7 @@ import "testing"
  *  1. Point two barrels at each other, one of them declaring a symbol.
  *  2. Cite that symbol through the entry.
  *  3. Assert the run completes and resolves.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with the shared entry claim over two barrels that star-export each other (one declaring `get`) and a view citing `{@link api.get}`; assertNoProblems requires an empty list, which requires the run to terminate.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the traversal contract: a cyclic barrel is a real shape in generated code, and an unguarded traversal would recurse without end, so the run must complete and still resolve and acknowledge `get`.
  * @evidence contracts/testing.md#distinguishing-cases A two-module cycle where one module holds the declaration; self-referential namespace cycles are owned by the file-link cycle entries. A hang would surface as a test timeout rather than an assertion.

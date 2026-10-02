@@ -16,6 +16,7 @@ import (
  *  1. Add one valid declaration and three adjacent invalid declarations.
  *  2. Evaluate them against one configured source unit.
  *  3. Assert each failure class is reported without losing coverage.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule over four interface declarations in one file (a valid `@evidence ...#contract` citation, one with no reason, one citing `docs/spec.md#unknown`, and an `@evidenceExclude` of the same section) against a type claim and a one-heading Markdown reference; the test requires `Malformed @evidence declaration` followed by the `Write '@evidence <target> <reason>'.` repair plus untrueTagWarning, `Unresolved evidence target 'docs/spec.md#unknown'`, `Conflicting acknowledgements for 'docs/spec.md#contract'`, no leaked `+untrueTagWarning` text and no `Missing acknowledgement`.
  * @evidence contracts/testing.md#independent-expectations The expected fragments are authored from the diagnostic contract that malformed, unresolved and conflicting declarations each have their own repair; the unit being covered by the valid citation makes any missing-acknowledgement message a regression.
  * @evidence contracts/testing.md#distinguishing-cases Three adjacent invalid forms beside one valid declaration, each asserted by containment of its own fragment; the leaked-constant check pins that the warning is joined outside the quoted literal. The assertions do not pair each diagnostic with its source line.

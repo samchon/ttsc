@@ -12,6 +12,7 @@ import "testing"
  *  1. Document an interface but leave one property bare.
  *  2. Run the rule with the default selection.
  *  3. Assert the property is reported.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over a documented `interface ISale` with a documented `id` and an undocumented `price`; assertReported requires exactly one diagnostic, `Missing JSDoc on exported property 'ISale.price'`.
  * @evidence contracts/testing.md#independent-expectations The expected report is authored from the population contract: a property is a claim host, so the default selection must include it and report an undocumented one.
  * @evidence contracts/testing.md#distinguishing-cases One documented and one undocumented property of the same documented interface: the exactly-one result shows the default selection reaches properties without over-reporting the documented ones.

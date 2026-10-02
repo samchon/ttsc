@@ -15,6 +15,7 @@ import (
  *  1. Re-export the module by name from an inner barrel.
  *  2. Re-export that barrel with `export type * from` at the entry.
  *  3. Assert the entry publishes the type-only population.
+ *
  * @evidence contracts/testing.md#behavioral-verification assertReexportedFrom runs the graph rule over src/sale.ts (class Sale, interface IPlain, function run), a middle barrel that re-exports those three names by value, and an entry `export type * from "./middle.js"`, and requires the entry's unacknowledged population to equal exactly IPlain, IPlain.rate and Sale.
  * @evidence contracts/testing.md#independent-expectations The expected list is an authored literal from the type-only contract: through a type-only star only type-space names and interface members remain, so Sale's value members and `run` must be withheld even though the barrel below re-exports them by value.
  * @evidence contracts/testing.md#distinguishing-cases The type-only edge sits above a named value re-export, which is the inherited-mark path of the named branch; the other below-the-star shapes (namespace and value star) and the value-barrel-above shape are owned by sibling entries.

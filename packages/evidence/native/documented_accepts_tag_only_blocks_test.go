@@ -12,6 +12,7 @@ import "testing"
  *  1. Document an export with nothing but an `@evidence` tag.
  *  2. Run the rule.
  *  3. Assert silence.
+ *
  * @evidence contracts/testing.md#behavioral-verification runDocumentedRule runs the documented rule with default options over `export function parse` whose only documentation is a block containing a single `@evidence docs/spec.md#parse ...` tag; assertSilent requires no diagnostics.
  * @evidence contracts/testing.md#independent-expectations The expectation is authored from the documented-rule contract: a block with a tag but no surrounding prose still has content, because the rule checks presence rather than prose quality.
  * @evidence contracts/testing.md#distinguishing-cases A tag-only block against the empty and asterisk-only blocks that the sibling report entries must report; the cited target is never resolved here, so only the documented rule is exercised.

@@ -18,6 +18,7 @@ import (
  *  1. Write a different schema under each root.
  *  2. Root one Prisma reference at each.
  *  3. Assert the parser is handed both and each population keeps its own model.
+ *
  * @evidence contracts/testing.md#behavioral-verification Two different schemas (model sale under store, model refund under mirror) with a typescript claim rooted at each: configuredPrismaAddressesWithHealth reports no problem, distinctPrismaSources returns both files (mirror/main.prisma, store/main.prisma), and loadPrismaInventories reports no problem with store's first unit prisma:sale and mirror's first unit prisma:refund.
  * @evidence contracts/testing.md#independent-expectations Expected sources, unit IDs and the absence of problems are literal; two physically distinct files must stay distinct, which the filesystem (os.SameFile) decides.
  * @evidence contracts/testing.md#distinguishing-cases The negative twin of the hard-link, directory-link and case-only cases: two files sharing only a base-relative name main.prisma must not merge. Same-name-different-content is covered; same bytes in two files is not.

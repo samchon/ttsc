@@ -13,6 +13,7 @@ import "testing"
  *  1. Select only TypeScript property hosts and materialize one such host.
  *  2. Put a valid target on a neighboring exported function.
  *  3. Assert both the out-of-scope host and missing acknowledgement.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a property claim over a file holding a documented exported function (carrying `@evidence docs/spec.md#contract`) and `export const selectedProperty = true`; the test requires `Out-of-scope @evidence host`, `host kind 'function' is not selected` and `Missing acknowledgement for 'docs/spec.md#contract'`.
  * @evidence contracts/testing.md#independent-expectations The expected diagnostics are authored from the host-eligibility contract: resolution and host eligibility are separate checks, so a resolvable citation on an unselected symbol kind must be reported and must not satisfy coverage.
  * @evidence contracts/testing.md#distinguishing-cases The neighboring selected property keeps the claim active while the cited function is the out-of-scope host; the three assertions check refusal and the unmet obligation together, only by containment.

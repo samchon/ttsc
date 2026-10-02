@@ -24,6 +24,7 @@ import (
  *  1. Hard-link one schema inside a single claim's base.
  *  2. Cite the reference from the model, correctly and exactly once.
  *  3. Assert the graph closes silently.
+ *
  * @evidence contracts/testing.md#behavioral-verification One schema with `/// @evidence docs/pricing.md#discounts ...` above model sale is hard-linked as store/main.prisma and mirror/main.prisma inside one prisma claim whose glob selects both; against markdown docs/pricing.md, runIndexRuleAtRoot must return no messages, i.e. the single citation is not counted twice and the obligation is discharged.
  * @evidence contracts/testing.md#independent-expectations The correct configuration (one tag, one line, correct target) is authored so that a faithful implementation owes nothing; the expected result is silence by construction of the fixture, not an externally computed output.
  * @evidence contracts/testing.md#distinguishing-cases Only the positive layout (two names of one file inside one claim base) is run; the duplicated-citation failure it guards against is observed as extra messages that this body would then fail on, but no deliberately failing configuration is run.

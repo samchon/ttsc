@@ -18,6 +18,7 @@ import (
  *  1. Make a directory inside the configured globs unreadable.
  *  2. Run the rule.
  *  3. Assert the path the rule prints is project-relative.
+ *
  * @evidence contracts/testing.md#behavioral-verification The test makes docs/private unreadable (skipping where the platform or a root user cannot deny a listing), then runIndexRuleAtRoot runs the graph rule with a Markdown reference over docs/**\/*.md; it requires a diagnostic containing `could not inspect 'docs/private':`, no `matched no markdown files` diagnostic, and no diagnostic quoting the absolute private path.
  * @evidence contracts/testing.md#independent-expectations The expected spelling is the authored project-relative `docs/private`; the absolute path of the temp directory is known to the test from its own allocation, so its absence in the rule-authored quoted segment is checked against a value the rule did not produce. The operating-system cause after the quote may legitimately carry an absolute path and is not asserted.
  * @evidence contracts/testing.md#distinguishing-cases One failing directory beside a readable docs/public.md; the second assertion separates a walk failure that fails its population from an empty population, and the third separates a project-relative path from an absolute one. A declared root above the project is covered by a sibling entry.

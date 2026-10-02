@@ -21,6 +21,7 @@ import (
  *  2. Change only the second declarator's initializer.
  *  3. Assert the first is unmoved, then assert its own initializer still moves
  *     it.
+ *
  * @evidence contracts/testing.md#behavioral-verification variableDigestOf returns the alpha digest for `export const alpha = 1, /** First wording. *\/ beta = 2;`; the test requires it to equal the alpha digest when only beta's initializer changes to 3, and to differ when alpha's own initializer changes to 9.
  * @evidence contracts/testing.md#independent-expectations The expected relation follows from the review-expiry contract rather than from the digest code: an edit to a sibling declarator must not expire a review of another identity, but a change to the identity's own initializer must.
  * @evidence contracts/testing.md#distinguishing-cases A negative case (sibling initializer edit, equality required) and its positive twin (own initializer edit, inequality required), so a digest that ignored the declarator's content or one that included its siblings would each fail one assertion.

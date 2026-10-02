@@ -16,6 +16,7 @@ import (
  *  1. Record a Markdown population failure with no file inventories.
  *  2. Materialize a reference whose glob would otherwise match nothing.
  *  3. Assert the reference is unhealthy and emits no derived match diagnostic.
+ *
  * @evidence contracts/testing.md#behavioral-verification materializeClaimStates is exercised with the scenario below; the assertions require the reference is unhealthy and emits no derived match diagnostic.
  * @evidence contracts/testing.md#independent-expectations No file inventory exists when the walk itself cannot start, so per-file health alone cannot distinguish failure from an honest empty match. The population marker carries that distinction without becoming a matchable artifact.
  * @evidence contracts/testing.md#distinguishing-cases Record a Markdown population failure with no file inventories. Materialize a reference whose glob would otherwise match nothing. Assert the reference is unhealthy and emits no derived match diagnostic.

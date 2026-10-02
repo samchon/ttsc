@@ -18,6 +18,7 @@ import (
  *     with the tag on the second declaration and once on the first.
  *  2. Collect the inventory.
  *  3. Assert the identity and every member below either half are withdrawn.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises both authored orderings. Assert the identity and every member below either half are withdrawn.
  * @evidence contracts/testing.md#independent-expectations `interface I` beside `namespace I` is one public identity and one unit, so which declaration carries the comment is a matter of where the author wrote it. Reading only the declaration in hand would leave the identity withdrawn while its members stayed selected whenever the untagged half was written first, a cascade that depended on source order. The authored scenario requires this outcome: Assert the identity and every member below either half are withdrawn.
  * @evidence contracts/testing.md#distinguishing-cases The tag sits on the second declaration of the merge in one row and on the first in the other, while the opposite half is bare; every unit whose target starts with ISale must be present with a non-empty Hidden marker, exactly four of them in each row, and the untagged IPublic units must keep an empty marker.

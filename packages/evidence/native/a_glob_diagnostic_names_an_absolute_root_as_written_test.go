@@ -17,6 +17,7 @@ import (
  *  1. Root a Markdown reference at an absolute directory that exists.
  *  2. Select with patterns no document under it matches.
  *  3. Assert the empty-match diagnostic names the declared spelling.
+ *
  * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn runs the graph rule with a Markdown reference rooted at the absolute temp contracts directory, which holds requirements/pricing.md, selecting files ["specs/**"]; assertProblemContains requires the message `matched no markdown files for ['specs/**'] under root '<that directory>'`.
  * @evidence contracts/testing.md#independent-expectations The expected root text is the slash-normalized path the test itself allocated and wrote into the configuration, so the oracle is the author's own spelling rather than a value recomputed by the resolver.
  * @evidence contracts/testing.md#distinguishing-cases The root exists and contains a document, and only the pattern is wrong, so the diagnostic must be the empty-match one naming the root as written rather than a missing-root one. A relative-root spelling is not exercised here.

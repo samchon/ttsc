@@ -30,6 +30,7 @@ import (
  *     decorated, static and protected members.
  *  2. Collect the inventory.
  *  3. Assert the same unit set a plain class of that shape would produce.
+ *
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the same unit set a plain class of that shape would produce.
  * @evidence contracts/testing.md#independent-expectations `isPublicClassMember` reads modifier flags and tests exactly two of them, so every other modifier a member can carry is a case where it must not act. `abstract`, `async`, and a decorator reached nothing in this package at all: a guard added to the member walk for any of them left the whole suite green while removing real published contract. `override` reached only the parameter-property row, so its class-body spelling was equally unguarded. `abstract` is the widest, since it takes an abstract base's entire surface, which is the surface a specification is most likely to be written against. The authored scenario requires this outcome: Assert the same unit set a plain class of that shape would produce.
  * @evidence contracts/testing.md#distinguishing-cases Declare an abstract derived class carrying abstract, override, async, decorated, static and protected members. Collect the inventory. Assert the same unit set a plain class of that shape would produce.

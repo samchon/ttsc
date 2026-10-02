@@ -12,6 +12,7 @@ import "testing"
  *  1. Re-export a callable under a different name.
  *  2. Cite the alias, and assert the original name is not addressable.
  *  3. Assert the alias resolves and the original does not.
+ *
  * @evidence contracts/testing.md#behavioral-verification runIndexRule runs the graph rule with a function claim over src/views/** and a TypeScript function reference over src/api/index.ts, where the index has `export { get as fetch }`; a citation `{@link api.fetch}` must give no diagnostics, and a citation `{@link api.get}` must report `declares no selected unit named 'get'`.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored from the addressing contract: an importer can reach only the public alias, so the accessor path follows `fetch` and the declaring module's own name `get` names nothing reachable.
  * @evidence contracts/testing.md#distinguishing-cases The same files cited by the alias (resolves) and by the original name (refused); a resolver that addressed the declaring module's name would swap the two outcomes.
