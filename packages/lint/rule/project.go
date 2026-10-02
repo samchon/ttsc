@@ -415,8 +415,8 @@ type ProjectReporter interface {
 }
 
 // ProjectSeverityReporter optionally accepts a severity for each finding.
-// Reporting still marks the rule failed, including for warnings, so consumers
-// cannot treat an incomplete project result as a clean one.
+// Non-off findings reported during the active cycle mark the rule failed,
+// including warnings. Off findings and reports after finalization are inert.
 //
 // @evidence contracts/common.md#principled-implementation An optional explicit-level reporter preserves the distinction between finding severity and project-state failure.
 // @evidence contracts/common.md#clear-and-simple-design One optional interface adds level control without breaking existing ProjectReporter hosts.
@@ -427,7 +427,7 @@ type ProjectReporter interface {
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectSeverityReporter is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectSeverityReporter is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectSeverityReporter interface {
-  // ReportSeverity records a project finding at its explicitly supplied level.
+  // ReportSeverity records a non-off finding at its supplied level while the cycle is active.
   //
   // @evidence contracts/common.md#principled-implementation The finding's level is represented separately from the rule's default severity.
   // @evidence contracts/common.md#clear-and-simple-design One optional operation extends reporting without a second project-result store.
