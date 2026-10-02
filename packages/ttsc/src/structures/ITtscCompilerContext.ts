@@ -3,14 +3,16 @@ import type { ITtscProjectPluginConfig } from "./ITtscProjectPluginConfig";
 /**
  * Constructor context for {@link TtscCompiler}.
  *
- * Represents the project environment owned by a programmatic ttsc compiler
- * instance. The context is fixed when the class is constructed: compile,
- * prepare, and clean operations all use the same working directory, project
- * config, native toolchain, environment, cache root, and plugin list.
+ * Supplies the selection policy owned by a programmatic ttsc compiler instance.
+ * Construction copies the supplied options and environment overrides and
+ * captures plugin JSON conversion. Operations cannot replace those inputs.
  *
- * Keeping this context immutable prevents one `TtscCompiler` object from
- * silently compiling different projects across calls. Create another compiler
- * instance when any of these fields must change.
+ * Defaults remain invocation inputs: an omitted working directory uses the
+ * current process directory, inherited environment values come from the current
+ * process environment, and project/toolchain discovery reads current files.
+ * Relative path options are resolved when used. Supply explicit anchors and
+ * overrides when calls must keep those selections; construct another instance
+ * to change the supplied options.
  *
  * @author Jeongho Nam - https://github.com/samchon
  *
@@ -30,6 +32,9 @@ export interface ITtscCompilerContext {
    * Used to discover `tsconfig.json`, resolve relative `tsconfig` paths,
    * resolve project source files, resolve plugin packages, and resolve relative
    * cache paths.
+   *
+   * An omitted value uses `process.cwd()` when the operation resolves its
+   * context; construction does not capture that default.
    *
    * @default process.cwd()
    */
@@ -89,7 +94,8 @@ export interface ITtscCompilerContext {
    * processes, and for the worker thread of
    * {@link TtscCompiler.transformAsync}.
    *
-   * Values are merged over `process.env` before ttsc starts TypeScript-Go,
+   * The supplied overrides are copied at construction. Values are merged over
+   * the invocation's current `process.env` before ttsc starts TypeScript-Go,
    * native plugin binaries, isolated descriptor evaluators (including the
    * `ttsx` fallback), or the native compiler host used by
    * {@link TtscCompiler.compile}. `transformAsync` runs its whole transform on a

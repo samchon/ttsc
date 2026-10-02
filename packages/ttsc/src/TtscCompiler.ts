@@ -29,10 +29,12 @@ import type { TtscBuildResult } from "./structures/internal/TtscBuildResult";
  * Programmatic compiler host for the `ttsc` TypeScript-Go pipeline.
  *
  * `TtscCompiler` is the root JavaScript API exported by the `ttsc` package. It
- * represents one resolved project context: a working directory, an optional
- * project config path, an optional native toolchain override, an environment, a
- * cache root, and a plugin list. Those values are captured by the constructor
- * and are intentionally not replaceable per method call.
+ * owns one selection policy: working-directory and project-config options,
+ * native toolchain and environment overrides, a cache option and a plugin list.
+ * Supplied options and plugin JSON conversion are captured by the constructor
+ * and cannot be replaced per method call. Omitted defaults and relative path
+ * resolution still depend on the invocation's process state, and discovery
+ * observes the current filesystem.
  *
  * The class exposes only the operations that make sense for an embedded
  * compiler host:
@@ -64,7 +66,7 @@ export class TtscCompiler {
    *
    * The context is defensively copied: mutations to the original object after
    * construction do not affect this instance. Omit `context` (or pass `{}`) to
-   * inherit all defaults from the running process.
+   * inherit defaults from the running process when operations resolve them.
    *
    * Plugin JSON conversion, including custom `toJSON`, is captured once here.
    * Later operations preserve the original host selectors and use that captured
@@ -249,8 +251,8 @@ export class TtscCompiler {
    *
    * The result uses an `embed-typescript`-style discriminated union: `success`
    * for clean compiles, `failure` for compiler diagnostics or plugin failures
-   * that reached the build pipeline, and `exception` for host failures that
-   * prevent any project check from running.
+   * that reached the build pipeline, and `exception` for host failures during
+   * preparation, execution, response decoding, output capture or cleanup.
    *
    * @returns Structured compilation result containing diagnostics or output.
    *
@@ -271,8 +273,9 @@ export class TtscCompiler {
    * Transform the configured project and return TypeScript text by file path.
    *
    * This is the source-to-source API for plugin authors. It must not return
-   * JavaScript emit, declaration files, or source maps; those artifacts belong
-   * to {@link TtscCompiler.compile}. A transform native source is expected to
+   * JavaScript emit or declaration files; those artifacts belong to
+   * {@link TtscCompiler.compile}. Optional source maps describe transformed
+   * TypeScript back to its input. A transform native source is expected to
    * write JSON shaped as `{ "typescript": { "src/file.ts": "..." } }` to
    * stdout. When no transform native source is configured, ttsc returns the
    * TypeScript files loaded by the TypeScript-Go Program together with normal
