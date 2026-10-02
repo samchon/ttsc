@@ -81,9 +81,22 @@ import { notifyWatchInputs } from "./watch/notifyWatchInputs";
  * @evidence contracts/common.md#clear-and-simple-design One delivery coordinator composes project selection, cache admission, compilation, output selection and host notifications; dedicated owners handle proof and lifetime internals.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Wrapper modules cannot poison source baselines and incomplete generations cannot authorize reuse; a separately admitted fresh-only result is evicted before capability checks, unknown or watching lifecycles fail explicitly, and unsupported withdrawal cannot be replaced by a fake record or guessed dependency closure.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs and argument tags explain project scope, no-transform outcomes, cache epochs and per-build notification responsibilities with links to maintained reference context.
- * @evidence contracts/performance.md#efficient-algorithms Each admission iteration selects or validates one project generation; in-flight or valid completed reuse avoids repeated compilation, while validation cost follows the actual required input population.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Selection/key construction pays ancestor/config/alias/option/path text work.
+ *   Each iteration may prepare toolchain state, settle native notifications and
+ *   replay source/project/external/universal proofs before selecting output.
+ *   In-flight/valid completed reuse avoids compilation, not those checks or
+ *   output/map/notification/record work. Capture misses pay whole native compile
+ *   and input populations; concurrent supersession can repeat the outer loop
+ *   without a delivery-level retry/time bound here.
  * @evidence contracts/performance.md#reuse-equivalent-work Cache identity covers config/options/plugins/aliases; current generations, pass-qualified terminal verdicts and in-flight Promises are shared only while their source and dependency proof remains valid.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The cache owns current generations and workers; fresh-only delivery evicts and releases its generation even when a callback later throws, untrusted notifications are withdrawn, and other eviction/attempt cleanup stays with generation owners.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Optional cache state retains current generation Promises/results and
+ *   per-key dependency/case facts without a byte/key cap here. Native tasks
+ *   belong to compiler/capture owners; uncached captures retain no notification
+ *   or persistent clock probe. Fresh-only delivery detaches its generation
+ *   before host callbacks; eviction/disposal attempt independent resource release
+ *   and native failures need not close every handle or remove every probe.
  * @evidence contracts/portability.md#os-neutral-implementation Native module paths and project coordinates use supported path/filesystem abstractions, while actual case policy and watcher capability come from generation proof rather than OS-name assumptions.
  */
 export async function transformTtsc(
@@ -264,8 +277,8 @@ export async function transformTtsc(
         plugins: options.plugins,
         // One bounded recursive project observer witnesses content restored
         // during the compile itself. Build-scoped adapters close it with the
-        // attempt; persistent adapters retain it to make later validations
-        // constant-cost while the generation remains live.
+        // attempt; persistent adapters can retain qualified notification proof
+        // to avoid repeated walks, without eliminating other delivery checks.
         retainProjectMembership: cache !== undefined && epoch === undefined,
         // Under declared polling, silence from a native watcher proves nothing.
         retainNotifications: transformCacheTrustsNotifications(cache),

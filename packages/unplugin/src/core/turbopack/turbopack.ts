@@ -19,9 +19,9 @@ import { failedModuleSource } from "./failedModuleSource";
  * Per-process transform cache. Turbopack runs loaders in a worker pool and
  * never signals build boundaries to a loader, so the cache lives for the
  * worker's lifetime. Because no build-start boundary exists, every cache hit
- * validates all project and graph inputs before selecting output (see
+ * validates current reuse premises before selecting output (see
  * `transformTtsc`). When `withTtsc` opened a session for the pool, the workers
- * share each compile through it instead of compiling the project once each
+ * can adopt equivalent proven publications rather than always compiling locally
  * (samchon/ttsc#1390).
  */
 const transformCache = createTtscTransformCache();
@@ -35,7 +35,7 @@ shareTtscTransformCache(transformCache, readTtscTransformSession());
 let bridge: HostWatchBridge | undefined;
 
 /**
- * The tool directories whose records this worker has proven against the disk
+ * The tool directories whose record inventory this worker has attempted
  * for a one-shot build, for a loader wired by hand, without `withTtsc`.
  */
 const refreshed = new Set<string>();
@@ -89,17 +89,23 @@ const refreshed = new Set<string>();
  *   accepted filesystem root. The shared observer owns native case/path/watch
  *   capabilities; optional bound methods represent host loader capabilities.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Each request performs path-length inclusion and one shared transform lookup;
- *   the first one-shot request per tool root scans its R records. Project proof
- *   is paid through cache validation rather than compiling all sources per module.
+ *   Inclusion and shallow option/hook adaptation retain path/own-key text work.
+ *   Shared transform validation pays current native identity, byte/list/graph
+ *   proofs and compiler misses/map delivery; it is not one constant lookup.
+ *   First inventory per tool root adds record parse/replay/IO, while watching
+ *   registration adds qualified observer work and error modules serialize errors.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   A worker cache shares validated project generations across loader calls;
  *   inherited sessions share compiles across pool workers. Without a build-start
- *   boundary every hit validates producer inputs before selecting output.
+ *   boundary every hit qualifies current producer proofs before selecting output;
+ *   native observer authority may avoid rereading proven unchanged populations.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   The worker owns its cache, bridge and refreshed-root set for its lifetime.
- *   Turbopack exposes no loader teardown hook, so process exit ends these resources;
- *   retained root history and generation bytes have no fixed package-wide cap.
+ *   Turbopack exposes no loader teardown hook, so native live resources rely on
+ *   worker lifetime rather than this function's explicit join/close. Persistent
+ *   session storage has its own pruning owner; no count/byte cap or descendant
+ *   cleanup guarantee follows from the worker exit. Refreshed roots record an
+ *   attempted inventory even when inaccessible, not a completed proof certificate.
  */
 export function turbopack(
   this: TtscTurbopackLoaderContext,

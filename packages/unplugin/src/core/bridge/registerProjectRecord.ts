@@ -7,8 +7,9 @@ import type { HostWatchBridge } from "./HostWatchBridge";
  *
  * This is the whole of what a build host learns from a delivery: the record
  * goes through the host's own file channel, the same one that watches the
- * module itself, and the host's watcher or persistent-cache snapshot then hears
- * the record move the way it hears any file. A watching session's bridge
+ * module itself, requesting the host's watcher or persistent-cache dependency.
+ * This handoff does not certify host receipt or a subsequent rebuild. A
+ * watching session's bridge
  * observes the generation's inputs and moves the record when one changes
  * (`openHostWatchBridge`); a one-shot build has no bridge, and its next start
  * proves the record against the disk (`refreshProjectRecordFiles`).
@@ -31,9 +32,16 @@ import type { HostWatchBridge } from "./HostWatchBridge";
  *   Native paragraphs identify delivery/bridge roles and the maintainer map;
  *   spaced property comments and tag separation follow documentation guidance.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing; the bridge and the host own what the registration keeps.
- * @evidenceExclude contracts/performance.md#efficient-algorithms Two calls; no algorithm or data structure is chosen.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   With a bridge, inputs() derives its actual dependency/evidence population
+ *   before delegated native record/observer registration and callback effects.
+ *   Without a bridge that producer is not called. Host addWatchFile remains an
+ *   effect with host-owned cost, not constant work merely because calls are few.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A registration is an effect run for every delivery; identical input arrays are deduplicated by the bridge, not here.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Forwards a record path the host already approved to the host's own channel; it reads no filesystem and parses no path.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The native record spelling and optional native input evidence cross the
+ *   approved host/bridge boundary unchanged. Bridge admission observes native
+ *   identity/case independently; forwarding itself proves no host watch coverage.
  */
 export function registerProjectRecord(props: {
   /** The host's own file channel. */
