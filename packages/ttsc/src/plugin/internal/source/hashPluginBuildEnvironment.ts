@@ -154,9 +154,9 @@ const EXTERNAL_GO_BUILD_ENV_KEYS: readonly string[] = [
 // content; the memo key therefore mixes the resolved real path with a cheap
 // content signature (filesystem identity, mode, byte size, and nanosecond
 // change/modify times). That signature changes if a long-lived host rewrites
-// or atomically replaces the binary between calls, so the memo
-// re-derives the identity exactly as the un-memoized code would and the
-// cache-key bytes stay byte-for-byte identical to today. The selected compiler
+// or atomically replaces the binary between calls, so the memo re-derives the
+// identity exactly as an unmemoized read would and the cache-key bytes are the
+// same with or without it. The selected compiler
 // path is shared by every build subprocess, while `go version` uses
 // the same effective cwd and environment as the cache-key `go env` query. The
 // memo key includes that context so an environment-sensitive wrapper cannot
@@ -483,7 +483,7 @@ function normalizeGoBuildEnvValue(
  * Go runs the value as a command and its arguments (`cmd/internal/quoted`), so
  * a launcher such as `ccache gcc` or a wrapper followed by the compiler it
  * delegates to names more than one program the build runs. Hashing only the
- * first token kept the key when the delegated compiler was replaced
+ * first token would keep the key when the delegated compiler is replaced
  * (samchon/ttsc#1555). A token that names no executable file, a flag, is part
  * of the command's text, which the key carries beside this identity. A program
  * a launcher finds by its own means, not named in the command, is outside what
@@ -585,7 +585,7 @@ interface GoRootIdentityCacheEntry {
 // GOROOT is usually stable but its selected source/tool payloads contribute to
 // every plugin key. Retain only the final aggregate
 // identity, guarded by a fresh metadata/topology manifest on every call. A
-// changed or incomplete manifest falls through to the historical full read.
+// changed or incomplete manifest falls through to a full content read.
 const goRootIdentityCache = new Map<string, GoRootIdentityCacheEntry>();
 
 function resolveGoRootCacheIdentity(
