@@ -5,14 +5,9 @@ import "testing"
 // TestEngineSoftlineRendersEmptyWhenFlat verifies a Softline collapses
 // to zero bytes when the surrounding group fits flat.
 //
-// Softline is what allows `[a, b]` to render with no space between `[`
-// and the first element when the array fits on one line. If it ever
-// rendered as a space (even erroneously), every flat array, object,
-// and call would gain phantom leading whitespace.
-//
-//  1. Build a Group with `[`, Softline, `a`, `]`.
-//  2. Print under printWidth=80.
-//  3. Assert the result is `[a]` (no internal whitespace).
+// The authored fitting bracket group must retain its [a] bytes without the
+// space an ordinary Line would add. This case observes the layout primitive
+// directly; it does not dispatch an AST array, object or call printer.
 //
 // @evidence contracts/testing.md#behavioral-verification Print must emit [a] without a space for the fitting Softline group.
 // @evidence contracts/testing.md#independent-expectations Softline contributes zero bytes in flat mode, unlike Line; the literal retains bracket and payload order.
