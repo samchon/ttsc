@@ -143,6 +143,7 @@ export function test_capabilityresolutioncache_refuses_unproved_host_inputs_and_
     );
 
     record();
+    assert.notEqual(read(), null, "the version control must hit before changing the version");
     assert.equal(
       readCapabilityResolution({ ...key, version: "1.2.4" }),
       null,
