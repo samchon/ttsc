@@ -5,22 +5,25 @@ declare const d: any;
 
 // Logical mixed with a different logical: `&&` binds tighter than `||`.
 // expect: no-mixed-operators error
+// expect: no-mixed-operators error
 const m1 = a && b || c;
 
+// expect: no-mixed-operators error
 // expect: no-mixed-operators error
 const m2 = a || b && c;
 
 // Arithmetic mixing is in the default group: `*` binds tighter than `+`.
+// expect: no-mixed-operators error
 // expect: no-mixed-operators error
 const m3 = a + b * c;
 
 // Bitwise next to logical is a cross-group pair ESLint never flags.
 const ok1 = a | b && c;
 
-// Inner expression is parenthesized — author acknowledged the grouping.
+// Parentheses make the intended inner grouping explicit.
 const ok2 = (a && b) || c;
 
-// Same operator chain — no confusion.
+// Same operator chain has no mixed pair.
 const ok3 = a && b && c && d;
 
 // Same precedence inside the arithmetic group is allowed by default.

@@ -5,7 +5,6 @@ import "testing"
 // TestNoMixedOperatorsAllowsBitwiseBesideComparison verifies `a & b === c` is
 // NOT flagged.
 //
-// The issue #611 regression shield names this cross-group pair as a negative:
 // `&` (bitwise) and `===` (comparison) sit in different default groups, so
 // upstream does not report the mix. The rule is AST-only, so the parser-path
 // harness never type-checks the (intentionally type-invalid) `&` on a boolean.

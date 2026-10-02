@@ -8,7 +8,7 @@ import "testing"
 // A non-empty `groups` array replaces the defaults wholesale (ESLint's
 // normalizeOptions). With only logical and bitwise families configured, `+`
 // and `*` share no group, so the mix that the default set reports is now
-// allowed — proving the option overrides the built-in groups.
+// allowed, proving the option overrides the built-in groups.
 //
 // 1. Write `const x = a + b * c;` and configure groups without arithmetic.
 // 2. Run no-mixed-operators with that option blob.
