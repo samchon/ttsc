@@ -9,7 +9,7 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
 
 /**
  * Open the watch bridge for one watching build session: the adapter's own
- * observer of every input of every generation, which tells the host of a change
+ * observer of registered generation inputs, which requests host invalidation
  * by moving the project's record (samchon/ttsc#1388).
  *
  * A host's own watcher observes the compiler's inputs imprecisely, or not at
@@ -35,7 +35,8 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  * lands after it, and a record the host never registers again costs a number of
  * moves reduced by exponential backoff before that maximum. A host
  * that heard the first move runs the project's modules before the second is
- * due, and their registrations end it; a pool worker that never sees the
+ * due when scheduling and the host permit it, and their registrations end it;
+ * a pool worker that never sees the
  * registration keeps moving the record after another worker delivered, and the
  * host then runs the modules once more, from its cache, which registers and
  * ends it there.
@@ -54,14 +55,16 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  * against the disk (`refreshProjectRecordFiles`).
  *
  * @param root The directory whose pinned scope observes the project.
- * @param operations Native watch seams, replaceable for tests.
+ * @param operations Observer watch/poll/case capabilities, which do not replace
+ *   native record writes or the filesystem used to recheck input conditions.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Each record owns generation input evidence. A change remains owed until a
  *   registration replaces that evidence; replacement immediately signals again
  *   when its capture token predates a change. Repeated moves protect host baselines
  *   taken after the first move, and compile dependency reports suppress retries
- *   only where the host has no watcher for that record.
+ *   where the host reports no dependency on that record. A report or a move
+ *   does not prove actual watcher health, delivery timing or eventual settlement.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   One observer owns input truth; registered/owed/pending/unwatched collections
@@ -89,22 +92,31 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  *
  * @evidence contracts/performance.md#efficient-algorithms
  *   R participating records use map/set lookup for registration and movement;
- *   compiled scans R once for the reported dependency set. Identical input-array
- *   and capture-token deliveries skip repeat registration. Owed moves grow their
- *   delay fourfold up to the timer maximum instead of rescanning inputs per move.
+ *   compiled scans R and pays the supplied dependency predicate's cost. Native
+ *   record resolution/movement retains path/serialization/read/write cost, while
+ *   observer replacement retains input/evidence indexing and proof costs.
+ *   Identical input-array/token deliveries skip repeat registration. Retry delay
+ *   grows fourfold up to the timer maximum; this reduces frequency, not total
+ *   historical moves, elapsed lifetime or per-move byte cost.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   One observer shares subscriptions by filesystem identity and condition.
+ *   One observer shares scopes and conditions under its resolved lexical input
+ *   and condition keys; native event aliases do not merge every physical input.
  *   Identical generation input arrays with the same capture token reuse their
  *   established live registration; a failed delivery or different token cannot.
- *   Change sequence and input evidence, not a quiet host watcher, validate reuse.
+ *   Array immutability and capture-token identity are required by the shortcut;
+ *   changed populations publish new arrays. Change sequence and input evidence,
+ *   not a quiet host watcher, govern the observer's separate proof checks.
  *
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   The bridge owns its observer and at most one retry timer per owed watched
  *   record. Registration settles that timer; compiled removes timers for absent
  *   dependencies; close clears timers and record state before observer disposal.
  *   Historical registrations grow with participating projects until close and
- *   there is no fixed cap on their retained input bytes.
+ *   there is no fixed cap on their retained input bytes. Retry history has no
+ *   finite total-move bound while an unsettled watched record remains. Observer
+ *   close is best effort, and the opened root/pass window can survive close for
+ *   later registration; completion does not certify every native handle's release.
  */
 export function openHostWatchBridge(
   root: string,
