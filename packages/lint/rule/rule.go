@@ -980,10 +980,11 @@ func (c *Context) ReportRangeRelated(pos, end int, message string, related ...Re
 
 var registry []Rule
 
-// Register adds a contributor rule to the global registry. Called from a
-// contributor package's `init()`. Duplicate names are NOT checked here
-// — the host's adapter layer surfaces collisions with a clearer error
-// than a raw panic.
+// Register adds a contributor rule during its package's init, before host
+// bootstrap reads the registry. Runtime or concurrent registration is
+// unsupported: the slice is not synchronized and the host publishes adapters
+// once. Duplicate names remain registered here; bootstrap drops collisions
+// with a warning.
 //
 // @evidence contracts/common.md#principled-implementation A nonnil Rule is appended during package initialization, while the completed contributor set is validated for name collisions by the host.
 // @evidence contracts/common.md#clear-and-simple-design Registration owns collection and leaves cross-rule validation to bootstrap.
