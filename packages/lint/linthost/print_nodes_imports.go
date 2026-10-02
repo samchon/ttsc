@@ -104,10 +104,9 @@ func printImportDeclaration(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if imp == nil {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
   }
-  // If the declaration uses anything other than a vanilla
-  // `import { ... } from "x"` shape (default specifier, namespace
-  // alias, attributes clause, etc.), fall back to verbatim. The
-  // canonical reflow target is the named-import body.
+  // Reflow a named-import clause, with or without a preceding default binding.
+  // Declarations without named bindings have no supported brace-list surface
+  // here; namespace bindings and attributes are handled by the guards below.
   clause := imp.ImportClause
   if clause == nil {
     return verbatim(ctx, node), !nodeSpansMultipleLines(ctx, node)
