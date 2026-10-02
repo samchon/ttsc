@@ -19,7 +19,7 @@ import { TestLintPlugin } from "../internal/TestLintPlugin";
  *
  * @evidence contracts/testing.md#behavioral-verification The authored factory resolves an explicit JSON rules object with a nonexistent evaluator input and returns its descriptor without contributors, proving the plain-data path does not launch a script evaluator.
  * @evidence contracts/testing.md#independent-expectations A JSON object with only a rules map can declare no contributor and executes no user code; the independently authored missing launcher must therefore be irrelevant to descriptor resolution.
- * @evidence contracts/testing.md#distinguishing-cases The plain no-plugins/no-extends object owns the evaluator-free decision. The native language boundary separately owns an extends chain containing executable configs, and contributor protocol E2E owns actual module evaluation.
+ * @evidence contracts/testing.md#distinguishing-cases Plain rules, an empty object, an empty config array, and an array containing null and a rules object own the evaluator-free object and array decisions. Null plugins and extends remain absent declarations. The native language boundary separately owns executable extends chains, and contributor protocol E2E owns actual module evaluation.
  * @evidence contracts/testing.md#execution-ownership This named source unit calls authored createTtscPlugin through the direct source helper over a private JSON fixture. The invalid launcher is an explicit input, not a patched spawn or fake evaluator; the passing path installs nothing, starts no child and builds no native artifact.
  */
 export function test_plain_json_config_does_not_require_a_script_evaluator(): void {
@@ -28,11 +28,15 @@ export function test_plain_json_config_does_not_require_a_script_evaluator(): vo
   const missingLauncher = path.join(root, "missing-evaluator");
   process.env.TTSC_TTSX_BINARY = missingLauncher;
   try {
-    fs.writeFileSync(
-      path.join(root, "ttsc-lint.config.json"),
+    for (const content of [
       '{"rules":{"no-var":"error"}}',
-    );
-    const descriptor = TestLintPlugin.loadFactory()({
+      '{}',
+      '[]',
+      '[null,{"rules":{"no-var":"error"}}]',
+      '{"plugins":null,"extends":null,"rules":{}}',
+    ]) {
+      fs.writeFileSync(path.join(root, "ttsc-lint.config.json"), content);
+      const descriptor = TestLintPlugin.loadFactory()({
       ...TestLintPlugin.factoryContext({
         transform: "@ttsc/lint",
         configFile: "./ttsc-lint.config.json",
@@ -43,8 +47,9 @@ export function test_plain_json_config_does_not_require_a_script_evaluator(): vo
       projectRoot: root,
       tsconfig: path.join(root, "tsconfig.json"),
     });
-    assert.equal(descriptor.name, "@ttsc/lint");
-    assert.deepEqual(descriptor.contributors ?? [], []);
+      assert.equal(descriptor.name, "@ttsc/lint", content);
+      assert.deepEqual(descriptor.contributors ?? [], [], content);
+    }
   } finally {
     if (previous === undefined) delete process.env.TTSC_TTSX_BINARY;
     else process.env.TTSC_TTSX_BINARY = previous;

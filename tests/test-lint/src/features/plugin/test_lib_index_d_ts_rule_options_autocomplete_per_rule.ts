@@ -1,5 +1,4 @@
 import type { ITtscLintConfig } from "../../../../../packages/lint/src/structures";
-import assert from "node:assert/strict";
 
 /**
  * Verifies the ITtscLintConfig types in packages/lint/src/structures surface
@@ -51,15 +50,14 @@ import assert from "node:assert/strict";
  * - An identifier-form built-in name without the canonical slash (`reactJsxKey`)
  *   is rejected.
  *
- * The function runs at runtime as a sanity check that `satisfies
- * ITtscLintConfig` does not regress; the real assertion is the compiler run
- * `tsc --noEmit -p tests/test-lint/tsconfig.json`.
+ * The assertion owner is the compiler run
+ * `tsc --noEmit -p tests/test-lint/tsconfig.json`. Runtime object truthiness
+ * cannot verify type checking.
  *
  * 1. Construct configs exercising each tuple shape, both valid and broken.
- * 2. Verify the runtime objects exist (the happy paths must compile).
- * 3. Lean on `tsc --noEmit -p tests/test-lint/tsconfig.json` to catch type-level regressions — a missing
- *    `@ts-expect-error` directive will surface as a test failure because TS
- *    reports the unused directive itself as an error.
+ * 2. Run the suite's TypeScript checker to enforce accepted assignments.
+ * 3. Require each rejected assignment to produce a diagnostic. An unused
+ *    `@ts-expect-error` directive makes the compiler run fail.
  *
  * @evidence contracts/testing.md#behavioral-verification The authored ITtscLintConfig assignments exercise accepted severity and per-rule tuple types and rejected rule-name, option-key and option-value shapes through load-bearing ts-expect-error directives.
  * @evidence contracts/testing.md#independent-expectations Supported rule names and documented ESLint option schemas supply the literal allowed and forbidden examples, not values derived from the implementation type map.
@@ -595,41 +593,43 @@ export function test_lib_index_d_ts_rule_options_autocomplete_per_rule(): void {
     },
   };
 
-  assert.ok(config);
-  assert.ok(bareTuple);
-  assert.ok(noParamReassignImplicitProps);
-  assert.ok(ruleNameTypo);
-  assert.ok(optionKeyTypo);
-  assert.ok(noDuplicateImportsOptionKeyTypo);
-  assert.ok(noDuplicateImportsOptionValueShape);
-  assert.ok(noUnusedExpressionsOptionKeyTypo);
-  assert.ok(noInnerDeclarationsModeTypo);
-  assert.ok(noInnerDeclarationsBlockModeTypo);
-  assert.ok(noParamReassignIgnoreWithoutProps);
-  assert.ok(noParamReassignInvalidIgnoreEntry);
-  assert.ok(noParamReassignOptionKeyTypo);
-  assert.ok(noRestrictedImportsPositionalPaths);
-  assert.ok(noRestrictedImportsConflictingPathNames);
-  assert.ok(noRestrictedImportsPatternModeConflict);
-  assert.ok(noRestrictedImportsPatternNameConflict);
-  assert.ok(noRestrictedImportsEmptyStructuredPatternList);
-  assert.ok(noRestrictedSyntaxNonSelector);
-  assert.ok(noRestrictedSyntaxUnknownObjectKey);
-  assert.ok(preferConstOptionValue);
-  assert.ok(crossRuleShape);
-  assert.ok(lintRuleWithOptions);
-  assert.ok(switchOptionTypo);
-  assert.ok(templateIndentOptionTypo);
-  assert.ok(filenameCaseUnknownStyle);
-  assert.ok(stringContentPatternShape);
-  assert.ok(unicornImportModeTypo);
-  assert.ok(unicornFunctionScopingOptionShape);
-  assert.ok(unicornReplacementShape);
-  assert.ok(importStyleOptionKeyTypo);
-  assert.ok(importStyleModuleEntryShape);
-  assert.ok(isolatedFunctionsOptionKeyTypo);
-  assert.ok(isolatedFunctionsGlobalPolicyShape);
-  assert.ok(banTsCommentMissingDescriptionFormat);
-  assert.ok(betterRegexOptionKeyTypo);
-  assert.ok(camelBuiltinName);
+  void [
+    config,
+    bareTuple,
+    noParamReassignImplicitProps,
+    ruleNameTypo,
+    optionKeyTypo,
+    noDuplicateImportsOptionKeyTypo,
+    noDuplicateImportsOptionValueShape,
+    noUnusedExpressionsOptionKeyTypo,
+    noInnerDeclarationsModeTypo,
+    noInnerDeclarationsBlockModeTypo,
+    noParamReassignIgnoreWithoutProps,
+    noParamReassignInvalidIgnoreEntry,
+    noParamReassignOptionKeyTypo,
+    noRestrictedImportsPositionalPaths,
+    noRestrictedImportsConflictingPathNames,
+    noRestrictedImportsPatternModeConflict,
+    noRestrictedImportsPatternNameConflict,
+    noRestrictedImportsEmptyStructuredPatternList,
+    noRestrictedSyntaxNonSelector,
+    noRestrictedSyntaxUnknownObjectKey,
+    preferConstOptionValue,
+    crossRuleShape,
+    lintRuleWithOptions,
+    switchOptionTypo,
+    templateIndentOptionTypo,
+    filenameCaseUnknownStyle,
+    stringContentPatternShape,
+    unicornImportModeTypo,
+    unicornFunctionScopingOptionShape,
+    unicornReplacementShape,
+    importStyleOptionKeyTypo,
+    importStyleModuleEntryShape,
+    isolatedFunctionsOptionKeyTypo,
+    isolatedFunctionsGlobalPolicyShape,
+    banTsCommentMissingDescriptionFormat,
+    betterRegexOptionKeyTypo,
+    camelBuiltinName,
+  ];
 }

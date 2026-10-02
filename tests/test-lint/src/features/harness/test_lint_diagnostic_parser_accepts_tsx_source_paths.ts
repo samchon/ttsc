@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
  *
  * @evidence contracts/testing.md#behavioral-verification TestLint.parseDiagnostics preserves all rendered fields for canonical TypeScript source suffixes and excludes JavaScript and uppercase suffix output; ANSI escapes and CRLF are stripped from a colored line and unrelated text yields nothing.
  * @evidence contracts/testing.md#independent-expectations Literal diagnostic records independently define file, line, column, rule, severity and message. Rendering those records is an inverse format fixture, not a value copied from parser output.
- * @evidence contracts/testing.md#distinguishing-cases TSX, spaced TS paths, module and declaration suffixes succeed; JavaScript and uppercase TS/TSX/declaration messages are explicit negative controls. A colored CRLF banner with trailing spaces is the formatting contrast, and a line that is not a diagnostic is the adjacent non-match.
+ * @evidence contracts/testing.md#distinguishing-cases TSX, spaced TS paths, a Windows drive path, module and declaration suffixes succeed; JavaScript and uppercase TS/TSX/declaration messages are explicit negative controls. A colored CRLF banner with trailing spaces is the formatting contrast; empty input and a line that is not a diagnostic yield no records, while an empty message is retained.
  * @evidence contracts/testing.md#execution-ownership Calls the authored diagnostic parser on an in-memory stderr string, with no process needed to generate that string.
  */
 export function test_lint_diagnostic_parser_accepts_tsx_source_paths(): void {
@@ -34,6 +34,14 @@ export function test_lint_diagnostic_parser_accepts_tsx_source_paths(): void {
         severity: "warn",
         rule: "no-console",
         message: "Unexpected console.",
+      },
+      {
+        file: "C:\\project with spaces\\src\\main.tsx",
+        line: 1,
+        column: 1,
+        severity: "warn",
+        rule: "fixture/empty-message",
+        message: "",
       },
       ...[
         "src/component fixture.mts",
@@ -86,4 +94,5 @@ export function test_lint_diagnostic_parser_accepts_tsx_source_paths(): void {
       ],
     );
     assert.deepEqual(TestLint.parseDiagnostics("not a diagnostic line\n"), []);
+    assert.deepEqual(TestLint.parseDiagnostics(""), []);
 }

@@ -18,11 +18,10 @@ import { TestLintPlugin } from "../internal/TestLintPlugin";
  * 1. Seed an old-version cache and a JSON root extending a nested script base.
  * 2. Resolve the actual factory and require both inherited registrations and
  *    the base/helper content fingerprints as watched host inputs.
- * 3. Reuse an unchanged result, then edit only the base helper and require a
- *    fresh evaluation with the new contributor source.
- * 4. Keep an explicitly extended package-local base watched and invalidate
- *    its changed contributor without weakening ordinary package boundaries.
- * 5. Reject a cycle and malformed extends value, and distinguish the supported
+ * 3. Reuse an unchanged result, then edit the base helper, deeper JSON base and
+ *    explicitly extended package-local base separately. Require a fresh
+ *    evaluation with each new contributor source.
+ * 4. Reject a cycle and malformed extends value, and distinguish the supported
  *    32-file chain from one exceeding that same native reader limit.
  *
  * @evidence contracts/testing.md#behavioral-verification The authored factory launches its emitted extractor through an explicit Node launcher, resolves nested JSON/script bases and containing-file-relative string plugins, and returns exact contributor sources and dependency hashes. An unchanged second call reuses its completed cache while helper-only and base-only edits re-evaluate; cycle, malformed-path and over-depth inputs reject.

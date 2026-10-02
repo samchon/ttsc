@@ -22,7 +22,7 @@ import type { IDemoLintRules } from "../../../../../packages/lint/test/lint-cont
  *
  * @evidence contracts/testing.md#behavioral-verification The test-lint tsc run checks satisfies ITtscLintConfig<IDemoLintRules> assignments and requires each @ts-expect-error rejection to exist; the exported function is a compile-time fixture, not a runtime assertion.
  * @evidence contracts/testing.md#independent-expectations The declared markers string-array option and severity-only rule in the exported interface independently define the accepted assignments; misspelled keys, scalar markers and optionless payloads must be rejected, and the untyped config must accept the same rule with arbitrary options.
- * @evidence contracts/testing.md#distinguishing-cases Accepted: a valid `markers` array, severity-only `demo/capitalize-exports`, an unregistered `unregistered/opaque-options` rule with arbitrary options, and the demo rule with arbitrary options under the untyped config. Rejected under the typed config: the option key typo `marker`, the scalar `markers: "TODO"`, and an options payload on the severity-only rule.
+ * @evidence contracts/testing.md#distinguishing-cases Accepted: a valid markers array, an empty markers array, an omitted optional markers property, severity-only demo/capitalize-exports, an unregistered unregistered/opaque-options rule with arbitrary options, and the demo rule with arbitrary options under the untyped config. Rejected under the typed config: the option key typo marker, the scalar markers: "TODO", and an options payload on the severity-only rule.
  * @evidence contracts/testing.md#execution-ownership The suite start command type-checks before the unit runner transpiles and calls this function, whose body asserts nothing at runtime. `tsc --noEmit -p tsconfig.json` enforces the compile-time assertions in the same unit lane; the file compiles against the exported IDemoLintRules interface, not an ambient module augmentation, and unused @ts-expect-error directives are compiler errors.
  */
 export function test_rule_options_exported_contributor_interface_types_contributor_configs(): void {
@@ -30,6 +30,13 @@ export function test_rule_options_exported_contributor_interface_types_contribut
       rules: {
         "demo/no-marker-comment": ["error", { markers: ["TODO", "FIXME"] }],
       },
+    } satisfies ITtscLintConfig<IDemoLintRules>;
+
+    const emptyMarkers = {
+      rules: { "demo/no-marker-comment": ["error", { markers: [] }] },
+    } satisfies ITtscLintConfig<IDemoLintRules>;
+    const omittedMarkers = {
+      rules: { "demo/no-marker-comment": ["error", {}] },
     } satisfies ITtscLintConfig<IDemoLintRules>;
 
     const typo = {
@@ -86,6 +93,8 @@ export function test_rule_options_exported_contributor_interface_types_contribut
 
     void [
       valid,
+      emptyMarkers,
+      omittedMarkers,
       typo,
       invalidValue,
       validOptionless,

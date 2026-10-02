@@ -24,7 +24,7 @@ import { configEvaluatorProcessFailure } from "../../../../../packages/lint/src/
  *
  * @evidence contracts/testing.md#behavioral-verification The authored configEvaluatorProcessFailure classifies supplied spawn error, SIGKILL, exit 2 and clean status, asserting the cause text and absence of fabricated timeout or output-limit diagnoses.
  * @evidence contracts/testing.md#independent-expectations Node process outcomes define distinct failure categories; literal ENOENT, SIGKILL and exit-code messages are expected independently of the classifier.
- * @evidence contracts/testing.md#distinguishing-cases Spawn failure, external signal, nonzero exit and successful exit distinguish all four branches; output and time limits must never be invented.
+ * @evidence contracts/testing.md#distinguishing-cases Spawn failure, external signal, nonzero and unavailable exit status, and successful exit distinguish all branches. Combined outcomes require spawn errors to precede signals and signals to precede exit codes; output and time limits must never be invented.
  * @evidence contracts/testing.md#execution-ownership This named source unit invokes only the classifier with process-result values, without starting an evaluator or building a host. Descriptor evaluator failure cases retain the real child-process connection.
  */
 export function test_config_evaluator_process_failures_are_classified_by_cause(): void {
@@ -48,6 +48,25 @@ export function test_config_evaluator_process_failures_are_classified_by_cause()
       configPath,
     );
     assert.match(exit?.message ?? "", /failed with exit code 2/);
+
+    assert.match(
+      configEvaluatorProcessFailure(processResult({}), configPath)?.message ?? "",
+      /failed with exit code null/,
+    );
+    assert.match(
+      configEvaluatorProcessFailure(
+        processResult({ error: processError("ENOENT"), signal: "SIGKILL", status: 2 }),
+        configPath,
+      )?.message ?? "",
+      /failed to spawn ttsx/,
+    );
+    assert.match(
+      configEvaluatorProcessFailure(
+        processResult({ signal: "SIGKILL", status: 2 }),
+        configPath,
+      )?.message ?? "",
+      /killed by signal SIGKILL/,
+    );
 
     // A kill this process did not order is reported as what it is. Neither a
     // deadline nor an output ceiling exists to be blamed for it.

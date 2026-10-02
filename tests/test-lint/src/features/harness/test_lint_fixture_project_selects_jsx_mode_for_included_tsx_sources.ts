@@ -67,18 +67,22 @@ export function test_lint_fixture_project_selects_jsx_mode_for_included_tsx_sour
       });
 
       assert.equal(exists(tsProject, "src/main.ts"), true);
+      assert.equal(fs.readFileSync(path.join(tsProject.tmpdir, "src/main.ts"), "utf8"), "export const value = 1;\n");
       assert.equal(exists(tsProject, "src/main.tsx"), false);
       assert.equal(readCompilerOptions(tsProject).jsx, undefined);
 
       assert.equal(exists(tsxProject, "src/main.tsx"), true);
+      assert.equal(fs.readFileSync(path.join(tsxProject.tmpdir, "src/main.tsx"), "utf8"), "export const value = <div />;\n");
       assert.equal(exists(tsxProject, "src/main.ts"), false);
       assert.equal(readCompilerOptions(tsxProject).jsx, "react-jsx");
 
       assert.equal(exists(tsCompanionProject, "src/companion.ts"), true);
+      assert.equal(fs.readFileSync(path.join(tsCompanionProject.tmpdir, "src/companion.ts"), "utf8"), "export const companion = 2;\n");
       assert.equal(exists(tsCompanionProject, "src/src/companion.ts"), false);
       assert.equal(readCompilerOptions(tsCompanionProject).jsx, undefined);
 
       assert.equal(readCompilerOptions(posixTSXCompanionProject).jsx, "react-jsx");
+      assert.equal(fs.readFileSync(path.join(posixTSXCompanionProject.tmpdir, "src/companion.tsx"), "utf8"), "export const companion = <div />;\n");
 
       assert.equal(
         exists(windowsTSXCompanionProject, "src/nested/companion.tsx"),
@@ -88,6 +92,7 @@ export function test_lint_fixture_project_selects_jsx_mode_for_included_tsx_sour
         readCompilerOptions(windowsTSXCompanionProject).jsx,
         "react-jsx",
       );
+      assert.equal(fs.readFileSync(path.join(windowsTSXCompanionProject.tmpdir, "src/nested/companion.tsx"), "utf8"), "export const companion = <div />;\n");
     } finally {
       for (const project of projects.reverse()) project.cleanup();
     }
