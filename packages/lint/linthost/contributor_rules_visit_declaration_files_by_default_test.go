@@ -24,7 +24,7 @@ func (declarationDefaultContributor) Check(ctx *rule.Context, node *shimast.Node
 // not implement the public `rule.DeclarationFileRule` marker.
 //
 // The host cannot infer a third-party rule's grammar shape, so the adapter
-// defaults conservatively — the same reasoning that keeps contributor rules
+// defaults conservatively, the same reasoning that keeps contributor rules
 // on the checker path via `NeedsTypeChecker`. The policy is applied once in
 // inspectContributor, so the test builds the adapter through the production
 // construction path. A skip-by-default here would silently change existing

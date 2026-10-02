@@ -168,15 +168,18 @@ type FormatRule interface {
 // DeclarationFileRule is an optional marker contributors implement to
 // control whether their rule runs on declaration-file inputs (`.d.ts`,
 // `.d.mts`, `.d.cts`). The engine skips most built-in rules on declaration
-// files because value-level grammar cannot appear there; contributor rules
-// keep the conservative default — they DO run on declaration files — since
+// files when their inspected grammar is not relevant there; contributor rules
+// keep the conservative default (they run on declaration files) since
 // the host cannot infer a third-party rule's shape (mirror of the implicit
 // checker default). A contributor whose rule inspects executable code only
 // can implement this with `return false` to skip declaration files and
 // save the dispatch on declaration-heavy projects; returning `true` is
 // equivalent to not implementing the interface at all.
 //
-// @evidence contracts/common.md#principled-implementation The marker explicitly declares whether declaration-file grammar is within the rule's supported input domain.
+// FormatRule with IsFormat returning true takes precedence: formatting
+// rules always visit declaration files, even when this marker returns false.
+//
+// @evidence contracts/common.md#principled-implementation The marker selects declaration-file inputs for ordinary lint rules; a true FormatRule capability takes precedence so formatting still covers declarations.
 // @evidence contracts/common.md#clear-and-simple-design One optional method refines input selection while keeping the original Rule contract intact.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Skipping is capability-based and never inferred from a particular contributor name.
 // @evidence contracts/common.md#meaningful-documentation Native prose describes declaration extensions, conservative default and opt-out consequences; paragraphs and tags follow documentation guidance.
@@ -187,9 +190,10 @@ type FormatRule interface {
 type DeclarationFileRule interface {
   Rule
 
-  // VisitsDeclarationFiles opts into or out of declaration-file dispatch.
+  // VisitsDeclarationFiles selects declaration-file dispatch for lint rules.
+  // A true FormatRule marker takes precedence over a false answer here.
   //
-  // @evidence contracts/common.md#principled-implementation The boolean identifies whether the rule supports declaration grammar rather than executable nodes alone.
+  // @evidence contracts/common.md#principled-implementation The boolean selects declaration grammar for a lint rule; the host gives true FormatRule classification precedence over an explicit false answer.
   // @evidence contracts/common.md#clear-and-simple-design One input capability expresses the selection policy directly.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts A declared capability replaces rule-name exceptions.
   // @evidence contracts/common.md#meaningful-documentation The native comment identifies dispatch selection with separated tags under documentation guidance.
