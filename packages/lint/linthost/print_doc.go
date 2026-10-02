@@ -126,8 +126,8 @@ type Doc struct {
 
   // Break, meaningful only on a docGroup, forces the group to render
   // broken regardless of whether its flat form would fit. A
-  // ConditionalGroup option uses it to commit its last argument — a
-  // hugged object literal — to the multi-line shape.
+  // A ConditionalGroup option can contain a forced-broken group, for example
+  // a hugged final object or array argument, to preserve its multiline shape.
   Break bool
   // IfBreak pairs: BreakChild stored in Children[0], FlatChild in Children[1].
 }
