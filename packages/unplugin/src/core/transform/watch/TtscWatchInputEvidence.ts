@@ -5,9 +5,10 @@ import type { TtscWatchInputState } from "./TtscWatchInputState";
  * the adapter so it does not rederive it per input per delivery.
  *
  * All facts are generation state: the identity is the memoized
- * `pathIdentityKey` of the input, `missing` preserves the original public
- * existence contract, and `unavailable` distinguishes a failed file predicate
- * from ordinary absence. An adapter that computes them itself pays a
+ * `pathIdentityKey` of the input. `missing` records unavailable file evidence,
+ * which can include an unreadable input rather than native absence;
+ * `unavailable` distinguishes an explicit failed file predicate from the
+ * broader missing-state marker. An adapter that computes them itself pays a
  * `realpath`, a case-sensitivity directory listing, and an `existsSync` for
  * every input of every delivered module, which is O(modules x inputs) for one
  * build (samchon/ttsc#1246).
@@ -37,6 +38,9 @@ export interface TtscWatchInputEvidence {
   /** The generation state Metro can compare with its main-process baseline. */
   state?: TtscWatchInputState;
 
-  /** Which unavailable predicate must become true before invalidation. */
+  /**
+   * Recorded unavailability category, not the only cause of invalidation.
+   * `missing` does not independently prove native absence.
+   */
   unavailable?: "missing" | "not-file";
 }

@@ -6,7 +6,7 @@ import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMe
  * Exact generation state behind one derived watch input.
  *
  * @evidence contracts/common.md#principled-implementation The codec discriminant binds each observation to its own comparison payload; membership remains a project walk and cannot be substituted for one file's hash.
- * @evidence contracts/common.md#clear-and-simple-design The closed union colocates each codec with only its required state, making invalid cross-codec combinations unrepresentable.
+ * @evidence contracts/common.md#clear-and-simple-design The discriminated union associates each codec with its required payload; it does not validate producer observations or prohibit additional structural fields.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Contract-defined codec values select real observation semantics; no fixture or host-specific expected digest is encoded.
  * @evidence contracts/common.md#meaningful-documentation Spaced native member comments explain hash provenance, physical targets, plugin environment and membership policy; separated tags follow documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Native targets and predicate observations are explicit payloads; plugin-tree state includes the build environment rather than assuming an OS name establishes equivalence.
@@ -32,7 +32,7 @@ export type TtscWatchInputState =
       /** A realized compiler-graph input, including its physical target. */
       codec: "graph";
 
-      /** Compiler-normalized input hash, or the shared missing-input marker. */
+      /** Compiler-normalized hash, directory-kind sentinel or missing marker. */
       hash: string;
 
       /** Observed physical target, or null when realpath could not be read. */
@@ -69,8 +69,8 @@ export type TtscWatchInputState =
       codec: "membership";
 
       /**
-       * `projectMembershipDigest` of the walk: the policy and every directory
-       * that can hold a program input, with its membership signature.
+       * `projectMembershipDigest` of the walk: the policy and each directory
+       * whose subtree contains an admitted file, with its membership signature.
        */
       digest: string;
 
