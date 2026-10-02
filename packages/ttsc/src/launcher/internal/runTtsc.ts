@@ -36,8 +36,8 @@ import { type WatchInputChange } from "./watch/WatchInputChange";
 import { WatchTopology } from "./watch/WatchTopology";
 
 /**
- * CLI entry point for `ttsc`. Dispatches argv to the appropriate build lane
- * (build, check, fix, format, prepare, clean, or native-delegate) and returns
+ * CLI entry point for `ttsc`. Dispatches argv to the appropriate lane (build,
+ * check, fix, format, cache, prepare, clean, help or version) and returns
  * an exit code. Errors thrown by any lane are caught here and written to stderr
  * so the process can exit cleanly.
  *
@@ -478,9 +478,8 @@ function isOutsideRelativePath(relative: string): boolean {
 function parseProjectArgs(argv: readonly string[]) {
   // `prepare` and `clean` are project-shaped commands. They share the same
   // schema as the build lane; the engine forwards unknown flags as well as
-  // build-only flags (e.g. `--strict`) to the launcher's passthrough list
-  // so the legacy "unknown option" behaviour is no longer a separate trap
-  // (RC-3 + RC-4 prevention; see issue #125 §5 in the RCA).
+  // build-only flags (e.g. `--strict`) to the launcher's passthrough list, so
+  // an unknown option is not a separate error path.
   const result = parseFlags({
     argv,
     errorPrefix: "ttsc:",
