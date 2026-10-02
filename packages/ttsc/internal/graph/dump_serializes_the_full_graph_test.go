@@ -109,7 +109,7 @@ export function main(): void {
   }
   // The edge's span carries no file: it is the file its `from` id names, which
   // the loader reconstructs (see ITtscGraphDump.IEdge). Sending the path a
-  // second time on every edge is 17% of the document for a value the reader
+  // second time on every edge would bloat the document with a value the reader
   // already holds.
   if call.Evidence == nil || call.Evidence.StartLine == 0 {
     t.Fatalf("call edge missing line/col evidence: %+v", call.Evidence)
@@ -144,8 +144,8 @@ export function main(): void {
     }
   }
   // Every edge is checker-resolved by construction, so no record carries a
-  // per-edge trust flag saying so — that is the `provenance`/`confidence` pair
-  // 6d74a88c3 removed, and it stays removed. The dump's own `provenance` is a
+  // per-edge trust flag saying so — a `provenance`/`confidence` pair does not
+  // belong on an edge. The dump's own `provenance` is a
   // different thing at a different level: it describes the one program that
   // produced every record, which no record can state about itself.
   //

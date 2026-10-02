@@ -13,13 +13,10 @@ import (
 // reads after the call.
 //
 // Every field asserted nil below is documented build-only and holds pointers
-// into the compiler AST or into the preceding generation's nodes. They used to
-// survive the build, so a consumer retaining the Graph pinned all of it —
+// into the compiler AST or into the preceding generation's nodes. If they
+// survived the build, a consumer retaining the Graph would pin all of it —
 // internal/graphsymbols keeps one for the lifetime of an editor session between
 // invalidations, closing the Program while the maps referencing its AST live on.
-// Measured on this repository's own packages, holding the Graph after closing
-// the Program retained 38.1 MB for @ttsc/lint, 52.5 MB for ttsc, and 58.2 MB for
-// @ttsc/graph; releasing the scratch brings those to 3.7, 5.0, and 4.0 MB.
 //
 // The assertion is structural rather than a heap measurement on purpose: a
 // megabyte threshold is a flaky test, while "the producer stopped holding it" is
@@ -63,7 +60,7 @@ export function run(store: Store): void { store.save() }
   // The partial build is not a second case of the same thing: `baseNodes` and
   // `selectedFiles` are nil on arrival in a complete build, so a complete build
   // alone cannot fail on them. `baseNodes` is the largest of the nine and the
-  // one #1243 flagged as the caution, because it is passed in rather than built.
+  // one that needs the most care, because it is passed in rather than built.
   var mainFile string
   for _, node := range g.Nodes {
     mainFile = node.File
