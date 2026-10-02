@@ -7,7 +7,7 @@ import "testing"
 // permits.
 //
 // With an allow-list present, `external` rejects anything outside it and holds
-// the list at the moment it reports — so the message names the permitted
+// the list at the moment it reports, so the message names the permitted
 // packages rather than only saying the import is forbidden.
 //
 // 1. Allow only `react` and `@app/*`.
