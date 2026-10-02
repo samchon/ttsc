@@ -81,6 +81,7 @@ export async function test_project_record_that_cannot_be_read_moves_at_a_build_s
       moved,
       "and so does a watching session's first pass",
     );
+    assert.equal(readProjectRecordFile(record), undefined);
   } finally {
     await bridge.close();
   }

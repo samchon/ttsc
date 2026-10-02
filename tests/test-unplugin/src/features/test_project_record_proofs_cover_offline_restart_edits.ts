@@ -49,7 +49,7 @@ export function test_project_record_proofs_cover_offline_restart_edits(): void {
   ].map((relative) => {
     const file = path.join(root, relative);
     const hash = hostInputStateHash(file);
-    const missing = hash === undefined;
+    const missing = hash === null;
     return [file, {
       identity: file,
       missing,

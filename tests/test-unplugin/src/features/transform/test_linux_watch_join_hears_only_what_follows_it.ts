@@ -65,12 +65,16 @@ export async function test_linux_watch_join_hears_only_what_follows_it(): Promis
     routeLinuxWatchHelperLine(helper, JSON.stringify(line));
   const heard: string[] = [];
   const errors: string[] = [];
-  const subscribe = (name: string, directory: string) =>
-    subscribeLinuxDirectoryWatch(
+  const subscriptions: { close(): void }[] = [];
+  const subscribe = (name: string, directory: string) => {
+    const subscription = subscribeLinuxDirectoryWatch(
       directory,
       (eventType, filename) => heard.push(`${name} ${eventType} ${filename}`),
       () => errors.push(name),
     );
+    subscriptions.push(subscription);
+    return subscription;
+  };
   const source = path.resolve("/scripted/join/src");
   const types = path.resolve("/scripted/join/types");
   LINUX_WATCH_HELPER.current = helper;
@@ -136,6 +140,7 @@ export async function test_linux_watch_join_hears_only_what_follows_it(): Promis
     assert.equal(LINUX_DIRECTORY_WATCHES.has(source), false);
     assert.equal(LINUX_DIRECTORY_WATCHES.has(types), false);
   } finally {
+    for (const subscription of subscriptions) subscription.close();
     LINUX_WATCH_HELPER.current = previous;
   }
 }

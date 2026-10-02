@@ -33,7 +33,7 @@ import { observeValidationUnitGeneration } from "../../internal/transform-projec
  * @evidence contracts/testing.md#behavioral-verification Calls transformTtsc against recorded successful generations seeded under each project's own cache key; a delivery that selects another project misses the cache, so the exact literal output of the nearest tsconfig's generation proves which project was selected.
  * @evidence contracts/testing.md#independent-expectations The expected outputs are authored literals recorded per project in the seeded generations, and the decoy root tsconfig has no generation, so selection of the parent project could not yield them; the `?t=1` and `?raw` outcomes are the documented module-id behavior (strip a cache-busting query, leave a wrapper to the host).
  * @evidence contracts/testing.md#distinguishing-cases A `#` directory and a `?` directory under `exactPath` contrast with a plain directory whose module id carries `?t=1` without it, and with a `?raw` wrapper that is left to the host; the `?` directory is exercised only where the filesystem can create it.
- * @evidence contracts/testing.md#execution-ownership This named source unit calls the actual delivery coordinator over literal successful generation metadata and real resolver files; no compiler, contributor or product host is built. The native compile connection stays in the E2E generation entries. A filesystem that cannot create a `?` directory (Windows) skips that one project with a printed SKIPPED line and asserts nothing for it.
+ * @evidence contracts/testing.md#execution-ownership This named source unit calls the actual delivery coordinator over literal successful generation metadata and real resolver files; no compiler, contributor or product host is built. The native compile connection stays in the E2E generation entries. Only native mkdir EINVAL for the authored question-mark name skips that project with a printed SKIPPED line; other setup errors propagate. The unsupported row has no assertions on that filesystem.
  */
 export async function test_transformttsc_exact_paths_keep_hash_and_question_mark_directories_and_ids_strip_queries(): Promise<void> {
   const base = TestProject.tmpdir("ttsc-exact-path-unit-");
@@ -50,14 +50,18 @@ export async function test_transformttsc_exact_paths_keep_hash_and_question_mark
 
     const seed = (directory: string, code: string): string | undefined => {
       const root = path.join(base, directory);
+      assert.equal(fs.statSync(base).isDirectory(), true);
       try {
-        TestProject.writeFiles(root, {
-          "tsconfig.json": '{"include":["src"]}',
-          "src/mod0.ts": source,
-        });
-      } catch {
-        return undefined;
+        fs.mkdirSync(root);
+      } catch (error) {
+        if (directory.includes("?") && (error as NodeJS.ErrnoException).code === "EINVAL")
+          return undefined;
+        throw error;
       }
+      TestProject.writeFiles(root, {
+        "tsconfig.json": '{"include":["src"]}',
+        "src/mod0.ts": source,
+      });
       const tsconfig = path.join(root, "tsconfig.json");
       const observed = observeValidationUnitGeneration(root, {
         type: "success",

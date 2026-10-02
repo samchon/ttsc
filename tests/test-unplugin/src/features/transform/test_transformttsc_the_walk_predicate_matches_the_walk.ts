@@ -354,6 +354,7 @@ export async function test_transformttsc_the_walk_predicate_matches_the_walk(): 
     "adapter-owner/build/helper.ts",
     "adapter-owner/types/helper.ts",
     "src/bundle.js",
+    "node_modules/dep/index.ts",
   ]) {
     assert.ok(
       !hashed.includes(absent),

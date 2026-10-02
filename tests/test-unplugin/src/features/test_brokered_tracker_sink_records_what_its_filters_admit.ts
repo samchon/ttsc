@@ -96,7 +96,11 @@ export async function test_brokered_tracker_sink_records_what_its_filters_admit(
     membershipChanged: false,
   });
   classify.event(directory, "candidate.ts", "rename");
-  assert.equal(classified.membershipChanged, true);
+  assert.deepEqual(recorded(classified), {
+    changes: [path.join(directory, "input.d.ts"), path.join(directory, "candidate.ts")],
+    failed: false,
+    membershipChanged: true,
+  });
   assert.deepEqual(heard, [
     [directory, "cache.bin", "rename"],
     [directory, "input.d.ts", "change"],

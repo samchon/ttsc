@@ -107,16 +107,19 @@ export async function test_graph_index_leaves_a_walked_directory_listing_to_the_
     "keeps its other predicates",
   );
   assert.equal(listingOf(observations, "src/lib"), undefined, "a walked child");
-  assert.ok(
-    listingOf(observations, "dist"),
-    "a directory the walk never enters",
-  );
-  assert.ok(listingOf(observations, "src/types"), "a universal input");
-  assert.ok(listingOf(observations, "src/only"), "a listing-only path");
-  assert.ok(
-    listingOf(index(envelope()), "."),
-    "an envelope captured without a membership keeps every listing",
-  );
+  assert.deepEqual(listingOf(observations, "dist"), { directories: [], files: ["out.js"] });
+  assert.deepEqual(listingOf(observations, "src/types"), { directories: ["node"], files: [] });
+  assert.deepEqual(listingOf(observations, "src/only"), { directories: [], files: ["leaf.ts"] });
+  const unqualified = index(envelope());
+  for (const [directory, expected] of [
+    [".", { directories: ["dist", "src"], files: ["tsconfig.json"] }],
+    ["src/lib", { directories: [], files: ["util.ts"] }],
+    ["dist", { directories: [], files: ["out.js"] }],
+    ["src/types", { directories: ["node"], files: [] }],
+    ["src/only", { directories: [], files: ["leaf.ts"] }],
+  ] as const) {
+    assert.deepEqual(listingOf(unqualified, directory), expected, "without membership no listing may be dropped or changed");
+  }
 
   fs.mkdirSync(path.join(root, ".next"));
   fs.writeFileSync(path.join(root, "AGENTS.md"), "# agents\n");

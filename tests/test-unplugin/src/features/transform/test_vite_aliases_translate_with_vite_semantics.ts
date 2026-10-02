@@ -65,7 +65,7 @@ export async function test_vite_aliases_translate_with_vite_semantics(): Promise
     "without a Vite root, a POSIX absolute replacement means itself",
   );
 
-  const original = process.stderr.write.bind(process.stderr);
+  const original = process.stderr.write;
   let captured = "";
   process.stderr.write = ((chunk: unknown) => {
     captured += String(chunk);

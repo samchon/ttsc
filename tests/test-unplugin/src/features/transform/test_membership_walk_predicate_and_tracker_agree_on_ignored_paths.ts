@@ -11,7 +11,7 @@ import { PERMISSIVE_PROJECT_MEMBERSHIP_POLICY } from "../../../../../packages/un
 import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/src/core/tsconfig/readProjectMembershipPolicy";
 
 /**
- * Verifies the walk, the walk predicate, and the live tracker give one answer
+ * Verifies the walk, the walk predicate, and the tracker's membership predicate give one answer
  * for every path, under a readable policy and the permissive fallback.
  *
  * The live tracker never consulted the walk's ignored names, so under a policy

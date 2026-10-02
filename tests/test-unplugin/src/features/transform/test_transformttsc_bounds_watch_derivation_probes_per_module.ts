@@ -13,7 +13,7 @@ import { readProjectMembershipPolicy } from "../../../../../packages/unplugin/sr
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Verify the six-module, 24-external watch union and its shared identity cost.
+ * Verifies the six-module, 24-external watch union and its shared identity cost.
  *
  * A literal immutable envelope supplies the graph directly. The real path
  * identity context receives an explicit filesystem capability that counts and
@@ -22,6 +22,13 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * deliveries must stay within the original 24-probe-per-delivery bound.
  * Separate calls to notifyWatchInputs also verify the config-selection inputs
  * each host receives.
+ *
+ * 1. Author six fully connected modules, 24 external declarations and the
+ *    universal inputs in a temporary filesystem corpus.
+ * 2. Derive each module's watch inputs, counting native realpath calls after
+ *    the first module prepares shared indexes.
+ * 3. Check every watch-set member, the fixed sibling probe bound and the
+ *    nearer configuration registered by the notification owner.
  *
  * @evidence contracts/testing.md#behavioral-verification Six source deriveWatchInputs calls must return the other five modules, 24 external declarations and universal producer inputs; six notifyWatchInputs calls additionally register the nearer config selection. The five sibling derivations average at most 24 actual realpath calls after first preparation.
  * @evidence contracts/testing.md#independent-expectations The test constructs a deliberate complete six-module graph and 24 named externals, then enumerates every expected path independently of the selection implementation. The fixed numeric bound is an operation count rather than elapsed time.
@@ -38,13 +45,13 @@ export function test_transformttsc_bounds_watch_derivation_probes_per_module(): 
   TestProject.writeFiles(root, {
     "package.json": '{"private":true}',
     "plugin.cjs": "module.exports = {};\n",
-    "plugin-source/main.go": "package main\n",
     "tsconfig.json": '{"include":["src"]}',
     ...Object.fromEntries(
       [...modules, ...externals].map((file) => [file, "export {};\n"]),
     ),
   });
   const source = path.join(root, "plugin-source");
+  fs.mkdirSync(source);
   const result: ITtscCompilerTransformation.ISuccess = {
     type: "success",
     typescript: Object.fromEntries(

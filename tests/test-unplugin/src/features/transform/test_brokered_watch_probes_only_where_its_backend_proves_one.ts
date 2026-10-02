@@ -8,6 +8,7 @@ import { DEFAULT_FILESYSTEM_OPERATIONS } from "../../../../../packages/unplugin/
 import { WATCH_BROKER } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/WATCH_BROKER";
 import type { WatchBroker } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/WatchBroker";
 import { openBrokeredWatch } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/openBrokeredWatch";
+import { routeWatchBrokerMessage } from "../../../../../packages/unplugin/src/core/transform/tracker/broker/routeWatchBrokerMessage";
 
 /**
  * Verifies a brokered watch names a probe only where the watch process's
@@ -30,15 +31,16 @@ import { openBrokeredWatch } from "../../../../../packages/unplugin/src/core/tra
  * 3. With a probing backend and a writable project, assert the location names a
  *    probe below the project's tool cache.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls openBrokeredWatch with a scripted broker; asserts a nonprobing backend leaves the project cache untouched, an obstructed probe root still registers, and a writable probing root supplies the expected probe location.
+ * @evidence contracts/testing.md#behavioral-verification Calls openBrokeredWatch with a scripted broker; awaits each routed ready reply without a failed sink call and asserts a nonprobing backend leaves the project cache untouched, an obstructed probe root still registers, and a writable probing root supplies the expected probe location.
  * @evidence contracts/testing.md#independent-expectations The backend capability controls whether probes have meaning; inability to prepare an optional proof must not fail the watch. Literal absent/present probe expectations follow that contract, independently of message construction.
  * @evidence contracts/testing.md#distinguishing-cases Owns nonprobing, probing-but-obstructed and probing-and-writable roots. Each watch closes and WATCH_BROKER.current is restored; these assertions do not prove a native stream receives its probe.
- * @evidence contracts/testing.md#execution-ownership Unit test: test_brokered_watch_probes_only_where_its_backend_proves_one calls the real openBrokeredWatch three times against a scripted WatchBroker whose child double records the messages it is sent, over real temporary project directories (one with node_modules as a file). It swaps WATCH_BROKER.current and restores it in finally. No broker child process, native watcher or FSEvents stream starts, and the test registers no dynamic cases.
+ * @evidence contracts/testing.md#execution-ownership Unit test: calls real openBrokeredWatch three times against a scripted WatchBroker whose child records add/remove messages and routes a successful ready reply on a microtask. Each ready promise is awaited and each watch closes in finally over real temporary directories, one with node_modules as a file. WATCH_BROKER.current is restored; no child, native watcher or FSEvents stream starts.
  */
 export async function test_brokered_watch_probes_only_where_its_backend_proves_one(): Promise<void> {
   const previous = WATCH_BROKER.current;
-  const open = (probes: boolean, root: string) => {
+  const open = async (probes: boolean, root: string) => {
     const sent: { locations?: { probe?: unknown }[]; op: string }[] = [];
+    let answered = false;
     const broker: WatchBroker = {
       child: {
         channel: { ref: () => undefined, unref: () => undefined },
@@ -47,6 +49,15 @@ export async function test_brokered_watch_probes_only_where_its_backend_proves_o
         ref: () => undefined,
         send: (message: (typeof sent)[number]) => {
           sent.push(message);
+          if (message.op === "add")
+            queueMicrotask(() => {
+              answered = true;
+              routeWatchBrokerMessage(broker, {
+                id: (message as unknown as { id: number }).id,
+                failed: false,
+                ready: true,
+              });
+            });
           return true;
         },
         unref: () => undefined,
@@ -72,9 +83,14 @@ export async function test_brokered_watch_probes_only_where_its_backend_proves_o
         unproven: () => undefined,
       },
     });
-    const added = sent.find((message) => message.op === "add");
-    watch.close();
-    return added?.locations?.[0]?.probe;
+    try {
+      await watch.ready;
+      assert.equal(answered, true, "the scripted successful reply resolved readiness without a failed sink call");
+      const added = sent.find((message) => message.op === "add");
+      return added?.locations?.[0]?.probe;
+    } finally {
+      watch.close();
+    }
   };
   const project = (files: Record<string, string>) => {
     const root = fs.realpathSync.native(
@@ -86,7 +102,7 @@ export async function test_brokered_watch_probes_only_where_its_backend_proves_o
   try {
     // 1. No probe where the backend writes none.
     const windows = project({});
-    assert.equal(open(false, windows), undefined);
+    assert.equal(await open(false, windows), undefined);
     assert.equal(
       fs.existsSync(path.join(windows, "node_modules")),
       false,
@@ -95,11 +111,11 @@ export async function test_brokered_watch_probes_only_where_its_backend_proves_o
 
     // 2. An unpreparable probe leaves the location unproven.
     const readOnly = project({ node_modules: "not a directory\n" });
-    assert.equal(open(true, readOnly), undefined);
+    assert.equal(await open(true, readOnly), undefined);
 
     // 3. A probe below the project's tool cache otherwise.
     const macos = project({});
-    const probe = open(true, macos) as
+    const probe = await open(true, macos) as
       | { directory: string; root: string }
       | undefined;
     assert.equal(probe?.root, macos);
