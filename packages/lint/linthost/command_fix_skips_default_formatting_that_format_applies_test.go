@@ -20,7 +20,7 @@ import (
 // fix through the default formatter.
 //
 //  1. Seed two copies of one source with a no-var violation and three missing
-//     semicolons — with only a lint rule configured and no `format` block.
+//     semicolons, with only a lint rule configured and no format block.
 //  2. Run `ttsc fix` on one copy and `ttsc format` on the other.
 //  3. Assert fix applied the lint fix but added no semicolons, while format added
 //     the default semicolons but left the `var` lint violation untouched.
@@ -44,7 +44,7 @@ func TestCommandFixSkipsDefaultFormattingThatFormatApplies(t *testing.T) {
   if code != 0 || stdout != "" || stderr != "" {
     t.Fatalf("fix mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
-  // no-var rewrote `var`→`let`; the default formatter never ran, so both
+  // no-var rewrote var to let; the default formatter never ran, so all three
   // missing semicolons stay, including export {}.
   assertFileText(
     t,
@@ -64,7 +64,7 @@ func TestCommandFixSkipsDefaultFormattingThatFormatApplies(t *testing.T) {
   if code != 0 || stdout != "" || stderr != "" {
     t.Fatalf("format mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
-  // The default formatter added both semicolons; format is write-only, so the
+  // The default formatter added all three semicolons; format is write-only, so the
   // `no-var` lint violation is left in place (`var`, not `let`).
   got, err := os.ReadFile(filepath.Join(formatRoot, "src", "main.ts"))
   if err != nil {
