@@ -990,9 +990,9 @@ var registry []Rule
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The registry is the declared contributor extension point rather than a patched engine rule list.
 // @evidence contracts/common.md#meaningful-documentation Native prose specifies init-time use and deferred duplicate checks; tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Register appends to an in-memory registry and touches no filesystem path or process.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Register appends one element and has no loop.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Register keeps no cache and shares no computation.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The registry retains one entry per registered rule for the process lifetime; its size is bounded by the number of rules registered at initialization and it has no release.
+// @evidence contracts/performance.md#efficient-algorithms Appending one rule is amortized O(1); a capacity growth copies the existing n rule references, O(n) for that call. The registry stores O(n) entries without an extra per-registration traversal.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Registration records an initialization effect, not a completed/in-flight query coordinator. The host owns one-time bootstrap and name collision policy; equal Rule values do not authorize suppressing a registration here.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The registry retains O(n) rule references and slice capacity for the process lifetime with no release. Supported registration ends at initialization, so n is the configured contributor population; the function enforces no numeric cap or runtime reclamation and the host later shares those rule objects.
 func Register(r Rule) {
   if r == nil {
     panic("rule: Register called with nil rule")
@@ -1010,9 +1010,9 @@ func Register(r Rule) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Callers read through the supported defensive accessor instead of replacing registry entries.
 // @evidence contracts/common.md#meaningful-documentation Native prose states bootstrap use and distinguishes slice copying from shared rule values; tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Registered copies an in-memory registry and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms One slice copy, O(rules).
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Registered keeps no cache and shares no computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Registered returns a copy so callers cannot mutate the retained registry; no handle or task is acquired.
+// @evidence contracts/performance.md#efficient-algorithms Allocating and copying n Rule references costs O(n) work and returned storage. It copies slice membership only, without traversing or cloning implementations.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work The accessor creates caller-owned mutable slice membership, not a request cache or coordinator. Rule objects remain shared, but reusing one writable slice for separate callers would expose their membership mutations to each other.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Each call transfers O(n) owned slice storage to its caller while retaining references to shared rule objects. Caller release reclaims its slice; the registry and implementations remain process-owned. No historical copy cache, handle or running task is created.
 func Registered() []Rule {
   out := make([]Rule, len(registry))
   copy(out, registry)
