@@ -7,11 +7,11 @@ import type { TtscBuildOptions } from "../../../structures/internal/TtscBuildOpt
  * only ttsc's own lanes set (ttsx's private runtime builds, single-file emit,
  * watch).
  *
- * @evidence contracts/common.md#principled-implementation Public build selection is intersected with internal lane controls, preserving optional defaults while distinguishing diagnostic gating, sandbox outputs and watch callbacks.
+ * @evidence contracts/common.md#principled-implementation Public build selection is intersected with internal lane controls, preserving optional defaults while distinguishing diagnostic gating, compiler-output isolation and watch callbacks.
  * @evidence contracts/common.md#clear-and-simple-design Lane-specific decisions are explicit options on the shared build boundary rather than hidden global switches or duplicated compiler APIs.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Internal controls express supported runtime/watch requirements; source-map and inferred-root exceptions are documented lane policies, not test-specific escape flags.
  * @evidence contracts/common.md#meaningful-documentation Native member paragraphs explain ownership, optional-state effects and the rootDir premise, with blank lines separating documented properties.
- * @evidence contracts/portability.md#os-neutral-implementation The type carries native sandbox/project selection and filesystem input callbacks without embedding slash, drive or case assumptions; process/path adapters interpret those values.
+ * @evidence contracts/portability.md#os-neutral-implementation The type carries native private-output/project selection and filesystem input callbacks without embedding slash, drive or case assumptions; process/path adapters interpret those values.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
  * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
@@ -20,16 +20,18 @@ export type RunBuildOptions = TtscBuildOptions & {
   /**
    * Skip the independent direct-compiler type-check gate and the added
    * `--noEmitOnError` guard. Configured plugin checks and native hosts still
-   * apply their own diagnostic policy. The caller judges success by what was
-   * written, not by the status. The ttsx dependency lane sets it, because the
+   * apply their own diagnostic policy. It does not erase returned status or
+   * make failed plugin checks successful. The ttsx dependency lane may judge
+   * usable emitted output under its own policy and sets it because the
    * entry project's check is the type gate and a source-shipping dependency's
    * own config must not fail the run.
    */
   skipDiagnosticsCheck?: boolean;
 
   /**
-   * Pass `--listEmittedFiles` so the result carries the emitted paths even when
-   * the user did not ask for them. Callers that must locate one emitted file
+   * Request `--listEmittedFiles` when the user did not ask for paths. Later
+   * forwarded assignments can still override this internal default, and actual
+   * producer output determines what is returned. Callers locating one emitted file
    * (ttsx, single-file emit) set it.
    */
   forceListEmittedFiles?: boolean;
@@ -46,7 +48,10 @@ export type RunBuildOptions = TtscBuildOptions & {
    */
   forceEmitProvenance?: boolean;
 
-  /** Keep every compiler-owned side product inside this private directory. */
+  /**
+   * Apply final compiler destination overrides for this private directory.
+   * This does not sandbox arbitrary plugin, cache or external process writes.
+   */
   isolateOutputsTo?: string;
 
   /**
@@ -59,15 +64,12 @@ export type RunBuildOptions = TtscBuildOptions & {
    * --emit` all accept — into one that must configure the layout of output the
    * user never asked for and never sees.
    *
-   * The pinned value is the one tsgo itself infers: with a config file in play
-   * its common source directory is that file's directory, never the computed
-   * common directory of the input files (`outputpaths.GetCommonSourceDirectory`
-   * consults the file list only for a config-less program). Pinning it
-   * therefore silences the demand without moving a single output, and it is the
-   * same source root `prepareExecution.ts::resolveRuntimeSourceRoot`,
-   * `installRuntimeHooks.ts::resolveDependencySourceRoot`, and
-   * `WatchTopology.ts::inferPerSourceCompilerOutputs` already model on the
-   * JavaScript side.
+   * Without declared rootDir, the pinned compiler's configured-program default
+   * common source directory is the config file's directory; config-less
+   * programs instead consult source filenames. This request supplies the
+   * selected execution project root as the inferred-layout policy. It does not
+   * independently prove that arbitrary explicit project-root/config placement
+   * or physical aliases have identical layout. Callers own that premise.
    *
    * Ignored when the project declares its own `rootDir`: that project already
    * satisfies tsgo, and overriding it would relocate the emit out from under

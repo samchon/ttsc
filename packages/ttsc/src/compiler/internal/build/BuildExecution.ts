@@ -43,14 +43,15 @@ import { parseProjectInputSnapshot } from "./parseProjectInputSnapshot";
 import { runExternalEmitProvenance } from "./runExternalEmitProvenance";
 
 /**
- * The engine behind every ttsc build: resolve the project and its plugins, then
+ * The shared runBuild execution engine: resolve the project and plugins, then
  * run TypeScript-Go directly or through native plugin hosts.
  *
  * {@link runBuild} runs it once per command; {@link ResidentCheckWatchSession}
  * runs the same phases per watch cycle while keeping a check host resident. The
- * phases are shared rather than duplicated so a watch cycle and a one-shot
- * build cannot disagree about which plugin runs, which flags reach the
- * compiler, or how a plugin failure falls back to a plain type-check.
+ * shared phases centralize plugin/flag and failed-plugin diagnostic policy.
+ * Watch residency and its cycle-specific preparation remain with the watch
+ * owner; sharing these operations is not a guarantee of identical invocation
+ * inputs or outputs across watch and one-shot runs.
  *
  * @evidence contracts/common.md#principled-implementation Resolution, preparation and ordered execution share selected project/plugin semantics, with independent failed-plugin diagnostic recovery preserving the original failure.
  * @evidence contracts/common.md#clear-and-simple-design The grouping owns build phase policy while native argv, flag classification, diagnostic normalization and watch lifetime remain separate responsibilities.
@@ -1110,16 +1111,17 @@ export namespace BuildExecution {
    * here so every code path in `runBuild` shares the same resolution logic.
    *
    * A supplied resolvedProject preserves the caller's lexical project identity.
-   * Plugin-load errors become setup-failure results; project/compiler/config
-   * resolution failures outside that load boundary may throw.
+   * Plugin admission, loading and watch-input callbacks inside the guarded
+   * acquisition branch become setup-failure results on error. Initial project/
+   * compiler resolution and final config-anchor resolution outside it may throw.
    *
-   * @evidence contracts/common.md#principled-implementation One selected project supplies root, config and compiler policy; explicit resolvedProject preserves prior selection, and only plugin loading is converted to a setup failure.
+   * @evidence contracts/common.md#principled-implementation One selected project supplies root, config and compiler policy; explicit resolvedProject preserves prior selection, and the guarded plugin admission/loading/watch-input callback branch is converted to a setup failure.
    * @evidence contracts/common.md#clear-and-simple-design A single context carries compiler/project/plugin selection to all phases, with plugin acquisition isolated from project and executable resolution.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Loader failures remain explicit setup failures rather than empty successful plugin selection; preserving lexical project identity avoids mixed alias assumptions without patching filesystem APIs.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe selected context, supplied-project meaning and the exact returned-versus-thrown failure boundary.
    * @evidence contracts/portability.md#os-neutral-implementation Native path and binary resolvers select cwd/project/executables; TTSC_CACHE_DIR uses platform-aware environment lookup and already-selected project spelling is not independently canonicalized again.
-   * @evidence contracts/performance.md#efficient-algorithms Config and compiler selection occur once per context; plugin loading is skipped when no entries exist, avoiding unnecessary acquisition work.
-   * @evidence contracts/performance.md#reuse-equivalent-work A supplied resolvedProject is reused, and the returned context lets all build phases reuse one plugin/project selection; loader-owned source caching follows its own validity contract.
+   * @evidence contracts/performance.md#efficient-algorithms Initial project resolution (unless supplied) and compiler selection precede plugin admission. Admission and loading can separately resolve entries; config bytes, module/native search, environment-name/path text and delegated source builds/capability probes remain call costs. The no-entry branch avoids loading but can invoke the supplied callback.
+   * @evidence contracts/performance.md#reuse-equivalent-work The supplied project reference and returned selection records serve multiple phases without a second top-level context acquisition. They are not a frozen filesystem or deep immutable snapshot; the build/session owns their continued authority, while source-artifact reuse follows loader validity.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This returns selection metadata rather than resident child handles; persistent plugin build caches are owned by the loader, while context lifetime belongs to the build/session.
    */
