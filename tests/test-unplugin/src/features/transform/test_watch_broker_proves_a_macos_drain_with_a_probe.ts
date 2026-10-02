@@ -17,8 +17,9 @@ import { runWatchBrokerProgram } from "../../internal/watch-broker/runWatchBroke
  * edit as one of its own and compiled the project again. FSEvents preserves
  * order within one stream, so a clean probe establishes its delivery frontier.
  * A dropped flag independently withdraws authority even on that probe path;
- * the flagged callback alone cannot establish opening or drain proof. Nothing
- * heard before the opening probe belongs to the stream's own time.
+ * the flagged callback alone cannot establish opening or drain proof. The
+ * child discards callbacks before the clean opening frontier; this is not
+ * an atomic timestamp classification of writes.
  *
  * 1. Register a location with a probe below its root, and one without, on a
  *    stand-in binding; assert the probed stream opens at the probe's root, the
@@ -116,7 +117,11 @@ export async function test_watch_broker_proves_a_macos_drain_with_a_probe(): Pro
     [{ gap: true, id: 1 }],
     "a dropped matching opening probe withdraws authority without proving readiness",
   );
-  assert.deepEqual(removed, [], "a dropped opening callback alone does not complete its probe");
+  assert.deepEqual(
+    removed,
+    [],
+    "a dropped opening callback alone does not complete its probe",
+  );
   streams[0]!.handler(probes()[0]!, ITEM_CREATED | ITEM_IS_FILE, 1);
   assert.deepEqual(
     broker.sent.filter((message) => message.id === 1),
@@ -159,8 +164,16 @@ export async function test_watch_broker_proves_a_macos_drain_with_a_probe(): Pro
     [{ gap: true, id: 1 }, { gap: true, id: 1 }],
     "matching dropped opening and drain callbacks each report their gap",
   );
-  assert.equal(broker.sent.some((message) => message.id === 100), false, "a dropped matching drain probe is not successful delivery proof");
-  assert.deepEqual(removed, [probes()[0]], "the dropped drain callback leaves its probe pending");
+  assert.equal(
+    broker.sent.some((message) => message.id === 100),
+    false,
+    "a dropped matching drain probe is not successful delivery proof",
+  );
+  assert.deepEqual(
+    removed,
+    [probes()[0]],
+    "the dropped drain callback leaves its probe pending",
+  );
   streams[0]!.handler(probes()[1]!, ITEM_CREATED | ITEM_IS_FILE, 1);
   await turns();
   const drained = broker.sent.find((message) => message.drained === true);
