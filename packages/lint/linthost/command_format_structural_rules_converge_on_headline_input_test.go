@@ -7,21 +7,19 @@ import (
 )
 
 // TestCommandFormatStructuralRulesConvergeOnHeadlineInput verifies the
-// full `ttsc format` cascade fixes the structural-formatting headline
-// bug: four statements crammed onto one indented line, with trailing
+// in-process `ttsc format` cascade transforms four statements crammed onto
+// one indented line, with trailing
 // blank lines, converge to one statement per line at column 0 with a
 // single final newline, and `console.log(...)` does NOT over-break.
 //
-// This is the end-to-end proof for the three new always-on rules
-// (`format/statement-split`, `format/indent`, `format/whitespace`)
-// composing with `format/semi`, `format/print-width`, and friends. It
-// also pins that print-width self-heals: once statement-split puts the
-// call on its own line at column 0, a later pass collapses it flat
-// instead of leaving it broken.
+// The complete independent literal observes statement splitting, indentation
+// and whitespace cleanup through the command. The 21-column call must end
+// flat, but no intermediate layout or particular cascade pass is observed.
+// The existing semicolons are preserved rather than inserted by this fixture.
 //
 //  1. Seed a project plus a `format` block config (always-on rules).
 //  2. Run `ttsc format`.
-//  3. Assert the file converges to the canonical Prettier output and the
+//  3. Assert the file converges to the authored complete expectation and the
 //     subcommand exits cleanly.
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on one indented line holding four statements followed by blank and whitespace-only lines, and requires exit 0, empty output and the exact four-line file at column 0 with a single final newline and `console.log(a, b, c);` kept flat.

@@ -10,10 +10,11 @@ import (
 // cascade splits and reindents crammed statements nested two blocks deep.
 //
 // The headline test exercises only top-level statements, so depth-aware
-// indentation is never proved end-to-end. This case crams two statements
+// indentation is not observed there. This case crams two statements
 // onto one line inside an `if` block inside a function: statement-split
 // must break them and indent must carry each to depth 2 (four spaces),
-// proving the shared depth walk drives both rules through nesting.
+// checking their final composition through the in-process command. It does
+// not inspect individual edit provenance or an installed consumer.
 //
 //  1. Seed a project with two statements crammed inside a nested block.
 //  2. Run `ttsc format`.
