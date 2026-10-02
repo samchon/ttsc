@@ -34,12 +34,16 @@ import { usesLinuxWatchHelper } from "./linux/usesLinuxWatchHelper";
  * @evidence contracts/performance.md#efficient-algorithms
  *   For n handles, one Promise.all scans n readiness values and races one timer;
  *   openings wait concurrently rather than accumulating per-watch deadlines.
+ *   The input-promise array, aggregate reactions and resolved answer array use
+ *   O(n) temporary references; the race adds a fixed pair of branches.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Existing readiness promises are reused, not new opening requests. This
  *   operation is called for one constructor's owned watcher set.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   The aggregate owns one deadline timer and clears it on fulfillment or
  *   rejection; watcher handles remain tracker-owned until tracker.close.
+ *   Timeout does not cancel already issued readiness promises. Their owning
+ *   backend and tracker closure remain responsible for outstanding requests.
  */
 export async function settleOpenedDirectoryWatches(
   tracker: TtscProjectMutationTracker,
