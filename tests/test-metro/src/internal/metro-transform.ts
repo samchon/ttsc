@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
+import { TestProject } from "@ttsc/testing";
+
 import { createBareProject, prepareSnapshot } from "./metro-cache";
 import { TestMetroRuntime } from "./metro-runtime";
 
@@ -203,4 +205,103 @@ export async function assertCacheKeySurvivesThrowingUpstreamCacheKey(): Promise<
   );
   assert.equal(typeof key, "string");
   assert.equal(key.length, 64);
+}
+
+/** One file the gate must reject, with the options that reject it. */
+interface GatedOutCase {
+  name: string;
+  options: Record<string, unknown>;
+  params: { src: string; filename: string; options: Record<string, unknown> };
+}
+
+/**
+ * Asserts every gated-out file reaches the upstream as Metro's own params
+ * object.
+ *
+ * The ttsc pass hands the upstream a fresh `{ ...params, src }`, while a file
+ * that bypasses it is forwarded as the object Metro supplied. A recording
+ * upstream keeps what it was handed, so identity with the object given to
+ * `transform` shows the pass did not run, which equal source text alone cannot.
+ * The gate reads the project-relative filename, so a relative file whose
+ * absolute path contains an include word is still outside that include.
+ */
+export async function assertGatedOutFilesReachTheUpstreamAsTheOriginalParams(): Promise<void> {
+  const KEY = "__ttscMetroRecordedUpstreamParams";
+  const dir = TestProject.tmpdir("ttsc-metro-upstream-recording-");
+  const upstream = path.join(dir, "upstream.cjs");
+  fs.writeFileSync(
+    upstream,
+    [
+      "exports.transform = async function (params) {",
+      `  globalThis[${JSON.stringify(KEY)}] = params;`,
+      "  return { ast: { __recording: true } };",
+      "};",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  const cases: GatedOutCase[] = [
+    {
+      name: "javascript",
+      options: {},
+      params: {
+        src: "export const a = 1;\n",
+        filename: path.join(ROOT, "src", "app.js"),
+        options: {},
+      },
+    },
+    {
+      name: "declaration",
+      options: {},
+      params: {
+        src: "declare const a: number;\n",
+        filename: path.join(ROOT, "src", "types.d.ts"),
+        options: {},
+      },
+    },
+    {
+      name: "excluded",
+      options: { exclude: ["generated"] },
+      params: {
+        src: "export const a: 1 = 1;\n",
+        filename: path.join(ROOT, "src", "generated", "api.ts"),
+        options: {},
+      },
+    },
+    {
+      name: "not included",
+      options: { include: ["src/included"] },
+      params: {
+        src: "export const a: 1 = 1;\n",
+        filename: path.join(ROOT, "src", "other", "file.ts"),
+        options: {},
+      },
+    },
+    {
+      name: "relative file below a root named like the include",
+      options: { include: ["generated"] },
+      params: {
+        src: "export const a: 1 = 1;\n",
+        filename: path.join("src", "app.ts"),
+        options: { projectRoot: path.join(ROOT, "generated") },
+      },
+    },
+  ];
+  const holder = globalThis as unknown as Record<string, unknown>;
+  try {
+    for (const { name, options, params } of cases) {
+      delete holder[KEY];
+      await TestMetroRuntime.withTransformerEnv(
+        { upstreamTransformer: upstream, ...options },
+        (mod) => mod.transform(params),
+      );
+      assert.equal(
+        holder[KEY],
+        params,
+        `${name}: the upstream must receive the original params object`,
+      );
+    }
+  } finally {
+    delete holder[KEY];
+  }
 }
