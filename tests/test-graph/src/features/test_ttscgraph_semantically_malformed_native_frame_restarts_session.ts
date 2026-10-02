@@ -25,6 +25,7 @@ export async function test_ttscgraph_semantically_malformed_native_frame_restart
   const { session, ports } = fixture;
   try {
     const active = session.graph();
+    void active.catch(() => undefined);
     const port = await admitted(ports);
     const frame = emptyResponse(Number(port.writes[0]!.id));
     frame.changed = false;
@@ -33,9 +34,10 @@ export async function test_ttscgraph_semantically_malformed_native_frame_restart
     assertRetired(port);
 
     const recovered = session.graph();
+    void recovered.catch(() => undefined);
     const next = await admitted(ports);
     session.receive(next.peer, emptyResponse(Number(next.writes[0]!.id)));
     assert.deepEqual((await recovered).nodes, []);
     assert.equal(ports.length, 2);
-  } finally { session.close(); }
+  } finally { await session.close(); }
 }

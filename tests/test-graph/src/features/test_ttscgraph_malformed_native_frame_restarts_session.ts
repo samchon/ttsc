@@ -23,15 +23,17 @@ export async function test_ttscgraph_malformed_native_frame_restarts_session(): 
   const { session, ports } = fixture;
   try {
     const active = session.graph();
+    void active.catch(() => undefined);
     const port = await admitted(ports);
     port.events.line("not-json");
     await assert.rejects(active, /returned invalid JSON/);
     assertRetired(port);
 
     const recovered = session.graph();
+    void recovered.catch(() => undefined);
     const next = await admitted(ports);
     session.receive(next.peer, emptyResponse(Number(next.writes[0]!.id)));
     assert.deepEqual((await recovered).nodes, []);
     assert.equal(ports.length, 2);
-  } finally { session.close(); }
+  } finally { await session.close(); }
 }

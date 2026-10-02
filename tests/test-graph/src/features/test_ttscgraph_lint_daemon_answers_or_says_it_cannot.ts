@@ -39,12 +39,12 @@ const admitted = async (ports: ReturnType<typeof fixture>["ports"], count: numbe
  *
  * @evidence contracts/testing.md#behavioral-verification TtscLintDaemonState.ask must return the parsed result text of a code-0 reply for "project-inputs" and "graph-nodes" and write [verb, invalidate] pairs [["project-inputs", true], ["graph-nodes", false]]; a code-1 reply must yield null, close the port once and make the next ask null; an exit event must yield null for the pending and later asks; and two simultaneous asks must be written one at a time in order. TtscGraphNativeArguments.lint must start with "lsp-serve" and carry --cwd=, --tsconfig=, --plugins-json= and --project-context-json=.
  * @evidence contracts/testing.md#independent-expectations The verbs, the "servedBy" marker, the invalidate flags, the reply codes, the expected null outcomes, the port count of one and the close count of one are literals authored in the test; the replies are JSON lines written by the test through the port events, not produced by a daemon.
- * @evidence contracts/testing.md#distinguishing-cases Four scenarios contrast a served reply, a declined reply (code 1), a transport exit with no reply, and concurrent asks; the concurrent scenario shows the second write absent after five microtask turns and present only after the first reply. A line that is not valid JSON, a reply without a numeric code and a write failure are not exercised.
+ * @evidence contracts/testing.md#distinguishing-cases Five scenario families contrast a served reply, a declined reply (code 1), a transport exit with no reply, and concurrent asks; the concurrent scenario shows the second write absent after five microtask turns and present only after the first reply. Malformed JSON and a reply without a numeric code each return null, retire the port once and prevent another port. Write failure is not exercised.
  * @evidence contracts/testing.md#execution-ownership Runs TtscLintDaemonState and TtscGraphNativeArguments.lint in the test process against recorded line ports that the test feeds JSON lines and exit events through the declared events; no lint sidecar process, direct-command fallback or real transport is involved.
  */
 export async function test_ttscgraph_lint_daemon_answers_or_says_it_cannot(): Promise<void> {
   const errors: unknown[] = [];
-  for (const run of [verifyServes, verifyRejectedVerb, verifyMissingServe, verifyConcurrent]) {
+  for (const run of [verifyServes, verifyRejectedVerb, verifyMissingServe, verifyConcurrent, verifyMalformedReplies]) {
     try { await run(); } catch (error) { errors.push(error); }
   }
   if (errors.length !== 0) throw new AggregateError(errors, "lint daemon state scenarios failed");
@@ -68,7 +68,7 @@ async function verifyServes(): Promise<void> {
     assert.equal(args[0], "lsp-serve");
     for (const flag of ["--cwd=", "--tsconfig=", "--plugins-json=", "--project-context-json="]) assert.equal(args.some((arg) => arg.startsWith(flag)), true);
     assert.deepEqual(port.writes.map((request) => [request.verb, request.invalidate]), [["project-inputs", true], ["graph-nodes", false]]);
-  } finally { daemon.close(); }
+  } finally { await daemon.close(); }
 }
 
 async function verifyRejectedVerb(): Promise<void> {
@@ -85,7 +85,7 @@ async function verifyRejectedVerb(): Promise<void> {
     assert.equal(await daemon.ask("project-inputs", true), null);
     assert.equal(ports.length, 1);
     assert.equal(port.closed, 1);
-  } finally { daemon.close(); }
+  } finally { await daemon.close(); }
 }
 
 async function verifyMissingServe(): Promise<void> {
@@ -97,7 +97,7 @@ async function verifyMissingServe(): Promise<void> {
     assert.equal(await first, null);
     assert.equal(await daemon.ask("graph-nodes", false), null);
     assert.equal(ports.length, 1);
-  } finally { daemon.close(); }
+  } finally { await daemon.close(); }
 }
 
 async function verifyConcurrent(): Promise<void> {
@@ -115,5 +115,24 @@ async function verifyConcurrent(): Promise<void> {
     assert.equal(JSON.parse((await second)!).verb, "graph-nodes");
     assert.deepEqual(port.writes.map((request) => request.verb), ["project-inputs", "graph-nodes"]);
     assert.equal(ports.length, 1);
-  } finally { daemon.close(); }
+  } finally { await daemon.close(); }
+}
+
+/** Invalid JSON and absent reply codes retire ownership rather than succeed. */
+async function verifyMalformedReplies(): Promise<void> {
+  const errors: unknown[] = [];
+  for (const line of ["not JSON", '{"result":{}}']) {
+    const { daemon, ports } = fixture();
+    try {
+      const pending = daemon.ask("project-inputs", true);
+      const port = await admitted(ports, 1);
+      port.events.line(line);
+      assert.equal(await pending, null);
+      assert.equal(await daemon.ask("graph-nodes", false), null);
+      assert.equal(port.closed, 1);
+      assert.equal(ports.length, 1);
+    } catch (error) { errors.push(error); }
+    finally { await daemon.close(); }
+  }
+  if (errors.length) throw new AggregateError(errors, "malformed daemon replies");
 }

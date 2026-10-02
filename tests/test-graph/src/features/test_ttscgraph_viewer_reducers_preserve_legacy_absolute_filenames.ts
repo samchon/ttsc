@@ -44,6 +44,12 @@ const assertProjection = (
     `${label}: distinct source nodes retain distinct projected ids`,
   );
   assert.equal(result.links?.length, files.length, `${label}: links survive`);
+  const ids = expectedFiles.map((file, index) => `${file}#symbol${index}:function`);
+  assert.deepEqual(
+    result.links?.map(({ source, target }) => [source, target]),
+    ids.map((id, index) => [id, ids[(index + 1) % ids.length]]),
+    `${label}: rewritten edge endpoints retain their authored cycle`,
+  );
 };
 
 /**
@@ -51,7 +57,7 @@ const assertProjection = (
  *
  * Locks the legacy reroot boundary shared by the package, website, and fixture
  * reducers. The root must be a source directory rather than a complete file;
- * Windows paths compare case-insensitively, POSIX paths remain case-sensitive,
+ * Windows volume roots compare case-insensitively, directory spelling and POSIX paths remain case-sensitive,
  * and current project-relative dumps must bypass rerooting entirely.
  *
  * 1. Load all three production reducer copies through Node's TypeScript loader.

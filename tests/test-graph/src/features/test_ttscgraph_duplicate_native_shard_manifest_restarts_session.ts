@@ -27,11 +27,13 @@ export async function test_ttscgraph_duplicate_native_shard_manifest_restarts_se
   const { session, ports } = sessionState();
   try {
     const initial = session.graph();
+    void initial.catch(() => undefined);
     const first = await admitted(ports);
     const baseline = sessionTransaction();
     session.receive(first.peer, { id: Number(first.writes[0]!.id), protocolVersion: 1, mode: "initial", changed: true, capabilities: [], snapshot: baseline });
     assert.deepEqual((await initial).nodes, []);
     const active = session.graph();
+    void active.catch(() => undefined);
     const port = await admitted(ports, 2);
     const snapshot = sessionTransaction("duplicateManifest");
     snapshot.sequence = 2;
@@ -41,9 +43,10 @@ export async function test_ttscgraph_duplicate_native_shard_manifest_restarts_se
     await assert.rejects(active, /manifest must be strictly key-sorted/);
     assertRetired(port);
     const recovered = session.graph();
+    void recovered.catch(() => undefined);
     const next = await admitted(ports);
     session.receive(next.peer, { id: Number(next.writes[0]!.id), protocolVersion: 1, mode: "initial", changed: true, capabilities: [], snapshot: sessionTransaction() });
     assert.deepEqual((await recovered).nodes, []);
     assert.equal(ports.length, 2);
-  } finally { session.close(); }
+  } finally { await session.close(); }
 }

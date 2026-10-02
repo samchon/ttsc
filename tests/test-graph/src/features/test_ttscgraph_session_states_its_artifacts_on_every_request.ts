@@ -15,26 +15,39 @@ import { admitted, emptyResponse, sessionState } from "./internal/sessionState";
  *    the same port.
  * 3. Require one port, two recorded writes, and artifacts equal to "" in each.
  *
- * @evidence contracts/testing.md#behavioral-verification TtscGraphNativeArguments.serve("/fixture", "tsconfig.json", null) must not include "--artifacts"; two successive graph() requests on TtscGraphSessionState must be written on one port (initial then unchanged response) and each written request must carry artifacts "".
- * @evidence contracts/testing.md#independent-expectations The expected empty string, the absence of the flag, the write count of two and the port count of one are literals; the host stub in internal/sessionState supplies the empty answer, so the test shows the state forwards the host's answer and does not exercise real artifact discovery.
- * @evidence contracts/testing.md#distinguishing-cases Initial and unchanged requests are both checked, so a client that stated its artifacts only on the first request would fail. Only the empty answer is exercised: a non-empty path, an undefined answer and a change of answer between requests are not covered.
+ * @evidence contracts/testing.md#behavioral-verification TtscGraphNativeArguments.serve("/fixture", "tsconfig.json", null) must not include "--artifacts"; four graph() requests must stay on one port and forward host artifacts "", "", "artifact path.json", "" in order, after an initial response and then unchanged responses.
+ * @evidence contracts/testing.md#independent-expectations The expected artifact answers, the absence of the flag and the port count of one are authored literals; the first two writes are counted before the host answer changes. The host stub supplies every answer, so the test verifies forwarding rather than real artifact discovery.
+ * @evidence contracts/testing.md#distinguishing-cases Initial and unchanged requests are both checked, so a client that stated its artifacts only on the first request would fail. Subsequent unchanged requests forward a non-empty path containing a space and then an empty withdrawal on the same peer. An undefined answer is not covered.
  * @evidence contracts/testing.md#execution-ownership Runs TtscGraphNativeArguments.serve and TtscGraphSessionState in the test process against the recorded line ports of internal/sessionState with typed responses passed to receive; no plugin discovery, native process or decoder is involved.
  */
 export async function test_ttscgraph_session_states_its_artifacts_on_every_request(): Promise<void> {
-  const { session, ports } = sessionState();
+  const { session, ports, setArtifacts } = sessionState();
   try {
     const args = TtscGraphNativeArguments.serve("/fixture", "tsconfig.json", null);
     assert.equal(args.includes("--artifacts"), false);
     const active = session.graph();
+    void active.catch(() => undefined);
     const port = await admitted(ports);
     session.receive(port.peer, emptyResponse(Number(port.writes[0]!.id)));
     await active;
     const next = session.graph();
+    void next.catch(() => undefined);
     await admitted(ports, 2);
     session.receive(port.peer, emptyResponse(Number(port.writes[1]!.id), false));
     await next;
     assert.equal(ports.length, 1);
     assert.equal(port.writes.length, 2);
     for (const request of port.writes) assert.equal(request.artifacts, "");
-  } finally { session.close(); }
+    for (const artifact of ["artifact path.json", ""]) {
+      setArtifacts(artifact);
+      const refresh = session.graph();
+      void refresh.catch(() => undefined);
+      await admitted(ports, port.writes.length + 1);
+      const request = port.writes.at(-1)!;
+      assert.equal(request.artifacts, artifact);
+      session.receive(port.peer, emptyResponse(Number(request.id), false));
+      await refresh;
+    }
+    assert.equal(ports.length, 1);
+  } finally { await session.close(); }
 }

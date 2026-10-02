@@ -25,7 +25,7 @@ import { sessionTransaction } from "./internal/sessionTransactions";
  *
  * @evidence contracts/testing.md#behavioral-verification TtscGraphSessionState.receive of each of seven contradicting envelopes (two error-field combinations, an error mode without an error, a changed response in unchanged mode, with no body and with two bodies, and an unchanged response carrying a dump) must reject graph() with the literal "an error response carried snapshot state", "an error-mode response omitted its error", "a changed response did not carry exactly one snapshot body" or "an unchanged response carried changed mode or snapshot state" and retire the port as close(false) then close(true); a mode "error" envelope carrying an error and no body must reject graph() with "@ttsc/graph: boom" while the port stays live with no retirement and the next graph() writes its request on the same port.
  * @evidence contracts/testing.md#independent-expectations The envelopes are authored literal field combinations (mode, changed, error, dump, snapshot) from the serve response grammar, the expected messages are written in the test and the retirement sequence [false, true] and the live port are literals; the digests and generation of the one snapshot body are pinned literals in sessionTransactions.
- * @evidence contracts/testing.md#distinguishing-cases Each contradiction changes one field of an otherwise valid frame so a different branch of the semantic check fires, and the genuine error reply contrasts them by being refused for the request without retiring the peer; a body of the wrong schema and an unknown request id are owned by sibling tests.
+ * @evidence contracts/testing.md#distinguishing-cases Seven authored combinations exercise the four semantic failure categories; the changed response in unchanged mode also has no body, so that row does not isolate the mode check. The genuine error reply rejects only its request and retains the peer; wrong body schema and unknown request id belong to siblings.
  * @evidence contracts/testing.md#execution-ownership This exported src/features entry runs the owning session state with recorded line ports in the test process, without a native child, installation or product serializer.
  */
 export async function test_ttscgraph_native_responses_that_contradict_their_mode_each_retire_the_peer(): Promise<void> {
@@ -71,6 +71,7 @@ export async function test_ttscgraph_native_responses_that_contradict_their_mode
     const { session, ports } = sessionState();
     try {
       const active = session.graph();
+      void active.catch(() => undefined);
       const port = await admitted(ports);
       session.receive(port.peer, frame(Number(port.writes[0]!.id)));
       await assert.rejects(active, message, label);
@@ -78,7 +79,7 @@ export async function test_ttscgraph_native_responses_that_contradict_their_mode
     } catch (error) {
       failures.push(new Error(label, { cause: error }));
     } finally {
-      session.close();
+      await session.close();
     }
   }
 
@@ -86,12 +87,14 @@ export async function test_ttscgraph_native_responses_that_contradict_their_mode
     const { session, ports } = sessionState();
     try {
       const active = session.graph();
+      void active.catch(() => undefined);
       const port = await admitted(ports);
       session.receive(port.peer, { id: Number(port.writes[0]!.id), protocolVersion: 1, mode: "error", capabilities: [], changed: false, error: "boom" });
       await assert.rejects(active, /@ttsc\/graph: boom/);
       assert.equal(port.live, true);
       assert.deepEqual(port.retirement, []);
       const next = session.graph();
+      void next.catch(() => undefined);
       await admitted(ports, 2);
       assert.equal(ports.length, 1);
       session.receive(port.peer, emptyResponse(Number(port.writes[1]!.id)));
@@ -99,7 +102,7 @@ export async function test_ttscgraph_native_responses_that_contradict_their_mode
     } catch (error) {
       failures.push(new Error("native error reply", { cause: error }));
     } finally {
-      session.close();
+      await session.close();
     }
   }
   if (failures.length) throw new AggregateError(failures, "response semantics");

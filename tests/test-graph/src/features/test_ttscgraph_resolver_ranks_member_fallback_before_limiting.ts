@@ -17,7 +17,7 @@ import {
  * 2. Resolve the value-shaped handle `client.run`.
  * 3. Assert fallback returns the late exported method first within the cap.
  *
- * @evidence contracts/testing.md#behavioral-verification resolveGraphHandle asserts client.run recovers all matching members and ranks the late exported method first.
+ * @evidence contracts/testing.md#behavioral-verification resolveGraphHandle on client.run returns twelve candidates with the thirteenth authored exported method first, detecting a member search limited before ranking. It does not return every matching member.
  * @evidence contracts/testing.md#independent-expectations Runtime receiver spelling may recover member candidates without a receiver node; exported relevance supplies the winner.
  * @evidence contracts/testing.md#distinguishing-cases Thirteen owner-qualified methods with an absent client receiver distinguish final member fallback.
  * @evidence contracts/testing.md#execution-ownership The named exported src/features entry executes authored graph memory and resolver through the unit loader; no installed consumer, native producer or child process is used.

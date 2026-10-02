@@ -26,15 +26,17 @@ export async function test_ttscgraph_duplicate_native_config_universe_restarts_s
   const { session, ports } = sessionState();
   try {
     const active = session.graph();
+    void active.catch(() => undefined);
     const port = await admitted(ports);
     const snapshot = sessionTransaction("duplicateConfig");
     session.receive(port.peer, { id: Number(port.writes.at(-1)!.id), protocolVersion: 1, mode: "initial", changed: true, capabilities: [], snapshot });
     await assert.rejects(active, /config shard disagrees with universe input tsconfig\.json/);
     assertRetired(port);
     const recovered = session.graph();
+    void recovered.catch(() => undefined);
     const next = await admitted(ports);
     session.receive(next.peer, { id: Number(next.writes[0]!.id), protocolVersion: 1, mode: "initial", changed: true, capabilities: [], snapshot: sessionTransaction() });
     assert.deepEqual((await recovered).nodes, []);
     assert.equal(ports.length, 2);
-  } finally { session.close(); }
+  } finally { await session.close(); }
 }

@@ -24,11 +24,12 @@ export async function test_ttscgraph_rejects_schema_v5_snapshot(): Promise<void>
   const { session, ports } = fixture;
   try {
     const active = session.graph();
+    void active.catch(() => undefined);
     const port = await admitted(ports);
     const frame = emptyResponse(Number(port.writes[0]!.id));
     frame.dump!.provenance.schemaVersion = 5;
     session.receive(port.peer, frame);
     await assert.rejects(active, new RegExp(`ttscgraph sends dump schema v5, this client reads v${String(DUMP_SCHEMA_VERSION)}`));
     assertRetired(port);
-  } finally { session.close(); }
+  } finally { await session.close(); }
 }

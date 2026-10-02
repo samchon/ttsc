@@ -50,6 +50,9 @@ export function test_ttscgraph_view_payload_keeps_distinct_files_distinct(): voi
     });
     assert.equal(new Set(disjoint.nodes.map((n) => n.id)).size, 2);
     assert.equal(disjoint.links.length, 1);
+    assert.deepEqual(disjoint.links.map(({ source, target }) => [source, target]), [
+      ["/a/foo.ts#same:function", "/b/foo.ts#same:function"],
+    ]);
 
     const mixed = reduce({
       project: "mixed",
@@ -82,10 +85,21 @@ export function test_ttscgraph_view_payload_keeps_distinct_files_distinct(): voi
       ],
     });
     const files = mixed.nodes.map((n) => n.file);
+    assert.equal(mixed.nodes.length, 2, "both connected relative files survive");
     assert.equal(
       new Set(mixed.nodes.map((n) => n.id)).size,
       mixed.nodes.length,
       `viewer ids collided: ${JSON.stringify(files)}`,
     );
     assert.equal(mixed.links.length, 1);
+    assert.deepEqual(mixed.links.map(({ source, target }) => [source, target]), [
+      ["src/main.ts#main:function", "src/nested/main.ts#nested:function"],
+    ]);
+    for (const payload of [disjoint, mixed]) {
+      const ids = new Set(payload.nodes.map((node) => node.id));
+      for (const link of payload.links) {
+        assert.ok(ids.has(link.source));
+        assert.ok(ids.has(link.target));
+      }
+    }
 }

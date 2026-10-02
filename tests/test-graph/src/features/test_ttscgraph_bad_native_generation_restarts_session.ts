@@ -26,6 +26,7 @@ export async function test_ttscgraph_bad_native_generation_restarts_session(): P
   const { session, ports } = fixture;
   try {
     const active = session.graph();
+    void active.catch(() => undefined);
     const port = await admitted(ports);
     const snapshot = sessionTransaction();
     snapshot.generation = "wrong-generation";
@@ -34,9 +35,10 @@ export async function test_ttscgraph_bad_native_generation_restarts_session(): P
     assertRetired(port);
 
     const recovered = session.graph();
+    void recovered.catch(() => undefined);
     const next = await admitted(ports);
     session.receive(next.peer, emptyResponse(Number(next.writes[0]!.id)));
     assert.deepEqual((await recovered).nodes, []);
     assert.equal(ports.length, 2);
-  } finally { session.close(); }
+  } finally { await session.close(); }
 }

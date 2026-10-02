@@ -61,10 +61,6 @@ export function emptyResponse(id: number, changed = true): ITtscGraphSnapshot {
   return { id, protocolVersion: 1, mode: changed ? "initial" : "unchanged", capabilities: [], changed, ...(changed ? { dump } : {}) };
 }
 
-export function pendingCount(session: TtscGraphSessionState): number {
-  return (session as unknown as { pending: Map<number, unknown> }).pending.size;
-}
-
 /** Assert peer retirement exactly once, independent of kernel adapter coverage. */
 export function assertRetired(port: StatePort): void {
   assert.equal(port.live, false);

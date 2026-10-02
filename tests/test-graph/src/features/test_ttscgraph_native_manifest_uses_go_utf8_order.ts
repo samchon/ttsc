@@ -27,17 +27,19 @@ export async function test_ttscgraph_native_manifest_uses_go_utf8_order(): Promi
     const { session, ports } = sessionState();
     try {
       const active = session.graph();
+      void active.catch(() => undefined);
       const port = await admitted(ports);
       const snapshot = sessionTransaction("unicode");
       assert.deepEqual(snapshot.manifest.map((item) => item.key), ["0:metadata:", "0:metadata:\u{10000}"]);
       session.receive(port.peer, { id: Number(port.writes[0]!.id), protocolVersion: 1, mode: "initial", changed: true, capabilities: [], snapshot });
       assert.deepEqual((await active).nodes, []);
-    } finally { session.close(); }
+    } finally { await session.close(); }
   }
   {
     const { session, ports } = sessionState();
     try {
       const active = session.graph();
+      void active.catch(() => undefined);
       const port = await admitted(ports);
       const snapshot = sessionTransaction("unicode");
       snapshot.manifest.reverse();
@@ -45,6 +47,6 @@ export async function test_ttscgraph_native_manifest_uses_go_utf8_order(): Promi
       session.receive(port.peer, { id: Number(port.writes[0]!.id), protocolVersion: 1, mode: "initial", changed: true, capabilities: [], snapshot });
       await assert.rejects(active, /manifest must be strictly key-sorted/);
       assertRetired(port);
-    } finally { session.close(); }
+    } finally { await session.close(); }
   }
 }

@@ -24,6 +24,7 @@ export async function test_ttscgraph_exited_native_child_restarts_session(): Pro
   const { session, ports } = fixture;
   try {
     const active = session.graph();
+    void active.catch(() => undefined);
     const port = await admitted(ports);
     port.live = false;
     port.events.exit(17, null);
@@ -31,6 +32,7 @@ export async function test_ttscgraph_exited_native_child_restarts_session(): Pro
     assert.deepEqual(port.retirement, [false, true]);
 
     const recovered = session.graph();
+    void recovered.catch(() => undefined);
     const next = await admitted(ports);
     session.receive(next.peer, emptyResponse(Number(next.writes[0]!.id)));
     assert.deepEqual((await recovered).nodes, []);
