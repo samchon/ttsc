@@ -20,10 +20,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#clear-and-simple-design One child supplies the payload, while the kind delegates brace emission to the printer without storing another type string.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper retains the supplied type rather than inserting an expected braced answer or altering foreign type nodes.
  * @evidence contracts/common.md#meaningful-documentation Native prose states brace output, supported JSDoc children and caller-owned contextual validity with an example; prose and native tags remain separated under the documentation guidance.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  * @author Jeongho Nam - https://github.com/samchon
  * @param type The wrapped type.
  * @returns The created {@link JSDocTypeExpression}.

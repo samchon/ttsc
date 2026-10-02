@@ -21,10 +21,6 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * @evidence contracts/common.md#clear-and-simple-design A single binary-builder call owns operator selection, reusing the common comparison outline.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The greater-than token is the requested relation, not a guessed ordering result or consumer-specific branch.
  * @evidence contracts/common.md#meaningful-documentation Native prose names the comparison and operand positions, with expression example and tags separated following documentation guidance. The sentence on keeping the right operand on the operator line states the layout limit.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param left The left-hand operand.

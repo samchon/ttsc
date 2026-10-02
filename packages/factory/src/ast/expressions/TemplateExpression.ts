@@ -14,10 +14,6 @@ import type { TemplateSpan } from "./TemplateSpan";
  * @evidence contracts/common.md#clear-and-simple-design Head and span sequence reuse the three literal chunk forms instead of flattening expressions into source text.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Substitutions remain expression nodes rather than known interpolated answers or patched literal strings.
  * @evidence contracts/common.md#meaningful-documentation Native prose states nonempty and terminal-tail requirements; member comments describe sequence roles, separated from tags under documentation guidance.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  */

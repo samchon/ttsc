@@ -18,10 +18,6 @@ import { createIdentifier } from "../names/createIdentifier";
  * @evidence contracts/common.md#clear-and-simple-design The adapter exposes name defaulting directly and stores no duplicate private modifier or access-checking layer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The private spelling is annotation syntax, not an API blacklist or a mutation of foreign declaration accessibility.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the default and optional description, with a bare-tag example and distinct paragraphs under the documentation guidance.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `private`.
  * @param comment The trailing comment, if any.

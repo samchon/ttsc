@@ -13,10 +13,6 @@ import type { Expression } from "./Expression";
  * @evidence contracts/common.md#clear-and-simple-design One operand describes the list entry; the enclosing call or array owns expansion position and separators.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Expansion is not replaced with elements enumerated from a known fixture or a patched iterator.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains expansion versus assignment-rest use and validation limits; member comments and tags remain distinct under documentation guidance.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  */

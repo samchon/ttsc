@@ -28,10 +28,6 @@ import { createIdentifier } from "../names/createIdentifier";
  * @evidence contracts/common.md#clear-and-simple-design The reference wrapper owns target syntax; this adapter only supplies the tag heading and description without another lookup or name representation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts See is a supported spelling default, while reference targets remain supplied rather than guessed documentation destinations or consumer-specific lookup fallbacks.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains omitted-name output and unresolved references with a named-tag example; paragraph and parameter-tag separation follows the documentation guidance.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name; defaults to `see`.
  * @param nameExpression The referenced name, if any.

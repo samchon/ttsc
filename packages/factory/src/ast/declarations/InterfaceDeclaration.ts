@@ -13,10 +13,6 @@ import type { TypeParameterDeclaration } from "../types/TypeParameterDeclaration
  * @evidence contracts/common.md#clear-and-simple-design Header clauses and member sequence have separate fields, sharing the common type-element and heritage representations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Interface names and bases are caller data rather than fixture-specific compatibility declarations.
  * @evidence contracts/common.md#meaningful-documentation JSDoc identifies interfaces and comments distinguish extends-only heritage intent and member order; spacing follows the documentation skill.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  */

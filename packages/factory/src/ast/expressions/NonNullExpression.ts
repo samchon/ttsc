@@ -12,10 +12,6 @@ import type { Expression } from "./Expression";
  * @evidence contracts/common.md#clear-and-simple-design The operand remains a reusable expression subtree rather than adding a second representation for asserted values.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The assertion is supplied syntax rather than a default value or patched null-check result.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains the chain distinction and runtime limitation, separated from member comments and acknowledgment tags according to documentation guidance.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  */

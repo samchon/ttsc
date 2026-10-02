@@ -24,10 +24,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#clear-and-simple-design Direct payload assignments expose that the caller owns spelling; no default-name branch or exception-flow state is needed.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failure syntax is supplied data rather than an injected expected error, fixture-specific exception path or patched foreign throw handler.
  * @evidence contracts/common.md#meaningful-documentation Native prose and parameters identify caller-owned tag naming and the optional error type with an example; paragraph and native-tag separation follows the documentation guidance.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  * @author Jeongho Nam - https://github.com/samchon
  * @param tagName The tag name.
  * @param typeExpression The type expression, if any.

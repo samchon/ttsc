@@ -17,10 +17,6 @@ import type { TypeParameterDeclaration } from "./TypeParameterDeclaration";
  * @evidence contracts/common.md#clear-and-simple-design Distinct fields separate key iteration, remapping, value and modifier presence without storing evaluated mappings.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Key and value types are supplied syntax, with no consumer-specific mapped results or foreign mutation.
  * @evidence contracts/common.md#meaningful-documentation JSDoc explains modifier tokens and the grammar limitation of additional members; member comments and paragraphs follow the documentation skill.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  */

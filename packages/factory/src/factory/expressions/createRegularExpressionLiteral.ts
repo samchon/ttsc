@@ -18,10 +18,6 @@ import { make } from "../internal/make";
  * @evidence contracts/common.md#clear-and-simple-design One make call stores lexical text without parsing it into a redundant runtime RegExp or separate flag schema.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The source comes from the caller rather than a known fixture matcher or a post-print escape patch.
  * @evidence contracts/common.md#meaningful-documentation Native prose states delimiters, flags and absent validation/escaping; the expression example and tag block are separated under documentation guidance.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param text The full regex literal source, including delimiters and flags.

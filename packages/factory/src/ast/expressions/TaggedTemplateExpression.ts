@@ -15,10 +15,6 @@ import type { TemplateLiteral } from "./TemplateLiteral";
  * @evidence contracts/common.md#clear-and-simple-design One tag and one reused template representation avoid duplicating literal spans or modeling a tagged template as a normal call argument list.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The tag and raw spelling remain explicit syntax rather than fabricated invocation results or patched template output.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains generic placement and the significance of raw spelling; field roles and acknowledgment tags use separate documentation blocks.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  */

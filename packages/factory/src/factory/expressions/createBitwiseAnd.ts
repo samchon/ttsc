@@ -18,10 +18,6 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * @evidence contracts/common.md#clear-and-simple-design One operator-specific delegation reuses the binary node constructor and its operand representation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The fixed ampersand is the helper's operation, not a mask chosen from known consumer inputs.
  * @evidence contracts/common.md#meaningful-documentation JSDoc identifies bitwise AND, operand roles and the printed expression; prose and tags are separate following documentation guidance.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned node belongs to the caller; the builder retains no state, handle or task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one node from its arguments in constant work; no algorithm is chosen.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh node; nothing is computed that another request could share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory node construction; no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  * @param left The left-hand operand.

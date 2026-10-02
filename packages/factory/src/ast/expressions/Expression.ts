@@ -55,10 +55,6 @@ import type { YieldExpression } from "./YieldExpression";
  * @evidence contracts/common.md#clear-and-simple-design Concrete node types supply their own constituents while one shared union enables recursive operands without a base object carrying unrelated optional fields.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Named variants preserve real outline structure rather than replacing unknown expressions with a consumer-specific catch-all payload.
  * @evidence contracts/common.md#meaningful-documentation Native prose states context sensitivity, assignment-target limits and acyclic ownership; the tag block is distinct under the documentation skill.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  *
  * @author Jeongho Nam - https://github.com/samchon
  */

@@ -18,10 +18,6 @@
  * @evidence contracts/common.md#clear-and-simple-design A compact recursive document language keeps syntax emission independent of width layout; group state is explicit instead of hidden in printer-global flags.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Raw fragments and line modes represent source semantics and layout obligations directly, without fixture-dependent instructions or an external formatter patch.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe internal ownership, instruction meanings and mutable break propagation, using the documentation skill's distinct-idea separation before tags.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  */
 export type Doc =
   | string
@@ -43,10 +39,6 @@ export type Doc =
  * @evidence contracts/common.md#clear-and-simple-design One instruction record expresses ordered composition; flattening belongs to the document interpreter rather than this builder.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The result represents every supplied part uniformly and introduces no answer-specific literal or patched formatter state.
  * @evidence contracts/common.md#meaningful-documentation Prose states ordering and retained-array ownership in separate paragraphs before tags, following the documentation skill.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned document belongs to the caller; the builder retains no state, handle or task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one document record in constant work; no algorithm is chosen.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh document; nothing is computed that another request could share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory document construction; no filesystem, path or process boundary.
  */
 export const concat = (parts: Doc[]): Doc => ({ type: "concat", parts });
 /**
@@ -62,10 +54,6 @@ export const concat = (parts: Doc[]): Doc => ({ type: "concat", parts });
  * @evidence contracts/common.md#clear-and-simple-design Rawness is one explicit instruction kind interpreted at the shared layout boundary, not an independent JSX formatter pipeline.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The raw branch preserves the supported JSX text contract for arbitrary content; it is not a fixture-specific whitespace exception.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why unquoted JSX whitespace differs from ordinary layout, with a blank comment line before tags as required by the documentation skill.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned document belongs to the caller; the builder retains no state, handle or task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one document record in constant work; no algorithm is chosen.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh document; nothing is computed that another request could share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory document construction; no filesystem, path or process boundary.
  */
 export const raw = (text: string): Doc => ({ type: "raw", text });
 /**
@@ -78,10 +66,6 @@ export const raw = (text: string): Doc => ({ type: "raw", text });
  * @evidence contracts/common.md#clear-and-simple-design One group instruction carries its child and break flag, leaving fit analysis and inherited break propagation to the layout owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Forced breaks are explicit caller layout intent, not consumer names or patched external printer behavior.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains fit behavior and mutable forced-break propagation in separate paragraphs before tags, applying the documentation skill.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned document belongs to the caller; the builder retains no state, handle or task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one document record in constant work; no algorithm is chosen.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh document; nothing is computed that another request could share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory document construction; no filesystem, path or process boundary.
  */
 export const group = (doc: Doc, shouldBreak: boolean = false): Doc => ({
   type: "group",
@@ -98,10 +82,6 @@ export const group = (doc: Doc, shouldBreak: boolean = false): Doc => ({
  * @evidence contracts/common.md#clear-and-simple-design Nesting is represented by one wrapper instead of precomputed whitespace duplicated through each child.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The extra level uses the configured indentation unit uniformly and does not special-case generated names or expected output.
  * @evidence contracts/common.md#meaningful-documentation The comment distinguishes line-break indentation from inline text padding, with separate paragraphs and native tags under the documentation skill.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned document belongs to the caller; the builder retains no state, handle or task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one document record in constant work; no algorithm is chosen.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh document; nothing is computed that another request could share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory document construction; no filesystem, path or process boundary.
  */
 export const indent = (doc: Doc): Doc => ({ type: "indent", doc });
 /** A space when flat, a newline when broken. */
@@ -120,10 +100,6 @@ export const hardline: Doc = { type: "hardline" };
  * @evidence contracts/common.md#clear-and-simple-design A single conditional instruction keeps width-dependent alternatives adjacent without duplicating the surrounding document structure.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Mode selection implements an explicit layout decision and does not infer behavior from consumer identity or rewrite foreign state.
  * @evidence contracts/common.md#meaningful-documentation Prose explains the empty default and nested instruction interpretation in separate paragraphs, following the documentation skill's useful detail and tag separation.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned document belongs to the caller; the builder retains no state, handle or task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms Builds one document record in constant work; no algorithm is chosen.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh document; nothing is computed that another request could share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory document construction; no filesystem, path or process boundary.
  */
 export const ifBreak = (broken: Doc, flat: Doc = ""): Doc => ({
   type: "ifBreak",
@@ -140,10 +116,6 @@ export const ifBreak = (broken: Doc, flat: Doc = ""): Doc => ({
  * @evidence contracts/common.md#clear-and-simple-design One shared interleaving operation owns sequence punctuation for printer lists, with composition delegated to concat.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Empty and singleton behavior follows the generic adjacency rule rather than example-specific output branches.
  * @evidence contracts/common.md#meaningful-documentation Native prose states ordering and separator boundaries, with separate paragraphs before acknowledgments as required by the documentation skill.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned document belongs to the caller; the builder retains no state, handle or task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms One linear pass over the items; interleaving has no alternative algorithm.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call builds a fresh document; nothing is computed that another request could share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Pure in-memory document construction; no filesystem, path or process boundary.
  */
 export const join = (separator: Doc, items: Doc[]): Doc => {
   const parts: Doc[] = [];
@@ -242,10 +214,6 @@ const fits = (next: Cmd, rest: readonly Cmd[], remaining: number): boolean => {
  * @evidence contracts/common.md#clear-and-simple-design The three settings match the document interpreter's actual inputs directly, without optional policy layers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit caller settings determine layout uniformly; the type carries no fixture mode or platform-name shortcut.
  * @evidence contracts/common.md#meaningful-documentation Type prose and separated member comments explain units and literal string responsibilities, applying the documentation skill's clarity and member separation.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition owns no retained state, handle or running task.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition selects no algorithm or data structure for a computation.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition coordinates no computation across requests or consumers.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation A syntax type; it names no filesystem, path or process boundary.
  */
 export interface PrintDocOptions {
   /** String-unit budget for choosing flat group layout. */
@@ -269,10 +237,6 @@ export interface PrintDocOptions {
  * @evidence contracts/common.md#clear-and-simple-design Propagation, fit lookahead and output interpretation have separate helpers over one document language; all width and indentation state is local to a call.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Raw-fragment preservation implements literal-source meaning through an explicit instruction; no expected-output lookup or patched formatter decides breaks.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs identify persistent group-flag mutation and ordinary versus raw whitespace effects, with prose and tags separated under the documentation skill.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The command stack and output fragments are local to the call and released on return; the only retained effect is the break flag set on groups of the supplied document.
- * @evidence contracts/performance.md#efficient-algorithms Layout is one pass over an explicit command stack with break propagation visiting each node once; each group fit check scans ahead to the first line break in break mode, so a long run without breaks can cost more than linear.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work One synchronous layout of the caller's document; nothing is shared across calls.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation String layout over an in-memory document; the newline text is an option and no filesystem or process boundary is touched.
  */
 export const printDocToString = (
   doc: Doc,
