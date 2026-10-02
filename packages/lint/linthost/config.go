@@ -843,10 +843,10 @@ func (s *ConfigStore) flattenOptions() RuleOptionsMap {
   return options
 }
 
-// RuleOptionsVariants exposes every entry-local payload (including a nil
-// severity-only declaration) so engine construction validates the full
-// files/extends surface rather than whichever tuple happened to be parsed
-// last.
+// RuleOptionsVariants exposes each non-ignore entry's declared payload,
+// including nil for a severity-only declaration. Engine construction can check
+// all files/extends variants through the rule's supported validation capability
+// rather than selecting only the last parsed tuple.
 // Returned payloads are independent byte copies; nil marks a severity-only declaration.
 //
 // @evidence contracts/common.md#principled-implementation Every non-ignore entry declaring the canonical name contributes its own payload, including nil, so eager validation does not skip scoped variants.
@@ -854,9 +854,9 @@ func (s *ConfigStore) flattenOptions() RuleOptionsMap {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Variant enumeration uses declared settings, not which examples happened to execute a rule.
 // @evidence contracts/common.md#meaningful-documentation Native prose states full declaration population, severity-only nil and independent byte ownership before tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation RuleOptionsVariants selects option bytes by rule name and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms One pass over the entries collecting a copy of each declared variant, O(entries).
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleOptionsVariants keeps no cache; every call reads the store's entries.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Each variant is copied so the caller cannot mutate store memory; no handle or task is acquired.
+// @evidence contracts/performance.md#efficient-algorithms One pass over e entries probes the canonical name and copies b bytes across v declared variants, O(e) map probes plus name hashing and b copy work, with O(v+b) result storage. The declaration list is the source of truth, so eager discovery must inspect entries even when their file selectors differ.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This projection owns no shared producer or invalidation identity. Engine construction separately deduplicates identical payload bytes before invoking supported validation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned slice and nonempty payload copies belong to the caller; nil payloads carry no bytes. This call retains no historical result, handle or task in the store.
 func (s *ConfigStore) RuleOptionsVariants(name string) []json.RawMessage {
   if s == nil {
     return nil
