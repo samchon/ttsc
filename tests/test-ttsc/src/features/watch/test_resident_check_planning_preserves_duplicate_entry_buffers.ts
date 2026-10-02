@@ -16,10 +16,11 @@ import { takeResidentCheckEntryRequest } from "../../../../../packages/ttsc/src/
  *    the second entry ran).
  * 3. Buffer the next cycle and require the deferred entry to retain both
  *    transitions while the first entry receives only the new transition.
+ * 4. Contrast nonresident and transform entries with empty/singleton plans.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls planResidentCheckEntries, bufferResidentCheckEntryRequests and takeResidentCheckEntryRequest to preserve separate entry positions and change delivery despite equal process keys.
  * @evidence contracts/testing.md#independent-expectations Literal initial/next path lists establish exactly what each independently indexed entry receives. Duplicate-path union, sticky invalidation and compiler-argument key differences follow the delivery/process-identity contract rather than mirroring key construction.
- * @evidence contracts/testing.md#distinguishing-cases Two identical entries share a key but retain independent pending deltas when the first consumes early. Later cycles accumulate only for the deferred entry, consumption releases both slots, missing consumption rejects, duplicate changes deduplicate, and false cannot clear prior invalidation.
+ * @evidence contracts/testing.md#distinguishing-cases Duplicate entries share a key but retain separate pending deltas; consumption releases only its slot, missing consumption rejects, duplicate paths collapse and invalidation stays sticky. Transform entries are filtered; nonresident check entries retain their position and args but acquire no delivery slot. Empty and singleton plans and changed binary/name/argv/compiler payload contrast startup identities.
  * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it uses a synthetic plugin description and a local pending map to call planResidentCheckEntries, bufferResidentCheckEntryRequests and takeResidentCheckEntryRequest. No resident process, native binary or file is involved.
  */
 export const test_resident_check_planning_preserves_duplicate_entry_buffers =
@@ -92,5 +93,42 @@ export const test_resident_check_planning_preserves_duplicate_entry_buffers =
       planResidentCheckEntries([plugin], () => [...args], '["--strict"]')[0]!.key,
       planResidentCheckEntries([plugin], () => [...args], '["--strict","false"]')[0]!.key,
       "forwarded compiler payload participates in process identity",
+    );
+    assert.deepEqual(planResidentCheckEntries([], () => []), []);
+    const nonresident = {
+      ...plugin,
+      capabilities: { residentCheck: false },
+    };
+    const selected = planResidentCheckEntries(
+      [{ ...plugin, stage: "transform" }, nonresident, plugin],
+      () => [...args],
+    );
+    assert.deepEqual(selected.map((entry) => entry.entryIndex), [0, 1]);
+    assert.equal(selected[0]!.plugin, nonresident);
+    assert.equal(selected[1]!.plugin, plugin);
+    assert.deepEqual(selected[0]!.args, args);
+    assert.equal(selected[0]!.key, undefined);
+    assert.equal(selected[1]!.key, checks[0]!.key);
+    const isolated: Parameters<typeof bufferResidentCheckEntryRequests>[0] =
+      new Map();
+    bufferResidentCheckEntryRequests(isolated, selected, {});
+    assert.deepEqual([...isolated.keys()], [1]);
+    assert.deepEqual(takeResidentCheckEntryRequest(isolated, 1), {});
+    assert.equal(isolated.size, 0);
+    const singleton = planResidentCheckEntries([plugin], () => [...args]);
+    assert.equal(singleton.length, 1);
+    assert.equal(singleton[0]!.entryIndex, 0);
+    assert.equal(singleton[0]!.key, checks[0]!.key);
+    for (const candidate of [
+      { ...plugin, binary: "/virtual/other-plugin" },
+      { ...plugin, name: "other-plugin" },
+    ])
+      assert.notEqual(
+        planResidentCheckEntries([candidate], () => [...args])[0]!.key,
+        checks[0]!.key,
+      );
+    assert.notEqual(
+      planResidentCheckEntries([plugin], () => [...args, "--fix"])[0]!.key,
+      checks[0]!.key,
     );
   };
