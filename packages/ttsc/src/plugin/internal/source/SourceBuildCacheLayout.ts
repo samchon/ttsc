@@ -14,10 +14,11 @@ import { prunePluginCacheRoot } from "./prunePluginCacheRoot";
  *
  * The default cache lives inside the workspace, at
  * `<workspaceRoot>/node_modules/.cache/ttsc`, so removing `node_modules` (or
- * the repository) reclaims every compiled plugin binary and Go object file.
+ * the repository) reclaims the binaries and default Go objects stored there.
+ * Dedicated or caller-owned Go cache overrides can live elsewhere.
  * This is the `find-cache-dir` convention (Babel, webpack, ESLint, Nuxt): a
  * disposable build cache under `node_modules/.cache/<tool>`. ttsc keeps no
- * global (`~/.cache`) cache, because a machine-wide one would grow across tsgo
+ * automatic global (`~/.cache`) cache, because a machine-wide one would grow across tsgo
  * and plugin version bumps without an owner to reclaim it. See
  * `resolveSourceBuildCachePaths` for the override-then-workspace priority.
  *
@@ -78,14 +79,15 @@ export namespace SourceBuildCacheLayout {
    * Run the opportunistic pruning of the plugin cache, of ttsc's Go object
    * cache, and of the single-file caches (`CACHE_FILE_DIRNAMES`), but only for
    * the default workspace-local location. A root the caller named through
-   * `cacheDir` or `TTSC_CACHE_DIR` is theirs, and ttsc never deletes from it.
+   * `cacheDir` or `TTSC_CACHE_DIR` is theirs, and this opportunistic maintenance
+   * skips it. Explicit clean requests follow the separate cleanup contract.
    *
    * @evidence contracts/common.md#principled-implementation Pruning is admitted only for an unoverridden workspace root, and Go objects are admitted only when their provenance is ttsc-cache.
    * @evidence contracts/common.md#clear-and-simple-design This ownership gate dispatches to dedicated binary, object and file collectors without duplicating their eviction policy.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Effective environment injection is a supported host boundary; explicit user-owned roots are deliberately protected.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain default-root ownership and why overrides suppress maintenance; prose and tags are visibly separated.
    * @evidence contracts/portability.md#os-neutral-implementation The gate reads injected environment values with Windows case-insensitive names and uses path-aware collector APIs without separator assumptions.
-   * @evidence contracts/performance.md#efficient-algorithms The ownership check is constant work; admitted collectors perform full size and age scans whose cost depends on retained entries.
+   * @evidence contracts/performance.md#efficient-algorithms A fixed ownership branch reads the injected environment; Windows name matching scans its keys and text. Admitted collectors perform size and age scans whose cost depends on retained entries.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This dispatch does not produce or validate a reusable computation result.
    *
@@ -228,14 +230,17 @@ export namespace SourceBuildCacheLayout {
 
   /**
    * The millisecond timestamp a metadata file records, falling back to its
-   * mtime when its content is not a number; `null` when it cannot be read.
+   * mtime when content reading fails or trimmed content is empty or nonfinite.
+   * Returns `null` only when content supplies no timestamp and stat also fails.
+   * Numeric text uses JavaScript Number conversion, without an integer, range
+   * or decimal-only admission rule.
    *
-   * @evidence contracts/common.md#principled-implementation Nonempty finite numeric content supplies milliseconds; blank or invalid metadata falls back to file mtime, while inaccessible metadata yields null.
+   * @evidence contracts/common.md#principled-implementation Nonempty finite Number-convertible text supplies the timestamp; failed content reads, blank text and nonfinite values fall back to native mtime, and only failed stat after that absence yields null. This reader does not validate chronology or impose a numeric range.
    * @evidence contracts/common.md#clear-and-simple-design Content parsing and metadata fallback are two explicit stages with one nullable result.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Number parsing observes actual stored metadata; no known timestamps or cache keys receive special treatment.
    * @evidence contracts/common.md#meaningful-documentation Native documentation states timestamp units, the fallback and the unavailable outcome, separated from tags.
    * @evidence contracts/portability.md#os-neutral-implementation Node reads UTF-8 metadata and exposes mtimeMs consistently; no native date string or filesystem case convention is assumed.
-   * @evidence contracts/performance.md#efficient-algorithms Parsing costs O(metadata bytes), followed by at most one stat; callers write small timestamp records.
+   * @evidence contracts/performance.md#efficient-algorithms The synchronous read decodes the complete metadata, then trimming and Number conversion inspect its text, with temporary storage proportional to read bytes/text and at most one fallback stat. Supplied path work and native reads are additional costs; the reader enforces no metadata-size cap.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Current timestamps change on hits and maintenance, so this reader does not cache its answer.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous reads leave no retained handle or history.
@@ -263,14 +268,14 @@ export namespace SourceBuildCacheLayout {
    *
    * @evidence contracts/common.md#principled-implementation An exclusive sibling staging file is renamed over the target entry, preserving complete publication and avoiding writes through the old inode's aliases.
    * @evidence contracts/common.md#clear-and-simple-design Creation, publication and unconditional staging cleanup are contained in one try/finally.
-   * @evidence contracts/common.md#prohibited-implementation-shortcuts Random sibling names prevent collisions between actual concurrent publishers; errors are not converted into fabricated successful metadata.
+   * @evidence contracts/common.md#prohibited-implementation-shortcuts Process identity and random bytes give independent sibling-name candidates, with exclusive creation refusing an occupied candidate; this is not a proof that names can never collide. Publication errors propagate rather than fabricate successful metadata.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish terminal-entry replacement from parent ownership, and inline prose explains why rename avoids alias mutation.
    * @evidence contracts/portability.md#os-neutral-implementation Same-directory rename and exclusive creation use Node's native semantics; failure on locked Windows entries propagates to the owner's policy.
-   * @evidence contracts/performance.md#efficient-algorithms One contents write, one rename and one cleanup cost O(contents bytes), without copying the existing entry.
+   * @evidence contracts/performance.md#efficient-algorithms One contents write, one rename and one cleanup include supplied path/name and contents text work, plus fixed-size random sibling-name generation and native filesystem operations. The existing entry's contents are not copied.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each publication changes filesystem state and cannot be shared by equal return values.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The temporary file is removed in finally after success or failure; cleanup errors may leave a staging entry for the owning cache collector.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Finally attempts removal of the staging candidate after success or failure, without retaining a handle or history. This assumes that independently chosen candidate belongs to this publication; cleanup errors can leave it for the owning cache collector, and no numeric bound on failed leftovers is established here.
    */
   export function replaceCacheMetadataFile(
     file: string,
