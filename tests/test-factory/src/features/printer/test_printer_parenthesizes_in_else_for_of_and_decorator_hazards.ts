@@ -8,7 +8,7 @@ import factory, {
   TsPrinter,
 } from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
-import { parseClean } from "../../internal/oracle";
+import { parseClean, shapeOf } from "../../internal/oracle";
 
 const f = factory;
 
@@ -22,24 +22,6 @@ interface Case {
   /** Whether the outer if and its innermost then-branch if carry an else. */
   elses?: [boolean, boolean];
 }
-
-/**
- * Kind names of a parsed node and its children, parentheses kept. Operator
- * tokens print as `[text]` and a numeric literal as its own name, because
- * several kinds share one numeric alias.
- */
-const shapeOf = (node: ts.Node): string => {
-  const children: string[] = [];
-  node.forEachChild((child) => void children.push(shapeOf(child)));
-  const punctuation: string | undefined =
-    node.kind >= ts.SyntaxKind.FirstPunctuation &&
-    node.kind <= ts.SyntaxKind.LastPunctuation
-      ? ts.tokenToString(node.kind)
-      : undefined;
-  const name: string =
-    punctuation !== undefined ? `[${punctuation}]` : ts.SyntaxKind[node.kind]!;
-  return children.length === 0 ? name : `${name}(${children.join(",")})`;
-};
 
 /** The innermost `if` statement under `node`, descending through every child. */
 const innermostIf = (node: ts.Node): ts.IfStatement | undefined => {
@@ -84,7 +66,7 @@ const forInit = (initializer: ReturnType<typeof inExpression> | Node) =>
  *    label around one, with an unbraced and a braced then-branch, and the
  *    neighbors that need no block.
  * 3. Print a `for...of` over a comma list, a decorator on an element access, and
- *    `>`, `>>` and neighbors at a width where other operators break.
+ *    `>`, `>>` and neighbors at a width where other operators break. The `<` comparisons that need parentheses to avoid a type-argument reading are owned by test_printer_keeps_less_than_comparisons_from_reading_as_type_arguments.
  *
  * @evidence contracts/testing.md#behavioral-verification Prints each tree with TsPrinter and requires the exact authored text; the else cases additionally parse the text and require the innermost `if` to carry no `else`, so the printed braces provably keep the else on the outer statement.
  * @evidence contracts/testing.md#independent-expectations The literals follow the ECMAScript grammar (the `[~In]` initializer, the dangling-else rule, `for (x of AssignmentExpression)`, a decorator's parenthesized member expression, which forbids `@d[e]`); each is parsed by the pinned legacy parser and its tree compared with an authored kind outline, so the oracle is the grammar and not the printer's own text. The legacy printer is not used because it prints the same trees with the hazards unprotected.
@@ -257,8 +239,8 @@ export const test_printer_parenthesizes_in_else_for_of_and_decorator_hazards =
           "ClassDeclaration(Decorator(ParenthesizedExpression(ElementAccessExpression(Identifier,Identifier))),Identifier)",
       },
       {
-        name: "a relational chain keeps the parentheses under >",
-        text: "(a < b) > c;",
+        name: "a relational chain needs no parentheses when the right operand is a plain identifier",
+        text: "a < b > c;",
         tree: () =>
           f.createExpressionStatement(
             f.createBinaryExpression(
@@ -268,7 +250,7 @@ export const test_printer_parenthesizes_in_else_for_of_and_decorator_hazards =
             ),
           ),
         shape:
-          "ExpressionStatement(BinaryExpression(ParenthesizedExpression(BinaryExpression(Identifier,[<],Identifier)),[>],Identifier))",
+          "ExpressionStatement(BinaryExpression(BinaryExpression(Identifier,[<],Identifier),[>],Identifier))",
       },
     ];
 
