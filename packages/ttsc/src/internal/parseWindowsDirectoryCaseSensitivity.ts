@@ -16,9 +16,9 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No locale-specific expected text is fabricated; absent baseline framing remains undefined, while the successful-query premise is explicit rather than applied to arbitrary output.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe locale handling, successful-query inputs and the disabled-root assumption, with the acknowledgment block separated.
  * @evidence contracts/portability.md#os-neutral-implementation Windows-specific query interpretation remains isolated; comparing native output bytes avoids assuming UTF-8 decoding preserves localized fsutil suffixes, while volume-root framing remains a stated boundary assumption.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only slices of the supplied buffers are used during the call; the result is one boolean.
- * @evidenceExclude contracts/performance.md#efficient-algorithms Scans the two supplied buffers a constant number of times (one regex test, one lastIndexOf, one byte comparison), linear in their size.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure function of its three arguments; it keeps nothing a later call could reuse.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Decoded text, encoded root bytes and views of the supplied buffers are invocation-local; returning a boolean or undefined retains none of them and acquires no native handle or historical cache.
+ * @evidence contracts/performance.md#efficient-algorithms UTF-8 decoding precedes up to two English-word regex scans. The fallback encodes the root, searches the volume buffer for those bytes and compares one suffix view. Work and temporary storage depend on response/root lengths and byte-search implementation; inputs have no size cap here, and no locale dictionary or recursive lookup is built.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This byte interpreter owns no native-query producer or mutable directory observations to coordinate. The caller supplies current query bytes and any reusable disabled-root baseline; the parser adds no authority cache.
  */
 export function parseWindowsDirectoryCaseSensitivity(
   directoryOutput: Buffer,
