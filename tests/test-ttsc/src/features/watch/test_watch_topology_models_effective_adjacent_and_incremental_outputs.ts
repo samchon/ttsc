@@ -25,7 +25,7 @@ const membership = new Map<string, string[]>();
  *
  * 1. Author effective flag, build-info, alias, JSX and external JavaScript
  *    memberships.
- * 2. Deliver changed output and non-output twins through the recorded physical
+ * 2. Deliver changed output and non-output twins through the recorded source
  *    subscriptions.
  * 3. Retain every original project-lane report and quiet-output assertion.
  *
@@ -36,6 +36,7 @@ const membership = new Map<string, string[]>();
  */
 export const test_watch_topology_models_effective_adjacent_and_incremental_outputs =
   async (): Promise<void> => {
+    const failures: unknown[] = [];
     const root = TestProject.physicalPath(
       TestProject.tmpdir("ttsc-effective-watch-outputs-"),
     );
@@ -64,6 +65,8 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       fs.writeFileSync(declaration, "export declare const external: 1;\n");
       notify(adjacent, declaration);
       await waitForProjectChange(adjacentChanges, previous);
+    } catch (error) {
+      failures.push(new Error("adjacent positional output", { cause: error }));
     } finally {
       adjacent.close();
     }
@@ -81,6 +84,8 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       fs.writeFileSync(buildInfo, "{}\n", "utf8");
       notify(incremental, buildInfo);
       await expectProjectQuiet(incrementalChanges);
+    } catch (error) {
+      failures.push(new Error("incremental noEmit", { cause: error }));
     } finally {
       incremental.close();
     }
@@ -106,6 +111,8 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       );
       notify(declaration, path.join(root, "types", "main.d.ts"));
       await expectProjectQuiet(declarationChanges);
+    } catch (error) {
+      failures.push(new Error("declaration aliases", { cause: error }));
     } finally {
       declaration.close();
     }
@@ -142,6 +149,8 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       );
       notify(declarationDisabled, disabledDeclaration);
       await waitForProjectChange(declarationDisabledChanges, previous);
+    } catch (error) {
+      failures.push(new Error("declaration disabled", { cause: error }));
     } finally {
       declarationDisabled.close();
     }
@@ -182,6 +191,8 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       );
       notify(declarationOnly, javascriptOutput);
       await waitForProjectChange(declarationOnlyChanges, previous);
+    } catch (error) {
+      failures.push(new Error("declaration-only", { cause: error }));
     } finally {
       declarationOnly.close();
     }
@@ -224,7 +235,9 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       fs.mkdirSync(path.dirname(launcherOutput), { recursive: true });
       fs.writeFileSync(launcherOutput, "export const value = 1;\n", "utf8");
       notify(outDir, launcherOutput);
-      await expectProjectQuiet(outDirChanges);
+      await expectProjectQuiet(outDirChanges, 1);
+    } catch (error) {
+      failures.push(new Error("positional outDir", { cause: error }));
     } finally {
       outDir.close();
     }
@@ -255,6 +268,8 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       fs.writeFileSync(jsxOutput, "export const external = <div />;\n", "utf8");
       notify(jsx, jsxOutput);
       await waitForProjectChange(jsxChanges, previous);
+    } catch (error) {
+      failures.push(new Error("React Native JSX", { cause: error }));
     } finally {
       jsx.close();
     }
@@ -294,9 +309,15 @@ export const test_watch_topology_models_effective_adjacent_and_incremental_outpu
       );
       notify(externalDeclaration, declarationOutput);
       await expectProjectQuiet(externalDeclarationChanges);
+    } catch (error) {
+      failures.push(
+        new Error("external JavaScript declaration", { cause: error }),
+      );
     } finally {
       externalDeclaration.close();
     }
+    if (failures.length !== 0)
+      throw new AggregateError(failures, "effective output scenarios failed");
   };
 
 function topology(
@@ -356,10 +377,13 @@ function writeConfig(
 
 async function expectProjectQuiet(
   changes: readonly WatchInputChange[],
+  expected = 0,
 ): Promise<void> {
   const count = projectChangeCount(changes);
   await delay();
   assert.equal(projectChangeCount(changes), count);
+  assert.equal(projectChangeCount(changes), expected);
+  assert.equal(changes.length, expected, "output attention reported another lane");
 }
 
 async function waitForProjectChange(

@@ -25,7 +25,7 @@ const membership = new Map<string, string[]>();
  *
  * 1. Author build-info, declaration-only and JSX compiler membership matrices.
  * 2. Contrast independently named output products with non-output twins.
- * 3. Deliver each physical event and preserve the original report and quiet
+ * 3. Deliver each authored attention and preserve the original report and quiet
  *    assertions.
  *
  * @evidence contracts/testing.md#behavioral-verification Drives the real WatchTopology: with outFile and incremental, the implicit tsbuildinfo beside the config is a quiet product while bundle.tsbuildinfo next to the outFile is a reported project input; declaration output next to the source reports under -EMITDECLARATIONONLY alone but is quiet under -d with -emitDeclarationOnly; a .js beside an allowJs .jsx input is quiet outside preserve mode.
@@ -35,6 +35,7 @@ const membership = new Map<string, string[]>();
  */
 export const test_watch_topology_matches_remaining_tsgo_output_semantics =
   async (): Promise<void> => {
+    const failures: unknown[] = [];
     const root = TestProject.physicalPath(
       TestProject.tmpdir("ttsc-tsgo-output-semantics-"),
     );
@@ -73,6 +74,11 @@ export const test_watch_topology_matches_remaining_tsgo_output_semantics =
       fs.writeFileSync(outFileTwin, "{}\n", "utf8");
       notify(outFileIncremental, outFileTwin);
       await waitForProjectChange(outFileIncrementalChanges, previous);
+      assert.deepEqual(outFileIncrementalChanges, [
+        { kind: "project", path: outFileTwin },
+      ]);
+    } catch (error) {
+      failures.push(new Error("outFile/incremental", { cause: error }));
     } finally {
       outFileIncremental.close();
     }
@@ -98,6 +104,11 @@ export const test_watch_topology_matches_remaining_tsgo_output_semantics =
       );
       notify(declarationOnly, declarationOutput);
       await waitForProjectChange(declarationOnlyChanges, previous);
+      assert.deepEqual(declarationOnlyChanges, [
+        { kind: "project", invalidate: true, path: declarationOutput },
+      ]);
+    } catch (error) {
+      failures.push(new Error("standalone declaration-only", { cause: error }));
     } finally {
       declarationOnly.close();
     }
@@ -123,6 +134,8 @@ export const test_watch_topology_matches_remaining_tsgo_output_semantics =
       );
       notify(explicitDeclarationOnly, declarationOutput);
       await expectProjectQuiet(explicitDeclarationOnlyChanges);
+    } catch (error) {
+      failures.push(new Error("explicit declaration-only", { cause: error }));
     } finally {
       explicitDeclarationOnly.close();
     }
@@ -155,9 +168,31 @@ export const test_watch_topology_matches_remaining_tsgo_output_semantics =
       );
       notify(jsxJavaScriptTopology, javascriptOutput);
       await expectProjectQuiet(jsxJavaScriptChanges);
+    } catch (error) {
+      failures.push(new Error("JSX react", { cause: error }));
     } finally {
       jsxJavaScriptTopology.close();
     }
+    const preservedChanges: WatchInputChange[] = [];
+    const preserved = topology(root, preservedChanges, ["--jsx", "preserve"]);
+    try {
+      preserved.refresh(false);
+      const javascriptTwin = path.join(root, "src", "input.js");
+      preserved.setProjectInputs({ root, files: [javascriptTwin], globs: [] });
+      const previous = projectChangeCount(preservedChanges);
+      fs.writeFileSync(javascriptTwin, "export const twin = 2;\n", "utf8");
+      notify(preserved, javascriptTwin);
+      await waitForProjectChange(preservedChanges, previous);
+      assert.deepEqual(preservedChanges, [
+        { kind: "project", path: javascriptTwin },
+      ]);
+    } catch (error) {
+      failures.push(new Error("JSX preserve", { cause: error }));
+    } finally {
+      preserved.close();
+    }
+    if (failures.length !== 0)
+      throw new AggregateError(failures, "output-semantics scenarios failed");
   };
 
 function topology(
@@ -215,6 +250,7 @@ async function expectProjectQuiet(
   const count = projectChangeCount(changes);
   await delay();
   assert.equal(projectChangeCount(changes), count);
+  assert.deepEqual(changes, [], "output attention reported a synchronous change");
 }
 
 async function waitForProjectChange(
