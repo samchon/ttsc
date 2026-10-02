@@ -22,9 +22,11 @@ import type { ViteModuleNodeLike } from "./ViteModuleNodeLike";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains dependency/version boundaries and each member's role;
  *   separate comments and tag spacing follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   ViteDevServerLike only declares a shape; it has no filesystem, path or
- *   process operation at runtime.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   config.root carries the native project scope, with cwd fallback at adapter
+ *   attachment. Explicit usePolling withdraws notification trust; it is a host
+ *   declaration, not measured filesystem capability. No separator/case policy
+ *   is inferred, while HMR payloads and opaque graph nodes keep host meanings.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
  *   ViteDevServerLike only declares a shape; it has no computation at
  *   runtime.
@@ -39,8 +41,8 @@ export interface ViteDevServerLike {
   /**
    * Resolved config. `root` anchors the project scope,
    * `server.watch.usePolling` declares that native notifications cannot be
-   * trusted on this filesystem, and `server.hmr: false` turns module updates
-   * off.
+   * trusted on this filesystem, and `server.hmr: false` selects the adapter's
+   * invalidation/full-reload fallback instead of HMR propagation.
    */
   config?: {
     root?: string;
@@ -53,7 +55,7 @@ export interface ViteDevServerLike {
   /** Per-environment graphs and channels under the environment API (Vite 6+). */
   environments?: Record<string, ViteEnvironmentLike>;
 
-  /** The server-level channel; in Vite 6+ an alias of the client environment's. */
+  /** Server-level channel; available environment channels take precedence. */
   hot?: ViteHotChannelLike;
 
   /** The mixed module graph, primary in Vite 5 and kept for compatibility after. */
@@ -61,7 +63,8 @@ export interface ViteDevServerLike {
 
   /**
    * Run Vite's own update propagation for one mixed-graph module (Vite 5), as
-   * an edit to its file would (samchon/ttsc#1393).
+   * an explicit HMR request (samchon/ttsc#1393). Its Promise represents the host
+   * operation, not a native edit or client update acknowledgment.
    *
    * @evidence contracts/common.md#principled-implementation
    *   A mixed-graph node is handed to the owning server's asynchronous propagation
@@ -88,6 +91,6 @@ export interface ViteDevServerLike {
    */
   reloadModule?(node: ViteModuleNodeLike): Promise<void>;
 
-  /** The websocket channel to connected clients, present in every major. */
+  /** Optional server websocket channel used by the legacy reload fallback. */
   ws?: ViteHotChannelLike;
 }
