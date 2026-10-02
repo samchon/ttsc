@@ -5,8 +5,9 @@ import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
  * runtime, shared by both emitted module conditions of `bun-register`.
  *
  * Options stay pending, replaced last-call-wins, until the loader enters its
- * first transformable load; that entry locks the pending snapshot for the rest
- * of the process.
+ * first included transformable disk load; that entry locks the pending snapshot
+ * for this state's runtime session. Host-owned memory files are passed over
+ * before locking options.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Pending and locked snapshots distinguish pre-load replacement from the
@@ -20,18 +21,21 @@ import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain last-call-wins and the first-load lock. Spaced
  *   member comments identify snapshot ownership per documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   BunRegistrationState only declares a shape; it has no filesystem, path or
- *   process operation at runtime.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Pending/locked options can contain a native project spelling; registration
+ *   preserves that deferred coordinate and the loader resolves it in its actual
+ *   host context. Snapshot identity is not physical config or case-policy proof.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   BunRegistrationState only declares a shape; it has no computation at
- *   runtime.
+ *   register owns detached option copying/comparison, ensureRegistered owns
+ *   installation and bun setup owns later transform work; this state describes
+ *   their transitions without selecting their algorithms.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   BunRegistrationState only declares a shape; it has no work to reuse at
- *   runtime.
+ *   registrationState keys shared state by runtime and ensureRegistered guards
+ *   accepted/in-flight installation; the fields alone grant no completed-result reuse.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   BunRegistrationState only declares a shape; it has no handle or retained
- *   state at runtime.
+ *   Runtime/provider owners retain this state and detached option graphs;
+ *   weak runtime keys alone do not prove their release. No independent state
+ *   disposal or snapshot byte bound is specified here.
  */
 export interface BunRegistrationState {
   /** Options the next lock takes, detached from the caller's object. */
@@ -43,6 +47,6 @@ export interface BunRegistrationState {
   /** Whether a load has started, which fixes `lockedOptions` for good. */
   optionsLocked: boolean;
 
-  /** Whether the runtime already holds this state's one loader. */
+  /** Installation guard set before the host call and reset on synchronous error. */
   registered: boolean;
 }

@@ -19,16 +19,20 @@ import type { BunLoader } from "./BunLoader";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs describe runtime omissions, in-memory file ownership
  *   and loader meaning; spaced members follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   BunLikeBuild only declares a shape; it has no filesystem, path or process
- *   operation at runtime.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Configured memory-file keys and onLoad paths define host filename spelling:
+ *   relative/absolute and native disk versus host-owned memory remain distinct.
+ *   The adapter's matcher/IO owners interpret actual separator/case capabilities;
+ *   optional lifecycle hooks supply no OS case or physical identity certificate.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   BunLikeBuild only declares a shape; it has no computation at runtime.
+ *   Host hook dispatch and adapter setup/load callbacks own filtering, memory
+ *   key matching and native transform costs; this boundary specifies their inputs.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   BunLikeBuild only declares a shape; it has no work to reuse at runtime.
+ *   Adapter cache and runtime registration owners qualify generation/installation
+ *   sharing; hook presence itself does not authorize reuse.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   BunLikeBuild only declares a shape; it has no handle or retained state at
- *   runtime.
+ *   The host retains registered callbacks while adapter cache/capture owners
+ *   govern resources; lifecycle registration is not native cancellation or join.
  */
 export interface BunLikeBuild {
   /**
@@ -73,7 +77,9 @@ export interface BunLikeBuild {
   onStart?(callback: () => void | Promise<void>): void;
 
   /**
-   * Register a callback for deterministic bundler-session teardown.
+   * Register a bundler end callback. Adapter cache reset can schedule resource
+   * cleanup without awaiting a still-running native compilation; this hook does
+   * not itself certify deterministic full-session teardown.
    *
    * @evidence contracts/common.md#principled-implementation
    *   The optional callback can return teardown completion to a bundler that
@@ -122,9 +128,10 @@ export interface BunLikeBuild {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native paragraphs explain relative in-memory keys and why the parser must
    *   accompany returned text; tag/member spacing follows documentation guidance.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation
-   *   Only the signature of onLoad is declared here; the platform behaviour
-   *   belongs to its implementation.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   Delivered path spelling distinguishes host-owned relative memory keys from
+   *   native disk files; the adapter preserves that ownership distinction before
+   *   native resolution. Parser identifiers are host protocol, not native paths.
    * @evidenceExclude contracts/performance.md#efficient-algorithms
    *   Only the signature of onLoad is declared here; the cost belongs to its
    *   implementation.
