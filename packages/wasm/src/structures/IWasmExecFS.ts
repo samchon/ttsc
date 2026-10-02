@@ -25,7 +25,6 @@ import type { IFileStats } from "./IFileStats";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IWasmExecFS only groups the virtual-filesystem members and acquires no handle, task or retained state.
  * @evidenceExclude contracts/performance.md#efficient-algorithms IWasmExecFS only groups the virtual-filesystem members and chooses no algorithm.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work IWasmExecFS only groups the virtual-filesystem members and coordinates no computation.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation IWasmExecFS only groups the virtual-filesystem members; each member answers for itself and none touches a native path or process here.
  */
 export interface IWasmExecFS {
   /** Virtual open-flag values consumed by the Go bridge. */
@@ -41,7 +40,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources writeSync is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms writeSync is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work writeSync is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation writeSync is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   writeSync(fd: number, buf: Uint8Array): number;
 
@@ -55,7 +53,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources write is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms write is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work write is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation write is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   write(
     fd: number,
@@ -76,7 +73,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources open is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms open is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work open is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation open is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   open(
     path: string,
@@ -95,7 +91,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources close is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms close is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work close is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation close is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   close(
     fd: number,
@@ -112,7 +107,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources read is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms read is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work read is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation read is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   read(
     fd: number,
@@ -133,7 +127,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources readdir is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms readdir is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work readdir is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation readdir is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   readdir(
     path: string,
@@ -150,7 +143,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources mkdir is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms mkdir is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work mkdir is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation mkdir is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   mkdir(
     path: string,
@@ -169,7 +161,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources stat is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms stat is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work stat is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation stat is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   stat(
     path: string,
@@ -186,7 +177,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources lstat is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms lstat is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work lstat is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation lstat is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   lstat(
     path: string,
@@ -204,7 +194,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources fstat is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms fstat is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work fstat is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation fstat is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   fstat(
     fd: number,
@@ -221,7 +210,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources fsync is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms fsync is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work fsync is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation fsync is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   fsync(
     fd: number,
@@ -238,7 +226,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources unlink is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms unlink is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work unlink is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation unlink is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   unlink(
     path: string,
@@ -255,7 +242,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources rename is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms rename is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work rename is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation rename is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   rename(
     from: string,
@@ -273,7 +259,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources rmdir is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms rmdir is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work rmdir is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation rmdir is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   rmdir(
     path: string,
@@ -290,7 +275,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources chmod is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms chmod is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work chmod is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation chmod is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   chmod(
     path: string,
@@ -308,7 +292,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources fchmod is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms fchmod is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work fchmod is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation fchmod is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   fchmod(
     fd: number,
@@ -326,7 +309,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources chown is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms chown is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work chown is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation chown is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   chown(
     path: string,
@@ -345,7 +327,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources fchown is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms fchown is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work fchown is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation fchown is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   fchown(
     fd: number,
@@ -364,7 +345,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources lchown is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms lchown is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work lchown is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation lchown is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   lchown(
     path: string,
@@ -383,7 +363,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources utimes is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms utimes is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work utimes is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation utimes is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   utimes(
     path: string,
@@ -402,7 +381,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources link is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms link is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work link is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation link is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   link(
     path: string,
@@ -420,7 +398,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources symlink is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms symlink is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work symlink is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation symlink is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   symlink(
     path: string,
@@ -438,7 +415,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources readlink is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms readlink is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work readlink is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation readlink is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   readlink(
     path: string,
@@ -456,7 +432,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources truncate is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms truncate is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work truncate is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation truncate is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   truncate(
     path: string,
@@ -475,7 +450,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ftruncate is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms ftruncate is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work ftruncate is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation ftruncate is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   ftruncate(
     fd: number,
@@ -506,7 +480,6 @@ export interface IWasmExecFS {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources pipe2 is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms pipe2 is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work pipe2 is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation pipe2 is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   pipe2(
     flags: number,

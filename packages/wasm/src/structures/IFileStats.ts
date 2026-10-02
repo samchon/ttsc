@@ -19,7 +19,6 @@
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IFileStats only groups the virtual-filesystem members and acquires no handle, task or retained state.
  * @evidenceExclude contracts/performance.md#efficient-algorithms IFileStats only groups the virtual-filesystem members and chooses no algorithm.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work IFileStats only groups the virtual-filesystem members and coordinates no computation.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation IFileStats only groups the virtual-filesystem members; each member answers for itself and none touches a native path or process here.
  */
 export interface IFileStats {
   /**
@@ -32,7 +31,6 @@ export interface IFileStats {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources isDirectory is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms isDirectory is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work isDirectory is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation isDirectory is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   isDirectory(): boolean;
 
@@ -46,7 +44,6 @@ export interface IFileStats {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources isFile is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms isFile is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work isFile is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation isFile is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   isFile(): boolean;
 

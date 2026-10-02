@@ -20,7 +20,6 @@ import type { ITtscFileQuery } from "./ITtscFileQuery";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscPositionQuery is a data interface and acquires no handle, task or retained state.
  * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscPositionQuery is a data interface and chooses no algorithm or processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscPositionQuery is a data interface and coordinates no shared or repeated computation.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscPositionQuery is a data interface and performs no native filesystem, path or process operation.
  */
 export interface ITtscPositionQuery extends ITtscFileQuery {
   /**

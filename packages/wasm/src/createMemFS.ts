@@ -118,7 +118,6 @@ function normalize(p: string): string {
  *   are detached. File write capacity stays at most twice logical length; truncate
  *   and replacement release spare storage. Total input and captured output have
  *   no fixed bound, so the caller owns deletion, resetStdio and host lifetime.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation createMemFS implements a browser virtual filesystem whose paths are virtual strings it normalizes itself, so no native filesystem, case policy or process is reached.
  */
 export function createMemFS(): IMemFSHost {
   const nodes = new Map<string, INode>();

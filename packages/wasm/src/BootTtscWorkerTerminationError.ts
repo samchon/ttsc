@@ -21,7 +21,6 @@
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources BootTtscWorkerTerminationError retains only its own fields and cause and is released with the rejection.
  * @evidenceExclude contracts/performance.md#efficient-algorithms BootTtscWorkerTerminationError builds one message string and chooses no processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work BootTtscWorkerTerminationError is an error value and coordinates no shared or repeated computation.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation BootTtscWorkerTerminationError carries an API name and a cause and performs no filesystem, path or process operation.
  */
 export class BootTtscWorkerTerminationError extends Error {
   /** Stable discriminator for Worker-replacement handling. */

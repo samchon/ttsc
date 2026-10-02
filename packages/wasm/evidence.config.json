@@ -11,7 +11,6 @@
         "root": "../../.agents/skills",
         "files": [
           "contracts/common.md",
-          "contracts/portability.md",
           "contracts/performance.md"
         ],
         "symbol": "h2",

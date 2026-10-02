@@ -28,7 +28,6 @@ import type { ITtscVersion } from "./ITtscVersion";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscApi only groups the wasm API verbs and acquires no handle, task or retained state.
  * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscApi only groups the wasm API verbs and chooses no algorithm.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscApi only groups the wasm API verbs and coordinates no computation.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscApi only groups the wasm API verbs; each member answers for itself and none touches a native path or process here.
  */
 export interface ITtscApi {
   /**
@@ -41,7 +40,6 @@ export interface ITtscApi {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources version is a signature only; the lifetime of what it touches belongs to the Go host.
    * @evidenceExclude contracts/performance.md#efficient-algorithms version is a signature only; its algorithm and cost belong to the Go host.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work version is a signature only; sharing of repeated work belongs to the Go host.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation version is a member signature of the wasm API and makes no native path or process decision.
    */
   version(): ITtscVersion;
 
@@ -56,7 +54,6 @@ export interface ITtscApi {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources build is a signature only; the lifetime of what it touches belongs to the Go host.
    * @evidenceExclude contracts/performance.md#efficient-algorithms build is a signature only; its algorithm and cost belong to the Go host.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work build is a signature only; sharing of repeated work belongs to the Go host.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation build is a member signature of the wasm API and makes no native path or process decision.
    */
   build(opts: ITtscBuildOpts): Promise<ITtscResult>;
 
@@ -71,7 +68,6 @@ export interface ITtscApi {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources check is a signature only; the lifetime of what it touches belongs to the Go host.
    * @evidenceExclude contracts/performance.md#efficient-algorithms check is a signature only; its algorithm and cost belong to the Go host.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work check is a signature only; sharing of repeated work belongs to the Go host.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation check is a member signature of the wasm API and makes no native path or process decision.
    */
   check(opts: ITtscBuildOpts): Promise<ITtscResult>;
 
@@ -89,7 +85,6 @@ export interface ITtscApi {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources transform is a signature only; the lifetime of what it touches belongs to the Go host.
    * @evidenceExclude contracts/performance.md#efficient-algorithms transform is a signature only; its algorithm and cost belong to the Go host.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work transform is a signature only; sharing of repeated work belongs to the Go host.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation transform is a member signature of the wasm API and makes no native path or process decision.
    */
   transform(opts: ITtscBuildOpts): Promise<ITtscResult>;
 
@@ -105,7 +100,6 @@ export interface ITtscApi {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources plugin is a signature only; the lifetime of what it touches belongs to the Go host.
    * @evidenceExclude contracts/performance.md#efficient-algorithms plugin is a signature only; its algorithm and cost belong to the Go host.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work plugin is a signature only; sharing of repeated work belongs to the Go host.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation plugin is a member signature of the wasm API and makes no native path or process decision.
    */
   plugin(opts: ITtscPluginOpts): Promise<ITtscResult>;
 
@@ -119,7 +113,6 @@ export interface ITtscApi {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources plugins is a signature only; the lifetime of what it touches belongs to the Go host.
    * @evidenceExclude contracts/performance.md#efficient-algorithms plugins is a signature only; its algorithm and cost belong to the Go host.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work plugins is a signature only; sharing of repeated work belongs to the Go host.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation plugins is a member signature of the wasm API and makes no native path or process decision.
    */
   plugins(): string[];
 
@@ -138,7 +131,6 @@ export interface ITtscApi {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources snapshot is a signature only; the lifetime of what it touches belongs to the Go host.
    * @evidenceExclude contracts/performance.md#efficient-algorithms snapshot is a signature only; its algorithm and cost belong to the Go host.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work snapshot is a signature only; sharing of repeated work belongs to the Go host.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation snapshot is a member signature of the wasm API and makes no native path or process decision.
    */
   snapshot(opts: ITtscBuildOpts): Promise<ITtscResult>;
 
@@ -153,7 +145,6 @@ export interface ITtscApi {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources releaseSnapshot is a signature only; the lifetime of what it touches belongs to the Go host.
    * @evidenceExclude contracts/performance.md#efficient-algorithms releaseSnapshot is a signature only; its algorithm and cost belong to the Go host.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work releaseSnapshot is a signature only; sharing of repeated work belongs to the Go host.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation releaseSnapshot is a member signature of the wasm API and makes no native path or process decision.
    */
   releaseSnapshot(opts: ITtscSnapshotHandle): Promise<ITtscResult>;
 
@@ -167,7 +158,6 @@ export interface ITtscApi {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources snapshots is a signature only; the lifetime of what it touches belongs to the Go host.
    * @evidenceExclude contracts/performance.md#efficient-algorithms snapshots is a signature only; its algorithm and cost belong to the Go host.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work snapshots is a signature only; sharing of repeated work belongs to the Go host.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation snapshots is a member signature of the wasm API and makes no native path or process decision.
    */
   snapshots(): Promise<ITtscResult>;
 
@@ -181,7 +171,6 @@ export interface ITtscApi {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources getSourceFiles is a signature only; the lifetime of what it touches belongs to the Go host.
    * @evidenceExclude contracts/performance.md#efficient-algorithms getSourceFiles is a signature only; its algorithm and cost belong to the Go host.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work getSourceFiles is a signature only; sharing of repeated work belongs to the Go host.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation getSourceFiles is a member signature of the wasm API and makes no native path or process decision.
    */
   getSourceFiles(opts: ITtscSnapshotHandle): Promise<ITtscResult>;
 
@@ -197,7 +186,6 @@ export interface ITtscApi {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources getSourceFileText is a signature only; the lifetime of what it touches belongs to the Go host.
    * @evidenceExclude contracts/performance.md#efficient-algorithms getSourceFileText is a signature only; its algorithm and cost belong to the Go host.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work getSourceFileText is a signature only; sharing of repeated work belongs to the Go host.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation getSourceFileText is a member signature of the wasm API and makes no native path or process decision.
    */
   getSourceFileText(opts: ITtscFileQuery): Promise<ITtscResult>;
 
@@ -212,7 +200,6 @@ export interface ITtscApi {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources getDiagnostics is a signature only; the lifetime of what it touches belongs to the Go host.
    * @evidenceExclude contracts/performance.md#efficient-algorithms getDiagnostics is a signature only; its algorithm and cost belong to the Go host.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work getDiagnostics is a signature only; sharing of repeated work belongs to the Go host.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation getDiagnostics is a member signature of the wasm API and makes no native path or process decision.
    */
   getDiagnostics(
     opts: ITtscSnapshotHandle & { file?: string },
@@ -229,7 +216,6 @@ export interface ITtscApi {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources getNodeAtPosition is a signature only; the lifetime of what it touches belongs to the Go host.
    * @evidenceExclude contracts/performance.md#efficient-algorithms getNodeAtPosition is a signature only; its algorithm and cost belong to the Go host.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work getNodeAtPosition is a signature only; sharing of repeated work belongs to the Go host.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation getNodeAtPosition is a member signature of the wasm API and makes no native path or process decision.
    */
   getNodeAtPosition(opts: ITtscPositionQuery): Promise<ITtscResult>;
 
@@ -245,7 +231,6 @@ export interface ITtscApi {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources getTypeAtPosition is a signature only; the lifetime of what it touches belongs to the Go host.
    * @evidenceExclude contracts/performance.md#efficient-algorithms getTypeAtPosition is a signature only; its algorithm and cost belong to the Go host.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work getTypeAtPosition is a signature only; sharing of repeated work belongs to the Go host.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation getTypeAtPosition is a member signature of the wasm API and makes no native path or process decision.
    */
   getTypeAtPosition(opts: ITtscPositionQuery): Promise<ITtscResult>;
 
@@ -260,7 +245,6 @@ export interface ITtscApi {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources getSymbolAtPosition is a signature only; the lifetime of what it touches belongs to the Go host.
    * @evidenceExclude contracts/performance.md#efficient-algorithms getSymbolAtPosition is a signature only; its algorithm and cost belong to the Go host.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work getSymbolAtPosition is a signature only; sharing of repeated work belongs to the Go host.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation getSymbolAtPosition is a member signature of the wasm API and makes no native path or process decision.
    */
   getSymbolAtPosition(opts: ITtscPositionQuery): Promise<ITtscResult>;
 }

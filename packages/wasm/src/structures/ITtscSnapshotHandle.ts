@@ -16,7 +16,6 @@
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscSnapshotHandle is a data interface and acquires no handle, task or retained state.
  * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscSnapshotHandle is a data interface and chooses no algorithm or processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscSnapshotHandle is a data interface and coordinates no shared or repeated computation.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscSnapshotHandle is a data interface and performs no native filesystem, path or process operation.
  */
 export interface ITtscSnapshotHandle {
   /** Opaque handle returned by `snapshot`. */

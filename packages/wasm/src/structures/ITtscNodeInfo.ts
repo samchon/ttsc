@@ -16,7 +16,6 @@
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscNodeInfo is a data interface and acquires no handle, task or retained state.
  * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscNodeInfo is a data interface and chooses no algorithm or processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscNodeInfo is a data interface and coordinates no shared or repeated computation.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscNodeInfo is a data interface and performs no native filesystem, path or process operation.
  */
 export interface ITtscNodeInfo {
   /** Numeric `ast.Kind` from TypeScript-Go. */

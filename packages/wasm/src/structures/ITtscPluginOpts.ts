@@ -16,7 +16,6 @@
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscPluginOpts is a data interface and acquires no handle, task or retained state.
  * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscPluginOpts is a data interface and chooses no algorithm or processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscPluginOpts is a data interface and coordinates no shared or repeated computation.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscPluginOpts is a data interface and performs no native filesystem, path or process operation.
  */
 export interface ITtscPluginOpts {
   /** Plugin id registered with `host.Expose` (e.g. `@ttsc/banner`). */

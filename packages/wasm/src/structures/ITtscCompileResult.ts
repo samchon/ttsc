@@ -20,7 +20,6 @@ import type { ITtscDiagnostic } from "./ITtscDiagnostic";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscCompileResult is a data interface and acquires no handle, task or retained state.
  * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscCompileResult is a data interface and chooses no algorithm or processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscCompileResult is a data interface and coordinates no shared or repeated computation.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscCompileResult is a data interface and performs no native filesystem, path or process operation.
  */
 export interface ITtscCompileResult {
   /** Present when the native result includes diagnostic messages. */

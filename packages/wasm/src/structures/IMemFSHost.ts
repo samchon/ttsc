@@ -20,7 +20,6 @@ import type { IWasmExecFS } from "./IWasmExecFS";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IMemFSHost only groups the virtual-filesystem members and acquires no handle, task or retained state.
  * @evidenceExclude contracts/performance.md#efficient-algorithms IMemFSHost only groups the virtual-filesystem members and chooses no algorithm.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work IMemFSHost only groups the virtual-filesystem members and coordinates no computation.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation IMemFSHost only groups the virtual-filesystem members; each member answers for itself and none touches a native path or process here.
  */
 export interface IMemFSHost {
   /** Bridge installed before evaluating wasm_exec.js. */
@@ -36,7 +35,6 @@ export interface IMemFSHost {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources writeFile is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms writeFile is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work writeFile is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation writeFile is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   writeFile(path: string, data: string | Uint8Array): void;
 
@@ -50,7 +48,6 @@ export interface IMemFSHost {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources readFile is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms readFile is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work readFile is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation readFile is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   readFile(path: string): Uint8Array | null;
 
@@ -67,7 +64,6 @@ export interface IMemFSHost {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources readFileText is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms readFileText is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work readFileText is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation readFileText is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   readFileText(path: string): string | null;
 
@@ -81,7 +77,6 @@ export interface IMemFSHost {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources exists is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms exists is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work exists is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation exists is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   exists(path: string): boolean;
 
@@ -95,7 +90,6 @@ export interface IMemFSHost {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources mkdirp is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms mkdirp is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work mkdirp is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation mkdirp is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   mkdirp(path: string): void;
 
@@ -115,7 +109,6 @@ export interface IMemFSHost {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources resetStdio is a signature only; the lifetime of what it touches belongs to createMemFS.
    * @evidenceExclude contracts/performance.md#efficient-algorithms resetStdio is a signature only; its algorithm and cost belong to createMemFS.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work resetStdio is a signature only; sharing of repeated work belongs to createMemFS.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation resetStdio is a member signature of a browser virtual-filesystem bridge and makes no native path or process decision.
    */
   resetStdio(): void;
 }
