@@ -19,6 +19,18 @@ import type fs from "node:fs";
  * @evidence contracts/common.md#meaningful-documentation
  *   Member comments explain syntax override and link following, preserving
  *   native member documentation with blank lines between documented members.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Platform syntax is explicit for non-host views and stat supplies observed
+ *   link-following capabilities; the type makes no filesystem case-policy claim.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscProjectDiscoveryFilesystem only declares a shape; it has no
+ *   computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscProjectDiscoveryFilesystem only declares a shape; it has no work to
+ *   reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscProjectDiscoveryFilesystem only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscProjectDiscoveryFilesystem {
   /** Override path parsing when the observed filesystem is not the host. */
@@ -41,6 +53,18 @@ export interface TtscProjectDiscoveryFilesystem {
    * @evidence contracts/common.md#meaningful-documentation
    *   The comment states link-following semantics, which distinguish stat from
    *   a link-preserving observation; prose and tags have a blank comment line.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   The location is a native filename interpreted by its filesystem view;
+   *   the returned predicates express observed kind, not platform-name guesses.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of stat is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of stat is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of stat is declared here; the cost belongs to its
+   *   implementation.
    */
   stat(
     location: string,

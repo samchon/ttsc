@@ -24,6 +24,9 @@ import { MISSING_INPUT_STATE } from "./MISSING_INPUT_STATE";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing snapshot is not replaced by a current hash; byte equality cannot override a recorded graph realpath mismatch.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain predicate precedence, legacy graph codec, host state and absence of authority before tags.
  * @evidence contracts/portability.md#os-neutral-implementation Generation identity keys and native filesystem operations distinguish lexical aliases, compiler text semantics and actual case policy across hosts.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The comparison borrows snapshots and retains no result history or native resource.
+ * @evidence contracts/performance.md#efficient-algorithms Identity lookups select one required codec; dominant work is that input's bytes or predicate enumeration, without a project scan.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work matchesProvenInput and complete admission decide when this comparison can be shared or omitted; this primitive establishes one requested verdict.
  */
 export function matchesRecordedInput(
   cached: TtscCachedProjectTransform,

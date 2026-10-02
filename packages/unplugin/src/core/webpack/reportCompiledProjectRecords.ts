@@ -26,6 +26,16 @@ import type { HostWatchBridge } from "../bridge/HostWatchBridge";
  * @evidence contracts/common.md#clear-and-simple-design The adapter passes one membership predicate to the existing bridge; it creates a Set only when the iterable lacks a lookup operation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The actual dependency collection decides acknowledgment, without target-name exceptions or a synthetic success when the bridge is absent.
  * @evidence contracts/common.md#meaningful-documentation The comment explains cached modules, separate target compilers, and first-demand compilation, which determine why dependency membership owns acknowledgment.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Builds one membership Set from the dependencies, or reuses their own has
+ *   method.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Retains nothing past the compiled call.
  */
 export function reportCompiledProjectRecords(
   bridge: HostWatchBridge | undefined,

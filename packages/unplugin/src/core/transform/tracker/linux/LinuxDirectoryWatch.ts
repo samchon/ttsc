@@ -18,6 +18,18 @@ import type { LinuxWatchHelper } from "./LinuxWatchHelper";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native type and separated member comments explain readiness, observers and
  *   release ownership under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral consumers receive backend-independent events; this type confines
+ *   Linux helper subscription state to the native boundary.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   LinuxDirectoryWatch only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   LinuxDirectoryWatch only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   LinuxDirectoryWatch only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export interface LinuxDirectoryWatch {
   /**
@@ -32,6 +44,18 @@ export interface LinuxDirectoryWatch {
    *   handle is closed while another owner still relies on it.
    * @evidence contracts/common.md#meaningful-documentation
    *   Native JSDoc states the last-subscriber condition under the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   OS-neutral callers release through the closer without platform signals or
+   *   assumptions about native descriptor layout.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of close is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of close is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of close is declared here; the cost belongs to its
+   *   implementation.
    */
   close(): void;
 

@@ -36,6 +36,16 @@ import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The 512-location bound rejects the entire selection so direct validation remains active; it does not return an incomplete watch claim or special-case known candidate names to fit a measurement.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish not-file from missing, candidate versus watched lists, root coverage, the population bound and tracker ownership; acknowledgments are separate under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native dirname/resolve and filesystem-aware root relations derive lexical ancestor chains on the host, preserving symlink and junction retarget sensitivity; physical identity is used only for temporary-input exclusion, not to collapse alias watcher names.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Visits each candidate once and walks its parent chain only up to the
+ *   project root; the chain set stops repeats and the directory limit bounds
+ *   the result.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The seen and chain sets skip candidates and parent directories already
+ *   handled.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Its sets are local to the call and released on return; the directory
+ *   limit bounds the returned watch list.
  */
 export function selectNotifiableAbsentInputs(props: {
   filesystem: TtscTransformFilesystemOperations;

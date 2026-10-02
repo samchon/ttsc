@@ -14,6 +14,16 @@ import type { TtscWatchInputEvidence } from "../transform/watch/TtscWatchInputEv
  * @evidence contracts/common.md#clear-and-simple-design The condition combines one state representation and its owner set; path aliases and watch resources remain in the entry and scope.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing generation state requires an observed baseline rather than implied success or another owner's later evidence.
  * @evidence contracts/common.md#meaningful-documentation The native prose explains coexisting conditions, baseline fallback, and which owners hear a failed condition.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   InputCondition only declares a shape; it has no filesystem, path or
+ *   process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   InputCondition only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   InputCondition only declares a shape; it has no work to reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   InputCondition only declares a shape; it has no handle or retained state
+ *   at runtime.
  */
 export interface InputCondition {
   /**

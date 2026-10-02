@@ -38,6 +38,12 @@ const CONFIG_DIR_TEMPLATE_FILE_SPECS = ["exclude", "files", "include"] as const;
  * @evidence contracts/common.md#meaningful-documentation
  *   The native description explains wrapper relocation and configDir ownership;
  *   argument prose remains separate from acknowledgment tags.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Visits the three file-spec keys once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function readEffectiveTsconfigTemplateFileSpecs(
   tsconfig: string,

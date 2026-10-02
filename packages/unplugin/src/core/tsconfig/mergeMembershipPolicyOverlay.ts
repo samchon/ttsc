@@ -34,6 +34,12 @@ import { resolveConfigDirTemplatePath } from "./resolveConfigDirTemplatePath";
  * @evidence contracts/common.md#meaningful-documentation
  *   The native explanation gives the reason compile and walk overlays must
  *   agree; exclusion defaults remain documented on the owning policy members.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Visits the fixed flag and output-directory option lists once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Builds the merged policy once per call and keeps no cache.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The extension set is local and returned as an array.
  */
 export function mergeMembershipPolicyOverlay(
   policy: ITtscProjectMembershipPolicy,

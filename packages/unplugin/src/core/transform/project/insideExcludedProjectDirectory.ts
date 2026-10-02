@@ -23,6 +23,12 @@ import { pathIsWithin } from "../filesystem/pathIsWithin";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Exclusion follows actual configured locations rather than generic directory-name exceptions or physical normalization that erases unwalked aliases.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain lexical walk membership and the exact-match exception for excluded file entries.
  * @evidence contracts/portability.md#os-neutral-implementation Node path resolution and the shared native containment helper preserve roots, drives and separator boundaries without case folding lexical spellings or resolving links the walk never follows.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Tests each excluded directory once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function insideExcludedProjectDirectory(
   location: string,

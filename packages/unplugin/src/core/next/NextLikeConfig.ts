@@ -18,6 +18,16 @@ import type { WebpackLikeConfig } from "./WebpackLikeConfig";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose and spaced members explain preservation and hook ordering,
  *   with tag separation following the documentation skill.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   NextLikeConfig only declares a shape; it has no filesystem, path or
+ *   process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   NextLikeConfig only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   NextLikeConfig only declares a shape; it has no work to reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   NextLikeConfig only declares a shape; it has no handle or retained state
+ *   at runtime.
  */
 export type NextLikeConfig = Record<string, unknown> & {
   /**

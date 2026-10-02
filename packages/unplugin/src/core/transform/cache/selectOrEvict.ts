@@ -31,6 +31,8 @@ import { retainPassVerdict } from "./retainPassVerdict";
  * @evidence contracts/performance.md#efficient-algorithms Source extraction and failure classification use the existing generation rather than repeating a project compile for every module lacking output.
  * @evidence contracts/performance.md#reuse-equivalent-work Valid output for other modules remains reusable after one absent module, and one failed generation verdict is reused inside its declared pass.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Failed generations outside pass retention reach the guarded disposer; per-file absence does not release a valid generation owned by the cache.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
 export function selectOrEvict(
   cache: TtscTransformCache | undefined,

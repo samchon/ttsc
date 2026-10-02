@@ -12,6 +12,18 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose identifies the callback boundary and the member comment explains
  *   initialization, with prose/tag separation per documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   WebpackLikeConfig only declares a shape; it has no filesystem, path or
+ *   process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   WebpackLikeConfig only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   WebpackLikeConfig only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   WebpackLikeConfig only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export type WebpackLikeConfig = Record<string, unknown> & {
   /** The webpack plugin array; initialised to `[]` by this adapter if absent. */

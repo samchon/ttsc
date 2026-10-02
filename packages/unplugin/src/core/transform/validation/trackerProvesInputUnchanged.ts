@@ -14,6 +14,13 @@ import type { TtscProjectMutationTracker } from "../tracker/TtscProjectMutationT
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Quiet but failed, incomplete or undeliverable scopes are rejected rather than promoted to proof.
  * @evidence contracts/common.md#meaningful-documentation Native prose enumerates health, coverage and overlap premises rather than treating silence as universal authority.
  * @evidence contracts/portability.md#os-neutral-implementation Native lexical resolution and supplied overlap semantics qualify paths; fallback containment is component-aware rather than substring matching.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Scans the unproven directories once and the changes once, in sequence
+ *   rather than nested.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function trackerProvesInputUnchanged(
   tracker: TtscProjectMutationTracker | undefined,

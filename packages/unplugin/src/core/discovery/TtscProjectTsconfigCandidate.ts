@@ -15,6 +15,18 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Member comments distinguish spelling from the time-specific regular-file
  *   predicate; documented members and tags are visibly separated.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The file member carries an absolute native spelling; fileExists carries
+ *   a stat-time regular-file fact, preserving spelling and kind as distinct data.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscProjectTsconfigCandidate only declares a shape; it has no computation
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscProjectTsconfigCandidate only declares a shape; it has no work to
+ *   reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscProjectTsconfigCandidate only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscProjectTsconfigCandidate {
   /** Absolute `tsconfig.json` spelling the walk probed. */

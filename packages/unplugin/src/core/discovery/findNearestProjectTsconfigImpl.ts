@@ -29,6 +29,13 @@ import type { TtscProjectTsconfigCandidate } from "./TtscProjectTsconfigCandidat
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains optional recording, failure handling and root termination;
  *   separate paragraphs give the purpose and the nonobvious boundary.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Walks the parent chain once with one stat per level and stops at the
+ *   filesystem root.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function findNearestProjectTsconfigImpl(
   startDirectory: string,

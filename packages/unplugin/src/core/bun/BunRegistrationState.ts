@@ -20,6 +20,18 @@ import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain last-call-wins and the first-load lock. Spaced
  *   member comments identify snapshot ownership per documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   BunRegistrationState only declares a shape; it has no filesystem, path or
+ *   process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   BunRegistrationState only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   BunRegistrationState only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   BunRegistrationState only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export interface BunRegistrationState {
   /** Options the next lock takes, detached from the caller's object. */

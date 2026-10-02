@@ -20,6 +20,8 @@ import { createTtscTransformCache } from "./createTtscTransformCache";
  * @evidence contracts/performance.md#efficient-algorithms Map lookup and lease hooks perform constant-time registry operations; a new key allocates one empty cache/lease pair without traversing existing configurations.
  * @evidence contracts/performance.md#reuse-equivalent-work Simultaneously requested configurations share one registered pair; final idle reclamation permits later fresh work, and a surviving adapter restores its pair only when another active pair does not already own that key.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Initial and final idle grace remove unowned registry entries and reset their generations; surviving adapter references keep only their own pair, and identity checks prevent an older lease from deleting a newer registration.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
 export function sharedBuildTransformCache(
   key: string,

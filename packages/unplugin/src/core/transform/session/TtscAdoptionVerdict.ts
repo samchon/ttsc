@@ -18,6 +18,18 @@
  * @evidence contracts/common.md#clear-and-simple-design Two fields preserve the retry decision without storing another copy of the envelope or transient attempt state.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The verdict does not label every failed attempt a corrupt publication or bypass the next snapshot proof.
  * @evidence contracts/common.md#meaningful-documentation The prose explains both failure classes and their opposite retries; each member's meaning remains explicit.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   TtscAdoptionVerdict only declares a shape; it has no filesystem, path or
+ *   process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscAdoptionVerdict only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscAdoptionVerdict only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscAdoptionVerdict only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export interface TtscAdoptionVerdict {
   /** Whether the publication itself failed its proof on this worker's disk. */

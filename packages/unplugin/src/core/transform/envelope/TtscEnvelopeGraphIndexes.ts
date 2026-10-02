@@ -11,6 +11,16 @@ import type { ITtscCompilerTransformation } from "ttsc";
  * @evidence contracts/common.md#clear-and-simple-design Adjacency, universal inputs and predicate proof maps remain separate fields because their consumers ask different questions about the same generation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Speculative inputs and explicit failure/conflict sets represent supported weaker evidence without inventing content hashes or hiding contradictions.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains identity versus spelling and the builder's validation responsibility; member comments define speculative inputs and proof states with blank member and tag separation under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation Identity keys come from the envelope's filesystem context, while proof keys retain native absolute lexical spellings; this representation does not equate case folding with an operating-system name.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscEnvelopeGraphIndexes only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscEnvelopeGraphIndexes only declares a shape; it has no work to reuse
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscEnvelopeGraphIndexes only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscEnvelopeGraphIndexes {
   /** Identity of each direct-edge source -> its resolved absolute targets. */

@@ -12,6 +12,13 @@ import type { ITtscCompilerTransformation } from "ttsc";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed reads and empty listings retain their weaker meaning rather than gaining synthetic existence facts to make a proof acceptable.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the normalized-input premise and the weaker meaning of failed reads, empty lists and unqueried operations; paragraph/tag separation follows the documentation skill.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares recorded predicate results in memory; it probes no filesystem and parses no path.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function graphInputObservationCompatible(
   observation: ITtscCompilerTransformation.IInputObservation,

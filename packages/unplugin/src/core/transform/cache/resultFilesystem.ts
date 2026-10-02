@@ -20,6 +20,8 @@ import { TRANSFORM_RESULT_FILESYSTEM } from "./TRANSFORM_RESULT_FILESYSTEM";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing; the table is weakly keyed by the result.
  * @evidenceExclude contracts/performance.md#efficient-algorithms One WeakMap lookup.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The lookup returns the view a result was captured through; there is no computation to share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
 export function resultFilesystem(
   result: ITtscCompilerTransformation,

@@ -16,6 +16,18 @@ import type { ViteModuleNodeLike } from "./ViteModuleNodeLike";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose identifies environment kinds and spaced members explain
  *   ownership and reload behavior per documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   ViteEnvironmentLike only declares a shape; it has no filesystem, path or
+ *   process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   ViteEnvironmentLike only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   ViteEnvironmentLike only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   ViteEnvironmentLike only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export interface ViteEnvironmentLike {
   /** Channel to this environment's clients. */
@@ -38,6 +50,18 @@ export interface ViteEnvironmentLike {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native prose states ownership and edit-equivalent behavior, separated from
    *   tags and members according to documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of reloadModule is declared here; the platform
+   *   behaviour belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of reloadModule is declared here; the cost belongs to
+   *   its implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of reloadModule is declared here; the cost belongs to
+   *   its implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of reloadModule is declared here; the cost belongs to
+   *   its implementation.
    */
   reloadModule?(node: ViteModuleNodeLike): Promise<void>;
 }

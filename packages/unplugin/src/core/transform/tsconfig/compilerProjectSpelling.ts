@@ -21,6 +21,13 @@ import { resolveProjectIdentity } from "ttsc/path-identity";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed identity resolution is not converted into a fabricated config or fixed-path fallback that could select another project.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the compiler anchor and unresolved-input behavior; parameter tags identify both project addresses.
  * @evidence contracts/portability.md#os-neutral-implementation The existing compiler project-identity API owns physical/native path semantics, while Node dirname preserves the selected volume and separators; unresolved input remains a compiler-owned error.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function compilerProjectSpelling(
   tsconfig: string,

@@ -15,6 +15,13 @@
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Temporary routing changes only the launched compile's environment, avoiding global monkeypatches or project-local scratch that would contaminate watched inputs.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs identify the child-process propagation boundary and explicitly distinguish it from changing the host environment.
  * @evidence contracts/portability.md#os-neutral-implementation All three native temporary-directory variables receive the same owned directory, covering Windows and Unix child consumers without constructing shell syntax or mutating the host environment.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function transformScratchEnvironment(
   directory: string,

@@ -19,6 +19,18 @@ import type { TtscHostInputValidation } from "../validation/TtscHostInputValidat
  * @evidence contracts/common.md#clear-and-simple-design One generation owns its proof snapshots, reporting state, and tracker handles; separate fields represent distinct content, spelling, identity, and lifecycle responsibilities.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional proof fields represent unavailable evidence rather than implied success; consumers must select the complete validation path when narrow proof is unsupported.
  * @evidence contracts/common.md#meaningful-documentation Member comments explain why hashes and signatures differ, why lexical spellings remain separate from identity, and which owner controls each delivery and resource lifetime.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   TtscCachedProjectTransform only declares a shape; it has no filesystem,
+ *   path or process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscCachedProjectTransform only declares a shape; it has no computation
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscCachedProjectTransform only declares a shape; it has no work to reuse
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscCachedProjectTransform only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscCachedProjectTransform {
   /** Predicate-preserving compiler proofs for external candidate spellings. */

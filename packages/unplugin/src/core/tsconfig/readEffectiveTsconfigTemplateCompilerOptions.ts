@@ -41,6 +41,13 @@ import { startsWithConfigDirTemplate } from "./startsWithConfigDirTemplate";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains final-consumer template ownership and why ordinary inherited
  *   paths stay untouched, with the configDir argument's spelling stated.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Visits the fixed option key lists once, each with one chain read.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Re-reads the chain once per option key, bounded by the fixed key lists,
+ *   and keeps no cache.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Its output is local and handed to the caller.
  */
 export function readEffectiveTsconfigTemplateCompilerOptions(
   tsconfig: string,

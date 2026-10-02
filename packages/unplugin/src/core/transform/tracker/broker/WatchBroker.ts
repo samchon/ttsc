@@ -23,6 +23,16 @@ import type { WatchBrokerRegistration } from "./WatchBrokerRegistration";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native type and separated member comments identify scope, reference counts
  *   and spelling ownership under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral consumers use sinks and translated spellings; native child and
+ *   probe capability remain confined to this broker state boundary.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   WatchBroker only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   WatchBroker only declares a shape; it has no work to reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   WatchBroker only declares a shape; it has no handle or retained state at
+ *   runtime.
  */
 export interface WatchBroker {
   /** The isolated watch process; unreferenced whenever no reply is outstanding. */

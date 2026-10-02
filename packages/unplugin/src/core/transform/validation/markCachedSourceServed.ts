@@ -10,6 +10,13 @@ import { pathIdentityKey } from "../filesystem/pathIdentityKey";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts This marks only an admitted delivery, not a cache hit before selection or a guessed output.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies successful selection and generation ownership rather than implying compilation itself delivers a module.
  * @evidence contracts/portability.md#os-neutral-implementation Identity follows the envelope's filesystem context and actual case policy rather than lowercasing paths by OS name.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The servedFiles set records each served file once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The set lives on the cached transform and is released with it.
  */
 export function markCachedSourceServed(
   cached: TtscCachedProjectTransform,

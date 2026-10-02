@@ -18,6 +18,17 @@ import type { BunLikePlugin } from "./BunLikePlugin";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain the dependency choice and first-loader behavior,
  *   with description and checklist tags separated per documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   BunRuntimeGlobal only declares a shape; it has no filesystem, path or
+ *   process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   BunRuntimeGlobal only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   BunRuntimeGlobal only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   BunRuntimeGlobal only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export interface BunRuntimeGlobal {
   /**
@@ -36,6 +47,18 @@ export interface BunRuntimeGlobal {
    * @evidence contracts/common.md#meaningful-documentation
    *   The method explains why callers register once and preserves native JSDoc
    *   paragraphs and tag spacing required by documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of plugin is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of plugin is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of plugin is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of plugin is declared here; the cost belongs to its
+   *   implementation.
    */
   plugin(plugin: BunLikePlugin): void;
 }

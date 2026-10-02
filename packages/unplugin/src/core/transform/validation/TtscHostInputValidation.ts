@@ -14,6 +14,16 @@
  * @evidence contracts/common.md#clear-and-simple-design Separate populations expose each validator's responsibility while one generation owns their shared lifetime.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Readable content, blockers and external build environments remain explicit rather than one blanket watcher-success flag.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs and separated member comments explain optional signatures, exact coverage, absence groups and tree environments.
+ * @evidence contracts/portability.md#os-neutral-implementation Physical targets, lexical aliases, metadata clocks and qualified native notifications remain separate; actual case policy belongs to the generation context.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscHostInputValidation only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscHostInputValidation only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscHostInputValidation only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscHostInputValidation {
   /** Lexical input spellings that existed when the generation was captured. */

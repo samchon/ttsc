@@ -39,6 +39,13 @@ import type { TtscProjectSpellings } from "../filesystem/TtscProjectSpellings";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The mapping follows two actual project root spellings and delivery context, not a named-consumer exception or patched resolver; paths outside the selected root are not coerced into the project.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain physical/configured roots, delivery selection, external paths and compiler use, and parameter/return comments document the mapper's inputs with separated acknowledgments under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation path.relative, path.sep, path.isAbsolute and path.join handle native containment, parent escape and cross-volume paths; the function uses captured physical roots without hardcoding a platform's symlink or temporary-directory layout.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function hostSpelling(
   project: TtscProjectSpellings,

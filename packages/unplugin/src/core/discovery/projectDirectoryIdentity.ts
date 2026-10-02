@@ -33,6 +33,13 @@ import { canonicalProjectPath } from "./canonicalProjectPath";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains the cycle guard and absence consequence, giving the
  *   reason for the undefined result without claiming successful enumeration.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function projectDirectoryIdentity(
   directory: string,

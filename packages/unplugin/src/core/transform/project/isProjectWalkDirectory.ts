@@ -18,6 +18,13 @@ import { isIgnoredProjectEntry } from "./isIgnoredProjectEntry";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Watch admission follows the same configuration semantics as enumeration instead of compensating with an independent directory-name list.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs identify the three conditions and explain why the Linux observer must share this boundary.
  * @evidence contracts/portability.md#os-neutral-implementation Native basename and configured containment use Node path and shared compiler root rules; Linux observer use does not introduce a Linux-only directory policy.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function isProjectWalkDirectory(
   directory: string,

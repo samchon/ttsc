@@ -15,6 +15,18 @@ import type { ViteModuleNodeLike } from "./ViteModuleNodeLike";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains versioned graph ownership; spaced member comments name
  *   fast lookup and fallback scanning per documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   ViteModuleGraphLike only declares a shape; it has no filesystem, path or
+ *   process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   ViteModuleGraphLike only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   ViteModuleGraphLike only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   ViteModuleGraphLike only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export interface ViteModuleGraphLike {
   /**
@@ -36,6 +48,18 @@ export interface ViteModuleGraphLike {
    * @evidence contracts/common.md#meaningful-documentation
    *   The comment states normalized path spelling; parent member docs explain
    *   fallback purpose, with native spacing per documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of getModulesByFile is declared here; the platform
+   *   behaviour belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of getModulesByFile is declared here; the cost belongs
+   *   to its implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of getModulesByFile is declared here; the cost belongs
+   *   to its implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of getModulesByFile is declared here; the cost belongs
+   *   to its implementation.
    */
   getModulesByFile?(file: string): Set<ViteModuleNodeLike> | undefined;
 
@@ -52,6 +76,18 @@ export interface ViteModuleGraphLike {
    * @evidence contracts/common.md#meaningful-documentation
    *   The native comment explains the next-request effect and separates tags,
    *   following the documentation skill's member presentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of invalidateModule is declared here; the platform
+   *   behaviour belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of invalidateModule is declared here; the cost belongs
+   *   to its implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of invalidateModule is declared here; the cost belongs
+   *   to its implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of invalidateModule is declared here; the cost belongs
+   *   to its implementation.
    */
   invalidateModule?(node: ViteModuleNodeLike): void;
 }

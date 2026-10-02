@@ -39,6 +39,12 @@ import { normalizeTypeScriptPathSeparators } from "./normalizeTypeScriptPathSepa
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain non-inheritance, suffix naming and missing-target
  *   watchability, separating path spelling from actual filesystem membership.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Maps the references list once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function readTsconfigReferences(tsconfig: string): string[] {
   let parsed: unknown;

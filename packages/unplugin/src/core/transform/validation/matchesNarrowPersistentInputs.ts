@@ -26,6 +26,9 @@ import { matchesUniversalHostInputs } from "./matchesUniversalHostInputs";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Lost watcher authority cannot be converted to false unchanged data or an invented dependency set.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain shared membership cost and the three-state verdict's required caller behavior.
  * @evidence contracts/portability.md#os-neutral-implementation Native lexical spelling qualifies exact manifest coverage while dependency selection and its validators use the generation's filesystem identity policy.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This boundary borrows generation trackers and manifests; their owners acquire and retire retained resources.
+ * @evidence contracts/performance.md#efficient-algorithms Membership proof is shared by the tracker layer; one derived-input scan skips universally covered spellings and reads only inputs whose own proof must be refreshed.
+ * @evidence contracts/performance.md#reuse-equivalent-work Generation-wide universal validation and per-input qualified signatures let sibling deliveries share established work without equating merely similar module paths.
  */
 export function matchesNarrowPersistentInputs(
   cached: TtscCachedProjectTransform,

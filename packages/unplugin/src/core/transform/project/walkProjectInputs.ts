@@ -29,6 +29,9 @@ import { isProjectWalkDirectory } from "./isProjectWalkDirectory";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Exclusion follows resolved compiler admission rather than compensating name lists, and failed observations remain explicit proof failures instead of disappearing from a successful result.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain iterative descent and deterministic output; inline comments explain two-phase relevance, filtered membership and the metadata helper's narrower race-detection role.
  * @evidence contracts/portability.md#os-neutral-implementation The supplied native readdir and bigint stat view owns entry kinds and timestamps; its platform selects child joining, parent extraction and membership grammar, and final sorting removes OS enumeration-order dependence.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources All traversal state is local and returned snapshots transfer to the caller; synchronous filesystem observations leave no retained watcher, handle or task.
+ * @evidence contracts/performance.md#efficient-algorithms Iterative DFS avoids call-stack growth, a visited map bounds relevance propagation and child-directory sets avoid repeated linear membership scans; sorting each selected membership list and final paths dominates ordering work.
+ * @evidence contracts/performance.md#reuse-equivalent-work Directory metadata and entries are captured once per walk and reused for relevance and digest construction; a new walk reobserves membership rather than trusting an earlier directory timestamp.
  */
 export function walkProjectInputs(
   root: string,

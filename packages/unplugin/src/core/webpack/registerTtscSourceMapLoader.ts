@@ -19,6 +19,16 @@ import { TTSC_SOURCE_MAP_LOADER } from "./TTSC_SOURCE_MAP_LOADER";
  * @evidence contracts/common.md#clear-and-simple-design One filtered rule installs the adapter; it does not introduce another transform pipeline or duplicate host loader execution.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The compiler's documented rule extension owns this integration; no foreign loader method is patched and the identifier names the adapter rule.
  * @evidence contracts/common.md#meaningful-documentation The native comment explains reverse loader order and the transformed-module filter, so the seemingly reversed insertion order remains maintainable.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Adds one rule object to the compiler's rules for the compiler's life; it
+ *   acquires no handle.
  */
 export function registerTtscSourceMapLoader(compiler: {
   options: { module: { rules: unknown[] } };

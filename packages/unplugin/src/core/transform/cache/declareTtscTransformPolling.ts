@@ -20,6 +20,8 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The WeakSet entry follows the cache's own lifetime.
  * @evidenceExclude contracts/performance.md#efficient-algorithms A WeakSet insert or delete.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work It records a policy and does not discard or reuse a computation; a generation captured earlier gives up its watchers at its next delivery.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
 export function declareTtscTransformPolling(
   cache: TtscTransformCache,

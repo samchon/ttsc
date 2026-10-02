@@ -17,6 +17,12 @@ import { graphInputObservationCompatible } from "./graphInputObservationCompatib
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Protocol hash syntax and absolute-realpath checks validate genuine producer data; neither missing predicates nor malformed evidence receive fabricated values.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain undefined outcomes, copied lists, hash form, platform interpretation and unknown versus absent fields with documentation-skill paragraph and tag separation.
  * @evidence contracts/portability.md#os-neutral-implementation The declared producer platform chooses realpath parsing and resolution, while the host platform is only the default; native case behavior is not inferred or rewritten by this structural parser.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Checks each observation field once and copies the two entry lists once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function normalizeGraphInputObservation(
   value: unknown,

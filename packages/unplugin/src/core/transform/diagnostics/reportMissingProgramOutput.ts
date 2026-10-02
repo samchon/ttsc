@@ -15,6 +15,17 @@ import type { TtscMissingProgramOutputError } from "../errors/TtscMissingProgram
  * @evidence contracts/common.md#clear-and-simple-design Epoch reset, membership suppression and stderr delivery form a single reporting responsibility.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The report neither manufactures transformed output nor suppresses the user-visible reason a file was left to the host.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain the runtime consequence of silent missing output and define the file/generation/pass reporting scope.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Writes one line to process.stderr; no path or OS-specific behaviour.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The per-transform reported set makes each missing file warn once per
+ *   epoch.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The set lives on the cached transform and is cleared when the epoch
+ *   changes.
  */
 export function reportMissingProgramOutput(
   cached: TtscCachedProjectTransform,

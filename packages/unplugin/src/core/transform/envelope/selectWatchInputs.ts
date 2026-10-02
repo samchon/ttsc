@@ -40,6 +40,9 @@ import { envelopeDerivation } from "./envelopeDerivation";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Completeness cannot remove host-owned resolver inputs, and volatility retains the baseline; exceptions produce no fabricated watch list or guessed substitute dependency.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain baseline and narrowed bounds, contradictory declarations, lexical memo keys and exception results with documentation-skill paragraph and tag separation.
  * @evidence contracts/portability.md#os-neutral-implementation Native absolute lexical spellings key alias-sensitive lists, while the envelope context supplies physical identity to graph traversal; these domains remain distinct instead of using manual case or separator normalization.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One watch list per requested lexical module spelling is retained on weak envelope state; each list is bounded by generation inputs, and this selector computes names without opening watcher handles.
+ * @evidence contracts/performance.md#efficient-algorithms A cached lexical spelling needs map lookup; the first request derives its graph/dependency union, after which repeated deliveries avoid repeating closure walks and deduplication.
+ * @evidence contracts/performance.md#reuse-equivalent-work Reuse requires one immutable envelope/root and stable scratch and temporary-config options; the key is lexical module spelling because different aliases exclude different paths. Callers must treat the returned cached array as read-only.
  */
 export function selectWatchInputs(props: {
   file: string;

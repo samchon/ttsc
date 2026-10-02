@@ -26,6 +26,19 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Member paragraphs explain permissive unreadable configs, compatibility
  *   provenance, inherited inputs and compiler case policy with their reasons.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Requested, regular-realpath and native-realpath roots carry observed native
+ *   representations separately. The optional compiler-reported case flag governs
+ *   pattern matching rather than imposing a universal source-filesystem OS rule.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   ITtscProjectMembershipPolicy only declares a shape; it has no computation
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   ITtscProjectMembershipPolicy only declares a shape; it has no work to
+ *   reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   ITtscProjectMembershipPolicy only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface ITtscProjectMembershipPolicy {
   /**

@@ -17,6 +17,9 @@ import { derivationIdentity } from "./derivationIdentity";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cycle prevention follows visited identity rather than a depth cap, retry chain or special source name; target spellings are taken from actual graph edges.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state starting-file exclusion, shared indexing, physical vertex equivalence and first-target spelling, with acknowledgment separation under the documentation skill.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Walks the edge index by the identity strings the envelope's identity context produced; it adds no platform assumption of its own.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The traversal retains no history or handles; its returned array is caller-owned and its stack and visited set are local to one invocation.
+ * @evidence contracts/performance.md#efficient-algorithms Each reachable identity is processed once and its adjacency list scanned once, giving O(V + E) visited-subgraph work plus memoized identity lookups; temporary stack, set and output grow with reached vertices.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This closure operation owns no cross-request cache; selectWatchInputs owns final per-spelling reuse and envelopeGraphIndexes owns shared adjacency reuse.
  */
 export function selectReachableEdges(
   graph: TtscEnvelopeGraphIndexes,

@@ -15,6 +15,8 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * @evidence contracts/performance.md#efficient-algorithms One cache traversal snapshots N promises and clears membership without serially awaiting their compilation.
  * @evidence contracts/performance.md#reuse-equivalent-work Terminal reset and volatile withdrawal share the same generation disposal operation; complete ordinary pass opening retains its existing reuse policy.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Each fulfilled withdrawn promise releases generation-owned trackers and probes through the standard disposer; failed promises require no acquired generation cleanup.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
 export function withdrawTtscTransformGenerations(cache: TtscTransformCache): void {
   const generations = [...cache.values()];

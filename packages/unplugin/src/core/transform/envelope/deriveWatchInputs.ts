@@ -30,6 +30,13 @@ import { selectResolutionCandidateInputs } from "./selectResolutionCandidateInpu
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Temporary and scratch exclusions refer to generated implementation inputs, and contradictory completeness/volatility retains the conservative bound instead of compensating for missing producer evidence.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain alias preservation, exclusions, the identity precondition and memo ownership; they stay separate from acknowledgment tags under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve establishes lexical names and derivationIdentity uses the shared filesystem context for physical names; neither case folding nor separators are guessed from an OS label.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Walks each input list once; the lexicalSeen and physicalSeen sets keep
+ *   membership tests O(1).
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The seen sets skip an input already emitted under another spelling.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Its sets and output list are local and released on return.
  */
 export function deriveWatchInputs(
   state: TtscEnvelopeDerivation,

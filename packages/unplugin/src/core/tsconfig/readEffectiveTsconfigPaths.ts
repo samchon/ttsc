@@ -45,6 +45,12 @@ import { findDeclaredPaths } from "./findDeclaredPaths";
  * @evidence contracts/common.md#meaningful-documentation
  *   Paragraphs explain wholesale replacement and temporary-wrapper anchoring,
  *   including the reason an absolute mapping is necessary instead of optional.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Visits each declared paths entry once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Reads the extends chain once for the paths and keeps no cache.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Its output is local and handed to the caller.
  */
 export function readEffectiveTsconfigPaths(
   tsconfig: string,

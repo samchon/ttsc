@@ -17,6 +17,13 @@ import { isPossibleProgramFileName } from "./isPossibleProgramFileName";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Admitted extensions come from the resolved policy rather than fixture-specific emitted-file names.
  * @evidence contracts/common.md#meaningful-documentation The native comment explains future directory membership and why unadmitted emitted JavaScript does not invalidate a TypeScript-only program.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Tests a Dirent's kind and its name's extension against the policy; no path is parsed.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function isPossibleProgramEntry(
   entry: fs.Dirent,

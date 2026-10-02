@@ -18,6 +18,18 @@ import type { TtscTurbopackLoaderOptions } from "./TtscTurbopackLoaderOptions";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain asynchronous completion and optional capability
  *   effects; spaced members and tag separation follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   TtscTurbopackLoaderContext only declares a shape; it has no filesystem,
+ *   path or process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscTurbopackLoaderContext only declares a shape; it has no computation
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscTurbopackLoaderContext only declares a shape; it has no work to reuse
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscTurbopackLoaderContext only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscTurbopackLoaderContext {
   /**
@@ -34,6 +46,18 @@ export interface TtscTurbopackLoaderContext {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native prose explains callback ownership and map form, separated from tags
    *   and neighboring members per documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of async is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of async is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of async is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of async is declared here; the cost belongs to its
+   *   implementation.
    */
   async(): (error?: unknown, content?: string, sourceMap?: object) => void;
 
@@ -59,6 +83,18 @@ export interface TtscTurbopackLoaderContext {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native prose names the producing rule and absence meaning, with blank tag
    *   and member separation following documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of getOptions is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of getOptions is declared here; the cost belongs to
+   *   its implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of getOptions is declared here; the cost belongs to
+   *   its implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of getOptions is declared here; the cost belongs to
+   *   its implementation.
    */
   getOptions?(): TtscTurbopackLoaderOptions | undefined;
 
@@ -79,6 +115,18 @@ export interface TtscTurbopackLoaderContext {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native prose explains re-run effects and optional capability, with tag/member
    *   spacing following the documentation skill.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of addDependency is declared here; the platform
+   *   behaviour belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of addDependency is declared here; the cost belongs to
+   *   its implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of addDependency is declared here; the cost belongs to
+   *   its implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of addDependency is declared here; the cost belongs to
+   *   its implementation.
    */
   addDependency?(file: string): void;
 
@@ -99,6 +147,18 @@ export interface TtscTurbopackLoaderContext {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native prose explains volatility and replay consequences, with separate
    *   tags and documented members per documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of cacheable is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of cacheable is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of cacheable is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of cacheable is declared here; the cost belongs to its
+   *   implementation.
    */
   cacheable?(flag: boolean): void;
 
@@ -119,6 +179,18 @@ export interface TtscTurbopackLoaderContext {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native paragraphs explain worker-discard behavior and optionality, with
    *   blank tag/member separators following documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of emitError is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of emitError is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of emitError is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of emitError is declared here; the cost belongs to its
+   *   implementation.
    */
   emitError?(error: Error): void;
 }

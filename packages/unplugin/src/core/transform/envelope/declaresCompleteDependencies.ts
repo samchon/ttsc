@@ -15,6 +15,9 @@ import { derivationIdentity } from "./derivationIdentity";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Completeness requires an actual envelope declaration and never follows from a short dependency list or a successful transform.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains the producer's responsibility, universal config exception and volatility caveat rather than merely naming the boolean; tag separation follows the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Declaration membership compares identities through the envelope context, so native case and realpath behavior are shared with the queried file rather than inferred from textual spelling.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The cached set has at most one entry per declared physical identity and belongs to the weakly owned envelope state; the predicate opens no handles and retains no separate history.
+ * @evidence contracts/performance.md#efficient-algorithms The first query folds the declaration list once; later membership uses a set and memoized identity instead of rescanning all declarations per module.
+ * @evidence contracts/performance.md#reuse-equivalent-work The set is cached on one envelope's state and reused for that generation's files; this requires a stable producer declaration and the same root/context throughout the generation.
  */
 export function declaresCompleteDependencies(
   state: TtscEnvelopeDerivation,

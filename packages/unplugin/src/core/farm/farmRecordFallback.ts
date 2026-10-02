@@ -20,6 +20,13 @@ import { fallbackToolDirectory } from "../bridge/fallbackToolDirectory";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No drive letter or user directory is hardcoded; rejection follows the host's actual path and watcher capabilities.
  * @evidence contracts/common.md#meaningful-documentation The native comment names both host restrictions and explains why the root's own directory remains the alternative.
  * @evidence contracts/portability.md#os-neutral-implementation Containment is decided with path.relative and path.isAbsolute, so a fallback on another Windows drive is refused without comparing drive letters, and node_modules is found as a path segment split on the platform's separator.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function farmRecordFallback(root: string): string | undefined {
   const fallback = fallbackToolDirectory(root);

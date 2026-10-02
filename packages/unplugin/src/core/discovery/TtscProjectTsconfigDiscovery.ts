@@ -18,6 +18,18 @@ import type { TtscProjectTsconfigCandidate } from "./TtscProjectTsconfigCandidat
  * @evidence contracts/common.md#meaningful-documentation
  *   Member documentation states nearest-first order and the absent-selection
  *   meaning, with native descriptions retained separately from tags.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Selected and rejected paths retain the filesystem view's native spellings
+ *   and predicates; this result does not reinterpret them as URL addresses.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscProjectTsconfigDiscovery only declares a shape; it has no computation
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscProjectTsconfigDiscovery only declares a shape; it has no work to
+ *   reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscProjectTsconfigDiscovery only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscProjectTsconfigDiscovery {
   /** Every candidate probed, nearest first, including the ones rejected. */

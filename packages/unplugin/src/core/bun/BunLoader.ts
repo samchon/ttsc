@@ -11,5 +11,15 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains why JavaScript loaders are absent and separates its
  *   description from the acknowledgments as documentation guidance requires.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   BunLoader only declares a shape; it has no filesystem, path or process
+ *   operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   BunLoader only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   BunLoader only declares a shape; it has no work to reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   BunLoader only declares a shape; it has no handle or retained state at
+ *   runtime.
  */
 export type BunLoader = "ts" | "tsx";

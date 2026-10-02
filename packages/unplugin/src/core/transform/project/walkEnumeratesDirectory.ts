@@ -22,6 +22,13 @@ import { isProjectWalkDirectory } from "./isProjectWalkDirectory";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A leaf accepted by itself cannot conceal an excluded ancestor, and physical alias canonicalization does not stand in for the walk's lexical path.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs define enumeration coverage and explain ancestor admission; parameter tags identify the exact walk root and policy.
  * @evidence contracts/portability.md#os-neutral-implementation Node relative/join operations and native separators preserve volume boundaries; lexical component admission deliberately follows the walk rather than collapsing aliases through realpath.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Joins and checks each segment of the relative path once, from the root
+ *   downwards.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function walkEnumeratesDirectory(
   root: string,

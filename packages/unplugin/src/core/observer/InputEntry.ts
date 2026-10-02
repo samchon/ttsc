@@ -15,6 +15,16 @@ import type { WatchScope } from "./WatchScope";
  * @evidence contracts/common.md#clear-and-simple-design One entry holds shared path observation state while conditions own per-generation evidence and owners; native handles remain with scopes.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts An event or fallback flag is not itself a successful input proof; conditions must still be checked before notifying owners.
  * @evidence contracts/common.md#meaningful-documentation Member comments distinguish lexical spelling, physical roots, event keys, and fallback reasons with their implementation consequences.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   InputEntry only declares a shape; it has no filesystem, path or process
+ *   operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   InputEntry only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   InputEntry only declares a shape; it has no work to reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   InputEntry only declares a shape; it has no handle or retained state at
+ *   runtime.
  */
 export interface InputEntry {
   /**

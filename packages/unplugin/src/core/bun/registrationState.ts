@@ -39,6 +39,17 @@ const BUN_REGISTRATION_STATES = Symbol.for(
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains concrete-runtime identity and dual-module sharing, with
  *   separate descriptive paragraphs and tags per documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Looks the state up in one process-wide WeakMap keyed by the Bun runtime,
+ *   so every call for that runtime shares a single state object.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The WeakMap holds each state weakly by its runtime object, so a state is
+ *   released together with its runtime.
  */
 export function registrationState(
   runtime: BunRuntimeGlobal,

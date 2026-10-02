@@ -13,6 +13,13 @@ import { insideExcludedProjectDirectory } from "./insideExcludedProjectDirectory
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A configured output location excludes only its own subtree, not every directory sharing its basename.
  * @evidence contracts/common.md#meaningful-documentation The native prose names lexical containment and explains the distinction from historical name-only exclusions.
  * @evidence contracts/portability.md#os-neutral-implementation Native containment is delegated unchanged, keeping this directory interpretation consistent with the shared root and separator rules on every supported OS.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function isExcludedProjectDirectory(
   directory: string,

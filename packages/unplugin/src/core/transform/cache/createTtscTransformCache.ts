@@ -13,6 +13,8 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * @evidence contracts/performance.md#bound-retention-and-release-resources The cache holds promises only. Its generations' watchers and probes are released through resetTtscTransformCache and evictGeneration, and the operation table sits in a WeakMap keyed by the cache.
  * @evidenceExclude contracts/performance.md#efficient-algorithms Allocates one Map and one operation table.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Creates a new cache by definition; sharing one between adapters is decided by sharedBuildTransformCache.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
 export function createTtscTransformCache(
   operations: Partial<TtscTransformFilesystemOperations> = {},

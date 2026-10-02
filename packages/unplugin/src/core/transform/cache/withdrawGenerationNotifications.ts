@@ -17,6 +17,7 @@ import type { TtscCachedProjectTransform } from "./TtscCachedProjectTransform";
  * @evidence contracts/performance.md#efficient-algorithms Withdrawal examines only three trackers rather than discarding or recompiling the whole project.
  * @evidence contracts/performance.md#reuse-equivalent-work Generation and clock evidence remain reusable under snapshot validation, so changed watch policy alone does not waste an equivalent compile.
  * @evidence contracts/performance.md#bound-retention-and-release-resources All tracker fields are detached before closing and every independent close attempt runs; repeat withdrawal sees no retained handle.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral policy changes close through the actual backend handles; unavailable notification authority requires recorded-state proof.
  */
 export function withdrawGenerationNotifications(
   cached: TtscCachedProjectTransform,

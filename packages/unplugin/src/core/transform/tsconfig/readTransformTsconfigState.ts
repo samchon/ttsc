@@ -18,6 +18,13 @@ import type { ITransformTsconfigState } from "./ITransformTsconfigState";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The signature includes source bytes as well as derived views, rather than letting a quiet watcher or one unchanged option stand in for the entire configuration chain.
  * @evidence contracts/common.md#meaningful-documentation The native comment identifies wrapper-dependent state, and the parameter paragraph explains why inherited template resolution uses compiler spelling.
  * @evidence contracts/portability.md#os-neutral-implementation Existing config readers own native resolution and actual filesystem observations; this assembler passes compilerConfigDir to inherited templates instead of assuming adapter lexical spelling equals physical compiler spelling.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function readTransformTsconfigState(
   tsconfig: string,

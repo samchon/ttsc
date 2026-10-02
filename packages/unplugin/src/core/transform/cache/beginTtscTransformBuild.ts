@@ -25,6 +25,8 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * @evidence contracts/performance.md#bound-retention-and-release-resources The epoch is one number per cache in a WeakMap and is released with the cache; the generations' own resources are released by resetTtscTransformCache.
  * @evidenceExclude contracts/performance.md#efficient-algorithms One counter increment.
  * @evidence contracts/performance.md#reuse-equivalent-work Advancing the epoch instead of discarding the generation is what lets a repeating buildStart reuse its compile after the pass's first delivery proves it.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
 export function beginTtscTransformBuild(cache: TtscTransformCache): void {
   TRANSFORM_CACHE_EPOCHS.set(

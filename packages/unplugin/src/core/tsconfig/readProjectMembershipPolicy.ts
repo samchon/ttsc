@@ -66,6 +66,17 @@ const DEFAULT_INCLUDE_SPEC = "**/*";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain defaults, output exclusion provenance and the
  *   conservative boundary, plus the parsed-source map's per-call lifetime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Parsed-source maps and source sets are local; the returned policy transfers
+ *   to its caller and this reader retains no handle or cross-call state.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   A per-call parsed-source map reads and parses each lexical config once
+ *   across option queries. Each query traverses the required inheritance paths;
+ *   input bytes, graph edges and spec count drive the remaining work.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Option queries share parsed source within this read transaction. Later
+ *   calls use a fresh map because unchanged metadata does not prove source
+ *   equivalence; the selection-entry owner validates cross-call memoization.
  */
 export function readProjectMembershipPolicy(
   tsconfig: string,

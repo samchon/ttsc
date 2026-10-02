@@ -19,6 +19,16 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains the inherited anchor and member comments distinguish
  *   the declaring directory from raw compiler data.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   baseDir is a native declaring anchor while paths holds raw config syntax;
+ *   their separate members prevent treating target patterns as resolved identity.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   IDeclaredPaths only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   IDeclaredPaths only declares a shape; it has no work to reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   IDeclaredPaths only declares a shape; it has no handle or retained state
+ *   at runtime.
  */
 export interface IDeclaredPaths {
   /**

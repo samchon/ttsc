@@ -9,6 +9,18 @@ import type { ITtscCompilerTransformation } from "ttsc";
  * @evidence contracts/common.md#clear-and-simple-design The two fields carry one module's transform artifact without embedding compiler diagnostics or watch state in a bundler result.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts An absent map stays undefined; the shape contains no consumer-specific synthetic mapping or foreign mutation.
  * @evidence contracts/common.md#meaningful-documentation The native description states mapping direction and member comments explain map origin, relative sources and absence; members and acknowledgment prose follow the documentation skill's spacing guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   TtscTransformedOutput only declares a shape; it has no filesystem, path
+ *   or process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscTransformedOutput only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscTransformedOutput only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscTransformedOutput only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export interface TtscTransformedOutput {
   /** Transformed TypeScript text of the module. */

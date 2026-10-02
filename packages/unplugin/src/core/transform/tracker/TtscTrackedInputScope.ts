@@ -35,6 +35,18 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose and the parallel variant list explain events and reasons;
  *   the type remains the documentation authority under the documentation skill.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   TtscTrackedInputScope only declares a shape; it has no filesystem, path
+ *   or process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscTrackedInputScope only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscTrackedInputScope only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscTrackedInputScope only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export type TtscTrackedInputScope =
   | "children"

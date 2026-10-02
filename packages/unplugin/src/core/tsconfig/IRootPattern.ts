@@ -20,6 +20,16 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Member comments explain wildcard min.js and JSON exceptions plus literal
  *   whole-path matching; separate comments preserve each field's meaning.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   IRootPattern only declares a shape; it has no filesystem, path or process
+ *   operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   IRootPattern only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   IRootPattern only declares a shape; it has no work to reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   IRootPattern only declares a shape; it has no handle or retained state at
+ *   runtime.
  */
 export interface IRootPattern {
   /** Whether segments compare case-sensitively, the compiler's policy. */

@@ -19,6 +19,18 @@
  * @evidence contracts/common.md#clear-and-simple-design Plain JSON metadata stores only proof references rather than the generation or native observation resources.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing record and null have distinct meanings, so a volatile or unprovable delivery cannot masquerade as a disabled-plugin pass-through.
  * @evidence contracts/common.md#meaningful-documentation The prose explains host source-only caching, option identity, optional records, null, and serializable metadata ownership.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   TtscRollupDelivery only declares a shape; it has no filesystem, path or
+ *   process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscRollupDelivery only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscRollupDelivery only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscRollupDelivery only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export type TtscRollupDelivery = {
   /** The identity of the options the delivery was compiled under. */

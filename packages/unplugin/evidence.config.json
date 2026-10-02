@@ -2,134 +2,18 @@
   "severity": "error",
   "claims": [
     {
-      "name": "type definitions, and functions that own no filesystem, path, process or retention decision",
+      "name": "TypeScript production declarations",
       "type": "typescript",
-      "files": [
-        "src/**/B*.ts",
-        "src/**/H*.ts",
-        "src/**/I*.ts",
-        "src/**/L*.ts",
-        "src/**/N*.ts",
-        "src/**/R*.ts",
-        "src/**/T*.ts",
-        "src/**/V*.ts",
-        "src/**/W*.ts",
-        "src/core/*.ts",
-        "!src/core/index.ts",
-        "src/core/options/**/*.ts",
-        "src/core/source/**/*.ts",
-        "src/core/webpack/**/*.ts",
-        "src/core/transform/alias/**/*.ts",
-        "src/core/transform/diagnostics/**/*.ts",
-        "src/core/transform/errors/**/*.ts",
-        "src/core/transform/utils/**/*.ts",
-        "src/core/rollup/**/*.ts",
-        "src/core/vite/**/*.ts",
-        "src/core/bun/**/*.ts",
-        "src/core/turbopack/**/*.ts",
-        "!src/core/bun/bun.ts",
-        "!src/core/turbopack/turbopack.ts",
-        "!src/core/rollup/createRollupCachedModuleProof.ts",
-        "!src/core/vite/createViteServeInputWatch.ts"
-      ],
+      "files": ["src/**/*.ts"],
       "symbol": ["type", "function"],
       "reference": {
         "type": "markdown",
         "root": "../../.agents/skills",
-        "files": ["contracts/common.md"],
-        "symbol": "h2",
-        "checklist": true
-      }
-    },
-    {
-      "name": "functions that own a filesystem, path, process and retention decision",
-      "type": "typescript",
-      "files": [
-        "src/core/bridge/**/*.ts",
-        "src/core/observer/**/*.ts",
-        "src/core/esbuild/**/*.ts",
-        "src/core/next/**/*.ts",
-        "src/core/transform/clock/**/*.ts",
-        "src/core/transform/generation/**/*.ts",
-        "src/core/transform/inputs/**/*.ts",
-        "src/core/transform/session/**/*.ts",
-        "src/core/transform/tracker/**/*.ts",
-        "src/core/transform/watch/**/*.ts",
-        "src/core/bun/bun.ts",
-        "src/core/turbopack/turbopack.ts",
-        "src/core/rollup/createRollupCachedModuleProof.ts",
-        "src/core/vite/createViteServeInputWatch.ts",
-        "src/core/transform/transformTtsc.ts",
-        "!src/**/B*.ts",
-        "!src/**/H*.ts",
-        "!src/**/I*.ts",
-        "!src/**/L*.ts",
-        "!src/**/N*.ts",
-        "!src/**/R*.ts",
-        "!src/**/T*.ts",
-        "!src/**/V*.ts",
-        "!src/**/W*.ts"
-      ],
-      "symbol": "function",
-      "reference": {
-        "type": "markdown",
-        "root": "../../.agents/skills",
-        "files": ["contracts/common.md", "contracts/portability.md", "contracts/performance.md"],
-        "symbol": "h2",
-        "checklist": true
-      }
-    },
-    {
-      "name": "functions that own a filesystem, path or process decision",
-      "type": "typescript",
-      "files": [
-        "src/core/discovery/**/*.ts",
-        "src/core/tsconfig/**/*.ts",
-        "src/core/farm/**/*.ts",
-        "src/core/transform/envelope/**/*.ts",
-        "src/core/transform/filesystem/**/*.ts",
-        "src/core/transform/project/**/*.ts",
-        "src/core/transform/tsconfig/**/*.ts",
-        "src/core/transform/validation/**/*.ts",
-        "!src/**/B*.ts",
-        "!src/**/H*.ts",
-        "!src/**/I*.ts",
-        "!src/**/L*.ts",
-        "!src/**/N*.ts",
-        "!src/**/R*.ts",
-        "!src/**/T*.ts",
-        "!src/**/V*.ts",
-        "!src/**/W*.ts"
-      ],
-      "symbol": "function",
-      "reference": {
-        "type": "markdown",
-        "root": "../../.agents/skills",
-        "files": ["contracts/common.md", "contracts/portability.md"],
-        "symbol": "h2",
-        "checklist": true
-      }
-    },
-    {
-      "name": "functions that own retained state",
-      "type": "typescript",
-      "files": [
-        "src/core/transform/cache/**/*.ts",
-        "!src/**/B*.ts",
-        "!src/**/H*.ts",
-        "!src/**/I*.ts",
-        "!src/**/L*.ts",
-        "!src/**/N*.ts",
-        "!src/**/R*.ts",
-        "!src/**/T*.ts",
-        "!src/**/V*.ts",
-        "!src/**/W*.ts"
-      ],
-      "symbol": "function",
-      "reference": {
-        "type": "markdown",
-        "root": "../../.agents/skills",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md",
+          "contracts/performance.md"
+        ],
         "symbol": "h2",
         "checklist": true
       }

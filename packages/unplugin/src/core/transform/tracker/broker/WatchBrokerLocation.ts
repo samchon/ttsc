@@ -17,6 +17,18 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs and separated member comments explain named scopes and
  *   probe containment under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral callers supply paths in their own spelling; the broker translates
+ *   canonical native paths and confines probe semantics to capable backends.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   WatchBrokerLocation only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   WatchBrokerLocation only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   WatchBrokerLocation only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export interface WatchBrokerLocation {
   /**

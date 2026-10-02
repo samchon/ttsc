@@ -18,6 +18,8 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing.
  * @evidenceExclude contracts/performance.md#efficient-algorithms Three constant-time reads.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Re-evaluated per delivery because a host or the environment can change its polling declaration; nothing is shared.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
 export function transformCacheTrustsNotifications(
   cache: TtscTransformCache | undefined,

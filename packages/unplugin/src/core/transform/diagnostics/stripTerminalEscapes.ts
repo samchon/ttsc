@@ -16,6 +16,15 @@
  * @evidence contracts/common.md#clear-and-simple-design One replacement owns the supported escape grammar, so every caller uses the same presentation boundary.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The grammar follows control-sequence syntax without matching fixture-specific colours, exception messages or expected output.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain the nonterminal destination and inline comments explain the deliberately visible expression construction.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   One regular-expression replace, linear in the text length.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Builds its small escape-sequence RegExp per call; the cost is constant
+ *   and the input is error text only.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function stripTerminalEscapes(text: string): string {
   // Built from a char code so no control byte lives in this source file, and

@@ -44,6 +44,12 @@ import { policyUsesCaseSensitiveFileNames } from "./policyUsesCaseSensitiveFileN
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains lexical, physical and watcher spelling and why child
  *   links and above-root globs must retain their original meaning.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Tries each distinct root spelling once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache; the distinct-spelling Set is local.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The spellings Set is local to the call.
  */
 export function rootSpellings(
   location: string,

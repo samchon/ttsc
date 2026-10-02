@@ -32,6 +32,15 @@ import { envelopeGraphIndexes } from "./envelopeGraphIndexes";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing candidates remain observable rather than being dropped merely because no current project hash exists; the temporary-config exclusion refers to an actual generated input rather than a consumer-specific escape.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain whole-project scope, project-walk gaps, missing candidates and why completeness cannot narrow the stored union; separated tags follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Injected filesystem capabilities drive identity, existence and membership checks; lexical native spellings remain distinct for alias changes while physical identity excludes the temporary config consistently across host filesystems.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Collects the members in one pass, dedupes them through a seen set and
+ *   sorts the output once.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The seen set and the resolution-candidate set keep a spelling from being
+ *   classified twice.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Its collections are local to the call and released on return; only the
+ *   sorted output is handed back.
  */
 export function selectExternalInputPaths(props: {
   filesystem?: TtscTransformFilesystemOperations;

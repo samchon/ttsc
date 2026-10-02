@@ -10,6 +10,18 @@ import type { TtscRollupDelivery } from "./TtscRollupDelivery";
  * @evidence contracts/common.md#clear-and-simple-design Three operations separate pass reset, delivery recording, and cached-module judgment without exposing record proof internals to the host adapter.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Absent or unprovable delivery metadata cannot certify cached output, and the adapter answers only modules it owns.
  * @evidence contracts/common.md#meaningful-documentation The interface explains source-only host caching and each method's pass, metadata, or invalidation responsibility.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   RollupCachedModuleProof only declares a shape; it has no filesystem, path
+ *   or process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   RollupCachedModuleProof only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   RollupCachedModuleProof only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   RollupCachedModuleProof only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface RollupCachedModuleProof {
   /**
@@ -20,6 +32,18 @@ export interface RollupCachedModuleProof {
    * @evidence contracts/common.md#clear-and-simple-design The host declares one boundary instead of clearing proof state separately for each module.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A previous pass's unchanged digest cannot stand in for current recorded project state.
    * @evidence contracts/common.md#meaningful-documentation The comment states which observations expire and why they cannot survive a new build unchecked.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of begin is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of begin is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of begin is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of begin is declared here; the cost belongs to its
+   *   implementation.
    */
   begin(): void;
 
@@ -34,6 +58,18 @@ export interface RollupCachedModuleProof {
    * @evidence contracts/common.md#clear-and-simple-design The operation returns plain metadata in the host's existing format without another module cache.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A null delivery preserves uncacheability instead of inventing a digest or hiding volatile inputs.
    * @evidence contracts/common.md#meaningful-documentation The native prose and parameter comment distinguish recorded delivery from the explicit no-cache case.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of deliver is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of deliver is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of deliver is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of deliver is declared here; the cost belongs to its
+   *   implementation.
    */
   deliver(delivery: TtscRollupDelivery): Record<string, TtscRollupDelivery>;
 
@@ -48,6 +84,18 @@ export interface RollupCachedModuleProof {
    * @evidence contracts/common.md#clear-and-simple-design A boolean answers Rollup's own retransformation hook; the host retains ownership of its module cache.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unsupported metadata requires retransformation, and modules outside the adapter's filter remain the host's responsibility.
    * @evidence contracts/common.md#meaningful-documentation The comment defines the retransformation verdict and the filter's ownership boundary.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of moved is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of moved is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of moved is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of moved is declared here; the cost belongs to its
+   *   implementation.
    */
   moved(module: { id: string; meta?: Record<string, unknown> }): boolean;
 }

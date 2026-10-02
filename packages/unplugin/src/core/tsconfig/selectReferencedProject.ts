@@ -49,6 +49,13 @@ import { readProjectSelectionEntry } from "./readProjectSelectionEntry";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain solution configs and consulted negative choices;
  *   return prose tells callers why those rejected inputs still need watching.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Depth-first search of the references; the visited set stops cycles and
+ *   repeats.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The visited set keeps a project already searched from being read again.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The visited and consulted sets are local to the call.
  */
 export function selectReferencedProject(
   file: string,

@@ -32,6 +32,14 @@ import { farmRecordFallback } from "./farmRecordFallback";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts This is a host capability boundary with a stated invalidation reason, rather than a test-only bypass, patched cache implementation, or assumed writable directory.
  * @evidence contracts/common.md#meaningful-documentation The comment explains why per-module opt-out is unavailable and why the warning and configuration-level fallback are necessary.
  * @evidence contracts/portability.md#os-neutral-implementation Writability is proven by an actual write below the tool directory and the fallback, and the root is resolved with path.resolve against cwd, so no operating-system name, permission bit or drive layout is assumed.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop of its own; it probes at most two record directories.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The WARNED set emits the unwritable-records warning once per tool
+ *   directory, not once per config pass.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   WARNED keeps one short string per tool directory for the process life;
+ *   the number of distinct Farm roots bounds it.
  */
 export function farmPersistentCacheWithoutRecords<
   Config extends {

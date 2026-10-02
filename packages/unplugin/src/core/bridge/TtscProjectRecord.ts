@@ -32,6 +32,18 @@ import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembe
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs and spaced members explain persistence, membership-null
  *   meaning and signal purpose under the documentation skill.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   TtscProjectRecord only declares a shape; it has no filesystem, path or
+ *   process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscProjectRecord only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscProjectRecord only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscProjectRecord only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export interface TtscProjectRecord {
   /**

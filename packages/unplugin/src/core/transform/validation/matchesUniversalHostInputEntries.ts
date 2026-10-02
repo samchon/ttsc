@@ -24,6 +24,9 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Strict non-directory blockers cannot inherit content equivalence, and unreadable inputs cannot skip reads merely because their metadata is unchanged.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain existing-entry authority, actual rejection causes and why proof loss differs from a content mismatch.
  * @evidence contracts/portability.md#os-neutral-implementation Metadata and physical targets come from the result's native filesystem operations; exact watcher coverage uses its proved capabilities rather than an OS-name assumption.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Existing entries are updated in place within one generation manifest; no per-delivery history or additional native handle is retained.
+ * @evidence contracts/performance.md#efficient-algorithms One entry scan skips exact tracker-qualified inputs and stable separable metadata; remaining cost is constant-count metadata calls plus bytes read for changed witnesses.
+ * @evidence contracts/performance.md#reuse-equivalent-work Re-earned readable/signature state is shared by all modules of this generation only after recorded content and physical target remain qualified.
  */
 export function matchesUniversalHostInputEntries(
   cached: TtscCachedProjectTransform,

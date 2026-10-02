@@ -31,6 +31,14 @@ import { sendFullReload } from "./sendFullReload";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain importer propagation, preserved client state and
  *   fallback conditions, with separate tags following documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Visits each module of the file's importers once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function reloadImporters(
   server: ViteDevServerLike,

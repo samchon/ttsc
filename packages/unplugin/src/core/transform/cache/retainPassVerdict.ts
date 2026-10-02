@@ -24,6 +24,8 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * @evidence contracts/performance.md#efficient-algorithms Constant-time current-promise and epoch guards retain one verdict rather than repeating failed whole-project work per delivered module.
  * @evidence contracts/performance.md#reuse-equivalent-work Remaining modules reuse the same observed failed attempt only in its pass; a successful envelope's missing output is never promoted to a reusable generation failure.
  * @evidence contracts/performance.md#bound-retention-and-release-resources One verdict is weakly keyed by its generation promise, and the stored epoch limits replay authority to the owning pass.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
 export function retainPassVerdict(
   cache: TtscTransformCache | undefined,

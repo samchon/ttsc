@@ -14,6 +14,13 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing or failed candidate observer cannot prove continued absence.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain exact spelling and why proof loss returns to direct probing.
  * @evidence contracts/portability.md#os-neutral-implementation Authority comes from observed native delivery capability and the tracker's component-aware overlap semantics.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Delegates one query to the tracker and keeps nothing.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Retains nothing.
  */
 export function notifiesAbsence(
   cached: TtscCachedProjectTransform,

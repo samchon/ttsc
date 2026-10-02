@@ -20,6 +20,16 @@ import { formatDiagnostics } from "./formatDiagnostics";
  * @evidence contracts/common.md#clear-and-simple-design Result gating and generation-owned reporting state keep nonfatal reporting separate from compilation failure handling.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Severity and success follow the structured envelope rather than warning-text matching, and an empty success list does not manufacture a failure diagnostic.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain nonfatal diagnostics and why both retained generations and fresh passes must report them once.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Writes one line to process.stderr; no path or OS-specific behaviour.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   diagnosticsReported with its epoch makes the diagnostics print once per
+ *   epoch.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Retains two scalar fields on the cached transform and no collection.
  */
 export function reportSuccessDiagnostics(
   cached: TtscCachedProjectTransform,

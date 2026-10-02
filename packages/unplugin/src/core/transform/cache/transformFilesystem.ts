@@ -18,6 +18,8 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing; the table is weakly keyed by the cache.
  * @evidenceExclude contracts/performance.md#efficient-algorithms One WeakMap lookup.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The lookup returns the operation table the cache was created with; there is no computation to share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
 export function transformFilesystem(
   cache: TtscTransformCache | undefined,

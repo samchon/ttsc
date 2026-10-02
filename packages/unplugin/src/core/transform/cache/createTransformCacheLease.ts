@@ -36,6 +36,8 @@ const RELEASE_GRACE_MS = 2_000;
  * @evidence contracts/performance.md#efficient-algorithms Acquisition and release update one counter and timer in constant time; only the final idle grace resets the generations.
  * @evidence contracts/performance.md#reuse-equivalent-work Adjacent compiler sessions share the cache through teardown gaps; a new pass still proves input equivalence before serving output.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Reacquisition cancels cleanup; one unreferenced timer clears retained generations after the final owner remains idle for the grace.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
 export function createTransformCacheLease(
   cache: TtscTransformCache,

@@ -49,6 +49,17 @@ const compiled = new WeakMap<
  *   conversion together; native callers default to the host, while foreign
  *   views never resolve their roots through the host's path grammar. Compiler
  *   case sensitivity remains policy data independent of that grammar.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The WeakMap does not keep discarded policies alive. Compiled patterns are
+ *   retained while a caller retains their policy, with bytes driven by its specs.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Pattern compilation happens once per policy object and view platform. Each spelling checks
+ *   at most the configured pattern count; matching uses bounded component
+ *   states per path part rather than recursive wildcard expansion.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The WeakMap shares compiled patterns across queries of the same immutable
+ *   policy and filesystem-view platform. Producers replace policies when configuration or compiler case
+ *   answers change; mutating a retained policy violates that representation.
  */
 export function matchesProjectRootFile(
   location: string,

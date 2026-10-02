@@ -14,6 +14,16 @@
  * @evidence contracts/common.md#clear-and-simple-design The value owns failure context only; directory selection, record writing and watching-session policy remain with their respective operations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The failure exposes missing invalidation capability instead of letting watcher silence stand in for evidence the host never received.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain why a watching delivery must fail and when one-shot builds remain valid; constructor parameter comments identify the record and cause.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   An error class that carries a message and fields only; it touches no
+ *   filesystem, path or process.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   The constructor assigns its fields; constant work.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Computes nothing that could be reused.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Retains only the message, cause and fields given to the constructor,
+ *   released with the error.
  */
 export class TtscProjectRecordUnwritableError extends Error {
   /** The record that could not be written. */

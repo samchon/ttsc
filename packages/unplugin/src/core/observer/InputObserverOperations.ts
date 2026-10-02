@@ -10,6 +10,18 @@
  * @evidence contracts/common.md#clear-and-simple-design A structural operation table exposes observation capabilities; input evidence and consumer actions remain outside the seam.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit injected capabilities avoid foreign-method replacement, with production defaults independent of test-specific paths.
  * @evidence contracts/common.md#meaningful-documentation Method comments explain admission, tracking, and project-owned probes with their distinct backend responsibilities.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   InputObserverOperations only declares a shape; it has no filesystem, path
+ *   or process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   InputObserverOperations only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   InputObserverOperations only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   InputObserverOperations only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface InputObserverOperations {
   /**
@@ -19,6 +31,18 @@ export interface InputObserverOperations {
    * @evidence contracts/common.md#clear-and-simple-design One optional query supplies the existing path-identity resolver's capability.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Injection declares behavior without globally lowercasing paths or patching native reads.
    * @evidence contracts/common.md#meaningful-documentation The comment identifies directory case discovery as the override's responsibility.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of caseSensitive is declared here; the platform
+   *   behaviour belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of caseSensitive is declared here; the cost belongs to
+   *   its implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of caseSensitive is declared here; the cost belongs to
+   *   its implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of caseSensitive is declared here; the cost belongs to
+   *   its implementation.
    */
   caseSensitive?(directory: string): boolean;
 
@@ -32,6 +56,18 @@ export interface InputObserverOperations {
    * @evidence contracts/common.md#clear-and-simple-design Listener and close expose scheduling only; input sampling remains in the observer.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The scheduler invokes actual checks without synthetic results or global timer replacement.
    * @evidence contracts/common.md#meaningful-documentation The comment identifies shared timing and the return type exposes its close handle.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of poll is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of poll is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of poll is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of poll is declared here; the cost belongs to its
+   *   implementation.
    */
   poll(listener: () => void): { close(): void };
 
@@ -52,6 +88,18 @@ export interface InputObserverOperations {
    * @evidence contracts/common.md#clear-and-simple-design The handle exposes closure and optional directory tracking; recursive backends need not implement redundant tracking.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Project probes cannot write into external scopes or replace real event-delivery proof with construction success.
    * @evidence contracts/common.md#meaningful-documentation The preceding native comment explains admission, subtree tracking, and project-only probe ownership.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of watch is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of watch is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of watch is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of watch is declared here; the cost belongs to its
+   *   implementation.
    */
   watch(
     root: string,

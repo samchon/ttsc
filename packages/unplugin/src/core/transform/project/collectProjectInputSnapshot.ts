@@ -23,6 +23,9 @@ import { walkProjectInputs } from "./walkProjectInputs";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreadable or changing files mark incompleteness rather than yielding successful partial hashes, and declared-key filtering does not suppress directory membership proof.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain metadata-authorized reuse and declared-key restriction; inline comments justify clock separation and failure attribution without mirroring trivial assignments.
  * @evidence contracts/portability.md#os-neutral-implementation Enumeration and reads use the supplied native filesystem view; identity keys share its case/link policy, and bigint metadata plus filesystem clock separation avoid assuming one timestamp precision on every platform.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This operation returns caller-owned proof collections and opens no retained handle; generation retention belongs to the consuming cache owner.
+ * @evidence contracts/performance.md#efficient-algorithms One membership walk and one admitted-file pass bound observation work; declared-key validation skips unused content reads, and output memory grows with observed directories, selected files and failures.
+ * @evidence contracts/performance.md#reuse-equivalent-work Proven hashes replace content reads only when the same key retains a matching separable metadata signature; absent or nonseparable evidence forces a fresh bracketed read and clock authority is rechecked.
  */
 export function collectProjectInputSnapshot(
   projectRoot: string,

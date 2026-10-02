@@ -20,6 +20,12 @@
  *   Native prose states ordering and invalid-shape handling, preserving the
  *   distinction between normalization and compiler diagnostics.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Normalizes the shape of an extends value into strings; it reads no filesystem and parses no path.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Filters the extends list once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function extendsSpecifiers(extended: unknown): string[] {
   if (typeof extended === "string") {

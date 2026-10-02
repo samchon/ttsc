@@ -9,6 +9,16 @@ import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMe
  * @evidence contracts/common.md#clear-and-simple-design The closed union colocates each codec with only its required state, making invalid cross-codec combinations unrepresentable.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Contract-defined codec values select real observation semantics; no fixture or host-specific expected digest is encoded.
  * @evidence contracts/common.md#meaningful-documentation Spaced native member comments explain hash provenance, physical targets, plugin environment and membership policy; separated tags follow documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Native targets and predicate observations are explicit payloads; plugin-tree state includes the build environment rather than assuming an OS name establishes equivalence.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscWatchInputState only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscWatchInputState only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscWatchInputState only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export type TtscWatchInputState =
   | {

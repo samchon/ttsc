@@ -5,6 +5,18 @@
  * @evidence contracts/common.md#clear-and-simple-design Three fields carry the walk's result without duplicating its traversal or invalidation policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Relevance follows admitted input kinds and the resolved membership policy rather than an expanding list of fixture or output-directory names.
  * @evidence contracts/common.md#meaningful-documentation Field paragraphs explain why irrelevant directories remain watched and why filtered membership, rather than a directory timestamp, is compared.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   TtscProjectDirectorySnapshot only declares a shape; it has no filesystem,
+ *   path or process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscProjectDirectorySnapshot only declares a shape; it has no computation
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscProjectDirectorySnapshot only declares a shape; it has no work to
+ *   reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscProjectDirectorySnapshot only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscProjectDirectorySnapshot {
   /** Absolute directory spelling used by the project walk. */

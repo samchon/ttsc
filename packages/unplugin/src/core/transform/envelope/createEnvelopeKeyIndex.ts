@@ -13,6 +13,13 @@ import { derivationIdentity } from "./derivationIdentity";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts First-match precedence is a supported lookup rule, not a special-case alias mapping; the input record is not rewritten to conceal ambiguous producer spellings.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies the supported key maps and duplicate precedence, with a blank line before acknowledgments following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Keys use native project-relative resolution and the supplied physical identity context, preserving filesystem-specific alias and case semantics without string-based OS guesses.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Visits each keyed entry once and tests the index in O(1).
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The index lets callers look entries up by identity without rescanning the
+ *   keyed record.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The index is local to the call and handed to the caller.
  */
 export function createEnvelopeKeyIndex<T>(
   state: TtscEnvelopeDerivation,

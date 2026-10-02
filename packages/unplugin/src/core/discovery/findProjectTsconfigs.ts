@@ -48,6 +48,17 @@ const HOST_PROJECT_TREE_DISCOVERY_FILESYSTEM: TtscProjectTreeDiscoveryFilesystem
  * @evidence contracts/common.md#meaningful-documentation
  *   Documentation explains lexical aliases, physical cycle guards and the
  *   incomplete result, with reasons separated from the callback contract.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The returned map transfers to the caller. Pending frames and active
+ *   ancestry are temporary computation state, with no retained native handle.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Each reached lexical directory is enumerated once; a shared ancestor Set
+ *   gives constant-time cycle checks without copying ancestry at every child.
+ *   Entry/exit frames keep only active ancestry, and final sorting costs
+ *   O(c log c) for c observed config candidates.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   This traversal observes one current project tree; cross-call reuse and
+ *   proof of continued validity belong to its cache-key caller.
  */
 export function findProjectTsconfigs(
   root: string,

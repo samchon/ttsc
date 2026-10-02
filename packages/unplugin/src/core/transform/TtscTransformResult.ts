@@ -18,6 +18,18 @@ import type { ITtscCompilerTransformation } from "ttsc";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs distinguish result absence from map absence; spaced member
  *   comments explain source provenance per documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   TtscTransformResult only declares a shape; it has no filesystem, path or
+ *   process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscTransformResult only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscTransformResult only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscTransformResult only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export interface TtscTransformResult {
   /** Transformed TypeScript text of the module. */

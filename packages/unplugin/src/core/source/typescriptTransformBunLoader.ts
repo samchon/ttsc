@@ -14,6 +14,14 @@ import { TYPESCRIPT_TRANSFORM_SOURCES } from "./TYPESCRIPT_TRANSFORM_SOURCES";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose identifies exact-source parser selection; the optional result
  *   and blank tag separation preserve documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Scans the small fixed table of TypeScript source extensions once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function typescriptTransformBunLoader(
   filePath: string,

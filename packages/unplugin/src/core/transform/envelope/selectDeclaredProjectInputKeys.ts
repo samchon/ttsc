@@ -20,6 +20,13 @@ import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Out-of-walk and unresolved inputs retain their separate proof responsibility instead of being inserted into a fictitious project snapshot; malformed entries supply no declarations.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains input categories, intersection, external proof ownership and undefined fallback, with a separate acknowledgment block under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve and the supplied FilesystemPathIdentityContext align declarations to the project's actual snapshot key semantics without hand-coded case or separator rules.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Visits each reported graph entry once and tests membership in the project
+ *   hashes with one hasOwnProperty check.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Builds its key set once per call from the result and keeps no cache.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The key set is local to the call and handed to the caller.
  */
 export function selectDeclaredProjectInputKeys(props: {
   identities: FilesystemPathIdentityContext;

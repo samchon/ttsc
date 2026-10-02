@@ -15,6 +15,8 @@ import { disposeCachedTransform } from "./disposeCachedTransform";
  * @evidence contracts/performance.md#efficient-algorithms One keyed identity check and deletion selects cleanup without scanning or clearing unrelated entries.
  * @evidence contracts/performance.md#reuse-equivalent-work A newer authoritative promise remains available instead of triggering a redundant third compile after an older failure.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The evicted fulfilled generation reaches the shared disposer, while stale cleanup cannot detach its replacement.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
 export function evictGeneration(
   cache: TtscTransformCache | undefined,

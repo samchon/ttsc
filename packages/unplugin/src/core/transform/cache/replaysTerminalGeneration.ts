@@ -32,6 +32,8 @@ import { failedGenerationEnvironmentChanged } from "../generation/failedGenerati
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing; the verdict objects belong to the cache entry.
  * @evidenceExclude contracts/performance.md#efficient-algorithms A few constant-time comparisons plus the environment check delegated to failedGenerationEnvironmentChanged.
  * @evidence contracts/performance.md#reuse-equivalent-work It decides whether a failed verdict is replayed instead of repeating a whole-project compile: a pass verdict by its epoch, an unstable one by its recorded environment.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
 export function replaysTerminalGeneration(
   terminal: TtscTerminalGenerationError,

@@ -25,6 +25,14 @@ import type { ViteHotChannelLike } from "./ViteHotChannelLike";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain environment ownership and alias deduplication;
  *   helper failure prose and tag spacing follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Visits each environment once.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The delivered set sends one reload per distinct hot channel.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The delivered set is local to the call.
  */
 export function sendFullReload(server: ViteDevServerLike): void {
   const environments = Object.values(server.environments ?? {});

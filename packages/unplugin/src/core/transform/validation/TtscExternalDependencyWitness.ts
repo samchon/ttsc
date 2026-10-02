@@ -12,6 +12,16 @@
  * @evidence contracts/common.md#clear-and-simple-design One record groups one dependency spelling observation without embedding its generation or validator.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Metadata stability alone cannot substitute for an unobserved plugin read or a changed physical target.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain compiler-proof absence and precompile witnessing; member comments distinguish null state, unavailable metadata and raced reads.
+ * @evidence contracts/portability.md#os-neutral-implementation Physical targets, native metadata and content remain distinct representations of alias and clock behavior without OS-name assumptions.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscExternalDependencyWitness only declares a shape; it has no
+ *   computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscExternalDependencyWitness only declares a shape; it has no work to
+ *   reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscExternalDependencyWitness only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscExternalDependencyWitness {
   /** Content or kind fingerprint, null when absent or unreadable. */

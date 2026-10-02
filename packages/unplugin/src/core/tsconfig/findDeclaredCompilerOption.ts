@@ -25,6 +25,14 @@ import { findDeclaredValue } from "./findDeclaredValue";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain the declaring anchor and key-presence distinction,
  *   the facts a template-path reader needs beyond the return type.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Forwards no shared config map here, so each call reads its own chain; the
+ *   repeat is bounded by the fixed option key lists.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Its Set is local to the call.
  */
 export function findDeclaredCompilerOption(
   tsconfig: string,

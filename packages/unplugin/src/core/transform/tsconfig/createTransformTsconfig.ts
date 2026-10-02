@@ -32,6 +32,13 @@ import { normalizeCompilerOptionsForGeneratedTsconfig } from "./normalizeCompile
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The wrapper preserves inherited template semantics instead of adding synthetic baseUrl, rewriting project files or compensating for scratch-directory misanchoring.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the no-overlay path, scratch ownership, inherited configDir behavior and the compiler's physical spelling; inline comments explain why inherited templates are restated.
  * @evidence contracts/portability.md#os-neutral-implementation Compiler physical spelling anchors every path-valued overlay, Node path addresses the owned scratch file and slash encoding applies only to compiler configuration protocol values; native writes require no shell or fixed volume.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function createTransformTsconfig(
   props: {

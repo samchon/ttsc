@@ -27,6 +27,13 @@ import { resolveRealPath } from "./resolveRealPath";
  * @evidence contracts/common.md#meaningful-documentation
  *   Separate paragraphs state the watcher purpose, short-name distinction and
  *   fallback rather than equating every returned spelling with native proof.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function resolveNativeRootPath(location: string): string {
   try {

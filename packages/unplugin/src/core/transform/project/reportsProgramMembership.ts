@@ -32,6 +32,12 @@ import { isPossibleProgramFileName } from "./isPossibleProgramFileName";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Output events are ignored by actual compiler admission and configured containment, not by broad directory-name exceptions that could hide real inputs.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain creation, deletion and output exclusion; the final sentence distinguishes caller-owned unattributable events from this named-path predicate.
  * @evidence contracts/portability.md#os-neutral-implementation Native relative paths and separators classify event components, and the injected lstat view distinguishes directories from deleted filenames; no platform-wide lowercase rule substitutes for compiler admission.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Tests each segment of the relative path once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function reportsProgramMembership(
   root: string,

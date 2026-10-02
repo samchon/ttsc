@@ -16,6 +16,16 @@ import type { BunLikeBuild } from "./BunLikeBuild";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose identifies the dependency boundary, and spaced member
  *   comments describe registration and naming per documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   BunLikePlugin only declares a shape; it has no filesystem, path or
+ *   process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   BunLikePlugin only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   BunLikePlugin only declares a shape; it has no work to reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   BunLikePlugin only declares a shape; it has no handle or retained state
+ *   at runtime.
  */
 export interface BunLikePlugin {
   /** Plugin identifier shown in Bun bundler output. */
@@ -34,6 +44,18 @@ export interface BunLikePlugin {
    * @evidence contracts/common.md#meaningful-documentation
    *   The method comment names its registration timing; native syntax and a
    *   blank tag separator follow documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of setup is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of setup is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of setup is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of setup is declared here; the cost belongs to its
+   *   implementation.
    */
   setup(build: BunLikeBuild): void | Promise<void>;
 }

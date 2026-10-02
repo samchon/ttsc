@@ -21,6 +21,8 @@ import { stableStringify } from "../utils/stableStringify";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returns a string and retains nothing.
  * @evidence contracts/performance.md#efficient-algorithms Four JSON serialisations and one path identity, linear in the option sizes, once per delivery.
  * @evidence contracts/performance.md#reuse-equivalent-work The key is the sharing identity: equal configurations map to one generation and differing ones never share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
 export function createTransformCacheKey(props: {
   aliasPaths: Record<string, string[]>;

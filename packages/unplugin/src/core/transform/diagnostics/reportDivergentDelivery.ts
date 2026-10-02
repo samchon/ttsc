@@ -18,6 +18,17 @@ import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTrans
  * @evidence contracts/common.md#clear-and-simple-design One membership check and one stderr message own the warning; compilation and delivery policy remain outside reporting.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Divergence is exposed rather than hidden by returning the host's uncompiled text or rewriting expected module output.
  * @evidence contracts/common.md#meaningful-documentation The native prose explains the disk-compilation premise and the differing causes of stale delivery and an earlier rewriting plugin.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Splits the relative name on path.sep and joins it with /, so the reported
+ *   name is the same on every OS.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The per-transform reported set makes each file warn once.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The reported set lives on the cached transform, holds one path per
+ *   divergent file and is released with it.
  */
 export function reportDivergentDelivery(
   cached: TtscCachedProjectTransform,

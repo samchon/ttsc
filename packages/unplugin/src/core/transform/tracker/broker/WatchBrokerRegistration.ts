@@ -16,6 +16,18 @@ import type { WatchBrokerSink } from "./WatchBrokerSink";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native type and separated member comments explain routing authority and
  *   required translation under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral routing maps native canonical paths back to each owner's
+ *   spelling instead of lowercasing or assuming textual aliases are equal.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   WatchBrokerRegistration only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   WatchBrokerRegistration only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   WatchBrokerRegistration only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface WatchBrokerRegistration {
   /**
@@ -57,5 +69,15 @@ export interface WatchBrokerRegistration {
  * @evidence contracts/common.md#clear-and-simple-design A parameterless callback preserves function-property variance and complements the separate failure channel.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Completion cannot erase failure or fabricate notification coverage.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish completion and success under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation OS-neutral opening waits finish through explicit backend acknowledgment rather than a platform startup timing assumption.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   WatchBrokerOpeningComplete only declares a shape; it has no computation
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   WatchBrokerOpeningComplete only declares a shape; it has no work to reuse
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   WatchBrokerOpeningComplete only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export type WatchBrokerOpeningComplete = () => void;

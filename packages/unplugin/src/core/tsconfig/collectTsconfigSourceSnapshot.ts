@@ -35,6 +35,15 @@ import { resolveRealPath } from "./resolveRealPath";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain lexical anchoring, cycle identity and unavailable
  *   content, rather than presenting a null observation as successful parsing.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Reads each config once because the output map and the ancestor set stop
+ *   repeat visits and cycles.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The output map is shared across the extends chain, so a config already
+ *   read is not read again.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The ancestor set is local to each call, and the output map is handed to
+ *   the caller.
  */
 export function collectTsconfigSourceSnapshot(
   tsconfig: string,

@@ -23,6 +23,16 @@ import type { TtscUnpluginOptions } from "../options/TtscUnpluginOptions";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains the provider's evaluation time and why runtime registration
  *   needs it; separate paragraphs and tags follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   TtscBunOptions only declares a shape; it has no filesystem, path or
+ *   process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscBunOptions only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscBunOptions only declares a shape; it has no work to reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscBunOptions only declares a shape; it has no handle or retained state
+ *   at runtime.
  */
 export type TtscBunOptions =
   | TtscUnpluginOptions

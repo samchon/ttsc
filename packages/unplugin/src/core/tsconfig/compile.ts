@@ -37,6 +37,12 @@ import type { IRootPattern } from "./IRootPattern";
  *   Explicit filesystem-view platform selects Node's win32 or posix grammar,
  *   while compiler case policy remains a separate input rather than inferred
  *   from the operating-system name. Omitted platform uses the native host.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Splits the path once and compiles each component once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function compile(
   spec: string,

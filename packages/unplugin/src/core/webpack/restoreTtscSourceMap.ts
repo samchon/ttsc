@@ -23,6 +23,15 @@ import { TTSC_SOURCE_MAP_STASH } from "./TTSC_SOURCE_MAP_STASH";
  * @evidence contracts/common.md#clear-and-simple-design A single callback forwards content and metadata unchanged while choosing the one map this adapter owns.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The private WeakMap hands off owned transform output without replacing host methods or manufacturing a map to satisfy a test.
  * @evidence contracts/common.md#meaningful-documentation The comment identifies the upstream map loss and every restoration condition; the callback receiver and pass-through parameters remain explicit.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Reads one stashed result and does not recompute it.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Deletes the stash entry for this loader context as soon as it is read.
  */
 export function restoreTtscSourceMap(
   this: {

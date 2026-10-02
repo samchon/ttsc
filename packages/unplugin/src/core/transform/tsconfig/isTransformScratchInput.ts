@@ -10,6 +10,13 @@ import { pathIsWithin } from "../filesystem/pathIsWithin";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Disposable input classification follows the actual owned scratch root, not a special basename or expected fixture location.
  * @evidence contracts/common.md#meaningful-documentation The native comment names the scratch ownership boundary and the optional-root behavior remains visible in the predicate.
  * @evidence contracts/portability.md#os-neutral-implementation Node native resolution and the shared containment helper preserve separator, drive and root boundaries without globally folding case or assuming the platform's temporary-directory spelling.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function isTransformScratchInput(
   input: string,

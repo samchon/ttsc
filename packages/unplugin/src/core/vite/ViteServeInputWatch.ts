@@ -16,6 +16,18 @@ import type { ViteDevServerLike } from "./ViteDevServerLike";
  * @evidence contracts/common.md#meaningful-documentation
  *   Spaced native member comments explain recovery inputs, sequence meaning
  *   and overlapping-restart ownership per documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   ViteServeInputWatch only declares a shape; it has no filesystem, path or
+ *   process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   ViteServeInputWatch only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   ViteServeInputWatch only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   ViteServeInputWatch only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export interface ViteServeInputWatch {
   /**
@@ -32,6 +44,18 @@ export interface ViteServeInputWatch {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native prose states both effects, with a blank separator before tags
    *   and member spacing following documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of attach is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of attach is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of attach is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of attach is declared here; the cost belongs to its
+   *   implementation.
    */
   attach(server: ViteDevServerLike): void;
 
@@ -49,6 +73,18 @@ export interface ViteServeInputWatch {
    * @evidence contracts/common.md#meaningful-documentation
    *   The method states when to take the token and why, following native paragraph
    *   and tag separation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of begin is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of begin is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of begin is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of begin is declared here; the cost belongs to its
+   *   implementation.
    */
   begin(): number;
 
@@ -66,6 +102,18 @@ export interface ViteServeInputWatch {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native prose identifies released resources and retained association, with
    *   member/tag spacing following the documentation skill.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of dispose is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of dispose is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of dispose is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of dispose is declared here; the cost belongs to its
+   *   implementation.
    */
   dispose(): Promise<void>;
 
@@ -82,6 +130,18 @@ export interface ViteServeInputWatch {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native prose states the ownership boundary and uses the documentation
    *   skill's blank tag/member separators.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of forget is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of forget is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of forget is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of forget is declared here; the cost belongs to its
+   *   implementation.
    */
   forget(importer: string): void;
 
@@ -100,6 +160,18 @@ export interface ViteServeInputWatch {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native prose explains replacement/recovery and the neighboring token method
    *   supplies sequence meaning, with tag/member spacing per documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of replace is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of replace is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of replace is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of replace is declared here; the cost belongs to its
+   *   implementation.
    */
   replace(
     importer: string,

@@ -24,6 +24,17 @@ import { bun } from "./bun";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain option preservation and rejection effects rather
  *   than restating branches; prose/tag separation follows documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The registered flag makes the Bun plugin register once per runtime and
+ *   skips repeat calls.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   Registers one Bun plugin that stays for the process life, the intended
+ *   lifetime of a loader; a failed registration resets the flag.
  */
 export function ensureRegistered(
   runtime: BunRuntimeGlobal,

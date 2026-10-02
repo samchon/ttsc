@@ -14,6 +14,16 @@ import { TtscTerminalGenerationError } from "./TtscTerminalGenerationError";
  * @evidence contracts/common.md#clear-and-simple-design One validation field extends the shared terminal category; retry decisions stay with generation validation and the cache.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Retryability is tied to observed inputs instead of fabricated output, unbounded retries or matching a known race message.
  * @evidence contracts/common.md#meaningful-documentation The native comment explains the acquisition failure and its retry boundary, while the field comment identifies what permits a new attempt.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   An error class that carries a message and fields only; it touches no
+ *   filesystem, path or process.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   The constructor assigns its fields; constant work.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Computes nothing that could be reused.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Retains only the message, cause and fields given to the constructor,
+ *   released with the error.
  */
 export class TtscUnstableGenerationError extends TtscTerminalGenerationError {
   /**

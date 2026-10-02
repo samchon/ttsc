@@ -22,6 +22,8 @@ import { evictGeneration } from "./evictGeneration";
  * @evidence contracts/performance.md#efficient-algorithms Awaiting one shared promise and checking current entry identity avoids per-delivery recompilation and cache-wide failure scans.
  * @evidence contracts/performance.md#reuse-equivalent-work Concurrent callers reuse one in-flight compile; unchanged bounded stabilization failure can replay while ordinary transient rejection remains retryable.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Terminal evidence is weakly keyed by the current promise, and other failures reach identity-guarded eviction and generation disposal.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
 export async function awaitOrEvict(
   cache: TtscTransformCache | undefined,

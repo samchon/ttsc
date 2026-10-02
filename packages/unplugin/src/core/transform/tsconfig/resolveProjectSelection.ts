@@ -27,6 +27,12 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing configuration remains a compiler error rather than selecting a fixture-specific project, and passed-over candidates are not dropped from future invalidation evidence.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain relative explicit anchoring, reference selection, the missing-config fallback and why absent nearer candidates are consulted inputs.
  * @evidence contracts/portability.md#os-neutral-implementation Node isAbsolute, dirname and resolution establish native roots and drives; the supplied filesystem governs nearest-candidate checks, and shared compiler root matching owns referenced-project admission.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Filters the discovery candidates once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function resolveProjectSelection(
   file: string,

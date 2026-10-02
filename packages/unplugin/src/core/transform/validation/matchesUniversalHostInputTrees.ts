@@ -38,6 +38,9 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A quiet source watcher cannot certify an external toolchain, and unreadable sources cannot become empty successful state.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish source notification, environment authority and metadata-qualified digest reuse before param tags.
  * @evidence contracts/portability.md#os-neutral-implementation Supported plugin-source APIs and capability-qualified native trackers own source/toolchain observation without OS-wide watcher assumptions.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One environment witness per current manifest tree is replaced in place; no delivery history is retained.
+ * @evidence contracts/performance.md#efficient-algorithms Environment checks precede tree proof; qualified silent sources avoid enumeration, while others pay listing and metadata-invalidated content hashing.
+ * @evidence contracts/performance.md#reuse-equivalent-work Generation environment witnesses and the owning digest cache share prior proof only while source and toolchain identities remain valid.
  */
 export function matchesUniversalHostInputTrees(
   cached: TtscCachedProjectTransform,

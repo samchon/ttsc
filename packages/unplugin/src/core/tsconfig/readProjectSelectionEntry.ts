@@ -52,6 +52,19 @@ import { resolveNativeRootPath } from "./resolveNativeRootPath";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain metadata and preset-resolution changes, unproven
  *   first reads and the non-atomic observation limit, with reasons for memo states.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   PROJECT_SELECTION_ENTRIES owns strong entries for distinct lexical configs
+ *   throughout the process lifetime. There is no eviction or fixed byte bound;
+ *   each entry retains a policy, reference list and stamp, not an open file handle.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Validation reads and hashes the current config graph rather than parsing
+ *   every policy option again. A hit avoids policy extraction; a changed graph
+ *   rereads once under the policy reader's transaction map. Exact bytes and
+ *   fresh resolution are needed because metadata and old paths cannot prove it.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Delivered modules share a policy/reference entry only while a fresh extends
+ *   graph, source contents and physical spelling match the proven stamp. Newly
+ *   installed or redirected presets change that graph and force new extraction.
  */
 export function readProjectSelectionEntry(tsconfig: string): {
   policy: ReturnType<typeof readProjectMembershipPolicy>;

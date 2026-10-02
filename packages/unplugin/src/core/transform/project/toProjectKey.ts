@@ -17,6 +17,13 @@ import { pathIdentityKey } from "../filesystem/pathIdentityKey";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Native case and link policy are not replaced with a universal lowercase rule or substring-only containment.
  * @evidence contracts/common.md#meaningful-documentation The native comment identifies both key namespaces and explains why equivalent spellings share a key under the filesystem's actual identity policy.
  * @evidence contracts/portability.md#os-neutral-implementation The existing filesystem identity context owns directory case capabilities, links and root containment; forward slashes are applied only to the compiler hash-key protocol after native identity is established.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function toProjectKey(
   root: string,

@@ -42,6 +42,15 @@ import { pathIdentityKey } from "../filesystem/pathIdentityKey";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain source-content provenance, absolute source spelling
  *   and absence effects; prose and tags follow documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Resolves each source with path.resolve and rewrites backslashes to /, so
+ *   the map reads the same on Windows and POSIX.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Maps the sources once and finds the module's own entry once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function resolveTransformSourceMap(
   file: string,

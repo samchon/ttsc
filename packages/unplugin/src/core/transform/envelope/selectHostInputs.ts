@@ -14,6 +14,13 @@ import { selectListedFiles } from "./selectListedFiles";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Inputs come from the envelope's hostInputs declaration, without inferring consumer config files or synthesizing dependencies after a failed compile.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains universal scope, relative paths, empty outcomes and downstream deduplication rather than merely restating the return type; separate tags follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native project-relative path interpretation stays in selectListedFiles; this adapter adds no platform-specific descriptor names or path-string normalization.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function selectHostInputs(props: {
   projectRoot: string;

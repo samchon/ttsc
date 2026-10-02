@@ -14,6 +14,17 @@ import type { TtscWatchInput } from "../transform/watch/TtscWatchInput";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native member paragraphs explain capture timing, persistence and retry scope;
  *   documented members and tags are separated per documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   HostWatchBridge only declares a shape; it has no filesystem, path or
+ *   process operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   HostWatchBridge only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   HostWatchBridge only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   HostWatchBridge only declares a shape; it has no handle or retained state
+ *   at runtime.
  */
 export interface HostWatchBridge {
   /**
@@ -30,6 +41,18 @@ export interface HostWatchBridge {
    * @evidence contracts/common.md#meaningful-documentation
    *   The method states capture timing and reason with native tag/member spacing
    *   required by documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of begin is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of begin is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of begin is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of begin is declared here; the cost belongs to its
+   *   implementation.
    */
   begin(): number;
 
@@ -49,6 +72,18 @@ export interface HostWatchBridge {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native prose distinguishes observer release from persisted files, separated
    *   from tags and members per documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of close is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of close is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of close is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of close is declared here; the cost belongs to its
+   *   implementation.
    */
   close(): Promise<void>;
 
@@ -80,6 +115,18 @@ export interface HostWatchBridge {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native paragraphs explain unwatched records and resumed retries; parameter
    *   and acknowledgment spacing follow documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of compiled is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of compiled is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of compiled is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of compiled is declared here; the cost belongs to its
+   *   implementation.
    */
   compiled(depends: (record: string) => boolean): void;
 
@@ -105,6 +152,18 @@ export interface HostWatchBridge {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native prose explains the pass window and global query's purpose, with
    *   separated paragraphs/tags per documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of owes is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of owes is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of owes is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of owes is declared here; the cost belongs to its
+   *   implementation.
    */
   owes(record?: string): boolean;
 
@@ -128,6 +187,18 @@ export interface HostWatchBridge {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native paragraphs explain capture-token omission and immediate re-signaling,
    *   with native tag/member spacing following documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of register is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of register is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of register is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of register is declared here; the cost belongs to its
+   *   implementation.
    */
   register(
     record: string,

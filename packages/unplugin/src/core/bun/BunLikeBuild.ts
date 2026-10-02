@@ -19,6 +19,16 @@ import type { BunLoader } from "./BunLoader";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs describe runtime omissions, in-memory file ownership
  *   and loader meaning; spaced members follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   BunLikeBuild only declares a shape; it has no filesystem, path or process
+ *   operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   BunLikeBuild only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   BunLikeBuild only declares a shape; it has no work to reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   BunLikeBuild only declares a shape; it has no handle or retained state at
+ *   runtime.
  */
 export interface BunLikeBuild {
   /**
@@ -47,6 +57,18 @@ export interface BunLikeBuild {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native prose states the event and absence meaning; the tag separator and
    *   member spacing follow documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of onStart is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of onStart is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of onStart is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of onStart is declared here; the cost belongs to its
+   *   implementation.
    */
   onStart?(callback: () => void | Promise<void>): void;
 
@@ -63,6 +85,18 @@ export interface BunLikeBuild {
    * @evidence contracts/common.md#meaningful-documentation
    *   The native comment identifies teardown timing with a blank tag separator,
    *   while the parent describes runtime omissions per documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of onEnd is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of onEnd is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of onEnd is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of onEnd is declared here; the cost belongs to its
+   *   implementation.
    */
   onEnd?(callback: () => void | Promise<void>): void;
 
@@ -88,6 +122,18 @@ export interface BunLikeBuild {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native paragraphs explain relative in-memory keys and why the parser must
    *   accompany returned text; tag/member spacing follows documentation guidance.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation
+   *   Only the signature of onLoad is declared here; the platform behaviour
+   *   belongs to its implementation.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of onLoad is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of onLoad is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of onLoad is declared here; the cost belongs to its
+   *   implementation.
    */
   onLoad(
     options: { filter: RegExp },

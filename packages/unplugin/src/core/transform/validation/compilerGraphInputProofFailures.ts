@@ -24,6 +24,9 @@ import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Conflicting representations are rejected rather than choosing whichever proof happens to pass; legacy absence is handled only by the established snapshot boundary.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains predicate replay, projection consistency, scratch exclusion and the limited legacy boundary before tags.
  * @evidence contracts/portability.md#os-neutral-implementation Recorded lexical spellings are replayed through the owning filesystem and identity context rather than OS-name-derived case assumptions.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The classified failure DTO transfers to its caller; all temporary sets are local and no handle or historical population is retained.
+ * @evidence contracts/performance.md#efficient-algorithms Sets avoid duplicate predicate replay across representation branches; dominant work is graph input count plus bytes and directory entries each selected predicate observes.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Generation admission coordinates reuse of this validation; this operation computes one requested coherence verdict.
  */
 export function compilerGraphInputProofFailures(
   cached: TtscCachedProjectTransform,

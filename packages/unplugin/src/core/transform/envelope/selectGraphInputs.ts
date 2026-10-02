@@ -23,6 +23,12 @@ import { selectReachableEdges } from "./selectReachableEdges";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Narrowing requires the caller's established completeness premise and does not silently discard configs or fabricate edges when a graph is absent.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain why flat bundler inputs are derived at this boundary, the exact completeness effect and empty outcomes; acknowledgment spacing follows the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Graph paths are already native absolute spellings from the shared builder, and physical reachability identity belongs to its filesystem context; this selector introduces no additional separator or case policy.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Appends each reachable edge, global and config once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function selectGraphInputs(
   graph: TtscEnvelopeGraphIndexes,

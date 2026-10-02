@@ -23,6 +23,15 @@ import { toProjectKey } from "../project/toProjectKey";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts An input without a recorded hash cannot acquire a metadata substitute through an invented slot.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain precedence, lazy signature admission and the exact undefined condition before tags.
  * @evidence contracts/portability.md#os-neutral-implementation Native lexical resolution supplies metadata spelling while derivationIdentity and toProjectKey apply the generation's actual filesystem identity context.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Hands back the existing signature record on the cached transform instead
+ *   of rebuilding it.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Retains signature records on the cached transform, bounded by the
+ *   declared inputs, and releases them with it.
  */
 export function inputSignatureSlot(
   cached: TtscCachedProjectTransform,

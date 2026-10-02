@@ -20,6 +20,13 @@ import { collectProjectInputHashSnapshot } from "./collectProjectInputHashSnapsh
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No separate traversal or fabricated marker hides errors; callers needing coherent proof are explicitly directed to the completeness-bearing API.
  * @evidence contracts/common.md#meaningful-documentation Native prose names the shared walk and warns that this projection drops completeness, so its return type cannot be mistaken for a reuse certificate.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Delegates the walk and hashing to collectProjectInputHashSnapshot and returns its hashes; it adds no path handling.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function collectProjectInputHashes(
   projectRoot: string,

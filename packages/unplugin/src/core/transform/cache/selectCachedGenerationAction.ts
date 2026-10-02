@@ -21,6 +21,7 @@ import { evictGeneration } from "./evictGeneration";
  * @evidence contracts/performance.md#efficient-algorithms A decision performs one volatility lookup and the exact source validator already required for delivery; eviction and replacement lookup are constant-time cache operations apart from delegated generation cleanup.
  * @evidence contracts/performance.md#reuse-equivalent-work A valid generation is served only under its source and dependency proof; a replacement retries the authoritative existing Promise instead of starting another capture.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Mismatching generations use the standard identity-guarded eviction/disposer; this operation stores no state or handles beyond those owned by the cache and generation.
+ * @evidence contracts/portability.md#os-neutral-implementation Generation derivation and source validation retain their actual filesystem identity and compiler policy; this coordinator adds no platform inference or path rewriting.
  */
 export function selectCachedGenerationAction(props: {
   cache: TtscTransformCache | undefined;

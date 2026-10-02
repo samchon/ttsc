@@ -27,6 +27,16 @@ import { stableStringify } from "../transform/utils/stableStringify";
  * @evidence contracts/common.md#clear-and-simple-design The identity reuses the common serializer and hash helper, leaving tsconfig input state to the project record.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Resolving the configured project follows actual selection spelling; no target-specific exception drops relevant compile options.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain why Rollup requires option identity and why the record owns tsconfig state separately.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Resolves options.project with node:path, so separators and roots follow
+ *   the host OS.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function rollupDeliveryOptions(
   options: ResolvedTtscUnpluginOptions,

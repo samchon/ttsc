@@ -9,6 +9,16 @@ import type { TtscWatchInputFileBaseline } from "./TtscWatchInputFileBaseline";
  * @evidence contracts/common.md#clear-and-simple-design Extending the file baseline shares its identity predicate while named fields expose the broader comparison facts.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit null reads and failed realpath variants retain unavailable observations instead of expected hashes or guessed targets.
  * @evidence contracts/common.md#meaningful-documentation Member comments distinguish read failure, stat classification and optional subtree capture, with spacing and a blank tag separator following documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation Native stat kinds and realpath success are represented as observed facts; identity and lexical target are not conflated by a case-fold rule.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscWatchInputBaseline only declares a shape; it has no computation at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscWatchInputBaseline only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscWatchInputBaseline only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscWatchInputBaseline extends TtscWatchInputFileBaseline {
   /**

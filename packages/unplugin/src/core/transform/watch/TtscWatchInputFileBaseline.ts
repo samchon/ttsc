@@ -5,6 +5,16 @@
  * @evidence contracts/common.md#clear-and-simple-design This minimal base avoids reading content or constructing graph state for a discovery-only question.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Availability is observed and identity is carried explicitly, without accepting an expected candidate solely from its name.
  * @evidence contracts/common.md#meaningful-documentation Native comments explain predicate provenance and identity mismatch, with separated members and tags following documentation guidance.
+ * @evidence contracts/portability.md#os-neutral-implementation The native file predicate and filesystem identity remain independent facts; platform-specific case policy is not guessed by this type.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   TtscWatchInputFileBaseline only declares a shape; it has no computation
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   TtscWatchInputFileBaseline only declares a shape; it has no work to reuse
+ *   at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   TtscWatchInputFileBaseline only declares a shape; it has no handle or
+ *   retained state at runtime.
  */
 export interface TtscWatchInputFileBaseline {
   /**

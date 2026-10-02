@@ -24,6 +24,13 @@ import { isPackageDirectory } from "./isPackageDirectory";
  *   Native prose explains iterative matching and the nonobvious directory/file
  *   distinction; the min.js transition carries its compiler-semantic reason.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Matches path parts the caller already split on slashes, so no separator or case policy is chosen here; case folding is compiled into the pattern by the caller.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Advances the glob state set one path part at a time, bounded by the
+ *   component count.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache; the state sets are rebuilt per call.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The state sets are local to the call.
  */
 export function matches(
   parts: string[],

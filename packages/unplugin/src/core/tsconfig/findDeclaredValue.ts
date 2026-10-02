@@ -54,6 +54,12 @@ import { resolveRealPath } from "./resolveRealPath";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc explains precedence, lexical anchors, physical guards and why collect
  *   cannot be reused as seen; transaction-map lifetime is stated separately.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Follows the extends chain depth-first, and the ancestor set stops cycles.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The configs map reuses a config already parsed during the same read.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The ancestor set is local; collect and configs belong to the caller.
  */
 export function findDeclaredValue<T>(
   tsconfig: string,

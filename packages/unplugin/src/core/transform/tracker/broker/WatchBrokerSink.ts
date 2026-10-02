@@ -22,6 +22,17 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs and separated callback comments explain message meaning
  *   and spelling ownership under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral consumers hear paths in their own registration spelling while
+ *   native canonicalization and drop signaling remain with routing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   WatchBrokerSink only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   WatchBrokerSink only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   WatchBrokerSink only declares a shape; it has no handle or retained state
+ *   at runtime.
  */
 export interface WatchBrokerSink {
   /**
@@ -41,6 +52,18 @@ export interface WatchBrokerSink {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native parameter comments define spelling and null breadth under the
    *   documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   OS-neutral owners receive translated directory spelling and native unknown
+   *   names without platform-wide path casing assumptions.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of event is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of event is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of event is declared here; the cost belongs to its
+   *   implementation.
    */
   event(directory: string, filename: string | null, eventType: string): void;
 
@@ -55,6 +78,18 @@ export interface WatchBrokerSink {
    *   The owner is told uncertainty rather than an arbitrary guessed directory.
    * @evidence contracts/common.md#meaningful-documentation
    *   Native JSDoc names the attribution limit under the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   OS-neutral owners receive unknown attribution without guessing a native
+   *   path from the operating system or stream backend.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of unattributed is declared here; the cost belongs to
+   *   its implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of unattributed is declared here; the cost belongs to
+   *   its implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of unattributed is declared here; the cost belongs to
+   *   its implementation.
    */
   unattributed(): void;
 
@@ -70,6 +105,18 @@ export interface WatchBrokerSink {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native JSDoc includes both opening and later failure under the
    *   documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   OS-neutral owners handle the failure contract without inspecting native
+   *   stream, descriptor or child-process details.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of failed is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of failed is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of failed is declared here; the cost belongs to its
+   *   implementation.
    */
   failed(): void;
 
@@ -86,6 +133,18 @@ export interface WatchBrokerSink {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native JSDoc identifies the native dropped-event meaning under the
    *   documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   OS-neutral owners consume explicit native loss capability instead of
+   *   assuming all watcher backends have equivalent delivery guarantees.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of gap is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of gap is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of gap is declared here; the cost belongs to its
+   *   implementation.
    */
   gap(): void;
 
@@ -106,6 +165,18 @@ export interface WatchBrokerSink {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native JSDoc states Set, undefined and drain-participation meanings under
    *   the documentation skill.
+   * @evidence contracts/portability.md#os-neutral-implementation
+   *   OS-neutral owners receive translated unproven locations rather than
+   *   applying FSEvents-specific latency assumptions themselves.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms
+   *   Only the signature of unproven is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+   *   Only the signature of unproven is declared here; the cost belongs to its
+   *   implementation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+   *   Only the signature of unproven is declared here; the cost belongs to its
+   *   implementation.
    */
   unproven(directories: ReadonlySet<string> | undefined): void;
 }

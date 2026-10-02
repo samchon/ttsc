@@ -20,6 +20,12 @@ import type { TtscTransformFilesystemOperations } from "./TtscTransformFilesyste
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed realpath retains lexical spelling rather than fabricating physical identity, and no foreign filesystem methods are replaced.
  * @evidence contracts/common.md#meaningful-documentation The native prose explains filesystem-view consistency and conservative failure semantics before the operation table wiring.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral identity follows actual directory case capability and native aliases through the supplied view, without assuming all Windows directories insensitive or all POSIX volumes sensitive.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop of its own; its readdir adapter maps one directory listing.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function createHostPathIdentityContext(
   filesystem: TtscTransformFilesystemOperations = DEFAULT_FILESYSTEM_OPERATIONS,

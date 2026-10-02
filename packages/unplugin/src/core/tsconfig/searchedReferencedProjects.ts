@@ -30,6 +30,13 @@ import { readProjectSelectionEntry } from "./readProjectSelectionEntry";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains order, root exclusion and why diagnostics must name
  *   the referenced projects rather than instructing users to alter the solution.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Depth-first walk of the references; the visited set stops cycles and
+ *   repeats.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The visited set keeps a project already searched from being read again.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   The visited set is local to the call.
  */
 export function searchedReferencedProjects(tsconfig: string): string[] {
   const root = path.resolve(tsconfig);

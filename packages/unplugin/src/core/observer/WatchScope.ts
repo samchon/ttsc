@@ -12,6 +12,16 @@ import type { InputEntry } from "./InputEntry";
  * @evidence contracts/common.md#clear-and-simple-design One scope owns its native handle while shared entries own conditions; external root identity supports topology checking without duplicating each input's watch.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A failed or newly opened scope cannot certify a prior compile's unchanged inputs solely because a handle exists.
  * @evidence contracts/common.md#meaningful-documentation Member comments explain pinned ownership, directory admission, external root identity, and the optional directory-backend track capability.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   WatchScope only declares a shape; it has no filesystem, path or process
+ *   operation at runtime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   WatchScope only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   WatchScope only declares a shape; it has no work to reuse at runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   WatchScope only declares a shape; it has no handle or retained state at
+ *   runtime.
  */
 export interface WatchScope {
   /**

@@ -17,6 +17,8 @@ import { withdrawTtscTransformGenerations } from "./withdrawTtscTransformGenerat
  * @evidence contracts/performance.md#efficient-algorithms Reset traverses cached promises once, clears membership immediately, and schedules fulfilled generation cleanup without serially awaiting compiles.
  * @evidence contracts/performance.md#reuse-equivalent-work The explicit reset boundary preserves reuse across ordinary pass openings and shares the standard generation disposer.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Entries and epoch are removed immediately; generations finishing later still release their watchers and probes through scheduled disposal.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Performs no filesystem, path or process operation of its own.
  */
 export function resetTtscTransformCache(cache: TtscTransformCache): void {
   withdrawTtscTransformGenerations(cache);

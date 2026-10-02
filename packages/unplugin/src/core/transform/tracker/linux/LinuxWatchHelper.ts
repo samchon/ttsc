@@ -22,6 +22,17 @@ import type { LinuxWatchHelperSubscription } from "./LinuxWatchHelperSubscriptio
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs and separated member comments explain shared transport
  *   and outstanding requests under the documentation skill.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   OS-neutral owners see subscription callbacks; Linux process and stdio state
+ *   remain behind the explicit native helper boundary.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   LinuxWatchHelper only declares a shape; it has no computation at runtime.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   LinuxWatchHelper only declares a shape; it has no work to reuse at
+ *   runtime.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   LinuxWatchHelper only declares a shape; it has no handle or retained
+ *   state at runtime.
  */
 export interface LinuxWatchHelper {
   /** Whether the helper has answered anything, proving it speaks the protocol. */

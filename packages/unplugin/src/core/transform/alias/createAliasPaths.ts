@@ -30,6 +30,19 @@ import { normalizeAliases } from "./normalizeAliases";
  * @evidence contracts/common.md#clear-and-simple-design One alias pass classifies root-relative, absolute and untranslatable replacements, with normalization and reporting delegated to their existing helpers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unrepresentable regular expressions and module-relative replacements are not approximated into misleading compiler paths, and native alias keys do not mutate an object prototype.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain target anchoring and the unsupported translations; private reporting comments explain the intentionally different handling of host-injected regular expressions.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Resolves roots and replacements with node:path and passes every target
+ *   through normalizePath, so the emitted paths use forward slashes on every
+ *   OS.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Translates each alias once; the winner search rescans the declarations
+ *   per alias, quadratic in the alias count, which stays as small as the
+ *   configured alias list.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Translates each alias once per call and keeps no cache; the result is
+ *   rebuilt per call from its argument.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Its Maps are local to the call and released on return.
  */
 export function createAliasPaths(aliases: unknown): Record<string, string[]> {
   const paths = new Map<string, string[]>();

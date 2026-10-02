@@ -39,6 +39,9 @@ import { matchesRecordedInput } from "./matchesRecordedInput";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing publication witness declines narrow reuse instead of certifying an input from a convenient newer read.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains failed admission and successful generation attachment; inline comments justify readable-state, blocker and tree distinctions.
  * @evidence contracts/portability.md#os-neutral-implementation Injected filesystem operations and measured generation case policy qualify native metadata and missing-name spelling; an unknown directory case policy requires exact native ENOENT or ENOTDIR rather than a listing-only absence proof, while physical targets and aliases remain distinct from content identity.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The generation retains one manifest proportional to universal inputs and missing-probe groups; releasing it releases those records, with no native handles acquired here.
+ * @evidence contracts/performance.md#efficient-algorithms Capture scans universal inputs and plugin trees with map/set insertion; first validation costs their read bytes and tree enumeration rather than repeating per-module capture.
+ * @evidence contracts/performance.md#reuse-equivalent-work This shared generation manifest records exactly qualified lexical spellings, separable signatures and tree environments for later validators; changed proof requires new admission.
  */
 export function captureUniversalHostInputValidation(
   cached: TtscCachedProjectTransform,

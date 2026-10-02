@@ -26,6 +26,12 @@ import { isPossibleProgramFileName } from "./isPossibleProgramFileName";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreadable, missing and linked paths remain out-of-walk so graph proof must cover them instead of silently treating an unvisited physical target as hashed.
  * @evidence contracts/common.md#meaningful-documentation The native summary states the complete walk-membership premise, and inline paragraphs explain why canonical identity and unadmitted extensions cannot stand in for traversal.
  * @evidence contracts/portability.md#os-neutral-implementation Node native path operations preserve root and drive boundaries, while the supplied lstat view detects symbolic links and Windows junctions without assuming global filesystem case sensitivity.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Splits the relative path once and tests each directory segment once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function isProjectWalkPath(
   root: string,

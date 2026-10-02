@@ -30,6 +30,12 @@ import { readPaths } from "../alias/readPaths";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No unsupported baseUrl or arbitrary plugin-field rewriting compensates for a moved wrapper; only documented path-typed keys are reanchored.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain scratch-relative drift and TypeScript-Go paths constraints, while the private helper documents the plugin keys whose addresses legitimately require normalization.
  * @evidence contracts/portability.md#os-neutral-implementation Shared config-directory and relative-plugin helpers interpret native path forms; compiler-supplied spelling translates physical anchors, and forward slashes are used only for TypeScript path-target protocol encoding.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Visits the fixed option key lists once and each paths target once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function normalizeCompilerOptionsForGeneratedTsconfig(
   compilerOptions: Record<string, unknown>,

@@ -16,6 +16,13 @@ import { hashText } from "../utils/hashText";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The directory marker is the supported legacy encoding and missing content/realpath stays an explicit failure; the adapter does not invent a content digest from a positive file predicate.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain successful projections, incomplete file proof and the negative-predicate null limitation, with separate acknowledgment tags following the documentation skill.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Maps recorded predicate results to the producer's legacy encoding in memory; the realpath it carries is passed through as recorded.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   No loop or traversal of its own; constant work apart from delegated
+ *   calls.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Keeps no cache of its own and computes each value once.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Acquires no handle, timer or retained state of its own.
  */
 export function legacyProjectionOfGraphInputObservation(
   observation: ITtscCompilerTransformation.IInputObservation,
