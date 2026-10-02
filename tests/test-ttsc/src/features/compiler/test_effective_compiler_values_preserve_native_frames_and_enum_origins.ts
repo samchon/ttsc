@@ -18,17 +18,20 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * The pinned parser's IsWhiteSpaceLike domain and literal compiler settings are
  * independent expectations. Temporary authored config files feed the real
  * positional resolver; runtime policy and module classification use their real
- * effective reader. Response expansion is not emulated: this case checks which
- * frames request it, and supplies no native compiler for scalar @data.
+ * effective reader. The actual safety inspector tokenizes one authored response
+ * file and records its observation. Unsafe response extensions fail inspection
+ * before compiler selection; absent binary paths are independent controls.
+ * No native compiler expansion is executed.
  *
  * 1. Collect every native-padding case across five downstream decisions.
  * 2. Distinguish CLI normalization from JSON data, Unicode folds and resets.
  * 3. Preserve scalar operands, ordered assignments and caller-owned inputs.
+ * 4. Inspect one actual response frame and reject unsafe trailing extensions.
  *
- * @evidence contracts/testing.md#behavioral-verification The actual effective reader, runtime arguments/profile, module classifier and positional output resolver preserve native frames and enum origins. Scalar @data succeeds without a native binary; a real response frame is identified without executing its native expansion.
+ * @evidence contracts/testing.md#behavioral-verification The actual effective reader, runtime arguments/profile, module classifier and positional output resolver preserve native frames and enum origins. Scalar @data remains an operand; CompilerArgumentsInspection tokenizes an authored response file into a literal vector and records one observation. Unsafe trailing response extensions return null with unchanged argv and no available native compiler; actual native expansion is unobserved.
  * @evidence contracts/testing.md#independent-expectations Literal native whitespace code points, authored commonjs/ESNext/JSX settings, native simple İ-to-i folding and ordinary CLI null/empty reset semantics define expected formats, suffixes and runtime overrides independently of generated metadata or product outputs.
  * @evidence contracts/testing.md#distinguishing-cases All 27 native whitespace characters on either or both sides, raw JSON whitespace, leading-dash invalid values, Unicode native folding, absence versus null and empty resets, repeated assignments, aliases, config-only rejected assignments, dash/@ scalar operands and genuine response frames distinguish the verified causes. Every observation is collected before failure is reported.
- * @evidence contracts/testing.md#execution-ownership This source unit invokes authored operations and reads real temporary config/source files in one process; it starts no compiler, consumer host, SDK build or OS observer. Existing watch units and native boundary cases retain event delivery and compiler integration ownership.
+ * @evidence contracts/testing.md#execution-ownership This source unit invokes authored operations and reads real temporary config/source/response files in one process. The two selected native binary paths are independently absent; it starts no compiler, consumer host, SDK build or OS observer. Existing watch units and native boundary cases retain event delivery and compiler integration ownership.
  */
 export function test_effective_compiler_values_preserve_native_frames_and_enum_origins(): void {
   const failures: unknown[] = [];
@@ -42,6 +45,8 @@ export function test_effective_compiler_values_preserve_native_frames_and_enum_o
   const root = fs.realpathSync.native(
     TestProject.tmpdir("ttsc-effective-enum-origin-"),
   );
+  for (const binary of ["absent-native-binary", "unavailable-compiler"])
+    assert.equal(fs.existsSync(path.join(root, binary)), false);
   const config = path.join(root, "tsconfig.json");
   const view = path.join(root, "view.tsx");
   const filename = path.join(root, "--module", "main.ts");
