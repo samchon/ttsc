@@ -20,7 +20,7 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification rootsToStopForTarget identifies conflicts when selecting parent or nested clients.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored literals from the one-owner-per-document rule: an existing nested client must stop when its ancestor becomes the target, and an existing ancestor must stop when a nested target starts, while a sibling directory must not.
  * @evidence contracts/testing.md#distinguishing-cases Target=parent with running [nested] returns the nested root; target=nested with running [root, sibling] returns only the root and keeps the sibling, so overlap is directional in both ways and a non-overlapping sibling is retained. Alias, equal-root and case-variant targets are not covered.
- * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the actual selector over missing child paths in a fresh tracked temporary parent. Native absence assertions establish lexical fallback with no language client or child process.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the actual selector over missing child paths in a fresh tracked temporary parent. Native absence assertions establish missing-suffix resolution; the actual context may invoke Windows read-only fsutil case observation. No language client, compiler or user program starts.
  */
 export function test_vscode_server_resolution_replaces_overlapping_client_roots() {
   const root = path.join(TestProject.tmpdir("vscode-stop-missing-roots-"), "repo");

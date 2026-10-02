@@ -20,7 +20,7 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification rootsToStopForPlan removes stale clients even when their paths do not overlap current roots.
  * @evidence contracts/testing.md#independent-expectations The expected stopped list is the authored second root: by the stated contract every running client missing from the plan must stop even when it does not overlap a planned root, so an overlap-only implementation would return an empty list.
  * @evidence contracts/testing.md#distinguishing-cases One running root that is in the plan is kept and one unrelated running root that is not in the plan is returned for shutdown. An empty plan, alias spellings and nested roots are covered by sibling tests or not at all.
- * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the actual selector over missing child paths in a fresh tracked temporary parent. Native absence assertions establish lexical fallback; no language client or child process starts.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the actual selector over missing child paths in a fresh tracked temporary parent. Native absence assertions establish missing-suffix resolution; the actual context may invoke Windows read-only fsutil case observation. No language client, compiler or user program starts.
  */
 export function test_vscode_server_resolution_stops_unplanned_non_overlapping_roots() {
   const parent = TestProject.tmpdir("vscode-plan-membership-missing-roots-");

@@ -20,7 +20,7 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification planNonOverlappingClientRoots returns identical literal root sets in both input orders.
  * @evidence contracts/testing.md#independent-expectations one owner per path requires nested roots without preference and the preferred parent when active.
  * @evidence contracts/testing.md#distinguishing-cases both parent-first and nested-first orderings are repeated with and without active preference.
- * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the actual planner with the default identity context over missing child paths in a fresh tracked temporary parent. Native absence assertions establish lexical fallback; no language client or child process starts.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the actual planner with the default identity context over missing child paths in a fresh tracked temporary parent. Native absence assertions establish missing-suffix resolution; the actual context may invoke Windows read-only fsutil case observation. No language client, compiler or user program starts.
  */
 export function test_vscode_server_resolution_plans_open_document_roots_deterministically() {
   const root = path.join(TestProject.tmpdir("vscode-plan-missing-roots-"), "repo");

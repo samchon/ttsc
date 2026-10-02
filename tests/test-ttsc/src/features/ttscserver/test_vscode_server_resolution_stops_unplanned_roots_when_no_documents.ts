@@ -19,7 +19,7 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification rootsToStopForPlan stops all current clients when planning is empty.
  * @evidence contracts/testing.md#independent-expectations The expected lists are authored literals from the contract that a running client absent from the plan must stop: with an empty plan every running root is returned, in input order.
  * @evidence contracts/testing.md#distinguishing-cases An empty plan returns both the nested and the unrelated running root; a plan holding only the parent root also returns both, because neither running root has the parent's identity (exact identity, not containment, keeps a client). No case here keeps a running client, which is covered by the sibling non-overlapping-roots test.
- * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the actual selector over missing child paths in a fresh tracked temporary parent. Native absence assertions establish lexical fallback; no language client or child process starts.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the actual selector over missing child paths in a fresh tracked temporary parent. Native absence assertions establish missing-suffix resolution; the actual context may invoke Windows read-only fsutil case observation. No language client, compiler or user program starts.
  */
 export function test_vscode_server_resolution_stops_unplanned_roots_when_no_documents() {
   const parent = TestProject.tmpdir("vscode-empty-plan-missing-roots-");

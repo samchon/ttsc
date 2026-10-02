@@ -19,7 +19,7 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification rootsInsideRemovedWorkspace returns clients below the removed workspace only.
  * @evidence contracts/testing.md#independent-expectations The expected list is the single authored nested path: a client rooted below the removed workspace must stop and a client in another workspace must remain, which follows from the removal contract rather than from the helper's containment code.
  * @evidence contracts/testing.md#distinguishing-cases A nested client below the removed root is selected and an unrelated sibling directory (tmp/other next to tmp/repo) is not. The removed root itself in the list and an alias or case-variant spelling are not covered.
- * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the actual selector over missing child paths in a fresh tracked temporary parent. Native absence assertions establish lexical fallback with no language client or child process.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the actual selector over missing child paths in a fresh tracked temporary parent. Native absence assertions establish missing-suffix resolution; the actual context may invoke Windows read-only fsutil case observation. No language client, compiler or user program starts.
  */
 export function test_vscode_server_resolution_removes_descendant_workspace_roots() {
   const parent = TestProject.tmpdir("vscode-removed-missing-roots-");
