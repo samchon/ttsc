@@ -16,7 +16,8 @@ import (
 )
 
 // TestConfigCacheInvalidatesTransitiveDependencyDigests verifies executable
-// config caching is content-addressed across the complete recorded local graph.
+// config caching invalidates the recorded dependency fixtures, combining direct
+// cache/fingerprint operations with real script-loader parity and A-B-A cases.
 //
 // Symlink-directory and raw non-UTF-8 name witnesses run only when the actual
 // filesystem admits those inputs. A passing entry does not establish those
@@ -29,7 +30,7 @@ import (
 //     fresh evaluation replaces it.
 //  3. Make the helper change during all three bounded evaluation attempts and
 //     prove the unstable result is returned but never cached indefinitely.
-//  4. Prove empty, single, UTF-8, symlink, and POSIX non-UTF-8 directory
+//  4. Prove empty, single, UTF-8, symlink, and admitted raw non-UTF-8 directory
 //     records share one raw-byte digest protocol without a final delimiter.
 //  5. Prove an exact optional-file fingerprint changes on creation and returns
 //     to its original state on deletion.
@@ -38,14 +39,23 @@ import (
 //  7. Change one imported module A-B-A inside a loader hook and prove its
 //     transient output cannot receive a reusable fingerprint for restored A.
 //  8. Accept the evaluator's empty conflict sentinel as an unstable soft miss,
-//     while rejecting every malformed dependency-envelope class.
+//     while rejecting the ten authored malformed dependency-envelope cases.
 //
 // @evidence contracts/testing.md#behavioral-verification loadCachedConfigEvaluation and the real script evaluator preserve unchanged disk reuse, reject helper edits, bound unstable retries at three, agree on raw-byte directory fingerprints, reject retargeted identity and A-B-A cache proofs, and reject malformed envelopes.
-// @evidence contracts/testing.md#independent-expectations Literal generations, three attempts, independently SHA256-encoded directory records and restored optional-file digests define the cache protocol.
+// @evidence contracts/testing.md#independent-expectations Authored alpha/beta selections, generations and three-attempt counts define direct cache transitions; byte-sorted NUL-delimited records independently define SHA256 directory digests. The real loader has literal counter 1 and during/rule off expectations, independently restored before-module bytes, and non-reusable fingerprint fields. Optional-file original digest and equal-byte physical retargeting are separate state-transition oracles.
 // @evidence contracts/testing.md#distinguishing-cases Owns unchanged/changed/unstable dependencies, empty/single/UTF-8/link directories, optional absent-present-absent, retargeting, transient A-B-A and invalid envelope classes.
 // @evidence contracts/testing.md#execution-ownership The lint E2E entry calls nativeLintConnections, which selects TestConfigCacheInvalidatesTransitiveDependencyDigests by exact name through GoBoundary.run with the e2e build tag in packages/lint/linthost. Go test retains this entry and its subcase failure identities; ordinary Go unit execution does not select this tagged file.
 func TestConfigCacheInvalidatesTransitiveDependencyDigests(t *testing.T) {
   t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
+  configEvalCacheMu.Lock()
+  previousCache := configEvalCache
+  configEvalCache = map[string]cachedConfigEvaluation{}
+  configEvalCacheMu.Unlock()
+  t.Cleanup(func() {
+    configEvalCacheMu.Lock()
+    configEvalCache = previousCache
+    configEvalCacheMu.Unlock()
+  })
   root := t.TempDir()
   config := filepath.Join(root, "lint.config.cjs")
   helper := filepath.Join(root, "selection.cjs")
