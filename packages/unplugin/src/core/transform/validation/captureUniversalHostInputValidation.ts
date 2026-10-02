@@ -37,9 +37,9 @@ import { matchesRecordedInput } from "./matchesRecordedInput";
  * @evidence contracts/common.md#clear-and-simple-design One admission operation builds the manifest; per-entry, grouped or exact-native absence and tree validators own its subsequent checks.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing publication witness declines narrow reuse instead of certifying an input from a convenient newer read.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains failed admission and successful generation attachment; inline comments justify readable-state, blocker and tree distinctions.
- * @evidence contracts/portability.md#os-neutral-implementation Injected filesystem operations qualify metadata and exact native absence. Grouped candidates retain original spelling because measured case policy alone does not define Unicode or short-name equivalence; physical targets and aliases remain distinct from content identity.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The generation retains one manifest proportional to universal inputs and missing-probe groups; releasing it releases those records, with no native handles acquired here.
- * @evidence contracts/performance.md#efficient-algorithms Capture scans universal inputs and plugin trees with map/set insertion; first validation costs their read bytes and tree enumeration rather than repeating per-module capture.
+ * @evidence contracts/portability.md#os-neutral-implementation The generation's filesystem view qualifies metadata and exact native absence. Grouped candidates retain original spelling because directory case policy alone does not define Unicode or short-name equivalence; their joined path follows that view's platform dialect. Physical targets and aliases remain distinct from content identity, and native plugin environment authority is not established by arbitrary filesystem injection.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The generation retains manifest entries, lexical coverage, raw missing candidates and tree environments proportional to admitted inputs and their path/state text, without a total byte cap or native handle here. Failed attempt records are call-local and diagnostic witness counts are bounded by their owner; replacing or releasing the generation ends manifest ownership.
+ * @evidence contracts/performance.md#efficient-algorithms Input selection materializes the union of producer lists/proof keys and scans U universal inputs and T plugin source trees. Comparisons include content bytes, physical identity/ancestor/case queries, paired metadata and exact candidate stat; source proof includes tree population/bytes and environment validation. These delegated costs and temporary input/manifest populations are not constant-time map insertion work.
  * @evidence contracts/performance.md#reuse-equivalent-work This shared generation manifest records exactly qualified lexical spellings, separable signatures and tree environments for later validators; changed proof requires new admission.
  */
 export function captureUniversalHostInputValidation(
@@ -259,8 +259,28 @@ export function captureUniversalHostInputValidation(
       }
       continue;
     }
-    // The probe below proves this exact spelling absent, so the per-module loop
-    // need not re-derive it either.
+    // Unavailable lexical metadata does not mean this candidate is absent.
+    // Prove the selected child itself: skipped inaccessible ancestors can make
+    // it differ from the complete input whose content was compared above.
+    const pathApi =
+      (filesystem.platform ?? process.platform) === "win32"
+        ? path.win32
+        : path.posix;
+    let absent = false;
+    try {
+      filesystem.stat(pathApi.join(probe.directory, probe.name));
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      absent = code === "ENOENT" || code === "ENOTDIR";
+    }
+    if (!absent) {
+      recordGenerationProofFailure(failures, {
+        domain: "host",
+        kind: "absence-proof-unavailable",
+        path: input,
+      });
+      continue;
+    }
     let names = validation.missing.get(probe.directory);
     if (names === undefined) {
       names = new Set<string>();
