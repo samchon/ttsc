@@ -6,10 +6,10 @@ import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEn
 /**
  * Verifies native transform decoding rejects array-shaped TypeScript source maps.
  *
- * The `transformSource` hook contract requires each plugin to return a
- * `Record<string, string>` keyed by file path. A plugin that returns an array
- * instead bypasses the object check and would silently produce a corrupt source
- * map. Pins the validation that detects and rejects the wrong shape with a
+ * The native transform envelope requires a `typescript` field containing a
+ * `Record<string, string>` keyed by file path. A producer returning an array
+ * would corrupt the file-to-source record if accepted. The decoder rejects that
+ * shape with the required-source guard and reports a
  * clear error rather than writing undefined into the output.
  *
  * 1. Decode an envelope whose typescript is a non-empty array and require the 'did not return a TypeScript source map' error.

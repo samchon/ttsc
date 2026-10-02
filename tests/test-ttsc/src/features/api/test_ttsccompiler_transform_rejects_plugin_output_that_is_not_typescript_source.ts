@@ -7,7 +7,7 @@ import { NativeTransformEnvelopeFixture } from "../../internal/NativeTransformEn
  * Verifies native transform decoding rejects plugin output that is not TypeScript
  * source.
  *
- * A `transformSource` hook that returns non-string values (e.g. numbers or
+ * A native envelope that returns non-string values (e.g. numbers or
  * objects) for file content would silently corrupt the source map. Pins the
  * guard that detects when any value in the returned map is not a plain string
  * and throws a descriptive exception rather than forwarding garbage to the
