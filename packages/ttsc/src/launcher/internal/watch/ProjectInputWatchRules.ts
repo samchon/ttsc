@@ -165,7 +165,7 @@ export namespace ProjectInputWatchRules {
    * @evidence contracts/common.md#meaningful-documentation Native prose explains JSON's dual data/config role following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native extname extracts the extension without separator assumptions; extension case normalization is language policy, not filesystem identity folding.
    *
-   * @evidenceExclude contracts/performance.md#efficient-algorithms One path extension and a fixed semantic set select no growing-population algorithm.
+   * @evidence contracts/performance.md#efficient-algorithms Native extname scans supplied path text, then lowercasing allocates normalized extension text before JSON or fixed eight-item membership. No directory population is visited; input path/extension lengths remain uncapped here.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Classification coordinates no equivalent computation requests.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No retained state or resource is acquired.
    */

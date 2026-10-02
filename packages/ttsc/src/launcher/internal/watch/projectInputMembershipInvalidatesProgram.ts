@@ -18,7 +18,7 @@ import { WatchPaths } from "./WatchPaths";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The predicate inspects both populations instead of guessing the changed member from one named event.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain overlapping JSON/source populations and unnamed-event invalidation following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native basename and extension APIs interpret paths; already canonical membership keys retain their producer's actual identity policy.
- * @evidence contracts/performance.md#efficient-algorithms At most one comparison and two linear membership passes visit P previous and N next entries, using existing map indexes and no reconstructed population.
+ * @evidence contracts/performance.md#efficient-algorithms A content-change check can inspect C supplied changed-input spellings before map equality scans up to P borrowed entries. If membership differs and the event is named, removed/added checks can visit P previous and N next entries with short-circuiting. Indexed keys, value comparison, native basename/extname and lowercasing add uncapped spelling costs; no population array is reconstructed beyond an optional one-element fallback.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This predicate classifies supplied snapshots without coordinating compilation reuse itself.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Both populations are borrowed and no historical state or native resource is retained.
