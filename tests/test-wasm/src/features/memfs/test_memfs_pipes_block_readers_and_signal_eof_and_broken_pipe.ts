@@ -22,10 +22,10 @@ import { callMutation } from "../../internal/callbackFs";
  *    reader, close the read end, and assert it fails with `EBADF` and a later
  *    write through the surviving write end reports `EPIPE`.
  *
- * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.pipe2 delivers queued bytes to a parked reader, splits an oversized chunk across reads, reports end-of-file only after the write end closes, and reports EPIPE after the read end closes. Literal byte strings and callback counts reject an early completion, a lost remainder or a write accepted without a reader.
+ * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.pipe2 delivers queued bytes to a parked reader, splits an oversized chunk across reads, reports end-of-file only after the write end closes, and reports EPIPE after the read end closes. Literal byte strings and callback settlement observations reject an early completion, a lost remainder or a write accepted without a reader.
  * @evidence contracts/testing.md#independent-expectations POSIX pipe(2) and read(2) define blocking until data or writer close, zero bytes at end-of-file, EBADF for the wrong direction and EPIPE for a write without readers. The authored bytes HI, JKL and MN are the oracle for what each read must return, independent of the queue implementation.
  * @evidence contracts/testing.md#distinguishing-cases A reader parked before any write contrasts with a read of already queued bytes; a partial drain contrasts with a full one; an open write end (a pending read) contrasts with a closed one (end-of-file); wrong-direction reads and writes contrast with correct ones. A parked reader released by closing the read end carries the failure case.
- * @evidence contracts/testing.md#execution-ownership test_memfs_pipes_block_readers_and_signal_eof_and_broken_pipe calls the actual createMemFS pipe2, read, write and close callbacks inside the Node unit process, and owns every callback count and byte result. No Go runtime reaches this state, so no installed host is involved.
+ * @evidence contracts/testing.md#execution-ownership test_memfs_pipes_block_readers_and_signal_eof_and_broken_pipe calls the actual createMemFS pipe2, read, write and close callbacks inside the Node unit process, and owns every callback settlement and byte result. No Go runtime reaches this state, so no installed host is involved.
  */
 export const test_memfs_pipes_block_readers_and_signal_eof_and_broken_pipe =
   async (): Promise<void> => {

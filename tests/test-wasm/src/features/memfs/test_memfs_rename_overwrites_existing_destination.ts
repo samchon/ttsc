@@ -10,7 +10,7 @@ import { callMutation } from "../../internal/callbackFs";
  * POSIX `rename(2)` replaces an existing destination when the types are
  * compatible: file-onto-file overwrites the bytes, and directory-onto-empty-
  * directory replaces the empty node with the moved subtree. This pins that the
- * destination-reconciliation branch mutates atomically — the old destination
+ * destination-reconciliation branch mutates atomically: the old destination
  * node is gone and the source has fully moved, with no leftover nodes.
  *
  * 1. Seed a file `/from.txt`="NEW" over an existing `/to.txt`="OLD", and a subtree

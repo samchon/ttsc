@@ -24,15 +24,15 @@ const O_APPEND = 1024;
  * moved descriptor must apply its retained append flag to the node at its new
  * path.
  *
- * 1. Read four bytes, shrink the file to one with `ftruncate`, then write at the
- *    cursor.
+ * 1. Read four bytes, shrink the file to one with `ftruncate`, read at EOF and
+ *    then write at the retained cursor.
  * 2. Rename the file and write again through the same descriptor.
  * 3. Assert the gap was zero-filled, the write followed the rename, and an
  *    `O_APPEND` descriptor still appends after its file moves.
  *
- * @evidence contracts/testing.md#behavioral-verification createMemFS retains descriptor cursor and append flag across ftruncate and rename. Zero-byte write must not grow a shrunken file; a later cursor write zero-fills the gap and subsequent writes target the moved node.
+ * @evidence contracts/testing.md#behavioral-verification createMemFS retains descriptor cursor and append flag across ftruncate and rename. A read past the shrunken EOF transfers nothing without rewinding the cursor, and a zero-byte write must not grow the file; a later cursor write zero-fills the gap and subsequent writes target the moved node.
  * @evidence contracts/testing.md#independent-expectations Resizing changes file size rather than the descriptor offset, and rename preserves an open node. The literal byte sequence a,NUL,NUL,NUL,Z,! and appended LM follow authored read lengths and writes independently of the implementation.
- * @evidence contracts/testing.md#distinguishing-cases The cursor lies past EOF after shrink; empty write and nonempty write distinguish no-op from sparse growth. Ordinary cursor continuation and an O_APPEND descriptor after rename cover both retained flags.
+ * @evidence contracts/testing.md#distinguishing-cases The cursor lies past EOF after shrink; EOF read, empty write and nonempty write distinguish retained position and no-op from sparse growth. Ordinary cursor continuation and an O_APPEND descriptor after rename cover both retained flags.
  * @evidence contracts/testing.md#execution-ownership test_memfs_descriptor_state_survives_ftruncate_and_rename calls createMemFS, openFd/readFdText/writeFdText and callMutation for ftruncate/rename directly. It owns the exact byte and old-path checks inside the source-unit process without a Wasm producer.
  */
 export const test_memfs_descriptor_state_survives_ftruncate_and_rename =
@@ -47,6 +47,11 @@ export const test_memfs_descriptor_state_survives_ftruncate_and_rename =
       "abcd",
     );
     await callMutation((cb) => host.fs.ftruncate(fd, 1, cb));
+    TestValidator.equals(
+      "a read past the shrunken EOF transfers nothing",
+      await readFdText(host.fs, fd, 2),
+      "",
+    );
 
     // Boundary: writing nothing from a cursor past end-of-file must not
     // resize the file up to that cursor.

@@ -1,11 +1,11 @@
 import { TestValidator } from "@nestia/e2e";
 import { createMemFS } from "@ttsc/wasm";
 
-import { expectFsError } from "../../internal/callbackFs";
+import { expectFsError, readdir } from "../../internal/callbackFs";
 
 /**
- * Verifies MemFS rename rejects every ill-formed target with the right POSIX
- * code and leaves the tree byte-for-byte unchanged.
+ * Verifies MemFS rename rejects invalid source, parent and destination classes
+ * with the right POSIX code and leaves the seeded tree unchanged.
  *
  * These are the negative twins of the successful move: a rename that cannot
  * satisfy its contract must not partially mutate. Each rejected class (missing
@@ -83,6 +83,11 @@ export const test_memfs_rename_rejects_invalid_targets_without_partial_state =
         file: host.readFileText("/file.txt"),
         empty: host.exists("/empty"),
         empty2: host.exists("/empty2"),
+        rootEntries: await readdir(host.fs, "/"),
+        directoryEntries: await readdir(host.fs, "/dir"),
+        nestedEntries: await readdir(host.fs, "/dir/sub"),
+        emptyEntries: await readdir(host.fs, "/empty"),
+        empty2Entries: await readdir(host.fs, "/empty2"),
       },
       {
         a: "AAA",
@@ -90,6 +95,11 @@ export const test_memfs_rename_rejects_invalid_targets_without_partial_state =
         file: "FILE",
         empty: true,
         empty2: true,
+        rootEntries: ["dir", "empty", "empty2", "file.txt"],
+        directoryEntries: ["a.txt", "sub"],
+        nestedEntries: ["b.txt"],
+        emptyEntries: [],
+        empty2Entries: [],
       },
     );
   };

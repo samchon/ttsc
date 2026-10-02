@@ -16,7 +16,7 @@ function signal(): { promise: Promise<void>; resolve: () => void } {
 }
 
 /**
- * Verifies caller cancellation settles every asynchronous boot phase and
+ * Verifies caller cancellation settles fetch, queue and readiness waits and
  * enforces the pre-runtime versus running-runtime retry boundary.
  *
  * A stalled fetch or Go runtime previously left the per-key single-flight and
@@ -25,7 +25,7 @@ function signal(): { promise: Promise<void>; resolve: () => void } {
  *
  * There is no boot deadline to exercise. How long a fetch and instantiation
  * take belongs to the network and the machine, so `signal` is the only way a
- * boot ends early — which makes it the thing that must release the cache
+ * boot ends early, which makes it the thing that must release the cache
  * entry.
  *
  * 1. Stall fetch, abort it, observe the forwarded signal, assert phase-specific

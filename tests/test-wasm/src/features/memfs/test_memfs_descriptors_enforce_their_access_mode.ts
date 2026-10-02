@@ -35,8 +35,8 @@ function fstatMtime(fs: IWasmExecFS, fd: number): Promise<number> {
  * 3. Assert `EBADF`, unchanged bytes, mtime, and cursor, plus permitted mutations.
  *
  * @evidence contracts/testing.md#behavioral-verification createMemFS.fs rejects writes and ftruncate through read-only descriptors and reads through write-only descriptors before bytes, mtime or cursor change. Writable controls and directory open errors detect permission checks that reject everything or occur after mutation.
- * @evidence contracts/testing.md#independent-expectations Node-style descriptor access grants and POSIX EBADF/EISDIR establish the expected outcomes. Literal abc, bc and Xb bytes and fd -1 are authored oracles; unchanged mtime compares pre-operation state after a clock tick, not a recomputed timestamp.
- * @evidence contracts/testing.md#distinguishing-cases Read-only, write-only and read-write modes cover rejected and granted directions. The read cursor advances before rejected truncate; writable truncate succeeds; directory write-only/read-write/truncate modes all reject.
+ * @evidence contracts/testing.md#independent-expectations Node-style descriptor access grants and POSIX EBADF/EISDIR establish the expected outcomes. Literal abc, Ybc, bc and Xb bytes and fd -1 are authored oracles; unchanged mtime compares pre-operation state after a clock tick, not a recomputed timestamp.
+ * @evidence contracts/testing.md#distinguishing-cases Read-only, write-only and read-write modes cover rejected and granted directions. The read cursor advances before rejected truncate, and rejected write-only reads leave that descriptor's cursor at zero; writable truncate succeeds; directory write-only/read-write/truncate modes all reject.
  * @evidence contracts/testing.md#execution-ownership test_memfs_descriptors_enforce_their_access_mode directly calls createMemFS callback open/read/write/ftruncate/fstat through callbackFs adapters and local fstatMtime. Its clock wait separates mtime observations; all state remains in the Node unit, with no native filesystem or runtime host.
  */
 export const test_memfs_descriptors_enforce_their_access_mode =
@@ -86,6 +86,16 @@ export const test_memfs_descriptors_enforce_their_access_mode =
     );
 
     // Positive twins: the granted directions still work.
+    TestValidator.equals(
+      "a rejected read leaves the write-only cursor at zero",
+      await writeFdText(host.fs, writeOnly, "Y", null),
+      { code: null, n: 1 },
+    );
+    TestValidator.equals(
+      "write-only cursor mutation changes the first byte",
+      host.readFileText("/f.txt"),
+      "Ybc",
+    );
     TestValidator.equals(
       "a rejected ftruncate leaves the read-only cursor unchanged",
       await readFdText(host.fs, readOnly, 2),

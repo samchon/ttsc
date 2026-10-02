@@ -16,7 +16,7 @@ const O_TRUNC = 512;
  *
  * Go's `syscall.Write` passes `null` for every unseeked write, so the cursor is
  * the only offset the JavaScript side is given. The old implementation tracked
- * `entry.position` but never read it, appending instead — which happened to
+ * `entry.position` but never read it, appending instead, which happened to
  * match for a freshly truncated output file and silently diverged for every
  * other descriptor.
  *

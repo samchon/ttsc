@@ -10,8 +10,8 @@ import { openFd, readFdText } from "../../internal/callbackFs";
  *
  * The regression this guards: a failed attempt left its `globalThis.fs`
  * installed, so a retry (which only installs `fs` when absent) created a fresh
- * host, saw the stale global, and returned a host the runtime never used —
- * files written through it were invisible to the compiler. Restoring the failed
+ * host, saw the stale global, and returned a host the runtime never used.
+ * Files written through it were invisible to the compiler. Restoring the failed
  * attempt's own globals lets the retry install and return the host its runtime
  * binds.
  *
@@ -55,7 +55,7 @@ export const test_boot_ttsc_retry_returns_runtime_host =
     );
 
     // A file mounted through the returned host must be visible to the exact fs
-    // the runtime reads through — the whole point of the identity invariant.
+    // the runtime reads through, which is the host identity invariant.
     result.host.writeFile("/project/main.ts", "export const x = 1;\n");
     const fd = await openFd(result.host.fs, "/project/main.ts", 0);
     TestValidator.equals(

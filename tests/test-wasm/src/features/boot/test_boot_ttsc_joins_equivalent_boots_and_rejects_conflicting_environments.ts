@@ -9,8 +9,8 @@ import { FAKE_API, withBootStubs } from "../../internal/bootHarness";
 
 /**
  * Verifies bootTtsc joins only boots that are the same binary in the same
- * environment, and fails before starting a runtime when the environment cannot
- * host it.
+ * environment, permits recovery from setup failures and terminally rejects a
+ * started runtime that signals readiness without publishing its API.
  *
  * A boot owns three process-wide slots: the cache entry, `globalThis.fs` and
  * the readiness bridge. Joining a caller that names another host or another
