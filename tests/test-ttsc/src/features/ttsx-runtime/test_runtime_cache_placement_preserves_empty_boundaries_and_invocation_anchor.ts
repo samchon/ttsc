@@ -6,6 +6,7 @@ import { resolveCacheDir } from "../../../../../packages/ttsc/src/launcher/inter
 import { SourceBuildCacheLayout } from "../../../../../packages/ttsc/src/plugin/internal/source/SourceBuildCacheLayout";
 import { resolveSourceBuildCachePaths } from "../../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
 import { TestProject } from "../../../../utils/src/TestProject";
+import { assertNoAncestorWorkspace } from "../../internal/assertNoAncestorWorkspace";
 
 /**
  * Verifies runtime cache placement across installation and marking transitions.
@@ -13,7 +14,8 @@ import { TestProject } from "../../../../utils/src/TestProject";
  * The launcher anchors explicit cache options to its invocation directory;
  * default placement uses installation evidence. Publishing ttsc's marker must
  * preserve a nearer empty installation instead of making an outer dependency
- * win.
+ * win. The fixture independently refuses an ambient ancestor workspace that
+ * would outrank both authored installations.
  *
  * 1. Resolve absent, relative and absolute options against a distinct invocation
  *    path.
@@ -37,6 +39,7 @@ export function test_runtime_cache_placement_preserves_empty_boundaries_and_invo
   );
   const nested = path.join(root, "test");
   const driver = path.join(root, "driver");
+  assertNoAncestorWorkspace(root);
   const failures: Error[] = [];
   const check = (name: string, action: () => void): void => {
     try {

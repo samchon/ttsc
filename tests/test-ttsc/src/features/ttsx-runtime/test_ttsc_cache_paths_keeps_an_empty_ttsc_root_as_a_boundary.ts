@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveSourceBuildCachePaths } from "../../../../../packages/ttsc/src/plugin/internal/source/resolveSourceBuildCachePaths";
+import { assertNoAncestorWorkspace } from "../../internal/assertNoAncestorWorkspace";
 
 /**
  * Verifies cache paths: keeps an empty ttsc root as a project boundary.
@@ -10,6 +11,8 @@ import { resolveSourceBuildCachePaths } from "../../../../../packages/ttsc/src/p
  * The first default-cache writer creates `.cache/ttsc` before it can publish
  * the workspace marker. A concurrent resolver must retain that in-progress
  * boundary instead of escaping to a populated ancestor during the short gap.
+ * Native preparation first refuses an ambient ancestor workspace that would
+ * legitimately outrank the two authored installation boundaries.
  *
  * 1. Create a populated outer install and an empty nested `.cache/ttsc` root.
  * 2. Resolve cache paths for the nested project during that pre-marker state.
@@ -32,6 +35,7 @@ export function test_ttsc_cache_paths_keeps_an_empty_ttsc_root_as_a_boundary() {
         include: ["main.ts"],
       }),
     });
+    assertNoAncestorWorkspace(fs.realpathSync.native(root));
     const ttscRoot = path.join(
       fs.realpathSync.native(root),
       "test",
