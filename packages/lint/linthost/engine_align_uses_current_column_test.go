@@ -2,33 +2,26 @@ package linthost
 
 import "testing"
 
-// TestEngineAlignUsesCurrentColumn verifies Align increments the indent
-// to the column the engine is currently emitting at, rather than to a
-// fixed amount.
+// TestEngineAlignUsesCurrentColumn verifies Align replaces the child newline
+// indentation target with the current output column. Literal foo( puts that
+// target at four. A different seven-column prefix with parent BaseIndent
+// three must instead indent to seven, not four or ten.
 //
-// Align is what enables continuation-line alignment such as
-//
-//  foo(arg1,
-//      arg2)
-//
-// where every wrapped argument lines up under the opening paren. A
-// regression that confused Align with Indent would emit a fixed 2- or
-// 4-space increment instead.
-//
-//  1. Build Concat(Text("foo("), Align(Hardline(), Text("x")), Text(")")).
-//  2. Print under default options. The first line is `foo(` (column 4
-//     after emit), the Hardline inside Align then indents the next
-//     line to column 4.
-//  3. Assert the inner line is `    x`.
-//
-// @evidence contracts/testing.md#behavioral-verification Print must indent x beneath column four after foo(, rather than using a fixed indent increment.
-// @evidence contracts/testing.md#independent-expectations The literal foo( followed by four spaces and x) follows Align capturing the emitted prefix column.
-// @evidence contracts/testing.md#distinguishing-cases This continuation alignment differs from the fixed two-column Indent case.
-// @evidence contracts/testing.md#execution-ownership TestEngineAlignUsesCurrentColumn is one Go unit entry that builds a literal Doc tree with Align and renders it with Print in-process; it parses no source and installs, builds and launches nothing.
+// @evidence contracts/testing.md#behavioral-verification Print must indent x beneath column four after foo( and seven after prefix(, replacing rather than adding parent BaseIndent three.
+// @evidence contracts/testing.md#independent-expectations Authored foo( plus four spaces and prefix( plus seven spaces follow their literal prefix lengths, independently of the renderer; parent indentation three changes neither target.
+// @evidence contracts/testing.md#distinguishing-cases Different prefix lengths and zero/nonzero parent BaseIndent distinguish absolute current-column replacement from a fixed target or addition to parent indentation; fixed Indent has a sibling control.
+// @evidence contracts/testing.md#execution-ownership TestEngineAlignUsesCurrentColumn is one Go unit entry that renders an authored Align Doc with Print under zero and nonzero BaseIndent in-process; it parses no source and installs, builds and launches nothing.
 func TestEngineAlignUsesCurrentColumn(t *testing.T) {
   doc := Concat(Text("foo("), Align(Hardline(), Text("x")), Text(")"))
   got := Print(doc, DefaultPrintOptions())
   if got != "foo(\n    x)" {
     t.Fatalf("align mismatch: %q", got)
+  }
+  opts := DefaultPrintOptions()
+  opts.BaseIndent = 3
+  doc = Concat(Text("prefix("), Align(Hardline(), Text("x")), Text(")"))
+  got = Print(doc, opts)
+  if got != "prefix(\n       x)" {
+    t.Fatalf("Align must replace parent indentation with the actual column: got %q", got)
   }
 }
