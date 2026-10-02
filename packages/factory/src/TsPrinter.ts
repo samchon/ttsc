@@ -1,5 +1,7 @@
 import type {
+  BinaryExpression,
   Block,
+  ConditionalExpression,
   Expression,
   ForInitializer,
   Identifier,
@@ -52,11 +54,14 @@ import { NodeFlags, SyntaxKind } from "./syntax";
  * The printer adds the parentheses and blocks that keep the printed tree equal
  * to the parsed tree where TypeScript's grammar would otherwise bind
  * differently, such as a statement that starts with an object literal, a
- * `for` header holding `in`, or an `else` after a nested `if`. TypeScript can
- * still read a `<` comparison followed by a `>` operand in the same list or
- * operator chain, as in `f(a < b, c > (d))`, as a call with type arguments. The
- * printer guards only a `<` operation that is the direct left operand of `>`,
- * so callers who print such pairs should parenthesize them.
+ * `for` header holding `in`, or an `else` after a nested `if`. TypeScript reads
+ * a `<` after an expression as the start of type arguments when a later `>` is
+ * followed by `(`, a template or a line break, as in `f(a < b, c > (d))`. The
+ * printer parenthesizes the comparison, or writes its right operand as
+ * `(+0 as number, ...)` when that operand holds the closing `>`, and never
+ * breaks a line after `>` or `>>`. An identifier spelled `let` at the start of
+ * a statement is the caller's to avoid, because identifier spellings are not
+ * validated.
  *
  * Quoted JSX attributes encode their cooked string values with entities. A value
  * containing an unpaired UTF-16 surrogate uses a JSX expression instead, because
@@ -71,11 +76,11 @@ import { NodeFlags, SyntaxKind } from "./syntax";
  *   const printer = new TsPrinter({ printWidth: 80, indent: "  " });
  *   printer.print(factory.createStringLiteral("hello")); // "hello"
  *   ```
- * @evidence contracts/common.md#principled-implementation Discriminant dispatch lowers each outline kind to grammar-specific documents; precedence, associativity, optional-chain boundaries and assignment-target context constrain parentheses and commas independently of layout. Numeric and bitwise operands retain grouping because rounding and observable conversions forbid general reassociation; class expression statements preserve expression-local names. Parentheses and blocks also cover the grammar slots a fuzz against the TypeScript parser showed to rebind: `new` targets, `as`/`satisfies` before `&`, `|`, `<` or a conditional `?`, statement-leading comma lists, `for`-header `in`, dangling `else`, `for...of` sources and decorator element access. The `a < b, c > (d)` type-argument ambiguity is guarded only for a direct `<` left operand of `>`, and is stated as a limit. Inputs must be well-formed acyclic trees; arbitrary typed shapes are not a grammar validator.
+ * @evidence contracts/common.md#principled-implementation Discriminant dispatch lowers each outline kind to grammar-specific documents; precedence, associativity, optional-chain boundaries and assignment-target context constrain parentheses and commas independently of layout. Numeric and bitwise operands retain grouping because rounding and observable conversions forbid general reassociation; class expression statements preserve expression-local names. Parentheses and blocks also cover the grammar slots a fuzz against the TypeScript parser showed to rebind: `new` targets, `as`/`satisfies` before `&`, `|`, `<` or a conditional `?`, statement-leading comma lists, `for`-header `in`, dangling `else`, `for...of` sources and decorator element access. A `<` comparison that a later `>` followed by `(` or a template could pair with into type arguments is parenthesized, or its right operand is written as `(+0 as number, ...)`, so the printed tree parses back to the same tree. Inputs must be well-formed acyclic trees; arbitrary typed shapes are not a grammar validator.
  * @evidence contracts/common.md#clear-and-simple-design The instance retains only three layout settings; private helpers own grammar boundaries, comment rendering and list layout, while the document engine owns width decisions. The exhaustive switch keeps node lowering visible in one owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Grammar exceptions such as rest-target commas and JSX whitespace preserve supported syntax and meaning rather than fixture answers; the printer reads package-owned comment metadata and does not patch a compiler or consumer.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains width-aware output, outline input constraints and string-unit width; examples and separately documented options apply the documentation skill's paragraph separation and reasons for nonobvious limits.
- * @evidence contracts/performance.md#efficient-algorithms The private helpers use ordered document arrays and explicit layout stacks; union/intersection flattening visits each nested constituent once without recursive array copying. Precedence scans and group-fit lookahead can revisit subtrees, so total work depends on tree shape and configured width as well as node and text counts.
+ * @evidence contracts/performance.md#efficient-algorithms The private helpers use ordered document arrays and explicit layout stacks; union/intersection flattening visits each nested constituent once without recursive array copying. Precedence scans and group-fit lookahead can revisit subtrees, and a `<` comparison left open triggers one scan of the printed subtrees that follow it for a closing `>`, so total work depends on tree shape and configured width as well as node and text counts.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The instance is a synchronous renderer with immutable layout settings, not a cross-request computation coordinator. Node fields and synthetic-comment lists can change, so a tree identity alone cannot validate stored output.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The instance owns only its three scalar layout settings; each print call owns transient document and output buffers and retains no tree, history or native handle after completion or failure. The caller owns the returned text and the node/comment lifetime.
  */
@@ -271,6 +276,27 @@ export class TsPrinter {
         ]);
   }
 
+  /**
+   * The right operand of a binary expression. When the operator is `<` or `<<`
+   * and the operand holds a `>` that closes a type list, a leading `+0 as number`
+   * operand in parentheses keeps TypeScript from reading the `<` as type
+   * arguments and leaves the operand's value unchanged. The assertion keeps the
+   * checker from reporting the unused left side of the comma (TS2695).
+   */
+  private lessRightOperand(node: BinaryExpression): Doc {
+    if (
+      (node.operator === SyntaxKind.LessThanToken ||
+        node.operator === SyntaxKind.LessThanLessThanToken) &&
+      this.containsClosingOpener(node.right)
+    )
+      return concat([
+        "(+0 as number, ",
+        this.expressionForDisallowedComma(node.right),
+        ")",
+      ]);
+    return this.binaryOperand(node.operator, node.right, false, node.left);
+  }
+
   private hasSyntheticComments(node: Node): boolean {
     return (
       (getSyntheticLeadingComments(node)?.length ?? 0) !== 0 ||
@@ -388,7 +414,7 @@ export class TsPrinter {
   private args(args: readonly Expression[]): Doc {
     return this.delim(
       "(",
-      args.map((a) => this.expressionForDisallowedComma(a)),
+      args.map((_a, i) => this.listElement(args, i)),
       ")",
       {
         trailingComma: this.argsTrailingComma(args),
@@ -576,8 +602,8 @@ export class TsPrinter {
       case "ArrayLiteralExpression":
         return this.delim(
           "[",
-          node.elements.map((e) =>
-            this.expressionForDisallowedComma(e, assignmentTarget),
+          node.elements.map((_e, i) =>
+            this.listElement(node.elements, i, assignmentTarget),
           ),
           "]",
           {
@@ -664,6 +690,7 @@ export class TsPrinter {
               true,
               undefined,
               node.operator === SyntaxKind.EqualsToken,
+              node.right,
             ),
             // Every operator but the comma is written with a space on each
             // side. The comma is punctuation that attaches to what precedes it:
@@ -682,7 +709,7 @@ export class TsPrinter {
                 node.operator === SyntaxKind.GreaterThanGreaterThanToken
                   ? " "
                   : line,
-                this.binaryOperand(node.operator, node.right, false, node.left),
+                this.lessRightOperand(node),
               ]),
             ),
           ]),
@@ -697,12 +724,12 @@ export class TsPrinter {
       case "ConditionalExpression":
         return group(
           concat([
-            this.conditionalCondition(node.condition),
+            this.conditionalCondition(node),
             indent(
               concat([
                 line,
                 "? ",
-                this.conditionalBranch(node.whenTrue),
+                this.conditionalBranch(node.whenTrue, node.whenFalse),
                 line,
                 ": ",
                 this.conditionalBranch(node.whenFalse),
@@ -1513,7 +1540,14 @@ export class TsPrinter {
       case "CommaListExpression":
         return join(
           ", ",
-          node.elements.map((e) => this.emit(e)),
+          node.elements.map((e, i) =>
+            this.hasOpenLess(e) &&
+            node.elements
+              .slice(i + 1)
+              .some((later) => this.containsClosingOpener(later))
+              ? this.parenthesizedExpression(e)
+              : this.emit(e),
+          ),
         );
       case "ComputedPropertyName":
         return concat([
@@ -2127,11 +2161,20 @@ export class TsPrinter {
     }
   }
 
-  private conditionalCondition(condition: Expression): Doc {
+  private conditionalCondition(node: ConditionalExpression): Doc {
+    const condition: Expression = node.condition;
     // A type followed by `?` can read as a nullable type, which a consequent
-    // that does not start a type (`-x`, `--x`) turns into a syntax error.
+    // that does not start a type (`-x`, `--x`) turns into a syntax error. The
+    // same reading carries a `<` left open in the condition across the `?` to a
+    // `>` in a branch.
     return this.expressionPrecedence(condition) >
-      ExpressionPrecedence.Conditional && !this.endsWithTypeAssertion(condition)
+      ExpressionPrecedence.Conditional &&
+      !this.endsWithTypeAssertion(condition) &&
+      !(
+        this.hasOpenLess(condition) &&
+        (this.containsClosingOpener(node.whenTrue) ||
+          this.containsClosingOpener(node.whenFalse))
+      )
       ? this.emit(condition)
       : this.parenthesizedExpression(condition);
   }
@@ -2189,8 +2232,29 @@ export class TsPrinter {
     }
   }
 
-  private conditionalBranch(branch: Expression): Doc {
-    return this.expressionForDisallowedComma(branch);
+  /**
+   * A `? whenTrue` or `: whenFalse` branch. An arrow function whose concise
+   * body is itself a parenthesized group is parenthesized when it stands as the
+   * consequent, because TypeScript reads `() => (b) : c` as a nested arrow head
+   * `(b): c` with a return type.
+   */
+  private conditionalBranch(branch: Expression, later?: Expression): Doc {
+    return later !== undefined &&
+      (this.arrowBodyIsGroup(branch) ||
+        (this.hasOpenLess(branch) && this.containsClosingOpener(later)))
+      ? this.parenthesizedExpression(branch)
+      : this.expressionForDisallowedComma(branch);
+  }
+
+  private arrowBodyIsGroup(expression: Expression): boolean {
+    expression = this.skipPartiallyEmittedExpressions(expression);
+    if (expression.kind !== "ArrowFunction" || expression.body.kind === "Block")
+      return false;
+    return (
+      this.skipPartiallyEmittedExpressions(expression.body).kind ===
+        "ParenthesizedExpression" ||
+      this.expressionNeedsConciseBodyParentheses(expression.body)
+    );
   }
 
   private arrowFunctionBody(body: Block | Expression): Doc {
@@ -2231,12 +2295,14 @@ export class TsPrinter {
     isLeftSide: boolean,
     leftOperand?: Expression,
     assignmentTarget: boolean = false,
+    rightOperand?: Expression,
   ): Doc {
     return this.binaryOperandNeedsParentheses(
       operator,
       operand,
       isLeftSide,
       leftOperand,
+      rightOperand,
     )
       ? this.parenthesizedExpression(operand)
       : this.emit(operand, assignmentTarget);
@@ -2247,6 +2313,7 @@ export class TsPrinter {
     operand: Expression,
     isLeftSide: boolean,
     leftOperand?: Expression,
+    rightOperand?: Expression,
   ): boolean {
     const emittedOperand: Expression =
       this.skipPartiallyEmittedExpressions(operand);
@@ -2277,17 +2344,24 @@ export class TsPrinter {
       this.endsWithTypeAssertion(emittedOperand)
     )
       return true;
-    // `a < b > (c)` can read as the call `a<b>(c)` with type arguments, so a
-    // `<` or `<<` operation on the left of `>`, `>>` or `>>>` keeps its own
-    // parentheses.
+    // `a < b > (c)` can read as the call `a<b>(c)` with type arguments. An
+    // operand that leaves a `<` open keeps its own parentheses when a `>` that
+    // closes the list follows it, directly or through `|`, `&`, `??` or `,`.
     if (
       isLeftSide &&
-      (operator === SyntaxKind.GreaterThanToken ||
-        operator === SyntaxKind.GreaterThanGreaterThanToken ||
-        operator === SyntaxKind.GreaterThanGreaterThanGreaterThanToken) &&
-      emittedOperand.kind === "BinaryExpression" &&
-      (emittedOperand.operator === SyntaxKind.LessThanToken ||
-        emittedOperand.operator === SyntaxKind.LessThanLessThanToken)
+      this.hasOpenLess(emittedOperand) &&
+      ((isGreaterThanOperator(operator) &&
+        rightOperand !== undefined &&
+        (this.binaryOperandNeedsParentheses(
+          operator,
+          rightOperand,
+          false,
+          emittedOperand,
+        ) ||
+          this.startsWithOpener(rightOperand))) ||
+        (isTypeListConnector(operator) &&
+          rightOperand !== undefined &&
+          this.containsClosingOpener(rightOperand)))
     )
       return true;
 
@@ -2758,55 +2832,261 @@ export class TsPrinter {
    * Whether the printed expression holds an `in` operator that no bracket,
    * parenthesis or other delimiter encloses, so a `for` header would read it as
    * the start of `for...in`.
+   */
+  private exposesIn(expression: Expression): boolean {
+    return this.exposes(expression, (op) => op === SyntaxKind.InKeyword, true);
+  }
+
+  /**
+   * Whether anywhere in the printed subtree a `>`, `>>` or `>>>` operator is
+   * followed by `(` or a template.
+   *
+   * TypeScript reads `a < b > (c)` as the call `a<b>(c)` with type arguments:
+   * after an expression, a `<` starts a type argument list, the type parser
+   * recovers inside parentheses, and a `>` followed by `(`, a template or a line
+   * break ends the list. The pairing can cross parentheses, brackets and
+   * braces, so the scan covers every printed child.
+   */
+  private containsClosingOpener(node: unknown): boolean {
+    if (typeof node !== "object" || node === null) return false;
+    if (Array.isArray(node))
+      return node.some((child) => this.containsClosingOpener(child));
+    const record = node as Record<string, unknown>;
+    if (
+      record.kind === "BinaryExpression" &&
+      isGreaterThanOperator(record.operator as SyntaxKind) &&
+      this.closesTypeList(record as unknown as BinaryExpression)
+    )
+      return true;
+    return Object.keys(record).some(
+      (key) => key !== "original" && this.containsClosingOpener(record[key]),
+    );
+  }
+
+  private closesTypeList(node: BinaryExpression): boolean {
+    return (
+      this.binaryOperandNeedsParentheses(
+        node.operator,
+        node.right,
+        false,
+        node.left,
+      ) || this.startsWithOpener(node.right)
+    );
+  }
+
+  /** Whether the printed text of the expression opens with `(` or a template. */
+  private startsWithOpener(expression: Expression): boolean {
+    expression = this.skipPartiallyEmittedExpressions(expression);
+    switch (expression.kind) {
+      case "ParenthesizedExpression":
+      case "TemplateExpression":
+      case "NoSubstitutionTemplateLiteral":
+        return true;
+      case "ArrowFunction":
+        return (
+          (expression.modifiers?.length ?? 0) === 0 &&
+          (expression.typeParameters?.length ?? 0) === 0
+        );
+      case "CommaListExpression":
+        return (
+          expression.elements.length !== 0 &&
+          this.startsWithOpener(expression.elements[0]!)
+        );
+      case "BinaryExpression":
+        return (
+          this.binaryOperandNeedsParentheses(
+            expression.operator,
+            expression.left,
+            true,
+            undefined,
+            expression.right,
+          ) || this.startsWithOpener(expression.left)
+        );
+      case "ConditionalExpression":
+        return (
+          this.expressionPrecedence(expression.condition) <=
+            ExpressionPrecedence.Conditional ||
+          this.endsWithTypeAssertion(expression.condition) ||
+          this.startsWithOpener(expression.condition)
+        );
+      case "AsExpression":
+      case "SatisfiesExpression":
+        return (
+          this.expressionPrecedence(expression.expression) <
+            ExpressionPrecedence.Relational ||
+          this.startsWithOpener(expression.expression)
+        );
+      case "PostfixUnaryExpression":
+        return (
+          !this.isLeftHandSideExpression(expression.operand) ||
+          this.startsWithOpener(expression.operand)
+        );
+      case "CallExpression":
+      case "PropertyAccessExpression":
+      case "ElementAccessExpression":
+      case "NonNullExpression":
+        return (
+          this.leftSideNeedsParentheses(expression.expression, false) ||
+          this.startsWithOpener(expression.expression)
+        );
+      case "CallChain":
+      case "PropertyAccessChain":
+      case "ElementAccessChain":
+      case "NonNullChain":
+        return (
+          this.leftSideNeedsParentheses(expression.expression, true) ||
+          this.startsWithOpener(expression.expression)
+        );
+      case "TaggedTemplateExpression":
+        return (
+          this.leftSideNeedsParentheses(expression.tag, false) ||
+          this.startsWithOpener(expression.tag)
+        );
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Whether the printed expression leaves a `<` or `<<` comparison open, with
+   * only `|`, `&`, `??` or `,` after it, so that a later `>` operand can close it.
+   *
+   * TypeScript reads `a < b | c > (d)` and `a < b, c > (d)` as the call
+   * `a<b | c>(d)` with type arguments: a `<` after an expression starts a type
+   * argument list, and a `>` followed by `(` or a template ends it. An operand
+   * of the comparison list that holds such a `<` is parenthesized when a `>`
+   * operand follows it.
+   */
+  private hasOpenLess(expression: Expression): boolean {
+    expression = this.skipPartiallyEmittedExpressions(expression);
+    if (expression.kind === "CommaListExpression")
+      return expression.elements.some((element) => this.hasOpenLess(element));
+    if (expression.kind === "SpreadElement")
+      return this.hasOpenLess(expression.expression);
+    if (expression.kind === "ConditionalExpression")
+      return (
+        this.expressionPrecedence(expression.whenFalse) >
+          ExpressionPrecedence.Comma && this.hasOpenLess(expression.whenFalse)
+      );
+    if (expression.kind === "ArrowFunction")
+      return (
+        expression.body.kind !== "Block" &&
+        !this.expressionNeedsConciseBodyParentheses(expression.body) &&
+        this.hasOpenLess(expression.body)
+      );
+    if (expression.kind !== "BinaryExpression") return false;
+    const operator: SyntaxKind = expression.operator;
+    if (
+      operator === SyntaxKind.LessThanToken ||
+      operator === SyntaxKind.LessThanLessThanToken
+    )
+      return true;
+    return (
+      (isTypeListConnector(operator) &&
+        !this.binaryOperandNeedsParentheses(
+          operator,
+          expression.left,
+          true,
+          undefined,
+          expression.right,
+        ) &&
+        this.hasOpenLess(expression.left)) ||
+      (!this.binaryOperandNeedsParentheses(
+        operator,
+        expression.right,
+        false,
+        expression.left,
+      ) &&
+        this.hasOpenLess(expression.right))
+    );
+  }
+
+  /**
+   * Emit one element of an argument, array or comma list, parenthesized when it
+   * leaves a `<` open and a later element holds a `>` operator.
+   */
+  private listElement(
+    elements: readonly Expression[],
+    index: number,
+    assignmentTarget: boolean = false,
+  ): Doc {
+    const element: Expression = elements[index]!;
+    if (
+      !this.hasOpenLess(element) ||
+      !elements
+        .slice(index + 1)
+        .some((later) => this.containsClosingOpener(later))
+    )
+      return this.expressionForDisallowedComma(element, assignmentTarget);
+    return element.kind === "SpreadElement"
+      ? this.withComments(
+          element,
+          concat(["...", this.parenthesizedExpression(element.expression)]),
+        )
+      : this.parenthesizedExpression(element);
+  }
+
+  /**
+   * The walk behind {@link exposesIn}: whether an operator selected by `hit`
+   * sits in the printed expression with no delimiter around it.
    *
    * The walk follows the operand positions the printer writes without a
    * delimiter and skips an operand it parenthesizes. The consequent of a
-   * conditional is not followed, because that slot admits `in`.
+   * conditional is not followed, because that slot admits `in`. Array literal
+   * elements are followed only when `crossArrays` is set.
    */
-  private exposesIn(expression: Expression): boolean {
+  private exposes(
+    expression: Expression,
+    hit: (operator: SyntaxKind) => boolean,
+    crossArrays: boolean,
+  ): boolean {
+    const next = (child: Expression): boolean =>
+      this.exposes(child, hit, crossArrays);
     expression = this.skipPartiallyEmittedExpressions(expression);
     switch (expression.kind) {
       case "BinaryExpression":
         return (
-          expression.operator === SyntaxKind.InKeyword ||
+          hit(expression.operator) ||
           (!this.binaryOperandNeedsParentheses(
             expression.operator,
             expression.left,
             true,
           ) &&
-            this.exposesIn(expression.left)) ||
+            next(expression.left)) ||
           (!this.binaryOperandNeedsParentheses(
             expression.operator,
             expression.right,
             false,
             expression.left,
           ) &&
-            this.exposesIn(expression.right))
+            next(expression.right))
         );
       case "ConditionalExpression":
         return (
           (this.expressionPrecedence(expression.condition) >
             ExpressionPrecedence.Conditional &&
-            this.exposesIn(expression.condition)) ||
+            next(expression.condition)) ||
           (this.expressionPrecedence(expression.whenFalse) >
             ExpressionPrecedence.Comma &&
-            this.exposesIn(expression.whenFalse))
+            next(expression.whenFalse))
         );
       case "CommaListExpression":
-        return expression.elements.some((element) => this.exposesIn(element));
+        return expression.elements.some((element) => next(element));
       case "ArrayLiteralExpression":
         // The TypeScript parser keeps the no-`in` context inside brackets of
         // an array literal, although ECMAScript lifts it there.
-        return expression.elements.some((element) => this.exposesIn(element));
+        return (
+          crossArrays && expression.elements.some((element) => next(element))
+        );
       case "SpreadElement":
-        return this.exposesIn(expression.expression);
+        return next(expression.expression);
       case "PropertyAccessExpression":
       case "ElementAccessExpression":
       case "CallExpression":
       case "NonNullExpression":
         return (
           !this.leftSideNeedsParentheses(expression.expression, false) &&
-          this.exposesIn(expression.expression)
+          next(expression.expression)
         );
       case "PropertyAccessChain":
       case "ElementAccessChain":
@@ -2814,42 +3094,42 @@ export class TsPrinter {
       case "NonNullChain":
         return (
           !this.leftSideNeedsParentheses(expression.expression, true) &&
-          this.exposesIn(expression.expression)
+          next(expression.expression)
         );
       case "TaggedTemplateExpression":
         return (
           !this.leftSideNeedsParentheses(expression.tag, false) &&
-          this.exposesIn(expression.tag)
+          next(expression.tag)
         );
       case "PostfixUnaryExpression":
         return (
           this.isLeftHandSideExpression(expression.operand) &&
-          this.exposesIn(expression.operand)
+          next(expression.operand)
         );
       case "NewExpression":
         return (
           !this.newExpressionTargetNeedsParentheses(expression.expression) &&
-          this.exposesIn(expression.expression)
+          next(expression.expression)
         );
       case "ArrowFunction":
         return (
           expression.body.kind !== "Block" &&
           !this.expressionNeedsConciseBodyParentheses(expression.body) &&
-          this.exposesIn(expression.body)
+          next(expression.body)
         );
       case "YieldExpression":
         return (
           expression.expression !== undefined &&
           this.expressionPrecedence(expression.expression) >
             ExpressionPrecedence.Comma &&
-          this.exposesIn(expression.expression)
+          next(expression.expression)
         );
       case "AsExpression":
       case "SatisfiesExpression":
         return (
           this.expressionPrecedence(expression.expression) >=
             ExpressionPrecedence.Relational &&
-          this.exposesIn(expression.expression)
+          next(expression.expression)
         );
       case "PrefixUnaryExpression":
       case "AwaitExpression":
@@ -2863,7 +3143,7 @@ export class TsPrinter {
               ? expression.operand
               : expression.expression,
           ) &&
-          this.exposesIn(
+          next(
             expression.kind === "PrefixUnaryExpression"
               ? expression.operand
               : expression.expression,
@@ -3269,6 +3549,25 @@ const escapeString = (text: string, singleQuote?: boolean): string => {
   }
   return `${quote}${escaped}${quote}`;
 };
+
+/** `>`, `>>` and `>>>`, the operators that can close a `<` type list. */
+const isGreaterThanOperator = (operator: SyntaxKind): boolean =>
+  operator === SyntaxKind.GreaterThanToken ||
+  operator === SyntaxKind.GreaterThanGreaterThanToken ||
+  operator === SyntaxKind.GreaterThanGreaterThanGreaterThanToken;
+
+/**
+ * The operators a type list can hold between its entries and operands. `??`
+ * belongs here because the type parser reads `?` as a nullable suffix, and `in`
+ * because it reads `K in T` as a mapped type key.
+ */
+const isTypeListConnector = (operator: SyntaxKind): boolean =>
+  operator === SyntaxKind.BarToken ||
+  operator === SyntaxKind.AmpersandToken ||
+  operator === SyntaxKind.CommaToken ||
+  operator === SyntaxKind.QuestionQuestionToken ||
+  operator === SyntaxKind.InKeyword ||
+  operator === SyntaxKind.InstanceOfKeyword;
 
 const ExpressionPrecedence = {
   Comma: 0,

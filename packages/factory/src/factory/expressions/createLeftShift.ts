@@ -6,7 +6,9 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * Create a {@link BinaryExpression} with the `<<` operator: bitwise left shift.
  *
  * Shorthand for {@link createBinaryExpression} with the `LessThanLessThanToken`
- * operator. Flat output uses spaces around it; width can break after it.
+ * operator. Flat output uses spaces around it; width can break after it. As
+ * with `<`, the printer keeps a right operand that holds a `>` followed by `(`
+ * or a template from reading as type arguments, by writing it as `(+0 as number, ...)`.
  *
  * Given operands `a` and `b`, the printer emits:
  *

@@ -8,6 +8,12 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * Shorthand for {@link createBinaryExpression} with the `LessThanToken`
  * operator. Flat output uses spaces around it; width can break after it.
  *
+ * TypeScript reads `a < b > (c)` as a call with type arguments. The printer
+ * keeps a `<` comparison unambiguous: it parenthesizes the comparison when a
+ * later `>` followed by `(` or a template could close it, and writes a right
+ * operand that holds such a `>` as `(+0 as number, ...)`, which leaves its value
+ * unchanged.
+ *
  * Given operands `a` and `b`, the printer emits:
  *
  * ```ts
