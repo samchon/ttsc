@@ -11,7 +11,7 @@ import (
  * This is the decision the issue asked to be made explicit. The target does
  * resolve to a real declaration, so a bare unresolved-target message would send
  * the author hunting for a typo that is not there. Both repairs are named,
- * because which one is right depends on which statement is wrong , the tag or
+ * because which one is right depends on which statement is wrong, the tag or
  * the citation.
  *
  *  1. Withdraw a callable and cite it from a claim host anyway.

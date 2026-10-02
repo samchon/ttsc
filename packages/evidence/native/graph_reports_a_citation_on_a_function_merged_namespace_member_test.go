@@ -10,7 +10,7 @@ import (
  * A declaration that stops being a public unit also stops being able to host a
  * tag, and an author who already wrote one there has to be told. Dropping the
  * tag silently would leave the claim's obligation quietly uncovered, which is
- * the exact substitution this product refuses , so both halves are asserted:
+ * the exact substitution this product refuses, so both halves are asserted:
  * the host is named as out of scope, and the target it meant to cover is still
  * owed.
  *

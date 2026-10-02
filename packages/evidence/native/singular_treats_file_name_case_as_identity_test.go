@@ -8,7 +8,7 @@ import (
  * Verifies case sensitivity: a base name differing only in case is a mismatch.
  *
  * Path identity is case-sensitive on every host in this product, and a
- * case-insensitive filesystem must not soften it , otherwise the same
+ * case-insensitive filesystem must not soften it, otherwise the same
  * repository passes on Windows and fails on Linux.
  *
  *  1. Export `Button` from `button.tsx`.

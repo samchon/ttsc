@@ -12,13 +12,13 @@ import (
  * which declaration carries the comment is a matter of where the author wrote
  * it. Reading only the declaration in hand would leave the identity withdrawn
  * while its members stayed selected whenever the untagged half was written
- * first , a cascade that depended on source order.
+ * first, a cascade that depended on source order.
  *
  *  1. Tag the second declaration of a merged identity and leave the first bare.
  *  2. Collect the inventory.
  *  3. Assert the identity and every member below either half are withdrawn.
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the identity and every member below either half are withdrawn.
- * @evidence contracts/testing.md#independent-expectations `interface I` beside `namespace I` is one public identity and one unit, so which declaration carries the comment is a matter of where the author wrote it. Reading only the declaration in hand would leave the identity withdrawn while its members stayed selected whenever the untagged half was written first , a cascade that depended on source order. The authored scenario requires this outcome: Assert the identity and every member below either half are withdrawn.
+ * @evidence contracts/testing.md#independent-expectations `interface I` beside `namespace I` is one public identity and one unit, so which declaration carries the comment is a matter of where the author wrote it. Reading only the declaration in hand would leave the identity withdrawn while its members stayed selected whenever the untagged half was written first, a cascade that depended on source order. The authored scenario requires this outcome: Assert the identity and every member below either half are withdrawn.
  * @evidence contracts/testing.md#distinguishing-cases The tag sits on the second declaration of the merge while the first (the interface with id) is bare; every unit whose target starts with ISale must be present with a non-empty Hidden marker, exactly four of them, and the untagged IPublic units must keep an empty marker. Only the tagged-second ordering is run, not the tagged-first one.
  * @evidence contracts/testing.md#execution-ownership TestTypeScriptHidingTagOnEitherMergedDeclarationWithdrawsTheIdentity runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */

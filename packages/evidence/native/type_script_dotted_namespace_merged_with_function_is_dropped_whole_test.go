@@ -9,7 +9,7 @@ import (
 /**
  * Verifies the dotted namespace form is dropped whole when its head merges.
  *
- * `namespace get.inner {}` is not one declaration with a dotted name , it is
+ * `namespace get.inner {}` is not one declaration with a dotted name, it is
  * nested module declarations, collected on a different branch than an ordinary
  * namespace body. So the merge has to be judged on the head, `get`, and take
  * the whole chain with it; judging the tail would materialize `get.inner`
@@ -20,7 +20,7 @@ import (
  *  2. Collect the inventory.
  *  3. Assert the merged chain is gone entirely and the twin is intact.
  * @evidence contracts/testing.md#behavioral-verification parseTypeScriptInventory exercises the authored fixture. Assert the merged chain is gone entirely and the twin is intact.
- * @evidence contracts/testing.md#independent-expectations `namespace get.inner {}` is not one declaration with a dotted name , it is nested module declarations, collected on a different branch than an ordinary namespace body. So the merge has to be judged on the head, `get`, and take the whole chain with it; judging the tail would materialize `get.inner` beside the accessor and put the aggregate scope straight back. The authored scenario requires this outcome: Assert the merged chain is gone entirely and the twin is intact.
+ * @evidence contracts/testing.md#independent-expectations `namespace get.inner {}` is not one declaration with a dotted name, it is nested module declarations, collected on a different branch than an ordinary namespace body. So the merge has to be judged on the head, `get`, and take the whole chain with it; judging the tail would materialize `get.inner` beside the accessor and put the aggregate scope straight back. The authored scenario requires this outcome: Assert the merged chain is gone entirely and the twin is intact.
  * @evidence contracts/testing.md#distinguishing-cases Merge a function with a dotted namespace and declare an unmerged dotted twin beside it. Collect the inventory. Assert the merged chain is gone entirely and the twin is intact.
  * @evidence contracts/testing.md#execution-ownership TestTypeScriptDottedNamespaceMergedWithFunctionIsDroppedWhole runs as a Go unit entry in the native package. parseTypeScriptInventory executes in that process; its fixture files and parsed ASTs are inputs to the owning rules, without installing a consumer or launching a product host.
  */

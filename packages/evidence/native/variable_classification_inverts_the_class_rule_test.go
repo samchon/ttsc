@@ -22,7 +22,7 @@ import (
  *
  * One scope, deliberately. `collectTypeScriptVariables` reads `prefix` to name
  * a unit and never to classify one, so a namespace row asserts nothing this
- * case does not already assert , a mutation only reddens it by first
+ * case does not already assert, a mutation only reddens it by first
  * introducing the scope dependence the code does not have.
  *
  *  1. Declare every variable form beside the class fields they contrast with.

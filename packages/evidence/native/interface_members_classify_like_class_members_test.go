@@ -10,8 +10,8 @@ import (
  * Verifies an interface and an object-shaped type alias classify their members
  * exactly as a class does.
  *
- * One contract in four spellings , a class body field, a constructor parameter
- * property, an interface member, an object-type-alias member , must answer one
+ * One contract in four spellings, a class body field, a constructor parameter
+ * property, an interface member, an object-type-alias member, must answer one
  * selector. It did not: an interface answered `property` to `charge: () =>
  * void` while a class answered `function` to the same line, and a method
  * signature answered nothing at all. A `symbol: "function"` claim over a file
