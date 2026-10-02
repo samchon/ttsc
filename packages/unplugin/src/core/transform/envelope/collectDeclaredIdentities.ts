@@ -14,8 +14,7 @@ import { derivationIdentity } from "./derivationIdentity";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Non-array values and empty or non-string members are rejected by protocol shape, not special-cased by consumer or expected output.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains the shared declaration use, project-relative interpretation and malformed-entry handling; acknowledgment tags remain separated under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve interprets project-relative paths and the supplied envelope identity context handles filesystem case and realpath behavior without manually rewriting separators or guessing case by platform.
- * @evidence contracts/performance.md#efficient-algorithms
- *   Visits each listed entry once.
+ * @evidence contracts/performance.md#efficient-algorithms One pass examines every declaration entry and a Set coalesces equal identities. Native path resolution and key hashing cost each valid spelling's length; derivationIdentity reuses the generation transaction and first misses pay native identity and case observations. Temporary storage follows distinct identities rather than repeated aliases.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Builds its Set once per call from its argument and keeps no cache.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
