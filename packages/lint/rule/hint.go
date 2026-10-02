@@ -156,10 +156,12 @@ func (c *HintContext) DecodeOptions(out interface{}) error {
 // HintRule is an optional marker a ProjectRule implements to publish editor
 // completions for the Program it just indexed.
 //
-// The host calls Hints at most once per Program, always after Check, and only
-// when a consumer asks for the corpus — never during `ttsc check`. It is not
-// called unless Check passed and published state, the same gate a file rule
-// writes by hand against ProjectRulePassed. A rule configured off is never
+// The host calls Hints after Check for a requested projection of one project
+// evaluation cycle, never during `ttsc check`. Resident requests can start a
+// new cycle while reusing the loaded Program, so a corpus is not cached for
+// the entire Program lifetime. Hints is called only if Check passed and
+// published state, the same gate a file rule writes by hand against
+// ProjectRulePassed. A rule configured off is never
 // asked, so `off` means no hints with no code in the rule, and a rule's options
 // shape its corpus for free because the corpus is a projection of the state
 // Check built under them.
@@ -169,15 +171,15 @@ func (c *HintContext) DecodeOptions(out interface{}) error {
 // FINISHED state. A rule pushing hints while building that state would publish
 // the anchors it had found so far rather than the ones the document has.
 //
-// The corpus outlives the process, so slice order is the only ranking channel
-// there is — the host preserves it and derives the editor's sort key from it.
-// Return what should be offered first, first. Nothing else about a Hint
+// The serialized corpus is independent of the sidecar lifetime. Slice order
+// is its ranking channel: the host preserves it and derives the editor's sort
+// key from it. Return what should be offered first, first. Nothing else about a Hint
 // influences ordering, by design: a sort key field would be a second, silently
 // conflicting answer to a question the slice already answers.
 //
 // This embeds ProjectRule rather than standing alone as OptionsRule does,
 // because a per-file corpus is not a coherent thing. File rules run in a
-// parallel walk, so their hints would arrive — and therefore rank —
+// parallel walk, so their hints would arrive and rank
 // nondeterministically, and a corpus keyed to one file cannot answer a keystroke
 // in another. A contributor wanting hints from file-level facts registers a
 // ProjectRule alongside, which is what those facts wanted anyway.

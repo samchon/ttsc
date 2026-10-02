@@ -208,8 +208,9 @@ type ProjectResultReader interface {
   ProjectResult(name string) ProjectRuleResult
 }
 
-// ProjectRule is a contributor check that runs once for a loaded Program
-// before any node rule dispatch. It has no AST visit list or synthetic file.
+// ProjectRule is a contributor check that runs once per project evaluation
+// cycle before any node rule dispatch. Resident requests can evaluate a new
+// cycle over a reused loaded Program. It has no AST visit list or synthetic file.
 //
 // @evidence contracts/common.md#principled-implementation Name and whole-Program Check represent project validation independently of node visitation.
 // @evidence contracts/common.md#clear-and-simple-design A two-method interface separates identity from project checking without synthetic AST dispatch.

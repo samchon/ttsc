@@ -1193,7 +1193,7 @@ func (noCycles) Check(ctx *rule.ProjectContext) {
 func init() { rule.RegisterProject(noCycles{}) }
 ```
 
-Each project rule runs once per loaded Program, before file rules. `ctx.Identity` includes the invocation cwd, logical and physical config paths and roots, an optional explicit project root, the plugin-config origin, and a lifecycle id. `Report` marks the rule failed and emits one project finding; `Fail` marks it failed without a finding. Later file rules can call `ctx.ProjectResult(name)` and distinguish `absent`, `off`, `not_evaluated`, `passed`, and `failed`.
+Each project rule runs once per project evaluation cycle, before file rules. A resident request can evaluate a new cycle while reusing the loaded Program. `ctx.Identity` includes the invocation cwd, logical and physical config paths and roots, an optional explicit project root, the plugin-config origin, and a lifecycle id. `Report` marks the rule failed and emits one project finding; `Fail` marks it failed without a finding. Later file rules can call `ctx.ProjectResult(name)` and distinguish `absent`, `off`, `not_evaluated`, `passed`, and `failed`.
 
 `ctx.ReportSeverity(rule.SeverityWarn, message)` overrides the level of one project finding. An off rule or off finding remains silent. A warning still marks the project result failed, while only an error fails the command. Snapshots retain each finding's severity, and duplicate messages keep the strongest reported level. Hosts implementing only `ProjectReporter` receive the message at the rule's configured level; `ProjectSeverityReporter` is the optional extension for individual levels.
 
@@ -1252,7 +1252,7 @@ func (guardedFileRule) Check(ctx *rule.Context, node *ast.Node) {
 
 `ProjectResult` is a snapshot of the current status and findings, while its `Report` and `Fail` methods remain live until file dispatch finishes. Call `ctx.ProjectResult(name)` again to observe a failure reported by an earlier helper. Equal messages are deduplicated, distinct messages are sorted, and finalized project findings stay ahead of file findings. `absent`, `off`, and `not_evaluated` results expose no state and their mutation methods do nothing.
 
-State belongs to one loaded Program cycle. The host does not carry it into a watch or LSP rebuild: the new project check attaches that cycle's value and receives a new reporter. A reporter retained past file dispatch is inert. The host synchronizes status changes and finding deduplication across concurrent files. The contributor must create any required fresh state and synchronize mutable data inside its own value.
+State belongs to one project evaluation cycle. When a resident request evaluates project rules, it starts a new cycle even if it reuses the loaded Program. The host does not carry it into a watch or LSP rebuild: the new project check attaches that cycle's value and receives a new reporter. A reporter retained past file dispatch is inert. The host synchronizes status changes and finding deduplication across concurrent files. The contributor must create any required fresh state and synchronize mutable data inside its own value.
 
 Project rules use the normal `rules` map and `extends` order, but only global config entries may configure them. Any entry that contains `files`, including `files: []` or an `off` value, is rejected. Global `ignores` remain source-file filters rather than project-rule selectors. A later bare severity preserves the last explicit tuple options while replacing severity.
 

@@ -173,10 +173,12 @@ func (c *GraphContext) DecodeOptions(out interface{}) error {
 // GraphRule is an optional marker a ProjectRule implements to publish the
 // artifacts a declaration's documentation can cite.
 //
-// The gate is HintRule's, for the same reasons: called at most once per Program,
-// always after Check, only when a consumer asks — never during `ttsc check` —
-// and never unless Check passed and published state. A rule configured off is
-// never asked, so `off` means no nodes with no code in the rule.
+// The gate is HintRule's: called after Check for a requested projection of one
+// project evaluation cycle, never during `ttsc check`, and never unless Check
+// passed and published state. Resident requests can start new cycles over a
+// reused loaded Program; graph output is not cached for that Program's entire
+// lifetime. A rule configured off is never asked, so `off` means no nodes with
+// no code in the rule.
 //
 // Pull, not push. A set of artifacts is a projection of FINISHED state; a rule
 // pushing nodes while building that state would publish the ones it had found
@@ -184,9 +186,9 @@ func (c *GraphContext) DecodeOptions(out interface{}) error {
 //
 // What crosses this boundary is what an artifact *is*, never what the rule
 // decided about it. No coverage, no cardinality, no policy, no diagnostic:
-// those are the linter's product and it already delivers them as compile
-// errors. A consumer that received them would hold a second, unmaintained
-// answer to a question the linter already answers.
+// those are the linter's product and it already delivers them as diagnostics.
+// A consumer that received them would hold a second, unmaintained answer to a
+// question the linter already answers.
 //
 // @evidence contracts/common.md#principled-implementation ProjectRule embedding permits a complete graph projection only from the checked Program state, keeping diagnostic results in their separate channel.
 // @evidence contracts/common.md#clear-and-simple-design One optional method extends project checking with artifact publication rather than duplicating coverage evaluation.
