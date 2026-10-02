@@ -7,10 +7,16 @@ import { failedGenerationEnvironmentChanged } from "../generation/failedGenerati
 /**
  * Whether a terminal verdict still answers for this delivery.
  *
- * Inside the pass that produced or confirmed it, it is replayed without
- * re-probing anything: the pass settles every delivery against the state it
- * started from, so re-walking the project once per module would spend exactly
- * the cost this gate exists to remove.
+ * A pass verdict is replayed without re-probing anything inside the pass that
+ * produced it: the pass settles every delivery against the state it started
+ * from, so re-walking the project once per module would spend exactly the cost
+ * this gate exists to remove.
+ *
+ * An unstable generation has a recorded environment, and it is confirmed
+ * against the disk on every delivery (`failedGenerationEnvironmentChanged`,
+ * which shares one project walk per event-loop turn). The pass does not cache
+ * that answer. Inside a pass, only a verdict captured in that pass is replayed;
+ * one captured in an earlier pass grants a fresh attempt.
  *
  * Across passes the two kinds part company. A pass verdict is dropped, because
  * a new pass is the first boundary at which the host itself claims something

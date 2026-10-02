@@ -3,10 +3,10 @@ import type { TtscTransformCache } from "./TtscTransformCache";
 import { disposeCachedTransform } from "./disposeCachedTransform";
 
 /**
- * Delete a failed generation from the cache only when it is still the entry
- * stored under `key`. The identity check prevents an older failed generation's
- * cleanup from removing a newer replacement created by another caller for the
- * same key.
+ * Delete a generation that failed, or was found unfit to serve, from the cache
+ * only when it is still the entry stored under `key`. The identity check
+ * prevents an older generation's cleanup from removing a newer replacement
+ * created by another caller for the same key.
  *
  * @evidence contracts/common.md#principled-implementation Promise identity guards deletion, so late cleanup of an old generation cannot remove a newer compile under the same configuration key.
  * @evidence contracts/common.md#clear-and-simple-design One guarded delete schedules the existing generation disposer after fulfillment; rejected promises have no fulfilled generation to dispose.

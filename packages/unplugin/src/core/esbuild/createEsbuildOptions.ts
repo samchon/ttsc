@@ -36,8 +36,10 @@ import type { TtscProjectRegistration } from "../transform/watch/TtscProjectRegi
  *
  * @evidence contracts/common.md#principled-implementation
  *   The native file loader returns source, parser, map and one project record
- *   dependency together. Start establishes delivery proof; error responses retain
- *   prior dependencies so failed builds can observe their repair.
+ *   dependency together. Start opens a delivery pass and the bridge's change
+ *   sequence, and each delivery writes the record of the generation it read;
+ *   error responses retain prior dependencies so failed builds can observe their
+ *   repair.
  * @evidence contracts/common.md#clear-and-simple-design
  *   Setup owns lifecycle registration and loader responses; shared transform and
  *   record helpers retain compilation, validation and observation responsibility.
@@ -56,8 +58,9 @@ import type { TtscProjectRegistration } from "../transform/watch/TtscProjectRegi
  *   generation serves multiple modules. Previous dependency maps grow with M
  *   loaded files instead of rebuilding dependency lists from the whole program.
  * @evidence contracts/performance.md#reuse-equivalent-work
- *   Concurrent contexts of one plugin share its cache; build start resets delivery
- *   proof, and transform validity uses generation inputs. Owner identity prevents
+ *   Concurrent contexts of one plugin share its cache; build start opens a new
+ *   delivery pass that re-proves the retained generation, and transform validity
+ *   uses generation inputs. Owner identity prevents
  *   a setup that never started from releasing another context's cache.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Active started contexts own cache/bridge retention. The last onDispose resets

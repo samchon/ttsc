@@ -8,8 +8,8 @@ import { isTransformScratchInput } from "../tsconfig/isTransformScratchInput";
 /**
  * Project-walk keys of every input the envelope declares: the reference graph's
  * edge endpoints, globals, config chain, and resolution candidates, plus the
- * universal host inputs, intersected with the files the project walk actually
- * hashed. Out-of-walk declarations and candidates carry their own graph proof;
+ * universal host inputs and the plugin-reported dependencies, intersected with
+ * the files the project walk actually hashed. Out-of-walk declarations and candidates carry their own graph proof;
  * asking the project observer to witness them as well makes unrelated activity
  * in ignored directories invalidate an otherwise complete generation. Returns
  * `undefined` for an envelope with no graph, which declares no input set and
