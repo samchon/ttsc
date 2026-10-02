@@ -5,19 +5,19 @@ import (
   "testing"
 )
 
-// TestBanTsCommentPreservesMigratedDefaultsAndOptions verifies both original
+// TestBanTsCommentPreservesMigratedDefaultsAndOptions checks both authored
 // directive policies, description constraints and regex matching.
 //
 // The default and configured policies must stay distinct rather than
 // silently dropping tuple options while crossing the command boundary.
 //
-// 1. Run the defaults fixture and compare the one nocheck diagnostic.
-// 2. Run the configured fixture and compare every option-arm diagnostic.
+// 1. Run the defaults fixture and compare the matching nocheck diagnostic.
+// 2. Run the configured fixture and compare its three matching rule diagnostics.
 //
-// @evidence contracts/testing.md#behavioral-verification The owning Go command loads both original JSON settings and compares complete rule, severity and line sets, exposing ignored options and false reports on permitted directives.
+// @evidence contracts/testing.md#behavioral-verification The owning Go command loads both authored JSON settings and compares the helper-matched main.ts rule, severity and line population, plus exit code 2 and empty stdout. This does not certify unrelated compiler diagnostics or other-file reports.
 // @evidence contracts/testing.md#independent-expectations Defaults line 1 and configured lines 1, 2 and 6 follow the authored directive policy: forbidden check, too-short nocheck description and mismatched expect-error format. The accepted TS2322 description establishes the independent regex control.
 // @evidence contracts/testing.md#distinguishing-cases Defaults allow described expect-error and reject nocheck; configured minimum length 10, enabled check, description-required nocheck, disabled ignore and regex-constrained expect-error retain every original option arm.
-// @evidence contracts/testing.md#execution-ownership TestBanTsCommentPreservesMigratedDefaultsAndOptions owns both variants through assertMigratedTypedRuleCase in the same Go unit process. No consumer install or native build is performed; package discovery and native transport remain in the shared E2E survivor.
+// @evidence contracts/testing.md#execution-ownership TestBanTsCommentPreservesMigratedDefaultsAndOptions owns both variants through assertMigratedTypedRuleCase in the same Go unit process. No consumer install or native build is performed; installed package discovery and native transport are separate E2E responsibilities; this unit does not prove a survivor mapping or execution.
 func TestBanTsCommentPreservesMigratedDefaultsAndOptions(t *testing.T) {
   const config = "{\"compilerOptions\":{\"target\":\"ES2022\",\"module\":\"NodeNext\",\"moduleResolution\":\"NodeNext\",\"strict\":true,\"noEmit\":true,\"rootDir\":\"src\"},\"include\":[\"src\"]}"
   assertMigratedTypedRuleCase(t, "// @ts-nocheck\nconst unchecked: string = 1;\n// @ts-expect-error: intentional mismatch\nconst described: string = 1;\n", config, "{\"private\":true,\"type\":\"module\",\"dependencies\":{\"@ttsc/lint\":\"*\"}}", "typescript/ban-ts-comment", "error", []ruleExpectation{{Rule: "typescript/ban-ts-comment", Severity: SeverityError, Line: 1}})
