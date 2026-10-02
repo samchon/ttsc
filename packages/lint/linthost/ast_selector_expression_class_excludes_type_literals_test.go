@@ -2,20 +2,16 @@ package linthost
 
 import "testing"
 
-// TestASTSelectorExpressionClassExcludesTypeLiterals verifies that the
-// `:expression` class selects value literals and no type-level literal.
+// TestASTSelectorExpressionClassExcludesTypeLiterals distinguishes the
+// parsed TypeLiteral from the object-value ObjectLiteralExpression.
 //
-// TypeScript-Go spells a type literal `TypeLiteral` and an object value
-// `ObjectLiteralExpression`; a class matcher keyed on the name suffix would
-// admit both, so `{ a: string }` in a type position would be reported by a
-// `no-restricted-syntax` selector such as `:expression` that means values only.
-//
-// 1. Parse a source holding one object-literal value and one type literal.
-// 2. Select `TypeLiteral:expression` and `ObjectLiteralExpression:expression`.
-// 3. Assert the first selects nothing and the second selects the value.
+// The authored type alias and variable initializer provide one of each
+// node kind. Combining each kind selector with :expression must return
+// zero type literals and one object value. This fixture exercises these
+// two compound selectors, not every value or type syntax class.
 //
 // @evidence contracts/testing.md#behavioral-verification parseASTSelector and matchASTSelector run over a parsed source, and the assertions distinguish a type literal from an object value under the same class.
-// @evidence contracts/testing.md#independent-expectations ESTree has no expression node for type syntax, so the type literal count of zero and the single object value follow from the grammar rather than from the matcher.
+// @evidence contracts/testing.md#independent-expectations The authored type alias denotes type syntax rather than a value, while its separate variable initializer contains one object value; literal zero and one counts do not come from the matcher.
 // @evidence contracts/testing.md#distinguishing-cases The same `:expression` class is applied to a type literal (must not match) and to an object literal value (must match, once).
 // @evidence contracts/testing.md#execution-ownership The test calls the selector parser and matcher directly on one parsed virtual file in one Go process, with no Program or binary.
 func TestASTSelectorExpressionClassExcludesTypeLiterals(t *testing.T) {
