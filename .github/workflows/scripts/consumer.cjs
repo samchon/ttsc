@@ -48,8 +48,20 @@ workspace.overrides = {
 };
 fs.writeFileSync(workspaceFile, YAML.stringify(workspace));
 
+// The consumer's own catalog entries for the candidate packages. Binding every
+// edge to a tarball leaves no importer on those entries, so pnpm drops them from
+// the lockfile's `catalogs`, and tooling that reads the declared versions there
+// (nestia's migrate bundler) falls back to a template's stale pins.
+const lockFile = path.join(consumer, "pnpm-lock.yaml");
+const declaredCatalogs = {};
+if (fs.existsSync(lockFile))
+  for (const [catalog, entries] of Object.entries(YAML.parse(fs.readFileSync(lockFile, "utf8")).catalogs ?? {}))
+    for (const name of Object.keys(artifacts))
+      if (entries[name]) (declaredCatalogs[catalog] ??= {})[name] = entries[name];
+
 // pnpm's installation hook binds dependency and peer edges to the same
 // candidate; a peer with the candidate's version otherwise selects registry code.
+// Its lockfile hook restores the declared catalog entries that binding removed.
 fs.writeFileSync(
   path.join(consumer, ".pnpmfile.cjs"),
   `const artifacts = ${JSON.stringify(
@@ -57,8 +69,16 @@ fs.writeFileSync(
       Object.entries(artifacts).map(([name, file]) => [name, `file:${path.join(tarballs, file).split(path.sep).join("/")}`]),
     ),
   )};
+const declaredCatalogs = ${JSON.stringify(declaredCatalogs)};
 module.exports = {
   hooks: {
+    afterAllResolved(lockfile) {
+      for (const [catalog, entries] of Object.entries(declaredCatalogs)) {
+        const resolved = ((lockfile.catalogs ??= {})[catalog] ??= {});
+        for (const [name, entry] of Object.entries(entries)) resolved[name] ??= entry;
+      }
+      return lockfile;
+    },
     readPackage(pkg) {
       for (const [name, candidate] of Object.entries(artifacts)) {
         for (const field of ["dependencies", "devDependencies", "optionalDependencies"])

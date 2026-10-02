@@ -1,7 +1,10 @@
 {
   "extends": "../config/tsconfig.json",
   "compilerOptions": {
-    "rootDir": "../.."
+    "rootDir": "../..",
+    "paths": {
+      "@ttsc/lint": ["../../packages/lint/src/index.ts"]
+    }
   },
   "include": [
     "src/**/*.ts"
