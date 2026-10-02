@@ -8,14 +8,11 @@ import { projectInputTopologyMayAffect } from "../../../../../packages/ttsc/src/
 /**
  * Verifies a directory event is admitted from where it happened.
  *
- * Admission is the only bound on how often a watch session re-reads and
- * re-hashes its declared corpus, and a silent rescan is indistinguishable from
- * a skipped one at the rebuild boundary, so the rule is pinned here. An atomic
- * replacement names the directory that was swapped rather than the declared
- * file whose bytes it changed, and that directory need not contain any
- * declaration — so containment alone drops it. Anything whose parent is off the
- * path to every declaration cannot have re-anchored one, and admitting it would
- * re-fingerprint the corpus once per entry an install creates.
+ * Admission excludes unrelated paths before corpus rescanning; scheduling and
+ * debounce remain with the launcher. A replacement can name a sibling directory
+ * rather than the declared file, so containment alone can miss it. The selected
+ * directory inputs contrast that anchoring possibility with unrelated deep
+ * dependency trees, without creating a real replacement or measuring rehashes.
  *
  * 1. Declare one exact file and one glob population inside a project.
  * 2. Admit the sibling directory an atomic replacement leaves behind.
