@@ -9,8 +9,8 @@ import (
 )
 
 // TestContributorReportRelatedReachesFinding verifies a contributor's
-// ctx.ReportRelated travels the whole chain — public Context, the contextReporter
-// bridge, the engine Context — onto Finding.RelatedInformation, and that
+// ctx.ReportRelated travels through public Context, the contextReporter
+// bridge and engine Context onto Finding.RelatedInformation, and that
 // findingToLSPDiagnostic then renders it as an LSP relatedInformation entry
 // carrying the finding's own file URI.
 //
@@ -18,14 +18,21 @@ import (
 // unless it forwards it, exactly as it must for the fix and tag extensions. A
 // silently dropped forward would leave the diagnostic intact but strip the
 // related location, so this asserts the location both reaches the finding and
-// survives the LSP render.
+// survives the LSP render. A malformed related start and caller mutation after
+// reporting distinguish real normalization and ownership from slice forwarding.
 //
-// @evidence contracts/testing.md#behavioral-verification Real public related reporting survives contributor adaptation into one warning finding with literal 0..12 location and messages, then LSP rendering preserves file:///virtual/test.ts and line-zero 0..12 related coordinates.
+// 1. Adapt a contributor with an authored negative-start related location.
+// 2. Run its real report and mutate the contributor-owned related storage.
+// 3. Require the original bounded location and message in the finding and its
+//    literal same-file LSP URI and coordinates.
+//
+// @evidence contracts/testing.md#behavioral-verification Real public related reporting bounds authored -5..12 coordinates to 0..12, preserves its original message after caller mutation and survives contributor adaptation into one warning finding; LSP rendering preserves file:///virtual/test.ts and line-zero 0..12 related coordinates.
 // @evidence contracts/testing.md#independent-expectations Authored const source, flagged/defined over here messages and manually specified statement byte bounds define expected data independently of both adapters. A literal URI and LSP coordinates strengthen the existing same-file helper comparison.
-// @evidence contracts/testing.md#distinguishing-cases Nonnil single related entry and nonempty range distinguish lost enrichment from successful diagnostic-only dispatch; identity/severity/failure validation prevents recovered engine errors from masquerading as related output.
+// @evidence contracts/testing.md#distinguishing-cases Authored negative start and changed caller location distinguish normalization and copied storage from forwarding aliases; one related entry and literal same-file LSP coordinates distinguish lost enrichment, while semantic guards reject recovered engine errors.
 // @evidence contracts/testing.md#execution-ownership Actual inspected contributor adapter, Engine.Run and findingToLSPDiagnostic run in-process with cleanup; no native plugin build, installed CLI, language-server transport or editor participates.
 func TestContributorReportRelatedReachesFinding(t *testing.T) {
-  metadata, err := inspectContributor(relatedContributor{})
+  contributor := relatedContributor{locations: []rule.RelatedInformation{{Pos: -5, End: 12, Message: "defined over here"}}}
+  metadata, err := inspectContributor(contributor)
   if err != nil {
     t.Fatal(err)
   }
@@ -40,6 +47,9 @@ func TestContributorReportRelatedReachesFinding(t *testing.T) {
 
   if len(findings) != 1 {
     t.Fatalf("want one finding, got %d", len(findings))
+  }
+  if contributor.locations[0] != (rule.RelatedInformation{Pos: 99, End: 100, Message: "mutated after report"}) {
+    t.Fatalf("caller storage mutation did not run: %+v", contributor.locations)
   }
   related := findings[0].RelatedInformation
   if len(related) != 1 {
@@ -68,8 +78,10 @@ func TestContributorReportRelatedReachesFinding(t *testing.T) {
 }
 
 // relatedContributor reports one finding on the first statement it visits and
-// attaches a related location spanning that statement.
-type relatedContributor struct{}
+// attaches authored related coordinates before mutating its own storage.
+type relatedContributor struct {
+  locations []rule.RelatedInformation
+}
 
 func (relatedContributor) Name() string { return "demo/related" }
 
@@ -77,10 +89,7 @@ func (relatedContributor) Visits() []shimast.Kind {
   return []shimast.Kind{shimast.KindVariableStatement}
 }
 
-func (relatedContributor) Check(ctx *rule.Context, node *shimast.Node) {
-  ctx.ReportRelated(node, "flagged", rule.RelatedInformation{
-    Pos:     node.Pos(),
-    End:     node.End(),
-    Message: "defined over here",
-  })
+func (r relatedContributor) Check(ctx *rule.Context, node *shimast.Node) {
+  ctx.ReportRelated(node, "flagged", r.locations...)
+  r.locations[0] = rule.RelatedInformation{Pos: 99, End: 100, Message: "mutated after report"}
 }

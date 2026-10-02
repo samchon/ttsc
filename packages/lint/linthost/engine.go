@@ -672,15 +672,17 @@ func (c *Context) ReportRangeSuggestions(pos, end int, message string, suggestio
 // Each related location's Pos/End is normalized against the current file,
 // like a range finding, so a rule that miscomputed an offset
 // cannot point the editor outside the file.
+// Related records are copied. A nil node or off severity drops the report;
+// use an engine-bound Context for collection.
 //
 // @evidence contracts/common.md#principled-implementation The primary node and copied secondary ranges are independently bounded to the same source, matching the renderer's single-file related-location model.
 // @evidence contracts/common.md#clear-and-simple-design One Finding carries the primary message and related locations; normalizeRelated owns copying and coordinate policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Related locations use actual supplied positions and supported normalization rather than patched source identities.
 // @evidence contracts/common.md#meaningful-documentation Native prose states same-file ownership, byte bounds and the reason for normalization before its tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ReportRelated performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ReportRelated has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ReportRelated keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ReportRelated acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Node normalization scans t trivia bytes and copying r related records clamps each in constant work, O(t+r) plus rule-name and collector callbacks. Stored records occupy O(r) space while immutable messages remain shared.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation emits a new diagnostic with related locations; equal messages or ranges do not establish permission to suppress its collector effect.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The finding and copied related records transfer to the host collector. This method owns no separate history, handle or task; the host owns accumulated findings.
 func (c *Context) ReportRelated(node *shimast.Node, message string, related ...publicrule.RelatedInformation) {
   if c.Severity == SeverityOff || node == nil {
     return
@@ -705,15 +707,16 @@ func (c *Context) ReportRelated(node *shimast.Node, message string, related ...p
 //
 // Related locations are copied; locations in other files require a different
 // reporting API and cannot be represented by this method.
+// Off severity or a missing File drops the report; use an engine-bound Context.
 //
 // @evidence contracts/common.md#principled-implementation Independent normalization bounds primary and secondary byte intervals to the renderer's common file identity, and copied locations isolate caller storage.
 // @evidence contracts/common.md#clear-and-simple-design The explicit-range method reuses the related-location helper while keeping node-dependent trivia trimming out of this path.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The method exposes its single-file limitation rather than compensating with guessed foreign-file coordinates.
 // @evidence contracts/common.md#meaningful-documentation Native prose supplies normalization, copying and the unsupported cross-file distinction before its separated tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ReportRangeRelated performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ReportRangeRelated has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ReportRangeRelated keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ReportRangeRelated acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Primary clamping is constant work and copying r related records normalizes each in constant work, O(r) plus callbacks. Stored records occupy O(r) space with shared immutable messages; no trivia scan runs.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Reporting mutates the collector for one invocation; matching primary or secondary ranges alone do not make repeated reporting effects shareable.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Finding and related-record ownership transfers to the host collector. This method retains no separate historical state or native resource; the host controls the per-file/run population.
 func (c *Context) ReportRangeRelated(pos, end int, message string, related ...publicrule.RelatedInformation) {
   if c.Severity == SeverityOff || c.File == nil {
     return
