@@ -213,34 +213,68 @@ export class TsPrinter {
    * (the legacy `createIdentifier("\n")` codegen idiom): it inserts an empty
    * line between members and carries no `;` terminator, matching the legacy
    * printer.
+   *
+   * A not-emitted placeholder occupies no slot: it leaves no separator behind,
+   * and one that carries synthetic comments prints just those comments, with no
+   * `;` of its own.
    */
   private memberBlock(members: readonly Node[], forceBreak: boolean): Doc {
     const inner: Doc[] = [];
     let first: boolean = true;
     let blank: boolean = false;
+    let terminated: boolean = false;
     for (const member of members) {
       if (member.kind === "Identifier") {
         blank = true;
         continue;
       }
-      if (!first) inner.push(";", line);
+      const placeholder: boolean = member.kind === "NotEmittedTypeElement";
+      if (placeholder && !this.hasSyntheticComments(member)) continue;
+      if (!first) inner.push(...(terminated ? [";"] : []), line);
       if (blank) {
         inner.push(hardline);
         blank = false;
       }
       inner.push(this.emit(member));
       first = false;
+      terminated = !placeholder;
     }
     if (inner.length === 0) return "{}";
     return group(
       concat([
         "{",
         indent(concat([line, concat(inner)])),
-        ifBreak(";"),
+        terminated ? ifBreak(";") : "",
         line,
         "}",
       ]),
       forceBreak,
+    );
+  }
+
+  /** The `; a; b;` tail of a mapped type, without not-emitted placeholders. */
+  private mappedTypeMembers(members: readonly Node[] | undefined): Doc {
+    const emitted: Node[] = (members ?? []).filter(
+      (member) =>
+        member.kind !== "NotEmittedTypeElement" ||
+        this.hasSyntheticComments(member),
+    );
+    return emitted.length === 0
+      ? ""
+      : concat([
+          "; ",
+          join(
+            "; ",
+            emitted.map((member) => this.emit(member)),
+          ),
+          ";",
+        ]);
+  }
+
+  private hasSyntheticComments(node: Node): boolean {
+    return (
+      (getSyntheticLeadingComments(node)?.length ?? 0) !== 0 ||
+      (getSyntheticTrailingComments(node)?.length ?? 0) !== 0
     );
   }
 
@@ -1343,13 +1377,7 @@ export class TsPrinter {
           "]",
           q,
           node.type ? concat([": ", this.emit(node.type)]) : "",
-          node.members && node.members.length !== 0
-            ? concat([
-                "; ",
-                join("; ", node.members.map((member) => this.emit(member))),
-                ";",
-              ])
-            : "",
+          this.mappedTypeMembers(node.members),
           " }",
         ]);
       }

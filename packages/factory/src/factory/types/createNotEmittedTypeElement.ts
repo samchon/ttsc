@@ -6,8 +6,10 @@ import { make } from "../internal/make";
  * carries no syntax of its own.
  *
  * It occupies a member-list slot without contributing syntax. The node has no
- * source-position fields. Synthetic comments can be attached explicitly; the
- * printer emits those comments around the otherwise empty body.
+ * source-position fields. In an interface, a type literal or a mapped type, a
+ * placeholder without comments prints nothing and leaves no separator or blank
+ * line. Synthetic comments can be attached explicitly; the printer then emits
+ * just those comments, with no `;` of its own.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The NotEmittedTypeElement discriminant represents an empty member body;
