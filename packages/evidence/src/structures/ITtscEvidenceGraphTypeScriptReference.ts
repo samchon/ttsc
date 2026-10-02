@@ -1,4 +1,4 @@
-import type { TtscEvidenceGraphTypeScriptSymbol } from "../typings/TtscEvidenceGraphTypeScriptSymbol";
+import type { TtscEvidenceGraphTypeScriptSymbol } from "./TtscEvidenceGraphTypeScriptSymbol";
 import type { ITtscEvidenceGraphReferenceBase } from "./ITtscEvidenceGraphReferenceBase";
 
 /**

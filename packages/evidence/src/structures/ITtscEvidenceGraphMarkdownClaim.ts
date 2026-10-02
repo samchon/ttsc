@@ -1,4 +1,4 @@
-import type { TtscEvidenceGraphMarkdownSymbol } from "../typings/TtscEvidenceGraphMarkdownSymbol";
+import type { TtscEvidenceGraphMarkdownSymbol } from "./TtscEvidenceGraphMarkdownSymbol";
 import type { ITtscEvidenceGraphClaimBase } from "./ITtscEvidenceGraphClaimBase";
 
 /**

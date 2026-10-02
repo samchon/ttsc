@@ -2,11 +2,12 @@
   "severity": "error",
   "claims": [
     {
-      "name": "maintained TypeScript production declarations",
+      "name": "maintained TypeScript production declarations, except ambient module augmentations in src/typings (not analyzable by the adapter)",
       "type": "typescript",
       "files": [
         "src/**/*.ts",
-        "!src/**/index.ts"
+        "!src/**/index.ts",
+        "!src/typings/**"
       ],
       "symbol": [
         "type",

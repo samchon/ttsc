@@ -1,4 +1,4 @@
-import type { TtscEvidenceGraphTypeScriptSymbol } from "../typings/TtscEvidenceGraphTypeScriptSymbol";
+import type { TtscEvidenceGraphTypeScriptSymbol } from "./TtscEvidenceGraphTypeScriptSymbol";
 
 /**
  * Options of the `evidence/documented` rule.

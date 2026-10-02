@@ -1,4 +1,4 @@
-import type { TtscEvidenceGraphPrismaSymbol } from "../typings/TtscEvidenceGraphPrismaSymbol";
+import type { TtscEvidenceGraphPrismaSymbol } from "./TtscEvidenceGraphPrismaSymbol";
 import type { ITtscEvidenceGraphReferenceBase } from "./ITtscEvidenceGraphReferenceBase";
 
 /**
