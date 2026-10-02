@@ -18,7 +18,7 @@ import { TextDecoder } from "node:util";
  * @evidence contracts/portability.md#os-neutral-implementation Uses native file/path operations and recorded numeric PIDs without OS-name-derived process outcomes or path case folding.
  * @evidence contracts/performance.md#efficient-algorithms Visits each writer file and JSONL row once, with indexes for sequence/actual invocation identity. Complete file/text/parsed values occupy memory proportional to observed bytes and events.
  * @evidence contracts/performance.md#reuse-equivalent-work One parsed stream contributes all counters and integrity checks; a previous measurement or process outcome is never reused.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous reads close before returning. JSONL is bounded per writer at256MiB; no payload bytes are loaded here. Actual writer/child joins and trace-root retention remain coordinator responsibilities.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous reads close before returning. JSONL is bounded per writer at256MiB; no payload bytes are loaded here. Parsed process rows remain caller-owned for explicit boundary pairing; their metadata is not an independently deduplicated launch total. Actual writer/child joins and trace-root retention remain coordinator responsibilities.
  */
 export function readE2eTraceMeasurements(
   root: string,
@@ -39,6 +39,7 @@ export function readE2eTraceMeasurements(
     integrityProblems: [],
     lastWriterSequences: {},
     writerRuntimeVersions: {},
+    processObservations: [],
   };
   const writerPids = new Set<number>();
   const writerInstances = new Set<string>();
@@ -110,6 +111,7 @@ export function readE2eTraceMeasurements(
       writerPids.add(event.writerPid);
       const invocation = writer + ":" + event.invocation;
       if (event.event.startsWith("process-")) {
+        result.processObservations.push({ writerFile: name, observation: event });
         if (event.event === "process-attempt") attempts.add(invocation);
         if (event.event === "process-result") results.add(invocation);
         const started = event.started ?? event.data?.started;
@@ -190,6 +192,8 @@ export interface TraceMeasurements {
   lastWriterSequences: Record<string, number>;
   /** Actual writer runtime reports, not executable-byte equality or child-runtime inference. */
   writerRuntimeVersions: Record<string, string>;
+  /** Original observed process rows for explicit boundary ownership; duplicates are not PID-deduplicated. */
+  processObservations: { writerFile: string; observation: TraceEvent }[];
 }
 
 /** Rejects malformed event cores without manufacturing missing observations. */
