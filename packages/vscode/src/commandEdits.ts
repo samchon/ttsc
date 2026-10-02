@@ -159,9 +159,11 @@ export function collectWorkspaceEditChanges(
  * Return whether a JSON-shaped command argument contains a URI in the
  * supplied dirty-document set.
  *
- * Recursive arrays and object values can carry document targets. Inputs are
- * acyclic protocol data; the operation does not resolve paths or change
- * documents.
+ * Recursive arrays and object values can carry document targets. Every string
+ * is passed through canonicalize before the exact set lookup, so a URI that a
+ * server spelled differently from the editor still names the same document;
+ * the default leaves strings unchanged. Inputs are acyclic protocol data; the
+ * operation does not resolve paths or change documents.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Recursive Array.some/Object.values and exact Set membership inspect the
@@ -176,24 +178,31 @@ export function collectWorkspaceEditChanges(
  *   test-mode branch.
  *
  * @evidence contracts/common.md#meaningful-documentation
- *   JSDoc states recursive acyclic JSON-shaped input, exact dirty-URI
- *   matching and the absence of writes or native path resolution. Purpose,
- *   conditions and reasons use separate native paragraphs under the
- *   documentation skill; member comments remain beside their fields.
+ *   JSDoc states recursive acyclic JSON-shaped input, exact matching of the
+ *   canonicalized string against the dirty-URI set and the absence of writes
+ *   or native path resolution. Purpose, conditions and reasons use separate
+ *   native paragraphs under the documentation skill; member comments remain
+ *   beside their fields.
  */
 export function commandArgumentsContainDirtyURI(
   args: readonly unknown[],
   dirtyURIs: ReadonlySet<string>,
+  canonicalize: (uri: string) => string = keepSpelling,
 ): boolean {
-  return args.some((value) => valueContainsDirtyURI(value, dirtyURIs));
+  return args.some((value) =>
+    valueContainsDirtyURI(value, dirtyURIs, canonicalize),
+  );
 }
 
 /**
  * Return whether any collected replacement targets a supplied dirty-document
  * URI.
  *
- * Disk-backed command output must not overwrite unsaved editor text. This
- * guard uses exact URI identity and performs no write.
+ * Disk-backed command output must not overwrite unsaved editor text. Each
+ * replacement URI is passed through canonicalize before the exact set lookup,
+ * so a server spelling that differs from the editor spelling cannot hide a
+ * dirty target; the default leaves URIs unchanged. This guard performs no
+ * write.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Array.some implements existential membership in the exact dirty-URI set.
@@ -209,16 +218,18 @@ export function commandArgumentsContainDirtyURI(
  *   make a known example pass.
  *
  * @evidence contracts/common.md#meaningful-documentation
- *   JSDoc explains exact dirty-URI matching and why disk-backed replies must
- *   not overwrite unsaved text; it does not promise a versioned write.
+ *   JSDoc explains canonicalized exact dirty-URI matching and why disk-backed
+ *   replies must not overwrite unsaved text; it does not promise a versioned
+ *   write.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
  */
 export function workspaceEditChangesTouchDirtyURI(
   edits: readonly NormalizedTextEdit[],
   dirtyURIs: ReadonlySet<string>,
+  canonicalize: (uri: string) => string = keepSpelling,
 ): boolean {
-  return edits.some((edit) => dirtyURIs.has(edit.uri));
+  return edits.some((edit) => dirtyURIs.has(canonicalize(edit.uri)));
 }
 
 /**
@@ -251,19 +262,26 @@ export function shouldApplyCommandWorkspaceEdit(
   return commandPrefix !== "" && command.startsWith(commandPrefix);
 }
 
+function keepSpelling(uri: string): string {
+  return uri;
+}
+
 function valueContainsDirtyURI(
   value: unknown,
   dirtyURIs: ReadonlySet<string>,
+  canonicalize: (uri: string) => string,
 ): boolean {
   if (typeof value === "string") {
-    return dirtyURIs.has(value);
+    return dirtyURIs.has(canonicalize(value));
   }
   if (Array.isArray(value)) {
-    return value.some((item) => valueContainsDirtyURI(item, dirtyURIs));
+    return value.some((item) =>
+      valueContainsDirtyURI(item, dirtyURIs, canonicalize),
+    );
   }
   if (value && typeof value === "object") {
     return Object.values(value).some((item) =>
-      valueContainsDirtyURI(item, dirtyURIs),
+      valueContainsDirtyURI(item, dirtyURIs, canonicalize),
     );
   }
   return false;

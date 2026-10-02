@@ -74,9 +74,11 @@ export function filterCandidatesByPhysicalRoots(
 /**
  * Plan unique nonoverlapping physical roots, retaining the first alias spelling.
  *
- * A supplied preferred root takes precedence over depth. Otherwise descendants
- * win; physical-key ordering breaks ties. The caller owns the observation
- * context and performs startup or teardown after receiving the plan.
+ * A supplied preferred root takes precedence over depth when it is one of the
+ * roots; a preferred root absent from the list is not added. Otherwise
+ * descendants win; physical-key ordering breaks ties. The caller owns the
+ * observation context and performs startup or teardown after receiving the
+ * plan.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Identity keys collapse equivalent roots. Selecting the preferred root
@@ -136,16 +138,19 @@ export function planRootsByPhysicalIdentity(
     ordered.push(unique.get(preferredKey)!);
     unique.delete(preferredKey);
   }
-  for (const entryToAppend of [...unique.entries()]
-      .map(([key, root]) => ({
-        depth: pathDepth(identities.resolve(root).path, platform),
-        key,
-        root,
-      }))
-      .sort((left, right) =>
+  const byDepth = [...unique.entries()]
+    .map(([key, root]) => ({
+      depth: pathDepth(identities.resolve(root).path, platform),
+      key,
+      root,
+    }))
+    .sort(
+      (left, right) =>
         right.depth - left.depth || left.key.localeCompare(right.key),
-      )
-      .map(({ root }) => root)) ordered.push(entryToAppend);
+    );
+  for (const { root } of byDepth) {
+    ordered.push(root);
+  }
   const selected: string[] = [];
   for (const root of ordered) {
     if (

@@ -281,45 +281,6 @@ export type ServerExecutable = {
 };
 
 /**
- * A file and the selected client root as filesystem paths.
- *
- * The selection describes routing input, not an editor URI or permission to
- * write the file.
- *
- * @evidence contracts/common.md#principled-implementation
- *   Distinct file and root fields express a containment-routing decision
- *   without conflating the selected root with the document to route.
- *
- * @evidence contracts/common.md#clear-and-simple-design
- *   The pair records only routing input; it does not retain clients or expose
- *   document-write operations.
- *
- * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   The representation follows the documented consumer contract; its fields do
- *   not introduce fixture-selected variants.
- *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   The file and root are native filesystem paths, not editor URIs.
- *   selectDeepestRootForPath and the shared ttsc/path-identity context
- *   interpret containment, physical aliases and host filesystem case rules.
- *   This type stores that boundary without normalizing paths itself.
- *
- * @evidence contracts/common.md#meaningful-documentation
- *   Member JSDoc identifies native file/root paths; the type comment
- *   distinguishes routing input from editor URI identity and write
- *   permission. Purpose, conditions and reasons use separate native
- *   paragraphs under the documentation skill; member comments remain beside
- *   their fields.
- */
-export type ClientRootSelection = {
-  /** Native file path routed to a client. */
-  file: string;
-
-  /** Selected native client root. */
-  root: string;
-};
-
-/**
  * The VS Code RelativePattern constructor accepting a literal base and a
  * glob beneath it.
  *
@@ -358,6 +319,8 @@ export type RelativePatternConstructor<T> = new (
 ) => T;
 
 const PROJECT_CONFIG_PATTERN = /^(?:tsconfig|jsconfig)(?:\..*)?\.json$/;
+// The extension registers these two command ids itself, so the server must not
+// advertise them again; every other server command id gets the root prefix.
 const WRAPPED_COMMAND_IDS = ["ttsc.lint.fixAll", "ttsc.format.document"];
 
 /**
@@ -392,7 +355,6 @@ const WRAPPED_COMMAND_IDS = ["ttsc.lint.fixAll", "ttsc.format.document"];
  *   conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
  */
-
 export function resolveTtscServerLauncher(
   resolveFrom: string,
 ): string | undefined {
@@ -446,7 +408,6 @@ export function resolveTtscServerLauncher(
  *   documentation skill;
  *   member comments remain beside their fields.
  */
-
 export function findProjectRoot(
   start: string,
   stopAt?: string,
@@ -592,10 +553,13 @@ export function createResolutionCandidates(
  * Prepare the server stdio argument vector for a JavaScript, native or
  * Windows command-shim launcher.
  *
- * JavaScript uses the current Node executable; Windows .cmd/.bat uses an
- * explicitly quoted cmd payload and private argument environment. Other
- * executables retain ordinary argument vectors. The operation prepares data
- * without spawning.
+ * JavaScript uses process.execPath. Inside the VS Code extension host that is
+ * the editor binary, which runs a script as Node only while the environment it
+ * inherits carries ELECTRON_RUN_AS_NODE; serverProcessOptions copies the
+ * extension host environment unchanged and this module never sets the
+ * variable. Windows .cmd/.bat uses an explicitly quoted cmd payload and private
+ * argument environment. Other executables retain ordinary argument vectors.
+ * The operation prepares data without spawning.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Node executable arguments and the documented server CLI carry cwd,
@@ -618,8 +582,9 @@ export function createResolutionCandidates(
  *   values.
  *
  * @evidence contracts/common.md#meaningful-documentation
- *   JSDoc explains JS/native/Windows-shim command preparation, stdio
- *   arguments, quoting ownership and that preparation does not spawn.
+ *   JSDoc explains JS/native/Windows-shim command preparation, the
+ *   process.execPath assumption, stdio arguments, quoting ownership and that
+ *   preparation does not spawn.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
  */
@@ -681,7 +646,6 @@ export function createServerLaunchCommand(
  *   use separate native paragraphs under the documentation skill; member
  *   comments remain beside their fields.
  */
-
 export function createServerExecutable(
   launcher: string,
   candidate: ResolutionCandidate,
@@ -748,8 +712,9 @@ export function createDocumentSelectorPattern<T>(
  * does not apply another client's command replies.
  *
  * @evidence contracts/common.md#principled-implementation
- *   Node sha256 hashes the shared rootKey identity and the fixed ttsc.vscode
- *   protocol prefix.
+ *   Node sha256 hashes the shared rootKey identity, so aliases of one root
+ *   share a namespace and distinct roots differ. The fixed ttsc.vscode. text
+ *   and the trailing dot are concatenated around the digest, not hashed.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   A single function defines the namespace used by launch arguments and
@@ -777,42 +742,6 @@ export function executeCommandIDPrefix(root: string): string {
     .digest("hex")
     .slice(0, 16);
   return `ttsc.vscode.${key}.`;
-}
-
-/**
- * Return a slash-separated absolute glob beneath the supplied root.
- *
- * This string helper is distinct from the production RelativePattern
- * constructor, which keeps the base literal. The caller supplies an absolute
- * root and owns any glob metacharacters in this string form.
- *
- * @evidence contracts/common.md#principled-implementation
- *   Node path.posix.join constructs the protocol-style glob after separator
- *   conversion.
- *
- * @evidence contracts/common.md#prohibited-implementation-shortcuts
- *   It performs no filesystem access or writes and introduces no
- *   caller-specific or test-mode branch.
- *
- * @evidence contracts/common.md#clear-and-simple-design
- *   This compatibility helper only renders the caller-owned glob spelling;
- *   production document selection remains with the literal RelativePattern
- *   constructor boundary.
- *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   Backslashes are converted to forward slashes for the glob syntax. This is
- *   glob representation, not physical filesystem identity or a shell command.
- *
- * @evidence contracts/common.md#meaningful-documentation
- *   JSDoc states its absolute-root input and slash-separated string result,
- *   distinguishing caller-owned glob metacharacters from production
- *   RelativePattern selection. Purpose, conditions and reasons use separate
- *   native paragraphs under the documentation skill; member comments remain
- *   beside their fields.
- */
-
-export function documentPattern(root: string): string {
-  return path.posix.join(root.replace(/\\/g, "/"), "**/*");
 }
 
 /**
@@ -1296,9 +1225,10 @@ function quoteWindowsArg(arg: string): string {
  * Resolve the project TypeScript installation's platform package and return
  * its existing native tsc binary, or undefined.
  *
- * The language server needs the project-owned TypeScript-Go build rather
- * than whichever binary appears on PATH. Missing packages and unreadable
- * resolution return no override.
+ * The language server needs the project-owned TypeScript-Go build, and the
+ * server has no PATH fallback: it refuses to start without an absolute binary.
+ * Missing packages and unreadable resolution return no override, which leaves
+ * the ttsc launcher to resolve the binary itself and report a missing package.
  *
  * @evidence contracts/common.md#principled-implementation
  *   Node createRequire resolves the exported TypeScript package anchor and its
@@ -1325,7 +1255,6 @@ function quoteWindowsArg(arg: string): string {
  *   under the documentation skill; member comments remain beside their
  *   fields.
  */
-
 export function resolveTsgoBinary(base: string): string | undefined {
   try {
     const requireFromBase = createRequire(
@@ -1355,9 +1284,12 @@ export function resolveTsgoBinary(base: string): string | undefined {
  * Prepare project cwd and inherited environment, adding TTSC_TSGO_BINARY
  * when project binary resolution succeeds.
  *
- * An absent or empty cwd returns undefined. No resolved binary leaves
- * inherited environment unchanged so the launcher owns its normal fallback;
- * the global environment is never assigned here.
+ * An absent or empty cwd returns undefined. A resolved binary replaces any
+ * TTSC_TSGO_BINARY inherited from the editor environment, because one inherited
+ * value would pin every project of a multi-root workspace to a single
+ * compiler. No resolved binary leaves inherited environment unchanged so the
+ * launcher owns its normal fallback; the global environment is never assigned
+ * here.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The owning resolveTsgoBinary operation supplies a toolchain override and
@@ -1380,12 +1312,12 @@ export function resolveTsgoBinary(base: string): string | undefined {
  *   environment value is interpolated into a shell command here.
  *
  * @evidence contracts/common.md#meaningful-documentation
- *   JSDoc states absent-cwd meaning, inherited-environment copying,
- *   conditional toolchain override and preservation of launcher fallback.
+ *   JSDoc states absent-cwd meaning, inherited-environment copying, the
+ *   per-project override of an inherited value and preservation of launcher
+ *   fallback.
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
  */
-
 export function serverProcessOptions(
   cwd?: string,
 ): ServerProcessOptions | undefined {
