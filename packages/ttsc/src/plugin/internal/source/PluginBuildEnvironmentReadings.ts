@@ -18,14 +18,14 @@ import { pluginBuildEnvironment } from "./pluginBuildEnvironment";
  * neither it nor this owner writes that environment. Explicit reader inputs
  * still use the request snapshot and publication still qualifies that snapshot.
  *
- * @evidence contracts/common.md#principled-implementation Current complete environment identity and native pre-read metadata qualify publication and reuse; a worker's returned digest alone supplies no authority.
+ * @evidence contracts/common.md#principled-implementation Readings pair complete environment identity with the producer's native pre-read witness; cached reuse validates that witness and asynchronous publication rechecks variables/witness after transfer. Synchronous fresh reads publish their paired observations without an extra post-read holds call here; native metadata distinguishability remains a premise.
  * @evidence contracts/common.md#clear-and-simple-design One owner shares observation records across synchronous reads, cache-only proof and asynchronous preparation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cold preparation performs the same actual native Go/toolchain reading off-thread; failed or stale observations are never replaced by producer-expected state.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes preparation, publication and cache-only authority; members document their separate execution responsibilities.
  * @evidence contracts/portability.md#os-neutral-implementation Complete environment snapshots use the shared native-name merger; metadata witnesses preserve actual native filesystem and link identity.
  * @evidenceExclude contracts/performance.md#efficient-algorithms Individual members own variable indexing, witness validation and native preparation.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The members specify the invalidation and sharing boundaries.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Readings are replaced per directory/environment key; historical keys remain process-owned. One unreferenced worker is retained idle, active requests queue without detached listener or process-global environment mutation.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Readings replace existing keys but retain historical directory/environment keys without eviction. One idle worker and its retirement listeners remain process-owned/unreferenced; active work is ref'ed and per-request listeners are removed at settlement. Distinct requests can queue without a population bound/timeout; a stalled request can delay successors. Failed-worker termination is initiated without joining its promise, and this owner does not mutate the shared environment.
  */
 export namespace PluginBuildEnvironmentReadings {
   /**
@@ -51,7 +51,9 @@ export namespace PluginBuildEnvironmentReadings {
   let queue: Promise<void> = Promise.resolve();
 
   /**
-   * Return a current proven reading without starting any native probe.
+   * Return a qualified reading without starting a native subprocess or cold
+   * content/environment preparation. Witness validation still queries native
+   * filesystem/link/ambient-variable state.
    * Undefined requires preparation or invalidation, rather than a cold fallback.
    *
    * @evidence contracts/common.md#principled-implementation Both current full variables and every external-path witness must match before cached authority is returned.
@@ -59,7 +61,7 @@ export namespace PluginBuildEnvironmentReadings {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A stale or absent reading returns undefined instead of trusting a pathname, source watcher or reported expected digest.
    * @evidence contracts/common.md#meaningful-documentation The prose explicitly excludes native subprocess and cold-content preparation.
    * @evidence contracts/portability.md#os-neutral-implementation Native metadata and canonical environment names determine equality without OS-wide casing guesses.
-   * @evidence contracts/performance.md#efficient-algorithms Sorted variable serialization costs O(V log V) and witness validation O(P) metadata probes; no Go process or SDK byte hashing runs here.
+   * @evidence contracts/performance.md#efficient-algorithms Variable merging/sorting/hashing processes full name/value bytes and directory text. Witness validation queries native path metadata/link spelling and ambient variables, with their path/lookup/text costs; no Go process or SDK content hashing is started here, but V/P counts alone do not bound native work.
    * @evidence contracts/performance.md#reuse-equivalent-work Only a still-qualified directory/environment reading is shared.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The operation borrows a process-owned record and retains no request history.
    */
@@ -74,12 +76,12 @@ export namespace PluginBuildEnvironmentReadings {
    * Read synchronously for clients whose API owns synchronous native work.
    * Explicit refresh preserves the original fresh-comparison semantics.
    *
-   * @evidence contracts/common.md#principled-implementation The same native reader constructs the digest and pre-read witness; optional reuse still requires current variables and external metadata.
+   * @evidence contracts/common.md#principled-implementation The same native reader constructs a digest paired with its pre-read witness; optional cached reuse validates current variables/metadata. A fresh synchronous reading is published without a separate post-read qualification here and relies on the native reader's premises.
    * @evidence contracts/common.md#clear-and-simple-design The synchronous boundary shares cached authority and delegates fresh observation to its owning reader.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A requested refresh actually probes the selected native toolchain.
    * @evidence contracts/common.md#meaningful-documentation Native prose identifies the synchronous execution owner and explicit refresh meaning.
    * @evidence contracts/portability.md#os-neutral-implementation Native Go selection and filesystem witnesses remain delegated to the shared reader.
-   * @evidence contracts/performance.md#efficient-algorithms Hits require variable sorting and witness metadata; misses pay the actual native toolchain/content work once.
+   * @evidence contracts/performance.md#efficient-algorithms Hits pay complete variable-text indexing and native witness queries. Misses/refresh merge environment values, perform actual toolchain/SDK/content work, then rebuild the full variable-text key for publication; native/path/file/name/value bytes contribute cost beyond invocation count.
    * @evidence contracts/performance.md#reuse-equivalent-work Synchronous and asynchronous clients share the same qualified readings.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retention belongs to the namespace; this call publishes one replacement record.
    */
@@ -97,16 +99,19 @@ export namespace PluginBuildEnvironmentReadings {
    * Prepare native authority off the host thread, sharing equivalent concurrent
    * requests. A changed environment or witness during transfer refuses the
    * reading; the caller's admission/recovery policy owns a fresh attempt.
-   * Failed workers retire and reject; later requests can create a new worker.
+   * Worker errors/exits retire and reject; a native-reader error returned in a
+   * normal message rejects the request while retaining that live worker.
+   * Later requests can create a worker after retirement. Refresh bypasses a
+   * cached reading but can still share an equivalent in-flight request.
    *
    * @evidence contracts/common.md#principled-implementation Worker results publish only under their exact current variable identity and still-current native pre-read witness; changed or unwitnessable transfer windows reject instead of publishing authority or retrying indefinitely.
    * @evidence contracts/common.md#clear-and-simple-design Qualified hits return immediately; equivalent misses share one pending promise and exclusive queued worker request.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Go/environment/SDK preparation occurs in the worker rather than blocking the async host or fabricating a digest from compiler output.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains equivalent sharing, freshness refusal and failed-worker recovery.
    * @evidence contracts/portability.md#os-neutral-implementation Explicit complete environment snapshots and native worker paths preserve host identity and avoid shell commands.
-   * @evidence contracts/performance.md#efficient-algorithms Qualified hits inspect variables/witnesses; misses transfer environment and witness bytes once per equivalent request and serialize native preparation on one warm worker.
+   * @evidence contracts/performance.md#efficient-algorithms Qualified hits inspect full variable text and native witnesses. Misses key/transfer environment data, serialize native preparation on one warm worker, and reindex variables/validate witness after reply; environment/witness/file/path bytes and queueing contribute cost. Equivalent pending requests share one producer attempt, not an independent native preparation each.
    * @evidence contracts/performance.md#reuse-equivalent-work Pending identity is directory plus complete variables; the warm worker shares native toolchain memos while published authority still requires fresh witness validation.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Pending entries are removed in finally, terminal settlement removes listeners, idle worker is unreferenced and a failed worker terminates; active requests have no implicit timeout.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Pending identity entries are removed in finally at settlement and per-request worker listeners are removed by the terminal path. Idle worker remains unreferenced with lifetime retirement listeners; worker failure initiates termination without awaiting completion. Distinct queued contexts retain environment/witness/promise data without a population bound or timeout, and a stalled producer blocks later queued work.
    */
   export async function prepare(directory: string, refresh = false): Promise<string> {
     const known = refresh ? undefined : cached(directory);
