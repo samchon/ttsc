@@ -151,7 +151,7 @@ export interface TtscCachedProjectTransform {
    * keyed by filesystem identity, including paths outside the project walk.
    * Failed reads of observed directories retain the host-state directory
    * marker; other failed reads supply no entry. The current source identity is
-   * overwritten with its pre-compile disk hash when available, or its delivered
+   * overwritten with its post-compile walk hash when available, or its delivered
    * text hash otherwise, even without an output key. That fallback is not
    * compiler-observed disk proof and cannot grant generation completeness.
    * Unlike {@link inputHashes}, this map does not add output names to the

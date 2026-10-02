@@ -13,10 +13,10 @@ import { hostInputStateHash } from "../inputs/hostInputStateHash";
  * other unreadable output paths remain absent.
  *
  * The current source identity is then overwritten with the caller's selected
- * hash even when no output names it. Capture supplies its pre-compile disk hash
- * when available and otherwise the delivered-text hash; that fallback does not
- * establish that the compiler observed those bytes. If the output pass already
- * read this source, the final assignment does not undo that read.
+ * hash even when no output names it. Capture supplies its post-compile project
+ * walk's disk hash when available and otherwise the delivered-text hash; that
+ * fallback does not establish that the compiler observed those bytes. If the
+ * output pass already read this source, the final assignment does not undo it.
  *
  * @evidence contracts/common.md#principled-implementation Successful output keys identify source paths relative to the project; native host-state hashes become identity-keyed baselines and the caller's selected disk-or-delivery hash overrides the current identity without granting generation completeness.
  * @evidence contracts/common.md#clear-and-simple-design This helper constructs only the source baseline map; resultFilesystem supplies native reads and envelopeDerivation supplies the generation's shared identity context.
@@ -32,7 +32,7 @@ export function captureTransformSourceHashes(
   cached: TtscCachedProjectTransform,
   /** Requested native source spelling, included even without an output key. */
   currentFile: string,
-  /** Caller-selected pre-compile disk hash or delivered-text fallback. */
+  /** Caller-selected post-compile walk hash or delivered-text fallback. */
   currentSourceHash: string,
 ): Record<string, string> {
   const filesystem = resultFilesystem(cached.result);
