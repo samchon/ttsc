@@ -281,7 +281,10 @@ export interface TtscCachedProjectTransform {
   diagnosticsEpoch?: number;
 
   /**
-   * Files already delivered from this generation, keyed by filesystem identity.
+   * Admitted module-selection checkpoints, keyed by filesystem identity.
+   * Marking follows watch notification, including a missing-output continuation,
+   * but precedes final host-value construction; it does not certify completed
+   * downstream delivery.
    * A cache with a delivery epoch uses this to skip persistent validation only
    * for a module's first delivery inside the current pass; the set is cleared
    * whenever a new epoch's gate re-proves the generation.
