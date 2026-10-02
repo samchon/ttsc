@@ -1228,17 +1228,18 @@ func (e *Engine) EnabledRules() map[string]Severity { return e.enabled }
 // Each file binds rule Contexts once and shares a memo for file-invariant
 // work. Its pre-order walk costs one visit per node plus subscribed checks;
 // rule algorithms add their own costs. No effectful Check result is cached.
-// All workers finish before return. File bindings and memos then become
-// collectible, while returned findings remain owned by the caller.
+// All host file workers finish before return. Run retains no file bindings or
+// memos after return; externally retained contributor contexts have their own
+// lifetime. Returned findings remain owned by the caller.
 //
 // @evidence contracts/common.md#principled-implementation A project cycle precedes file checks so file rules can read its results; per-file buckets are merged in input order, and shared checker use forces serial execution.
 // @evidence contracts/common.md#clear-and-simple-design Run coordinates project evaluation, directory context and file execution; runFiles owns scheduling and runFile owns one walk's bindings and directives.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Serial and parallel paths invoke the same rules; os.Getwd supplies native cwd without platform-specific constants or global cwd mutation.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain scheduling, ordering, checker and configuration preconditions, cwd fallback, file memo validity and returned-data lifetime before the tags.
 // @evidence contracts/portability.md#os-neutral-implementation The working directory comes from SetCurrentDirectory or, when unset, os.Getwd and is passed to the per-file pass as native path data; Run itself compares and normalizes no path.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Run orchestrates one project evaluation and one per-file pass; the algorithms live in evaluateProject and runFiles.
-// @evidence contracts/performance.md#reuse-equivalent-work The project evaluation runs once per Run and its results are shared with every per-file run instead of being recomputed per file.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Run returns its findings to the caller and acquires no handle or task of its own.
+// @evidence contracts/performance.md#efficient-algorithms With f file slots, b binding subscriptions scanned across files, n walked nodes, c subscribed checks and d findings, local scheduling/binding/dispatch/merge work is O(f+b+n+c+d). Resolver calls, directive processing, rule and memo algorithms add their costs; project evaluation/finalization sorts registered names and each reporter's unique messages. Delegating those operations does not remove their cost.
+// @evidence contracts/performance.md#reuse-equivalent-work One project cycle for the supplied source set, checker and stable settings precedes file dispatch; every file reads that same cycle-scoped result population, with live reporting until finalization. New Run calls evaluate again. Per-file invariant memos share only within that file's bound source/checker context, never effectful Check results.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Host parallel file workers are bounded by max(1, runtime.NumCPU()) and all are joined before normal return. Per-file buckets retain O(f+d) slots/findings plus in-flight bindings/memos; project reporters close after file dispatch and their state/messages belong to one cycle. Returned findings transfer to the caller; externally retained contributor contexts/state remain their owner's responsibility, and Run owns no historical-cycle cache or native handle. The Engine separately retains unique discovered unknown-directive names across calls without a per-run reset or explicit cardinality cap.
 func (e *Engine) Run(files []*shimast.SourceFile, checker *shimchecker.Checker) []*Finding {
   cycle := e.evaluateProject(publicrule.ProjectIdentity{}, files, checker)
   currentDirectory := e.currentDirectory
