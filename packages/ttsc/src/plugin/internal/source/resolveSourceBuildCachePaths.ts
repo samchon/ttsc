@@ -10,8 +10,9 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
  *
  * `pluginRoot` stores compiled plugin binaries; `goBuildRoot` is the Go object
  * cache passed as `GOCACHE` while ttsc builds those binaries. The default Go
- * cache lives under `root`; an explicit `TTSC_GO_CACHE_DIR` or `GOCACHE` keeps
- * its independently resolved location and ownership policy.
+ * cache lives under `root`; `TTSC_GO_CACHE_DIR` is independently resolved,
+ * while external `GOCACHE` preserves its supplied value for Go to validate.
+ * Their selection provenance keeps the ownership policies distinct.
  *
  * @evidence contracts/common.md#principled-implementation Plugin and Go paths derive from one root while provenance preserves dedicated ttsc ownership versus external GOCACHE.
  * @evidence contracts/common.md#clear-and-simple-design Root selection and Go override selection are separate helpers; the result carries paths with their ownership discriminant.
@@ -96,11 +97,11 @@ function resolveSourceBuildCacheRoot(
  * contains an installation; else the outermost ttsc-only cache owner at or
  * below the nearest ordinary package manifest, or `projectRoot` itself.
  *
- * A directory whose only payload is ttsc's own `.cache/ttsc` tree is not
- * installation evidence: an older ttsx may have created that tree below a
- * nested tsconfig before this resolver ran. Remembering the outermost such
- * owner still gives manifest-less projects a stable answer after their empty
- * `node_modules` becomes a ttsc cache on the first run.
+ * A nonempty, unmarked ttsc-only `.cache/ttsc` payload is fallback cache
+ * evidence rather than an installation. Empty or marked ttsc roots remain
+ * installation evidence, including the interval before marker publication.
+ * Remembering the outermost fallback owner avoids choosing a nearer unmarked
+ * payload merely because it contains previously produced ttsc output.
  *
  * Nearest (not highest) so an unrelated ancestor that happens to declare
  * `workspaces` — for example a `package.json` in the user's home directory —

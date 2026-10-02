@@ -136,14 +136,15 @@ export namespace SourceBuildCacheLayout {
    * its first cache write changes its sole payload to `.cache/ttsc`. Creation
    * is exclusive so concurrent first writers never follow or replace an
    * existing filesystem entry. The selected root is pinned to its ordinary
-   * physical directory before publication; default writers use that returned
-   * directory for their payload too.
+   * physical spelling before publication; default writers use that returned
+   * spelling for their payload too. Metadata checks do not hold a directory
+   * handle that prevents concurrent replacement of the selected path.
    *
-   * @evidence contracts/common.md#principled-implementation An ordinary physical root is pinned before exclusive marker creation records its selected installation boundary; its returned path lets the producer publish under the same root.
+   * @evidence contracts/common.md#principled-implementation Current ordinary-root metadata and physical spelling precede exclusive marker creation, recording the selected installation boundary. The producer uses the returned spelling; continued root identity requires that the path not be concurrently replaced, rather than a retained directory-handle proof.
    * @evidence contracts/common.md#clear-and-simple-design Marker publication and existing-entry validation return one physical root for the caller's payload.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The marker represents an actual prior selection and is not fabricated workspace detection for particular consumers.
-   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain first-write placement stability and physical pinning before the marker's exclusive publication.
-   * @evidence contracts/portability.md#os-neutral-implementation Native lstat/realpath pin the ordinary root and Node's wx creation rejects replacement of an existing marker without OS-based case assumptions.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain first-write placement stability, current root validation and the path-replacement limit before exclusive marker publication.
+   * @evidence contracts/portability.md#os-neutral-implementation Native lstat/realpath observe ordinary-root identity and Node's wx creation refuses an existing marker without OS-based case assumptions; these calls do not freeze parent-directory identity.
    * @evidence contracts/performance.md#efficient-algorithms Publication uses a fixed number of filesystem operations plus ordinary-root validation; recursive parent creation scales with missing path depth.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation persists installation provenance, not a computed answer whose inputs can be shared.
@@ -166,18 +167,18 @@ export namespace SourceBuildCacheLayout {
   }
 
   /**
-   * Report from one directory snapshot whether `root` is being or was marked.
+   * Report whether one collected directory listing is empty or has a marker.
    *
    * An empty root is the state after root creation and before marker
-   * publication. Reading the entries once prevents a concurrent publication
-   * from falling between separate marker and emptiness probes.
+   * publication. One listing avoids combining separate marker and emptiness
+   * probes; it does not freeze directory contents or prove later ownership.
    *
-   * @evidence contracts/common.md#principled-implementation One Dirent snapshot observes either an empty publication interval or an ordinary ownership marker without combining incompatible snapshots.
+   * @evidence contracts/common.md#principled-implementation Emptiness and ordinary-marker admission use the same collected Dirent list, avoiding separate observations. The result is placement evidence at that read, not an atomic filesystem snapshot or continuing ownership guarantee.
    * @evidence contracts/common.md#clear-and-simple-design Emptiness and marker recognition are derived from the same local array.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The marker is protocol provenance; no project name or fixture-specific filesystem shape is privileged.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains the concurrent publication interval that makes a single snapshot necessary.
    * @evidence contracts/portability.md#os-neutral-implementation Dirent type checks reject a symbolic marker using native filesystem facts instead of platform labels.
-   * @evidence contracts/performance.md#efficient-algorithms One directory listing and linear marker search use O(entries) temporary space and time.
+   * @evidence contracts/performance.md#efficient-algorithms One directory listing and linear marker search retain O(entries) references plus returned filename text; listing and equality costs include the visited names and native filesystem work, with no recursive payload traversal.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The current directory state is queried afresh because marker publication can change its answer.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This query retains no resource beyond its local directory snapshot.
@@ -194,17 +195,20 @@ export namespace SourceBuildCacheLayout {
   }
 
   /**
-   * Pin the default plugin cache to one ordinary physical directory.
+   * Resolve the current default plugin cache to an ordinary physical spelling.
+   * Missing root directories are created. Returned spelling avoids following
+   * the caller's original ancestor alias again, but no retained directory handle
+   * prevents later replacement of the physical path.
    *
-   * @evidence contracts/common.md#principled-implementation lstat rejects an aliased leaf and realpath pins the physical root beneath its resolved parent before destructive maintenance uses it.
+   * @evidence contracts/common.md#principled-implementation lstat rejects an aliased leaf and realpath checks the current root against its observed physical parent. The returned spelling removes the original ancestor alias from later lookups, subject to path identity remaining stable after these non-atomic metadata observations.
    * @evidence contracts/common.md#clear-and-simple-design This boundary returns a physical spelling or throws; downstream collectors receive no partially validated path state.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Filesystem identity comes from actual entry types and realpath rather than special-cased path strings.
-   * @evidence contracts/common.md#meaningful-documentation The native purpose and inline ancestor-retarget rationale explain what callers receive and why validation precedes maintenance.
+   * @evidence contracts/common.md#meaningful-documentation Native prose states creation, current physical spelling and the absence of a directory-handle identity pin; the inline comment explains avoidance of the original ancestor alias.
    * @evidence contracts/portability.md#os-neutral-implementation Native realpath and lstat handle physical paths and links; textual equality here compares resolved parent spellings and does not infer volume case policy from an OS name.
    * @evidence contracts/performance.md#efficient-algorithms A fixed number of metadata operations performs validation, with path resolution and recursive creation dependent on ancestor depth.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Mutable aliases are validated per invocation rather than memoized without an invalidation witness.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Root validation acquires no retained handles and does not own cache eviction.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This operation returns a path and retains no handles or root history. Created directories belong to the selected cache owner; their lifetime and eviction remain with that caller's cache policy.
    */
   export function canonicalPluginCacheRoot(root: string): string {
     fs.mkdirSync(root, { recursive: true });
@@ -213,8 +217,8 @@ export namespace SourceBuildCacheLayout {
     if (!stats.isDirectory() || stats.isSymbolicLink()) {
       throw new Error(`ttsc: unsafe plugin cache root: ${root}`);
     }
-    // If an ancestor alias is retargeted after this point, all later cache work
-    // stays on the original physical directory rather than following it.
+    // Later lookups use this resolved spelling instead of the caller's original
+    // ancestor alias; this is not a handle pin against physical-path replacement.
     const physicalRoot = fs.realpathSync.native(root);
     if (path.dirname(physicalRoot) !== physicalParent) {
       throw new Error(`ttsc: plugin cache root escaped its parent: ${root}`);
