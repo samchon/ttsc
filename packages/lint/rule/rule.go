@@ -399,14 +399,13 @@ type Reporter interface {
 // both methods opts into fix support without depending on a private
 // interface name.
 //
-// Rule production code does NOT touch FixReporter directly — call
-// `ctx.ReportFix` / `ctx.ReportRangeFix`, and the host's reporter
-// receives the edits. The only place a contributor sees this interface
-// is in test code that fakes the reporter: such a fake must implement
-// BOTH `Reporter` (`Report` + `ReportRange`) AND `FixReporter`
-// (`ReportFix` + `ReportRangeFix`), because Go interface satisfaction
-// is all-or-nothing. Declaring `var _ rule.FixReporter = &myFake{}`
-// compile-checks the fake covers the fix surface.
+// Rule implementations submit edits through ctx.ReportFix or
+// ctx.ReportRangeFix. A custom host or test reporter passed to NewContext
+// must satisfy Reporter to provide diagnostics. To receive edits as well,
+// it must implement both FixReporter methods; implementing only one leaves
+// the optional capability absent and Context falls back to plain reporting.
+// A var _ rule.FixReporter = &myReporter{} assertion checks only this optional
+// fix surface, not the separate Reporter requirement.
 //
 // @evidence contracts/common.md#principled-implementation Optional node and range methods extend a finding with atomic byte edits without changing its original location semantics.
 // @evidence contracts/common.md#clear-and-simple-design Fix support is one optional extension separate from mandatory diagnostic reporting.
