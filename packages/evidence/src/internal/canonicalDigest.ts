@@ -47,9 +47,11 @@ export const canonicalJson = (value: unknown): string =>
  * an injective encoding of cyclic object graphs.
  *
  * Swagger currently resolves references before invoking this renderer. A
- * reachable object cycle in that traversal fails with a stack overflow before
- * a declaration digest is emitted; this marker does not make that loader path
- * accept cycles. Finite recursive $ref strings use its separate reference guard.
+ * reachable schema object cycle still fails before a declaration digest is
+ * emitted, while reference-shaped literal data is copied without dereferencing
+ * and an object cycle there is explicitly refused. This marker does not make
+ * the loader accept either kind of cycle. Finite recursive $ref strings use
+ * its separate reference guard.
  */
 const render = (value: unknown, seen: Set<object>): string => {
   if (value === null || typeof value !== "object") return stringify(value);

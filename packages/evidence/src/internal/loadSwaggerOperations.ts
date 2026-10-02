@@ -105,10 +105,10 @@ export const loadSwaggerOperations = async (request: {
           const read: IReadSource = await readSource(request.root, source);
           digest = read.digest;
           const input: unknown = parse(read.text);
-          const document: OpenApi.IDocument = normalizeSwaggerDocument(input);
+          const normalized = normalizeSwaggerDocument(input, componentAt);
           return {
             source,
-            operations: operationsOf(document),
+            operations: operationsOf(normalized),
             digest,
           } satisfies ISwaggerDocumentInventory;
         } catch (error) {
@@ -230,23 +230,24 @@ const readRemoteSource = async (source: string): Promise<string> => {
 const decodeUtf8 = (content: Uint8Array): string =>
   new TextDecoder("utf-8", { fatal: true }).decode(content);
 
-const operationsOf = (document: OpenApi.IDocument): ISwaggerOperation[] => {
+const operationsOf = (
+  normalized: ReturnType<typeof normalizeSwaggerDocument>,
+): ISwaggerOperation[] => {
+  const document = normalized.document;
   const operations: ISwaggerOperation[] = [];
-  const components: Record<string, unknown> = (document.components ??
-    {}) as Record<string, unknown>;
   for (const [operationPath, item] of Object.entries(document.paths ?? {})) {
     for (const method of METHODS) {
       const operation: OpenApi.IOperation | undefined = item[method];
       if (operation !== undefined)
         operations.push(
-          operationOf(method, operationPath, operation, components),
+          operationOf(method, operationPath, operation, normalized),
         );
     }
     for (const [method, operation] of Object.entries(
       item.additionalOperations ?? {},
     ))
       operations.push(
-        operationOf(method, operationPath, operation, components),
+        operationOf(method, operationPath, operation, normalized),
       );
   }
   operations.sort((left, right) => {
@@ -275,7 +276,7 @@ const operationOf = (
   method: string,
   operationPath: string,
   operation: OpenApi.IOperation,
-  components: Record<string, unknown>,
+  normalized: Parameters<typeof operationsOf>[0],
 ): ISwaggerOperation => {
   if (!operationPath.startsWith("/"))
     throw new Error(
@@ -291,7 +292,7 @@ const operationOf = (
   return {
     method: method.toUpperCase(),
     path: operationPath,
-    digest: canonicalDigest(withResolvedReferences(operation, components)),
+    digest: canonicalDigest(withResolvedReferences(operation, normalized)),
   };
 };
 
@@ -320,44 +321,55 @@ const operationOf = (
  * An undeclared or malformed reference is left
  * as written too: a broken document is not a digest question, and inventing an
  * empty schema for it would make two different broken documents agree.
+ * Normalization retains the original pointer identity behind private schema
+ * aliases, so a version converter cannot change the recursion boundary or bind
+ * an unresolved reference to an unrelated component. Literal example, default,
+ * const, enum and extension values are hashed as data, not dereferenced.
  */
 const withResolvedReferences = (
   value: unknown,
-  components: Record<string, unknown>,
+  normalized: Parameters<typeof operationsOf>[0],
   open: Set<string> = new Set<string>(),
 ): unknown => {
   if (value === null || typeof value !== "object") return value;
   if (Array.isArray(value))
     return value.map((element) =>
-      withResolvedReferences(element, components, open),
+      withResolvedReferences(element, normalized, open),
     );
   const entries: Array<[string, unknown]> = Object.entries(
     value as Record<string, unknown>,
   );
   const reference: unknown = (value as Record<string, unknown>)["$ref"];
-  const target =
+  const preserved =
     typeof reference === "string"
-      ? componentAt(components, reference)
+      ? normalized.referenceAt(reference)
       : undefined;
+  const target = preserved?.target;
   if (target === undefined || open.has(target.pointer))
     return Object.fromEntries(
       entries.map(([key, element]) => [
         key,
-        withResolvedReferences(element, components, open),
+        key === "$ref" && preserved !== undefined
+          ? preserved.reference
+          : normalized.isLiteral(value, key)
+            ? literalValue(element)
+            : withResolvedReferences(element, normalized, open),
       ]),
     );
   open.add(target.pointer);
   try {
     const resolved: unknown = withResolvedReferences(
       target.value,
-      components,
+      normalized,
       open,
     );
     const siblings: Array<[string, unknown]> = entries
       .filter(([key]) => key !== "$ref")
       .map(([key, element]) => [
         key,
-        withResolvedReferences(element, components, open),
+        normalized.isLiteral(value, key)
+          ? literalValue(element)
+          : withResolvedReferences(element, normalized, open),
       ]);
     if (siblings.length === 0) return resolved;
     if (resolved === null || typeof resolved !== "object")
@@ -368,6 +380,35 @@ const withResolvedReferences = (
     };
   } finally {
     open.delete(target.pointer);
+  }
+};
+
+/**
+ * Copies data without interpreting `$ref`, refusing non-JSON object cycles.
+ *
+ * Each occurrence contributes its JSON value, even when YAML anchors share an
+ * acyclic child. The active path is released in finally; the allocated value
+ * lasts through hashing. This is not a total memory or depth bound.
+ */
+const literalValue = (
+  value: unknown,
+  open: Set<object> = new Set<object>(),
+): unknown => {
+  if (value === null || typeof value !== "object") return value;
+  if (open.has(value))
+    throw new Error("a Swagger literal value contains an object cycle");
+  open.add(value);
+  try {
+    return Array.isArray(value)
+      ? value.map((element) => literalValue(element, open))
+      : Object.fromEntries(
+          Object.entries(value).map(([key, element]) => [
+            key,
+            literalValue(element, open),
+          ]),
+        );
+  } finally {
+    open.delete(value);
   }
 };
 

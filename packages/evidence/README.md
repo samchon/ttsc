@@ -130,7 +130,9 @@ A false tag removes the error, not the problem. `@evidenceReview` asks for a sep
 - Reviews match the same declaration and target.
 - The fingerprint expires when the cited content changes.
 
-Swagger operation fingerprints now decode local component URI fragments before interpreting JSON Pointer tokens, including array indices. Upgrading can expire reviews of operations using encoded pointers, array elements, or malformed references that previously selected a literal property. Re-read those operations and their referenced contracts before replacing a fingerprint.
+Normalized Swagger operation fingerprints decode local component URI fragments before interpreting JSON Pointer tokens, including array indices. Upgrading can expire reviews of operations using encoded pointers, array elements, or malformed references that previously selected a literal property. Re-read those operations and their referenced contracts before replacing a fingerprint.
+
+Raw OpenAPI 3.1 and 3.2 schema references retain their original targets through version normalization, including pointers into schema structures the converter relocates. Foreign, missing and malformed schema references do not bind to a local schema with the same final name. Reference-shaped example, default, constant, enum and extension values remain data. Reviews affected by these earlier interpretations also need to be read again before their fingerprints are replaced.
 
 The compiler handles omissions. Humans handle falsehoods.
 
