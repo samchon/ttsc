@@ -31,6 +31,7 @@ jobs:
       - run: >-
           node .github/workflows/scripts/consumer.cjs experimental/typia
           --patch=.github/workflows/patches/typia-master-emit-provenance.patch
+          --patch=.github/workflows/patches/typia-master-fixture-source-roots.patch
           --go=experimental/typia/packages/typia/native --go=experimental/typia/packages/typia/test
       - run: pnpm install --no-frozen-lockfile
         working-directory: experimental/typia
