@@ -19,14 +19,18 @@ import { readPaths } from "./readPaths";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The overlay does not drop unrelated project mappings or resurrect unsupported baseUrl to compensate for misplaced generated configuration.
  * @evidence contracts/common.md#meaningful-documentation The native prose explains option-level replacement and the precedence that preserves project-only aliases.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   Performs no filesystem, path or process operation of its own.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ *   Merges compiler paths records without interpreting target identity or
+ *   choosing native path grammar; those boundaries belong to the readers.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   The empty check enumerates bundler keys. A needed overlay copies inherited,
+ *   filtered inline and bundler entries once in precedence order; cost follows
+ *   their key counts and inline target counts, with one output paths record.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Keeps no cache of its own and computes each value once.
+ *   One overlay projection chooses precedence. Enclosing transform capture
+ *   owns equivalence across repeated compiler-option and config-chain views.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   Acquires no handle, timer or retained state of its own.
+ *   The shallow record transfers to the wrapper owner; this merge does not
+ *   acquire a native handle or control the resulting config's lifetime.
  */
 export function createAliasCompilerOptions(
   props: {
