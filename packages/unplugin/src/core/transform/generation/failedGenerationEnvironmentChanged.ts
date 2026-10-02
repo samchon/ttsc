@@ -21,10 +21,12 @@ import { failedGenerationInputState } from "./failedGenerationInputState";
 import { projectWalkFailureFingerprint } from "./projectWalkFailureFingerprint";
 
 /**
- * Whether a terminal proof failure's observed environment actually changed.
+ * Whether current observations refute a terminal proof failure's recorded
+ * environment.
  *
- * This is deliberately a confirmation test: inability to re-probe retains the
- * old verdict instead of turning every module request into another compile.
+ * This is deliberately a confirmation test. Escaping probe exceptions retain
+ * the old verdict; represented unavailable fingerprints can differ from prior
+ * observations and trigger retry without proving a physical content change.
  * Cache lifecycle reset remains the unconditional recovery boundary.
  *
  * The delivered module's own text is checked on every delivery. The rest of the
@@ -38,18 +40,20 @@ import { projectWalkFailureFingerprint } from "./projectWalkFailureFingerprint";
  * probe directory was released with it, so the reference is minted in the probe
  * directory this process keeps (`refreshProcessClockReference`).
  *
- * A write made in the same turn as a confirmation is seen from the next turn
- * on. Every host delivers a changed module from a later turn, after its own
- * watcher has reported the change.
+ * The shared verdict remains until its scheduled setImmediate eviction runs.
+ * Writes after confirmation can therefore be missed by that window's later
+ * deliveries, apart from their independent delivered-text/disk check. Host
+ * delivery timing is not guaranteed here; lifecycle reset bypasses retained
+ * terminal state.
  *
- * @evidence contracts/common.md#principled-implementation Delivered-source divergence is checked against disk before reuse, and terminal retry requires a changed project/failure fingerprint or exact/tree input state; failed re-probing conservatively preserves the existing verdict.
+ * @evidence contracts/common.md#principled-implementation Delivered-source divergence is checked against its disk baseline before sharing an environment verdict. Current project/failure or exact/tree state can refute the terminal baseline; represented unavailable observations may differ, while escaping exceptions return false. Neither false nor unavailable markers certify a reusable success.
  * @evidence contracts/common.md#clear-and-simple-design The exported boundary handles per-delivery text and turn-shared coordination, while its private environment comparator owns walk and out-of-walk revalidation.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts A text-only upstream rewrite does not replace the compiler's disk baseline, and probe failure is not treated as a fabricated change that would repeatedly compile unchanged failed state.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A text-only upstream rewrite does not replace the compiler's disk baseline. Explicit failure fingerprints stay retry-comparison data rather than fabricated readable content; an escaping probe exception is not invented evidence of change.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain confirmation rather than successful-generation proof, current-turn sharing, clock separation and next-turn freshness limitations, with props and tags visibly separated.
  * @evidence contracts/portability.md#os-neutral-implementation Filesystem identity and metadata separation use the supplied host operations and process clock reference; plugin tree state uses the same native build environment composition that keyed its binary.
- * @evidence contracts/performance.md#efficient-algorithms Each delivery hashes its own supplied text; the first uncached verdict per turn walks the project and uses separable matching metadata to avoid unnecessary exact-input state reads.
- * @evidence contracts/performance.md#reuse-equivalent-work One WeakMap verdict per validation object is shared only through the current event-loop turn and removed by setImmediate; delivered-source checks remain outside that shared verdict.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Weak keys do not independently retain old terminal baselines, scheduled eviction releases each turn's verdict and the shared process-clock owner controls the retained probe lifecycle.
+ * @evidence contracts/performance.md#efficient-algorithms Each delivery hashes supplied text and queries native identity, conditionally reading source bytes before any memo hit. A cold environment check refreshes clock proof, walks the project, compares file/directory/failure populations and validates all reached recorded inputs; metadata-separable matches avoid ordinary full fingerprints, while trees retain source/build scans. Costs include text/bytes, native access and delegated sorting/encoding, not just input count.
+ * @evidence contracts/performance.md#reuse-equivalent-work One verdict per validation object is shared until its setImmediate eviction callback runs. Stable validation contents and the same coherent host view are caller premises; delivered-text/disk checks remain outside sharing. This window can miss later same-window environment changes and does not establish success authority.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The WeakMap stores one boolean per reached validation object; each scheduled eviction callback temporarily keeps that object reachable until execution. There is no object-count cap or eviction deadline here. Baseline bytes belong to terminal/cache lifetime, while the shared process-clock owner controls probe acquisition and cleanup; this comparator does not acquire a generation watcher.
  */
 export function failedGenerationEnvironmentChanged(
   validation: TtscFailedGenerationValidation,

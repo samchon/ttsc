@@ -14,8 +14,9 @@ import { failedGenerationInputState } from "./failedGenerationInputState";
 import { selectPersistentHostInputs } from "./selectPersistentHostInputs";
 
 /**
- * Snapshot every input outside the project walk that could change a retry, each
- * plugin source directory by its state among them (`pluginSourceState`,
+ * Snapshot the recorded external paths, persistent host paths, attributed
+ * failure paths and plugin source roots for terminal retry comparison
+ * (`pluginSourceState`,
  * samchon/ttsc#1487, samchon/ttsc#1493).
  *
  * Ordinary-path signatures are observed before full state and retained only
@@ -28,12 +29,12 @@ import { selectPersistentHostInputs } from "./selectPersistentHostInputs";
  *
  * @evidence contracts/common.md#principled-implementation External paths, surviving host paths, attributed failures and plugin source roots form the retry environment; metadata-before-state observation prevents a concurrent read from authorizing unchanged-state reuse incorrectly.
  * @evidence contracts/common.md#clear-and-simple-design This capture constructs one baseline map, delegating persistence selection, metadata evidence and ordinary/tree state composition to their owning helpers.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Disposed scratch paths are excluded by ownership rather than a blanket dependency filter; missing plugin source state remains a missing marker and tree state is not inferred from parent metadata.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Host-path selection excludes adapter-owned scratch/wrapper artifacts rather than unrelated dependencies; attributed failure paths are separately retained and do not receive that filter. Missing plugin state stays a missing marker, not a parent-metadata tree proof.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish ordinary signature timing, plugin-tree validation and transferred baseline ownership, with separated tags under documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve normalizes observed spellings and resultFilesystem supplies filesystem capabilities; plugin source state uses the shared native Go/build environment boundary.
- * @evidence contracts/performance.md#efficient-algorithms Set union deduplicates paths before one sorted traversal; each unique tree or exact path is captured once, with state cost driven by file bytes or directory/subtree population.
- * @evidence contracts/performance.md#reuse-equivalent-work Shared envelope selectors and one path union avoid repeated observations of the same spelling; recorded separable signatures permit the later validator's metadata-first state reuse.
- * @evidence contracts/performance.md#bound-retention-and-release-resources This call transfers one map sized by relevant distinct inputs to terminal validation; it retains no observer or scratch directory and the terminal generation owner controls baseline lifetime.
+ * @evidence contracts/performance.md#efficient-algorithms External/host/failure populations incur native resolve/text/Set work before the unique union is copied and sorted. Host selection and cold plugin selection retain their full scan/identity costs. Each unique tree delegates source/build state work; each ordinary path observes metadata before a fingerprint that may reread metadata, bytes, realpath and directory entries. Cost includes spellings, payload bytes and subtree population; temporary arrays/sets/map records grow with union size.
+ * @evidence contracts/performance.md#reuse-equivalent-work Exact spelling union avoids duplicating whole fingerprint capture, while physically equivalent aliases remain distinct observations. Shared envelope/plugin owners retain their validity rules; recorded separable signatures permit later metadata-first comparison but do not reuse current metadata collection or certify an unreadable tree.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One map of distinct recorded inputs and state/signature text transfers to terminal validation; input count and spelling bytes have no cap here. No observer or scratch directory is acquired, and terminal/cache ownership controls baseline lifetime. Native plugin reading retention belongs to its separate environment owner.
  */
 export function captureFailedGenerationInputStates(
   cached: TtscCachedProjectTransform,
