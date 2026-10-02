@@ -16,8 +16,8 @@ import (
 //    carrying the custom message and none for `safe`.
 //
 // @evidence contracts/testing.md#behavioral-verification The in-process check command reads a real JSON rule tuple, reports unsafe once, leaves safe clean and returns status 2 with empty stdout.
-// @evidence contracts/testing.md#independent-expectations The fixture policy forbids only unsafe in pkg/* and supplies an independently authored custom message; the literal exit and stream expectations follow check command behavior.
-// @evidence contracts/testing.md#distinguishing-cases Two imported names from the same matched module distinguish option loss from whole-module rejection, with a configured message and exact report cardinality.
+// @evidence contracts/testing.md#independent-expectations The fixture policy forbids only unsafe in pkg/* and supplies the literal custom message. The fixture supplies no pkg/private declaration, so status two is not asserted to arise solely from lint; the configured rule text is the option-transport oracle.
+// @evidence contracts/testing.md#distinguishing-cases The configured unsafe message must occur once and no safe-import diagnostic text may occur. These checks distinguish option loss and whole-module rejection without certifying the total compiler/lint diagnostic population.
 // @evidence contracts/testing.md#execution-ownership seedLintProject and seedLintConfig materialize the authored fixture. captureCommandOutput directly calls run(check, --cwd, --plugins-json) in the Go process; this Test owns status, streams and configured unsafe/safe diagnostics.
 func TestCommandCheckNoRestrictedImportsUsesRealConfigOptions(t *testing.T) {
   root := seedLintProject(t, `import { unsafe, safe } from "pkg/private";
