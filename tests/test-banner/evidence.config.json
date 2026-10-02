@@ -4,9 +4,8 @@
     {
       "name": "TypeScript function units",
       "type": "typescript",
-      "root": "../..",
       "files": [
-        "tests/test-banner/src/features/**/test_*.ts"
+        "src/features/**/test_*.ts"
       ],
       "symbol": "function",
       "reference": {
