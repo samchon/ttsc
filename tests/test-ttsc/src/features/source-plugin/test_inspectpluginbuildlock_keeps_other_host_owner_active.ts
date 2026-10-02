@@ -17,17 +17,25 @@ import { inspectPluginBuildLock } from "../../../../../packages/ttsc/src/plugin/
  *
  * 1. Write a lock directory whose `owner.json` names this process's PID on a
  *    hostname that is not this machine's, and require `active`.
- * 2. Do the same with a PID no local process has, still under the foreign
- *    hostname, and require `active`.
- * 3. Name that dead PID under this machine's own hostname and require
- *    `abandoned`, which shows the dead PID really is dead locally.
+ * 2. Independently require a native signal-zero probe to report ESRCH for a
+ *    selected PID, then use it under the foreign hostname and require `active`.
+ * 3. Name that same absent PID under this machine's own hostname and require
+ *    `abandoned`.
  *
  * @evidence contracts/testing.md#behavioral-verification Authored inspectPluginBuildLock returns active and preserves the deliberately foreign hostname in its owner label, regardless of whether that numeric PID happens to identify a local process.
- * @evidence contracts/testing.md#independent-expectations The authored owner records name a host that is not this machine, so by the host-scoped ownership rule the owner can never be proven dead locally. The live-pid record can pass even without that rule, so the same hostname is also used with a pid no local process has (2147483646), where the same record under this machine's own hostname must be classified abandoned; the foreign-host copy of it must stay active.
- * @evidence contracts/testing.md#distinguishing-cases The foreign-host owner with a live pid and with a dead pid is the negative; the same dead pid under the local hostname is the positive control that is classified abandoned, which shows the dead-pid fixture really is dead on this host.
+ * @evidence contracts/testing.md#independent-expectations Literal active and abandoned states follow the host-scoped ownership rule. A native process.kill signal-zero probe independently requires ESRCH for the selected PID before inspection, so the product result does not establish its own input premise.
+ * @evidence contracts/testing.md#distinguishing-cases Foreign-host records use both this live process and the independently observed absent PID; the same absent PID under the local hostname is the positive abandonment control.
  * @evidence contracts/testing.md#execution-ownership A unit test calling inspectPluginBuildLock directly on three legacy-layout lock directories with owner.json files in a private temp directory; it starts no process, build or host.
  */
 export const test_inspectpluginbuildlock_keeps_other_host_owner_active = () => {
+  const absentPid = 2_147_483_646;
+  assert.throws(
+    () => process.kill(absentPid, 0),
+    (error: unknown) =>
+      error instanceof Error &&
+      (error as NodeJS.ErrnoException).code === "ESRCH",
+    "the selected PID must independently be absent on this host",
+  );
   const root = TestProject.tmpdir("ttsc-lock-observe-");
   const lockDir = path.join(root, "entry.lock");
   fs.mkdirSync(lockDir);
@@ -47,15 +55,14 @@ export const test_inspectpluginbuildlock_keeps_other_host_owner_active = () => {
   const owner = observation.state === "active" ? observation.owner : "";
   assert.match(owner, /-elsewhere/);
 
-  // A pid no local process can have: on this host the owner would be abandoned,
-  // so staying active can only come from the foreign hostname.
+  // The native probe established absence independently of the lock inspector.
   const deadElsewhere = path.join(root, "dead-elsewhere.lock");
   fs.mkdirSync(deadElsewhere);
   fs.writeFileSync(
     path.join(deadElsewhere, "owner.json"),
     `${JSON.stringify({
       hostname: `${os.hostname()}-elsewhere`,
-      pid: 2_147_483_646,
+      pid: absentPid,
       startedAt: new Date().toISOString(),
     })}\n`,
     "utf8",
@@ -67,7 +74,7 @@ export const test_inspectpluginbuildlock_keeps_other_host_owner_active = () => {
     path.join(sameHostDead, "owner.json"),
     `${JSON.stringify({
       hostname: os.hostname(),
-      pid: 2_147_483_646,
+      pid: absentPid,
       startedAt: new Date().toISOString(),
     })}\n`,
     "utf8",
@@ -75,6 +82,6 @@ export const test_inspectpluginbuildlock_keeps_other_host_owner_active = () => {
   assert.equal(
     inspectPluginBuildLock(sameHostDead).state,
     "abandoned",
-    "the pid must be dead locally for the foreign-host case to prove anything",
+    "local ownership may use the independently observed absence",
   );
 };

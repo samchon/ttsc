@@ -18,7 +18,7 @@ import {
  * handed back to waiters as a free key.
  *
  * 1. Create a lock directory whose `owner.json` contains invalid JSON and backdate
- *    the directory past the legacy staleness window.
+ *    the directory mtime by two minutes.
  * 2. Inspect it.
  * 3. Assert the state is active with unconfirmed ownership.
  *
