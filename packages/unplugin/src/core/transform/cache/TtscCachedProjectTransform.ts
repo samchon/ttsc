@@ -110,7 +110,8 @@ export interface TtscCachedProjectTransform {
 
   /**
    * Root-file discovery policy under the resolved configuration and recorded
-   * compiler comparison answer, not a complete list of imported program files.
+   * comparison rule: a reported compiler answer when available, otherwise the
+   * primed provisional rule. This is not a complete list of imported files.
    *
    * Recorded per generation rather than read per validation because it is a
    * property of the configuration the compile ran under, so a later delivery
@@ -252,9 +253,9 @@ export interface TtscCachedProjectTransform {
    *
    * Set when the generation is compiled, and again whenever a later epoch's
    * first delivery proves the whole generation still matches the filesystem.
-   * While it equals the cache's current epoch, each module's first delivery is
-   * settled by the supplied source alone, exactly as it was when every pass
-   * compiled its own generation (samchon/ttsc#1300).
+   * While it equals the current epoch, later first deliveries can share that
+   * whole-generation proof. Delivered source still compares with its selected
+   * baseline; divergent text requires the disk comparison before this shortcut.
    */
   deliveryEpoch?: number;
 
