@@ -123,8 +123,9 @@ export interface TtscCachedProjectTransform {
   membershipPolicy: ITtscProjectMembershipPolicy;
 
   /**
-   * Files whose delivered text was found to differ from the file on disk, so
-   * the notice is one per file per generation (samchon/ttsc#1394).
+   * Native resolved spellings whose divergence warning has been attempted in
+   * this generation. Recording precedes stderr writing; distinct physical
+   * aliases may retain separate keys, and stream failure does not remove one.
    */
   divergentDeliveryReported?: Set<string>;
 
