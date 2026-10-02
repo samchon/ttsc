@@ -14,7 +14,7 @@ import (
 //  3. Assert one finding on the member line of every call.
 //
 // @evidence contracts/testing.md#behavioral-verification Every native Promise aggregator must inspect its scalar input elements.
-// @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix the complete rule/error line list 1,2,3,4 with code 2 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#independent-expectations The authored all/allSettled/any/race calls with numeric/string/boolean/bigint scalar members independently require four rule-labelled errors on lines 1,2,3,4, the literal protocol message, code 2 and empty stdout. Count and literal anchors reject missing or extra findings; the rendered-main.ts helper checks each line and error severity, without certifying exact columns or unrelated diagnostics.
 // @evidence contracts/testing.md#distinguishing-cases Original all/allSettled/any/race fixtures report with the upstream message; AwaitableInputsAllow supplies true Promise inputs across methods.
 // @evidence contracts/testing.md#execution-ownership TestAwaitThenablePromiseAggregatorNativeMethodsReport invokes the in-process check command with a real Program/Checker in the shared Go unit population; original source/configuration and all assertions remain, with no child compiler, installed consumer or native artifact build.
 func TestAwaitThenablePromiseAggregatorNativeMethodsReport(t *testing.T) {
