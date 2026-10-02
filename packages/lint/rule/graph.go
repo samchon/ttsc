@@ -55,9 +55,9 @@ const (
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Enumeration contains protocol discriminants without consumer-specific branches or foreign mutation.
 // @evidence contracts/common.md#meaningful-documentation The native comment explains ordering and the consumer consistency reason; prose and tags are separated under documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation GraphNodeKinds performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms GraphNodeKinds has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work GraphNodeKinds keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GraphNodeKinds acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Constructing the fixed six-kind literal takes constant work and six returned slice slots; no input-dependent scan or artifact traversal occurs.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call returns independently mutable slice slots containing the immutable protocol strings. Sharing a cached backing slice would let one caller corrupt another caller vocabulary; consumers own any reused lookup set derived from this fixed list.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns one six-slot output allocation and its retention; protocol strings are static values. The function retains no historical outputs and acquires no native handle or task.
 func GraphNodeKinds() []GraphNodeKind {
   return []GraphNodeKind{
     GraphNodeMarkdownDocument,
@@ -72,8 +72,8 @@ func GraphNodeKinds() []GraphNodeKind {
 // GraphNode is one artifact a declaration's documentation can cite.
 //
 // It is a value, not a behavior, for the same reason Hint is: the host
-// serializes the set and hands it to a consumer that reads it long after the
-// lint process exited. What travels is what the consumer can answer from.
+// serializes the set and hands values to a consumer independently of whether
+// the sidecar exits or remains resident. The values contain no callable code.
 //
 // The node is an index entry, never content. A section carries its heading and
 // where it starts; the text under that heading is read from the file when
@@ -83,12 +83,12 @@ func GraphNodeKinds() []GraphNodeKind {
 // @evidence contracts/common.md#clear-and-simple-design The record exposes identity and navigation facts without mixing in diagnostic policy or document content.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Addresses are produced by the owning rule's grammar rather than fabricated by consumers or patched host internals.
 // @evidence contracts/common.md#meaningful-documentation Members explain parent handling, address ownership, aliases and 1-based positions; paragraphs, member gaps and tags follow documentation guidance.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation GraphNode is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidence contracts/portability.md#os-neutral-implementation File carries the producer-spelled native source path and Line its one-based position, while Address, Parent and Aliases belong to the producer's citation grammar. This record preserves those separate channels without deriving paths from addresses, folding filesystem case or manufacturing a source file for a fileless artifact.
 // @evidenceExclude contracts/performance.md#efficient-algorithms GraphNode is a declaration of data shape and chooses no algorithm or processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work GraphNode is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GraphNode is a declaration of data shape; the code that holds its values owns their lifetime.
 type GraphNode struct {
-  // Address is the identity a citation names, verbatim — `docs/sale.md#pricing`,
+  // Address is the identity a citation names, verbatim: `docs/sale.md#pricing`,
   // `prisma:Sale.price`, `POST:/orders/{orderId}`.
   //
   // The rule that produced it owns the grammar. A consumer keys on the string
@@ -102,7 +102,7 @@ type GraphNode struct {
   // dropped by the consumer.
   Kind GraphNodeKind `json:"kind"`
 
-  // Readable is the human-facing name — a heading's own text, a model's name.
+  // Readable is the human-facing name, such as heading text or a model name.
   // Empty when the artifact has none beyond its address.
   Readable string `json:"readable,omitempty"`
 
@@ -112,7 +112,7 @@ type GraphNode struct {
   Parent string `json:"parent,omitempty"`
 
   // File is where the artifact lives, as the rule spells it. Empty when the
-  // artifact has no file — an API operation is named by method and path, and
+  // artifact has no file. An API operation is named by method and path, and
   // which document declared it is not part of its identity.
   File string `json:"file,omitempty"`
 
@@ -125,17 +125,18 @@ type GraphNode struct {
   Aliases []string `json:"aliases,omitempty"`
 }
 
-// GraphContext is the read-only handle the host passes to GraphNodes.
+// GraphContext contains resolved inputs the host passes to GraphNodes.
+// Contributors treat them as read-only.
 //
-// It mirrors HintContext exactly, and for the same reason: a rule value is
-// stateless, so without State here a projection could only ever return
-// constants.
+// State carries Check's published value for the current evaluation cycle,
+// allowing projection without storing Program data in the registered rule.
+// Registration accepts both value and pointer implementations, as with Hints.
 //
 // @evidence contracts/common.md#principled-implementation Identity, exact published state and resolved settings bind graph projection to the Program Check evaluated.
 // @evidence contracts/common.md#clear-and-simple-design One projection context carries inputs without introducing a second mutable state owner.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The supported context transports state instead of reaching into foreign host internals.
 // @evidence contracts/common.md#meaningful-documentation Native member comments identify Program binding, state and settings; the tag block and member boundaries follow documentation guidance.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation GraphContext is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidence contracts/portability.md#os-neutral-implementation Identity preserves the host-resolved Program's separate logical/physical native paths, cwd and optional origins. ProjectIdentity and the host own resolution and spelling policy; this container neither infers filesystem case nor converts those channels to citation addresses or protocol URLs.
 // @evidenceExclude contracts/performance.md#efficient-algorithms GraphContext is a declaration of data shape and chooses no algorithm or processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work GraphContext is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GraphContext is a declaration of data shape; the code that holds its values owns their lifetime.
