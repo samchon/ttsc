@@ -11,6 +11,7 @@ import {
   configEvaluatorFailureReason,
   configEvaluatorProcessFailure,
 } from "./internal/configEvaluatorFailure";
+import { beginLintTrace } from "./internal/lintTrace";
 import { normalizeContributors } from "./internal/normalizeContributors";
 import type { ITtscLintPluginConfig } from "./structures";
 
@@ -2086,17 +2087,62 @@ function evaluateTtsxConfigPlugins(
       ...nodeConfigLoaderEnv(configPath),
     };
     const command = ttsxThroughNodeIfNeeded(ttsxBinary);
-    const result = spawnSync(command.binary, [...command.prefix, ...args], {
+    const observation = beginLintTrace();
+    const lower = observation ? new Date().toISOString() : undefined;
+    observation?.record("process-attempt", {
+      pid: 0,
+      argv: [command.binary, ...command.prefix, ...args],
       cwd: tempDir,
-      env,
-      // Both child streams are human output, and they go straight to this
-      // process's stderr as they are written. Nothing is collected here: the
-      // parent's stdout is reserved for compiler JSON and LSP frames, and
-      // buffering the child only to replay it afterwards is what forced an
-      // invented output ceiling and made a long evaluation print nothing at all.
-      stdio: ["ignore", 2, 2],
-      windowsHide: true,
+      cwdInherited: false,
+      startLowerBound: lower,
+      owner: "lint-typescript-config-plugin-extractor",
     });
+    const result = (() => {
+      try {
+        const actual = spawnSync(command.binary, [...command.prefix, ...args], {
+          cwd: tempDir,
+          env,
+          // Both child streams are human output, and they go straight to this
+          // process's stderr as they are written. Nothing is collected here: the
+          // parent's stdout is reserved for compiler JSON and LSP frames, and
+          // buffering the child only to replay it afterwards is what forced an
+          // invented output ceiling and made a long evaluation print nothing at all.
+          stdio: ["ignore", 2, 2],
+          windowsHide: true,
+        });
+        observation?.record("process-result", {
+          pid: actual.pid > 0 ? actual.pid : 0,
+          started: actual.pid > 0,
+          exitObserved: actual.status !== null || actual.signal !== null,
+          status: actual.status,
+          signal: actual.signal,
+          error: actual.error?.message,
+          argv: [command.binary, ...command.prefix, ...args],
+          cwd: tempDir,
+          cwdInherited: false,
+          startLowerBound: lower,
+          startUpperBound: new Date().toISOString(),
+          owner: "lint-typescript-config-plugin-extractor",
+          method: "spawnSync",
+        });
+        return actual;
+      } catch (error) {
+        observation?.record("process-result", {
+          pid: 0,
+          started: false,
+          exitObserved: false,
+          error: error instanceof Error ? error.message : String(error),
+          argv: [command.binary, ...command.prefix, ...args],
+          cwd: tempDir,
+          cwdInherited: false,
+          startLowerBound: lower,
+          startUpperBound: new Date().toISOString(),
+          owner: "lint-typescript-config-plugin-extractor",
+          method: "spawnSync",
+        });
+        throw error;
+      }
+    })();
     const processFailure = configEvaluatorProcessFailure(result, configPath);
     if (processFailure) {
       // The evaluator's stack already reached the user's stderr as it ran. What
