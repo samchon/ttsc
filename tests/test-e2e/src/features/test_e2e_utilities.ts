@@ -69,7 +69,6 @@ export async function test_e2e_utilities(): Promise<void> {
             "TestTypeScriptConfigEvaluatesWithoutTheToolEnvironment",
             "TestTypeScriptConfigLoaderPrecedence",
             "TestTypeScriptConfigLoader",
-            "TestWindowsJunctionTreatsPathsAsData",
           ]),
       ],
       [
@@ -100,7 +99,6 @@ export async function test_e2e_utilities(): Promise<void> {
             "TestPhysicalHostInputResolvesWindowsJunction",
             "TestResolveConfigTsgoResolvesThroughALinkedTypeScriptInstall",
             "TestTypeScriptConfigEvaluatesWithoutTheToolEnvironment",
-            "TestWindowsJunctionTreatsPathsAsData",
           ]),
       ],
       [
