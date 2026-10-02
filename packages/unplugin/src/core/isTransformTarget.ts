@@ -14,10 +14,8 @@ const virtualModulePattern = /\0/;
  * Returns `true` when the module id refers to a real TypeScript source file
  * that should be processed by the ttsc transform.
  *
- * TypeScript only. {@link sourceFilePattern} deliberately excludes JavaScript,
- * so a `.js` module reaches no adapter's transform, and this docstring used to
- * say otherwise while the pattern it is built from said the truth
- * (samchon/ttsc#1309).
+ * {@link sourceFilePattern} deliberately excludes JavaScript, so a `.js`
+ * module reaches no adapter's transform.
  *
  * Also excluded: virtual modules (NUL prefix), `.d.ts` declaration files, and
  * anything inside `node_modules`.
@@ -36,10 +34,12 @@ const virtualModulePattern = /\0/;
  *   Native paragraphs explain TypeScript-only ownership and exclusions, with
  *   descriptive prose separated from tags per documentation guidance.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   Performs no filesystem, path or process operation of its own.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ *   Classifies bundler identifier syntax, including both slash spellings,
+ *   without deciding native filesystem identity or case policy.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Fixed regular expressions and declaration-basename checks each scan at
+ *   most the identifier length. Short-circuit rejection avoids subsequent
+ *   scans, and no filesystem lookup or per-call pattern construction occurs.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources

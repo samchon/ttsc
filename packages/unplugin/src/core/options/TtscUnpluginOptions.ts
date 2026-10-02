@@ -17,9 +17,11 @@ import type { TtscUnpluginCompilerOptionsJson } from "./TtscUnpluginCompilerOpti
  * @evidence contracts/common.md#meaningful-documentation
  *   Member JSDoc explains relative-path resolution and override precedence.
  *   Separate member paragraphs and spacing follow the documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   TtscUnpluginOptions only declares a shape; it has no filesystem, path or
- *   process operation at runtime.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The project member carries a native config path: relative spelling is
+ *   resolved against process.cwd by project selection, and omission requests
+ *   discovery. Compiler settings retain their compiler-owned path semantics;
+ *   this type imposes no separator or filesystem case policy.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
  *   TtscUnpluginOptions only declares a shape; it has no computation at
  *   runtime.

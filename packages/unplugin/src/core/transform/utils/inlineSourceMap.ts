@@ -2,7 +2,7 @@ import type { TtscTransformResult } from "../TtscTransformResult";
 
 /**
  * A transform result's code with its source map appended as an inline
- * `sourceMappingURL` comment (samchon/ttsc#1392).
+ * `sourceMappingURL` comment.
  *
  * Esbuild's `onLoad` and Bun's plugin `onLoad` take only `contents`, with no
  * separate map. esbuild reads a trailing inline source map from loaded contents
@@ -24,8 +24,10 @@ import type { TtscTransformResult } from "../TtscTransformResult";
  *   returns bare code, with prose separated from tags per documentation guidance.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
  *   Performs no filesystem, path or process operation of its own.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   Serialises and base64-encodes the map once, linear in its size.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   With no map, returns the existing code. Otherwise one JSON serialization
+ *   and UTF-8/base64 encoding cost linear time and temporary space in map
+ *   size; appending the directive also accounts for the delivered code length.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources

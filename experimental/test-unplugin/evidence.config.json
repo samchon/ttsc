@@ -9,22 +9,13 @@
         "experimental/test-unplugin/src/contracts/**/test_*.mjs"
       ],
       "symbol": "function",
-      "reference": [
-        {
-          "type": "markdown",
-          "root": "../../.agents/skills",
-          "files": ["contracts/testing.md"],
-          "symbol": "h2",
-          "checklist": true
-        },
-        {
-          "type": "markdown",
-          "root": "../../.agents/skills",
-          "files": ["contracts/e2e.md"],
-          "symbol": "h2",
-          "checklist": true
-        }
-      ]
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": ["contracts/testing.md", "contracts/e2e.md"],
+        "symbol": "h2",
+        "checklist": true
+      }
     }
   ]
 }

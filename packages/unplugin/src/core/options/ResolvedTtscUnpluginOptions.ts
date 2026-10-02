@@ -20,9 +20,10 @@ import type { TtscUnpluginCompilerOptionsJson } from "./TtscUnpluginCompilerOpti
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose states which field is normalized and why omissions remain.
  *   Spaced member comments describe each choice using documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   ResolvedTtscUnpluginOptions only declares a shape; it has no filesystem,
- *   path or process operation at runtime.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Normalization preserves the caller's native project-path spelling;
+ *   project selection resolves relative paths against process.cwd. Undefined
+ *   remains discovery, without imposing separators or filesystem case policy.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
  *   ResolvedTtscUnpluginOptions only declares a shape; it has no computation
  *   at runtime.

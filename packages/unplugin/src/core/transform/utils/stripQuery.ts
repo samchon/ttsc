@@ -26,10 +26,12 @@
  *   JSDoc explains filesystem use and the distinct wrapper policy using separate
  *   prose and tags, following documentation guidance.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   Performs no filesystem, path or process operation of its own.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ *   Parses query and fragment syntax in bundler identifiers. Native file
+ *   paths arrive separately through exactPath and are not classified here.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   A single delimiter search takes linear time in identifier length; a
+ *   matching suffix requires only the retained prefix slice. No delimiter
+ *   returns the original value without reconstructing it.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources

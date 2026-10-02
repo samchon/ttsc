@@ -18,9 +18,10 @@ import type { ITtscCompilerTransformation } from "ttsc";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs distinguish result absence from map absence; spaced member
  *   comments explain source provenance per documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   TtscTransformResult only declares a shape; it has no filesystem, path or
- *   process operation at runtime.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   Optional source-map sources carry absolute native file locations in
+ *   forward-slash protocol spelling. The map resolver establishes physical
+ *   identity and content provenance; this type makes no OS-wide case assumption.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
  *   TtscTransformResult only declares a shape; it has no computation at
  *   runtime.
@@ -38,7 +39,7 @@ export interface TtscTransformResult {
   /**
    * Source map from {@link code} back to the text the bundler delivered, with
    * absolute `sources`. Absent when the envelope carried no map that describes
-   * the delivered text (samchon/ttsc#1392).
+   * the delivered text.
    */
   map?: ITtscCompilerTransformation.ISourceMap;
 }

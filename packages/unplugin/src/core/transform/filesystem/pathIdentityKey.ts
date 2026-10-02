@@ -23,13 +23,18 @@ import { createHostPathIdentityContext } from "./createHostPathIdentityContext";
  *   OS-neutral comparison follows the supplied filesystem identity context's
  *   native aliases and observed directory case policy. The returned key never
  *   substitutes for the original path spelling supplied to a host or read.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Keeps no cache of its own and computes each value once.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   Acquires no handle, timer or retained state of its own.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One resolver query performs native path normalization and, when uncached,
+ *   ancestor and directory-case observations. The wrapper allocates no second
+ *   identity representation or directory traversal beyond that required query.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   A supplied transaction reuses its memoized path, realpath and case answers.
+ *   Omission creates a fresh transaction, so no historical filesystem result
+ *   crosses unrelated calls through a hidden cache.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources
+ *   The caller owns a supplied context's lifetime. An implicitly created
+ *   context becomes unreachable after the synchronous return or throw; its
+ *   maps grow only with this resolution's visited paths and ancestors.
  */
 export function pathIdentityKey(
   file: string,

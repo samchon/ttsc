@@ -29,9 +29,10 @@ const defaultOptions: ResolvedTtscUnpluginOptions = {
  *   check. Separate prose and tags follow the documentation guidance.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
  *   Performs no filesystem, path or process operation of its own.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One shallow object spread copies the supplied compiler-option keys in
+ *   linear time and space. Nested option values are not traversed; this copy
+ *   detaches the returned top-level overlay from later caller assignments.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
