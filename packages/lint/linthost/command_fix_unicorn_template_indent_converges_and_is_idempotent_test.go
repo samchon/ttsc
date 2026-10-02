@@ -17,8 +17,8 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification The in-process public fix command executes twice and checks silent success plus the exact fixture file after each pass.
 // @evidence contracts/testing.md#independent-expectations Authored canonical source independently establishes both the first transform and unchanged second pass rather than idempotency alone.
-// @evidence contracts/testing.md#distinguishing-cases The original command fixture must reach the full expected source on pass one and preserve it on pass two.
-// @evidence contracts/testing.md#execution-ownership TestCommandFixUnicornTemplateIndentConvergesAndIsIdempotent owns its explicit variants and named subcases as a discoverable Go unit entry; parser/engine/fix/command functions run in the shared process with isolated fixture state and no consumer install, native producer or product host.
+// @evidence contracts/testing.md#distinguishing-cases The top-level gql template gains one two-space indentation level while child retains its extra two spaces and unrelated declarations/control flow remain unchanged. Whole-file equality after each of two calls distinguishes first correction from second stability.
+// @evidence contracts/testing.md#execution-ownership This single discoverable Go unit entry runs two actual fix commands, in-process compiler/engine/cascade and disk reads on one authored temporary project; no dynamic subcases, consumer installation, native producer or product child runs.
 func TestCommandFixUnicornTemplateIndentConvergesAndIsIdempotent(t *testing.T) {
   source := "declare const ready: boolean;\n" +
     "declare function use(): void;\n" +
