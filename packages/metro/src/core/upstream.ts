@@ -62,15 +62,15 @@ export const UPSTREAM_CANDIDATES = [
  *   the documentation skill: separate paragraphs state the contract and why
  *   its nonobvious boundary matters; field comments retain their own useful
  *   facts.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   Keeps no state between calls; loaded modules belong to Node's module cache.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   At most three candidate probes per call, each a require.resolve followed by one require.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   Deliberately unmemoised: Node's module cache makes a repeated require cheap and a changed option must take effect.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Keeps no state between calls; loaded modules belong to Node's module cache.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   At most three candidate probes per call, each a require.resolve followed by one require.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Deliberately unmemoised: Node's module cache makes a repeated require cheap and a changed option must take effect.
  */
 export function resolveUpstreamTransformer(
   customPath?: string,
@@ -162,15 +162,15 @@ export function resolveUpstreamTransformer(
  *   nonexecution and the absent result. Checked against the documentation
  *   skill: separate paragraphs state the contract and why its nonobvious
  *   boundary matters; field comments retain their own useful facts.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   Resolves paths without executing a candidate and retains nothing.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   At most three resolutions, stopping at the first one that succeeds.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   Runs once per withTtsc call, in the config process only.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Resolves paths without executing a candidate and retains nothing.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   At most three resolutions, stopping at the first one that succeeds.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Runs once per withTtsc call, in the config process only.
  */
 export function locateProjectUpstreamTransformer(
   resolve: (specifier: string) => string,

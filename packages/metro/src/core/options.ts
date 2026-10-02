@@ -41,18 +41,18 @@ export const ENV_KEY = "TTSC_METRO_OPTIONS";
  *   serialization failure boundary. Checked against the documentation skill:
  *   separate paragraphs state the contract and why its nonobvious boundary
  *   matters; field comments retain their own useful facts.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   Returns a string and keeps no state or handle.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   One JSON.stringify of the user's small options record per config load.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   Runs once per Metro config load; there is no repeated work to share.
-  *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   JSON.stringify escapes backslashes, so a Windows path in the options
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Returns a string and keeps no state or handle.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   One JSON.stringify of the user's small options record per config load.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Runs once per Metro config load; there is no repeated work to share.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   JSON.stringify escapes backslashes, so a Windows path in the options
  *   round-trips; no path is interpreted.
  */
 export function serializeOptions(
@@ -98,18 +98,18 @@ export function serializeOptions(
  *   documentation skill: separate paragraphs state the contract and why its
  *   nonobvious boundary matters; field comments retain their own useful
  *   facts.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   Returns a fresh object and keeps no state or handle.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   One JSON.parse and a filter over the short include and exclude arrays.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   The transformer calls it once per worker and memoises the result in options().
-  *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   Reads one environment variable as JSON and resolves no path.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Returns a fresh object and keeps no state or handle.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   One JSON.parse and a filter over the short include and exclude arrays.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   The transformer calls it once per worker and memoises the result in options().
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Reads one environment variable as JSON and resolves no path.
  */
 export function resolveOptionsFromEnv(): ResolvedTtscMetroOptions {
   const raw = process.env[ENV_KEY];

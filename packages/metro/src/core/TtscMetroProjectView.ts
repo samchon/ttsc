@@ -37,18 +37,18 @@ import type {
  *   documentation skill: separate paragraphs state the contract and why its
  *   nonobvious boundary matters; field comments retain their own useful
  *   facts.
-  *
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
-  *   Declares a shape only; it holds no state, handle or buffer.
-  *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   Declares a shape only; there is no loop or processing in it.
-  *
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   Declares a shape only; it computes nothing to share.
-  *
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation
-  *   Carries absolute paths chosen by the project resolver; it compares or normalizes none.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
+ *   Declares a shape only; it holds no state, handle or buffer.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms
+ *   Declares a shape only; there is no loop or processing in it.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Declares a shape only; it computes nothing to share.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation
+ *   Carries absolute paths chosen by the project resolver; it compares or normalizes none.
  */
 export interface TtscMetroProjectView {
   /** The base directory both fingerprint sides agree on. */
