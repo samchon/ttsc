@@ -112,9 +112,11 @@ export function test_vscode_server_resolution_keys_windows_roots_case_insensitiv
   };
   assert.equal(actual.sameKey, true);
   assert.equal(actual.planned.length, 1);
+  assert.deepEqual(actual.planned, ["C:\\Repo"]);
   assert.equal(actual.ordinaryInjected, true);
   assert.equal(actual.distinctInjected, true);
   assert.equal(actual.casePlanned.length, 2);
+  assert.deepEqual([...actual.casePlanned].sort(), ["C:\\Sensitive\\Project", "C:\\Sensitive\\project"].sort());
   assert.equal(actual.firstSelected, "C:\\Sensitive\\Project");
   assert.equal(actual.secondSelected, "C:\\Sensitive\\project");
   assert.equal(actual.missingSensitive, true);
