@@ -6,16 +6,13 @@ import (
   "testing"
 )
 
-// TestCommandFixOwnsItsSourceReachedThroughALink verifies a project still
-// writes its own file when the Program spells that file differently.
+// TestCommandFixOwnsItsSourceReachedThroughALink verifies that fix writes an
+// owned source selected through an actual directory symlink.
 //
-// A project directory can be reached through a junction, a symlink, or a
-// Windows 8.3 short name, so the path the Program reports need not match the
-// one the tsconfig listed. While the read scope was the file list, an alias
-// mismatch simply dropped the file from every pass. Once imported TypeScript is
-// admitted, the same mismatch would leave the file readable and unwritable:
-// `fix` would print a diagnostic for a file it refuses to touch. Ownership
-// therefore resolves the alias, and this case fails if it stops doing so.
+// The tsconfig selects src/main.ts and src points to real-src. Successful
+// command completion and the exact backing-file result observe ownership
+// through that link. The test does not inspect the Program's chosen spelling,
+// force the alternate-spelling fallback or certify junction/short-name cases.
 //
 //  1. Point the tsconfig at `src/main.ts` where `src` is a link.
 //  2. Run fix with no-var enabled.
@@ -23,7 +20,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification The in-process fix command follows src as a directory link and rewrites its owned backing main.ts, finishing without diagnostics.
 // @evidence contracts/testing.md#independent-expectations The independently authored let result preserves the initializer and JSON.stringify call; exact exit/stdout/stderr require a successful fix cycle.
-// @evidence contracts/testing.md#distinguishing-cases Alias spelling must not erase write ownership. This case exercises a real directory link and retains its existing permission skip when link creation is unavailable.
+// @evidence contracts/testing.md#distinguishing-cases A real symlink-selected source must remain writable, with ordinary and imported-sibling ownership covered by command siblings. The test skips when native link creation fails; it does not require a particular Program path spelling or cover junctions and short names.
 // @evidence contracts/testing.md#execution-ownership TestCommandFixOwnsItsSourceReachedThroughALink calls run inside captureCommandOutput over a temporary project; os.Symlink is the native filesystem boundary, with no child host or install.
 func TestCommandFixOwnsItsSourceReachedThroughALink(t *testing.T) {
   root := t.TempDir()
