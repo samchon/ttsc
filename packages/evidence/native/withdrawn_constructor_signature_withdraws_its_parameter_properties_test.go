@@ -19,8 +19,7 @@ import (
  * Three positions are asserted together because each kills a different way of
  * getting this wrong. A tag on the first signature dies under "read the visited
  * node". A tag on the implementation alone dies under "read the first
- * constructor and stop", which is the shape that worked before the scan
- * existed. Two competing tags pin first-in-source-order, matching how a
+ * constructor and stop". Two competing tags pin first-in-source-order, matching how a
  * statement list resolves a merged declaration's withdrawal.
  *
  *  1. Withdraw a different constructor declaration in each of three classes.

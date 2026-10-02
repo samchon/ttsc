@@ -37,10 +37,9 @@ export interface ISale {
   }, requireReviewConfig)
   assertProblemContains(t, messages, "Unresolved evidence target 'docs/spec.md#refunds'")
   // The property is that no *review* finding is derived from the unresolved
-  // citation, so both halves are matched rather than one phrase that happened to
-  // appear in the resolution message. An earlier form of this assertion counted
-  // `for '<target>'`, which the resolution diagnostic spells `target '<target>'`,
-  // so it counted zero and failed while the behavior under test was correct.
+  // citation, so both halves are matched: the review tag and the target. The
+  // resolution diagnostic spells the target `target '<target>'`, so matching on
+  // one phrase alone could not tell a review finding from the resolution message.
   for _, message := range messages {
     if strings.Contains(message, "@evidenceReview") &&
       strings.Contains(message, "docs/spec.md#refunds") {

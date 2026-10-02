@@ -21,12 +21,9 @@ import (
  * An interface method signature is the case that reads like the class one and
  * is not. `Input.check` is a `function` unit and it projects, because an
  * interface declares nothing in value space, so there is no value for the alias
- * to withhold. The fixture carried no such member while three surfaces said a
- * type-only alias exposes no callables, which is how that sentence stayed
- * wrong. `Options.run` is the same member on an object-shaped type alias, and
- * it is here because the two containers share one collector: the argument that
- * nothing can break one without the other is worth stating, and worth being
- * able to fail.
+ * to withhold. `Options.run` is the same member on an object-shaped type
+ * alias, and it is here because the two containers share one collector, so a
+ * change that breaks one must fail the other's row too.
  *
  *  1. Export one namespace through full and both type-only alias syntaxes.
  *  2. Include nested type and value declarations, an interface callable, an
