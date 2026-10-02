@@ -10,11 +10,11 @@ import { DependencyBuildLockProtocol } from "./DependencyBuildLockProtocol";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Release preserves the generation fence instead of deleting whichever directory occupies the shared current name.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies finally ownership and explains false after retirement or replacement.
  * @evidence contracts/portability.md#os-neutral-implementation Native lock-path representation and platform rename semantics stay with the shared protocol implementation.
- * @evidence contracts/performance.md#efficient-algorithms One delegated retirement performs fixed-path operations without scanning historical generations.
+ * @evidence contracts/performance.md#efficient-algorithms The field projection delegates one retirement without a history scan; actual generation/path text, native mkdir/rename/sibling probes and peer-handle retry/yield work remain part of this call's cost and can grow with contention.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Release is a generation-specific ownership effect rather than a reusable computation.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources The holder relinquishes current into a retained tombstone; retirement may wait for native peer handles and the protocol does not impose a separate release deadline.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Successful retirement moves current into its retained tombstone; false and native failures do not certify release. Peer-handle waiting has no separate deadline and probe-cleanup failures can retain artifacts; container cleanup owns historical state.
  */
 export function releaseDependencyBuildLock(
   lockDir: string,
