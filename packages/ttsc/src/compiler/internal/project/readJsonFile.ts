@@ -4,7 +4,7 @@ import { ConfigJsonText } from "./ConfigJsonText";
 
 /**
  * Read and parse a strict-JSON configuration file (`package.json`), naming it
- * on failure.
+ * on parse failure. Native file-read failures propagate from Node unchanged.
  *
  * A leading UTF-8 BOM is accepted, matching the tsconfig reader:
  * the two readers are consulted for the same project and disagreeing about a
@@ -18,9 +18,9 @@ import { ConfigJsonText } from "./ConfigJsonText";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Malformed configuration remains an error with its real filename, without comment stripping or an empty-object fallback that would weaken strict JSON semantics.
  * @evidence contracts/common.md#meaningful-documentation Purpose, BOM rationale and unknown-root ownership are documented in native paragraphs following the documentation skill; obsolete comment-stripping claims were removed.
  * @evidence contracts/portability.md#os-neutral-implementation Node receives the native filename and explicit UTF-8 decoding; a BOM is a text-format distinction rather than an OS-specific path or newline rule.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The file text is local to the call and released when the function returns.
- * @evidenceExclude contracts/performance.md#efficient-algorithms One synchronous read and one JSON.parse, linear in the file size.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call reads its file afresh; no cache is kept, so no reuse is claimed.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Node owns the synchronous file-read handle lifecycle; input and normalized text are local, while the caller owns the returned parsed value. Completion makes local references reclaimable without guaranteeing immediate engine reclamation or independent backing storage for returned strings; no historical file registry is retained here.
+ * @evidence contracts/performance.md#efficient-algorithms One native UTF-8 read, optional length-preserving BOM replacement and builtin JSON.parse incur file/path lookup, byte decoding and parsed-value construction costs. Temporary text and returned values grow with input content; fixed call counts do not make the delegated work constant, and no second parse or comment-removal pass is added.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This reader owns no cross-request config coordination or validity proof; it reads current mutable file content and returns a caller-owned value rather than sharing an unvalidated historical result.
  */
 export function readJsonFile(file: string): unknown {
   const text = ConfigJsonText.stripLeadingBom(fs.readFileSync(file, "utf8"));
