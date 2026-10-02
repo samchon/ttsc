@@ -51,7 +51,7 @@ const BUILTIN_MODULES = new Set([
  *
  * @evidence contracts/common.md#principled-implementation Prefix classification removes non-registry inputs and scoped-name slicing keeps both scope and package while discarding subpaths.
  * @evidence contracts/common.md#clear-and-simple-design One classifier isolates package identity from dependency scanning and installation.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The built-in table represents browser-unavailable Node modules rather than special cases for individual consumer packages.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The built-in table is the pinned Node built-in module root list, not special cases for individual consumer packages.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs define rejected specifier kinds and npm-install purpose under the documentation skill.
  * @evidence contracts/performance.md#efficient-algorithms Prefix and separator checks cost O(specifier length); built-in membership uses a fixed indexed set independent of source population.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure name classifier does not coordinate request-level computation reuse.
@@ -73,6 +73,7 @@ export function packageNameFromSpecifier(specifier: string): string | null {
     const firstSlash = bare.indexOf("/");
     if (firstSlash < 0) return null;
     if (firstSlash === 1) return null;
+    if (firstSlash === bare.length - 1) return null;
     const secondSlash = bare.indexOf("/", firstSlash + 1);
     if (secondSlash === firstSlash + 1) return null;
     return secondSlash < 0 ? bare : bare.slice(0, secondSlash);
