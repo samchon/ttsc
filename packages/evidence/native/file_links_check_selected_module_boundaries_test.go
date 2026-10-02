@@ -23,7 +23,7 @@ import (
  */
 func TestFileLinksCheckSelectedModuleBoundaries(t *testing.T) {
   fixture := newFileLinkFixture(t, map[string]string{"api/index.ts": "export { value } from './value';", "api/value.ts": "export const value = 1;", "outside/index.ts": "export const value = 2;", "review.md": "## Review\n<!-- @link api/index.ts#value Reads the value. -->\n"}, `{"claims":[{"type":"markdown","files":["review.md"],"symbol":"h2","reference":{"type":"typescript","root":"api","files":["index.ts"],"symbol":"property"}}]}`)
-  if err := linkDirectory(filepath.Join(fixture.root, "outside"), filepath.Join(fixture.root, "api/value")); err != nil {
+  if err := linkDirectory(t, filepath.Join(fixture.root, "outside"), filepath.Join(fixture.root, "api/value")); err != nil {
     t.Fatal(err)
   }
   assertNoProblems(t, fixture.check())

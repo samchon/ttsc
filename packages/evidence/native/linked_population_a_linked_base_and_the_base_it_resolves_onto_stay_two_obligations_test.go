@@ -33,7 +33,7 @@ func TestALinkedBaseAndTheBaseItResolvesOntoStayTwoObligations(t *testing.T) {
 	if err := os.MkdirAll(project, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := linkDirectory(project, filepath.Join(workspace, "mirror")); err != nil {
+	if err := linkDirectory(t, project, filepath.Join(workspace, "mirror")); err != nil {
 		t.Fatalf("this platform refused to create a link: %v", err)
 	}
 	messages := runRootedGraphIn(t, workspace, map[string]string{

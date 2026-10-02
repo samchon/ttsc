@@ -11,9 +11,9 @@ import (
 /**
  * Verifies a Windows junction is read through, not only a symbolic link.
  *
- * The portable helper uses `os.Symlink`; an explicit Windows junction is needed where
- * the process lacks the privilege, so an elevated Windows runner would exercise
- * symbolic links on both lanes and leave the junction handling proven nowhere.
+ * The shared link helper already creates a junction on Windows; this case names the
+ * junction explicitly so its handling stays pinned if that helper changes.
+ *
  * That handling is the whole reason `resolveLinkedDirectory` exists instead of
  * `filepath.EvalSymlinks`, which returns a junction unchanged.
  *
@@ -24,11 +24,7 @@ import (
  * @evidence contracts/testing.md#behavioral-verification runRootedGraphIn accepts the original Discounts citation through an explicitly created Windows junction.
  * @evidence contracts/testing.md#independent-expectations The original no-diagnostics assertion defines the valid citation result; it does not separately count the target inventory.
  * @evidence contracts/testing.md#distinguishing-cases Junction creation is forced instead of preferring a symbolic link, preserving the Windows reparse-point boundary.
- * @evidence contracts/testing.md#execution-ownership This named case shares the existing Windows kernel Go process and previously installed candidate SDK; it creates an actual junction through the explicit OS fixture helper, with no per-case native compilation or SDK installation.
- * @evidence contracts/e2e.md#necessary-boundary Actual Windows junction traversal cannot be established by a symbolic-link-only fixture or portable path string; the original rule graph runs over that reparse point.
- * @evidence contracts/e2e.md#shared-execution The existing kernel batch reuses the installed CLI candidate SDK and one Go test process; this case adds only its own temporary junction fixture.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity A private temporary root contains the junction and documents, so no other case supplies its population or acknowledges its heading.
- * @evidence contracts/e2e.md#preserved-coverage The original authored ISale citation and clean diagnostic assertion remain intact; portable link-root and internal-link contrasts remain separately named units.
+ * @evidence contracts/testing.md#execution-ownership TestAWindowsJunctionRootIsReadThrough is a Windows-only Go unit entry of package evidence, run by go test on a Windows host. It creates real NTFS directory junctions through linkWindowsPopulationDirectory and drives the rule in-process; it starts no ttsc check, lint sidecar or installed consumer.
  */
 func TestAWindowsJunctionRootIsReadThrough(t *testing.T) {
 	workspace := t.TempDir()

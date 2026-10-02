@@ -69,8 +69,32 @@ func benchmarkWideModule(b *testing.B, units int) {
   }
 }
 
+/**
+ * Measures traversal of one 20-declaration module behind a barrel.
+ *
+ * @evidence contracts/testing.md#behavioral-verification BenchmarkTraversalWideModule20 times repeated materializeEntryUnits over a module that exports 20 interfaces. The warm-up call fails the benchmark unless exactly 20 units materialize.
+ * @evidence contracts/testing.md#independent-expectations The only expectation is the authored fixture size, written as a literal in the call; no duration is asserted, so a slowdown is observed by comparing benchmark output between runs, not detected by this entry.
+ * @evidence contracts/testing.md#distinguishing-cases The sibling benchmarks of this file vary one dimension while keeping the others fixed, so the output of the family shows how cost grows with that dimension; this entry owns one point on that curve.
+ * @evidence contracts/testing.md#execution-ownership BenchmarkTraversalWideModule20 is a Go benchmark entry of package evidence. It runs only under go test -bench in the package process, never in the ordinary go test run, and starts no child process.
+ */
 func BenchmarkTraversalWideModule20(b *testing.B)  { benchmarkWideModule(b, 20) }
+/**
+ * Measures traversal of one 80-declaration module behind a barrel.
+ *
+ * @evidence contracts/testing.md#behavioral-verification BenchmarkTraversalWideModule80 times repeated materializeEntryUnits over a module that exports 80 interfaces. The warm-up call fails the benchmark unless exactly 80 units materialize.
+ * @evidence contracts/testing.md#independent-expectations The only expectation is the authored fixture size, written as a literal in the call; no duration is asserted, so a slowdown is observed by comparing benchmark output between runs, not detected by this entry.
+ * @evidence contracts/testing.md#distinguishing-cases The sibling benchmarks of this file vary one dimension while keeping the others fixed, so the output of the family shows how cost grows with that dimension; this entry owns one point on that curve.
+ * @evidence contracts/testing.md#execution-ownership BenchmarkTraversalWideModule80 is a Go benchmark entry of package evidence. It runs only under go test -bench in the package process, never in the ordinary go test run, and starts no child process.
+ */
 func BenchmarkTraversalWideModule80(b *testing.B)  { benchmarkWideModule(b, 80) }
+/**
+ * Measures traversal of one 320-declaration module behind a barrel.
+ *
+ * @evidence contracts/testing.md#behavioral-verification BenchmarkTraversalWideModule320 times repeated materializeEntryUnits over a module that exports 320 interfaces. The warm-up call fails the benchmark unless exactly 320 units materialize.
+ * @evidence contracts/testing.md#independent-expectations The only expectation is the authored fixture size, written as a literal in the call; no duration is asserted, so a slowdown is observed by comparing benchmark output between runs, not detected by this entry.
+ * @evidence contracts/testing.md#distinguishing-cases The sibling benchmarks of this file vary one dimension while keeping the others fixed, so the output of the family shows how cost grows with that dimension; this entry owns one point on that curve.
+ * @evidence contracts/testing.md#execution-ownership BenchmarkTraversalWideModule320 is a Go benchmark entry of package evidence. It runs only under go test -bench in the package process, never in the ordinary go test run, and starts no child process.
+ */
 func BenchmarkTraversalWideModule320(b *testing.B) { benchmarkWideModule(b, 320) }
 
 func benchmarkSharedModule(b *testing.B, barrels int, units int) {
@@ -99,7 +123,23 @@ func benchmarkSharedModule(b *testing.B, barrels int, units int) {
   }
 }
 
+/**
+ * Measures traversal when four selected barrels reach one 100-declaration module.
+ *
+ * @evidence contracts/testing.md#behavioral-verification BenchmarkTraversalSharedModule4 times repeated materializeEntryUnits over four barrels that re-export one module of 100 interfaces. The warm-up call fails the benchmark unless exactly 100 units materialize, so a barrel never counts the shared module twice.
+ * @evidence contracts/testing.md#independent-expectations The only expectation is the authored fixture size, written as a literal in the call; no duration is asserted, so a slowdown is observed by comparing benchmark output between runs, not detected by this entry.
+ * @evidence contracts/testing.md#distinguishing-cases The sibling benchmarks of this file vary one dimension while keeping the others fixed, so the output of the family shows how cost grows with that dimension; this entry owns one point on that curve.
+ * @evidence contracts/testing.md#execution-ownership BenchmarkTraversalSharedModule4 is a Go benchmark entry of package evidence. It runs only under go test -bench in the package process, never in the ordinary go test run, and starts no child process.
+ */
 func BenchmarkTraversalSharedModule4(b *testing.B)  { benchmarkSharedModule(b, 4, 100) }
+/**
+ * Measures traversal when sixteen selected barrels reach one 100-declaration module.
+ *
+ * @evidence contracts/testing.md#behavioral-verification BenchmarkTraversalSharedModule16 times repeated materializeEntryUnits over sixteen barrels that re-export one module of 100 interfaces. The warm-up call fails the benchmark unless exactly 100 units materialize, so a barrel never counts the shared module twice.
+ * @evidence contracts/testing.md#independent-expectations The only expectation is the authored fixture size, written as a literal in the call; no duration is asserted, so a slowdown is observed by comparing benchmark output between runs, not detected by this entry.
+ * @evidence contracts/testing.md#distinguishing-cases The sibling benchmarks of this file vary one dimension while keeping the others fixed, so the output of the family shows how cost grows with that dimension; this entry owns one point on that curve.
+ * @evidence contracts/testing.md#execution-ownership BenchmarkTraversalSharedModule16 is a Go benchmark entry of package evidence. It runs only under go test -bench in the package process, never in the ordinary go test run, and starts no child process.
+ */
 func BenchmarkTraversalSharedModule16(b *testing.B) { benchmarkSharedModule(b, 16, 100) }
 
 // benchmarkGraphRebuild rebuilds the graph over an already-parsed Program,
@@ -185,16 +225,45 @@ func benchmarkGraphRebuild(
   }
 }
 
+/**
+ * Measures one graph rebuild over a parsed Program of 50 operations and 50 DTOs.
+ *
+ * @evidence contracts/testing.md#behavioral-verification BenchmarkWatchCycleSdk50 times repeated graphRule.Check over a parsed Program with 50 operation modules, 50 DTOs of 3 properties and one test module. It asserts nothing about the diagnostics the rebuild returns; it measures the rebuild cost alone.
+ * @evidence contracts/testing.md#independent-expectations The only expectation is the authored fixture size, written as a literal in the call; no duration is asserted, so a slowdown is observed by comparing benchmark output between runs, not detected by this entry.
+ * @evidence contracts/testing.md#distinguishing-cases The sibling benchmarks of this file vary one dimension while keeping the others fixed, so the output of the family shows how cost grows with that dimension; this entry owns one point on that curve.
+ * @evidence contracts/testing.md#execution-ownership BenchmarkWatchCycleSdk50 is a Go benchmark entry of package evidence. It runs only under go test -bench in the package process, never in the ordinary go test run, and starts no child process.
+ */
 func BenchmarkWatchCycleSdk50(b *testing.B)  { benchmarkGraphRebuild(b, 50, 50, 3, 1) }
+/**
+ * Measures one graph rebuild over a parsed Program of 200 operations and 200 DTOs.
+ *
+ * @evidence contracts/testing.md#behavioral-verification BenchmarkWatchCycleSdk200 times repeated graphRule.Check over a parsed Program with 200 operation modules, 200 DTOs of 3 properties and one test module. It asserts nothing about the diagnostics the rebuild returns; it measures the rebuild cost alone.
+ * @evidence contracts/testing.md#independent-expectations The only expectation is the authored fixture size, written as a literal in the call; no duration is asserted, so a slowdown is observed by comparing benchmark output between runs, not detected by this entry.
+ * @evidence contracts/testing.md#distinguishing-cases The sibling benchmarks of this file vary one dimension while keeping the others fixed, so the output of the family shows how cost grows with that dimension; this entry owns one point on that curve.
+ * @evidence contracts/testing.md#execution-ownership BenchmarkWatchCycleSdk200 is a Go benchmark entry of package evidence. It runs only under go test -bench in the package process, never in the ordinary go test run, and starts no child process.
+ */
 func BenchmarkWatchCycleSdk200(b *testing.B) { benchmarkGraphRebuild(b, 200, 200, 3, 1) }
 
-// The sizes here approximate a completed application (663 operations, 124 DTOs,
-// 1326 tests), so these numbers are answerable against a real project rather
-// than only against each other.
+/**
+ * Measures one graph rebuild at the size of a completed ERP application.
+ *
+ * @evidence contracts/testing.md#behavioral-verification BenchmarkWatchCycleErpScale times repeated graphRule.Check over a parsed Program with 663 operation modules, 124 DTOs of 10 properties and 1326 test modules. It asserts nothing about the diagnostics the rebuild returns; it measures the rebuild cost alone.
+ * @evidence contracts/testing.md#independent-expectations The only expectation is the authored fixture size, written as a literal in the call; no duration is asserted, so a slowdown is observed by comparing benchmark output between runs, not detected by this entry.
+ * @evidence contracts/testing.md#distinguishing-cases The sibling benchmarks of this file vary one dimension while keeping the others fixed, so the output of the family shows how cost grows with that dimension; this entry owns one point on that curve.
+ * @evidence contracts/testing.md#execution-ownership BenchmarkWatchCycleErpScale is a Go benchmark entry of package evidence. It runs only under go test -bench in the package process, never in the ordinary go test run, and starts no child process.
+ */
 func BenchmarkWatchCycleErpScale(b *testing.B) {
   benchmarkGraphRebuild(b, 663, 124, 10, 1326)
 }
 
+/**
+ * Measures one graph rebuild at half the size of a completed ERP application.
+ *
+ * @evidence contracts/testing.md#behavioral-verification BenchmarkWatchCycleErpScaleHalf times repeated graphRule.Check over a parsed Program with 331 operation modules, 62 DTOs of 10 properties and 663 test modules. It asserts nothing about the diagnostics the rebuild returns; it measures the rebuild cost alone.
+ * @evidence contracts/testing.md#independent-expectations The only expectation is the authored fixture size, written as a literal in the call; no duration is asserted, so a slowdown is observed by comparing benchmark output between runs, not detected by this entry.
+ * @evidence contracts/testing.md#distinguishing-cases The sibling benchmarks of this file vary one dimension while keeping the others fixed, so the output of the family shows how cost grows with that dimension; this entry owns one point on that curve.
+ * @evidence contracts/testing.md#execution-ownership BenchmarkWatchCycleErpScaleHalf is a Go benchmark entry of package evidence. It runs only under go test -bench in the package process, never in the ordinary go test run, and starts no child process.
+ */
 func BenchmarkWatchCycleErpScaleHalf(b *testing.B) {
   benchmarkGraphRebuild(b, 331, 62, 10, 663)
 }

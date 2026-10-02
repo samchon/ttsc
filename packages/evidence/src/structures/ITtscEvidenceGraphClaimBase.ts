@@ -19,7 +19,6 @@ import type { ITtscEvidenceGraphReference } from "./ITtscEvidenceGraphReference"
  * @evidence contracts/common.md#clear-and-simple-design Fields common to all claiming artifacts have one owner here; each derived interface supplies only its artifact-specific selection semantics.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Disabled claims and exclusion carriers are explicit supported configuration mechanisms, not hidden consumer-specific coverage substitutions.
  * @evidence contracts/common.md#meaningful-documentation Member comments explain defaults, glob ordering, root identity and exclusion restrictions with blank lines between documented members and before the tags.
- * @evidence contracts/portability.md#os-neutral-implementation Root and file patterns describe a native filesystem boundary with stable absolute or project-relative roots, portable glob separators and explicit rejection of Windows drive-relative paths; identity case sensitivity is a graph policy, not an inferred filesystem capability.
  */
 export interface ITtscEvidenceGraphClaimBase<Type extends string> {
   /** Identifies the artifact kind making this claim. */

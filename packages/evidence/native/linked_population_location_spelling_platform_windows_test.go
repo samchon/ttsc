@@ -23,11 +23,7 @@ import (
  * @evidence contracts/testing.md#behavioral-verification resolvePopulationBase and display preserve authored root spelling across six Windows path shapes.
  * @evidence contracts/testing.md#independent-expectations Six literal locations and unchanged declared roots are independent display expectations.
  * @evidence contracts/testing.md#distinguishing-cases In-project, ascending and same-volume paths contrast with different-volume roots, a bare drive root and a UNC share.
- * @evidence contracts/testing.md#execution-ownership This named Windows native-policy case invokes authored filepath and display operations in the existing installed-SDK Go batch. Fictional drive and UNC strings are inputs; no drive, share, native compiler or product host is created.
- * @evidence contracts/e2e.md#necessary-boundary The owning operation delegates volume and UNC interpretation to Windows filepath.Rel. Running the original Windows literal table on a POSIX filepath implementation would exercise a different native policy, so this case needs the actual Windows Go host.
- * @evidence contracts/e2e.md#shared-execution The case joins the existing installed-SDK Windows Go batch and creates no consumer, drive, network share or compiler producer of its own.
- * @evidence contracts/e2e.md#state-isolation-and-reuse-validity All six roots are literal hypothetical path inputs; there is no mutable filesystem population or cross-case cache to contaminate native path policy.
- * @evidence contracts/e2e.md#preserved-coverage The original six location expectations and all unchanged declared-root checks remain; POSIX spelling and real directory identity keep their separately named portable cases.
+ * @evidence contracts/testing.md#execution-ownership TestALocationIsSpelledTheWayAReaderOpensIt is a Windows-only Go unit entry of package evidence, run by go test on a Windows host. It creates real NTFS directory junctions through linkWindowsPopulationDirectory and drives the rule in-process; it starts no ttsc check, lint sidecar or installed consumer.
  */
 func TestALocationIsSpelledTheWayAReaderOpensIt(t *testing.T) {
 	project := `C:\home\me\project`

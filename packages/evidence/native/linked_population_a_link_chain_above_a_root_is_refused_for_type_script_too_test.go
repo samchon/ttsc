@@ -37,7 +37,7 @@ func TestALinkChainAboveARootIsRefusedForTypeScriptToo(t *testing.T) {
 	for hop := range 34 {
 		head = "hop" + decimal(hop)
 		link := filepath.Join(workspace, head)
-		if err := linkDirectory(previous, link); err != nil {
+		if err := linkDirectory(t, previous, link); err != nil {
 			t.Fatalf("this platform refused to create a link: %v", err)
 		}
 		previous = link

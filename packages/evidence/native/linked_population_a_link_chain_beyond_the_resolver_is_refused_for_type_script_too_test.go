@@ -32,13 +32,13 @@ func TestALinkChainBeyondTheResolverIsRefusedForTypeScriptToo(t *testing.T) {
 	previous := project
 	for hop := range 34 {
 		link := filepath.Join(workspace, "hop"+decimal(hop))
-		if err := linkDirectory(previous, link); err != nil {
+		if err := linkDirectory(t, previous, link); err != nil {
 			t.Fatalf("this platform refused to create a link: %v", err)
 		}
 		previous = link
 	}
 	head := filepath.Join(workspace, "mirror")
-	if err := linkDirectory(previous, head); err != nil {
+	if err := linkDirectory(t, previous, head); err != nil {
 		t.Fatalf("this platform refused to create a link: %v", err)
 	}
 	if _, err := os.Stat(head); err != nil {

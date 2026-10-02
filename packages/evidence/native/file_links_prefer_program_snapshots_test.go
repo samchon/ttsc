@@ -26,7 +26,7 @@ func TestFileLinksPreferProgramSnapshots(t *testing.T) {
   fixture.sources = append(fixture.sources, fixture.source("api/value.ts", "export const value = 1;"))
   assertNoProblems(t, fixture.check())
   assertNoProblems(t, fixture.check())
-  if err := linkDirectory(filepath.Join(fixture.root, "api"), filepath.Join(fixture.root, "linked")); err != nil {
+  if err := linkDirectory(t, filepath.Join(fixture.root, "api"), filepath.Join(fixture.root, "linked")); err != nil {
     t.Fatal(err)
   }
   fixture.options = json.RawMessage(`{"claims":[{"type":"markdown","files":["review.md"],"symbol":"h2","reference":{"type":"typescript","root":"linked","files":["*.ts"],"symbol":"property"}}]}`)

@@ -9,7 +9,7 @@ import (
 // writeLinkedDocuments builds a real directory and a link that names it, or
 // fails when the platform refuses to create either.
 //
-// The portable helper uses os.Symlink and does not start a kernel command.
+// The shared linkDirectory helper creates a symbolic link on POSIX and a directory junction on Windows.
 func writeLinkedDocuments(t *testing.T, workspace string, files map[string]string) {
 	t.Helper()
 	target := filepath.Join(workspace, "target")
@@ -22,7 +22,7 @@ func writeLinkedDocuments(t *testing.T, workspace string, files map[string]strin
 			t.Fatal(err)
 		}
 	}
-	if err := linkDirectory(target, filepath.Join(workspace, "documents")); err != nil {
+	if err := linkDirectory(t, target, filepath.Join(workspace, "documents")); err != nil {
 		t.Fatalf("this platform refused to create a link: %v", err)
 	}
 }

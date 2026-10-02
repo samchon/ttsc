@@ -34,7 +34,7 @@ func TestTheResolverFollowsExactlyItsBoundOfLinks(t *testing.T) {
 	previous := target
 	for hop := range 33 {
 		link := filepath.Join(workspace, "hop"+decimal(hop))
-		if err := linkDirectory(previous, link); err != nil {
+		if err := linkDirectory(t, previous, link); err != nil {
 			t.Fatalf("this platform refused to create a link: %v", err)
 		}
 		heads = append(heads, link)

@@ -49,7 +49,7 @@ func TestTypeScriptPopulationMatchesAProgramSourceThroughANestedLink(t *testing.
     t.Fatal(err)
   }
   for _, link := range []string{claimRoot, programRoot} {
-    if err := linkDirectory(actual, link); err != nil {
+    if err := linkDirectory(t, actual, link); err != nil {
       t.Fatal(err)
     }
   }

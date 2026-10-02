@@ -29,7 +29,7 @@ func TestARootLinkWithNoTargetAsksToBeReplaced(t *testing.T) {
 	if err := os.MkdirAll(target, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := linkDirectory(target, filepath.Join(workspace, "documents")); err != nil {
+	if err := linkDirectory(t, target, filepath.Join(workspace, "documents")); err != nil {
 		t.Fatalf("this platform refused to create a link: %v", err)
 	}
 	if err := os.Remove(target); err != nil {

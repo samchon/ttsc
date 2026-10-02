@@ -34,7 +34,7 @@ func TestALinkedFileInsideThePopulationIsRead(t *testing.T) {
 	if err := os.WriteFile(outside, []byte("## Discounts {#discounts}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(outside, filepath.Join(documents, "pricing.md")); err != nil {
+	if err := linkFile(t, outside, filepath.Join(documents, "pricing.md")); err != nil {
 		t.Fatalf("this platform refused to link a file: %v", err)
 	}
 	messages := runRootedGraphIn(t, workspace, map[string]string{

@@ -51,7 +51,7 @@ func TestTypeScriptPopulationMatchesAProgramOpenedThroughTheLogicalRoot(t *testi
       t.Fatal(err)
     }
   }
-  if err := linkDirectory(physical, logical); err != nil {
+  if err := linkDirectory(t, physical, logical); err != nil {
     t.Fatal(err)
   }
   source := shimparser.ParseSourceFile(

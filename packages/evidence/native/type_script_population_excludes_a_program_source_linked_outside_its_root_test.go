@@ -48,7 +48,7 @@ func TestTypeScriptPopulationExcludesAProgramSourceLinkedOutsideItsRoot(t *testi
     t.Fatal(err)
   }
   link := filepath.Join(root, "src", "linked")
-  if err := linkDirectory(outside, link); err != nil {
+  if err := linkDirectory(t, outside, link); err != nil {
     t.Fatal(err)
   }
   parse := func(name string, content string) *shimast.SourceFile {

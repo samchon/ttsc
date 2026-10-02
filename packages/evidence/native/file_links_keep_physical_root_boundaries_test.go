@@ -22,11 +22,11 @@ import (
  */
 func TestFileLinksKeepPhysicalRootBoundaries(t *testing.T) {
   fixture := newFileLinkFixture(t, map[string]string{"api/value.ts": "export const value = 1;", "outside/value.ts": "export const value = 2;", "review.md": "## Review\n<!-- @link api/value.ts#value Reads the value. -->\n"}, `{"claims":[{"type":"markdown","files":["review.md"],"symbol":"h2","reference":[{"type":"typescript","root":"api","files":["value.ts"],"symbol":"property"},{"type":"typescript","root":"linked","files":["value.ts"],"symbol":"property"}]}]}`)
-  if err := linkDirectory(filepath.Join(fixture.root, "api"), filepath.Join(fixture.root, "linked")); err != nil {
+  if err := linkDirectory(t, filepath.Join(fixture.root, "api"), filepath.Join(fixture.root, "linked")); err != nil {
     t.Fatal(err)
   }
   assertNoProblems(t, fixture.check())
-  if err := linkDirectory(filepath.Join(fixture.root, "outside"), filepath.Join(fixture.root, "api/escape")); err != nil {
+  if err := linkDirectory(t, filepath.Join(fixture.root, "outside"), filepath.Join(fixture.root, "api/escape")); err != nil {
     t.Fatal(err)
   }
   fixture.write("api/value.ts", "export { value } from './escape/value';")

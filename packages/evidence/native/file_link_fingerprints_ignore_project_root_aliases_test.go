@@ -29,7 +29,7 @@ func TestFileLinkFingerprintsIgnoreProjectRootAliases(t *testing.T) {
   if err := os.MkdirAll(physical, 0755); err != nil {
     t.Fatal(err)
   }
-  if err := linkDirectory(physical, linked); err != nil {
+  if err := linkDirectory(t, physical, linked); err != nil {
     t.Fatal(err)
   }
   files := map[string]string{"api/value.ts": "export const value = 1;", "review.md": "## Review\n<!-- @link api/value.ts#value Reads the value. -->\n"}
@@ -42,7 +42,7 @@ func TestFileLinkFingerprintsIgnoreProjectRootAliases(t *testing.T) {
   files["review.md"] += "<!-- @evidenceReview api/value.ts#value #" + match[1] + " Checked the initializer. -->\n"
   assertNoProblems(t, runIndexRuleAtRoot(t, linked, files, config))
   assertNoProblems(t, runIndexRule(t, files, config))
-  if err := linkDirectory(filepath.Join(linked, "api"), filepath.Join(physical, "forwarded")); err != nil {
+  if err := linkDirectory(t, filepath.Join(linked, "api"), filepath.Join(physical, "forwarded")); err != nil {
     t.Fatal(err)
   }
   rooted := `{"claims":[{"type":"markdown","files":["review.md"],"symbol":"h2","reference":{"type":"typescript","root":"forwarded","files":["value.ts"],"symbol":"property","requireReview":true}}]}`

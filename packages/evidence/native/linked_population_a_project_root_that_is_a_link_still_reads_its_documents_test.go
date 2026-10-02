@@ -32,7 +32,7 @@ func TestAProjectRootThatIsALinkStillReadsItsDocuments(t *testing.T) {
 		t.Fatal(err)
 	}
 	link := filepath.Join(workspace, "project")
-	if err := linkDirectory(real, link); err != nil {
+	if err := linkDirectory(t, real, link); err != nil {
 		t.Fatalf("this platform refused to create a link: %v", err)
 	}
 	messages := runIndexRuleAtRoot(t, link, map[string]string{

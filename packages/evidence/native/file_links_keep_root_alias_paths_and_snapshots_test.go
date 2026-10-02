@@ -31,7 +31,7 @@ func TestFileLinksKeepRootAliasPathsAndSnapshots(t *testing.T) {
   }, `{"claims":[{"type":"markdown","files":["review.md"],"symbol":"h2","reference":{"type":"typescript","root":"../api","files":["index.ts"],"symbol":"property"}}]}`)
   workspace := fixture.root
   linked := filepath.Join(workspace, "logical/project")
-  if err := linkDirectory(filepath.Join(workspace, "physical/project"), linked); err != nil {
+  if err := linkDirectory(t, filepath.Join(workspace, "physical/project"), linked); err != nil {
     t.Fatal(err)
   }
   fixture.sources = append(fixture.sources, fixture.source("physical/api/value.ts", "export const decoy = 2;"))

@@ -32,7 +32,7 @@ func TestFileLinkReviewsKeepCachedProjectPaths(t *testing.T) {
   }, `{"claims":[{"type":"markdown","files":["review.md"],"symbol":"h2","reference":{"type":"typescript","root":"../api","files":["value.ts"],"symbol":"property","requireReview":true}}]}`)
   workspace := fixture.root
   for link, target := range map[string]string{"logical/project": "physical/project", "logical/api-link": "physical/api"} {
-    if err := linkDirectory(filepath.Join(workspace, target), filepath.Join(workspace, link)); err != nil {
+    if err := linkDirectory(t, filepath.Join(workspace, target), filepath.Join(workspace, link)); err != nil {
       t.Fatal(err)
     }
   }

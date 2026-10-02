@@ -48,7 +48,7 @@ func TestGraphPackageGlobsFollowALinkedInstall(t *testing.T) {
   if err := os.MkdirAll(filepath.Dir(linked), 0o755); err != nil {
     t.Fatal(err)
   }
-  if err := linkDirectory(store, linked); err != nil {
+  if err := linkDirectory(t, store, linked); err != nil {
     t.Fatalf("the symbolic-link fixture could not be created: %v", err)
   }
   assertProblemContains(t, runIndexRuleAtRoot(t, root, map[string]string{

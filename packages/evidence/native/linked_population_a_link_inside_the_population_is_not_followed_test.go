@@ -48,7 +48,7 @@ func TestALinkInsideThePopulationIsNotFollowed(t *testing.T) {
 	); err != nil {
 		t.Fatal(err)
 	}
-	if err := linkDirectory(hidden, filepath.Join(documents, "requirements", "linked")); err != nil {
+	if err := linkDirectory(t, hidden, filepath.Join(documents, "requirements", "linked")); err != nil {
 		t.Fatalf("this platform refused to create a link: %v", err)
 	}
 	messages := runRootedGraphIn(t, workspace, map[string]string{

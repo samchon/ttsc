@@ -47,13 +47,13 @@ func TestALinkChainBeyondTheResolverIsReportedNotWalked(t *testing.T) {
 	previous := target
 	for hop := range 34 {
 		link := filepath.Join(workspace, "hop"+decimal(hop))
-		if err := linkDirectory(previous, link); err != nil {
+		if err := linkDirectory(t, previous, link); err != nil {
 			t.Fatalf("this platform refused to create a link: %v", err)
 		}
 		previous = link
 	}
 	documents := filepath.Join(workspace, "documents")
-	if err := linkDirectory(previous, documents); err != nil {
+	if err := linkDirectory(t, previous, documents); err != nil {
 		t.Fatalf("this platform refused to create a link: %v", err)
 	}
 	if _, err := os.Stat(documents); err != nil {
