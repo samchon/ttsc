@@ -18,14 +18,23 @@ import type { TtscExternalDependencyWitness } from "./TtscExternalDependencyWitn
  * @param paths Dependency-only paths an earlier compile reported.
  * @param filesystem The filesystem the compile reads.
  *
- * @evidence contracts/common.md#principled-implementation Content, physical target and metadata are captured before compile; matching before/after metadata qualifies one coherent read rather than an arbitrary later state.
+ * @evidence contracts/common.md#principled-implementation Content, physical target and metadata boundaries are captured before compile; signature equality records one comparison rather than certifying an atomic read or usable metadata.
  * @evidence contracts/common.md#clear-and-simple-design One witness constructor groups the dependency observations required by postcompile admission, leaving retry policy to generation ownership.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A newly reported path has no invented earlier witness; its owner must compile with a real pre-read observation.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain earlier-report inputs and the first-discovery recompile premise before argument tags.
  * @evidence contracts/portability.md#os-neutral-implementation Injected native operations observe content, link targets and timestamps while lexical resolved spellings keep alias metadata witnesses distinct.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Witness ownership transfers to the compile attempt and temporary map size follows reported dependency paths; this helper acquires no persistent handle.
- * @evidence contracts/performance.md#efficient-algorithms One path scan sandwiches each content/realpath read with constant-count metadata observations; dominant work is dependency bytes read.
- * @evidence contracts/performance.md#reuse-equivalent-work The returned precompile witness is shared with postcompile admission for this attempt; changed state forbids adopting its output under a newer baseline.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   N supplied occurrences each receive metadata/content/realpath/metadata
+ *   observations and native resolved-key construction. Bytes read/hash dominate
+ *   large files, while component/link resolution and metadata/bigint signature
+ *   text remain real costs. Duplicate resolved keys still reread and overwrite;
+ *   U final keys retain hashes/targets/signatures, not the read buffers.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The attempt shares these precompile endpoints with postcompile admission,
+ *   which compares signatures, content and physical target and rejects absent
+ *   witnesses or changed comparisons. New paths need a later attempt with a
+ *   pre-read; matching endpoints are not a plugin-recorded read proof.
  */
 export function witnessExternalDependencies(
   paths: readonly string[],

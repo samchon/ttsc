@@ -277,9 +277,9 @@ export async function captureTransformGeneration(props: {
           primedPolicy,
         )
       : undefined;
-    // The paths a plugin reports as dependencies carry no compiler-time proof,
-    // so what they held when the compile began is read now, and a reading
-    // after the compile certifies only the state this one saw
+    // Plugin-only paths carry no recorded compiler-time reads. Capture their
+    // precompile endpoints for postcompile admission comparisons; matching
+    // endpoints do not independently certify every intervening state
     // (samchon/ttsc#1541).
     const dependencyWitness = witnessExternalDependencies(
       props.witnessedDependencies ?? [],
