@@ -78,7 +78,11 @@ This is a rule contributor to [`@ttsc/lint`](https://github.com/samchon/ttsc/tre
 
 ```ts
 // lint.config.ts
-import { evidence, type ITtscEvidenceGraphConfig } from "@ttsc/evidence";
+import {
+  evidence,
+  type ITtscEvidenceGraphConfig,
+  type ITtscEvidenceRules,
+} from "@ttsc/evidence";
 import type { ITtscLintConfig } from "@ttsc/lint";
 
 const graph: ITtscEvidenceGraphConfig = {
@@ -102,10 +106,10 @@ export default {
     "evidence/graph": ["error", graph],
     "evidence/review": "error",
   },
-} satisfies ITtscLintConfig;
+} satisfies ITtscLintConfig<ITtscEvidenceRules>;
 ```
 
-One claim: the components under `src` implement the docs, so every H2 and H3 under `docs` must be cited by a component. Run `npx ttsc` and the error count is the backlog.
+One claim: the components under `src` implement the docs, so every H2 and H3 under `docs` must be cited by a component. Run `npx ttsc` and the error count is the backlog. Passing `ITtscEvidenceRules` to `ITtscLintConfig` gives every Evidence rule exact option checking.
 
 [The configuration reference](https://ttsc.dev/docs/evidence/claims) has every claim option and the four rules beside `evidence/graph`.
 

@@ -1,2 +1,0 @@
-import "./ITtscLintContributorRules";
-import "./ITtscLintRuleOptionsMap";

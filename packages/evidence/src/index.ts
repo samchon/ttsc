@@ -6,7 +6,6 @@ import { version } from "../package.json";
 import type { ITtscEvidenceGraphConfig } from "./structures/index";
 
 export * from "./structures/index";
-export * from "./typings/index";
 
 /**
  * The `@ttsc/lint` contributor that checks a project's evidence graph.
