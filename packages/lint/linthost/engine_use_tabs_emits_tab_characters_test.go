@@ -2,19 +2,12 @@ package linthost
 
 import "testing"
 
-// TestEngineUseTabsEmitsTabCharacters verifies the UseTabs option swaps
-// space indentation for tab characters in newline emissions.
+// TestEngineUseTabsEmitsTabCharacters verifies that UseTabs emits one
+// tab for an Indent of two under the default TabWidth of two.
 //
-// `useTabs: true` is a non-default config but matches a common
-// codebase preference (and Prettier's own `useTabs` option). The
-// fixture forces a break with an Indent of width 2 (one tab at
-// TabWidth=2) and asserts the engine emits `\t` rather than two
-// spaces — the dprint convention is "indent with tabs, align with
-// spaces", which this case exercises at the indent-only level.
-//
-//  1. Build Indent(2, Hardline, Text("x")).
-//  2. Print with UseTabs=true.
-//  3. Assert the indented line is `\tx`.
+// Hardline forces a newline in this direct Doc fixture. The literal
+// newline-tab-x distinguishes the tab byte from two space bytes; it
+// does not exercise configuration loading or a parsed source node.
 //
 // @evidence contracts/testing.md#behavioral-verification Print must emit a tab instead of two spaces after the hard break when UseTabs is true.
 // @evidence contracts/testing.md#independent-expectations Default TabWidth two makes Indent two one tab; the literal newline-tab-x checks exact bytes.
