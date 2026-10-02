@@ -657,19 +657,20 @@ type Context struct {
   File *shimast.SourceFile
 
   // Checker is the host's tsgo type checker. Available for type-aware
-  // rules; nil-safe enough that AST-only rules can ignore it.
+  // rules when requested. A checker-free invocation may leave it nil.
   Checker *shimchecker.Checker
 
   // Severity is the rule's resolved severity for this file. Already
-  // filtered by the engine — rules do not need to check for
+  // filtered by the engine, so rules do not need to check for
   // SeverityOff.
   Severity Severity
 
-  // Options is the raw JSON blob the user wrote in the second slot of
-  // their `[severity, options]` rule configuration tuple. Nil when the
-  // rule was configured with a bare severity literal. Contributors that
-  // accept options decode the blob into their own struct via
-  // `(*Context).DecodeOptions`.
+  // Options is this source file's effective raw JSON payload. One option slot
+  // retains its value shape; multiple positional slots form an array, and a
+  // severity-only override may inherit a matching earlier payload. Nil means
+  // no effective payload. Constructors copy the bytes, so local mutation does
+  // not alter resolver storage or another invocation. DecodeOptions reads it
+  // into the contributor's own destination.
   Options json.RawMessage
 
   reporter Reporter
@@ -685,9 +686,9 @@ type Context struct {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The nil-reader path is supported backwards compatibility rather than a fabricated project result.
 // @evidence contracts/common.md#meaningful-documentation Native prose names host ownership and normal contributor usage; tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation NewContext performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms NewContext has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewContext keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewContext acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Delegation copies b raw option bytes and allocates the returned context, O(1+b) work and storage; the absence of a wrapper loop does not make the fuller constructor fixed-cost.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Construction creates invocation-local mutable option storage, not a shared computation coordinator. The caller owns snapshot validity and any immutable input reuse; sharing the resulting writable options across invocations would violate their ownership.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned context owns its copied option bytes and retains borrowed file, checker and reporter references until callers release it. The host owns Program/checker resource closure; this constructor stores no global context history and acquires no handle or running task.
 func NewContext(
   file *shimast.SourceFile,
   checker *shimchecker.Checker,
@@ -706,9 +707,9 @@ func NewContext(
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Live state is supplied through its declared reader instead of inferred from unrelated Program identities.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the same-cycle binding and members document ownership; the tag boundary follows documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation NewContextWithProjectResults performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms NewContextWithProjectResults has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewContextWithProjectResults keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewContextWithProjectResults acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Copying b raw option bytes and constructing one context costs O(1+b) work and storage. File, checker, reporter and result-reader references are passed through without traversal or copying their underlying Program and cycle.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This constructor creates a separate writable option buffer per invocation and coordinates no requests or shared result cache. The host establishes same-cycle validity for the borrowed source/checker/reader; equal bytes do not authorize sharing their mutable option destination.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives a context with b owned option bytes and borrowed file/checker/reporter/result-reader references, which can keep those objects reachable while the context is retained. The host owns their live Program/cycle and resource closure. This constructor has no historical-context cache, handle or task of its own.
 func NewContextWithProjectResults(
   file *shimast.SourceFile,
   checker *shimchecker.Checker,
@@ -735,9 +736,9 @@ func NewContextWithProjectResults(
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing project bindings are explicit absent results rather than invented passed results.
 // @evidence contracts/common.md#meaningful-documentation Native prose specifies current-cycle lookup and absent semantics; tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ProjectResult performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ProjectResult has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ProjectResult keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ProjectResult acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Local absence guards and direct delegation choose no lookup or snapshot algorithm. ProjectResultReader owns the dominant work, including any finding-copy or locking cost; the wrapper does not certify a fixed total cost.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This lookup delegates to the live cycle reader and owns no cross-query memo. The reader establishes current rule/cycle identity and snapshot validity; a cached result based only on this context or name could hide a changed status.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned snapshot can contain finding storage and producer-owned State references; the reader and caller own their lifetime. This wrapper adds no stored result history, handle or task, and it does not close or mutate the producer's state.
 func (c *Context) ProjectResult(name string) ProjectRuleResult {
   if c == nil || c.results == nil {
     return ProjectRuleResult{Status: ProjectRuleAbsent}

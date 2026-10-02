@@ -8,9 +8,10 @@ import (
 )
 
 // TestPublicRuleContextOptionsAreIsolated verifies both public constructors
-// give contributors their own option bytes. A contributor is free to decode or
-// retain its Context, but mutating that Context must never corrupt the host's
-// resolver state or another invocation.
+// give contributors their own option bytes. Decoding or keeping those bytes
+// must not let a mutation corrupt the host's resolver buffer or another
+// invocation. This case establishes option storage ownership, not the lifetime
+// of a retained Context's borrowed Program or checker.
 //
 //  1. Construct contexts through both public constructors and mutate input, context and another invocation independently.
 //  2. Require original JSON ownership in both directions and retain nil identity and empty length.
