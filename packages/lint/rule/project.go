@@ -312,14 +312,14 @@ type ProjectInputRule interface {
   ProjectInputs(ctx *ProjectInputContext) []ProjectInput
 }
 
-// ProjectInputContext contains the immutable configuration available while a
+// ProjectInputContext contains a snapshot of resolved configuration while a
 // ProjectRule declares its local filesystem dependencies.
 //
 // @evidence contracts/common.md#principled-implementation Identity, severity and raw options represent the configuration available before a Program exists.
 // @evidence contracts/common.md#clear-and-simple-design The input-only context omits checker and source fields unavailable during dependency discovery.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Dependency publication uses actual resolved configuration instead of manufacturing a partial Program.
-// @evidence contracts/common.md#meaningful-documentation Native prose and members identify immutable configuration and absent Program access; member and tag spacing follow documentation guidance.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectInputContext is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidence contracts/common.md#meaningful-documentation Native prose and members identify resolved snapshot configuration and absent Program access; member and tag spacing follow documentation guidance.
+// @evidence contracts/portability.md#os-neutral-implementation Identity carries separate caller-logical and physical native paths, invocation cwd and optional roots/origins before Program loading. ProjectIdentity and the host own actual resolution and spelling policy; this context preserves those channels without converting them to URLs, inferring case policy or choosing native process arguments.
 // @evidenceExclude contracts/performance.md#efficient-algorithms ProjectInputContext is a declaration of data shape and chooses no algorithm or processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectInputContext is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectInputContext is a declaration of data shape; the code that holds its values owns their lifetime.
@@ -330,7 +330,7 @@ type ProjectInputContext struct {
   // Severity is the resolved project-rule level.
   Severity Severity
 
-  // Options is the raw configured payload; DecodeOptions preserves defaults when empty.
+  // Options owns copied configured bytes; DecodeOptions preserves defaults when empty.
   Options  json.RawMessage
 }
 
@@ -342,10 +342,10 @@ type ProjectInputContext struct {
 // @evidence contracts/common.md#clear-and-simple-design One constructor owns dependency-context construction and its defensive copy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The constructor forwards host-resolved values without inferred project identity or altered options.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies host construction and normal contributor access; tags follow documentation guidance.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation NewProjectInputContext performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms NewProjectInputContext has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewProjectInputContext keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewProjectInputContext acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Native representation and resolution belong to ProjectIdentity and the host before this constructor. This function copies option bytes and preserves all identity strings verbatim, choosing no independent path, filesystem case or process representation.
+// @evidence contracts/performance.md#efficient-algorithms Copying b option bytes takes O(b) work and output storage; identity strings and severity are transferred by fixed field copies without reading path contents or traversing filesystem identity.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each publication receives independently mutable option storage from its supplied resolved snapshot; sharing that backing slice would permit one publisher to change host or another publisher input. Upstream resolution owns snapshot equivalence, not this copying boundary.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The constructor transfers copied option bytes and one context record to the returned owner, proportional to supplied bytes. Identity strings are shared immutable values; the caller controls context retention, and no process-global history, native handle or task is acquired.
 func NewProjectInputContext(
   identity ProjectIdentity,
   severity Severity,
