@@ -1130,24 +1130,24 @@ func (e ConfigEntry) matchesIgnores(fileName string) bool {
   return len(e.Ignores) > 0 && matchAnyPattern(e.BaseDir, e.Ignores, fileName)
 }
 
-// ParseRules normalizes a rule severity map.
+// ParseRules projects a decoded rule object to a severity map, preserving
+// supplied key spelling and rejecting duplicate canonical aliases.
 //
-// Severity values:
-//   - `"off"` → SeverityOff
-//   - `"warning"` → SeverityWarn
-//   - `"error"` → SeverityError
+// Nil means no rules. Entries accept "off", "warn"/"warning", "error" or
+// JSON-decoded float64 values 0, 1, 2, either bare or in a severity/options tuple.
+// Unsupported severities, empty tuples and unencodable options return an error.
 //
-// Anything else returns an error (no silent fallback — typos in a rule
-// severity should be loud).
+// Tuples are checked and option payloads encoded by the shared parser, then
+// discarded from this severity-only result; use ParseRulesWithOptions to retain them.
 //
 // @evidence contracts/common.md#principled-implementation Delegating to the tuple-aware parser preserves severity validation while intentionally discarding option storage for this severity-only API.
 // @evidence contracts/common.md#clear-and-simple-design One parser owns entry decoding; this wrapper only projects the severity result.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid severity is returned as an error rather than silently disabled to satisfy a consumer.
-// @evidence contracts/common.md#meaningful-documentation Native prose lists supported spellings and failure behavior, separated from the acknowledgment paragraph.
+// @evidence contracts/common.md#meaningful-documentation Native prose describes decoded input, nil, complete severity vocabulary, tuple errors, key spelling and the option-bearing alternative before separate tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ParseRules performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ParseRules has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ParseRules keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ParseRules acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms The shared parser sorts n stored names, scans entries and encodes supplied option bytes, O(n log n) name comparisons plus name and payload bytes. Delegation preserves the same strict tuple/error semantics; only the severity map is transferred, while temporary option maps and bytes become reclaimable after return.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This decoded-value projection owns no shared producer or cross-call identity for mutable caller inputs.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The caller owns the new severity map; temporary discarded option storage is not retained by this wrapper. No handle or task is acquired.
 func ParseRules(raw any) (RuleConfig, error) {
   cfg, _, err := ParseRulesWithOptions(raw)
   return cfg, err
