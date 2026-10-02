@@ -8,28 +8,26 @@ import (
 )
 
 // TestCommandFormatRestoresStrandedBraceFromOneLineBlock verifies the `ttsc
-// format` cascade converges on the form Prettier produces for a block written
+// format` cascade converges on an authored expanded form for a block written
 // on one line, instead of on a hybrid that strands the closing `}` at the end
 // of the last statement.
 //
-// The cascade used to split the body onto its own lines while nothing moved
-// the brace: `format/statement-split` only ever rewrites the run before a
-// STATEMENT, and a `}` is not one, while `format/indent` abstained on any
-// brace sharing its line with content. The result was stable under a second
-// pass, so the malformed shape was the tool's canonical form and `ttsc check`
-// called it clean.
+// Moving only the body statements can leave a closing brace beside the last
+// statement. Stability alone would accept that incomplete transformation;
+// each pass therefore compares against the independent full-file literal.
 //
 // Each case is a block form: function body, `if`/`else`,
-// loops, `try`/`catch`/`finally`, class body, arrow body, switch clause, with
-// the pinned Prettier 3.8.3 output as the answer key.
+// loops, `try`/`catch`/`finally`, class body, arrow body and switch clause.
+// Expected literals preserve the original declarations, operands and calls;
+// this unit does not invoke an external formatter or `ttsc check`.
 //
 //  1. Run `ttsc format` on the one-line source.
 //  2. Assert convergence and byte equality with the expected output.
 //  3. Run it again and assert the output does not move (idempotence).
 //
 // @evidence contracts/testing.md#behavioral-verification Eight subcases (function body, if-else, for, while, try-catch-finally, class and method body, arrow body, switch case block) run the in-process `format` command on one-line blocks and require exit 0, no did-not-converge message, the exact expanded text, and an unchanged second run.
-// @evidence contracts/testing.md#independent-expectations Each expected output is an authored literal that the test comments say is the Prettier 3.8.3 output (not re-verified by this unit); the second-pass check is layered on the literal comparison, so a stable but malformed layout fails.
-// @evidence contracts/testing.md#distinguishing-cases Each block kind is a separate input that must change from one line to Prettier's layout with the closing brace on its own line; this distinguishes a cascade that splits the body but strands `}` at the end of the last statement.
+// @evidence contracts/testing.md#independent-expectations Each expected output is an authored complete literal preserving the input's declarations, control flow, operands and calls; both passes compare with that same independent literal. No external formatter output is generated, and a stable but malformed layout fails.
+// @evidence contracts/testing.md#distinguishing-cases Each block kind is a separate input whose one-line block must expand with the closing brace on its own line; this distinguishes a cascade that splits the body but strands `}` at the end of the last statement. These eight concrete forms do not assert all block grammars or a separate check-command result.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase seeds a temp-dir project and calls run with the format subcommand through formatOnceForBrace (defined in this file, also used by sibling tests); no child process, built binary or installed consumer.
 func TestCommandFormatRestoresStrandedBraceFromOneLineBlock(t *testing.T) {
   for _, tc := range []struct {
@@ -115,9 +113,8 @@ func TestCommandFormatRestoresStrandedBraceFromOneLineBlock(t *testing.T) {
       if got != tc.want {
         t.Fatalf("stranded brace not restored:\ngot  %q\nwant %q", got, tc.want)
       }
-      // A second pass must not move the converged output: the whole defect
-      // was a STABLE malformed form, so stability alone proves nothing unless
-      // the form it is stable on is the right one.
+      // Reuse the authored expectation, not the first actual output, so a
+      // stable malformed result cannot become its own answer key.
       if again := formatOnceForBrace(t, root, main); again != tc.want {
         t.Fatalf("second pass moved the output:\ngot  %q\nwant %q", again, tc.want)
       }
