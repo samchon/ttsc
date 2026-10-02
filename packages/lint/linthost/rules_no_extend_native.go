@@ -136,7 +136,12 @@ func isExtendNativeBuiltin(name string) bool {
   switch name {
   case "Object", "Array", "String", "Number", "Boolean", "Function",
     "Date", "RegExp", "Error", "Map", "Set", "WeakMap", "WeakSet",
-    "Promise", "Symbol":
+    "Promise", "Symbol", "BigInt", "AggregateError", "EvalError",
+    "RangeError", "ReferenceError", "SyntaxError", "TypeError", "URIError",
+    "ArrayBuffer", "SharedArrayBuffer", "DataView", "Int8Array", "Uint8Array",
+    "Uint8ClampedArray", "Int16Array", "Uint16Array", "Int32Array",
+    "Uint32Array", "Float32Array", "Float64Array", "BigInt64Array",
+    "BigUint64Array", "WeakRef", "FinalizationRegistry", "Iterator":
     return true
   }
   return false
