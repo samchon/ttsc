@@ -19,6 +19,7 @@ const PROTOCOL_VERSION = 1;
  * @evidenceExclude contracts/performance.md#efficient-algorithms decode owns JSON and generated envelope validation; the namespace adds no processing algorithm.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work decode validates each submitted line, while state establishes reuse of graph generations.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The namespace retains no decoded frame or native handle; its caller owns typed results.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphProtocol declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export namespace TtscGraphProtocol {
   /**
@@ -31,6 +32,7 @@ export namespace TtscGraphProtocol {
    * @evidence contracts/performance.md#efficient-algorithms JSON parsing and generated field traversal process the line and carried graph facts linearly; no project, directory or historical-frame scan occurs.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each submitted wire line requires validation; graph state alone coordinates current-model reuse.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Parsed values and error text are local; the typed result transfers to state and no native reader, child or frame history is retained.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphProtocol.decode operates on in-memory values and performs no filesystem, path or process operation.
    */
   export function decode(line: string): ITtscGraphSnapshot {
     let parsed: unknown;

@@ -5,6 +5,10 @@
  * @evidence contracts/common.md#clear-and-simple-design Three components isolate identity grammar from graph node payloads.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy kind absence is explicit rather than replaced by a guessed declaration category.
  * @evidence contracts/common.md#meaningful-documentation Native member comments describe decoded components and the legacy optional suffix.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphNodeId declares a data shape or groups members and owns no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphNodeId declares a data shape or groups members and chooses no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphNodeId declares a data shape or groups members and coordinates no computation across requests.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphNodeId declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export interface ITtscGraphNodeId {
   /** Unquoted producer path coordinate. */
@@ -29,6 +33,10 @@ export interface ITtscGraphNodeId {
  * @evidence contracts/common.md#clear-and-simple-design Separator discovery and quoting are private codec helpers; this function owns assembling the parsed record.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy UNC handling preserves a supported older encoding rather than guessing identity from basename or source position.
  * @evidence contracts/common.md#meaningful-documentation Native prose documents quoting, legacy support and malformed-input absence before acknowledgment tags.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources parseTtscGraphNodeId acquires no handle or task and retains nothing beyond its return value.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms parseTtscGraphNodeId makes a bounded pass over its arguments and chooses no algorithm or data structure.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work parseTtscGraphNodeId computes its value from its arguments on each call and shares no completed or in-flight work.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation parseTtscGraphNodeId operates on in-memory values and performs no filesystem, path or process operation.
  */
 export function parseTtscGraphNodeId(id: string): ITtscGraphNodeId | undefined {
   const hash = graphNodeIdHash(id);
@@ -54,6 +62,10 @@ export function parseTtscGraphNodeId(id: string): ITtscGraphNodeId | undefined {
  * @evidence contracts/common.md#clear-and-simple-design One writer shares a quoting helper for both components.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Identity uses actual path/name/kind rather than shortened fixture-specific aliases.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies quoting and the kind precondition without exposing implementation bodies.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources writeTtscGraphNodeId acquires no handle or task and retains nothing beyond its return value.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms writeTtscGraphNodeId makes a bounded pass over its arguments and chooses no algorithm or data structure.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work writeTtscGraphNodeId computes its value from its arguments on each call and shares no completed or in-flight work.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation writeTtscGraphNodeId operates on in-memory values and performs no filesystem, path or process operation.
  */
 export function writeTtscGraphNodeId(
   path: string,
@@ -72,6 +84,10 @@ export function writeTtscGraphNodeId(
  * @evidence contracts/common.md#clear-and-simple-design The adapter adds no independent delimiter parsing policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Paths are not sliced at the first raw hash, which may be quoted identity content.
  * @evidence contracts/common.md#meaningful-documentation Native prose states decoded output and malformed-input absence.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ttscGraphNodeIdPath acquires no handle or task and retains nothing beyond its return value.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ttscGraphNodeIdPath makes a bounded pass over its arguments and chooses no algorithm or data structure.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ttscGraphNodeIdPath computes its value from its arguments on each call and shares no completed or in-flight work.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ttscGraphNodeIdPath operates on in-memory values and performs no filesystem, path or process operation.
  */
 export function ttscGraphNodeIdPath(id: string): string | undefined {
   return parseTtscGraphNodeId(id)?.path;

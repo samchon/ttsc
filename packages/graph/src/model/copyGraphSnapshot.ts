@@ -13,6 +13,7 @@ import type { TtscGraphReadonly } from "./TtscGraphReadonly";
  * @evidence contracts/performance.md#efficient-algorithms One structured clone detaches the population and a WeakSet visits each owned record once during freezing; work and temporary visited storage scale with copied facts.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Model construction and shard transactions decide snapshot reuse; this ownership primitive performs one requested detachment.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Only the detached frozen result transfers to the caller; visited identities are local and no global population is retained.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation copyGraphSnapshot operates on in-memory values and performs no filesystem, path or process operation.
  */
 export function copyGraphSnapshot<T>(value: T): TtscGraphReadonly<T> {
   const owned = structuredClone(value);

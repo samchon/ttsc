@@ -42,6 +42,7 @@ type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
  * @evidence contracts/performance.md#efficient-algorithms Exact id and symbol probes use generation indexes; a dotted-suffix miss can scan V nodes and collect C matches, while ranking their indexed edge neighborhoods retains the best K in O(CK) time and O(K) additional space for the normal small cap.
  * @evidence contracts/performance.md#reuse-equivalent-work The graph shares id, symbol and adjacency indexes across handle resolutions; each call ranks a fresh candidate set because the spelling and requested limit can differ.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Candidate lists are request-local and returned to the caller; the resolver retains no history, handle or running task.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation resolveGraphHandle operates on in-memory values and performs no filesystem, path or process operation.
  */
 export function resolveGraphHandle(
   graph: TtscGraphMemory,

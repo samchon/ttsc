@@ -4,132 +4,15 @@
     {
       "name": "TypeScript production declarations",
       "type": "typescript",
-      "files": [
-        "src/**/*.ts",
-        "!src/index.ts",
-        "!src/reduce.ts",
-        "!src/TtscGraphViewSnapshot.ts",
-        "!src/model/TtscGraphMemory.ts",
-        "!src/model/TtscGraphProtocol.ts",
-        "!src/model/copyGraphRecords.ts",
-        "!src/model/copyGraphSnapshot.ts",
-        "!src/model/TtscGraphSessionState.ts",
-        "!src/model/TtscGraphShardStore.ts",
-        "!src/model/TtscLintDaemonState.ts",
-        "!src/server/run*.ts",
-        "!src/server/resolveHandle.ts",
-        "!src/server/exportSurface.ts",
-        "!src/runGraph.ts",
-        "!src/launcherArgs.ts",
-        "!src/resolveGraphBinary.ts",
-        "!src/TtscGraphLauncherArguments.ts",
-        "!src/model/TtscGraphNativeArguments.ts",
-        "!src/view.ts",
-        "!src/nativeExecutable.ts",
-        "!src/model/loadGraph.ts",
-        "!src/model/publishedArtifacts.ts",
-        "!src/model/TtscGraphLinePeer.ts",
-        "!src/model/TtscGraphSession.ts",
-        "!src/model/TtscGraphSourceReader.ts",
-        "!src/model/TtscLintDaemon.ts",
-        "!src/server/startServer.ts"
-      ],
-      "symbol": [
-        "type",
-        "function"
-      ],
-      "reference": {
-        "type": "markdown",
-        "root": "../../.agents/skills",
-        "files": [
-          "contracts/common.md"
-        ],
-        "symbol": "h2",
-        "checklist": true
-      }
-    },
-    {
-      "name": "computation, reuse and retention owners",
-      "type": "typescript",
-      "files": [
-        "src/reduce.ts",
-        "src/TtscGraphViewSnapshot.ts",
-        "src/model/TtscGraphMemory.ts",
-        "src/model/TtscGraphProtocol.ts",
-        "src/model/copyGraphRecords.ts",
-        "src/model/copyGraphSnapshot.ts",
-        "src/model/TtscGraphSessionState.ts",
-        "src/model/TtscGraphShardStore.ts",
-        "src/model/TtscLintDaemonState.ts",
-        "src/server/run*.ts",
-        "src/server/resolveHandle.ts",
-        "src/server/exportSurface.ts"
-      ],
-      "symbol": [
-        "type",
-        "function"
-      ],
+      "files": ["src/**/*.ts"],
+      "symbol": ["type", "function"],
       "reference": {
         "type": "markdown",
         "root": "../../.agents/skills",
         "files": [
           "contracts/common.md",
+          "contracts/portability.md",
           "contracts/performance.md"
-        ],
-        "symbol": "h2",
-        "checklist": true
-      }
-    },
-    {
-      "name": "path and process boundary owners",
-      "type": "typescript",
-      "files": [
-        "src/runGraph.ts",
-        "src/launcherArgs.ts",
-        "src/resolveGraphBinary.ts",
-        "src/TtscGraphLauncherArguments.ts",
-        "src/model/TtscGraphNativeArguments.ts"
-      ],
-      "symbol": [
-        "type",
-        "function"
-      ],
-      "reference": {
-        "type": "markdown",
-        "root": "../../.agents/skills",
-        "files": [
-          "contracts/common.md",
-          "contracts/portability.md"
-        ],
-        "symbol": "h2",
-        "checklist": true
-      }
-    },
-    {
-      "name": "native process and filesystem owners",
-      "type": "typescript",
-      "files": [
-        "src/view.ts",
-        "src/nativeExecutable.ts",
-        "src/model/loadGraph.ts",
-        "src/model/publishedArtifacts.ts",
-        "src/model/TtscGraphLinePeer.ts",
-        "src/model/TtscGraphSession.ts",
-        "src/model/TtscGraphSourceReader.ts",
-        "src/model/TtscLintDaemon.ts",
-        "src/server/startServer.ts"
-      ],
-      "symbol": [
-        "type",
-        "function"
-      ],
-      "reference": {
-        "type": "markdown",
-        "root": "../../.agents/skills",
-        "files": [
-          "contracts/common.md",
-          "contracts/performance.md",
-          "contracts/portability.md"
         ],
         "symbol": "h2",
         "checklist": true

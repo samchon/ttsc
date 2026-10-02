@@ -29,6 +29,7 @@ interface Pending {
  * @evidenceExclude contracts/performance.md#efficient-algorithms graph/receive/close own admission, frame processing and retirement; this declaration groups their retained state.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work graph/receive/close establish continued peer/model reuse, not the class descriptor independently.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources graph/receive/close control acquisition and release; the class declaration adds no separate lifecycle transition.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphSessionState declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export class TtscGraphSessionState {
   private child: TtscGraphLinePeer.Connection | undefined;
@@ -53,6 +54,7 @@ export class TtscGraphSessionState {
    * @evidence contracts/performance.md#efficient-algorithms This constant-time reference check scans no pending or shard population.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The query returns current ownership and coordinates no completed computation.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It acquires or releases nothing; graph and close own the queried peer.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphSessionState.prototype.hasPeer operates on in-memory values and performs no filesystem, path or process operation.
    */
   public hasPeer(): boolean { return this.child !== undefined; }
 
@@ -66,6 +68,7 @@ export class TtscGraphSessionState {
    * @evidence contracts/performance.md#efficient-algorithms Unchanged requests admit and correlate one frame then reuse memory; changed transactions additionally validate shards and rebuild graph indexes, proportional to their facts.
    * @evidence contracts/performance.md#reuse-equivalent-work Current memory is reusable only when the validated native envelope says unchanged; retirement clears memory/shards and a changed generation replaces them atomically.
    * @evidence contracts/performance.md#bound-retention-and-release-resources One current peer/model/store is retained; pending and queued tasks grow with caller demand, and settlement or cancellation removes abort listeners and pending entries.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphSessionState.prototype.graph operates on in-memory values and performs no filesystem, path or process operation.
    */
   public graph(
     options: { signal?: AbortSignal } = {},
@@ -125,6 +128,7 @@ export class TtscGraphSessionState {
    * @evidence contracts/performance.md#efficient-algorithms Shutdown invokes the artifact host once and visits pending owners once; the actual peer adapter owns any native kill timer.
    * @evidence contracts/performance.md#reuse-equivalent-work Closure ends this owner's permission to reuse native Program, model and sidecars; subsequent graph calls reject.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The host retires artifact sidecars, pending listeners are removed, current model/shards are cleared and peer.close transfers reader/process disposal to its actual adapter.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphSessionState.prototype.close operates on in-memory values and performs no filesystem, path or process operation.
    */
   public close(): Promise<void> {
     if (this.closing !== undefined) return this.closing;
@@ -291,6 +295,7 @@ export class TtscGraphSessionState {
    * @evidence contracts/performance.md#efficient-algorithms Schema checks and pending-map lookup are constant-time before one settlement; body facts are processed by refresh only for the matching request.
    * @evidence contracts/performance.md#reuse-equivalent-work This routes a validated frame; refresh alone permits memory reuse after an unchanged response, and schema failure clears the reusable peer generation.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Settlement removes exactly one pending entry and its abort listener; mismatch retirement clears this peer's current model/store and fails its pending owners.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphSessionState.prototype.receive operates on in-memory values and performs no filesystem, path or process operation.
    */
   public receive(child: TtscGraphLinePeer.Connection, response: ITtscGraphSnapshot): void {
     if (this.child !== child) return;
@@ -377,6 +382,7 @@ export namespace TtscGraphSessionState {
    * @evidenceExclude contracts/performance.md#efficient-algorithms This capability signature declares its result; its actual host implementation and graph operation own processing cost.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The signature describes a dependency; graph and actual artifact owner establish whether previous work may be reused.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature acquires no resource itself; its actual implementation and state close control lifetime.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphSessionState.Host declares a data shape or groups members and performs no filesystem, path or process operation.
    */
   export interface Host {
     /**
@@ -389,6 +395,7 @@ export namespace TtscGraphSessionState {
      * @evidenceExclude contracts/performance.md#efficient-algorithms This capability signature declares its result; its actual host implementation and graph operation own processing cost.
      * @evidenceExclude contracts/performance.md#reuse-equivalent-work The signature describes a dependency; graph and actual artifact owner establish whether previous work may be reused.
      * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature acquires no resource itself; its actual implementation and state close control lifetime.
+     * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphSessionState.Host.open operates on in-memory values and performs no filesystem, path or process operation.
      */
     open(events: TtscGraphLinePeer.Events): TtscGraphLinePeer.Connection;
 
@@ -402,6 +409,7 @@ export namespace TtscGraphSessionState {
      * @evidenceExclude contracts/performance.md#efficient-algorithms This capability signature declares its result; its actual host implementation and graph operation own processing cost.
      * @evidenceExclude contracts/performance.md#reuse-equivalent-work The signature describes a dependency; graph and actual artifact owner establish whether previous work may be reused.
      * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature acquires no resource itself; its actual implementation and state close control lifetime.
+     * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphSessionState.Host.decode operates on in-memory values and performs no filesystem, path or process operation.
      */
     decode(line: string): ITtscGraphSnapshot;
 
@@ -415,6 +423,7 @@ export namespace TtscGraphSessionState {
      * @evidenceExclude contracts/performance.md#efficient-algorithms This capability signature declares its result; its actual host implementation and graph operation own processing cost.
      * @evidenceExclude contracts/performance.md#reuse-equivalent-work The signature describes a dependency; graph and actual artifact owner establish whether previous work may be reused.
      * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature acquires no resource itself; its actual implementation and state close control lifetime.
+     * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphSessionState.Host.beforeRequest operates on in-memory values and performs no filesystem, path or process operation.
      */
     beforeRequest(signal?: AbortSignal): Promise<void>;
 
@@ -428,6 +437,7 @@ export namespace TtscGraphSessionState {
      * @evidenceExclude contracts/performance.md#efficient-algorithms This capability signature declares its result; its actual host implementation and graph operation own processing cost.
      * @evidenceExclude contracts/performance.md#reuse-equivalent-work The signature describes a dependency; graph and actual artifact owner establish whether previous work may be reused.
      * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature acquires no resource itself; its actual implementation and state close control lifetime.
+     * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphSessionState.Host.artifacts operates on in-memory values and performs no filesystem, path or process operation.
      */
     artifacts(): string | undefined;
 
@@ -441,6 +451,7 @@ export namespace TtscGraphSessionState {
      * @evidenceExclude contracts/performance.md#efficient-algorithms This capability signature declares its result; its actual host implementation and graph operation own processing cost.
      * @evidenceExclude contracts/performance.md#reuse-equivalent-work The signature describes a dependency; graph and actual artifact owner establish whether previous work may be reused.
      * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The signature acquires no resource itself; its actual implementation and state close control lifetime.
+     * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphSessionState.Host.close operates on in-memory values and performs no filesystem, path or process operation.
      */
     close(): void | Promise<void>;
   }

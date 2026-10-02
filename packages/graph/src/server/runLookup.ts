@@ -36,6 +36,7 @@ const MAX_LIMIT = 6;
  * @evidence contracts/performance.md#efficient-algorithms Scoring scans candidate nodes and their indexed incident edges, then sorts positive matches in O(M log M); signatures are attached only to the bounded shortlist.
  * @evidence contracts/performance.md#reuse-equivalent-work Name, citation and adjacency indexes are shared across lookups through the graph generation. Identical query result memoization is not implemented; each call produces a caller-owned mutable DTO.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Scored candidates and diversity maps are request-local; the returned shortlist is bounded by the request cap and no historical queries are retained.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation runLookup operates on in-memory values and performs no filesystem, path or process operation.
  */
 export function runLookup(
   graph: TtscGraphMemory,

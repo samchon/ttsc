@@ -10,6 +10,7 @@ import { parseDump } from "./model/loadGraph";
  * @evidenceExclude contracts/performance.md#efficient-algorithms decode owns validation work; the namespace groups its result contract.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work No result cache is owned by the namespace; runView owns the one-shot snapshot lifetime.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The grouping acquires no process/socket; decode transfers valid facts to runView.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphViewSnapshot declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export namespace TtscGraphViewSnapshot {
   /**
@@ -22,6 +23,7 @@ export namespace TtscGraphViewSnapshot {
    * @evidence contracts/performance.md#efficient-algorithms Shared JSON/schema validation is linear in submitted bytes and facts, followed by constant-count diagnostic prefix handling; no historical/project scan is introduced.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each supplied dump requires actual validation; runView reuses the subsequently reduced immutable HTTP payload.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only local parsed facts or diagnostic text are created; ownership transfers to the caller and no process, reader, socket or prior dump is retained.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphViewSnapshot.decode operates on in-memory values and performs no filesystem, path or process operation.
    */
   export function decode(text: string):
     | { ok: true; raw: ReturnType<typeof parseDump> }

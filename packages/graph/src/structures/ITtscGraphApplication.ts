@@ -101,6 +101,10 @@ import { ITtscGraphTrace } from "./ITtscGraphTrace";
  * @evidence contracts/common.md#clear-and-simple-design One tool owns graph dispatch; request branches keep their own shapes instead of independent nearly identical tools.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The instruction retains explicit escape and permits legitimate coverage follow-ups without forced graph calls.
  * @evidence contracts/common.md#meaningful-documentation Markdown-structured native documentation explains request choice, trust boundaries and ranked coverage before the tags.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphApplication declares a data shape or groups members and owns no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphApplication declares a data shape or groups members and chooses no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphApplication declares a data shape or groups members and coordinates no computation across requests.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphApplication declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export interface ITtscGraphApplication {
   /**
@@ -127,6 +131,10 @@ export interface ITtscGraphApplication {
    * @evidence contracts/common.md#clear-and-simple-design One method delegates branch semantics to the request union instead of duplicating parameter lists.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The supported method includes escape and does not require graph use for source bodies.
    * @evidence contracts/common.md#meaningful-documentation Native prose lists request responsibilities, distinguishes ranking coverage and explains the body-text boundary with param/return tags.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphApplication.inspect_typescript_graph acquires no handle or task and retains nothing beyond its return value.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphApplication.inspect_typescript_graph makes a bounded pass over its arguments and chooses no algorithm or data structure.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphApplication.inspect_typescript_graph computes its value from its arguments on each call and shares no completed or in-flight work.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphApplication.inspect_typescript_graph operates on in-memory values and performs no filesystem, path or process operation.
    */
   inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,
@@ -141,6 +149,10 @@ export namespace ITtscGraphApplication {
    * @evidence contracts/common.md#clear-and-simple-design The final request union owns branch-specific fields; shared selection context is stored once.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Escape remains in the union and question wording is not replaced by a hidden repository-specific prompt.
    * @evidence contracts/common.md#meaningful-documentation Native member comments explain question preservation, draft correction and one final branch.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphApplication.IProps declares a data shape or groups members and owns no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphApplication.IProps declares a data shape or groups members and chooses no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphApplication.IProps declares a data shape or groups members and coordinates no computation across requests.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphApplication.IProps declares a data shape or groups members and performs no filesystem, path or process operation.
    */
   export interface IProps {
     /**
@@ -179,6 +191,10 @@ export namespace ITtscGraphApplication {
    * @evidence contracts/common.md#clear-and-simple-design Two fields represent the draft without copying branch inputs before review.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The proposed operation remains caller-authored rather than a forced first call.
    * @evidence contracts/common.md#meaningful-documentation Native comments explain the selection reason and proposed request type in separate member blocks.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphApplication.IDraft declares a data shape or groups members and owns no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphApplication.IDraft declares a data shape or groups members and chooses no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphApplication.IDraft declares a data shape or groups members and coordinates no computation across requests.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphApplication.IDraft declares a data shape or groups members and performs no filesystem, path or process operation.
    */
   export interface IDraft {
     /** Why this is the smallest useful next step. */
@@ -195,6 +211,10 @@ export namespace ITtscGraphApplication {
    * @evidence contracts/common.md#clear-and-simple-design Shared audit/control fields wrap the existing result branches without duplicating their contents.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Ranked selection is explicitly heuristic and cannot be certified complete merely by valid node facts.
    * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain operation-aware audit and ranked coverage; member comments define next and matching result branch.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphApplication.IOutput declares a data shape or groups members and owns no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphApplication.IOutput declares a data shape or groups members and chooses no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphApplication.IOutput declares a data shape or groups members and coordinates no computation across requests.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphApplication.IOutput declares a data shape or groups members and performs no filesystem, path or process operation.
    */
   export interface IOutput {
     /**

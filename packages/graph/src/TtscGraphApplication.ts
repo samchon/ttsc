@@ -23,6 +23,10 @@ import { ITtscGraphEscape } from "./structures/ITtscGraphEscape";
  * @evidence contracts/common.md#clear-and-simple-design One provider boundary lets dispatch use fixed dumps and refreshing sessions without separate applications.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Refresh remains a supplied ownership boundary instead of foreign graph mutation.
  * @evidence contracts/common.md#meaningful-documentation The native headline states fixed versus synchronized generation and the provider's timing.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscGraphSource declares a data shape or groups members and owns no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms TtscGraphSource declares a data shape or groups members and chooses no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscGraphSource declares a data shape or groups members and coordinates no computation across requests.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphSource declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export type TtscGraphSource =
   | TtscGraphMemory
@@ -48,6 +52,10 @@ export type TtscGraphSource =
  * @evidence contracts/common.md#clear-and-simple-design The class binds one graph provider to pure runners, leaving traversal and ranking with their owning functions.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No forced first lookup or agent-specific call suppression is introduced; legitimate escape and incomplete coverage remain explicit.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain reflected tool wiring, provider refresh and source-free result ownership.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscGraphApplication declares a data shape or groups members and owns no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms TtscGraphApplication declares a data shape or groups members and chooses no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscGraphApplication declares a data shape or groups members and coordinates no computation across requests.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphApplication declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export class TtscGraphApplication implements ITtscGraphApplication {
   private readonly graph: () => TtscGraphMemory | Promise<TtscGraphMemory>;
@@ -67,6 +75,10 @@ export class TtscGraphApplication implements ITtscGraphApplication {
    * @evidence contracts/common.md#clear-and-simple-design The exhaustive switch owns only dispatch and audit choice; runners own graph semantics and the provider owns synchronization.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Escape does no indexing, and heuristic selection is not advertised as exhaustive compiler proof.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains provider timing, no-op escape and operation-specific completeness before the tags.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscGraphApplication.prototype.inspect_typescript_graph acquires no handle or task and retains nothing beyond its return value.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms TtscGraphApplication.prototype.inspect_typescript_graph makes a bounded pass over its arguments and chooses no algorithm or data structure.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscGraphApplication.prototype.inspect_typescript_graph computes its value from its arguments on each call and shares no completed or in-flight work.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphApplication.prototype.inspect_typescript_graph operates on in-memory values and performs no filesystem, path or process operation.
    */
   public async inspect_typescript_graph(
     props: ITtscGraphApplication.IProps,

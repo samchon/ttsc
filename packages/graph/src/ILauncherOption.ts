@@ -7,6 +7,10 @@ type OptionKind = "value" | "string" | "flag" | "boolean";
  * @evidence contracts/common.md#clear-and-simple-design One definition owns aliases and parsing mode so launchers share the same parser.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Accepted tokens are explicit launcher grammar, not special cases for expected command output.
  * @evidence contracts/common.md#meaningful-documentation Native member comments distinguish result key, accepted tokens and value/flag/boolean parsing.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ILauncherOption declares a data shape or groups members and owns no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ILauncherOption declares a data shape or groups members and chooses no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ILauncherOption declares a data shape or groups members and coordinates no computation across requests.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ILauncherOption declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export interface ILauncherOption {
   /** Canonical map key shared by every alias. */

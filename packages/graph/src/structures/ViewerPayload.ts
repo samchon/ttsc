@@ -8,6 +8,10 @@ import { ViewerNode } from "./ViewerNode";
  * @evidence contracts/common.md#clear-and-simple-design One payload carries drawing inputs and explanatory totals without preserving a second full raw graph.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Selection losses are exposed as counters rather than hidden to imply the full project was drawn.
  * @evidence contracts/common.md#meaningful-documentation Native member comments define each count's population and distinguish selected nodes from cap/boundary removals.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ViewerPayload declares a data shape or groups members and owns no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ViewerPayload declares a data shape or groups members and chooses no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ViewerPayload declares a data shape or groups members and coordinates no computation across requests.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ViewerPayload declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export interface ViewerPayload {
   /** Display project label, empty when not supplied. */

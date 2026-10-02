@@ -14,6 +14,10 @@ import { TtscGraphEdgeKind } from "./TtscGraphEdgeKind";
  * @evidence contracts/common.md#clear-and-simple-design One record separates relation identity from its source span, with no duplicated node payload.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Relation kinds come from the shared vocabulary rather than fixture-specific relationships.
  * @evidence contracts/common.md#meaningful-documentation Native documentation states edge uniqueness and first-source evidence semantics; member comments are visibly separated.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphEdge declares a data shape or groups members and owns no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphEdge declares a data shape or groups members and chooses no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphEdge declares a data shape or groups members and coordinates no computation across requests.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphEdge declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export interface ITtscGraphEdge {
   /** Node id the relationship originates from. */

@@ -5,6 +5,10 @@
  * @evidence contracts/common.md#clear-and-simple-design The reason and optional next step explain the no-op without carrying graph state.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Escape is an explicit caller choice, not a hidden suppression of legitimate graph requests.
  * @evidence contracts/common.md#meaningful-documentation Field comments explain the no-op and optional follow-up; prose and tags have a blank separator.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphEscape declares a data shape or groups members and owns no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphEscape declares a data shape or groups members and chooses no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphEscape declares a data shape or groups members and coordinates no computation across requests.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphEscape declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export interface ITtscGraphEscape {
   /** Discriminator for the no-op escape route. */
@@ -28,6 +32,10 @@ export namespace ITtscGraphEscape {
    * @evidence contracts/common.md#clear-and-simple-design Only the reason and optional next step are needed for the escape boundary.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The branch provides a supported escape without caps, cooldowns or forced graph use.
    * @evidence contracts/common.md#meaningful-documentation Native comments identify non-graph evidence and explain when source spans justify reading a body.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphEscape.IRequest declares a data shape or groups members and owns no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphEscape.IRequest declares a data shape or groups members and chooses no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphEscape.IRequest declares a data shape or groups members and coordinates no computation across requests.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphEscape.IRequest declares a data shape or groups members and performs no filesystem, path or process operation.
    */
   export interface IRequest {
     /** Discriminator for the no-op escape route. */

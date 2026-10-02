@@ -35,6 +35,10 @@ import { IArtifactInputs } from "./IArtifactInputs";
  * @evidence contracts/common.md#clear-and-simple-design The result separates the producer exchange path, input inventory and freshness identity without embedding compiler Program state.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A null file states an absent publication, not an invented artifact set or a successful compiler capability claim.
  * @evidence contracts/common.md#meaningful-documentation Native member prose explains publication absence, independent document inputs and the fingerprint's ordering role.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IPublishedArtifacts declares a data shape or groups members and owns no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms IPublishedArtifacts declares a data shape or groups members and chooses no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work IPublishedArtifacts declares a data shape or groups members and coordinates no computation across requests.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation IPublishedArtifacts declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export interface IPublishedArtifacts {
   /**

@@ -9,6 +9,10 @@
  * @evidence contracts/common.md#clear-and-simple-design Name and ordered arguments are the complete decorator envelope; argument details have their own record.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No framework-specific decorator names are encoded as special cases.
  * @evidence contracts/common.md#meaningful-documentation Native comments distinguish written names, source ordering and statically resolvable arguments in separate paragraphs.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphDecorator declares a data shape or groups members and owns no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphDecorator declares a data shape or groups members and chooses no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphDecorator declares a data shape or groups members and coordinates no computation across requests.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphDecorator declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export interface ITtscGraphDecorator {
   /**
@@ -30,6 +34,10 @@ export namespace ITtscGraphDecorator {
    * @evidence contracts/common.md#clear-and-simple-design One optional value carries the argument fact without embedding expression bodies.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The representation does not evaluate an argument or substitute a guessed value.
    * @evidence contracts/common.md#meaningful-documentation The argument comment explains absence and the literal-only boundary, with a blank line before acknowledgment tags.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphDecorator.IArgument declares a data shape or groups members and owns no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphDecorator.IArgument declares a data shape or groups members and chooses no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphDecorator.IArgument declares a data shape or groups members and coordinates no computation across requests.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphDecorator.IArgument declares a data shape or groups members and performs no filesystem, path or process operation.
    */
   export interface IArgument {
     /** The statically-resolved literal value, when the argument is a literal. */

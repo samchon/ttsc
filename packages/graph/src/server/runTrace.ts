@@ -59,6 +59,7 @@ const DISPATCH_HUB = 12;
  * @evidence contracts/performance.md#efficient-algorithms A visited set prevents repeated node expansion; indexed adjacency bounds work to inspected frontier edges, though dense degrees and reverse dispatch can exceed the returned node cap and path mode expands every node within its depth bound, O(V + E) in the worst case, because only open traces have a node cap.
  * @evidence contracts/performance.md#reuse-equivalent-work Forward/reverse operations share immutable generation indexes and resolution helpers; completed trace memoization is not implemented because each request currently creates a mutable result.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Visited/frontier sets and omitted dispatch candidates exist only during the request; node/depth caps bound selected output, not every dense frontier edge inspected, and path mode has no node cap, so its visited set and parent map grow with the nodes reachable within its 12-hop depth bound until the call returns.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation runTrace operates on in-memory values and performs no filesystem, path or process operation.
  */
 export function runTrace(
   graph: TtscGraphMemory,
@@ -956,6 +957,7 @@ function reverseDispatchEdges(
  * @evidence contracts/performance.md#efficient-algorithms Kind and modifier checks are constant or modifier-count work, followed by indexed containing-owner traversal rather than a graph-wide scan.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This shared declaration predicate coordinates no completed or in-flight work; trace and centrality own their producer reuse.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The predicate borrows graph facts and acquires no handle, task or retained cache.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation hasDeclarationBody operates on in-memory values and performs no filesystem, path or process operation.
  */
 export function hasDeclarationBody(
   graph: TtscGraphMemory,

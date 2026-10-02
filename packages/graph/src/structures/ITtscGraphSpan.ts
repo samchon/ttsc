@@ -16,6 +16,10 @@
  * @evidence contracts/common.md#clear-and-simple-design The compact wire shape stays separate from the fully qualified memory evidence shape.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cross-file implementations retain their explicit file instead of being forced into the owner's path.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain reconstruction ownership and member comments state coordinate units and file absence semantics.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphSpan declares a data shape or groups members and owns no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphSpan declares a data shape or groups members and chooses no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphSpan declares a data shape or groups members and coordinates no computation across requests.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphSpan declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export interface ITtscGraphSpan {
   /**

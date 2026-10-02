@@ -31,6 +31,10 @@
  * @evidence contracts/common.md#clear-and-simple-design Parsing authority remains with the compiler; the record carries only its two reported facts.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No tag-name allowlist or consumer-specific reinterpretation replaces compiler parsing.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain unknown tags, unresolved targets, inline links and absent text rather than repeating field types.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphDocTag declares a data shape or groups members and owns no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphDocTag declares a data shape or groups members and chooses no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphDocTag declares a data shape or groups members and coordinates no computation across requests.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphDocTag declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export interface ITtscGraphDocTag {
   /** The tag name without its `@`: `evidence`, `evidenceExclude`, `reference`. */

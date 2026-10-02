@@ -80,6 +80,7 @@ const TOUR_SEED_KINDS = new Set<ITtscGraphNode["kind"]>([
  * @evidence contracts/performance.md#efficient-algorithms Centrality scans graph candidates once, with per-candidate reach limited to four levels and not deepened once 400 nodes have been seen, so a single dense level can exceed 400 and the reach work is bounded by depth rather than by that budget; sorting costs O(V log V), while returned flows have fixed seed and trace budgets.
  * @evidence contracts/performance.md#reuse-equivalent-work Centrality is shared through a WeakMap keyed by the owned frozen graph generation; a new graph computes its own ranks, while request-specific query alignment remains separate.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Cached rank maps remain reachable only while their graph key is reachable; request-local candidate sets and bounded flows are returned or released at completion.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation runTour operates on in-memory values and performs no filesystem, path or process operation.
  */
 export function runTour(
   graph: TtscGraphMemory,

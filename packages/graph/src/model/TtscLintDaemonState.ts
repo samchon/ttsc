@@ -14,6 +14,7 @@ import { TtscGraphLinePeer } from "./TtscGraphLinePeer";
  * @evidenceExclude contracts/performance.md#efficient-algorithms ask/close own admission, frame processing and retirement; this declaration groups their retained state.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work ask/close establish continued peer/model reuse, not the class descriptor independently.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ask/close control acquisition and release; the class declaration adds no separate lifecycle transition.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintDaemonState declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export class TtscLintDaemonState {
   private child: TtscGraphLinePeer.Connection | undefined;
@@ -44,6 +45,7 @@ export class TtscLintDaemonState {
    * @evidence contracts/performance.md#efficient-algorithms Each request writes and decodes one JSON frame; queue work is linear in serialized frame bytes with one active reply.
    * @evidence contracts/performance.md#reuse-equivalent-work The same target/project sidecar retains process, plugin load and configuration across verbs; invalidate explicitly retires warm Program facts when input generations change.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The daemon owns one child and reader; close settles pending replies and delegates joined EOF shutdown to the actual adapter, while queued promises remain proportional to submitted caller demand.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintDaemonState.prototype.ask operates on in-memory values and performs no filesystem, path or process operation.
    */
   public ask(verb: string, invalidate: boolean): Promise<string | null> {
     const run = this.queue.then(() => this.send(verb, invalidate));
@@ -64,6 +66,7 @@ export class TtscLintDaemonState {
    * @evidence contracts/performance.md#efficient-algorithms Closing visits outstanding reply callbacks once and clears the reader/child references.
    * @evidence contracts/performance.md#reuse-equivalent-work Closure retires this target's reusable process permanently; later calls return the supported direct-fallback indication.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Both normal and failed shutdown settle pending callbacks, close readline and end/kill the owned process; the returned completion still joins stdio after process exit and rejects unknown or forced termination.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintDaemonState.prototype.close operates on in-memory values and performs no filesystem, path or process operation.
    */
   public close(): Promise<void> {
     if (this.closing !== undefined) return this.closing;

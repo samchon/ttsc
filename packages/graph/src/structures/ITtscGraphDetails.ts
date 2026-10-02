@@ -11,6 +11,10 @@ import { ITtscGraphEvidence } from "./ITtscGraphEvidence";
  * @evidence contracts/common.md#clear-and-simple-design The envelope keeps resolution status outside each node's declaration shape.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Ambiguous names retain candidates instead of selecting a convenient declaration.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain source-free details and why ambiguity requires exact ids.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphDetails declares a data shape or groups members and owns no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphDetails declares a data shape or groups members and chooses no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphDetails declares a data shape or groups members and coordinates no computation across requests.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphDetails declares a data shape or groups members and performs no filesystem, path or process operation.
  */
 export interface ITtscGraphDetails {
   /** Discriminator for selected symbol inspection. */
@@ -41,6 +45,10 @@ export namespace ITtscGraphDetails {
    * @evidence contracts/common.md#clear-and-simple-design One request groups projection options around the handles they inspect.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Limits are documented caller choices; complete members are the default rather than a hidden sample.
    * @evidence contracts/common.md#meaningful-documentation Native comments explain default bounds, external inclusion and when trace should replace a wider details request.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphDetails.IRequest declares a data shape or groups members and owns no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphDetails.IRequest declares a data shape or groups members and chooses no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphDetails.IRequest declares a data shape or groups members and coordinates no computation across requests.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphDetails.IRequest declares a data shape or groups members and performs no filesystem, path or process operation.
    */
   export interface IRequest {
     /** Discriminator for selected symbol inspection. */
@@ -102,6 +110,10 @@ export namespace ITtscGraphDetails {
    * @evidence contracts/common.md#clear-and-simple-design Two fields keep the unresolved choice separate from inspected node facts.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts No candidate is promoted to a resolved node solely to avoid clarification.
    * @evidence contracts/common.md#meaningful-documentation Native comments explain submitted spelling and candidate ids for a follow-up selection.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphDetails.IAmbiguity declares a data shape or groups members and owns no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphDetails.IAmbiguity declares a data shape or groups members and chooses no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphDetails.IAmbiguity declares a data shape or groups members and coordinates no computation across requests.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphDetails.IAmbiguity declares a data shape or groups members and performs no filesystem, path or process operation.
    */
   export interface IAmbiguity {
     /** The handle as submitted. */
@@ -118,6 +130,10 @@ export namespace ITtscGraphDetails {
    * @evidence contracts/common.md#clear-and-simple-design Only disambiguation facts are carried rather than a full details payload.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Candidate names do not replace exact identity when selecting one declaration.
    * @evidence contracts/common.md#meaningful-documentation Comments state follow-up id usage, qualified names and optional one-based line.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphDetails.ICandidate declares a data shape or groups members and owns no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphDetails.ICandidate declares a data shape or groups members and chooses no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphDetails.ICandidate declares a data shape or groups members and coordinates no computation across requests.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphDetails.ICandidate declares a data shape or groups members and performs no filesystem, path or process operation.
    */
   export interface ICandidate {
     /** Stable node id: submit this as the handle to select this one. */
@@ -143,6 +159,10 @@ export namespace ITtscGraphDetails {
    * @evidence contracts/common.md#clear-and-simple-design Independent optional facets support the same node without embedding bodies or a second graph snapshot.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Documentation tags remain reported claims, and missing literal enumeration stays absent rather than guessed from signatures.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain complete literals and members versus sliced relationships, tag interpretation limits and implementation coordinates.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphDetails.INode declares a data shape or groups members and owns no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphDetails.INode declares a data shape or groups members and chooses no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphDetails.INode declares a data shape or groups members and coordinates no computation across requests.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphDetails.INode declares a data shape or groups members and performs no filesystem, path or process operation.
    */
   export interface INode {
     /** Stable node id for subsequent `details` or `trace` calls. */
@@ -227,6 +247,10 @@ export namespace ITtscGraphDetails {
    * @evidence contracts/common.md#clear-and-simple-design The outline omits relationships and bodies owned by deeper node inspection.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional signature and decorators are available source facts rather than synthesized member content.
    * @evidence contracts/common.md#meaningful-documentation Comments distinguish qualified member names, one-based lines and declaration signatures.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphDetails.IMember declares a data shape or groups members and owns no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphDetails.IMember declares a data shape or groups members and chooses no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphDetails.IMember declares a data shape or groups members and coordinates no computation across requests.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphDetails.IMember declares a data shape or groups members and performs no filesystem, path or process operation.
    */
   export interface IMember {
     /** Member name, qualified when the graph records an owner-qualified handle. */
@@ -252,6 +276,10 @@ export namespace ITtscGraphDetails {
    * @evidence contracts/common.md#clear-and-simple-design Node presentation and relation cause share one compact record without repeating source bodies.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A source span is citation evidence, not an invented instruction to verify the graph's fact.
    * @evidence contracts/common.md#meaningful-documentation Native comments explain stable handles, relation kinds and evidence as coordinates rather than file-read cues.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphDetails.IReference declares a data shape or groups members and owns no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphDetails.IReference declares a data shape or groups members and chooses no algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphDetails.IReference declares a data shape or groups members and coordinates no computation across requests.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphDetails.IReference declares a data shape or groups members and performs no filesystem, path or process operation.
    */
   export interface IReference {
     /** Stable id of the neighboring node. */
