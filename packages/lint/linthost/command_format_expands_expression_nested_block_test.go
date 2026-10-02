@@ -5,8 +5,8 @@ import (
   "testing"
 )
 
-// TestCommandFormatExpandsExpressionNestedBlock verifies every non-empty block
-// named by #922 expands in expression position exactly as Prettier does.
+// TestCommandFormatExpandsExpressionNestedBlock verifies eight authored
+// non-empty expression-position block layouts through the format command.
 //
 // Object members, statement bodies, and call-bodied arrows are all structured
 // printer paths now. That lets the print-width rule deny its flat fast path for
@@ -15,11 +15,11 @@ import (
 //
 //  1. Put non-empty blocks in object, call, array, conditional, and nested-arrow
 //     expression positions.
-//  2. Run `ttsc format` and compare with the Prettier 3.8.3 answer key.
+//  2. Run format and compare with the complete authored expected files.
 //  3. Run a second pass and require idempotence.
 //
 // @evidence contracts/testing.md#behavioral-verification Eight subcases run the in-process `format` command on one-line sources with non-empty blocks in expression position (object method, callback, function expression, array element, conditional arms, parenthesized object body, call-bodied arrow, comment-only block) and require the exact expanded text, then a second run that must leave it unchanged.
-// @evidence contracts/testing.md#independent-expectations Each expected output is an authored literal, documented in the test comments as measured against Prettier 3.8.3 (not re-verified by this unit); the second-pass check is an idempotence check layered on top of the literal comparison.
+// @evidence contracts/testing.md#independent-expectations The eight authored complete literals require statements, comments and expression structure to survive while non-empty blocks gain multiline layout. No expected output is derived from the formatter; the second-call comparison separately checks stability, and this unit does not run an independent Prettier oracle.
 // @evidence contracts/testing.md#distinguishing-cases Eight distinct expression-position shapes each must change from one line to a broken block; the comment-only block is treated as non-empty. The empty-block counterpart that must stay flat is owned by TestCommandFormatKeepsEmptyExpressionNestedBlock.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase seeds a temp-dir project and calls run with the format subcommand through formatOnceForBrace; no child process, built binary or installed consumer.
 func TestCommandFormatExpandsExpressionNestedBlock(t *testing.T) {
