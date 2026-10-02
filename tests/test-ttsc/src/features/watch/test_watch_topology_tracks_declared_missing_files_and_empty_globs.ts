@@ -217,8 +217,9 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       write(externalFile, "external\n", "utf8");
       await waitForNextProjectChange(changes, previousProjectChanges);
 
+      const beforeReadme = changes.length;
       write(path.join(root, "README.md"), "unrelated\n", "utf8");
-      await waitForQuiet(changes);
+      await waitForQuiet(changes, beforeReadme);
 
       assert.equal(
         projectInputEventShouldNotify({
@@ -264,8 +265,9 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       write(path.join(root, "api", "v1", "openapi.json"), "{}\n");
       await waitForNextProjectChange(changes, previousProjectChanges);
 
+      const beforeUnrelated = changes.length;
       write(path.join(root, "unrelated.tmp"), "unrelated\n");
-      await waitForQuiet(changes);
+      await waitForQuiet(changes, beforeUnrelated);
       previousProjectChanges = projectChangeCount(changes);
       write(path.join(root, "api", "v1", "openapi.json"), '{"changed":true}\n');
       await waitForNextProjectChange(changes, previousProjectChanges);
@@ -273,12 +275,13 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       const movedDocs = path.join(root, "docs-old");
       const replacementDocs = path.join(root, "docs-new");
       fs.mkdirSync(path.join(replacementDocs, "nested"), { recursive: true });
+      const beforeReplacementPreparation = changes.length;
       write(
         path.join(replacementDocs, "nested", "missing.md"),
         "replacement\n",
         "utf8",
       );
-      await waitForQuiet(changes);
+      await waitForQuiet(changes, beforeReplacementPreparation);
       previousProjectChanges = projectChangeCount(changes);
       await rename(path.join(root, "docs"), movedDocs);
       await rename(replacementDocs, path.join(root, "docs"));
@@ -315,20 +318,22 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       await waitForNextProjectChange(changes, previousProjectChanges);
 
       fs.mkdirSync(path.join(root, "dist", "src"), { recursive: true });
+      const beforeProduct = changes.length;
       write(path.join(root, "dist", "src", "main.js"), "export {};\n");
-      await waitForQuiet(changes);
+      await waitForQuiet(changes, beforeProduct);
 
       topology.setProjectInputs({
         root,
         files: [path.join(root, "docs", "nested", "next.md")],
         globs: [],
       });
+      const beforeRemoved = changes.length;
       write(
         path.join(root, "docs", "nested", "missing.md"),
         "removed\n",
         "utf8",
       );
-      await waitForQuiet(changes);
+      await waitForQuiet(changes, beforeRemoved);
       previousProjectChanges = projectChangeCount(changes);
       write(path.join(root, "docs", "nested", "next.md"), "next\n", "utf8");
       await waitForNextProjectChange(changes, previousProjectChanges);
@@ -341,6 +346,7 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       );
     } finally {
       topology.close();
+      assert.ok(observed.watchers.every((watcher) => watcher.active === false));
     }
   };
 
@@ -364,10 +370,12 @@ function projectChangeCount(changes: readonly WatchInputChange[]): number {
 
 async function waitForQuiet(
   changes: readonly WatchInputChange[],
+  previous: number,
 ): Promise<void> {
   const count = changes.length;
   await delay();
   assert.equal(changes.length, count, JSON.stringify(changes.slice(count)));
+  assert.equal(changes.length, previous, JSON.stringify(changes.slice(previous)));
 }
 
 function delay(milliseconds = 250): Promise<void> {

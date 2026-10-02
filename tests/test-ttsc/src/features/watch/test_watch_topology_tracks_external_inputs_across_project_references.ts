@@ -9,7 +9,6 @@ import {
   type IRecordedWatcher,
   deliverWatchEvent,
   recordWatchers,
-  settleWatchEvents,
 } from "../../../../utils/src/RecordedWatchers";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -124,6 +123,7 @@ export const test_watch_topology_tracks_external_inputs_across_project_reference
       await nextProjectChange(changes, previous);
     } finally {
       topology.close();
+      assert.ok(watchers.every((watcher) => watcher.active === false));
     }
   };
 
@@ -149,6 +149,7 @@ async function quiet(changes: readonly WatchInputChange[]): Promise<void> {
   const count = changes.length;
   await delay();
   assert.equal(changes.length, count, JSON.stringify(changes.slice(count)));
+  assert.deepEqual(changes, []);
 }
 
 function delay(milliseconds = 250): Promise<void> {
