@@ -43,10 +43,11 @@ func (reporter *capturedProjectReporter) SetState(state any) {
 // runGraphHints drives the graph rule and returns the corpus a consumer would
 // actually receive, together with whatever the rule reported.
 //
-// The gate is reproduced here rather than bypassed. `linthost/hints.go:147-149`
-// skips a rule whose snapshot is not `ProjectRulePassed` or whose state is nil,
-// and `projectReporter.Report` marks a rule failed unconditionally
-// (`linthost/project_engine.go:68-77`). Calling `Hints` directly would answer a
+// The gate is reproduced here rather than bypassed. `collectProjectHints` in
+// `linthost/hints.go` skips a rule whose snapshot is not `ProjectRulePassed` or
+// whose state is nil, and `projectReporter.ReportSeverity` in
+// `linthost/project_engine.go` marks an active rule failed on any report whose
+// severity is not off. Calling `Hints` directly would answer a
 // question no editor asks — what the rule *could* publish — while the behavior
 // under test is what an author sees, which is nothing on the cycle an
 // obligation goes unmet.

@@ -10,17 +10,17 @@ import (
 // graphCorpus is what a passing Check publishes for Hints to project.
 //
 // It carries the inventories Check already built rather than the paths to
-// rebuild them from. The graph loads Markdown and Swagger to do its own job, so
-// handing that result forward costs a build nothing; reloading inside Hints
-// would read every source a second time to answer a question the rule had just
-// finished answering.
+// rebuild them from. The graph loads Markdown, Prisma and Swagger to do its own
+// job, so handing that result forward costs a build nothing; reloading inside
+// Hints would read every source a second time to answer a question the rule had
+// just finished answering.
 //
 // What the editor path does pay is Check itself. A hints request runs a fresh
-// project cycle (`linthost/hints.go:74`), so every source the graph reads is
-// read again there. Local documents are validated by content; successful
-// HTTP(S) Swagger documents are reused for the process lifetime, while failed
-// fetches are retried. A source that fails to load
-// is reported by Check, which fails the rule, which withdraws the corpus.
+// project cycle (`linthost.collectProjectHints` over `runProjectCycle`), so
+// every source the graph reads is read again there. Local Swagger documents are
+// validated by content, and successful HTTP(S) Swagger documents are reused for
+// the process lifetime while failed fetches are retried. A source that fails to
+// load is reported by Check, which fails the rule, which withdraws the corpus.
 type graphCorpus struct {
   Config   graphConfig
   Markdown map[string]*artifactInventory
@@ -70,14 +70,13 @@ func (gate *programDiagnosticGate) first(key string) bool {
 // here can be computed per keystroke.
 //
 // The corpus is available only while the graph passes, and that is a host gate
-// rather than a choice made here. `linthost/hints.go:147-149` skips a rule whose
-// snapshot is not `ProjectRulePassed` or whose state is nil, and
-// `projectReporter.Report` sets `failed = true` unconditionally
-// (`linthost/project_engine.go:68-77`). So the cycle that reports an unmet
-// obligation is the cycle that withdraws the completions — which is the cycle an
-// author is most likely to be writing a citation in. Nothing in this package can
-// widen that; it widens upstream, by letting a project rule publish state it
-// reported against.
+// rather than a choice made here. `linthost.collectProjectHints` skips a rule
+// whose snapshot is not `ProjectRulePassed` or whose state is nil, and
+// `projectReporter.ReportSeverity` marks the rule failed on every finding that
+// is not severity off. So the cycle that reports an unmet obligation is the
+// cycle that withdraws the completions, which is the cycle an author is most
+// likely to be writing a citation in. Nothing in this package can widen that; it
+// widens upstream, by letting a project rule publish state it reported against.
 func (graphRule) Hints(ctx *rule.HintContext) []rule.Hint {
   if ctx == nil {
     return nil
@@ -175,7 +174,8 @@ func selectsTypeScriptReference(config graphConfig, exclusion bool) bool {
 // author cannot supply from memory. A heading's generated anchor is neither
 // visible in the project tree nor guessable from its text, so selected headings
 // come first; a Markdown file path is typed as easily as it is read, so file
-// targets follow; Swagger operations come last, being both few and mechanical.
+// targets follow; Swagger operations come next, being both few and mechanical,
+// and Prisma models and their fields come last.
 //
 // Order therefore serves the author who is still browsing, and the filter
 // serves the one who is not. No hint sets Label, so the editor lists and

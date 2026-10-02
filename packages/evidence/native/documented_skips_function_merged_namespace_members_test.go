@@ -9,9 +9,9 @@ import (
  *
  * The correction belongs to the unit collection every rule shares, not to the
  * graph rule alone. If it did not reach here, a consumer selecting function
- * hosts would still be told to write a JSDoc block on `get.path`, `get.random`,
- * and `get.simulate` , declarations that are no longer part of the public
- * surface at all.
+ * hosts would still be told to write a JSDoc block on `get.path` and
+ * `get.simulate`, declarations that are no longer part of the public surface at
+ * all.
  *
  *  1. Document the accessor and leave its static members bare.
  *  2. Run the documented rule over function hosts.

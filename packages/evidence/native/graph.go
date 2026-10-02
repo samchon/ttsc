@@ -124,7 +124,9 @@ func (graphRule) Check(ctx *rule.ProjectContext) {
   if len(diagnostics) == 0 {
     // Published only on a clean evaluation, because the host reads state
     // from a rule that passed and reporting anything marks this one failed
-    // (`linthost/hints.go:147-149`, `linthost/project_engine.go:68-77`).
+    // (`collectProjectHints` in `linthost/hints.go` skips a rule whose status is
+    // not passed, and `projectReporter` in `linthost/project_engine.go` marks a
+    // rule failed once it reports).
     // Setting it unconditionally would not widen the gate; it would only
     // hide where the gate is.
     cycle.Corpus = graphCorpus{
@@ -949,9 +951,16 @@ func evaluateEvidenceGraph(
           for _, unit := range covered {
             targets = append(targets, "'"+unit.Target+"'")
           }
+          // The exclusion alternative is offered only where this reference
+          // accepts one: a checklist is the pairing `noEvidenceExclude` is allowed
+          // beside, and there the exclusion would be refused as forbidden.
+          repair := "Cite each item this host answers for, or write @evidenceExclude on this scope when none of it applies here."
+          if reference.Spec.Policy.NoExclude {
+            repair = "Cite each item this host answers for; this reference forbids @evidenceExclude."
+          }
           problems = problems.add(
             severity,
-            "Aggregate @evidence target '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": this reference is a checklist, so a citation answers for the item it names, and this target names a scope containing "+decimal(len(covered))+" item(s) ("+strings.Join(targets, ", ")+") rather than one of them. Cite each item this host answers for, or write @evidenceExclude on this scope when none of it applies here."+untrueTagWarning,
+            "Aggregate @evidence target '"+scopesByID[scopeID].Target+"' at "+declaration.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": this reference is a checklist, so a citation answers for the item it names, and this target names a scope containing "+decimal(len(covered))+" item(s) ("+strings.Join(targets, ", ")+") rather than one of them. "+repair+untrueTagWarning,
           )
           for _, unit := range covered {
             for _, hostID := range keyHosts {
@@ -988,7 +997,7 @@ func evaluateEvidenceGraph(
           if first := byScope[scopeID]; first != nil {
             problems = problems.add(
               severity,
-              "Duplicate @evidence for '"+scopesByID[scopeID].Target+"' on the same host at "+declaration.location()+"; first declared at "+first.location()+".",
+              "Duplicate @evidence for '"+scopesByID[scopeID].Target+"' on the same host at "+declaration.location()+"; first declared at "+first.location()+". Delete the repeated citation.",
             )
           } else {
             byScope[scopeID] = declaration
@@ -1096,13 +1105,13 @@ func evaluateEvidenceGraph(
           }
           problems = problems.add(
             severity,
-            "Conflicting acknowledgements for '"+conflictingUnit.Target+"' in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": @evidence at "+evidence.location()+" overlaps @evidenceExclude at "+exclusion.location()+". Delete whichever is untrue of this host."+untrueTagWarning,
+            "Conflicting acknowledgements for '"+conflictingUnit.Target+"' in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": @evidence at "+evidence.location()+" overlaps @evidenceExclude at "+exclusion.location()+". Delete whichever of the two is untrue."+untrueTagWarning,
           )
         }
         if duplicateExclusionUnit != nil {
           problems = problems.add(
             severity,
-            "Duplicate @evidenceExclude for '"+duplicateExclusionUnit.Target+"' in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": exclusion at "+declaration.location()+" overlaps exclusion at "+firstExclusion.location()+".",
+            "Duplicate @evidenceExclude for '"+duplicateExclusionUnit.Target+"' in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+": exclusion at "+declaration.location()+" overlaps exclusion at "+firstExclusion.location()+". Delete one of the two exclusions.",
           )
         }
       }
@@ -1120,7 +1129,7 @@ func evaluateEvidenceGraph(
           }
           problems = problems.add(
             severity,
-            "Evidence host "+host.Readable+" at "+host.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+" cites "+decimal(count)+" distinct selected evidence unit(s); singleEvidencePerSymbol requires exactly 1. Split this host so each unit has one that owns it, or keep positive @evidence citations on this semantic host to exactly one distinct unit.",
+            "Evidence host "+host.Readable+" at "+host.location()+" in "+claimLabel(state.Spec)+" "+referenceLabel(reference.Spec)+" cites "+decimal(count)+" distinct selected evidence unit(s); singleEvidencePerSymbol requires exactly 1. Keep positive @evidence citations on this semantic host to exactly one distinct unit: cite the one unit it answers for, or split the host so that each unit has a host of its own."+untrueTagWarning,
           )
         }
       }
@@ -1218,9 +1227,18 @@ func evaluateEvidenceGraph(
         host = "unsupported or non-exported declaration"
       }
       if declaration.Tag == tagExclude {
+        // The carriers differ by artifact kind, so the repair names only the ones
+        // this kind has: an unattached run exists in Prisma schemas alone.
+        repair := "Move the exclusion onto a selected host of the claim."
+        switch declaration.Type {
+        case artifactTypeScript:
+          repair = "Move the exclusion onto a supported public export in a matching claim file."
+        case artifactPrisma:
+          repair = "Move the exclusion onto a selected model, column, or relation, or into a top-level unattached '///' run in a matching claim file."
+        }
         problems = problems.add(
           outOfScopeLevels[id],
-          "Out-of-scope @evidenceExclude carrier at "+declaration.location()+" for "+strings.Join(obligations, "; ")+", target '"+displayTarget(declaration.Target)+"': '"+host+"' is not an eligible exclusion carrier in these matching claim files. Move the exclusion to a supported public export or selected declaration host, or use a top-level unattached Prisma documentation comment.",
+          "Out-of-scope @evidenceExclude carrier at "+declaration.location()+" for "+strings.Join(obligations, "; ")+", target '"+displayTarget(declaration.Target)+"': '"+host+"' is not an eligible exclusion carrier in these matching claim files. "+repair+untrueTagWarning,
         )
         continue
       }
@@ -1433,7 +1451,7 @@ func hiddenTargetProblem(
   hidden *evidenceUnit,
   context string,
 ) string {
-  return "Hidden evidence target '" + displayTarget(declaration.Target) + "' at " + declaration.location() + " for " + context + ": " + hidden.Readable + " at " + hidden.location() + " carries '" + hidden.Hidden + "' in its documentation comment, which removes it from the evidence population along with everything nested inside it. Remove the tag if the declaration is public contract, or drop this citation if it is not. Do not remove '@hidden' from the target to make this citation legal." + untrueTagWarning
+  return "Hidden evidence target '" + displayTarget(declaration.Target) + "' at " + declaration.location() + " for " + context + ": " + hidden.Readable + " at " + hidden.location() + " carries '" + hidden.Hidden + "' in its documentation comment, which removes it from the evidence population along with everything nested inside it. Remove the tag if the declaration is public contract, or drop this citation if it is not. Do not remove '" + hidden.Hidden + "' from the target to make this citation legal." + untrueTagWarning
 }
 
 func declarationResolutionUncertain(owners []claimState) bool {
