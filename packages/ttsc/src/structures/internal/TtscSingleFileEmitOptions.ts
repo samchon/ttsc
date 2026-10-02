@@ -17,10 +17,10 @@ export interface TtscSingleFileEmitOptions extends TtscCommonOptions {
   /** Source file to emit. Absolute paths and `cwd`-relative paths work. */
   file: string;
 
-  /** Project config owning `file`; discovered from `file` when omitted. */
+  /** Project config resolved from `cwd`; discovered from `file` when omitted. */
   tsconfig?: string;
 
-  /** Optional output file path. */
+  /** Optional output file, absolute or resolved from the invocation `cwd`. */
   out?: string;
 
   /** Suppress summary banners from ttsc/native sidecars. Defaults to `true`. */
@@ -34,7 +34,11 @@ export interface TtscSingleFileEmitOptions extends TtscCommonOptions {
 }
 
 /**
- * Receive native-plugin source roots for the invocation's watch owner.
+ * Receive selected plugin build-source roots for the invocation's watch owner.
+ *
+ * Executable modules, linked source roots, contributors and external local
+ * module replacements can be reported. ttsc's own package sources are omitted;
+ * this notification is not the complete compiler or project-rule input graph.
  *
  * @evidence contracts/common.md#principled-implementation Readonly roots describe the actual native-plugin sources whose later edits need observation.
  * @evidence contracts/common.md#clear-and-simple-design A void notification leaves watcher construction and lifetime with the invocation owner.
