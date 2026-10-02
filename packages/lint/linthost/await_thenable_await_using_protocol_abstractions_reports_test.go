@@ -13,7 +13,7 @@ import (
 // alias / inheritance / intersection / generic-constraint shapes, but built
 // on a `[Symbol.dispose]`-only resource. A lookup that treated "reached
 // through an abstraction" as "async disposable", or that keyed on the
-// presence of ANY dispose protocol — would stay silent on all four.
+// presence of ANY dispose protocol, would stay silent on all four.
 //
 //  1. Seed a project with `await using` over aliased, inherited,
 //     intersected, and constraint-typed SYNC-only disposables.
