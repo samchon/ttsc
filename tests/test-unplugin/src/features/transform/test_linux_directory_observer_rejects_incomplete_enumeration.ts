@@ -17,17 +17,19 @@ import { routeLinuxWatchHelperLine } from "../../../../../packages/unplugin/src/
  * withdraws coverage through onError after initial readiness has completed.
  * Named rename topology errors EIO/EACCES also withdraw coverage instead of
  * treating unknown metadata as deletion; actual subtree deletion retires its
- * watches without a coverage error.
+ * watches without a coverage error. A backend gone line does not turn failed
+ * presence inspection into known absence: its own watch is already retired,
+ * while inaccessible descendants remain owned until the caller closes.
  *
  * The helper answers are authored. Real directories supply Dirents, while one
  * selected readdirSync call throws EIO. Healthy enumeration opens one watch per
  * directory, delivers a nested file event and releases every watch on close.
  * This does not reproduce an inotify error or measure native delivery timing.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls openLinuxDirectoryObserver and routes actual helper replies. Asserts healthy readiness, directory-only subscriptions, nested delivery, initial root/child enumeration refusal, widened subtree error, named topology uncertainty versus confirmed deletion and exact removal on close.
+ * @evidence contracts/testing.md#behavioral-verification Calls openLinuxDirectoryObserver and routes actual helper replies. Asserts healthy readiness, directory-only subscriptions, nested delivery, initial root/child enumeration refusal, widened subtree error, named and backend topology uncertainty versus confirmed deletion and exact removal on close.
  * @evidence contracts/testing.md#independent-expectations A watch acknowledgment cannot establish which child directories an unreadable listing contains. Literal false readiness and one coverage error follow that missing proof. EIO/EACCES cannot establish absence, while deleting the actual child establishes subtree retirement; healthy literal paths and event names come from the authored tree, not observer state.
- * @evidence contracts/testing.md#distinguishing-cases Separates healthy enumeration, root versus child EIO during opening and EIO when wider admission revisits an existing child, plus named rename EIO/EACCES versus native ENOENT after actual deletion. Later failure uses onError rather than pretending a previously resolved readiness promise can change. Each row closes twice to distinguish idempotent release and restores both shared descriptors in finally.
- * @evidence contracts/testing.md#execution-ownership Unit test: directly exercises the observer, shared directory subscription and protocol router with a scripted LinuxWatchHelper and native temporary directories. The exported body forwards readdirSync/lstatSync except the selected exact directory and failure phase, restoring both descriptors and the prior helper. No Linux helper process, inotify watch, compiler or host runs.
+ * @evidence contracts/testing.md#distinguishing-cases Separates healthy enumeration, root versus child EIO during opening and EIO when wider admission revisits an existing child, plus named rename and backend gone EIO/EACCES versus native ENOENT after actual deletion. A backend gone line retires only its own subscription before the observer classifies presence. Later failure uses onError rather than pretending a previously resolved readiness promise can change. Each row closes twice to distinguish idempotent release and restores both shared descriptors in finally.
+ * @evidence contracts/testing.md#execution-ownership Unit test: directly exercises the observer, shared directory subscription and protocol router with a scripted LinuxWatchHelper and native temporary directories. The exported body forwards readdirSync/lstatSync/existsSync except the selected exact directory and failure phase, restoring all descriptors and the prior helper. No Linux helper process, inotify watch, compiler or host runs.
  */
 export async function test_linux_directory_observer_rejects_incomplete_enumeration(): Promise<void> {
   for (const row of [
@@ -38,17 +40,23 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
     "rename-eio",
     "rename-eacces",
     "deleted",
+    "backend-eio",
+    "backend-eacces",
+    "backend-deleted",
   ] as const) {
     const root = path.resolve(TestProject.tmpdir("ttsc-linux-enumeration-"));
     const nested = path.join(root, "nested");
     const deep = path.join(nested, "deep");
     fs.mkdirSync(deep, { recursive: true });
     fs.writeFileSync(path.join(deep, "input.ts"), "export {};\n");
+    assert.equal(fs.existsSync(nested), true);
     const priorHelper = LINUX_WATCH_HELPER.current;
     const descriptor = Object.getOwnPropertyDescriptor(fs, "readdirSync")!;
     const originalRead = fs.readdirSync;
     const lstatDescriptor = Object.getOwnPropertyDescriptor(fs, "lstatSync")!;
     const originalLstat = fs.lstatSync;
+    const existsDescriptor = Object.getOwnPropertyDescriptor(fs, "existsSync")!;
+    const originalExists = fs.existsSync;
     const sent: { id: number; op: string; path?: string }[] = [];
     const quiet = { ref: () => undefined, unref: () => undefined };
     const helper: LinuxWatchHelper = {
@@ -81,6 +89,7 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
     const failedReads: string[] = [];
     const failedLstats: string[] = [];
     let lstatError: "EIO" | "EACCES" | undefined;
+    let inaccessible = false;
     const fullTree = row !== "root" && row !== "child" && row !== "widened";
     let observer: ReturnType<typeof openLinuxDirectoryObserver> | undefined;
     LINUX_WATCH_HELPER.current = helper;
@@ -108,6 +117,13 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
           }
           return Reflect.apply(originalLstat, fs, args);
         },
+      });
+      Object.defineProperty(fs, "existsSync", {
+        ...existsDescriptor,
+        value: (...args: Parameters<typeof fs.existsSync>) =>
+          inaccessible && args[0] === nested
+            ? false
+            : Reflect.apply(originalExists, fs, args),
       });
       observer = openLinuxDirectoryObserver(
         root,
@@ -164,6 +180,24 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
         assert.deepEqual(failedLstats, [nested]);
         assert.deepEqual(failedReads, []);
         assert.deepEqual(sent, [], "unknown topology is not evidence of deletion");
+      } else if (row === "backend-eio" || row === "backend-eacces") {
+        lstatError = row === "backend-eio" ? "EIO" : "EACCES";
+        inaccessible = true;
+        route({ id: 2, gone: true });
+        assert.equal(errors, 1, "backend loss with unknown presence withdraws coverage");
+        assert.deepEqual(failedLstats, [nested]);
+        assert.deepEqual(sent, [], "backend loss does not prove descendant deletion");
+        assert.equal(LINUX_DIRECTORY_WATCHES.has(nested), false);
+        assert.equal(LINUX_DIRECTORY_WATCHES.has(deep), true);
+      } else if (row === "backend-deleted") {
+        fs.rmSync(nested, { recursive: true, force: true });
+        assert.equal(fs.existsSync(nested), false);
+        route({ id: 2, gone: true });
+        assert.equal(errors, 0, "confirmed backend absence retires the subtree");
+        assert.deepEqual(failedLstats, []);
+        assert.deepEqual(sent.splice(0), [{ id: 3, op: "remove" }]);
+        assert.equal(LINUX_DIRECTORY_WATCHES.has(nested), false);
+        assert.equal(LINUX_DIRECTORY_WATCHES.has(deep), false);
       } else if (row === "deleted") {
         fs.rmSync(nested, { recursive: true, force: true });
         assert.equal(fs.existsSync(nested), false);
@@ -182,15 +216,17 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
       observer.close();
       assert.deepEqual(
         sent.splice(0),
-        row === "root" || row === "deleted"
+        row === "root" || row === "deleted" || row === "backend-deleted"
           ? [{ id: 1, op: "remove" }]
-          : fullTree
-            ? [
-                { id: 1, op: "remove" },
-                { id: 2, op: "remove" },
-                { id: 3, op: "remove" },
-              ]
-            : [{ id: 1, op: "remove" }, { id: 2, op: "remove" }],
+          : row === "backend-eio" || row === "backend-eacces"
+            ? [{ id: 1, op: "remove" }, { id: 3, op: "remove" }]
+            : fullTree
+              ? [
+                  { id: 1, op: "remove" },
+                  { id: 2, op: "remove" },
+                  { id: 3, op: "remove" },
+                ]
+              : [{ id: 1, op: "remove" }, { id: 2, op: "remove" }],
         row,
       );
       assert.deepEqual(
@@ -204,6 +240,7 @@ export async function test_linux_directory_observer_rejects_incomplete_enumerati
       observer?.close();
       Object.defineProperty(fs, "readdirSync", descriptor);
       Object.defineProperty(fs, "lstatSync", lstatDescriptor);
+      Object.defineProperty(fs, "existsSync", existsDescriptor);
       LINUX_WATCH_HELPER.current = priorHelper;
     }
   }
