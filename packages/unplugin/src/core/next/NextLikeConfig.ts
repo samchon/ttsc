@@ -5,7 +5,8 @@ import type { WebpackLikeConfig } from "./WebpackLikeConfig";
  * Minimal structural type for a Next.js configuration object.
  *
  * Only `webpack` and `turbopack` are used by this adapter; all other Next.js
- * options are forwarded as-is through the spread operator.
+ * own enumerable options are shallow-copied through the spread operator;
+ * nested values remain shared.
  *
  * @evidence contracts/common.md#principled-implementation
  *   An open record preserves unrelated Next settings while typed webpack and
@@ -19,15 +20,18 @@ import type { WebpackLikeConfig } from "./WebpackLikeConfig";
  *   Native prose and spaced members explain preservation and hook ordering,
  *   with tag separation following the documentation skill.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   NextLikeConfig only declares a shape; it has no filesystem, path or
- *   process operation at runtime.
+ *   Defines public host configuration hooks and an opaque Turbopack block,
+ *   not native path identity or filesystem capability. Native loader/record
+ *   handling belongs to the wrapper and plugin implementations.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   NextLikeConfig only declares a shape; it has no computation at runtime.
+ *   next owns the shallow setting copy, webpack plugin insertion and rule
+ *   merging; the open hook/config representation selects no algorithm.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   NextLikeConfig only declares a shape; it has no work to reuse at runtime.
+ *   This configuration shape defines no cache or identity. Wrapper-local
+ *   loader-resolution sharing and generation validity have separate owners.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   NextLikeConfig only declares a shape; it has no handle or retained state
- *   at runtime.
+ *   The host owns the returned configuration/hooks; loader sessions and native
+ *   resources are acquired by implementations, not this representation.
  */
 export type NextLikeConfig = Record<string, unknown> & {
   /**
@@ -38,8 +42,8 @@ export type NextLikeConfig = Record<string, unknown> & {
   webpack?: (config: WebpackLikeConfig, options: unknown) => WebpackLikeConfig;
 
   /**
-   * Optional existing Turbopack configuration. Preserved whole; only the ttsc
-   * rules are merged into its `rules` map.
+   * Optional existing Turbopack configuration. Its own enumerable settings are
+   * shallow-copied while the ttsc rules are merged into a copied `rules` map.
    */
   turbopack?: TurbopackLikeConfig;
 };

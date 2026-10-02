@@ -11,14 +11,14 @@ const nodeModulesPattern = /(?:^|[/\\])node_modules(?:[/\\]|$)/;
 const virtualModulePattern = /\0/;
 
 /**
- * Returns `true` when the module id refers to a real TypeScript source file
- * that should be processed by the ttsc transform.
+ * Classify whether the supplied module identifier belongs to the transform's
+ * TypeScript source syntax. This does not probe native existence or readability.
  *
  * {@link sourceFilePattern} deliberately excludes JavaScript, so a `.js`
  * module reaches no adapter's transform.
  *
- * Also excluded: virtual modules (NUL prefix), `.d.ts` declaration files, and
- * anything inside `node_modules`.
+ * Also excluded: identifiers containing NUL, declaration basenames, and
+ * exact `node_modules` components under either module-id separator spelling.
  *
  * @evidence contracts/common.md#principled-implementation
  *   The shared extension predicate admits TypeScript source, then NUL ids,
@@ -39,7 +39,9 @@ const virtualModulePattern = /\0/;
  * @evidence contracts/performance.md#efficient-algorithms
  *   Fixed regular expressions and declaration-basename checks each scan at
  *   most the identifier length. Short-circuit rejection avoids subsequent
- *   scans, and no filesystem lookup or per-call pattern construction occurs.
+ *   scans. Declaration classification additionally allocates normalized text
+ *   and extracts its basename; temporary text follows identifier length. No
+ *   filesystem lookup or per-call pattern construction occurs.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources

@@ -12,17 +12,17 @@
  *   Native prose identifies the host block and preserved settings; tag separation
  *   follows documentation guidance.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
- *   TurbopackLikeConfig only declares a shape; it has no filesystem, path or
- *   process operation at runtime.
+ *   Rule keys are host glob syntax and values remain opaque host configuration;
+ *   this open block does not interpret loader paths or native file identity.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   TurbopackLikeConfig only declares a shape; it has no computation at
- *   runtime.
+ *   The wrapper owns rule copying/coverage checks/loader insertion. This map
+ *   representation selects none of those processing strategies.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   TurbopackLikeConfig only declares a shape; it has no work to reuse at
- *   runtime.
+ *   This block provides no equivalence cache; the wrapper owns per-invocation
+ *   resolved-loader verdicts and the host owns later rule execution.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   TurbopackLikeConfig only declares a shape; it has no handle or retained
- *   state at runtime.
+ *   Returned rule maps are host-owned configuration. Native loader/session
+ *   resources are not acquired or released by the map representation.
  */
 export type TurbopackLikeConfig = Record<string, unknown> & {
   /** Per-glob loader rules. Other Turbopack settings are preserved untouched. */
