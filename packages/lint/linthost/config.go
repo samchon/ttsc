@@ -339,23 +339,25 @@ type RuleResolver interface {
 }
 
 // RuleOptionsVariantsResolver is an optional extension for resolvers that can
-// declare more than one option payload for a rule. Engine construction uses
-// it to validate every files/extends variant before any file is visited.
+// expose more than one option payload a rule may receive. Engine construction
+// checks each distinct payload through the rule's supported option-validation
+// capability before any file is visited. Scoped resolvers expose declarations;
+// command adapters may substitute reachable defaults for absent payloads.
 // Custom resolvers that omit this interface remain compatible through the
 // single RuleResolver.RuleOptions fallback.
 //
-// @evidence contracts/common.md#principled-implementation Optional structural interface satisfaction exposes all declared option variants without requiring every existing resolver to implement it.
+// @evidence contracts/common.md#principled-implementation Optional structural interface satisfaction exposes the option variants reachable through each resolver's policy without requiring every existing resolver to implement it.
 // @evidence contracts/common.md#clear-and-simple-design One capability method extends validation independently from the required engine resolver interface.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Go interface assertion uses a supported extension boundary, not foreign method replacement.
-// @evidence contracts/common.md#meaningful-documentation Native prose explains eager variant validation and legacy fallback before tags; the member documents returned ownership.
+// @evidence contracts/common.md#meaningful-documentation Native prose explains supported eager checks, scoped declarations, command defaults and legacy fallback before tags; the member documents returned ownership.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation RuleOptionsVariantsResolver is a declaration of data shape and performs no filesystem, path or process operation.
 // @evidenceExclude contracts/performance.md#efficient-algorithms RuleOptionsVariantsResolver is a declaration of data shape and chooses no algorithm or processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleOptionsVariantsResolver is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleOptionsVariantsResolver is a declaration of data shape; the code that holds its values owns their lifetime.
 type RuleOptionsVariantsResolver interface {
-  // RuleOptionsVariants returns independently owned payloads for all declarations of name.
+  // RuleOptionsVariants returns independently owned payloads name may receive.
   //
-  // @evidence contracts/common.md#principled-implementation Enumerating declared variants permits validation of file-scoped tuples before any file execution.
+  // @evidence contracts/common.md#principled-implementation Enumerating resolver-policy variants permits eager checks of scoped tuples and reachable command defaults before any file execution.
   // @evidence contracts/common.md#clear-and-simple-design The operation returns raw payloads for the existing rule decoder rather than adding another option schema.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts Variant discovery follows declarations and does not manufacture payloads to match observed diagnostics.
   // @evidence contracts/common.md#meaningful-documentation Native member prose states population and slice ownership separately from tags.
@@ -479,8 +481,8 @@ func (c RuleConfig) ActiveRuleNames() []string {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Filtering follows the explicit disabled state rather than recorded diagnostics or consumer identities.
 // @evidence contracts/common.md#meaningful-documentation Native prose states copy ownership, filtering and the metadata consumer before separated tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation EnabledRuleConfig filters rule severities and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms One pass over the rules map writing normalized names into a new map, O(rules).
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work EnabledRuleConfig keeps no cache; every call builds its result from the receiver.
+// @evidence contracts/performance.md#efficient-algorithms One pass over n severity entries writes k non-off canonical keys, O(n) entry operations plus name normalization/hashing bytes and O(k) returned entries.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This call projects current caller-owned severities and owns no cross-call mutation identity for sharing results after caller changes.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned map is new and owned by the caller; no handle or task is acquired.
 func (c RuleConfig) EnabledRuleConfig() RuleConfig {
   out := RuleConfig{}
