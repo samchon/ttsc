@@ -2,18 +2,13 @@ package linthost
 
 import "testing"
 
-// TestEngineFitsMeasuresConditionalGroupAsFirstOption verifies the flat
-// fit measurement treats a nested ConditionalGroup as its first option.
+// TestEngineFitsMeasuresConditionalGroupAsFirstOption verifies that
+// fits measures the first alternative of a nested ConditionalGroup.
 //
-// A ConditionalGroup can appear inside a doc that the engine measures
-// for an enclosing Group's flat-or-break decision — e.g. an array whose
-// element is a hugged call. fits must give that ConditionalGroup a
-// definite flat width; it uses the first (flattest) option.
-//
-//  1. Build a Concat of a Text and a ConditionalGroup.
-//  2. Measure it with fits at a width that admits the first option and
-//     at a width that does not.
-//  3. Assert both verdicts.
+// The literal prefix x and first option ab occupy three columns; the
+// eight-character fallback would occupy nine with the prefix. Budgets
+// five and two independently distinguish admission and rejection of
+// the first option in this direct measurement fixture.
 //
 // @evidence contracts/testing.md#behavioral-verification fits must charge the nested first alternative ab after prefix x, not the eight-character fallback.
 // @evidence contracts/testing.md#independent-expectations The flat alternative contract gives a three-column projection, independently of fits.

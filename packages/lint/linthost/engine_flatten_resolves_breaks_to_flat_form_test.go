@@ -2,25 +2,17 @@ package linthost
 
 import "testing"
 
-// TestEngineFlattenResolvesBreaksToFlatForm verifies flatten collapses a
-// doc to its single-line rendering and reports docs that cannot render
-// flat.
+// TestEngineFlattenResolvesBreaksToFlatForm verifies the direct flatten
+// helper's admitted projections and rejected Doc kinds.
 //
-// flatten produces the all-flat ConditionalGroup option for a hugged
-// argument list. It must resolve Line to a space, Softline and IfBreak
-// to their flat forms, and see through Group/Concat/Indent/Align — and
-// it must refuse a doc carrying a Hardline, Literalline, LineSuffix,
-// multi-line Text or a forced-broken Group.
+// The mixed Group independently expects a by from Line, Softline and
+// the flat IfBreak arm. Separate cases reject mandatory line breaks,
+// a suffix, multiline Text, a nested mandatory break and a forced
+// Group. Other cases admit an empty ConditionalGroup, select the first
+// alternative and remove Indent/Align wrappers. These literal fixtures
+// do not exercise parsing or a complete hugged argument-list layout.
 //
-//  1. Flatten a Group mixing Text, Line, Softline and IfBreak and assert
-//     the rendered flat string.
-//  2. Flatten each non-flattenable doc (Hardline, Literalline,
-//     LineSuffix, multi-line Text, a Concat holding a Hardline, a
-//     forced-break Group) and assert ok is false.
-//  3. Flatten an empty ConditionalGroup, a two-option ConditionalGroup
-//     and an Indent wrapping an Align, and assert the admitted forms.
-//
-// @evidence contracts/testing.md#behavioral-verification flatten must yield a by for flat Line, Softline and IfBreak while rejecting intrinsically multiline docs.
+// @evidence contracts/testing.md#behavioral-verification flatten must yield a by for flat Line, Softline and IfBreak while rejecting the mandatory breaks, suffix, multiline Text, nested break and forced Group exercised here.
 // @evidence contracts/testing.md#independent-expectations Doc algebra defines Line as a space, Softline as empty and IfBreak as its flat arm; literal outputs retain operand order.
 // @evidence contracts/testing.md#distinguishing-cases Hardline, Literalline, suffix, newline text, nested break and forced Group are rejected; empty alternatives, first alternative and transparent wrappers are admitted.
 // @evidence contracts/testing.md#execution-ownership TestEngineFlattenResolvesBreaksToFlatForm is one Go unit entry that calls the unexported flatten directly on literal Doc trees and renders the flat results with Print in-process; it parses no source and installs, builds and launches nothing.
