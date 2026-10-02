@@ -40,6 +40,10 @@ import type { TtscExternalDependencyWitness } from "./TtscExternalDependencyWitn
  * (`captureUniversalHostInputValidation`), and a resolver input or config is an
  * observation of the compiler, not a plugin's read.
  *
+ * Separate reads and metadata brackets are not an atomic snapshot. A missing
+ * state marker can mean unreadable or unavailable content, not confirmed native
+ * absence; generation admission and later replay retain that distinction.
+ *
  * @param cached The generation whose envelope names the inputs.
  * @param paths The generation's out-of-walk input paths.
  * @param witness The dependency states read before the compile, or `undefined`
@@ -52,8 +56,20 @@ import type { TtscExternalDependencyWitness } from "./TtscExternalDependencyWitn
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain source versus dependency authority, adopted-generation premises and the witness argument before tags.
  * @evidence contracts/portability.md#os-neutral-implementation The generation's filesystem and identity context qualify physical aliases and actual case policy; lexical resolved spellings remain distinct metadata witnesses.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned manifest transfers to the generation owner; this capture retains no independent history or native handle.
- * @evidence contracts/performance.md#efficient-algorithms Sets classify reported paths and realized outputs once; capture scans external inputs with dominant cost in bytes read and directory entries replayed by their predicates.
- * @evidence contracts/performance.md#reuse-equivalent-work Only compiler-qualified or witnessed content earns a separable metadata signature; later validators share it while the same spelling and generation remain valid.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Envelope/graph preparation retains node/edge/predicate indexing cost;
+ *   output and reported-dependency Sets add path/string scans. Each external
+ *   occurrence queries identity and metadata and replays its content or predicate
+ *   branch, including native resolution, byte hashing and directory/list comparisons.
+ *   Temporary Sets/maps/manifest text scale with these populations, and bounded
+ *   failure witnesses do not bound examined inputs or their byte/path sizes.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   The capture shares its generation derivation/identity context and graph
+ *   indexes. A successful predicate replay or matching graph/witnessed content
+ *   can earn a separable metadata signature; ordinary host/resolver/config paths
+ *   also record current signatures here, with evaluation-time admission owned
+ *   elsewhere. Stable before/after metadata is not atomicity, and later reuse
+ *   still requires current spelling, generation and clock/replay authority.
  */
 export function captureExternalInputSnapshot(
   cached: TtscCachedProjectTransform,
