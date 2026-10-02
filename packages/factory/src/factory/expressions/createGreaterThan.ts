@@ -7,7 +7,9 @@ import { createBinaryExpression } from "./createBinaryExpression";
  * comparison.
  *
  * Shorthand for {@link createBinaryExpression} with the `GreaterThanToken`
- * operator. Flat output uses spaces around it; width can break after it.
+ * operator. Flat output uses spaces around it. The right operand stays on the
+ * operator's line, because a line break after `>` can make an earlier `<` read
+ * as the start of type arguments.
  *
  * Given operands `a` and `b`, the printer emits:
  *

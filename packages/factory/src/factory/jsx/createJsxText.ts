@@ -6,7 +6,8 @@ import { make } from "../internal/make";
  * JSX tags.
  *
  * The `text` is the raw character content, written verbatim with no quoting or
- * escaping. The `containsOnlyTriviaWhiteSpaces` flag marks text that is nothing
+ * escaping, so it must not hold `{`, `}`, `<` or `>` that JSX would read as
+ * syntax. The `containsOnlyTriviaWhiteSpaces` flag marks text that is nothing
  * but insignificant whitespace (spaces, tabs, newlines between tags); it is
  * coerced to a boolean and defaults to `false`. The flag does not change the
  * printed characters; it records whether the run is meaningful content.

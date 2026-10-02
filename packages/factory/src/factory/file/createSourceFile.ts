@@ -6,7 +6,8 @@ import { make } from "../internal/make";
  * top-level statements.
  *
  * The `statements` become the file body in order. Printing the source file
- * emits each statement on its own line; an empty list yields an empty file.
+ * emits each statement on its own line followed by a final newline; an empty
+ * list prints only that newline.
  *
  * Given a single import of `a` from `"./mod"` as the only statement, this
  * prints:

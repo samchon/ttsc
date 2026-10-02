@@ -5,9 +5,9 @@ import { make } from "../internal/make";
  * Create an {@link IndexedAccessTypeNode}: a `T[K]` indexed access type.
  *
  * The object type is emitted in postfix-operand position, so a lower-precedence
- * form (union, intersection, function, constructor, conditional, infer, or
- * type-operator) gets wrapped in parentheses before the `[...]`. The index type
- * prints bare inside the brackets.
+ * form (union, intersection, function, constructor, conditional, infer,
+ * type-operator, or type-query) gets wrapped in parentheses before the `[...]`.
+ * The index type prints bare inside the brackets.
  *
  * Given a `T` object type and a `"key"` index, the printer renders:
  *

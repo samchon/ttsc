@@ -12,7 +12,8 @@ import { make } from "../internal/make";
  * {@link createLogicalAnd}.
  *
  * Flat output surrounds ordinary operators with spaces. Commas attach to the
- * left operand; width can replace the following space with a line break.
+ * left operand; width can replace the following space with a line break, except
+ * after `>` and `>>`, which keep their right operand on the same line.
  *
  * Given operands `a`, `b` and the `+` operator, the printer emits:
  *

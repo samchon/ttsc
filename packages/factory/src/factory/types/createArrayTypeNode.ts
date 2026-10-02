@@ -7,8 +7,8 @@ import { make } from "../internal/make";
  * The element type is emitted in postfix-operand position, so a
  * lower-precedence form that would otherwise re-associate gets wrapped in
  * parentheses first. A union, intersection, function, constructor, conditional,
- * infer, or type-operator element prints as `(...)[]`; anything else prints
- * bare.
+ * infer, type-operator, or type-query element prints as `(...)[]`; anything else
+ * prints bare.
  *
  * Given a `string` element, the printer renders:
  *

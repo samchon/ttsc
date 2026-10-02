@@ -11,7 +11,10 @@ import { make } from "../internal/make";
  * The name is a plain identifier or a {@link JsxNamespacedName} like
  * `xlink:href`. The initializer is the value: a string literal, or a
  * {@link JsxExpression} brace such as `{value}`. Pass `undefined` for a bare
- * boolean-style attribute, which prints the name alone with no `=value`.
+ * boolean-style attribute, which prints the name alone with no `=value`. A
+ * string-literal value prints inside quotes with JSX entities, not backslash
+ * escapes, and a value holding an unpaired surrogate prints as a brace
+ * expression.
  *
  * Given the name `bar` and a string-literal initializer `"x"`, the printer
  * emits:

@@ -21,7 +21,7 @@ import { createPrefixUnaryExpression } from "./createPrefixUnaryExpression";
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies complement, delegation and operand purpose; the expression example and tags are separated following documentation guidance.
  *
  * @author Jeongho Nam - https://github.com/samchon
- * @param operand The operand to negate.
+ * @param operand The operand to complement.
  * @returns The created {@link PrefixUnaryExpression}.
  */
 export const createBitwiseNot = (operand: Expression): PrefixUnaryExpression =>

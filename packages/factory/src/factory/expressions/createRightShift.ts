@@ -5,7 +5,9 @@ import { createBinaryExpression } from "./createBinaryExpression";
 /**
  * Create a signed right-shift expression: `left >> right`.
  *
- * Thin wrapper over {@link createBinaryExpression} with the `>>` operator.
+ * Thin wrapper over {@link createBinaryExpression} with the `>>` operator. The
+ * printer keeps the right operand on the operator's line instead of breaking
+ * after it.
  *
  * With `left` of `a` and `right` of `b`, the printer emits:
  *
