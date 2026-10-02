@@ -16,7 +16,7 @@ export interface ParseOptions {
   /** Which subcommand's flag subset to accept. */
   readonly subcommand: AnySubcommand;
 
-  /** Argv tail (the launcher has already split off the subcommand). */
+  /** Current parsing frame; callers remove an explicit leading command when present. */
   readonly argv: readonly string[];
 
   /**
@@ -46,8 +46,8 @@ export interface ParseOptions {
    * source file, the ttsx entry, a project path) rather than the
    * space-separated value of a preceding forwarded flag.
    *
-   * When omitted, every bare token is a positional — the historical behaviour
-   * for project-shaped subcommands that never forward `--flag value` pairs.
+   * When omitted, an unconsumed nonempty bare token is positional, except that
+   * runner first-positional mode still forwards unconsumed response-file tokens.
    *
    * When provided, a bare token that fails the predicate is appended to
    * `passthrough` in its original position instead of `positional`, so an
@@ -58,18 +58,18 @@ export interface ParseOptions {
    * list parser does not consume; empty tokens stay compiler passthrough and
    * do not become launcher positionals.
    *
-   * Every path that can move a bare token out of `positional` consults it: the
-   * main loop below and `forwardKnownButUnaccepted`, which answers the same
-   * question for a schema-known flag this subcommand does not accept.
+   * The main loop and schema-known non-native forwarding consult this policy
+   * only before program-tail forwarding and after native operand consumption.
+   * Empty-token and runner response-file handling remain separate parser rules.
    *
    * @evidence contracts/common.md#principled-implementation The predicate classifies only bare tokens whose arity is not already owned by the schema or compiler table, preserving their original position when they are forwarded values.
    * @evidence contracts/common.md#clear-and-simple-design One optional callback exposes the caller's positional grammar while parseFlags owns token consumption and result partitioning.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts This documented injection point supplies caller policy without patching the compiler parser or guessing from fixture paths inside parseFlags.
    * @evidence contracts/common.md#meaningful-documentation The comment explains absence, precedence and ordered forwarding, with separate paragraphs following the documentation skill; this is a function-valued contract, not a data-property acknowledgment.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources isPositional acquires no handle, buffer or cache and retains nothing after it returns.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms isPositional performs a fixed number of steps with no loop or recursion over caller data.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work isPositional computes one result per call, so there is no repeated work to share.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation isPositional computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This function-valued contract has no implementation or retained owner here; the supplied callback and invoking parser own their state and lifetimes.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms This signature chooses no token-classification algorithm; parser invocation frequency and the supplied callback's text processing are reviewed at their respective implementations.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work This signature coordinates no computation across consumers; any callback-owned shared work belongs to its implementation.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation The callback signature defines a boolean token decision without specifying filesystem or process operations; any such behavior belongs to the supplied implementation, not an assumed pure body here.
    */
   readonly isPositional?: (token: string) => boolean;
 }

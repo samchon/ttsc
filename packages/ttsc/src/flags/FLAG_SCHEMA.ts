@@ -136,7 +136,7 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
     subcommands: ["ttsc", "build", "check"],
     consumedBy: ["launcher", "runBuild", "host", "lint"],
     internalShadow: true,
-    description: "Force analysis-only build with no file writes.",
+    description: "Force analysis-only build without emitted compiler outputs.",
   },
   {
     name: "--outDir",
@@ -371,8 +371,8 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
 
   // -------------------------------------------------------------------------
   // tsgo-internal flags ttsc adds itself; users may also forward them.
-  // Declaring them keeps the launcher's parser from treating them as
-  // unknown forwarded flags whose value token gets misclassified.
+  // Their schema identities support shadow/terminal classification; pinned
+  // native occurrence metadata owns forwarded value-token consumption.
   // -------------------------------------------------------------------------
   {
     name: "--listEmittedFiles",
@@ -385,12 +385,10 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
       "Print the list of emitted files (forwarded to tsgo; ttsc keeps the lines when forwarded).",
   },
   {
-    // tsgo declares `--pretty` as `type: boolean`, so it occupies one argv
-    // token and consumes a following one only when that token is the literal
-    // `true` or `false` — the shape the engine's boolean branch implements.
-    // Declaring it `value` would make the forwarding path swallow whatever
-    // follows, so `ttsc --pretty a.ts` would lose its input file and silently
-    // switch to project mode.
+    // Pinned native occurrence metadata owns boolean lookahead, including a
+    // following literal `true`, `false` or `null`. The schema's kind must still
+    // agree with native declarations for generation checks and derived views;
+    // the current forwarding cursor does not infer native arity from this row.
     name: "--pretty",
     kind: "boolean",
     subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
@@ -475,8 +473,8 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
 
   // -------------------------------------------------------------------------
   // `--tsgo-args` — JSON-encoded passthrough envelope a native sidecar decodes
-  // back into the tsgo argv. Listed here so the schema describes every flag
-  // the Go layers accept, not just the user-facing ones.
+  // back into the tsgo argv. Public and shared transport fields appear here;
+  // native commands may additionally declare private protocol fields locally.
   //
   // The launcher does not emit it. A CLI flag is fatal to any host whose
   // `flag.FlagSet` does not declare it, and third-party hosts have a frozen

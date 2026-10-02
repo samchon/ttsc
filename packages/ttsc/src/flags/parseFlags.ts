@@ -17,7 +17,7 @@ import { resolveFlagSpec } from "./resolveFlagSpec";
  * @evidence contracts/common.md#clear-and-simple-design One parsing loop owns the argv partition while small helpers own value reading, boolean grammar and forwarding arity; all spelling policy comes from normalizeFlagToken instead of parallel case-specific parsers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown options remain native compiler inputs rather than being guessed from particular files. The positional predicate is explicit caller policy, and response-file forwarding follows the compiler's argv contract.
  * @evidence contracts/common.md#meaningful-documentation The native comment distinguishes local errors from native diagnostics; ParseOptions and ParseResult document separator interaction and argument ownership in separate member paragraphs following the documentation skill.
- * @evidence contracts/performance.md#efficient-algorithms A monotonically advancing cursor processes N tokens without repeated array shifts; scanning and result storage are O(N) plus token text and the caller's positional predicate cost. The schema index costs O(F plus aliases) once per command, not on every parse.
+ * @evidence contracts/performance.md#efficient-algorithms A monotonically advancing cursor processes N tokens without repeated array shifts; scanning and result storage are O(N) plus visited token/lookahead text and the caller's positional predicate cost. Head and separated remainder each need one invocation snapshot rather than a slice followed by another clone. Building a command's acceptance index scans fixed schema rows and their canonical/alias text once; subsequent invocations reuse it.
  * @evidence contracts/performance.md#reuse-equivalent-work Launcher acceptance indexes are shared by command identity because module-owned schema rows and normalization policy remain fixed for the loaded module; invocation argv, prefix and classifier stay local and never enter the cached computation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The module retains at most one acceptance index per finite command identity, containing references to fixed schema rows. Each cursor and result collection is invocation-owned and grows with argv size; returning transfers only the result, not the cursor or input copy.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation parseFlags computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
@@ -45,9 +45,9 @@ export function parseFlags(opts: ParseOptions): ParseResult {
       ? opts.argv.indexOf("--")
       : -1;
   let remainder: string[] | null =
-    separator === -1 ? null : [...opts.argv.slice(separator + 1)];
+    separator === -1 ? null : opts.argv.slice(separator + 1);
   const head: ArgvCursor = {
-    tokens: [...(separator === -1 ? opts.argv : opts.argv.slice(0, separator))],
+    tokens: separator === -1 ? [...opts.argv] : opts.argv.slice(0, separator),
     index: 0,
   };
 
