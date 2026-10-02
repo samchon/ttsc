@@ -150,7 +150,7 @@ type RuleConfig map[string]Severity
 // its JSON shape; multiple positional slots are encoded as an array. Each rule
 // decodes the payload according to its public option type on demand.
 //
-// @evidence contracts/common.md#principled-implementation Raw JSON preserves each rule's option representation until that rule's decoder validates it, independent from severity storage.
+// @evidence contracts/common.md#principled-implementation Raw JSON preserves each rule's option representation independently from severity storage; the owning rule interprets the payload and owns any option validation it supports.
 // @evidence contracts/common.md#clear-and-simple-design A parallel name-keyed map keeps heterogeneous option types out of the engine-facing severity representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Option payloads remain supplied configuration, with no hardcoded result or foreign decoder patch.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains absent options and single-versus-multiple-slot encoding, then separates the acknowledgments.
@@ -444,9 +444,9 @@ func (r boundProjectRuleResolver) residentRuleConfigState() residentRuleConfigSt
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No file name or diagnostic result changes the global map; normalization only implements supported rule aliases.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains flat scope, normalization and prerequisite identity validation before separate tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation RuleConfig.ResolveRules performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms RuleConfig.ResolveRules has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleConfig.ResolveRules keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleConfig.ResolveRules acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Canonicalization scans n severity entries into a new map, requiring O(n) map operations plus name normalization/hashing bytes and O(n) result entries. Empty maps are returned without rebuilding.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This stateless projection reads a caller-owned map for one call; it owns no cross-call identity or invalidation protocol for sharing projections after caller mutations.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No handle, task or historical state is retained. The caller owns the nonempty canonical map returned by this projection; an empty receiver may be reused.
 func (c RuleConfig) ResolveRules(string) ResolvedRuleConfig {
   return ResolvedRuleConfig{
     Rules:           normalizeRuleConfigKeys(c),
@@ -462,9 +462,9 @@ func (c RuleConfig) ResolveRules(string) ResolvedRuleConfig {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Enabled names come from declared severities, without fixture-specific activation.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains off filtering and deterministic order, with a separate acknowledgment paragraph.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation RuleConfig.ActiveRuleNames performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms RuleConfig.ActiveRuleNames has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleConfig.ActiveRuleNames keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleConfig.ActiveRuleNames acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Normalization and filtering scan n entries, then sort k active names: O(n+k log k) name operations plus normalization, hashing and comparison bytes. The temporary normalized map and returned slice reserve O(n) entries.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This stateless projection reads current caller-owned severities and owns no cross-call identity or invalidation protocol for sharing results after caller mutations.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No handle, task or historical state is retained; the normalized temporary map is local and the caller owns the returned name slice.
 func (c RuleConfig) ActiveRuleNames() []string {
   return sortedRuleNames(normalizeRuleConfigKeys(c), func(sev Severity) bool { return sev != SeverityOff })
 }
@@ -511,8 +511,8 @@ func (RuleConfig) RuleOptions(string) json.RawMessage { return nil }
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Alias collisions return an error rather than arbitrary iteration-order precedence; missing names remain absent rather than fabricated defaults.
 // @evidence contracts/common.md#meaningful-documentation Native prose states global interpretation; ProjectRuleSetting documents absence and option meaning used by the return value.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ResolveProjectRules reads rule names and severities and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms Names are validated and the keys normalized once, then each requested name costs one map lookup: O(rules + names).
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ResolveProjectRules keeps no cache; every call builds its result from the receiver.
+// @evidence contracts/performance.md#efficient-algorithms Validation sorts n stored names, then normalization and p requested lookups require O(n log n+p) name operations plus normalization, hashing and comparison bytes. Temporary maps/name lists scale with n and the result map with p.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This call validates and projects current caller-owned severities; it owns no cross-call mutation identity. The native loadRules boundary separately binds one project resolution for reuse during engine construction.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned map is new and owned by the caller; no handle or task is acquired.
 func (c RuleConfig) ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error) {
   if err := validateCanonicalRuleNames(c); err != nil {
@@ -681,8 +681,8 @@ func (r InlineRuleResolver) RuleOptions(name string) json.RawMessage {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The global adapter introduces no file-dependent project state or special consumer branch.
 // @evidence contracts/common.md#meaningful-documentation Native prose states global interpretation and tuple preservation, with acknowledgments in a separate paragraph.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ResolveProjectRules reads rule names, severities and option bytes and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms The wrapped rules resolve once and each requested name then costs one option lookup, constant time for exact or canonical names and a scan of the stored names otherwise.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ResolveProjectRules keeps no cache; every call builds its result from the receiver.
+// @evidence contracts/performance.md#efficient-algorithms Validation sorts n severity names and m option names before p requested lookups. Exact/canonical option keys need one lookup and fallback can scan m names per request, giving O(n log n+m log m+p(1+m)) name operations in the worst case plus name bytes and copied payload bytes. Temporary/result containers scale with n+m+p and returned payload size.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This call validates and projects current caller-owned maps; it owns no cross-call mutation identity. The native loadRules boundary separately binds one project resolution for reuse during engine construction.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Each option message is copied into the returned settings so they do not alias resolver memory; no handle or task is acquired.
 func (r InlineRuleResolver) ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error) {
   if err := validateCanonicalRuleNames(r.Options); err != nil {
@@ -1034,8 +1034,8 @@ func (s *ConfigStore) EnabledRuleConfig() RuleConfig {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The companion exception checks actual LookupRule registration rather than a hand-maintained consumer whitelist.
 // @evidence contracts/common.md#meaningful-documentation Native prose states project-scope rejection and the registered-companion distinction before separated tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ResolveProjectRules resolves rule names and option bytes and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms A wanted-name index is built once and each configured rule is then one constant-time lookup, so cost is O(names + entries times rules per entry).
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ResolveProjectRules keeps no cache; every call reads the store's entries.
+// @evidence contracts/performance.md#efficient-algorithms A wanted-name index is built for p requests, e entries are visited and q configured rules in participating entries are scanned once. This costs O(p+e+q) entry/name operations plus normalization/hashing bytes and the total option bytes copied by matching inherited updates; lookup/result maps reserve O(p) entries and results retain the final resolved payloads.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This method owns one fold of the current store. The native loadRules boundary binds its project resolution into boundProjectRuleResolver so engine construction can reuse the settings instead of folding the store again.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned map is new and owned by the caller and option bytes are copied; no handle or task is acquired.
 func (s *ConfigStore) ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error) {
   out := make(map[string]ProjectRuleSetting, len(names))
