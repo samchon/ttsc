@@ -13,11 +13,12 @@ import (
  *
  * A Prisma reference selects its units on a different code path than a
  * TypeScript one, so materializing the tag correctly proves nothing about what
- * a reference then owes. The tagged model also hosts a citation and is cited by
- * one, which exercises both sides through the real parser bridge.
+ * a reference then owes. The tagged model is also cited from TypeScript, so the
+ * case covers what the reference owes and what a citation of a withdrawn model
+ * is told, through the real parser bridge.
  *
  *  1. Tag one model internal and leave another beside it.
- *  2. Run a TypeScript claim referencing the schema, citing both models.
+ *  2. Run a TypeScript claim referencing the schema, citing the tagged model.
  *  3. Assert only the untagged model is owed, and the citation of the tagged
  *     one names the tag.
  * @evidence contracts/testing.md#behavioral-verification A schema with `/// @internal` Ledger and an untagged Sale, plus a TypeScript function citing prisma:Ledger, is run with a typescript claim referencing the schema's models and columns. The report must contain "Hidden evidence target 'prisma:Ledger'" with "carries '@internal' in its documentation comment", "Missing acknowledgement for 'prisma:Sale'", and no "Missing acknowledgement for 'prisma:Ledger" message.

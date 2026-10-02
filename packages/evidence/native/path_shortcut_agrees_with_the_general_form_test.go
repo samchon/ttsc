@@ -22,8 +22,8 @@ import (
  * which the general form below then answers correctly on both.
  *
  * The case rows therefore agree on Windows by construction and only bite on a
- * case-sensitive filesystem. They are not redundant there; they are the reason
- * CI runs Linux and macOS.
+ * case-sensitive filesystem. They are not redundant there; they are why this
+ * case has to run on a case-sensitive platform at all.
  *
  *  1. Take roots and paths that sit below, beside, above, and beyond each other.
  *  2. Answer each through `relativeProjectPath`.

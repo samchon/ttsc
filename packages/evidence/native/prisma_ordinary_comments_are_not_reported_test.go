@@ -11,8 +11,8 @@ import (
  * ordinary prose in every comment form, and a rule that reported it would be
  * turned off within a day — taking the citations it does catch with it.
  *
- *  1. Write prose in all three comment forms, in placements that document
- *     nothing.
+ *  1. Write prose in all three comment forms, some documenting a declaration
+ *     and some documenting nothing.
  *  2. Assert nothing is reported.
  *
  * @evidence contracts/testing.md#behavioral-verification prismaClaimOf reports neither problems nor declarations for ordinary prose.
