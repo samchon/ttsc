@@ -10,11 +10,10 @@ import (
 // that overflows 80 columns while crammed onto an indented multi-statement
 // line stays flat (does not over-break) once split onto its own line.
 //
-// The headline cascade test's `console.log(a, b, c)` is far under 80
-// columns, so its "does not over-break" claim is vacuous. This case uses
-// a call whose full crammed line exceeds 80 but whose isolated form at
-// column 0 is under 80: after statement-split moves it to its own line,
-// print-width must leave the arguments inline rather than exploding them.
+// This call's crammed line exceeds 80 but its isolated form at column 0 is
+// under 80: after statement-split moves it to its own line,
+// the final output must keep the arguments inline rather than permanently
+// exploding them. No intermediate pass layout is observed.
 //
 //  1. Seed a project whose call overflows 80 only because it shares the
 //     line with two preceding statements.
@@ -23,7 +22,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on one line holding two declarations and a six-argument `console.log` call (88 columns with the 2-space indent, 60 for the call alone), and requires exit 0, empty output and the exact file with three statements on their own lines and the call kept flat.
 // @evidence contracts/testing.md#independent-expectations The expected three-line file is an authored literal; the column arithmetic in the test comment (88 and 60 columns) is the reasoning that makes the flat call correct, not formatter output.
-// @evidence contracts/testing.md#distinguishing-cases One changing case that separates a cascade which keeps the call exploded because it overflowed when sharing a line from one which re-measures it after the statement split; the argument list must end up inline.
+// @evidence contracts/testing.md#distinguishing-cases One changing case rejects a permanently exploded call after statement separation: the final argument list must be inline and preserve all six strings. The command-level check does not observe intermediate layouts or prove which pass first split or re-measured the call.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatSplitCallCollapsesFlatOnceIsolated(t *testing.T) {
   // Crammed line is 88 columns (>80); the call alone is 60 columns (<80).
