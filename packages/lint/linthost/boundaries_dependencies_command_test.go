@@ -10,8 +10,8 @@ import (
 // TestBoundariesDependenciesReportsThroughCheckCommand verifies the production
 // command front door surfaces unified policy diagnostics.
 //
-// Direct engine tests cannot catch config loading, checker provisioning,
-// declaration routing, or diagnostic rendering regressions. This witness uses
+// This ordinary-source fixture composes JSON config loading, checker-backed
+// rule execution and diagnostic rendering through the command router. It uses
 // the same manifest and `lint.config.json` path as a consuming ttsc project.
 //
 // 1. Materialize an app-to-domain project and lint configuration.
