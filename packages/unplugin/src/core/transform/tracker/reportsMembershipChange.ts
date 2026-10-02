@@ -1,9 +1,10 @@
 import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTransform";
 
 /**
- * Report whether the project walk observed a membership event. This is positive
- * evidence that the program's root set changed, so it outranks the question of
- * whether the notifications still work.
+ * Report whether the project tracker recorded structural invalidation. An
+ * admitted rename or unattributed event can set this flag without measuring an
+ * actual root-set difference. The narrow consumer rejects reuse on this hint
+ * before considering whether notification silence remains authoritative.
  *
  * Host and resolution-candidate trackers cover the union of every module's
  * inputs. Their events remain path witnesses: the requested module's narrow
@@ -12,8 +13,9 @@ import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTrans
  * input changes, defeating per-file completeness and doing needless compiles.
  *
  * @evidence contracts/common.md#principled-implementation
- *   Only the project walk owns the program-root membership verdict; host and
- *   candidate witnesses retain their narrower per-module relevance.
+ *   Only the project tracker supplies this recorded structural-invalidation
+ *   flag; it is not a digest comparison certifying an actual member-set change.
+ *   Host/candidate witnesses retain their per-module relevance.
  * @evidence contracts/common.md#clear-and-simple-design
  *   One optional boolean read implements this authority boundary; event
  *   classification and input validation remain in their owning operations.
