@@ -38,9 +38,14 @@ type fountainSymbol struct {
 // offsets, position errors, and release lifecycle errors.
 func TestFountainPositionVerbsResolveTouchingTokens(t *testing.T) {
   api := startSharedAPI(t)
+  // A host whose temporary directory is not a usable wasm path (a Windows
+  // drive path, for one) names the project root itself.
   root := os.Getenv("TTSC_WASM_TEST_ROOT")
-  if root == "" || !filepath.IsAbs(root) {
-    t.Fatalf("TTSC_WASM_TEST_ROOT must be an absolute wasm path, got %q", root)
+  if root == "" {
+    root = t.TempDir()
+  }
+  if !filepath.IsAbs(root) {
+    t.Fatalf("the project root must be an absolute wasm path, got %q", root)
   }
   if err := os.MkdirAll(filepath.Join(root, "src"), 0o755); err != nil {
     t.Fatal(err)
