@@ -23,16 +23,16 @@ const DEFAULT_INCLUDE_SPEC = "**/*";
  * Root files follow TypeScript-Go's selection. `files` and `include` each
  * resolve to one list across `extends` as {@link findDeclaredFileSpecs}
  * decides, a declaring config replacing what it inherits rather than adding to
- * it. A config that declares neither gets the default include, every file below
- * its own directory, so tool output in package folders and hidden directories
- * is never mistaken for a program input (samchon/ttsc#1385).
+ * it. A config that declares neither gets the default recursive include spec.
+ * The root matcher still applies extension, package and hidden-path admission;
+ * this policy does not enumerate every dependency in the compiler program.
  *
- * `allowJs` and `resolveJsonModule` decide which extensions can enter the
- * program at all, so a `bundle.a1b2c3.js` emitted beside the sources is not a
- * membership change for a project that admits no JavaScript. `outDir`,
- * `declarationDir`, and the plain entries of `exclude` name the directories the
- * program does not contain. TypeScript supplies the two output directories as
- * implicit exclusions only when no top-level `exclude` replaces that default.
+ * `allowJs` and `resolveJsonModule` extend root-discovery suffixes, not the
+ * complete set of imported or externally observed program inputs. `outDir`,
+ * `declarationDir`, and plain `exclude` entries supply conservative directory
+ * exclusions for that discovery walk. TypeScript supplies the two output
+ * directories as implicit exclusions only when no top-level `exclude` replaces
+ * that default.
  *
  * A glob in `exclude` is skipped rather than approximated. Failing to exclude
  * costs a walk; excluding the wrong tree hides real sources, and this function
@@ -56,9 +56,6 @@ const DEFAULT_INCLUDE_SPEC = "**/*";
  *   realpath retain separate root aliases, including short-name expansion.
  *   Root matching later uses the compiler's case rule rather than the source OS.
  *
- *
- *
- *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Directory admission comes from configuration rather than a consumer-name
  *   table; unsupported globs cost extra observation instead of hiding sources.
@@ -71,8 +68,10 @@ const DEFAULT_INCLUDE_SPEC = "**/*";
  *   to its caller and this reader retains no handle or cross-call state.
  * @evidence contracts/performance.md#efficient-algorithms
  *   A per-call parsed-source map reads and parses each lexical config once
- *   across option queries. Each query traverses the required inheritance paths;
- *   input bytes, graph edges and spec count drive the remaining work.
+ *   across option queries, but each query repeats inheritance resolution and
+ *   native identity observations. Branch ancestor copying follows the sum of
+ *   visited depths; source bytes, config occurrences, spec/path lengths and
+ *   flattened exclusion count drive parsing, anchoring and returned arrays.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Option queries share parsed source within this read transaction. Later
  *   calls use a fresh map because unchanged metadata does not prove source
