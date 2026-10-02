@@ -26,10 +26,12 @@ import type createStrip from "../../../../packages/strip/src/index";
  *    native order, the file digest, the directory marker digest and nulls.
  * 3. Re-anchor through `pluginConfigDir` and an absolute `configFile`, and
  *    assert the walk then starts at, or stops on, the named location.
+ * 4. Pass a blank configFile and change the selected file's contents, then
+ *    verify discovery still applies and the next evaluation sees the new bytes.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls createStrip without configFile and asserts hostInputs, hostInputHashes and hostInputRealpaths for a two-level walk; the descriptor must stop at the first directory that holds a real config file and must treat the directory-shaped candidate as unread bytes with a marker digest.
  * @evidence contracts/testing.md#independent-expectations Digests are computed with node:crypto over literal bytes and the documented marker string, the candidate order is the authored seven-name list, and the physical target of the directory candidate is the junction target the test created, none of it read back from the factory.
- * @evidence contracts/testing.md#distinguishing-cases Positive observations (file digest, directory marker, junction target) contrast with absent candidates reporting null, the parent walk stops at the matching directory so the grandparent is absent from the inputs, an anchor override changes the starting directory and an absolute configFile yields exactly one observed path.
+ * @evidence contracts/testing.md#distinguishing-cases Positive observations (file digest, directory marker, junction target) contrast with absent candidates reporting null, the parent walk stops at the matching directory so the grandparent is absent from the inputs, an anchor override changes the starting directory and an absolute configFile yields exactly one observed path. Whitespace-only configFile retains discovery; a later file edit changes only its digest in the next observation and leaves the earlier descriptor unchanged.
  * @evidence contracts/testing.md#execution-ownership The matching src/features function runs the authored factory in the source-unit Node process over a temporary directory removed in finally; no config is evaluated, no native code is built and no product host starts.
  */
 export function test_strip_factory_observes_config_discovery_candidates(): void {
@@ -121,6 +123,25 @@ export function test_strip_factory_observes_config_discovery_candidates(): void 
       [explicit]: sha256("grandparent"),
     });
     assert.deepEqual(absolute.hostInputRealpaths, { [explicit]: explicit });
+
+    const blank = factory({
+      ...context,
+      plugin: { ...entry, configFile: " \t " },
+    });
+    assert.deepEqual(blank.hostInputs, expectedInputs);
+    assert.deepEqual(blank.hostInputHashes, hashes);
+    assert.deepEqual(blank.hostInputRealpaths, realpaths);
+
+    const selected = path.join(project, "strip.config.json");
+    fs.writeFileSync(selected, '{"calls":["changed"]}');
+    const changed = factory({ ...context, plugin: entry });
+    assert.deepEqual(changed.hostInputs, expectedInputs);
+    assert.deepEqual(changed.hostInputHashes, {
+      ...hashes,
+      [selected]: sha256('{"calls":["changed"]}'),
+    });
+    assert.deepEqual(changed.hostInputRealpaths, realpaths);
+    assert.deepEqual(discovered.hostInputHashes, hashes);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
