@@ -7,13 +7,12 @@ import (
 // TestCommandCheckReportsImportedSiblingWorkspaceSource verifies a file rule
 // runs over a sibling workspace source the type-check pass reads.
 //
-// A pnpm workspace package that publishes `./src/index.ts` as its entry
-// resolves to first-party TypeScript in every consumer, so `ttsc` type-checks
-// it. Lint used to stop at the consumer's tsconfig file list, which made the
-// same invocation hold two views of one Program: the sibling was checked but
-// never linted (samchon/ttsc#1065).
+// The fixture's tsconfig selects only consumer/src/main.ts. Its explicit
+// relative import also brings api/src/index.ts into the Program, and the lint
+// source population must include that imported sibling. This entry does not
+// install a workspace package or resolve a package-exports entry.
 //
-// 1. Materialize a consumer project importing a sibling package's source.
+// 1. Materialize a consumer project with a relative import of sibling source.
 // 2. Put a no-var violation in the sibling, none in the consumer.
 // 3. Run check and assert it fails naming the sibling file.
 //

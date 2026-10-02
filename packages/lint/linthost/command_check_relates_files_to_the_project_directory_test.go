@@ -9,14 +9,10 @@ import (
 // relates a file to the project directory reads the directory the Program was
 // opened in, not the process's working directory.
 //
-// The check command opens the Program at `--cwd`, and the engine took its
-// project directory from `os.Getwd` instead. The launcher starts the host in
-// the project directory, but Go's `os.Getwd` returns the shell's `PWD` whenever
-// that names the same directory. A project reached through a link, or macOS's
-// `/var`, therefore gave the rules a logical spelling while the Program named
-// its files by the physical one, and a project file read as outside the
-// project. This case runs the command from another directory, which separates
-// the two the same way on every platform.
+// The check command opens the Program at --cwd and supplies that directory to
+// the engine. This fixture places the project in a temporary directory distinct
+// from the process directory, so using the latter would lose the project's
+// Bad_Dir segment. It does not exercise links or compare operating systems.
 //
 //  1. Create a project whose source sits in `src/Bad_Dir/`.
 //  2. Run the check command with `--cwd` at the project and
