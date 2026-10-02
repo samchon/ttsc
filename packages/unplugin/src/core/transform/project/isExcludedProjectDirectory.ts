@@ -15,9 +15,12 @@ import { insideExcludedProjectDirectory } from "./insideExcludedProjectDirectory
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A configured output location excludes only its own subtree, not every directory sharing its basename.
  * @evidence contracts/common.md#meaningful-documentation The native prose names lexical containment and explains the distinction from historical name-only exclusions.
  * @evidence contracts/portability.md#os-neutral-implementation The explicit filesystem-view platform reaches the containment owner unchanged; native root/separator grammar and compiler case policy remain independent, including the same exact-entry comparison rule.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Fixing non-strict interpretation is constant selection, but actual
+ *   containment resolves query text and compares configured component
+ *   populations. Cold policy compilation processes exclusion text; absent
+ *   compiler reports also pay the case-prediction owner's native setup and
+ *   observations. Delegation does not make that query work constant.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
