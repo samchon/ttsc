@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 import { TtscCompiler } from "ttsc";
 import { compilerUsesCaseSensitiveFileNames } from "ttsc/tsconfig";
@@ -57,6 +56,7 @@ import { projectWalkFailureFingerprint } from "./projectWalkFailureFingerprint";
 import { projectWalkStable } from "./projectWalkStable";
 import { recordGenerationProofFailure } from "./recordGenerationProofFailure";
 import { generationNotificationsAvailable, retainGenerationNotifications } from "./retainGenerationNotifications";
+import { removeCaptureScratch } from "./removeCaptureScratch";
 import { recordProjectSnapshotFailures } from "./recordProjectSnapshotFailures";
 import { selectPersistentHostInputs } from "./selectPersistentHostInputs";
 
@@ -767,18 +767,7 @@ export async function captureTransformGeneration(props: {
             }
           } finally {
             try {
-              // Asynchronous on purpose: Windows refuses to remove a directory
-              // a process still holds (its working directory, a file an
-              // indexer or a just-exiting plugin child has open), and the
-              // refusal ends once the holder lets go. Node retries only the
-              // asynchronous removal (`maxRetries` is ignored by `rmSync`,
-              // measured), and waiting here does not stall the host's loop.
-              await fs.promises.rm(scratchDirectory, {
-                force: true,
-                maxRetries: 10,
-                recursive: true,
-                retryDelay: 100,
-              });
+              await removeCaptureScratch(scratchDirectory);
             } finally {
               if (
                 !retainClockReferenceDirectory &&
