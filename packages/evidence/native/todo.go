@@ -86,6 +86,11 @@ func todoMessage(entry string) string {
 // '@todo' shares a block with '@param' or '@evidence' without swallowing them.
 // The tag name matches case-insensitively, because '@TODO' is the same promise
 // shouted.
+//
+// A fenced example is not read for tags, as it is not by the declaration parser:
+// a '@todo' shown inside one is documentation of the tag rather than a debt. A
+// fence inside an entry's text stays part of it, so the example is not cut out
+// of the debt it follows.
 func todoEntries(comment string) []string {
   comment = strings.TrimSpace(comment)
   comment = strings.TrimPrefix(comment, "/**")
@@ -100,9 +105,16 @@ func todoEntries(comment string) []string {
     entries = append(entries, strings.TrimSpace(strings.Join(pending, " ")))
     pending = nil
   }
+  fence := commentFence{}
   for _, rawLine := range strings.Split(comment, "\n") {
     line := strings.TrimSpace(rawLine)
     line = strings.TrimSpace(strings.TrimPrefix(line, "*"))
+    if fence.consume(line) {
+      if pending != nil && line != "" {
+        pending = append(pending, line)
+      }
+      continue
+    }
     if remainder, opened := todoLine(line); opened {
       flush()
       pending = []string{remainder}
