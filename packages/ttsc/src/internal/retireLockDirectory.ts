@@ -1,6 +1,8 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 
+import type { RetireLockDirectoryOperations } from "./RetireLockDirectoryOperations";
+
 /**
  * Free a held lock generation by renaming its directory onto its tombstone, the
  * one operation both build-lock protocols retire a generation with.
@@ -22,6 +24,9 @@ import fs from "node:fs";
  * @param source The held generation's directory.
  * @param destination Its tombstone, which a successor's retire can never reuse.
  * @param yieldToPeers Waits once, by the protocol's own polling interval.
+ * @param operations Filesystem and platform primitives; the real filesystem
+ *   and `process.platform` by default, injectable so the Windows-only probe
+ *   branches can be exercised on any host.
  *
  * @returns `true` when the generation was retired; `false` when `source` is
  *   gone or `destination` is occupied, meaning another retire already made
@@ -30,10 +35,10 @@ import fs from "node:fs";
  * @throws When the rename fails for any other reason.
  *
  * @evidence contracts/common.md#principled-implementation Renaming the held generation to its unique tombstone is the ownership transition; missing or occupied paths indicate peer progress. A Windows sibling probe permits retry under caller-owned generation assumptions but cannot rule out source-specific restrictions.
- * @evidence contracts/common.md#clear-and-simple-design One retirement loop delegates missing/occupied classification and native peer-contention probing to private helpers; polling timing remains with the lock protocol caller.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Windows retry addresses supported peer reads beneath the held generation rather than overriding filesystem methods; the source-specific restriction uncertainty remains explicit instead of being described as a proved peer cause.
+ * @evidence contracts/common.md#clear-and-simple-design One retirement loop delegates missing/occupied classification and native peer-contention probing to private helpers; polling timing remains with the lock protocol caller, and one optional operations argument is the only seam, defaulting to the real filesystem and platform.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Windows retry addresses supported peer reads beneath the held generation rather than overriding filesystem methods; the source-specific restriction uncertainty remains explicit instead of being described as a proved peer cause. The injectable operations are a typed boundary that must report real native results and codes, not a replacement of foreign filesystem methods.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain tombstone ownership, supported contention, probe limits and absent deadline; outcome and yield meanings remain separately documented.
- * @evidence contracts/portability.md#os-neutral-implementation Node rename and errno classification carry native behavior; only Windows access/busy refusals invoke the sibling probe, and POSIX unrelated failures propagate.
+ * @evidence contracts/portability.md#os-neutral-implementation Node rename and errno classification carry native behavior; only Windows access/busy refusals invoke the sibling probe, selected by the operations' platform value (the process platform by default), and POSIX unrelated failures propagate.
  * @evidence contracts/performance.md#efficient-algorithms Each attempt performs one rename and at most one fixed-size sibling probe; total work grows with contention attempts and has no imposed attempt cap.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A rename and its contention observations are mutable ownership effects; replaying a previous result would not retire the current generation.
@@ -44,14 +49,16 @@ export function retireLockDirectory(
   source: string,
   destination: string,
   yieldToPeers: () => void,
+  operations: RetireLockDirectoryOperations = FILESYSTEM_OPERATIONS,
 ): boolean {
   for (;;) {
     try {
-      fs.renameSync(source, destination);
+      operations.renameSync(source, destination);
       return true;
     } catch (error) {
-      if (isMissingPath(error) || isOccupied(error, destination)) return false;
-      if (!isHeldByPeer(error, source, destination)) throw error;
+      if (isMissingPath(error) || isOccupied(error, destination, operations))
+        return false;
+      if (!isHeldByPeer(error, source, destination, operations)) throw error;
     }
     yieldToPeers();
   }
@@ -67,10 +74,14 @@ function isMissingPath(error: unknown): boolean {
  * an occupied directory destination as `EACCES` or `EPERM`, so those count only
  * when the destination is actually present.
  */
-function isOccupied(error: unknown, destination: string): boolean {
+function isOccupied(
+  error: unknown,
+  destination: string,
+  operations: RetireLockDirectoryOperations,
+): boolean {
   const code = (error as NodeJS.ErrnoException).code;
   if (code === "EEXIST" || code === "ENOTEMPTY") return true;
-  return (code === "EACCES" || code === "EPERM") && fs.existsSync(destination);
+  return (code === "EACCES" || code === "EPERM") && operations.existsSync(destination);
 }
 
 /**
@@ -81,26 +92,27 @@ function isHeldByPeer(
   error: unknown,
   source: string,
   destination: string,
+  operations: RetireLockDirectoryOperations,
 ): boolean {
-  if (process.platform !== "win32") return false;
+  if (operations.platform !== "win32") return false;
   const code = (error as NodeJS.ErrnoException).code;
   if (code !== "EPERM" && code !== "EACCES" && code !== "EBUSY") return false;
-  if (!fs.existsSync(source)) return false;
+  if (!operations.existsSync(source)) return false;
   const nonce = crypto.randomBytes(8).toString("hex");
   const probe = `${source}.probe-${nonce}`;
   const moved = `${destination}.probe-${nonce}`;
   try {
-    fs.mkdirSync(probe);
+    operations.mkdirSync(probe);
   } catch {
     return false;
   }
   try {
-    fs.renameSync(probe, moved);
+    operations.renameSync(probe, moved);
   } catch {
-    removeProbe(probe);
+    removeProbe(probe, operations);
     return false;
   }
-  removeProbe(moved);
+  removeProbe(moved, operations);
   return true;
 }
 
@@ -111,10 +123,21 @@ function isHeldByPeer(
  * Windows) leaves that directory behind rather than turning a peer contention
  * into a thrown failure.
  */
-function removeProbe(directory: string): void {
+function removeProbe(
+  directory: string,
+  operations: RetireLockDirectoryOperations,
+): void {
   try {
-    fs.rmSync(directory, { force: true, recursive: true });
+    operations.rmSync(directory, { force: true, recursive: true });
   } catch {
     // The probe is an empty sibling of the lock; its answer is already known.
   }
 }
+
+const FILESYSTEM_OPERATIONS: RetireLockDirectoryOperations = {
+  renameSync: fs.renameSync,
+  mkdirSync: (location) => fs.mkdirSync(location),
+  rmSync: fs.rmSync,
+  existsSync: fs.existsSync,
+  platform: process.platform,
+};
