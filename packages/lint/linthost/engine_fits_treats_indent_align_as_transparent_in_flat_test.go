@@ -8,8 +8,8 @@ import "testing"
 //
 // `Indent` and `Align` only contribute columns to *broken* mode;
 // their flat projection is identical to their children's. The
-// measurement code in `print_engine.go` relies on this invariant
-// without an explicit test pinning it. A refactor that started
+// measurement code in `print_engine.go` relies on this invariant, which
+// this test pins. A refactor that started
 // charging the Indent width against the flat budget would silently
 // flip groups to broken at narrower widths than necessary,
 // producing diffs that look like a rogue width regression.

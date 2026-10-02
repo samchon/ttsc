@@ -15,6 +15,7 @@ import (
 //
 //  1. Build an engine with each malformed payload.
 //  2. Assert ConfigError carries the expected message fragment.
+//
 // @evidence contracts/testing.md#behavioral-verification Actual engine construction validates six named malformed payloads before linting, requiring a ConfigError with an authored message fragment.
 // @evidence contracts/testing.md#independent-expectations The supported object/targets schema rejects array/string outer options, misspelled target and number/boolean/null target values independently of observed implementation output.
 // @evidence contracts/testing.md#distinguishing-cases Every malformed payload is a named subtest; AcceptsUpstreamSchemaShapes supplies omitted/object/string-query/query-array/target-map controls.

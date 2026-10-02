@@ -23,6 +23,7 @@ import (
 //     object.
 //  2. Run `check` with typescript/no-base-to-string enabled as error.
 //  3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification Plain-object string coercion must report the checker-backed base representation.
 // @evidence contracts/testing.md#independent-expectations The authored original source requires exactly one typescript/no-base-to-string rendered error at line 2, exit code 2 and empty stdout; an independently authored clean source requires code 0 and no rule findings.
 // @evidence contracts/testing.md#distinguishing-cases The same String coercion applied to a string is clean.

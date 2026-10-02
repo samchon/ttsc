@@ -7,11 +7,9 @@ import (
 // TestDispatchNamedImportsReturnsEmptyForNilNode verifies the nil-node
 // guard in printNamedImports returns an empty Doc without panicking.
 //
-// The nil guard is a defensive branch that protects callers who route a
-// nil pointer through the dispatcher (for example, after a failed AST
-// lookup). Leaving it untested allowed a coverage gap even though the
-// path is never reached through the normal dispatch cycle — the branch
-// must still compile and return a defined value.
+// The nil guard is a defensive branch. PrintNode screens nil before
+// dispatching, so the branch is reachable only through a direct
+// printNamedImports call, which is what this case makes.
 //
 // 1. Construct a PrintContext from a trivial parsed source.
 // 2. Call printNamedImports with a nil node pointer.

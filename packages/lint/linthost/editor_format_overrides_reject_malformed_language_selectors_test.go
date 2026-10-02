@@ -15,6 +15,7 @@ import (
 // 1. Configure a top-level tab size and malformed selectors containing empty groups.
 // 2. Resolve the settings for TypeScript.
 // 3. Assert malformed sections are ignored and the top-level value survives.
+//
 // @evidence contracts/testing.md#behavioral-verification Writes a settings.json with top-level tabSize 8 and malformed `[][typescript]` and `[typescript][]` sections carrying tabSize 4 and 2, calls editorFormatOverrides for typescript, and asserts tabWidth stays 8.
 // @evidence contracts/testing.md#independent-expectations The expected 8 is authored from the rule that a selector with an empty group is not a language selector and must not act as a wildcard or exact scope.
 // @evidence contracts/testing.md#distinguishing-cases Two malformed spellings (empty group first, empty group last) must both be ignored; a resolver that dropped only the empty group would let tabSize 4 or 2 win. A well-formed selector is not included in this test.

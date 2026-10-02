@@ -5,17 +5,18 @@ import (
   "testing"
 )
 
-/**
- * Verifies testing-library miscellaneous rules: imports, cleanup, test ids, regex flags, setup, and naming.
- *
- * Covers the lower-level one-pass checks that do not need separate behavioral
- * fixtures. The configured data-testid option proves tuple options reach the
- * SourceFile-level rule through `Context.DecodeOptions`.
- *
- * 1. Mix DOM imports, cleanup, test-id queries/attributes, direct userEvent calls, and a render result name.
- * 2. Enable the corresponding single-pattern rules.
- * 3. Assert each rule reports once at the expected source line.
- */
+// TestMiscTestingLibraryRules verifies seven single-pattern Testing Library
+// rules (DOM import, cleanup, test ids, regex flags, user-event setup and
+// render-result naming) each report once at the marked source line.
+//
+// These are the lower-level one-pass checks that need no separate behavioral
+// fixture. The configured testIdPattern option proves tuple options reach the
+// SourceFile-level rule through `Context.DecodeOptions`.
+//
+//  1. Mix DOM imports, cleanup, test-id queries and attributes, a direct
+//     userEvent call and a render result named `wrapper` in one TSX source.
+//  2. Enable the seven rules, with testIdPattern `^[a-z-]+$` for the test-id rule.
+//  3. Assert the seven exact rule, severity and line triples.
 //
 // @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify seven exact findings cover DOM import, configured test-id pattern, render-result name, cleanup, test-id query, global-regexp query and direct userEvent; exact normalized findings reject extra or missing results.
 // @evidence contracts/testing.md#independent-expectations The explicit ^[a-z-]+$ option rejects Bad Value, while the named import/query/cleanup policies independently determine the other marked lines.

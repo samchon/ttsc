@@ -14,6 +14,7 @@ import (
 //     standard disposable library enabled.
 //  2. Suppress the matching compiler errors and run await-thenable.
 //  3. Assert both lint findings anchor on the offending expressions.
+//
 // @evidence contracts/testing.md#behavioral-verification Async protocol members must be callable rather than merely present.
 // @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix the complete rule/error line list 6,10 with code 2 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
 // @evidence contracts/testing.md#distinguishing-cases Numeric asyncIterator and Promise-valued asyncDispose members report; async iterable/disposable allow cases have callable methods. Original TypeScript suppressions and disposable-library configuration remain intact.

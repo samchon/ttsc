@@ -18,6 +18,7 @@ import (
 //  1. Seed the chained-arrow canonical (already correct).
 //  2. Run `ttsc format`.
 //  3. Assert it converges and leaves the source unchanged.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command (semi false) on a curried arrow `(a) =>\n  (b) => {` with a body hanging under the continuation indent, and asserts exit 0 without a did-not-converge message and the file unchanged.
 // @evidence contracts/testing.md#independent-expectations The source is an authored, already-correct curried-arrow layout and the expectation is that same literal; nothing is computed from formatter output.
 // @evidence contracts/testing.md#distinguishing-cases A single no-change case: a naive re-indent of the inner arrow body to depth times tab width from column 0 would alter it. There is no mangled-input case here, so it does not show the rule repairing a wrong chained-arrow indent.

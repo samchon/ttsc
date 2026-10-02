@@ -23,6 +23,7 @@ import (
 // 1. Seed a project that iterates a typed `number[]` with `for...in`.
 // 2. Run `check` with typescript/no-for-in-array enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification For-in over a checker-resolved array must report.
 // @evidence contracts/testing.md#independent-expectations The authored original source requires exactly one typescript/no-for-in-array rendered error at line 2, exit code 2 and empty stdout; an independently authored clean source requires code 0 and no rule findings.
 // @evidence contracts/testing.md#distinguishing-cases An otherwise identical for-in over a record remains clean.

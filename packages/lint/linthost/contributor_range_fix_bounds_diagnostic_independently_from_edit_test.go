@@ -5,11 +5,10 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestContributorRangeFixBoundsDiagnosticIndependentlyFromEdit pins the
+// TestContributorRangeFixBoundsDiagnosticIndependentlyFromEdit verifies the
 // public fix-reporting adapter. A malformed diagnostic span must be bounded
 // without shifting or discarding an otherwise valid candidate edit; the two
 // ranges have separate contracts and consumers.
-//
 //
 //  1. Report a malformed diagnostic span alongside a valid 0..5 let edit through the public contributor adapter.
 //  2. Require diagnostic EOF bounds without altering the independent edit or original message.

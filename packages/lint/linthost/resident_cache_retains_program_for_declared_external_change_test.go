@@ -16,6 +16,7 @@ import (
 //  1. Warm one checker-bearing Program and apply a declared external change.
 //  2. Reacquire and assert the exact Program remains resident.
 //  3. Apply an undeclared unknown change and assert the cache is discarded.
+//
 // @evidence contracts/testing.md#behavioral-verification A declared external change preserves exact resident Program identity while an unknown undeclared change invalidates it.
 // @evidence contracts/testing.md#independent-expectations The independently authored declared/unknown paths define reuse validity; identity equality and cache removal directly distinguish the two lifetime decisions.
 // @evidence contracts/testing.md#distinguishing-cases The same unknown path docs/spec.md is applied twice: first with an external classification, which must leave the exact warm Program returned by the next acquisition, then without one, which must empty the cache. The classification is therefore the only variable between retention and discard; tracked TypeScript source changes are owned by other resident tests.

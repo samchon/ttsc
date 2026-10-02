@@ -16,7 +16,11 @@ import "testing"
 //  1. Build two coincident zero-width inserts at the EOF offset of `const x = 1`,
 //     one `;` and one `\n`.
 //  2. Run `selectTextEdits` against the source length.
-//  3. Assert exactly one edit survives and applying it never yields `\n;`.
+//  3. Assert exactly one edit survives, it is one of the two supplied inserts,
+//     and applying it never yields `\n;`.
+//  4. Assert an insert at the end of a replaced range is kept beside that
+//     replacement, while a negative start, a reversed range and a range past
+//     the source length are dropped.
 //
 // @evidence contracts/testing.md#behavioral-verification selectTextEdits keeps only one coincident EOF insertion, preserves an adjacent endpoint insertion and rejects invalid ranges.
 // @evidence contracts/testing.md#independent-expectations The survivor must equal a supplied semicolon/newline edit and produce one of two full literal outputs; literal replacement/suffix edits specify the adjacency result.

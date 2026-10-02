@@ -13,8 +13,10 @@ import (
 // closes the brace at the `input:` column; the format pipeline must keep
 // this already-correct layout byte-identical (idempotent).
 //
-//  1. Exercise the authored command format preserves param type literal indent fixtures through the owning Go operation.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Seed an interface whose method parameter is `Payload & { ... }` with a broken literal, plus a flat parameter literal.
+//  2. Run `ttsc format` with an empty format block.
+//  3. Require exit 0 and the file byte-identical.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on an interface whose method parameter `input: Payload & { ... }` has its literal members one level deeper than the `input:` line and its brace closing at that column, plus a flat `count(arg: { where: Where })`, and requires exit 0 and the file byte-identical.
 // @evidence contracts/testing.md#independent-expectations The source is an authored literal in Prettier's layout and serves as its own expected output.
 // @evidence contracts/testing.md#distinguishing-cases One fixed-point case with a broken parameter literal and a flat one in the same file; a formatter that re-indented the broken literal to block depth would fail. No mis-indented input is repaired here.

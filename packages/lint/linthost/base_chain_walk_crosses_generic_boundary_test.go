@@ -16,7 +16,7 @@ import (
 // an exposed traversal shows up here as a red `pnpm test:go`, instead of as a
 // downstream consumer issue filed weeks later.
 //
-// The closure auditor (tools/shim_audit) and the compile-time guards can only
+// The closure auditor (packages/ttsc/tools/shim_audit) and the compile-time guards can only
 // see whether a symbol is NAMEABLE or whether a composition COMPILES — never
 // whether a traversal actually COMPLETES at runtime. `Checker_getBaseTypes`
 // nil-derefs on a generic `Reference` base (the `Mid<string>` in

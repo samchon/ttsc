@@ -17,6 +17,7 @@ import (
 // 2. Execute `ttsc.lint.fixAll` through the LSP command path.
 // 3. Apply the returned WorkspaceEdit in memory and assert the cascaded text.
 // 4. Assert the source file on disk was not modified by the sidecar.
+//
 // @evidence contracts/testing.md#behavioral-verification ttsc.lint.fixAll returns the full authored lint cascade result and leaves the original source unchanged on disk.
 // @evidence contracts/testing.md#independent-expectations The literal fixed text and original source bytes pin the lint transformations and non-mutation independently of generated WorkspaceEdit contents.
 // @evidence contracts/testing.md#distinguishing-cases The first declaration is var and the second is already let, so prefer-const can only convert the first after no-var has made it block-scoped; the typeof loose equality is a third independent rewrite. The literal result needs all three passes, and the disk file read back must still contain the original var source.

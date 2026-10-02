@@ -2,7 +2,7 @@ package linthost
 
 import "testing"
 
-// TestFixNoVarSkipsDeferredSelfReferenceInInit documents the INTENTIONAL
+// TestFixNoVarSkipsDeferredSelfReferenceInInit verifies the INTENTIONAL
 // conservative over-decline for a deferred self-reference inside the
 // initializer.
 //

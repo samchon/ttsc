@@ -2,12 +2,12 @@ package linthost
 
 import "testing"
 
-// TestDisplayWidthMatchesPrettierGetStringWidth pins displayWidth to the number
-// Prettier 3.8.3 returns.
+// TestDisplayWidthMatchesPrettierGetStringWidth verifies displayWidth returns
+// the number Prettier 3.8.3 returns for each listed string.
 //
-// Every `want` below was MEASURED by calling `prettier.util.getStringWidth` on
-// the exact code points beside it, not derived from a specification of what
-// Prettier ought to do. That distinction is this function's whole history: a
+// Every `want` below except the tab row (the documented deviation) was MEASURED
+// by calling `prettier.util.getStringWidth` on the exact code points beside it,
+// not derived from a specification of what Prettier ought to do. That distinction is this function's whole history: a
 // hand-written range table diverged on 11,482 code points, and the first repair
 // ported `string-width` — which the report named and Prettier does not use —
 // and regressed ordinary Devanagari, the Hangul fillers, the bidi controls, and

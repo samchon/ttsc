@@ -11,7 +11,7 @@ import (
 //
 // Side-effect imports have no ImportClause at all (`imp.ImportClause == nil`).
 // The printer falls back to verbatim so no bytes are lost, matching the
-// "safety net" contract described in print_dispatch.go. Without this case
+// verbatim-fallback contract described in print_dispatch.go. Without this case
 // the clause-nil branch would remain uncovered and a future guard removal
 // could silently drop side-effect imports.
 //

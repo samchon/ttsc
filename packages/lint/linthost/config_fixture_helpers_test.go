@@ -1,5 +1,6 @@
-// Shared config fixture operations used by portable units and the minimal
-// Windows kernel batch. No corpus or witness dependency is needed here.
+// Shared config fixture operations used by the portable config and compiler
+// resolution units and their Windows-only link variants. No corpus or witness
+// dependency is needed here.
 package linthost
 
 import (

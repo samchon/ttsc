@@ -14,6 +14,7 @@ import (
 //  1. Build handled and unhandled dot/computed Promise chains.
 //  2. Run the rule with scalar defaults.
 //  3. Assert only the invalid handler, finally, and spread lines report.
+//
 // @evidence contracts/testing.md#behavioral-verification Handler recognition must require a supported callable rejection arm and preserve receiver certainty.
 // @evidence contracts/testing.md#independent-expectations Independently authored source and original assertions require exact error lines 11, 12, 13, 14, 17, code 2 and empty stdout for reporting command runs; all original inputs/options and clean arms are retained.
 // @evidence contracts/testing.md#distinguishing-cases Direct/computed catch and then rejection callbacks, nested finally and asserted handler stay clean; undefined, finally-only, spread-argument and mixed unrelated receiver cases report.

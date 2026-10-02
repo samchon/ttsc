@@ -11,8 +11,12 @@ import "testing"
 //
 // Each source is the Prettier-canonical output at printWidth 80.
 //
-//  1. Exercise the authored command format array of arrays break fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Seed six array literals: pair arrays, `new Map([...])` entries,
+//     two-property objects, single-child inner arrays, mixed kinds and a lone
+//     element.
+//  2. Run `ttsc format` on each and require the file to stay byte-identical to
+//     its Prettier-canonical source.
+//
 // @evidence contracts/testing.md#behavioral-verification Seeds six authored array literals (pair arrays, `new Map([...])` entries, two-property objects, single-child inners, mixed kinds, a lone element), runs the in-process `format` command and requires each file unchanged.
 // @evidence contracts/testing.md#independent-expectations Sources are authored literals in the Prettier-canonical layout the test names (multi-child same-kind elements broken one per line; others flat); expectations equal the inputs and are not derived from the implementation.
 // @evidence contracts/testing.md#distinguishing-cases Three breaking positives (array of arrays, Map entries, array of objects) are contrasted with three flat negatives (single-child inners, mixed array and object, single element). All are fixed points, so the test cannot show the formatter performs the break from a flat input.

@@ -17,6 +17,7 @@ import (
 // 2. Execute `ttsc.lint.fixAll` through the LSP command path.
 // 3. Execute `ttsc.format.document` through the same path.
 // 4. Assert the returned WorkspaceEdits contain only their own edit class.
+//
 // @evidence contracts/testing.md#behavioral-verification Fix-all changes var to let without adding semicolons; format-document adds semicolons without changing var, rejecting cross-class rewrites.
 // @evidence contracts/testing.md#independent-expectations Two independently authored full source strings specify each allowed change and preservation of the other defect.
 // @evidence contracts/testing.md#distinguishing-cases The same source contains both a lint defect and a formatting defect so either command applying both classes fails instead of passing a single-defect fixture.

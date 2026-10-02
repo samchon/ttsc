@@ -63,6 +63,7 @@ import (
 //  19. Resolve one package through an inactive condition, an encoded target, a
 //     wildcard pattern whose first array entry is invalid, and a null-blocked
 //     subpath, and prove only the active targets enter the graph.
+//
 // @evidence contracts/testing.md#behavioral-verification loadConfigFileEvaluation and loadConfigResolver preserve the nineteen documented CJS/ESM, resolution, dependency-scope, cache-refresh and recovery scenarios with all graph and severity assertions.
 // @evidence contracts/testing.md#independent-expectations Literal error/warning/off modules, explicitly authored resolution candidates and expected watch/cache kinds independently specify each transition.
 // @evidence contracts/testing.md#distinguishing-cases Owns helper/package edits, failed evaluation recovery, extension priority, hoisted and shadowed packages, legacy main, active exports conditions, lexical link retargets, query targets and blocked or fallback export branches.

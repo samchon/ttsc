@@ -18,6 +18,7 @@ import (
 //  1. Load BOM-prefixed JSONC and boundary cases through the real ancestor walk.
 //  2. Compare valid BOM and no-BOM settings while preserving an embedded BOM.
 //  3. Run the format command and assert the editor indentation reaches the file.
+//
 // @evidence contracts/testing.md#behavioral-verification Writes `.vscode/settings.json` files (with and without a leading UTF-8 BOM) into temp directories and calls editorFormatOverrides and loadNearestVSCodeSettings: BOM-prefixed JSONC with comments and trailing commas resolves from an ancestor directory, a BOM `{}` parses empty, BOM and plain copies give equal overrides, an embedded BOM stays string data, a BOM-only or malformed file reports not-ok with no overrides, and the format command applies a BOM-prefixed tabSize 4.
 // @evidence contracts/testing.md#independent-expectations Expected values are authored literals from the editor-setting mapping (tabSize 4 to tabWidth 4, insertSpaces false to useTabs true, `\r\n` to crlf) and from the format command output `function f() {\n    return 1;\n}\n`; they are not derived from the resolver's traversal.
 // @evidence contracts/testing.md#distinguishing-cases Separate subcases distinguish a BOM from no BOM, a BOM at the start from one inside a string value, valid from malformed or empty-after-BOM input, nearest-ancestor discovery from a nested directory, and resolver output from the full format command.

@@ -15,6 +15,7 @@ import "testing"
 //  2. Feed `new Foo(aaaaaa, bbbbbb, cccccc);`.
 //  3. Assert the rewrite keeps `new Foo(` on the head line and breaks
 //     the arguments onto indented lines with trailing comma.
+//
 // @evidence contracts/testing.md#behavioral-verification Applies format/print-width at printWidth 20 to `new Foo(aaaaaa, bbbbbb, cccccc);` and requires the exact output `new Foo(` followed by three indented arguments with a trailing comma and `);`.
 // @evidence contracts/testing.md#independent-expectations The expected text is an authored literal; the `new` keyword, constructor name, arguments and punctuation are preserved and nothing is derived from the printer.
 // @evidence contracts/testing.md#distinguishing-cases One changing case through the NewExpression path (keyword glue plus the argument list), the `new` counterpart of the call-arguments case; a fitting `new` call is not included here.

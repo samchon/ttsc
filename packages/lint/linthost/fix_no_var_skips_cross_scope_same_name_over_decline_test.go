@@ -2,8 +2,8 @@ package linthost
 
 import "testing"
 
-// TestFixNoVarSkipsCrossScopeSameNameOverDecline documents the deliberate
-// conservative trade in the redesigned single-binding gate.
+// TestFixNoVarSkipsCrossScopeSameNameOverDecline verifies the deliberate
+// conservative over-decline of the single-binding gate.
 //
 // In the function counterpart, x and g's parameter are independent bindings.
 // The AST-local file-wide count nevertheless sees two binding positions and

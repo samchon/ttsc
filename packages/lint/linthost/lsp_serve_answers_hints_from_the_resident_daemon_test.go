@@ -20,6 +20,7 @@ import (
 //  1. Seed a project with the JSDoc validator enabled.
 //  2. Drive lsp-serve with one lsp-hints request line.
 //  3. Assert the reply carries code 0 and the built-in tag corpus.
+//
 // @evidence contracts/testing.md#behavioral-verification The in-process lsp-serve stream handles one hints request and returns code 0 with the configured built-in tag corpus.
 // @evidence contracts/testing.md#independent-expectations The authored request line and literal reply code zero express the resident protocol contract. The corpus is checked only by comparing its length with the production knownJSDocTags table, so the tag contents are not independently asserted here.
 // @evidence contracts/testing.md#distinguishing-cases A daemon that rejects or omits the lsp-hints verb would reply with a nonzero code or an empty or undecodable result, which this single request detects. Other verbs and multiple requests per stream are not covered.

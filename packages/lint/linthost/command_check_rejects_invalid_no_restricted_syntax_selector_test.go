@@ -5,6 +5,18 @@ import (
   "testing"
 )
 
+// TestCommandCheckRejectsInvalidNoRestrictedSyntaxSelector verifies the check
+// command rejects a malformed no-restricted-syntax selector before linting.
+//
+// The source contains an `eval` call that a well-formed selector would report,
+// so a run that merely dropped the bad selector would print a rule finding. The
+// configuration must instead fail as an invalid option for the rule.
+//
+//  1. Seed a project containing `eval("1")`.
+//  2. Configure no-restricted-syntax with the incomplete selector `CallExpression[`
+//     and run `check` in this process.
+//  3. Assert status 2, empty stdout, the invalid-options and invalid-selector
+//     messages and no [no-restricted-syntax] diagnostic.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual in-process check returns code two, empty stdout and invalid-option/selector errors without a rule finding.
 // @evidence contracts/testing.md#independent-expectations The independently incomplete CallExpression[ selector violates grammar before any eval can be linted; literal rejection fragments identify the failure stage.

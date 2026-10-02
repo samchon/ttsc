@@ -38,6 +38,7 @@ func (commandProjectInputRule) ProjectInputs(ctx *publicrule.ProjectInputContext
 //  1. Register one input-publishing rule and write only a lint config.
 //  2. Invoke the dispatch front door with project-inputs.
 //  3. Decode stdout and assert config, exact file, glob, and root identity.
+//
 // @evidence contracts/testing.md#behavioral-verification project-inputs publishes config, exact file, glob and root identities from a registered publisher without any project Program.
 // @evidence contracts/testing.md#independent-expectations Authored fixture paths and glob values establish the literal JSON identity expectations; absence of a tsconfig rules out accidental compiler loading.
 // @evidence contracts/testing.md#distinguishing-cases The directory holds only lint.config.json and no tsconfig, so any Program load would fail; the decoded snapshot must list the missing exact file and the config file as watched files, only the config as the reload file, one glob, and the physical root, each compared with an exact literal list. One publishing rule is used, so ordering across several rules is not covered.

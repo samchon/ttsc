@@ -9,11 +9,10 @@ import (
 // called with a nil node.
 //
 // The nil guard is the outermost safety net in printExpressionStatement. It
-// must return covered==true so that a nil statement does not taint the
-// enclosing block's coverage flag — there is nothing multi-line to worry
-// about in empty output. A regression that returned covered==false would
-// cause the formatPrintWidth rule to abstain on blocks that happen to hold
-// a nil statement placeholder during error recovery.
+// returns covered==true because empty output holds nothing multi-line, so
+// a nil statement cannot taint an enclosing coverage flag. PrintNode and
+// printBlock both screen nil before dispatching, so the guard is reachable
+// only through a direct call, which is what this case makes.
 //
 //  1. Build a PrintContext from any valid parsed file.
 //  2. Call printExpressionStatement(ctx, nil) directly.

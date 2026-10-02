@@ -25,7 +25,8 @@ import (
 //  4. Assert single-threaded mode still takes precedence over the pool size.
 //  5. Restore a generated wrapper's explicit semantic config owner.
 //  6. Carry that owner from an LSP invocation through cold and resident loads.
-//  7. Prove ambient-only and relative owner values cannot affect later loads.
+//  7. Assert an ambient-only owner leaves a wrapper load on its own config and
+//     a relative explicit owner is rejected with the absolute-path error.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual compiler loading preserves configured Checkers=4 while a nonnil standalone rule checker differs from the borrowed Program checker; close releases the lint checker and single-threaded loading remains explicit. Generated JSON wrapper ownership is observed through direct, cold LSP and resident Programs.
 // @evidence contracts/testing.md#independent-expectations Literal checker counts and pointer inequality specify independent ownership, not runtime pool cardinality; authored absolute semantic config versus generated wrapper fixes each expected ConfigFilePath and the literal relative-path error.

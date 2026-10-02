@@ -12,6 +12,7 @@ import (
 //  1. Seed Promise arrays, tuples, Iterables, and literal May values.
 //  2. Pass each value to a native Promise aggregator.
 //  3. Assert a clean run with no await-thenable finding.
+//
 // @evidence contracts/testing.md#behavioral-verification Promise aggregators must allow supported Promise-bearing and uncertain input elements.
 // @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix zero rule findings with code 0 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
 // @evidence contracts/testing.md#distinguishing-cases Promise arrays, tuples, iterable values, maybe-Promise/unknown/any members, holes and unconstrained generic elements remain clean; ContainerShapesReport and LiteralMembersReport provide definite-scalar counterparts.

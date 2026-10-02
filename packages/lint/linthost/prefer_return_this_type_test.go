@@ -26,6 +26,7 @@ import (
 //  2. Run `check` with typescript/prefer-return-this-type enabled as
 //     error.
 //  3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification A this-returning method annotated with its concrete class must report.
 // @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/prefer-return-this-type rendered error at line 2, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
 // @evidence contracts/testing.md#distinguishing-cases Existing this return annotation preserves the fluent receiver.

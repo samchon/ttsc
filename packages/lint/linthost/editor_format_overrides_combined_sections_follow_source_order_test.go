@@ -16,6 +16,7 @@ import (
 // 1. Configure top-level, exact, matching, and non-matching combined scopes.
 // 2. Give the scopes overlapping and disjoint formatter keys.
 // 3. Assert source-order merging and final exact-language precedence.
+//
 // @evidence contracts/testing.md#behavioral-verification Writes a settings.json with top-level keys, an exact `[typescript]` section, two matching combined sections (`[json][typescript]`, `[javascript][typescript]`) and a non-matching `[json][markdown]` section, calls editorFormatOverrides for typescript, and asserts tabWidth 2, useTabs false and endOfLine crlf.
 // @evidence contracts/testing.md#independent-expectations The three expected values are authored from the stated VS Code precedence: matching combined sections layer in declaration order, then the exact single-language section overrides conflicts; they are not computed by the resolver.
 // @evidence contracts/testing.md#distinguishing-cases tabWidth 2 shows the exact section wins although it is declared before the combined ones; useTabs false shows the later combined section overrides the earlier one's insertSpaces false; crlf shows the non-matching section's `\n` does not apply and the top-level value survives.

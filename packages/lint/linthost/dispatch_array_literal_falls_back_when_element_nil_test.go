@@ -19,7 +19,10 @@ import (
 //  1. Parse any source file to obtain a valid PrintContext.
 //  2. Use NodeFactory to build an ArrayLiteralExpression whose Elements
 //     NodeList contains a single nil entry.
-//  3. Call printArrayLiteral directly and assert it does not panic.
+//  3. Call printArrayLiteral directly and assert the synthetic node prints
+//     empty without panicking.
+//  4. Repeat on a parsed `[a, b]` whose Elements.Nodes is replaced by a nil
+//     entry and assert the original `[a, b]` source is preserved.
 //
 // @evidence contracts/testing.md#behavioral-verification printArrayLiteral must preserve [a, b] when Elements.Nodes contains nil instead of synthesizing a corrupt list.
 // @evidence contracts/testing.md#independent-expectations The original source literal independently fixes element spelling and order; the synthetic zero-range expected output is empty.

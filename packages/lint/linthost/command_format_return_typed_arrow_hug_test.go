@@ -11,8 +11,10 @@ import "testing"
 //
 // Each source is the Prettier-canonical output at printWidth 80.
 //
-//  1. Exercise the authored command format return typed arrow hug fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Seed five call layouts, each a Prettier-canonical shape at width 80.
+//  2. Run `ttsc format` with the default format block on each.
+//  3. Require every file byte-identical.
+//
 // @evidence contracts/testing.md#behavioral-verification Five subcases run the in-process `format` command on authored call layouts and require each file unchanged: a return-typed expression-bodied object arrow exploded (as sole and trailing argument), the same arrow without a return type hugged, and block-bodied return-typed arrows hugged as last and first argument.
 // @evidence contracts/testing.md#independent-expectations Sources are authored literals described as Prettier-canonical at width 80 and serve as their own expected output; they are not derived from the formatter.
 // @evidence contracts/testing.md#distinguishing-cases Pairs the two exploding shapes with three hugging counterparts that differ by return annotation or body kind. All are fixed points, so none shows a flat input being rewritten.

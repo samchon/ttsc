@@ -10,11 +10,10 @@ import (
 // ImportDeclaration printer correctly assembles `import { … } from
 // "spec";` around the named-imports clause.
 //
-// The printer's job here is gluing the keyword + clause + `from` +
-// module specifier together while delegating the bracket reflow to
-// the NamedImports printer. A regression in the glue would either drop
-// the semicolon, eat the `from` keyword, or quote the specifier
-// incorrectly.
+// printImportDeclaration builds the `import ` prefix, the specifier list
+// and the ` from "x";` suffix into one printList group itself; it does not
+// call printNamedImports. A regression in that assembly would drop the
+// semicolon, eat the `from` keyword, or alter the module specifier.
 //
 //  1. Parse `import { a } from "x";`.
 //  2. Render the ImportDeclaration node directly.

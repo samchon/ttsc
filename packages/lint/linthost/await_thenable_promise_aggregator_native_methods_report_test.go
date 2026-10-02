@@ -12,6 +12,7 @@ import (
 //  1. Seed one non-awaitable literal call for all, allSettled, any, and race.
 //  2. Run check with typescript/await-thenable enabled as error.
 //  3. Assert one finding on the member line of every call.
+//
 // @evidence contracts/testing.md#behavioral-verification Every native Promise aggregator must inspect its scalar input elements.
 // @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix the complete rule/error line list 1,2,3,4 with code 2 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
 // @evidence contracts/testing.md#distinguishing-cases Original all/allSettled/any/race fixtures report with the upstream message; AwaitableInputsAllow supplies true Promise inputs across methods.

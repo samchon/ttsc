@@ -15,9 +15,11 @@ import (
 // through a synthetically built node, but must be tested so the defensive
 // branch stays live under coverage enforcement.
 //
-// 1. Parse any source file to obtain a valid PrintContext.
-// 2. Use NodeFactory to build a NamedExports node with nil Elements.
-// 3. Call printNamedExports directly and assert it does not panic.
+//  1. Parse any source file to obtain a valid PrintContext.
+//  2. Use NodeFactory to build a NamedExports node with nil Elements, call
+//     printNamedExports directly and assert the output is empty.
+//  3. Parse `export { a, b };`, clear the parsed node's Elements and assert
+//     the output is the original `{ a, b }`.
 //
 // @evidence contracts/testing.md#behavioral-verification printNamedExports must retain the original { a, b } clause when Elements is nil.
 // @evidence contracts/testing.md#independent-expectations The independently authored export fixture specifies the exact source bytes; the synthetic no-range fallback must be empty.

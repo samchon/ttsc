@@ -10,8 +10,9 @@ import (
 // false` also flags an `else if` after a returning `if`.
 //
 // Negative twin, one property away, of TestNoElseReturnAllowsElseIfReturnChain:
-// the identical `return` + `else if` shape is silent under the default
-// (`allowElseIf: true`) but reports under `allowElseIf: false`, upstream's
+// the same `return` + `else if` shape (braced there, unbraced here) is silent
+// under the default (`allowElseIf: true`) but reports under
+// `allowElseIf: false`, upstream's
 // `checkIfWithElse` path. The single finding lands on the `else if` node.
 //
 // 1. Configure no-else-return with `{"allowElseIf": false}`.

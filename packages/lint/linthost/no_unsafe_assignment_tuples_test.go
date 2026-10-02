@@ -8,6 +8,7 @@ import "testing"
 // 1. Assign a tuple with two `any` elements to a concrete tuple target.
 // 2. Repeat with `unknown` receivers and an identical tuple as safe twins.
 // 3. Require one finding for the annotated tuple boundary, not one per argument.
+//
 // @evidence contracts/testing.md#behavioral-verification Tuple type argument comparison must retain one report per assignment boundary.
 // @evidence contracts/testing.md#independent-expectations The fixture's independently authored expect markers require one authored concrete tuple assignment finding; the oracle compares the complete sorted rule/error line multiset, error message prefix, code 2 and empty stdout.
 // @evidence contracts/testing.md#distinguishing-cases unknown receiver and identical tuple stay clean; nested structural properties are not a general runtime-safety proof.

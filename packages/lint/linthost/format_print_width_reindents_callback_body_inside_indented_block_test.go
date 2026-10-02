@@ -21,6 +21,7 @@ import "testing"
 //  3. Assert the call's `=>` header sits at the block indent and the
 //     body statements indent exactly two spaces deeper — consistent at
 //     every level.
+//
 // @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule parses the reindents callback body inside indented block fixture and applies its edit; complete authored output equality rejects lost source content or punctuation alongside incorrect line layout. The owned result is: Assert the call's `=>` header sits at the block indent and the body statements indent exactly two spaces deeper — consistent at every level.
 // @evidence contracts/testing.md#independent-expectations The source operands and literal expected layout are authored independently of the rule printer. The fixture fixes printWidth and indentation, so expected line placement does not come from rendering the implementation under test.
 // @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Feed a `new` call inside a function body whose callback body statements are deliberately mis-indented in the source. The asserted decision is: Assert the call's `=>` header sits at the block indent and the body statements indent exactly two spaces deeper — consistent at every level. Other fixture shapes remain in their separately named hosts.

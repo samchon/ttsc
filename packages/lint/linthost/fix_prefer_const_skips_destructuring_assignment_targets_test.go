@@ -16,8 +16,8 @@ import "testing"
 //
 //  1. Parse `let` bindings reassigned only via array, object, and nested
 //     destructuring-assignment patterns.
-//  2. Run preferConst through the disk-backed fixer.
-//  3. Assert the rule reports nothing and the source is left unchanged.
+//  2. Run preferConst over the disk-backed source file.
+//  3. Assert the rule reports nothing, so no `const` rewrite can be offered.
 //
 // @evidence contracts/testing.md#behavioral-verification prefer-const emits no findings for bindings written only through array/object/nested destructuring assignments.
 // @evidence contracts/testing.md#independent-expectations The authored assignment targets, rest and defaults require mutable bindings; zero findings forbid any const edit.

@@ -9,8 +9,10 @@ import "testing"
 // the member at depth*tabWidth (contrast with the intersection case, where the
 // literal opens on an indented `&`-chain line and must be ceded).
 //
-//  1. Exercise the authored command format preserves generic arg type literal indent fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Seed an interface property whose generic argument is a type literal opening on the property's own line.
+//  2. Run `ttsc format` with the default format block.
+//  3. Require the file byte-identical.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on an interface property `id: tags.Plugin<{ a: true; }>` whose literal opens on the property's own line, and requires the file byte-identical, keeping the member at depth times tab width.
 // @evidence contracts/testing.md#independent-expectations The source is an authored literal in Prettier's layout and is its own expected output.
 // @evidence contracts/testing.md#distinguishing-cases One fixed-point case where block depth equals the visual indent, the counterpart of the intersection and multi-line generic-argument cases that must be ceded. No wrongly indented input is repaired here.

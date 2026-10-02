@@ -6,7 +6,7 @@ import (
 )
 
 // TestFormatBlockPropagatesJsdocSortTagsOption verifies that sortTags: true
-// inside a format.jsDoc object is accepted and forwarded to the formatJsdoc
+// inside a format.jsDoc object is accepted and forwarded to the format/jsdoc
 // rule entry.
 //
 // Locks the success arm at `jdOpts["sortTags"] = b` inside expandFormatBlock.
@@ -14,10 +14,10 @@ import (
 // values; this test proves that a valid bool value IS forwarded rather than
 // silently dropped.
 //
-//  1. Build a format block with jsdoc: {sortTags: true}.
+//  1. Build a format block with jsDoc: {sortTags: true}.
 //  2. Call expandFormatBlock.
 //  3. Assert no error.
-//  4. Assert formatJsdoc options contain sortTags: true.
+//  4. Assert the format/jsdoc options contain sortTags: true.
 //
 // @evidence contracts/testing.md#behavioral-verification expandFormatBlock emits a format/jsdoc options tuple with sortTags true from an authored jsDoc object.
 // @evidence contracts/testing.md#independent-expectations A valid public sortTags Boolean must reach the rule payload unchanged; independently decoding the emitted tuple compares it with the literal true request.

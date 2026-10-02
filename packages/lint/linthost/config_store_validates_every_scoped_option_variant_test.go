@@ -8,8 +8,7 @@ import (
 
 // TestConfigStoreValidatesEveryScopedOptionVariant proves engine construction
 // cannot hide an invalid option behind a later valid tuple for a disjoint file
-// selector. The old project-wide map validated only the last parsed payload.
-//
+// selector. A single project-wide map would validate only the last parsed payload.
 //
 // 1. Place an invalid test selector before a valid source selector.
 // 2. Construct the engine without visiting a source file.

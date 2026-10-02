@@ -9,6 +9,7 @@ import "testing"
 //     disposal, variables, object properties, returns, and JSX attributes.
 //  2. Pair them with synchronous and Promise-aware controls.
 //  3. Require only the Promise-producing boundaries to report.
+//
 // @evidence contracts/testing.md#behavioral-verification Every default misuse family must inspect its supported Promise boundary.
 // @evidence contracts/testing.md#independent-expectations Authored markers fix the complete error-line multiset across conditions, predicates, spreads, inheritance, disposal, callbacks, returns and JSX.
 // @evidence contracts/testing.md#distinguishing-cases Synchronous disposal, await-using and Promise-aware arguments remain clean; the Promise-or-boolean condition boundary stays intentionally unreported.

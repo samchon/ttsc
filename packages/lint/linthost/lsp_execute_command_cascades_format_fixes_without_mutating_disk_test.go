@@ -17,6 +17,7 @@ import (
 // 2. Execute `ttsc.format.document` through the LSP command path.
 // 3. Apply the returned WorkspaceEdit in memory and assert the cascaded output.
 // 4. Assert the source file on disk was not modified by the sidecar.
+//
 // @evidence contracts/testing.md#behavioral-verification ttsc.format.document returns the complete authored multiline import/object result after interacting width, semi, quotes and comma passes, without changing source disk bytes.
 // @evidence contracts/testing.md#independent-expectations The literal multiline result and original source bytes are independent answer keys for edit content and non-mutation, not outputs of another formatter path.
 // @evidence contracts/testing.md#distinguishing-cases The source needs single-to-double quote conversion, a missing semicolon, a width-20 reflow of an import and an object, and trailing commas that only exist after the reflow, so the literal result is reachable only if the passes cascade; the file read back from disk must still be the original single-quote source, proving the edit was computed in a copy.

@@ -18,6 +18,7 @@ import (
 //  2. Run the rule.
 //  3. Assert only the namespace reports, and that ambient module declarations
 //     stay exempt as before.
+//
 // @evidence contracts/testing.md#behavioral-verification Namespace syntax must report without flagging global augmentation or ambient quoted modules.
 // @evidence contracts/testing.md#independent-expectations The authored namespace keyword and closing brace fix the complete finding span, rule and error severity; standalone global and ambient module fixtures require no findings.
 // @evidence contracts/testing.md#distinguishing-cases An ordinary namespace is positive; declare global and declare module string syntax are independent clean controls.

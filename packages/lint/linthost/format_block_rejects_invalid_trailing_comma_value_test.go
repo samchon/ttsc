@@ -16,7 +16,7 @@ import (
 //
 //  1. Call expandFormatBlock with `trailingComma: "always"`.
 //  2. Assert an error is returned.
-//  3. Assert the error message mentions the bad value.
+//  3. Assert the error message mentions the bad value and lists the allowed modes.
 //
 // @evidence contracts/testing.md#behavioral-verification expandFormatBlock rejects trailingComma always and identifies the field plus offending value.
 // @evidence contracts/testing.md#independent-expectations The public comma modes are all, es5 and none; independently authored always lies outside that set and must not silently become a default.
@@ -29,5 +29,8 @@ func TestFormatBlockRejectsInvalidTrailingCommaValue(t *testing.T) {
   }
   if !strings.Contains(err.Error(), "trailingComma") || !strings.Contains(err.Error(), "always") {
     t.Errorf("expected error to mention trailingComma, got: %v", err)
+  }
+  if !strings.Contains(err.Error(), `"all", "es5", or "none"`) {
+    t.Errorf("expected error to list the allowed modes, got: %v", err)
   }
 }

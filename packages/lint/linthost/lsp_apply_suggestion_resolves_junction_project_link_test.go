@@ -18,6 +18,7 @@ import (
 //  1. Create the project, outside-source and dependency aliases with mklink /J.
 //  2. Discover and execute the authored prefer-as-const suggestion.
 //  3. Require logical URI edits, unchanged physical bytes and both guard results.
+//
 // @evidence contracts/testing.md#behavioral-verification The shared scenario returns the literal prefer-as-const rewrite under the junction URI, preserves physical bytes, rejects the junction to an outside source with status 2 and returns null for the dependency junction.
 // @evidence contracts/testing.md#independent-expectations The authored rewritten/original source strings and explicit logical URI establish edit content and identity independently of path resolution; literal error/null expectations define the two protected boundaries.
 // @evidence contracts/testing.md#distinguishing-cases Project, outside-root and node_modules junctions distinguish allowed alias resolution from accidental guard bypass. The portable sibling runs the same assertions with filesystem symlinks.

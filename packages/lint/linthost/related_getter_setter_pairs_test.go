@@ -22,6 +22,7 @@ import (
 //  2. Run `check` with typescript/related-getter-setter-pairs enabled as
 //     error.
 //  3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification Getter and setter annotations with differing types must report.
 // @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/related-getter-setter-pairs rendered error at line 3, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
 // @evidence contracts/testing.md#distinguishing-cases Matching string annotations stay clean under the supported annotated-type policy.

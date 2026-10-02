@@ -17,6 +17,7 @@ import (
 //  1. Run check with no-alert and no-unreachable against one real project.
 //  2. Assert native output contains distinct numeric codes and exact messages.
 //  3. Run lsp-diagnostics and assert both rule IDs and messages are unchanged.
+//
 // @evidence contracts/testing.md#behavioral-verification The check and lsp-diagnostics dispatchers must publish both no-alert and no-unreachable, with unequal numeric codes, their original rule IDs and literal messages.
 // @evidence contracts/testing.md#independent-expectations The rule IDs and literal messages come from the configured rule contracts. Code inequality independently detects the historical collision; the numerical rendering uses RuleCode and therefore does not pin allocation stability.
 // @evidence contracts/testing.md#distinguishing-cases One project triggers both no-alert and no-unreachable. The test requires RuleCode values that differ, then checks that the check command renders each rule's own TS code with its own message and that lsp-diagnostics reports each rule under its rule-ID code with the matching message and the @ttsc/lint source, so neither surface can merge the two rules. Other rule pairs are not covered.

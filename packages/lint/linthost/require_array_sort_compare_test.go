@@ -23,6 +23,7 @@ import (
 // 1. Seed a project that declares a number[] and calls .sort() with no args.
 // 2. Run `check` with typescript/require-array-sort-compare enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification Numeric-array sorting without a comparator must report.
 // @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/require-array-sort-compare rendered error at line 2, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
 // @evidence contracts/testing.md#distinguishing-cases An explicit numeric comparator keeps the same array.

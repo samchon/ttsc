@@ -22,6 +22,7 @@ import (
 //  2. Run the format subcommand.
 //  3. Assert clean exit, the file changed, both reflows fired with CRLF, and
 //     every "\n" belongs to a "\r\n" (zero lone LFs).
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command with endOfLine crlf and printWidth 50 on a CRLF class whose heritage list and parameter-property constructor both overflow, and requires exit 0 with empty output, the file changed, no lone LF, and the substrings `class Repository\r\n` and `constructor(\r\n`.
 // @evidence contracts/testing.md#independent-expectations Expectations derive from the endOfLine contract (every LF must belong to a CRLF) and two authored substrings; the complete output text is not compared, so the exact reflowed layout is not pinned here.
 // @evidence contracts/testing.md#distinguishing-cases One input that must change, proving both the declaration-header and parameter-properties breaks are emitted with CRLF rather than a hard-coded LF; LF-configured files and other reflow rules are covered elsewhere.

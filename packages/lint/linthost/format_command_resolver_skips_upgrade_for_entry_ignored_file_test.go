@@ -24,6 +24,7 @@ import (
 //  2. Resolve rules for an ignored path and for an unrelated path.
 //  3. Assert the ignored path receives no format-rule upgrade and the
 //     unrelated path receives the standard warn-severity upgrade.
+//
 // @evidence contracts/testing.md#behavioral-verification ResolveRules marks the entry-ignored path OutOfScope with format/semi off while upgrading a matched unrelated path to warn.
 // @evidence contracts/testing.md#independent-expectations The authored ignore path and literal off/warn severities express entry applicability independently of ConfigStore flag computation.
 // @evidence contracts/testing.md#distinguishing-cases One ConfigStore entry carrying both rules and an ignores glob is resolved for the ignored path (must be OutOfScope with format/semi still off) and for an unrelated path (format/semi upgraded off to warn); the pair separates an entry-ignored file from a normal one, and a resolver that only read the Ignored flag would upgrade both.

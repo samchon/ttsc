@@ -8,14 +8,15 @@ import (
 // TestFormatBlockWinsOverVSCodeSettings verifies a configured `format` block is
 // authoritative: the .vscode/settings.json defaults path is skipped entirely.
 //
-// requirement #3's precedence rule: when lint.config.* declares format rules,
-// the block wins and editor settings are ignored. newFormatCommandResolver must
+// Precedence rule: when lint.config.* declares format rules, the block wins
+// and editor settings are ignored. newFormatCommandResolver must
 // leave defaultOptions nil in that case, so the fallback (and its settings.json
 // read) never runs.
 //
 // 1. Build a format resolver whose inner config already declares a format rule.
 // 2. Inspect the resolver.
 // 3. Assert no default options were loaded.
+//
 // @evidence contracts/testing.md#behavioral-verification newFormatCommandResolver keeps configured format/semi prefer-never options authoritative by leaving fallback defaultOptions nil.
 // @evidence contracts/testing.md#independent-expectations The explicitly supplied format rule and prefer-never options require omission of fallback defaults under configuration precedence. This state assertion pins selection, while command format hosts own applied output.
 // @evidence contracts/testing.md#distinguishing-cases One negative case: an inner resolver that already declares format/semi with options means no default options may be loaded (defaultOptions nil). The complementary case, no format rule configured so defaults are built, is exercised by the editor override tests; applied output under a configured block is owned by the command format tests.

@@ -25,6 +25,7 @@ import (
 // 1. Seed a project that reads a property off an `any` receiver.
 // 2. Run `check` with typescript/no-unsafe-member-access enabled.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification Property access on an any receiver must report.
 // @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/no-unsafe-member-access rendered error at line 2, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
 // @evidence contracts/testing.md#distinguishing-cases A concrete object property stays clean.

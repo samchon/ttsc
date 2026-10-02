@@ -21,6 +21,7 @@ import (
 //  1. Load the recorded targets/unavailable-list pairs.
 //  2. Parse each targets value through the same ordered-JSON path the rule uses.
 //  3. Assert the computed unavailable-module list matches upstream exactly.
+//
 // @evidence contracts/testing.md#behavioral-verification The actual ordered parser, target resolver and compatibility-list computation execute every fixture payload and require its complete list or an error across that chain.
 // @evidence contracts/testing.md#independent-expectations Expected lists or errors come from pinned upstream coreJsCompat({targets}).list execution; the Go pipeline supplies only actual results.
 // @evidence contracts/testing.md#distinguishing-cases Successful, empty and invalid target populations retain full-list/error assertions; target JSON and case index identify each failing iteration.

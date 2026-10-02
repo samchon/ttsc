@@ -3,6 +3,7 @@ package linthost
 import "testing"
 
 // Boolean coercion must not invoke a lexical or replaced global Boolean.
+//
 // @evidence contracts/testing.md#behavioral-verification Real ternary edits use intrinsic coercion for function/parameter shadowing and preserve assignment/logical precedence and false/true inversion.
 // @evidence contracts/testing.md#independent-expectations Double negation performs ECMAScript ToBoolean once on the evaluated condition and resolves no named binding; complete authored outputs preserve its grouping.
 // @evidence contracts/testing.md#distinguishing-cases Function and parameter shadowing, low-precedence assignment/logical expressions and inverted branches distinguish binding and precedence failures.

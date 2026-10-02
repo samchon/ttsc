@@ -12,6 +12,7 @@ import (
 //  1. Suppress compiler errors for a missing and a numeric all argument.
 //  2. Run check with typescript/await-thenable enabled as error.
 //  3. Assert neither malformed call produces a lint finding.
+//
 // @evidence contracts/testing.md#behavioral-verification Malformed noniterable aggregator calls must not receive unsupported iterable lint findings.
 // @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix zero rule findings with code 0 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
 // @evidence contracts/testing.md#distinguishing-cases Missing argument and number argument stay lint-clean with intentional TypeScript suppression; NativeMethodsReport covers actual iterable scalar positives. No claim that malformed calls are valid without suppression is made.

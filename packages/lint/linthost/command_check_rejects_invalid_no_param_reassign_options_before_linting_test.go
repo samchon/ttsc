@@ -5,6 +5,20 @@ import (
   "testing"
 )
 
+// TestCommandCheckRejectsInvalidNoParamReassignOptionsBeforeLinting verifies
+// the check command rejects an invalid no-param-reassign option object before
+// any source is linted.
+//
+// A rule that silently dropped a bad option would lint with a policy the user
+// did not write. Each configuration below would report `value.field = 1` if
+// linting ran, so a clean rejection with the exact configuration error and no
+// rule diagnostic shows validation happens first.
+//
+//  1. Seed a project with a property write on a function parameter.
+//  2. For an unknown option, a `props: false` plus ignore-list combination and
+//     an uncompilable ignore regex, write the option tuple and run `check`.
+//  3. Assert status 2, empty stdout, the exact configuration error and no
+//     [no-param-reassign] diagnostic.
 //
 // @evidence contracts/testing.md#behavioral-verification Three named invalid configurations require exact stderr, code two, empty stdout and no rule diagnostic.
 // @evidence contracts/testing.md#independent-expectations Literal full command errors independently specify unknown option, incompatible disabled props and malformed regex rejection before any source finding.

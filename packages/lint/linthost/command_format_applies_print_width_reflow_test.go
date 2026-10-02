@@ -21,6 +21,7 @@ import (
 //  2. Run the format subcommand.
 //  3. Assert the file on disk is the reflowed multi-line form and the
 //     subcommand exits cleanly.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on `const x = { aa: 1, bb: 2, cc: 3 };` with format.printWidth 20 and asserts exit 0, empty output and the complete reflowed object text.
 // @evidence contracts/testing.md#independent-expectations The expected output is an authored literal (one member per line, trailing comma). Note the scenario, config and expectation are identical to TestCommandFormatAppliesFormatBlockReflow, so it adds no independent coverage.
 // @evidence contracts/testing.md#distinguishing-cases A single positive overflow case with no under-width negative; it duplicates the sibling format-block reflow test rather than adding a distinct decision.

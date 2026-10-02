@@ -12,6 +12,7 @@ import (
 //  1. Await unconstrained, number-constrained, and Promise-constrained values.
 //  2. Run check with typescript/await-thenable enabled as error.
 //  3. Assert only the number-constrained await reports.
+//
 // @evidence contracts/testing.md#behavioral-verification Type-parameter awaitability must distinguish definitely scalar constraints from unknown or Promise constraints.
 // @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix exact rule/error rendered lines 5 with code 2 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
 // @evidence contracts/testing.md#distinguishing-cases Unconstrained T and Promise-constrained T remain clean beside number-constrained T.

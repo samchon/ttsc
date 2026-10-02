@@ -14,6 +14,7 @@ import (
 //
 //  1. Point a URI at an absent source and supply an unterminated buffer.
 //  2. Require the literal terminated buffer result.
+//
 // @evidence contracts/testing.md#behavioral-verification The stdin command formats const y = 2 for a URI whose phantom target has never been written, detecting a disk-read prerequisite.
 // @evidence contracts/testing.md#independent-expectations The absent temp fixture precondition and authored const y = 2 semicolon text are independent expectations, rather than repository file-presence checks.
 // @evidence contracts/testing.md#distinguishing-cases A missing file distinguishes buffer-only admission from both existing equal-content and conflicting disk-content companion hosts.

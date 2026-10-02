@@ -24,6 +24,7 @@ import (
 //  2. Run `ttsc fix` on one copy and `ttsc format` on the other.
 //  3. Assert fix applied the lint fix but added no semicolons, while format added
 //     the default semicolons but left the `var` lint violation untouched.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `fix` command and then the `format` command on separate copies of one source with only no-var configured and no format block; fix must yield `let` with both semicolons still missing, format must add semicolons while keeping `var`.
 // @evidence contracts/testing.md#independent-expectations The fix result is compared exactly against an authored literal; the format result is checked with Contains for the two terminated lines and a not-contains check for `let `, so it is a partial rather than whole-file oracle.
 // @evidence contracts/testing.md#distinguishing-cases Contrasts two commands over identical input: fix applies lint edits but no default formatting, format applies default semicolons but no lint edit. Both exit 0 with empty output; configured-format-block fix is owned by the sibling fix test.

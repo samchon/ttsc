@@ -13,6 +13,7 @@ import (
 //
 //  1. Configure a source ignored by an entry that also carries a lint rule.
 //  2. Require empty action/edit responses and unchanged source from each format path.
+//
 // @evidence contracts/testing.md#behavioral-verification A rules-bearing entry ignoring src/main.ts yields no action, no disk edit, an empty buffer edit and unchanged format-dispatch bytes.
 // @evidence contracts/testing.md#independent-expectations Empty action/edit expectations and original const value = 1 source bytes independently require a no-op from each front door.
 // @evidence contracts/testing.md#distinguishing-cases An ignore entry containing no-var-off rules distinguishes retained ignores from a special ignore-only entry; sibling default hosts supply positive formatting controls.

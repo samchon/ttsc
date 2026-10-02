@@ -72,7 +72,7 @@ declare namespace internal_IDX {
 // Compare against BenchmarkEngineRunOverDeclarationShapedValueFile (the
 // identical input walked as a normal source) to see the saving in one run:
 //
-//  node `go test` -bench=OverDeclaration
+//  go test ./linthost -run ^$ -bench=OverDeclaration
 func BenchmarkEngineRunOverDeclarationFile(b *testing.B) {
   file := parseBenchTSFile(b, "/virtual/bench.d.ts", engineBenchDeclarationSource())
   file.IsDeclarationFile = true

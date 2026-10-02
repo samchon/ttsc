@@ -9,8 +9,11 @@ import "testing"
 // (Prettier's extra align(tabWidth-2)). The cases here are all alternate-position,
 // so at tabWidth 4 their nested arms sit at column 6; they coincide at tabWidth 2.
 //
-//  1. Exercise the authored command format nested ternary indent fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Format already-correct broken ternary chains (three levels at tabWidth 2
+//     and 4, a single ternary at tabWidth 4) and require them unchanged.
+//  2. Format a nested chain over-indented by a full tab width at tabWidth 4
+//     and require the 2-column rung.
+//
 // @evidence contracts/testing.md#behavioral-verification Four subcases run the in-process `format` command on broken ternary chains: a three-level chain at tabWidth 2 and 4 and a single ternary at tabWidth 4 must stay unchanged, and a nested chain over-indented by a full tab width at tabWidth 4 must be re-indented to a 2-column rung.
 // @evidence contracts/testing.md#independent-expectations Sources and the single expected rewrite are authored literals reasoned from the stated Prettier staircase rule (outer arms at tabWidth, alternate-position nested arms a fixed 2 columns deeper); nothing is derived from formatter output.
 // @evidence contracts/testing.md#distinguishing-cases Distinguishes tabWidth 2 from 4, nested from single chains, and an already-correct chain from an over-indented one (the only input that must change). Consequent-position nesting is not covered.

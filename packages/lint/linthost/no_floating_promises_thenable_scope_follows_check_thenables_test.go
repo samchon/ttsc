@@ -22,6 +22,7 @@ import (
 //  2. Run with no options, then with `checkThenables` on.
 //  3. Assert the thenable chains are out of scope by default and in scope when
 //     the option is on, while the native Promise verdicts never move.
+//
 // @evidence contracts/testing.md#behavioral-verification Thenable handler-chain scope must follow checkThenables.
 // @evidence contracts/testing.md#independent-expectations Independently authored source and original assertions require exact lists 10 then 8,10 across the original two option runs, code 2 and empty stdout for reporting command runs; all original inputs/options and clean arms are retained.
 // @evidence contracts/testing.md#distinguishing-cases Native handled catch remains clean in both runs; the unhandled custom then chain joins the native unhandled then only when enabled.

@@ -10,13 +10,17 @@ import (
 // ObjectLiteralExpression whose Properties list is nil falls back to
 // verbatim rather than panicking on a nil NodeList dereference.
 //
-// A plugin-created object can omit its public Properties list. The
-// fallback must retain existing source bytes when a parsed node has a
-// valid range, while a fresh factory node contributes no source text.
+// The Properties list is a public field, so a node can be built or edited
+// without one. The fallback must retain existing source bytes when a parsed
+// node has a valid range, while a fresh factory node contributes no source
+// text.
 //
-// 1. Parse any source file to obtain a valid PrintContext.
-// 2. Use NodeFactory to build an ObjectLiteralExpression with nil Properties.
-// 3. Call printObjectLiteral directly and assert it does not panic.
+//  1. Parse any source file to obtain a valid PrintContext.
+//  2. Use NodeFactory to build an ObjectLiteralExpression with nil
+//     Properties, call printObjectLiteral directly and assert the output is
+//     empty.
+//  3. Parse `const values = { a: 1, b: 2 };`, clear the parsed node's
+//     Properties and assert the output is the original `{ a: 1, b: 2 }`.
 //
 // @evidence contracts/testing.md#behavioral-verification printObjectLiteral must preserve { a: 1, b: 2 } when Properties is absent while keeping the original synthetic no-panic case.
 // @evidence contracts/testing.md#independent-expectations The fixture literal is the verbatim oracle, retaining both key/value pairs independently of the printer.

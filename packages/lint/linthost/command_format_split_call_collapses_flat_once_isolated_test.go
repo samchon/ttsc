@@ -20,6 +20,7 @@ import (
 //     line with two preceding statements.
 //  2. Run `ttsc format`.
 //  3. Assert the call ends up flat on its own line at column 0.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on one line holding two declarations and a six-argument `console.log` call (88 columns with the 2-space indent, 60 for the call alone), and requires exit 0, empty output and the exact file with three statements on their own lines and the call kept flat.
 // @evidence contracts/testing.md#independent-expectations The expected three-line file is an authored literal; the column arithmetic in the test comment (88 and 60 columns) is the reasoning that makes the flat call correct, not formatter output.
 // @evidence contracts/testing.md#distinguishing-cases One changing case that separates a cascade which keeps the call exploded because it overflowed when sharing a line from one which re-measures it after the statement split; the argument list must end up inline.

@@ -14,6 +14,7 @@ import (
 //  1. Materialize a `package.json` with neither `browserslist` nor `engines`.
 //  2. Import a normally-redundant polyfill.
 //  3. Assert silence.
+//
 // @evidence contracts/testing.md#behavioral-verification The rule executes against a nearest package manifest with neither engines nor browserslist and must report nothing rather than fabricate targets.
 // @evidence contracts/testing.md#independent-expectations Without resolvable targets the conservative contract cannot prove redundancy; this literal no-target input independently requires silence.
 // @evidence contracts/testing.md#distinguishing-cases Ordinary package name/version content supplies no target source; EnginesDiscovery and BrowserslistrcDiscovery own resolvable counterparts.

@@ -2,8 +2,8 @@ package linthost
 
 import "testing"
 
-// TestFixNoWrapperObjectTypesSkipsUserShadowedName verifies the round-2
-// shadow-bailout for `no-wrapper-object-types`.
+// TestFixNoWrapperObjectTypesSkipsUserShadowedName verifies the shadow
+// bailout of `no-wrapper-object-types` for a local type alias.
 //
 // Pre-repair, when a file declared its own `type String = { length:
 // number }`, the rule still fired on the `String` reference and the fix

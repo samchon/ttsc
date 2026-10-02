@@ -12,6 +12,7 @@ import (
 //  1. Call a computed method through a native Promise alias.
 //  2. Call same-named methods on local and declared structural lookalikes.
 //  3. Assert only the native alias reports.
+//
 // @evidence contracts/testing.md#behavioral-verification Aggregator checks must require actual native Promise identity.
 // @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix the complete rule/error line list 2 with code 2 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
 // @evidence contracts/testing.md#distinguishing-cases Native global alias with computed all access reports; local Promise shadow and structural race lookalike remain clean.

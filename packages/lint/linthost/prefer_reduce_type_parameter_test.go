@@ -25,6 +25,7 @@ import (
 //  2. Run `check` with typescript/prefer-reduce-type-parameter enabled as
 //     error.
 //  3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification An asserted reduce seed must report.
 // @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/prefer-reduce-type-parameter rendered error at line 7, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
 // @evidence contracts/testing.md#distinguishing-cases Explicit accumulator type argument and unasserted seed stay clean.

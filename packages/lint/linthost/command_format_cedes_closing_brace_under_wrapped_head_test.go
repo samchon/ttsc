@@ -17,6 +17,7 @@ import (
 //  1. Seed the curried-arrow canonical (already correct).
 //  2. Run `ttsc format`.
 //  3. Assert it converges and leaves the source unchanged.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command (semi false) on a curried generic arrow whose `): void => {` head is wrapped, and asserts exit 0, no did-not-converge message, and the file unchanged, including the closing braces of the inner `if` and the arrow body.
 // @evidence contracts/testing.md#independent-expectations The source is an authored, already-correct layout and serves as its own expected output; the expectation is not derived from the formatter.
 // @evidence contracts/testing.md#distinguishing-cases One no-change case guarding against a closing-brace re-indent pulling `}` to column 0 under a wrapped head. No malformed input is included, so correction of a wrong brace indent here is not demonstrated.

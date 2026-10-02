@@ -18,6 +18,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification Fixes greeting plus name plus punctuation to one template while retaining declarations and use.
 // Every dynamic slot explicitly retains default-hint concatenation coercion.
+//
 // @evidence contracts/testing.md#independent-expectations The literal expected hi/name/exclamation output follows concatenation value and evaluation order independently.
 // @evidence contracts/testing.md#distinguishing-cases Prefix, dynamic middle and suffix preserve all three operands, complementing minimal and delimiter boundary cases.
 // @evidence contracts/testing.md#execution-ownership assertFixSnapshot calls runFixSnapshot, applies the rule's actual edits to the fixture and compares complete independently authored output. This Test entry owns this exact source/output pair. All execute in the lint Go process without installing consumers or building/launching a native product host.

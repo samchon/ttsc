@@ -23,6 +23,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification Withholds automatic replacement over a real seam comment but fixes comment-free concatenation and a URL literal.
 // Every dynamic slot explicitly retains default-hint concatenation coercion.
+//
 // @evidence contracts/testing.md#independent-expectations The authored output literals preserve concatenation meaning; comments require preservation, while // inside https:// is literal content.
 // @evidence contracts/testing.md#distinguishing-cases Real block comment, no comment and slash-text literal distinguish seam parsing and fix safety.
 // @evidence contracts/testing.md#execution-ownership assertNoFixSnapshot owns the real-comment no-rewrite source; assertFixSnapshot runs and applies fixes for the no-comment and URL-literal sources. All three invocations belong to this Test. All execute in the lint Go process without installing consumers or building/launching a native product host.

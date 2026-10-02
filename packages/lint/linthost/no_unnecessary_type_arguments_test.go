@@ -22,6 +22,7 @@ import (
 //  2. Run `check` with typescript/no-unnecessary-type-arguments enabled
 //     as error.
 //  3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification An explicit generic argument repeating its declared default must report.
 // @evidence contracts/testing.md#independent-expectations The authored original source requires exactly one typescript/no-unnecessary-type-arguments rendered error at line 2, exit code 2 and empty stdout; an independently authored clean source requires code 0 and no rule findings.
 // @evidence contracts/testing.md#distinguishing-cases An explicit number argument differs from the string default and stays clean.

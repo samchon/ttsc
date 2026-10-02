@@ -12,6 +12,7 @@ import "testing"
 //  1. Put an empty block in callback, object-member, function, and array slots.
 //  2. Run `ttsc format`.
 //  3. Require every source to survive byte-identical.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on four one-line sources with an empty block in expression position (arrow callback, object method, function expression, array-element arrow) and requires each unchanged.
 // @evidence contracts/testing.md#independent-expectations The four sources are authored literals that serve as their own expected output, following from the Prettier rule that an empty block stays on one line.
 // @evidence contracts/testing.md#distinguishing-cases Four negative cases, the empty twins of the expansion test; a formatter that expanded every expression-position block would break them. Fixed points only, so they cannot show the non-empty expansion.

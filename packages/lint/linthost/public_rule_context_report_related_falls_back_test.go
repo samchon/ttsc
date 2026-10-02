@@ -16,6 +16,7 @@ import (
 //     falls back to Report / ReportRange.
 //  2. With a RelatedReporter but zero related locations, the call still uses the
 //     plain path rather than invoking the related method with an empty payload.
+//
 // @evidence contracts/testing.md#behavioral-verification Public related node/range reports preserve both ordinary diagnostics when related capability is absent or the supplied related list is empty; neither rich callback fires for the empty-list case.
 // @evidence contracts/testing.md#independent-expectations Authored msg, parsed node identity and literal 0..1 diagnostic range must survive degradation, with exactly one ordinary callback per anchor. These values come from the call fixture rather than the delegation implementation.
 // @evidence contracts/testing.md#distinguishing-cases Nonempty locations on a legacy host isolate missing capability; empty locations on a capable host isolate empty payload. Rich forwarding with actual locations is exercised by the sibling positive unit.

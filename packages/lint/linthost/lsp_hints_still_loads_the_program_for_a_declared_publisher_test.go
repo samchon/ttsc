@@ -19,6 +19,7 @@ import (
 //  2. Run lsp-hints against a tsconfig path that does not exist.
 //  3. Assert the loader failure surfaces, and as a failure rather than an empty
 //     corpus with a clean exit.
+//
 // @evidence contracts/testing.md#behavioral-verification lsp-hints with a declared JSDoc publisher and nonexistent tsconfig surfaces a nonzero loader failure, distinguishing it from the empty-corpus fast path.
 // @evidence contracts/testing.md#independent-expectations The deliberately absent fixture config independently determines failure; no hints output is treated as a substitute for the required loader error.
 // @evidence contracts/testing.md#distinguishing-cases The same nonexistent tsconfig as the skip test is used but jsdoc/check-tag-names is enabled; the result must have nonempty stderr and a nonzero status, so a verb that stopped loading Programs or swallowed loader errors would fail. The failure text itself is not asserted.

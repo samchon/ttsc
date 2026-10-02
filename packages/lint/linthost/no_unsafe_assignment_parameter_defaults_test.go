@@ -8,6 +8,7 @@ import "testing"
 // 1. Default a function parameter and a parameter property from `any`.
 // 2. Pair them with an `unknown` parameter and a typed default.
 // 3. Require one finding at each unsafe default boundary.
+//
 // @evidence contracts/testing.md#behavioral-verification Parameter defaults must inspect regular and constructor parameter-property initializers.
 // @evidence contracts/testing.md#independent-expectations The fixture's independently authored expect markers require two authored regular and parameter-property findings; the oracle compares the complete sorted rule/error line multiset, error message prefix, code 2 and empty stdout.
 // @evidence contracts/testing.md#distinguishing-cases unknown parameter and typed constructor default stay clean.

@@ -12,6 +12,7 @@ import (
 //  1. Constrain a generic input to Iterable<number>.
 //  2. Pass it to native Promise.all.
 //  3. Assert the constrained argument produces one finding.
+//
 // @evidence contracts/testing.md#behavioral-verification An aggregator argument constrained to scalar Iterable<number> must report.
 // @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix the complete rule/error line list 2 with code 2 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
 // @evidence contracts/testing.md#distinguishing-cases AwaitableInputsAllow includes an unconstrained generic iterable; the concrete scalar constraint distinguishes this positive.

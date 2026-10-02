@@ -21,8 +21,8 @@ import (
 //  3. Keep a same-named function parameter in a file that imports Node crypto
 //     suggestion-only, proving automatic edits follow checker binding identity
 //     rather than a file-wide name table.
-//  4. Assert the message names `crypto.randomBytes`.
-//  5. Keep `crypto.randomBytes` and the same member on another object silent.
+//  4. Assert each suggestion-only message names `crypto.randomBytes`, and keep
+//     `crypto.randomBytes` and the same member on another object silent.
 //
 // @evidence contracts/testing.md#behavioral-verification The crypto rule automatically renames only proven Node bindings and exposes exact opt-in rewrites for unbound/local/shadowed crypto.
 // @evidence contracts/testing.md#independent-expectations Literal ESM/CommonJS automatic results and three full authored suggestion results preserve unrelated source; titles and message suffix name randomBytes independently.

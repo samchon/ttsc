@@ -20,6 +20,7 @@ import (
 //  2. Run `check` with typescript/no-meaningless-void-operator enabled as
 //     error.
 //  3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification Void applied to an already-void result must report.
 // @evidence contracts/testing.md#independent-expectations The authored original source requires exactly one typescript/no-meaningless-void-operator rendered error at line 4, exit code 2 and empty stdout; an independently authored clean source requires code 0 and no rule findings.
 // @evidence contracts/testing.md#distinguishing-cases Discarding a number-returning call with void remains clean.

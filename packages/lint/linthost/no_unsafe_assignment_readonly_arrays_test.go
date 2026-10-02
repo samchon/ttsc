@@ -8,6 +8,7 @@ import "testing"
 // 1. Assign `readonly any[]` to concrete and unknown readonly arrays.
 // 2. Assign a concrete readonly array to itself as the safe same-type twin.
 // 3. Require only the concrete element mismatch to report.
+//
 // @evidence contracts/testing.md#behavioral-verification Readonly array comparison must inspect same-target element arguments.
 // @evidence contracts/testing.md#independent-expectations The fixture's independently authored expect markers require one authored readonly-any to readonly-string finding; the oracle compares the complete sorted rule/error line multiset, error message prefix, code 2 and empty stdout.
 // @evidence contracts/testing.md#distinguishing-cases readonly unknown receiver and identical string array stay clean.

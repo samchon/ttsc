@@ -85,6 +85,7 @@ func assertPolyfillReports(t *testing.T, source, optionsJSON, wantMessage string
 //  3. Cover multi-feature core-js entries, esnext-still-needed features, alias
 //     modules whose mapped entry keeps unavailable features, and the
 //     empty/`null`/argument-less specifier shapes.
+//
 // @evidence contracts/testing.md#behavioral-verification Actual rule execution checks the complete retained upstream valid matrix for zero findings, detecting overreporting of needed polyfills and unsupported source shapes.
 // @evidence contracts/testing.md#independent-expectations Retained upstream valid inputs and the supported compatibility/source-matching contracts establish silence independently of Go output.
 // @evidence contracts/testing.md#distinguishing-cases The original needed-feature, unknown-module and unmatched-source controls remain; UpstreamInvalidTargets owns redundant-feature counterparts and exact messages.

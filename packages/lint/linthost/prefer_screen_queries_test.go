@@ -2,17 +2,15 @@ package linthost
 
 import "testing"
 
-/**
- * Verifies testing-library query style: render-result queries should use `screen`.
- *
- * Pins both render-result shapes supported by the AST-only analyzer: destructured
- * query functions and method calls on a variable assigned from `render`. Both are
- * high-confidence because the local names come from the `render()` expression.
- *
- * 1. Import `render` from Testing Library.
- * 2. Call a destructured query and a query method on a render result variable.
- * 3. Assert `prefer-screen-queries` reports both calls.
- */
+// TestPreferScreenQueries verifies testing-library query style: render-result queries should use `screen`.
+//
+// Pins both render-result shapes supported by the AST-only analyzer: destructured
+// query functions and method calls on a variable assigned from `render`. Both are
+// high-confidence because the local names come from the `render()` expression.
+//
+// 1. Import `render` from Testing Library.
+// 2. Call a destructured query and a query method on a render result variable.
+// 3. Assert `prefer-screen-queries` reports both calls.
 //
 // @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify destructured and member queries from render results both report; exact normalized findings reject extra or missing results.
 // @evidence contracts/testing.md#independent-expectations screen owns the shared query API rather than each render result.

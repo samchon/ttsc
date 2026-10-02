@@ -2,7 +2,8 @@ package linthost
 
 import "testing"
 
-// Verifies final suffix draining preserves a multiline payload.
+// TestEngineLineSuffixDrainPreservesEmbeddedNewline verifies final suffix draining
+// preserves a multiline payload.
 //
 // The end-of-output drain must retain every payload byte even when no later break triggers normal flushing. This observes output preservation; the final internal column value is not exposed.
 //

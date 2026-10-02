@@ -16,6 +16,7 @@ import (
 //  1. Warm a Program through a verb that needs no checker.
 //  2. Acquire again for a verb that does need one.
 //  3. Assert a checker-bearing Program is returned and only it remains cached.
+//
 // @evidence contracts/testing.md#behavioral-verification The resident cache replaces its checker-free Program when a later acquisition requires a checker and keeps only the checker-bearing entry.
 // @evidence contracts/testing.md#independent-expectations Authored acquisition flags require distinct Program identity and checker presence; the expected single cached entry follows replacement ownership rather than another cache query.
 // @evidence contracts/testing.md#distinguishing-cases The acquisition order is checker-free first, checker-bearing second, then checker-free again: the cache must hold exactly one entry keyed as the checker-bearing Program, and the third acquisition must return that same Program. The opposite arrival order is owned by the checker-program-serves-checker-free test.

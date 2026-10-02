@@ -16,6 +16,7 @@ import (
 // 2. Run `lsp-code-actions` with `source.fixAll.ttsc`.
 // 3. Run `lsp-code-actions` with `source.format`.
 // 4. Assert each response advertises only its matching command.
+//
 // @evidence contracts/testing.md#behavioral-verification A project with lint and format fixes produces only the lint command for source.fixAll.ttsc and only the format command for source.format.
 // @evidence contracts/testing.md#independent-expectations The requested action kinds and literal single-command lists express the supported filter contract, independently of returned action enumeration.
 // @evidence contracts/testing.md#distinguishing-cases One source has a no-var lint finding and, through the empty format block, missing-semicolon format findings, so both command kinds are available; each of the two context.only requests must then return exactly one command, the lint fix-all command for source.fixAll.ttsc and the format-document command for source.format, so neither request can leak the other's action.

@@ -20,6 +20,7 @@ import (
 //  2. Run `check` with typescript/non-nullable-type-assertion-style enabled
 //     as error.
 //  3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification Removing only undefined by type assertion must report.
 // @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/non-nullable-type-assertion-style rendered error at line 2, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
 // @evidence contracts/testing.md#distinguishing-cases Unknown-to-string narrowing changes more than nullability.

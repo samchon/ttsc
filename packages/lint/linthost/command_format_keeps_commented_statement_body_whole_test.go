@@ -13,6 +13,7 @@ import "testing"
 //  1. Put an inter-statement comment in a switch inside a callback.
 //  2. Run `ttsc format`.
 //  3. Require the source to survive byte-identical.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on a callback containing a one-line `switch` whose clause has an inter-statement comment (`f(); /* keep */ break;`) and requires the whole file byte-identical, so the comment is neither dropped nor moved.
 // @evidence contracts/testing.md#independent-expectations The source is an authored literal that serves as its own expected output; the property that comment-bearing bodies are left whole comes from the print-width abstention contract, not from formatter output.
 // @evidence contracts/testing.md#distinguishing-cases One abstention case; the uncommented twin that would be expanded is not asserted in this test, so only the unchanged outcome with the comment present is checked.

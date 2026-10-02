@@ -20,6 +20,7 @@ import (
 //  1. Seed a project whose source is already the canonical decorated layout.
 //  2. Run `ttsc format` twice.
 //  3. Assert each run exits cleanly and the file is unchanged both times.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command (semi false) twice on a function containing an already-indented `@Dec` decorated nested class and asserts each pass exits 0 and leaves the file byte-identical.
 // @evidence contracts/testing.md#independent-expectations The canonical decorated layout is an authored literal and is its own expected output on both passes; nothing is computed from formatter output.
 // @evidence contracts/testing.md#distinguishing-cases Only the unchanged case: it pins that the decorated-declaration re-indent is a no-op on correct input across two passes. Cases that must change (flat decorated declarations) are owned by the restores-from-flat tests.

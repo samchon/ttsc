@@ -19,6 +19,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification Fixes adjacent dollar and opening-brace literals without creating unintended template interpolation.
 // Every dynamic slot explicitly retains default-hint concatenation coercion.
+//
 // @evidence contracts/testing.md#independent-expectations The literal expected escaped ${ preserves two literal characters before the actual n slot; no implementation output creates the expectation.
 // @evidence contracts/testing.md#distinguishing-cases A delimiter formed across operand boundaries distinguishes segment-wise escaping from final joined-text safety.
 // @evidence contracts/testing.md#execution-ownership assertFixSnapshot calls runFixSnapshot, applies the rule's actual edits to the fixture and compares complete independently authored output. This Test entry owns this exact source/output pair. All execute in the lint Go process without installing consumers or building/launching a native product host.

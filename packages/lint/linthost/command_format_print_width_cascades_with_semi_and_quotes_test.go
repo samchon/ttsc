@@ -21,18 +21,16 @@ import (
 // position math) and neither rule could undo the duplicate on
 // subsequent passes. The cascade silently converged to broken output.
 //
-// The fixture exercises:
+// The fixture is a long import with a single-quoted module specifier and no
+// trailing semicolon (print-width, quotes and semi join) followed by a long
+// single-line object (reflow and trailing comma).
 //
-//   - a long single-line object (reflow + trailing comma)
+//  1. Seed the two declarations and a lint.config.json whose format block sets
+//     printWidth 20; the four format rules are always on.
+//  2. Run `ttsc format`.
+//  3. Assert the exact authored output and a clean exit with no output.
 //
-//   - a long import with single-quoted module specifier and
-//     no trailing semicolon (print-width + quotes + semi join)
 //
-//     1. Seed the project plus a lint.config.json enabling all four rules
-//     at error, with print-width's tight printWidth as a rule tuple.
-//     2. Run `ttsc format`.
-//     3. Assert the file is the canonical Prettier output and the
-//     subcommand exits cleanly.
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command with format.printWidth 20 on a single-quoted, unterminated import plus a one-line object literal and requires exit 0, empty output and the whole file equal to an authored text with the import broken, double-quoted and terminated, and the object broken with a trailing comma.
 // @evidence contracts/testing.md#independent-expectations The expected text is an authored literal (double quotes, semicolons, trailing commas, one member per line) following from the default format rules; it is not derived from formatter output.
 // @evidence contracts/testing.md#distinguishing-cases One input that needs print-width, quotes, semi and trailing-comma together; a duplicate semicolon (`;;`) from print-width plus semi, or a missing quote conversion, would differ from the literal text. Only a single import and object are covered.

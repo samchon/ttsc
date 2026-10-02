@@ -2,8 +2,8 @@ package linthost
 
 import "testing"
 
-// TestFixNoUselessEscapeSkipsTaggedTemplate verifies the round-2
-// tagged-template bailout for `no-useless-escape`.
+// TestFixNoUselessEscapeSkipsTaggedTemplate verifies the tagged-template
+// bailout for `no-useless-escape`.
 //
 // Tag functions like `String.raw`, `dedent`, `gql`, `css` read the raw
 // bytes of the template payload, so a backslash that looks redundant to

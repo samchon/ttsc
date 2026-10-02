@@ -21,6 +21,7 @@ import (
 //  2. Assert the JSON carries no codeDescription key and round-trips to nil.
 //  3. Assert the same shape for a mapped rule does carry the key, so the
 //     absence above is the mapping decision and not a marshalling accident.
+//
 // @evidence contracts/testing.md#behavioral-verification JSON marshaling omits codeDescription entirely for an unmapped rule and round-trips nil, while a mapped rule serializes its href.
 // @evidence contracts/testing.md#independent-expectations Literal key absence and the authored mapped href express the optional JSON field contract; round-trip assertions supplement these direct wire expectations.
 // @evidence contracts/testing.md#distinguishing-cases A format/quotes diagnostic, whose family has no documentation page, must marshal without any codeDescription text and decode back to a nil pointer, while a no-alert diagnostic built the same way must contain the literal eslint.org href key, so absence is the mapping decision and not a marshalling accident.

@@ -17,6 +17,7 @@ import "testing"
 //  1. Configure printWidth=10 (any non-trivial reflow would fire).
 //  2. Feed `const x = { aa: 1, /* keep */ bb: 2 };`.
 //  3. Assert the rule emits zero findings — the comment is preserved.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs format/print-width at printWidth 10 on `const x = { aa: 1, /* keep */ bb: 2 };` and requires zero findings so the comment is not dropped by a reflow.
 // @evidence contracts/testing.md#independent-expectations The expected zero findings follows from the contract that reflow must never delete a comment between members; the source is an authored literal wide enough that a reflow would otherwise fire.
 // @evidence contracts/testing.md#distinguishing-cases One abstention case with a block comment between object members; a comment at the list edge is owned by the trailing-block-comment test and comment-free reflow by the reflow tests.

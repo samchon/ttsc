@@ -16,6 +16,7 @@ import (
 //  1. Pair safe undefined returns with unsafe Promise returns in mixed calls.
 //  2. Repeat the distinction with thenable checks and configured safe values.
 //  3. Assert every unsafe twin reports and every handled twin remains clean.
+//
 // @evidence contracts/testing.md#behavioral-verification Mixed-receiver results must preserve every possibly unhandled branch.
 // @evidence contracts/testing.md#independent-expectations Original authored complete lists require 16 errors at 33,35,37,39,42,44,45,46,58,74,76,78,86,93,102,103; configured variants require 15,17,19 then 15,19 with checkThenables disabled.
 // @evidence contracts/testing.md#distinguishing-cases Safe/non-Promise return branches, unsafe Promise/uncertain/incompatible/overloaded returns, generic defaults, known-safe exemptions and thenable option twins remain in their original comprehensive sources.

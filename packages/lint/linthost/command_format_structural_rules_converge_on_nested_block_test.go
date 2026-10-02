@@ -18,6 +18,7 @@ import (
 //  1. Seed a project with two statements crammed inside a nested block.
 //  2. Run `ttsc format`.
 //  3. Assert each statement lands on its own line at the depth-2 indent.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on a function with an `if` block whose body crams `const a = 1; const b = 2;` on one line, and requires exit 0, empty output and the exact file with each statement on its own line at four spaces.
 // @evidence contracts/testing.md#independent-expectations The expected text is an authored literal with depth-2 indentation; it is not derived from the formatter.
 // @evidence contracts/testing.md#distinguishing-cases One input that must change at nesting depth 2, distinguishing a split that places both statements correctly from one that leaves them at the wrong depth or on one line; the top-level case is owned by the headline test.

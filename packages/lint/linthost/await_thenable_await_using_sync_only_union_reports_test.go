@@ -21,6 +21,7 @@ import (
 //  2. Prove the fixture type-checks without a lint plugin entry.
 //  3. Run `check` with typescript/await-thenable enabled as error.
 //  4. Assert exactly one finding on the declaration line.
+//
 // @evidence contracts/testing.md#behavioral-verification A union with only sync disposables must report.
 // @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix exact rule/error rendered lines 11 with code 2 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
 // @evidence contracts/testing.md#distinguishing-cases UnionWithAsyncDisposableAllows differs by retaining an async-dispose constituent; this policy is about possible async protocol, not a runtime completion guarantee.

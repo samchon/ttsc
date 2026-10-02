@@ -25,6 +25,7 @@ import (
 //  2. Resolve rules for an in-scope path and for an out-of-scope path.
 //  3. Assert the out-of-scope path receives no format-rule upgrade and the
 //     in-scope path receives the standard warn-severity upgrade.
+//
 // @evidence contracts/testing.md#behavioral-verification ResolveRules upgrades the in-scope path to format/semi warn and marks the outside-files path OutOfScope with the rule off.
 // @evidence contracts/testing.md#independent-expectations The authored files restriction and literal off/warn expectations establish admission independently of resolver matching output.
 // @evidence contracts/testing.md#distinguishing-cases One ConfigStore entry restricted to src/**/*.ts is resolved for an in-scope path (format/semi upgraded to warn) and for a .json path outside the entry's files (must be OutOfScope with format/semi off), the symmetric twin of the ignores case; an entry with ignores instead of files is owned by the sibling test.

@@ -12,15 +12,15 @@ import (
 // nested inside a `namespace` — its decorator line AND its `interface I`
 // declaration line — from a fully flattened source. ttsc-only self-check.
 //
-// FIX C completion: the parser attaches the leading `@Dec` to the
-// InterfaceDeclaration's Decorators() (verified by probe), so a decorated
-// interface is a decorated declaration statement just like a class. Before the
-// completion the statement pass moved only the `@` line and left `interface I`
-// at column 0; the declaration-line re-indent now generalizes to it.
+// The parser attaches the leading `@Dec` to the InterfaceDeclaration, so a
+// decorated interface is a decorated declaration statement just like a class.
+// The declaration-line re-indent must cover it, or `interface I` would stay at
+// column 0.
 //
 //  1. Flatten a namespace-nested decorated interface canonical to column 0.
 //  2. Run `ttsc format`.
 //  3. Assert it converges and restores the canonical exactly.
+//
 // @evidence contracts/testing.md#behavioral-verification Strips the leading whitespace from every line of an authored `namespace N` containing a decorated `interface I { a: number }`, runs the in-process `format` command (semi false), and requires exit 0 without a did-not-converge message and the file equal to the authored indented text.
 // @evidence contracts/testing.md#independent-expectations The expected text is an authored canonical literal; the flat input is derived from it by removing leading whitespace, which leaves the syntax tree identical.
 // @evidence contracts/testing.md#distinguishing-cases One input that must change: the `@Dec` line, the `interface I` line, its member and both closing braces start at column 0; a re-indent covering only classes and functions would leave `interface I` at column 0.

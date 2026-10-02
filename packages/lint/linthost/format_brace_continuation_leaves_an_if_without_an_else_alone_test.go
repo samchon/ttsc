@@ -5,6 +5,10 @@ import "testing"
 // TestFormatBraceContinuationLeavesAnIfWithoutAnElseAlone verifies a following ordinary
 // statement is not mistaken for a continuation when the if has no else.
 //
+// 1. Parse an `if` block with no `else`, followed by the statement `run();`.
+// 2. Run format/brace-continuation.
+// 3. Assert the rule reports nothing.
+//
 // @evidence contracts/testing.md#behavioral-verification format/brace-continuation must report no finding for an if block with no else, even when another statement follows its closing brace.
 // @evidence contracts/testing.md#independent-expectations The fixed literal contains no continuation keyword, so the supported operation has no eligible gap; zero findings preserves the if body and following run call.
 // @evidence contracts/testing.md#distinguishing-cases This missing-continuation negative distinguishes a following ordinary statement from an else; pull-else positive supplies the adjacent real continuation case.

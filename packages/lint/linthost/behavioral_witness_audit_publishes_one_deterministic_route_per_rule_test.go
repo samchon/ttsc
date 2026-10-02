@@ -8,7 +8,6 @@ import (
 // TestBehavioralWitnessAuditPublishesOneDeterministicRoutePerRule preserves the
 // chosen record as well as its route under candidate input permutations.
 //
-//
 //  1. Submit distinct Alpha and Zulu records for one public identity in both orders.
 //  2. Require the complete literal Alpha record and unchanged caller input after canonical selection.
 //

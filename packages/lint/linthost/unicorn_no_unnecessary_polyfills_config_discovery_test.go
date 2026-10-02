@@ -93,6 +93,7 @@ func assertProjectReports(t *testing.T, files map[string]string, rel, source, op
 //  1. `production node 6` makes `object-assign` redundant -> report.
 //  2. `production node 0.12` still needs it -> silent (development `node 6` is
 //     not consulted).
+//
 // @evidence contracts/testing.md#behavioral-verification NewEngine.Run resolves an actual fixture .browserslistrc and distinguishes the selected environment by an exact redundant object-assign error or zero findings.
 // @evidence contracts/testing.md#independent-expectations The authored Node 6 versus 0.12 Object.assign boundary and default production section establish opposite results independently of the Go resolver.
 // @evidence contracts/testing.md#distinguishing-cases Production 6/development 0.12 reports; production 0.12/development 6 is clean. PackageJsonBrowserslistSection owns the manifest counterpart.

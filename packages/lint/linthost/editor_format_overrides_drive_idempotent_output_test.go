@@ -18,6 +18,7 @@ import (
 // 1. Configure four-space combined indentation and two-space TypeScript indentation.
 // 2. Format a four-space-indented TypeScript statement to convergence.
 // 3. Assert exact two-space output and a zero-edit second run.
+//
 // @evidence contracts/testing.md#behavioral-verification Writes a settings.json with `[javascript][typescript]` tabSize 4 and `[typescript]` tabSize 2, builds the default format resolver for typescript, formats a four-space-indented function through up to ten engine passes, and requires the exact two-space output, then formats that output again and requires zero applied edits.
 // @evidence contracts/testing.md#independent-expectations The expected `function f() {\n  const value = 1;\n}\n` is an authored literal following from the exact section winning with tabSize 2; the zero-edit second run is a fixed-point check, not an independent oracle.
 // @evidence contracts/testing.md#distinguishing-cases The input is indented to the losing combined value (4) so a resolver that preferred the combined scope would leave it unchanged; the second run distinguishes a converged result from one still being rewritten.

@@ -12,6 +12,7 @@ import (
 //  1. Mix primitive, Promise, maybe-Promise, hole, and spread members.
 //  2. Pass the literal to native Promise.all.
 //  3. Assert only the primitive member and non-awaitable spread report.
+//
 // @evidence contracts/testing.md#behavioral-verification Aggregator array literals must report independently nonawaitable members.
 // @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix the complete rule/error line list 3,7 with code 2 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
 // @evidence contracts/testing.md#distinguishing-cases Original literal number and spread boolean report; native Promise, maybe-Promise and hole entries remain unreported.

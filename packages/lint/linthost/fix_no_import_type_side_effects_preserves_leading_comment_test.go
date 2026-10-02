@@ -3,9 +3,9 @@ package linthost
 import "testing"
 
 // TestFixNoImportTypeSideEffectsPreservesLeadingComment verifies the
-// round-2 trivia-skip repair for the multi-edit fix.
+// multi-edit fix skips trivia when locating each specifier modifier.
 //
-// Pre-repair, the per-specifier `type` keyword was located via the
+// The per-specifier `type` keyword was located via the
 // raw byte-scanner `findKeyword`, which is identifier-aware but NOT
 // comment-aware. A specifier preceded by a block comment containing
 // the word `type` (e.g. `/* type alias for Foo */ type Foo`) matched

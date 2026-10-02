@@ -9,13 +9,14 @@ import "testing"
 // Every regexp repair is a splice into live regex syntax, where a locally
 // correct edit can still produce a pattern the engine rejects. `/{1,}/` has no
 // atom in front of the brace run, so Annex B reads it as four literal
-// characters rather than a quantifier; both quantifier rules still report it,
-// and rewriting it would emit `/+/` or `//` — "nothing to repeat" and a line
-// comment. `/\-/` is the flag-side twin: `\-` is a legal identity escape only
+// characters rather than a quantifier; the quantifier rules still report it,
+// and rewriting `/{1,}/` would emit `/+/` ("nothing to repeat") and deleting
+// the `{1}` of `/{1}/` would emit `//`, a line comment. `/\-/` is the flag-side twin: `\-` is a legal identity escape only
 // while the literal has no Unicode flag, so both `u` and `v` candidates fall
 // away and the finding is left with no suggestion at all.
 //
-//  1. Assert both brace rules report `/{1,}/` and `/{1}/` yet apply no edit.
+//  1. Assert `regexp/prefer-plus-quantifier` reports `/{1,}/` and
+//     `regexp/no-useless-quantifier` reports `/{1}/`, each applying no edit.
 //  2. Assert `regexp/require-unicode-regexp` reports `/\-/` with zero
 //     suggestions, rather than offering a flag that would not compile.
 //  3. Assert the same rules do rewrite the well-formed twin, so the gate is

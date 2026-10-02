@@ -10,8 +10,8 @@ import (
 // subcommand applies edits driven entirely by a `format` block in the
 // discovered lint config file — no `format/*` entries in `rules`.
 //
-// This is the headline end-to-end test for the format surface, and the
-// e2e-level regression guard for the dropped-`format` bug: a config file whose
+// This is the headline command-level test for the format surface, and the
+// regression guard for the dropped-`format` bug: a config file whose
 // only key is `format` must round-trip from `lint.config.json` through the
 // loader, expansion, and engine. A regression at any of those layers would
 // surface here.
@@ -21,6 +21,7 @@ import (
 //  2. Run the format subcommand.
 //  3. Assert the file is the reflowed multi-line form and the
 //     subcommand exits cleanly.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on `const x = { aa: 1, bb: 2, cc: 3 };` with a lint.config.json whose only key is `format: { printWidth: 20 }`, and asserts exit 0, empty output, and the complete reflowed file.
 // @evidence contracts/testing.md#independent-expectations The expected multi-line object with a trailing comma is an authored literal following from a 20-column print width; it is not derived from running the formatter.
 // @evidence contracts/testing.md#distinguishing-cases One positive case: an object overflowing width 20 must break one member per line. The config has no rules entry, so the format block alone drives the edit; no under-width negative case is included here.

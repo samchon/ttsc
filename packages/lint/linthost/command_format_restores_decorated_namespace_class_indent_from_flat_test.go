@@ -13,15 +13,15 @@ import (
 // declaration line — from a fully flattened source. ttsc-only self-check
 // against the canonical answer key.
 //
-// FIX C completion: a decorated declaration statement inside a ModuleBlock is
-// visited by the statement pass at the namespace's body depth. Before the
-// completion only the leading `@` line moved; the `class B` line stayed at
-// column 0. This pins the namespace nesting depth, distinct from the
-// function-nested case.
+// A decorated declaration statement inside a ModuleBlock is visited by the
+// statement pass at the namespace's body depth. If the pass moved only the
+// leading `@` line, the `class B` line would stay at column 0. This pins the
+// namespace nesting depth, distinct from the function-nested case.
 //
 //  1. Flatten a namespace-nested decorated class canonical to column 0.
 //  2. Run `ttsc format`.
 //  3. Assert it converges and restores the canonical exactly.
+//
 // @evidence contracts/testing.md#behavioral-verification Strips the leading whitespace from every line of an authored `namespace N` containing a decorated `export class B` with a method, runs the in-process `format` command (semi false), and requires exit 0 without a did-not-converge message and the file equal to the authored indented text.
 // @evidence contracts/testing.md#independent-expectations The expected text is an authored canonical literal; the flat input is derived from it by removing leading whitespace, which leaves the syntax tree identical.
 // @evidence contracts/testing.md#distinguishing-cases One input that must change at namespace nesting depth: decorator line, class line, method and braces all start at column 0. The function-nested decorated class is owned by a separate test.

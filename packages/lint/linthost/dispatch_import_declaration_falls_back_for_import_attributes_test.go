@@ -6,13 +6,14 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// Verifies import attributes survive declaration fallback.
+// TestDispatchImportDeclarationFallsBackForImportAttributes verifies
+// import attributes survive the declaration fallback.
 //
 // An attributes clause carries module-loading semantics beyond the named binding list. The printer must retain it verbatim rather than constructing a declaration that silently drops the assertion.
 //
-// 1. Parse the named import with assert { type: json } and its quoted values.
-// 2. Call printImportDeclaration directly.
-// 3. Assert binding, module and attributes remain exactly as written.
+//  1. Parse the named import with assert { type: json } and its quoted values.
+//  2. Call printImportDeclaration directly.
+//  3. Assert binding, module and attributes remain exactly as written.
 //
 // @evidence contracts/testing.md#behavioral-verification printImportDeclaration must preserve import attributes and its named binding verbatim.
 // @evidence contracts/testing.md#independent-expectations The exact assert { type: json } source literal fixes the attribute spelling, quoted value and module, preventing silent attribute loss.

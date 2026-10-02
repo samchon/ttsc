@@ -9,8 +9,11 @@ import "testing"
 // the broken form and the flat -> broken reflow are covered, for the
 // extends+implements (two-clause) and implements-only (multi-type) cases.
 //
-//  1. Exercise the authored command format class heritage break fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Format already-broken class headers (two clauses, implements only, a long
+//     implements list, single-type clauses) and require them unchanged.
+//  2. Format the flat overflowing forms of the two-clause, implements-only and
+//     long-implements headers and require the exact broken layout.
+//
 // @evidence contracts/testing.md#behavioral-verification Seven subcases run the in-process `format` command on class headers with `extends` and `implements` clauses: broken forms must stay unchanged and flat overflowing forms must be rewritten to one clause per line with `{` on its own line, and a long implements list explodes one type per line.
 // @evidence contracts/testing.md#independent-expectations Sources and expected outputs are authored literals in the Prettier 3 class-heritage layout; the three transformation expectations (extends_implements_flat_breaks, implements_only_flat_breaks, extends_implements_many_types_flat_explodes) are complete literal files, not derived from the implementation.
 // @evidence contracts/testing.md#distinguishing-cases Covers four fixed points (two-clause, implements-only, many-types explode, single types stay inline) and three flat inputs that must change, so a formatter that does nothing fails the transformation subcases while a formatter that over-breaks fails the single-types-inline case.

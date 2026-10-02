@@ -13,7 +13,6 @@ import (
 // trust boundary normalizes every explicit source span before inline
 // directives, LSP conversion, or native diagnostic rendering can consume it.
 //
-//
 //  1. Report six authored negative, reversed, beyond-end, EOF, empty and valid spans through the public adapter.
 //  2. Require exact canonical bounds, unique original-message findings, nonnegative LSP positions and one native error render per source.
 //

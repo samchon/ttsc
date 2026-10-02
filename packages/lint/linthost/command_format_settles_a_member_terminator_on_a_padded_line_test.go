@@ -22,6 +22,7 @@ import "testing"
 //  2. Run `ttsc format`.
 //  3. Assert the line is trimmed and terminated, with no stranded padding
 //     between the type and the `;`.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on `interface Shape { value: string   }` where the member has trailing spaces and no terminator, and requires the exact file `value: string;` with the padding removed and the semicolon directly after the type.
 // @evidence contracts/testing.md#independent-expectations The expected `interface Shape {\n  value: string;\n}\n` is an authored literal that the test comment attributes to Prettier 3.8.3 (not re-verified here); it is not derived from formatter output.
 // @evidence contracts/testing.md#distinguishing-cases One changing case where two edits share a start offset (the zero-width semicolon insert and the trailing-whitespace trim), so dropping either edit or applying them in the wrong order leaves padding before the `;` or no `;`.

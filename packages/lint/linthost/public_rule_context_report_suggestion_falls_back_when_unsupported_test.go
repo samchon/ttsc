@@ -17,6 +17,7 @@ import (
 //  1. Build a reporter implementing only rule.Reporter.
 //  2. Call ctx.ReportSuggestion with two suggestions.
 //  3. Assert the diagnostic still lands through Report exactly once.
+//
 // @evidence contracts/testing.md#behavioral-verification Public suggestion reporting on a host without suggestion capability emits one ordinary diagnostic with the original node/msg and never substitutes a fix or unrelated range report.
 // @evidence contracts/testing.md#independent-expectations The authored parsed node, msg and two a/b candidate edits require diagnostic preservation with one ordinary callback; unsupported candidates are dropped rather than converted into a chosen autofix.
 // @evidence contracts/testing.md#distinguishing-cases Nonempty choices and active severity isolate missing suggestion capability. The observer supports fix reporting, which must still remain unused; sibling capable and zero-choice units cover opposite branches.

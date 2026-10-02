@@ -14,6 +14,7 @@ import "testing"
 //  1. Configure printWidth=20.
 //  2. Feed `export { alpha, bravo, charlie };`.
 //  3. Assert the rewrite breaks the specifier clause across lines.
+//
 // @evidence contracts/testing.md#behavioral-verification The print-width rule must break a local named export at width 20 without losing any export name, its order or its terminator. The complete output also detects accidentally adding an import-like from clause.
 // @evidence contracts/testing.md#independent-expectations Installed Prettier 3.8.3 independently produces the authored local-export output at width 20. The literal retains the original local bindings and no module source, following the fixture syntax rather than the owning renderer.
 // @evidence contracts/testing.md#distinguishing-cases This host owns the overflowing local named-export form, distinct from named imports that carry a module suffix. Short and already formatted targets are covered by the exact-fit and fixed-point hosts; this case is a required transformation.

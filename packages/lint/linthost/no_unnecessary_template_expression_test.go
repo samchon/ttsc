@@ -22,6 +22,7 @@ import (
 //  2. Run `check` with typescript/no-unnecessary-template-expression
 //     enabled as error.
 //  3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification A template containing only a string interpolation must report redundant wrapping.
 // @evidence contracts/testing.md#independent-expectations The authored original source requires exactly one typescript/no-unnecessary-template-expression rendered error at line 2, exit code 2 and empty stdout; an independently authored clean source requires code 0 and no rule findings.
 // @evidence contracts/testing.md#distinguishing-cases The direct string value removes the template wrapper and stays clean.

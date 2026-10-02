@@ -15,6 +15,7 @@ import "testing"
 //  2. Feed `const x = { a: 1 };`.
 //  3. Assert the rule reports zero findings — the rule has nothing to
 //     say about a conforming literal.
+//
 // @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule runs on the skips short object literal fixture and must report no findings, rejecting an unnecessary or unsafe edit rather than only comparing two formatter outputs. The owned result is: Assert the rule reports zero findings — the rule has nothing to say about a conforming literal.
 // @evidence contracts/testing.md#independent-expectations The literal unchanged input and zero-finding expectation follow the preservation boundary described above, independently of printer output. This host proves abstention, while changing fixtures in sibling rule tests prove formatting correctness.
 // @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Configure default printWidth=80. The asserted decision is: Assert the rule reports zero findings — the rule has nothing to say about a conforming literal. Other fixture shapes remain in their separately named hosts.

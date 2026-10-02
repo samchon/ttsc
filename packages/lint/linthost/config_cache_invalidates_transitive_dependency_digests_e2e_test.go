@@ -23,8 +23,8 @@ import (
 // optional branches ran; the equal-byte identity retarget uses Windows
 // junctions on Windows and required symlinks elsewhere.
 //
-//  1. Cache one evaluation whose entry imports a helper and prove an unchanged
-//     helper reuses both memory and disk state.
+//  1. Cache one evaluation whose entry imports a helper, clear the in-memory
+//     cache and prove an unchanged helper is reused from the on-disk state.
 //  2. Change only the helper and prove the entry-key hit is rejected before a
 //     fresh evaluation replaces it.
 //  3. Make the helper change during all three bounded evaluation attempts and
@@ -39,6 +39,7 @@ import (
 //     transient output cannot receive a reusable fingerprint for restored A.
 //  8. Accept the evaluator's empty conflict sentinel as an unstable soft miss,
 //     while rejecting every malformed dependency-envelope class.
+//
 // @evidence contracts/testing.md#behavioral-verification loadCachedConfigEvaluation and the real script evaluator preserve unchanged disk reuse, reject helper edits, bound unstable retries at three, agree on raw-byte directory fingerprints, reject retargeted identity and A-B-A cache proofs, and reject malformed envelopes.
 // @evidence contracts/testing.md#independent-expectations Literal generations, three attempts, independently SHA256-encoded directory records and restored optional-file digests define the cache protocol.
 // @evidence contracts/testing.md#distinguishing-cases Owns unchanged/changed/unstable dependencies, empty/single/UTF-8/link directories, optional absent-present-absent, retargeting, transient A-B-A and invalid envelope classes.

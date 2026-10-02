@@ -6,8 +6,7 @@ import "testing"
 //
 // Upstream `default-case` bails on `if (!node.cases.length) return;`: an empty
 // case block has no clause to hang a `// no default` marker on, so ESLint
-// leaves it alone. Locks the empty-switch boundary that the pre-fix port
-// wrongly reported.
+// leaves it alone. Locks that empty-switch boundary.
 //
 // 1. Build `switch (foo) {}` with zero clauses.
 // 2. Run the engine with default-case enabled.

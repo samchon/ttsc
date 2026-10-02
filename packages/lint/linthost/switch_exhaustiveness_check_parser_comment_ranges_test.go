@@ -16,6 +16,7 @@ import (
 //  1. Put a template-shaped marker in one open switch and expect a diagnostic.
 //  2. Put a U+2028-separated real marker after another switch's last clause.
 //  3. Assert the negative twin reports once and the real marker suppresses.
+//
 // @evidence contracts/testing.md#behavioral-verification Only real parser comment ranges may satisfy a default-case marker.
 // @evidence contracts/testing.md#independent-expectations Template-contained marker text must leave one missing-default error; Unicode-separated real comment yields none and an independently authored exact comment byte span.
 // @evidence contracts/testing.md#distinguishing-cases String/template lookalikes contrast with U+2028/U+2029-separated parser comments and exact final-clause ownership.

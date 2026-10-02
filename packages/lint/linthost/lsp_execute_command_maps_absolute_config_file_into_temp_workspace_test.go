@@ -17,6 +17,7 @@ import (
 // 2. Scope that config to `src/**/*.ts` and enable `no-var`.
 // 3. Execute `ttsc.lint.fixAll` through the LSP command path.
 // 4. Assert the rule still applies and the source file remains unchanged.
+//
 // @evidence contracts/testing.md#behavioral-verification Fix-all remaps the absolute custom JSON config into its temp workspace so the src glob still enables no-var and the original source remains unchanged.
 // @evidence contracts/testing.md#independent-expectations The authored let replacement and original var disk text independently require configuration applicability and nonmutation.
 // @evidence contracts/testing.md#distinguishing-cases The config is named custom-lint.config.json, which discovery would not find, is passed as an absolute configFile, and carries a src/** files glob, so the let rewrite appears only if the absolute path was remapped into the temporary workspace; the original file must still contain var.

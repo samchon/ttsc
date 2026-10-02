@@ -17,6 +17,7 @@ import "testing"
 //  2. Run `ttsc format`.
 //  3. Assert the file equals Prettier 3.8.3's output, every member
 //     terminated.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on two one-line interfaces (one member, and two members with the last unterminated) and requires the exact output with each body split over lines and every member, including the last, ending in `;`.
 // @evidence contracts/testing.md#independent-expectations The expected text is an authored literal that the test comment attributes to Prettier 3.8.3 (not re-verified here); the unterminated last member after the split is the defect it rejects.
 // @evidence contracts/testing.md#distinguishing-cases A one-member and a two-member body separate a last member with no separator from one whose interior terminator already exists; both must end uniformly terminated.

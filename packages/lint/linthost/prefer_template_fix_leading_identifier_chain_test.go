@@ -16,6 +16,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification Fixes identifier plus string as an identifier slot followed by literal text.
 // Every dynamic slot explicitly retains default-hint concatenation coercion.
+//
 // @evidence contracts/testing.md#independent-expectations The authored ${"" + (a)}b output preserves conversion of a before the suffix; declarations and following stringify remain byte-identical.
 // @evidence contracts/testing.md#distinguishing-cases Minimal two-operand identifier-leading boundary complements the three-part and numeric-subchain tests.
 // @evidence contracts/testing.md#execution-ownership assertFixSnapshot calls runFixSnapshot, applies the rule's actual edits to the fixture and compares complete independently authored output. This Test entry owns this exact source/output pair. All execute in the lint Go process without installing consumers or building/launching a native product host.

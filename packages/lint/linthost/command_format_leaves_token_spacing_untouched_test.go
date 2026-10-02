@@ -21,12 +21,14 @@ import (
 // final newline, and every node fits printWidth flat, so the reflow's fast path
 // leaves each one byte-identical.
 //
-//  1. Seed a project with one covered defect and eight token gaps.
+//  1. Seed a project with one covered defect, seven irregular token gaps and
+//     the declaration of `run` that the call lines need.
 //  2. Run `ttsc format` with the default format block.
 //  3. Assert the semicolon is added and no gap moved.
-// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command with an empty format block on a file whose first line lacks a semicolon and whose following eight lines have irregular token gaps (extra spaces, `1+2`, `1===1`, `i : number`, `=>n*2`, `run (1)`, `if(x`), and requires exit 0, empty output and exactly the semicolon added with every gap unchanged.
+//
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command with an empty format block on a file whose first line lacks a semicolon and whose following lines hold seven irregular token gaps (extra spaces, `1+2`, `1===1`, `i : number`, `=>n*2`, `run (1)`, `if(x`) and one `function run` declaration, and requires exit 0, empty output and exactly the semicolon added with every gap unchanged.
 // @evidence contracts/testing.md#independent-expectations The expected text is an authored literal: the one covered fix plus the unchanged gap lines. It pins the documented scope that no pass owns token spacing; it is a negative expectation about current behavior, not a Prettier-parity oracle.
-// @evidence contracts/testing.md#distinguishing-cases The added semicolon proves the formatter ran; the eight gap lines must stay as written. When a token-spacing pass is added, this test is intended to fail and be updated with the guide.
+// @evidence contracts/testing.md#distinguishing-cases The added semicolon proves the formatter ran; the seven gap lines must stay as written. When a token-spacing pass is added, this test is intended to fail and be updated with the guide.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatLeavesTokenSpacingUntouched(t *testing.T) {
   gaps := "const a   =  1;\n" +

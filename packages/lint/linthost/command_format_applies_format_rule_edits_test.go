@@ -18,6 +18,7 @@ import (
 // 1. Seed a project with a noVar violation and a missing-semi violation.
 // 2. Run the format subcommand with both rules enabled.
 // 3. Assert the file gains semicolons but keeps its `var` declaration.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on `var legacy = 1` and an unterminated call with format.semi and the no-var lint rule both enabled, and asserts exit 0, empty output and the complete file with semicolons added and `var` kept.
 // @evidence contracts/testing.md#independent-expectations The expected `var legacy = 1;\nJSON.stringify(legacy);\n` is an authored literal: semi applies and the lint rule must not rewrite under format.
 // @evidence contracts/testing.md#distinguishing-cases Distinguishes format-class edits (applied) from lint-class edits (withheld) in one run; a format command that also applied no-var would produce `let` and fail. Only the semi format rule is exercised.

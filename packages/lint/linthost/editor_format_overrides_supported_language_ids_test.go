@@ -16,6 +16,7 @@ import (
 // 1. Map every supported extension to its expected VS Code language ID.
 // 2. Configure a combined fallback and an exact section for that ID.
 // 3. Assert the exact section wins for every extension.
+//
 // @evidence contracts/testing.md#behavioral-verification Eight subcases (ts, mts, cts, tsx, js, mjs, cjs, jsx) call vscodeLanguageID to require the VS Code language ID, then write a settings.json with a four-language combined section (tabSize 4) and an exact `[<id>]` section (tabSize 2) and assert editorFormatOverrides gives tabWidth 2.
 // @evidence contracts/testing.md#independent-expectations The extension-to-ID table (typescript, typescriptreact, javascript, javascriptreact) is authored from VS Code's language identifiers; the expected 2 follows from exact-section precedence.
 // @evidence contracts/testing.md#distinguishing-cases Covers every supported extension across the four IDs, so a precedence fix that recognized only typescript would fail for tsx, js and jsx. Extensions outside the supported set returning no ID are not covered here.

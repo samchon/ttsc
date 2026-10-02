@@ -8,8 +8,10 @@ import "testing"
 // line; declaration-header must charge the `}` of an empty body in its fit
 // check so it does not keep the header inline one column over the limit.
 //
-//  1. Exercise the authored command format preserves multi type heritage empty body fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Seed a nested-namespace interface with an exploded two-type `extends` clause and an empty body.
+//  2. Run `ttsc format` with the default format block.
+//  3. Require the file byte-identical.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on a nested-namespace interface whose two-type `extends` clause is already exploded one type per line with an empty `{}` body, and requires the file byte-identical.
 // @evidence contracts/testing.md#independent-expectations The source is an authored literal in the Prettier layout and is its own expected output.
 // @evidence contracts/testing.md#distinguishing-cases One fixed-point case. Because the input is already broken, it does not itself exercise the one-column-too-wide flat form the comment describes; that overflow-from-flat direction is covered by the declaration-header break tests.

@@ -10,10 +10,9 @@ import (
 // import clauses keep one line.
 //
 // The named-imports printer shares listShape with object literals, so
-// flat behavior is mostly inherited; this case still pins the
-// expectation explicitly because the surrounding ImportDeclaration
-// printer threads `import ` and `from "x"` around the clause and a
-// regression there could only surface at this exact join.
+// flat behavior is mostly inherited; this case pins the standalone
+// clause printer that the dispatcher selects for a NamedImports node
+// (printImportDeclaration builds its own list and does not call it).
 //
 //  1. Parse `import { a, b } from "x";`.
 //  2. Render the NamedImports node directly under default options.

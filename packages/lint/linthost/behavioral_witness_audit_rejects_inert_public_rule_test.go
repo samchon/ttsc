@@ -11,7 +11,6 @@ import (
 // show it reports nothing, then shows the auditor rejects a public identity that
 // has no recorded positive witness.
 //
-//
 //  1. Register and execute a configured no-op rule on authored TypeScript.
 //  2. Require zero findings and a missing-positive-witness audit rejection for that public identity.
 //

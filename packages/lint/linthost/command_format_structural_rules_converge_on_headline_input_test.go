@@ -10,7 +10,7 @@ import (
 // full `ttsc format` cascade fixes the structural-formatting headline
 // bug: four statements crammed onto one indented line, with trailing
 // blank lines, converge to one statement per line at column 0 with a
-// single final newline — and `console.log(...)` does NOT over-break.
+// single final newline, and `console.log(...)` does NOT over-break.
 //
 // This is the end-to-end proof for the three new always-on rules
 // (`format/statement-split`, `format/indent`, `format/whitespace`)
@@ -23,6 +23,7 @@ import (
 //  2. Run `ttsc format`.
 //  3. Assert the file converges to the canonical Prettier output and the
 //     subcommand exits cleanly.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on one indented line holding four statements followed by blank and whitespace-only lines, and requires exit 0, empty output and the exact four-line file at column 0 with a single final newline and `console.log(a, b, c);` kept flat.
 // @evidence contracts/testing.md#independent-expectations The expected four-line text is an authored literal; the console.log call is 21 columns, so staying flat is the correct answer regardless of how the cascade got there.
 // @evidence contracts/testing.md#distinguishing-cases One input that changes in several ways at once (statement split, de-indent, trailing blank-line removal, no over-break); a failure in any of those rules or in their composition changes the output text.

@@ -19,6 +19,7 @@ import (
 //  2. Run the engine so the rule reports one finding.
 //  3. Assert the converted LSP diagnostic keeps its rule id but no
 //     codeDescription, while a built-in rule still resolves one.
+//
 // @evidence contracts/testing.md#behavioral-verification The contributor adapter reports its retired-name finding without codeDescription while the built-in no-alert mapping remains present.
 // @evidence contracts/testing.md#independent-expectations A contributor does not own the retired built-in documentation; nil description and the positive built-in URL follow this distinction independently of ledger lookup.
 // @evidence contracts/testing.md#distinguishing-cases A contributor adapter registered under the retired built-in name solid/jsx-uses-vars is run through the Engine; its converted diagnostic must keep that name as its code and have a nil codeDescription, and ruleDocumentationURL for no-alert must stay non-empty so a globally dead field cannot satisfy the test. The built-in href value itself is asserted elsewhere.
@@ -31,7 +32,10 @@ func TestLSPDiagnosticOmitsCodeDescriptionForContributorRule(t *testing.T) {
     t.Fatal(err)
   }
   Register(newContributorAdapter(metadata))
-  t.Cleanup(func() { delete(registered.rules, contributor.Name()) })
+  t.Cleanup(func() {
+    delete(registered.rules, contributor.Name())
+    invalidateRuntimeRuleCodes()
+  })
 
   findings := NewEngine(RuleConfig{contributor.Name(): SeverityError}).
     Run([]*shimast.SourceFile{file}, nil)

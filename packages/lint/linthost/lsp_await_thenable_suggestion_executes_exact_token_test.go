@@ -7,6 +7,7 @@ import (
 
 // TestLSPAwaitThenableSuggestionExecutesExactToken verifies quickfix.ttsc
 // exposes and applies only the await keyword deletion while preserving trivia.
+//
 // @evidence contracts/testing.md#behavioral-verification Quickfix discovery offers the literal await-removal title and execution deletes only await, preserving the intervening comment and spacing.
 // @evidence contracts/testing.md#independent-expectations The independently authored full async-function text, exact title and quickfix command specify the token deletion without observing another implementation.
 // @evidence contracts/testing.md#distinguishing-cases A comment immediately after await distinguishes token-only deletion from trivia deletion; the fix-all companion rejects applying this opt-in rewrite automatically.

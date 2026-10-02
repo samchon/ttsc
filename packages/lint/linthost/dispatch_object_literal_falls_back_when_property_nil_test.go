@@ -18,8 +18,11 @@ import (
 //
 //  1. Parse any source file to obtain a valid PrintContext.
 //  2. Use NodeFactory to build an ObjectLiteralExpression whose Properties
-//     NodeList contains a single nil entry.
-//  3. Call printObjectLiteral directly and assert it does not panic.
+//     NodeList contains a single nil entry, call printObjectLiteral directly
+//     and assert the output is empty.
+//  3. Parse `const values = { a: 1, b: 2 };`, replace the parsed
+//     Properties.Nodes with a single nil entry and assert the output is the
+//     original `{ a: 1, b: 2 }`.
 //
 // @evidence contracts/testing.md#behavioral-verification printObjectLiteral must preserve the original key/value source when Properties.Nodes contains nil.
 // @evidence contracts/testing.md#independent-expectations The literal { a: 1, b: 2 } prevents an empty or partly reconstructed object from passing; the original synthetic empty output is also asserted.

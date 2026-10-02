@@ -19,6 +19,7 @@ import (
 //     format-class violation (formatSemi).
 //  2. Run the fix subcommand with both rules enabled.
 //  3. Assert both kinds of edits land and the final exit code is zero.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `fix` command over a project with `var legacy` and unterminated statements, configured with format.semi and the no-var rule, and asserts exit 0, empty stdout and stderr, and the complete rewritten file.
 // @evidence contracts/testing.md#independent-expectations The expected file `let legacy = 1;\nJSON.stringify(legacy);\nexport {};\n` is an authored literal following from no-var (var to let) and semi true; it is not produced by applying returned fixes.
 // @evidence contracts/testing.md#distinguishing-cases A single positive scenario where one lint edit and three format edits must land in one pass; it has no negative twin, and the fix-versus-format difference is owned by the sibling test.

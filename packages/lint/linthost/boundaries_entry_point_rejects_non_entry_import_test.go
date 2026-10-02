@@ -20,10 +20,11 @@ import "testing"
 // @evidence contracts/testing.md#execution-ownership runBoundaryRule calls NewEngineWithResolver.Run on the authored internal and directory-entry imports. The entry owns both assertSingleBoundaryFinding message checks and exact one-report cardinality.
 func TestBoundariesEntryPointRejectsNonEntryImport(t *testing.T) {
   const ruleName = "boundaries/entry-point"
-  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
+  source := `
     import "../domain/internal";
     import "../domain";
-  `, `{
+  `
+  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", source, `{
     "elements": [
       { "type": "app", "pattern": "src/app/**" },
       { "type": "domain", "pattern": "src/domain/**", "entry": "index.ts" }
@@ -36,4 +37,7 @@ func TestBoundariesEntryPointRejectsNonEntryImport(t *testing.T) {
   // The element's entry patterns are what a legal import must go through, and
   // the rule holds them when it reports, so the message names them.
   assertSingleBoundaryFinding(t, ruleName, findings, `Allowed here: index.ts.`)
+  if got := source[findings[0].Pos:findings[0].End]; got != `"../domain/internal"` {
+    t.Fatalf("finding range text = %q, want %s", got, `"../domain/internal"`)
+  }
 }

@@ -12,6 +12,7 @@ import (
 // subtype of the enum. TypeScript therefore skips the first overload below in
 // its subtype pass and selects the Promise-returning overload. Treating the
 // parameter contracts as equivalent would incorrectly discard that Promise.
+//
 // @evidence contracts/testing.md#behavioral-verification Mutual assignability must not erase subtype-first overload selection.
 // @evidence contracts/testing.md#independent-expectations The authored numeric-enum handler call requires exactly one rule/error diagnostic at line11, code2 and empty stdout.
 // @evidence contracts/testing.md#distinguishing-cases Number-parameter safe return precedes enum-parameter Promise return; the enum handler distinguishes subtype priority from flattened assignability.

@@ -25,6 +25,7 @@ import (
 //     Program.
 //  3. Assert the findings equal a cold load of the edited project, and that the
 //     edit changed the findings at all (so the comparison cannot pass vacuously).
+//
 // @evidence contracts/testing.md#behavioral-verification Every registered rule runs before and after a source edit; incremental and cold finding fingerprints must agree and differ from the original nonempty result.
 // @evidence contracts/testing.md#independent-expectations Cold loading provides a differential oracle independent of the incremental update mechanism but shares rule implementations, so shared rule defects remain indistinguishable. The original nonempty set and changed-result assertion reject vacuous reuse.
 // @evidence contracts/testing.md#distinguishing-cases One source edit turns var into const, loose into strict equality and adds a declaration; the incremental fingerprint (rule, file, positions and message of every finding from every registered rule) must differ from the pre-edit fingerprint, which also requires that the seed produced findings, and must equal the fingerprint of a freshly loaded Program. Only this one edit shape is covered.

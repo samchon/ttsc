@@ -13,15 +13,16 @@ import (
 // line — from a fully flattened source. ttsc-only self-check against the
 // canonical answer key; Prettier is not used at runtime.
 //
-// FIX C completion: the decorated-member header pass already moved decorator
-// lines for class MEMBERS, but a decorated nested declaration STATEMENT was
-// handled by the statement pass, which re-indented only lineStart(stmt.Pos())
-// — the leading `@` — and left the `class B` declaration line at column 0. The
-// statement pass now mirrors the header pass for decorated declarations.
+// The decorated-member header pass moves decorator lines for class MEMBERS,
+// while a decorated nested declaration STATEMENT is handled by the statement
+// pass. That pass must also re-indent the `class B` declaration line, not only
+// the leading `@` line at lineStart(stmt.Pos()), or the declaration would stay
+// at column 0.
 //
 //  1. Flatten a function-nested decorated class canonical to column 0.
 //  2. Run `ttsc format`.
 //  3. Assert it converges and restores the canonical exactly.
+//
 // @evidence contracts/testing.md#behavioral-verification Strips the leading whitespace from every line of an authored function containing a decorated nested `class B` with a method and a `return B`, runs the in-process `format` command (semi false), and requires exit 0 without a did-not-converge message and the file equal to the authored indented text.
 // @evidence contracts/testing.md#independent-expectations The expected text is an authored canonical literal; the flat input is derived from it by removing leading whitespace, which leaves the syntax tree identical.
 // @evidence contracts/testing.md#distinguishing-cases One input that must change: both the `@Dec` line and the `class B` declaration line of a function-nested decorated class start at column 0; moving only the `@` line would fail. Namespace-nested and interface forms are separate tests.

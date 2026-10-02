@@ -19,6 +19,7 @@ import (
 //  1. Seed a project whose source is already the canonical cascade output.
 //  2. Run `ttsc format`.
 //  3. Assert the file is unchanged and the subcommand exits cleanly.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command with an empty format block on a four-statement file that is already one statement per line with semicolons, and requires exit 0, empty output and the file byte-identical.
 // @evidence contracts/testing.md#independent-expectations The canonical source is an authored literal that serves as its own expected output; it is not derived from the formatter.
 // @evidence contracts/testing.md#distinguishing-cases One fixed-point case guarding against format rules undoing each other's output (for example indent rewriting correct bodies). Only simple top-level statements are used, so class bodies and nested blocks are covered by other tests.

@@ -8,12 +8,10 @@ import (
 // printParenthesizedExpression returns an empty Doc and covered==true when
 // called with a nil node.
 //
-// The nil guard protects against panics when AST nodes are missing during
-// error-recovery parse passes. Returning covered==true for a nil node is
-// correct because an empty Doc contributes no multi-line verbatim content to
-// the surrounding Doc tree. A regression that returned covered==false would
-// cause the formatPrintWidth rule to abstain unnecessarily on every
-// parenthesized expression that follows the nil path.
+// The nil guard is defensive: PrintNode screens nil before dispatching, so it
+// is reachable only through a direct call. Returning covered==true is correct
+// because an empty Doc contributes no multi-line verbatim content to the
+// surrounding Doc tree.
 //
 //  1. Build a PrintContext from any valid parsed file.
 //  2. Call printParenthesizedExpression(ctx, nil) directly.

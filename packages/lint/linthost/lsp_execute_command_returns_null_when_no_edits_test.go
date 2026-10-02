@@ -17,6 +17,7 @@ import (
 // 1. Seed a project whose lint rules produce no fixable diagnostics.
 // 2. Execute `ttsc.lint.fixAll` through the LSP command path.
 // 3. Assert exit 0 and stdout is JSON `null`.
+//
 // @evidence contracts/testing.md#behavioral-verification Fix-all on a const-only source exits successfully with JSON null and no stderr rather than an empty WorkspaceEdit.
 // @evidence contracts/testing.md#independent-expectations Literal null protocol output, zero exit and empty stderr are authored expectations independent of edit serialization internals.
 // @evidence contracts/testing.md#distinguishing-cases Enabled no-var on an already valid source distinguishes a handled no-op from disabled rules or a positive rewrite, which the split-edits companion owns.

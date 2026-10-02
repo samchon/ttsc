@@ -20,6 +20,7 @@ import (
 //  1. Flatten a function-nested class canonical to column 0.
 //  2. Run `ttsc format`.
 //  3. Assert it converges and restores the canonical exactly.
+//
 // @evidence contracts/testing.md#behavioral-verification Strips the leading whitespace from every line of an authored function containing a nested class `C` with a method, runs the in-process `format` command (semi false), and requires exit 0 without a did-not-converge message and the file equal to the authored indented text, including both closing braces.
 // @evidence contracts/testing.md#independent-expectations The expected text is an authored canonical literal; the flat input is derived from it by removing leading whitespace, which leaves the syntax tree identical.
 // @evidence contracts/testing.md#distinguishing-cases One input that must change at a non-zero nesting depth: class line, member header, body and the class and method closing braces all start at column 0; a class body is not a Block, so its closing brace needs its own branch.

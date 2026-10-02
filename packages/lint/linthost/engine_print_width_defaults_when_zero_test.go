@@ -5,7 +5,8 @@ import (
   "testing"
 )
 
-// Verifies omitted and negative print widths select exactly eighty columns.
+// TestEnginePrintWidthDefaultsWhenZero verifies omitted and negative print
+// widths select exactly eighty columns.
 //
 // A merely generous fallback would pass a short flat group. The boundary
 // pair proves the documented width itself: eighty columns fit and the

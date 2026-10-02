@@ -9,13 +9,12 @@ import (
 // TestDispatchCallExpressionFlatWhenFits verifies a short call
 // expression renders on one line.
 //
-// Call expressions are the most common reflow target after object
-// literals, so the per-node printer must stitch the callee verbatim
-// onto the argument list shape without dropping or duplicating
-// anything. The case pins the simplest flat shape: `foo(a, b)`.
+// The per-node printer stitches the callee verbatim onto the argument
+// list shape, so it must not drop or duplicate anything when the call
+// fits. The case pins the simplest flat shape: `foo(a, b)`.
 //
 //  1. Parse `foo(a, b);`.
-//  2. Dispatch and print under default options.
+//  2. Call printCallExpression directly and print under default options.
 //  3. Assert the result is `foo(a, b)`.
 //
 // @evidence contracts/testing.md#behavioral-verification printCallExpression must keep foo(a, b) flat at the default width.

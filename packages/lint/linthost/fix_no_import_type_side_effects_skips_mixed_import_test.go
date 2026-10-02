@@ -2,8 +2,8 @@ package linthost
 
 import "testing"
 
-// TestFixNoImportTypeSideEffectsSkipsMixedImport verifies the round-2
-// negative-path coverage for `no-import-type-side-effects`.
+// TestFixNoImportTypeSideEffectsSkipsMixedImport verifies the negative path
+// of `no-import-type-side-effects` for a mixed import.
 //
 // The rule's canonical contract requires EVERY named specifier to carry
 // the inline `type` modifier before hoisting is safe. A mixed import

@@ -10,8 +10,10 @@ import "testing"
 // clause, are covered for idempotency, plus a de-indented separate-line block
 // is re-indented.
 //
-//  1. Exercise the authored command format switch case block indent fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Seed two canonical switches and one switch whose separate-line case block is mis-indented.
+//  2. Run `ttsc format` with the default format block on each.
+//  3. Require the canonical two unchanged and the third rewritten to the authored indentation.
+//
 // @evidence contracts/testing.md#behavioral-verification Three subcases run the in-process `format` command: a switch mixing separate-line and same-line case blocks plus a `default` block stays unchanged, a `default` with a separate-line block stays unchanged, and a mis-indented separate-line case block is rewritten to one level deeper than the clause.
 // @evidence contracts/testing.md#independent-expectations Sources and the one rewrite expectation are authored literals reasoned from the stated rule (same-line block like a braceless clause body, separate-line block one level deeper with its `}` one level up); nothing is derived from the formatter.
 // @evidence contracts/testing.md#distinguishing-cases Two fixed points cover both block placements and the default clause; the third input has a body and closing brace that must move, so the formatter cannot pass by doing nothing.

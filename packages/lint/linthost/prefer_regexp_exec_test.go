@@ -23,6 +23,7 @@ import (
 // 1. Seed a project that calls `str.match(/foo/)` on a `string`.
 // 2. Run `check` with typescript/prefer-regexp-exec enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification String match with a nonglobal regex must report.
 // @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/prefer-regexp-exec rendered error at line 2, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
 // @evidence contracts/testing.md#distinguishing-cases Direct exec keeps the same search boundary.

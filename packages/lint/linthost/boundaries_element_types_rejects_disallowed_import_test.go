@@ -20,10 +20,11 @@ import "testing"
 // @evidence contracts/testing.md#execution-ownership runBoundaryRule calls NewEngineWithResolver.Run on the cross-element and local fixture imports. This Test owns assertSingleBoundaryFinding and its implicit zero-report local control.
 func TestBoundariesElementTypesRejectsDisallowedImport(t *testing.T) {
   const ruleName = "boundaries/element-types"
-  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
+  source := `
     import "../domain/internal";
     import "./local";
-  `, `{
+  `
+  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", source, `{
     "elements": [
       { "type": "app", "pattern": "src/app/**" },
       { "type": "domain", "pattern": "src/domain/**" }
@@ -36,4 +37,7 @@ func TestBoundariesElementTypesRejectsDisallowedImport(t *testing.T) {
     "src/domain/internal.ts": "export {};",
   })
   assertSingleBoundaryFinding(t, ruleName, findings, `domain`)
+  if got := source[findings[0].Pos:findings[0].End]; got != `"../domain/internal"` {
+    t.Fatalf("finding range text = %q, want %s", got, `"../domain/internal"`)
+  }
 }

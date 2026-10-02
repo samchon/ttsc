@@ -2,7 +2,16 @@ package linthost
 
 import "testing"
 
+// TestNoDupeClassMembersRejectsAccessorDataCollisions verifies a getter or setter
+// collides with a same-named method or field, while a getter/setter pair and a
+// static member of the same name do not.
+//
 // Accessor halves coexist, but methods and fields replace either accessor.
+//
+// 1. Parse five classes pairing an accessor with a method, field or second getter.
+// 2. Assert exactly the later colliding members are reported, in source order.
+// 3. Assert a getter, setter and static method of one name report nothing.
+//
 // @evidence contracts/testing.md#behavioral-verification The actual rule reports exactly the later members in both collision orders and repeated getters.
 // @evidence contracts/testing.md#independent-expectations ECMAScript member keys share one instance/static property identity; only getter/setter pairs are compatible.
 // @evidence contracts/testing.md#distinguishing-cases Getter/method, setter/field, reversed order and repeated getter collide; getter/setter pairs and distinct static identities do not.

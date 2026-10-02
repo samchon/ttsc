@@ -17,6 +17,7 @@ import (
 // 2. Execute `ttsc.lint.fixAll` for the symlink URI.
 // 3. Assert the returned WorkspaceEdit fixes the visible document.
 // 4. Assert neither the symlink target nor the symlink path content changed.
+//
 // @evidence contracts/testing.md#behavioral-verification Fix-all returns the authored edit for an included file symlink URI without changing either target or visible-link source content.
 // @evidence contracts/testing.md#independent-expectations The literal source rewrite and original fixture bytes establish expectations independently of link-copy decisions or WorkspaceEdit generation.
 // @evidence contracts/testing.md#distinguishing-cases The included src/main.ts is a file symlink to real/main.ts, so a staging copy that preserved the link would write through to the target; the literal let rewrite must be returned and both the link path and the target must still read the original var text. The test skips where symlinks cannot be created.

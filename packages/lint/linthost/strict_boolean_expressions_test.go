@@ -23,6 +23,7 @@ import (
 // 1. Seed a project that places a `number` in an `if` condition.
 // 2. Run `check` with typescript/strict-boolean-expressions enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification A number condition must report under boolean-only policy.
 // @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/strict-boolean-expressions rendered error at line 2, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
 // @evidence contracts/testing.md#distinguishing-cases A boolean condition is the valid counterpart.

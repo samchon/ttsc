@@ -13,8 +13,9 @@ import (
 // The guard `stmt == nil || stmt.Expression == nil` protects the printer from
 // calling PrintNode on a nil expression. A synthetic ExpressionStatement
 // built without an inner expression hits this guard; the printer emits the
-// source bytes verbatim. This path is reachable during error-recovery parsing
-// where a statement is created before its expression is attached.
+// source bytes verbatim, which for a node without a source range is nothing.
+// The parser substitutes a missing-expression node rather than leaving the
+// field nil, so only a factory-built node reaches this branch.
 //
 //  1. Create a synthetic ExpressionStatement with Expression=nil via factory.
 //  2. Build a PrintContext from a real parsed file so ctx.Source is valid.

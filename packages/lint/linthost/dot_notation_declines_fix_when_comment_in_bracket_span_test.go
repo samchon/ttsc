@@ -8,14 +8,16 @@ import "testing"
 //
 // The fix replaces the range from the receiver's end through the closing
 // bracket, so a comment there (`p1 /* keep */ ["foo"]`) would vanish after
-// `ttsc lint fix`. ESLint's dot-notation declines via `commentsExistBetween`;
-// the port imposes no edit either and routes the rewrite to the opt-in
-// suggestion channel instead (pinned by
-// `TestDotNotationOffersWithheldBracketCollapseAsSuggestion`). The negative twin — the
-// same access with no comment — must still rewrite, proving the guard is scoped
-// to the comment and not a blanket suppression.
+// `ttsc lint fix`. ESLint's dot-notation guards with `commentsExistBetween`
+// over the bracket pair; the port's splice starts at the receiver's end, so
+// its guard covers that wider span. The port imposes no edit and routes the
+// rewrite to the opt-in suggestion channel instead (pinned by
+// `TestDotNotationOffersWithheldBracketCollapseAsSuggestion`). The twin with
+// no comment must still rewrite, proving the guard is scoped to the comment
+// and not a blanket suppression.
 //
-//  1. Report on a bracket access whose span carries a block comment.
+//  1. Run the rule on a bracket access whose span carries a block comment and
+//     assert exactly one finding is reported.
 //  2. Assert no fix is applied and the source is left byte-for-byte intact.
 //  3. Assert the comment-free twin still collapses to dot notation.
 //
@@ -24,11 +26,11 @@ import "testing"
 // @evidence contracts/testing.md#distinguishing-cases A comment between receiver and key suppresses automatic rewriting; its absent twin rewrites. The suggestion test separately owns the opt-in action.
 // @evidence contracts/testing.md#execution-ownership TestDotNotationDeclinesFixWhenCommentInBracketSpan owns every assertion and any named table subcases in the shared Go unit population. Parsed-source Engine operations and direct fix application use disposable fixture files where needed, without a consumer install, native build or product host.
 func TestDotNotationDeclinesFixWhenCommentInBracketSpan(t *testing.T) {
-  assertNoFixSnapshot(
-    t,
-    "dot-notation",
-    "const p1: any = {};\nconst v1 = p1 /* keep */ [\"foo\"];\nJSON.stringify(v1);\n",
-  )
+  commented := "const p1: any = {};\nconst v1 = p1 /* keep */ [\"foo\"];\nJSON.stringify(v1);\n"
+  if _, _, findings := runRuleFindingsSnapshot(t, "dot-notation", commented, nil); len(findings) != 1 {
+    t.Fatalf("dot-notation: findings = %d, want 1 (%+v)", len(findings), findings)
+  }
+  assertNoFixSnapshot(t, "dot-notation", commented)
   assertFixSnapshot(
     t,
     "dot-notation",

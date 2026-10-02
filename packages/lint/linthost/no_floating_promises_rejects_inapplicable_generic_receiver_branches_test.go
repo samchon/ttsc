@@ -15,6 +15,7 @@ import (
 //  1. Pair valid generic receiver branches with one-contract-away invalid twins.
 //  2. Exercise constraints, defaults, callback variance, properties, and unsupported shapes.
 //  3. Assert every unsafe or uncertain call reports while every proven-safe twin remains clean.
+//
 // @evidence contracts/testing.md#behavioral-verification Unsupported or incompatible generic proofs must not hide possibly floating Promise results.
 // @evidence contracts/testing.md#independent-expectations Twenty independently authored lint markers determine the complete raw/rendered error population; four designated compiler-rejected calls must independently carry actual TS2349 diagnostics at their authored call spans.
 // @evidence contracts/testing.md#distinguishing-cases Explicit/default/dependent generics, callback/tag/variance/predicate/assertion/rest/private contracts and uncertain returns preserve valid safe twins and both compiler-rejected and lint-uncertain positives.

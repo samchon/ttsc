@@ -8,6 +8,7 @@ import "testing"
 // 1. Use `any` fallbacks in object and array binding patterns.
 // 2. Repeat the fallback through an object destructuring assignment.
 // 3. Keep typed fallbacks beside them and require one finding per `any` default.
+//
 // @evidence contracts/testing.md#behavioral-verification Binding defaults must inspect unsafe fallback expressions at nested assignment sites.
 // @evidence contracts/testing.md#independent-expectations The fixture's independently authored expect markers require three authored object, array and reassignment fallback findings; the oracle compares the complete sorted rule/error line multiset, error message prefix, code 2 and empty stdout.
 // @evidence contracts/testing.md#distinguishing-cases typed string defaults remain clean.

@@ -5,10 +5,10 @@ import "testing"
 // TestFilterFormatFindingsKeepsOnlyFormatRuleFindings verifies the
 // format-side filter.
 //
-// `RunFormat` is the only caller of `filterFormatFindings`: it
-// short-circuits the engine's mixed finding stream to the format-rule
-// subset with attached edits so `ttsc format` never applies lint-class
-// edits AND never drops a fixable format finding silently. The lint-side
+// `ttsc format` and the LSP format and fix-all actions call
+// `filterFormatFindings` to narrow the engine's mixed finding stream to the
+// format-rule subset with attached edits, so formatting never applies
+// lint-class edits and never drops a fixable format finding silently. The lint-side
 // inverse filter is tested separately because LSP fix-all and format actions
 // now expose those edit classes independently.
 //
@@ -19,6 +19,7 @@ import "testing"
 //  3. Assert only format-tagged findings that also carry at least one
 //     fix survive; nils and lint findings are dropped, and a format
 //     finding with no fix is also dropped (format mode is write-only).
+//
 // @evidence contracts/testing.md#behavioral-verification filterFormatFindings admits format/semi and format/quotes only when fixes are attached, rejecting lint entries, nil and format-without-fix. Original-pointer membership also rejects a duplicated survivor while permitting either output order.
 // @evidence contracts/testing.md#independent-expectations The hand-authored mixed slice determines exactly two admissible original findings under the write-only format contract, independently of the filtering implementation.
 // @evidence contracts/testing.md#distinguishing-cases A six-entry slice separates the four decision outcomes: a lint finding with a fix, a nil entry, a lint finding without a fix and a format finding without edits are dropped, while the two format findings with edits (format/semi, format/quotes) are kept as the original pointers.

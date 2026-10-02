@@ -5,17 +5,20 @@ import (
   "testing"
 )
 
-// TestCommandFixUnicornSwitchCaseBreakPositionConvergesAndIsIdempotent drives
-// the rule through the public `fix` dispatch twice. The first invocation must
-// produce parse-valid canonical source; the second must leave that exact byte
-// sequence untouched, proving the complete command cascade reaches a fixed
-// point instead of merely validating the rule's in-memory edits.
-// TestCommandFixUnicornSwitchCaseBreakPositionConvergesAndIsIdempotent verifies public fix dispatch converges to the authored source.
+// TestCommandFixUnicornSwitchCaseBreakPositionConvergesAndIsIdempotent verifies
+// the public `fix` dispatch moves a `break` that follows a case block into the
+// block and then leaves the result untouched.
 //
-// The authored canonical source and successful silent command contract independently establish the first-pass transform and unchanged second pass, rather than relying only on idempotency.
+// The first invocation must produce parse-valid canonical source; the second
+// must leave that exact byte sequence untouched, proving the complete command
+// cascade reaches a fixed point instead of merely validating the rule's
+// in-memory edits. The authored canonical source, not idempotency alone,
+// establishes the first-pass transform.
 //
-// 1. Execute the retained clause or command fixture through the owning Go operation.
-// 2. Compare the authored report, edit or preserved-file result for each boundary.
+//  1. Seed a `switch` whose braced case block is followed by a sibling `break`
+//     and enable the switch-case-break-position rule.
+//  2. Run `fix` and assert silent success with the `break` inside the block.
+//  3. Run `fix` again and assert the file is byte-identical.
 //
 // @evidence contracts/testing.md#behavioral-verification The in-process public fix command executes twice and checks its exit/output and exact fixture file after each pass.
 // @evidence contracts/testing.md#independent-expectations The authored canonical source and successful silent command contract independently establish the first-pass transform and unchanged second pass, rather than relying only on idempotency.

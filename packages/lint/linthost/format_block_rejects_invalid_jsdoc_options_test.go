@@ -6,28 +6,22 @@ import (
 )
 
 // TestFormatBlockRejectsInvalidJsdocOptions verifies expandFormatBlock returns
-// errors for invalid values inside the `jsdoc` object sub-keys.
+// errors for invalid values inside the `jsDoc` object sub-keys.
 //
-// Locks four error paths inside the jsDoc case:
+// Four error paths inside the jsDoc case are locked. `tagSynonyms` must be an
+// object, so a bool is rejected. A tagSynonyms entry whose value is not a
+// string (an int here) is rejected by the per-element type check. `sortTags`
+// must be a boolean, so a string is rejected. An unknown jsDoc key such as
+// "minify" reaches the default error arm.
 //
-//   - `tagSynonyms` must be a map[string]any; a non-object value (e.g. a bool)
-//     triggers the `if !ok` guard.
-//
-//   - A tagSynonyms entry whose value is not a string (e.g. an int) triggers
-//     the per-element type check.
-//
-//   - `sortTags` must be a boolean; a non-bool triggers the asBool error path.
-//
-//   - An unknown jsDoc key (e.g. "minify") triggers the default error arm.
-//
-//     1. Call expandFormatBlock with `jsDoc: { tagSynonyms: true }`.
-//     2. Assert error mentioning `tagSynonyms`.
-//     3. Call with `jsDoc: { tagSynonyms: { foo: 42 } }`.
-//     4. Assert error mentioning `tagSynonyms[`.
-//     5. Call with `jsDoc: { sortTags: "yes" }`.
-//     6. Assert error naming `format.jsDoc.sortTags`.
-//     7. Call with `jsDoc: { minify: true }`.
-//     8. Assert error mentioning `minify`.
+// 1. Call expandFormatBlock with `jsDoc: { tagSynonyms: true }` and assert the
+//    error names `format.jsDoc.tagSynonyms`.
+// 2. Call it with `jsDoc: { tagSynonyms: { foo: 42 } }` and assert the error
+//    names `format.jsDoc.tagSynonyms["foo"]`.
+// 3. Call it with `jsDoc: { sortTags: "yes" }` and assert the error names
+//    `format.jsDoc.sortTags`.
+// 4. Call it with `jsDoc: { minify: true }` and assert the error mentions
+//    `minify`.
 //
 // @evidence contracts/testing.md#behavioral-verification expandFormatBlock rejects non-object tagSynonyms, a numeric synonym value, non-Boolean sortTags, and unknown minify key with the matching field context.
 // @evidence contracts/testing.md#independent-expectations The public JSDoc object admits string-valued synonyms and Boolean sortTags only; the four independently authored malformed values establish their exact rejection contexts.

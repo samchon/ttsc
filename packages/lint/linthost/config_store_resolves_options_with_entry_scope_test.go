@@ -6,10 +6,9 @@ import (
   "testing"
 )
 
-// TestConfigStoreResolvesOptionsWithEntryScope pins the severity/options fold
+// TestConfigStoreResolvesOptionsWithEntryScope verifies the severity/options fold
 // to the same matching ConfigEntry sequence. A tuple from a sibling files
 // selector must not become the option payload for an unrelated file.
-//
 //
 // 1. Declare global, test, generated and globally ignored entries.
 // 2. Resolve main, test and vendor files and compare their exact rule payloads.
@@ -17,7 +16,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification ConfigStore.ResolveRules selects paired severity/options for main and test files, ignores vendor without options, preserves unrelated custom-rule settings and returns defensively copied option bytes.
 // @evidence contracts/testing.md#independent-expectations The authored disjoint files selectors and literal payloads establish the expected matches; mutating one returned byte buffer must not change the independently known original config payload.
-// @evidence contracts/testing.md#distinguishing-cases Owns matching/nonmatching/generated tuples, unrelated rule, globally ignored file, and read-mutate-read isolation of retained config state.
+// @evidence contracts/testing.md#distinguishing-cases Owns matching and nonmatching sibling tuples (the generated/** entry matches none of the resolved paths and must leak into none), unrelated rule, globally ignored file, and read-mutate-read isolation of retained config state.
 // @evidence contracts/testing.md#execution-ownership This discoverable Go entry owns the case described above. Authored ConfigStore entries resolve main, test and vendor paths directly in the shared Go process; option-buffer mutation and a second resolution exercise retained-state isolation without a native producer or script evaluator.
 func TestConfigStoreResolvesOptionsWithEntryScope(t *testing.T) {
   root := t.TempDir()

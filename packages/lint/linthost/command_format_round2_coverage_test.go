@@ -7,8 +7,10 @@ import "testing"
 // output is the pinned prettier 3.8.3 canonical form (idempotency = parity), so
 // format must leave it byte-identical.
 //
-//  1. Exercise the authored command format round2 coverage fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Seed four Prettier-canonical call layouts.
+//  2. Run `ttsc format` with the default format block on each.
+//  3. Require every file byte-identical.
+//
 // @evidence contracts/testing.md#behavioral-verification Four subcases run the in-process `format` command on authored layouts and require each unchanged: a three-argument test call with a numeric timeout whose block callback hugs, the same call with a two-parameter callback exploded, and first-argument hugs over element-access and property-access trailing arguments.
 // @evidence contracts/testing.md#independent-expectations Sources are authored literals the test comment describes as the pinned Prettier 3.8.3 canonical form (not re-verified here) and serve as their own expected output.
 // @evidence contracts/testing.md#distinguishing-cases Covers the three-argument test-call branch with its positive and negative gate (zero-parameter versus two-parameter callback) and two trailing-argument kinds that hug. All are fixed points.

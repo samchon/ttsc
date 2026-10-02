@@ -2,7 +2,19 @@ package linthost
 
 import "testing"
 
-// Removing an identifier or this evaluation can remove an observable throw.
+// TestNoExtraBindPreservesThrowingReceiverReads verifies that a bind call whose
+// receiver evaluation can throw is reported without any fix or suggestion.
+//
+// Deleting `.bind(receiver)` also deletes the evaluation of the receiver, and
+// reading a temporal-dead-zone binding, an unresolved name, a name resolved
+// through a `with` object, or `this` before `super()` can throw or run a
+// getter. A literal `null` receiver cannot, so its removal is still fixed.
+//
+// 1. Bind an arrow to a later `const`, an undeclared name, a `with`-scoped name,
+//    and `this` before `super()` in a derived constructor.
+// 2. Assert each reports with neither an automatic fix nor a suggestion.
+// 3. Assert `.bind(null)` is still removed by the fix.
+//
 // @evidence contracts/testing.md#behavioral-verification Actual findings retain TDZ, unresolved, with-object and derived-constructor receiver evaluation without fix or suggestion, while literal receivers still fix.
 // @evidence contracts/testing.md#independent-expectations ECMAScript GetValue throws on TDZ/unresolved names and pre-super this; with resolution can invoke a getter. Literal null evaluation cannot do these.
 // @evidence contracts/testing.md#distinguishing-cases Four read-sensitive receiver environments contrast with a nonthrowing literal receiver.

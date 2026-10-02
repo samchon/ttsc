@@ -20,7 +20,8 @@ import (
 //  1. Flatten a two-method class canonical to column 0.
 //  2. Run `ttsc format`.
 //  3. Assert it converges and restores the canonical exactly.
-// @evidence contracts/testing.md#behavioral-verification Strips the leading whitespace from every line of an authored two-method class (and its trailing newline), runs the in-process `format` command (semi false), and requires exit 0 without a did-not-converge message and the file equal to the authored indented class.
+//
+// @evidence contracts/testing.md#behavioral-verification Strips the leading whitespace from every line of an authored two-method class, runs the in-process `format` command (semi false), and requires exit 0 without a did-not-converge message and the file equal to the authored indented class.
 // @evidence contracts/testing.md#independent-expectations The expected text is an authored canonical literal; the flat input is derived from it only by removing leading whitespace, which leaves the syntax tree identical, so the answer key is independent of the formatter.
 // @evidence contracts/testing.md#distinguishing-cases One input that must change: the member headers `a() {`, `b() {`, bodies and closing braces all start at column 0 and each must be re-indented; a cascade that moved only statements would leave the headers at column 0. Only a class with two methods is covered.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project and JSON config; no child process, built binary or installed consumer.

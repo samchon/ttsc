@@ -6,9 +6,9 @@ import "testing"
 // an empty map without error when called with a nil raw map.
 //
 // Locks the nil-guard at the top of expandFormatBlock. The function is called
-// by LoadConfigResolver when the `format` config field is absent or nil; the
-// guard ensures the caller receives an empty (but non-nil) rule map rather than
-// a panic or an error.
+// by collectConfigObject (config.go) and by the format command's overrides path
+// (format.go); the guard ensures a caller holding a nil map receives an empty
+// (but non-nil) rule map rather than a panic or an error.
 //
 //  1. Call expandFormatBlock(nil).
 //  2. Assert no error is returned.

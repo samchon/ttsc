@@ -9,6 +9,7 @@ import "testing"
 //  1. Check incomplete advanced shapes and open types in one focused run.
 //  2. Check their complete counterparts separately and require no findings.
 //  3. Keep never aligned with upstream's non-literal default policy.
+//
 // @evidence contracts/testing.md#behavioral-verification Alias, branded intersection and constrained-generic finite members must retain their missing alternatives.
 // @evidence contracts/testing.md#independent-expectations Six authored message occurrences name alias-b, branded-right, right, Domain.Mode.Done and two required defaults; the complete counterpart requires zero findings.
 // @evidence contracts/testing.md#distinguishing-cases The same finite forms completed with their missing cases stay clean; open branded string and never distinguish required-default policy.

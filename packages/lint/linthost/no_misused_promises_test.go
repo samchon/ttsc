@@ -16,6 +16,7 @@ import (
 // 1. Seed a project that places a Promise in an `if` condition.
 // 2. Run `check` with typescript/no-misused-promises enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification Promise conditions must emit the exact rule error without reporting synchronous boolean conditions.
 // @evidence contracts/testing.md#independent-expectations The authored if condition fixes one rendered error on line 3, code 2 and empty stdout.
 // @evidence contracts/testing.md#distinguishing-cases A Promise<boolean> condition is positive and a synchronous boolean condition is clean; no checker-less harness substitutes for the real type-aware Program.

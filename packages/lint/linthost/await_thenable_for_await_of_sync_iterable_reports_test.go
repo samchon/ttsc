@@ -21,6 +21,7 @@ import (
 //  2. Run `check` with typescript/await-thenable enabled as error.
 //  3. Assert exactly three findings, each anchored at its iterable
 //     expression, with the upstream message text.
+//
 // @evidence contracts/testing.md#behavioral-verification For-await over definitely synchronous iterables must report the supported upstream lint policy.
 // @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix the complete rule/error line list 2,8,12 with code 2 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
 // @evidence contracts/testing.md#distinguishing-cases Number array, sync generator and even a synchronous array of Promises report with original iterable-expression columns; AsyncIterableAllows supplies async protocol controls. JavaScript execution legality is not the oracle.

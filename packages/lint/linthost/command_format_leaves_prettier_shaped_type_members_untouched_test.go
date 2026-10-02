@@ -17,6 +17,7 @@ import "testing"
 //  1. Seed a Prettier 3.8.3-shaped file covering the member contexts.
 //  2. Run `ttsc format`.
 //  3. Assert the file is byte-identical.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on one file with an interface (property, method, index signature), a broken and an inline object type alias, and a class with an index signature and a getter with a body, and requires the whole file byte-identical.
 // @evidence contracts/testing.md#independent-expectations The file is an authored literal in the layout the test comment attributes to Prettier 3.8.3 and serves as its own expected output.
 // @evidence contracts/testing.md#distinguishing-cases Fixed-point cases for member contexts where a terminator must or must not appear (bare last member of an inline type, no `;` after a getter body). No unterminated input that must change is included, so a formatter that never edits members also passes.

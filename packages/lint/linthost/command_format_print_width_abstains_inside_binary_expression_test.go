@@ -19,6 +19,7 @@ import (
 //     target below `||`, and one long standalone call.
 //  2. Run `ttsc format` twice and require both commands to exit cleanly.
 //  3. Assert the binary fragments stay intact and the standalone call reflows.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command (printWidth 40, single-threaded) twice on a file with already-broken calls inside `||`, `??` and `&&` chains, a destructuring assignment target under `||`, and one flat standalone call; each pass must exit 0 with empty output and the whole file equal to the authored text in which only the standalone call is exploded.
 // @evidence contracts/testing.md#independent-expectations The expected file is an authored literal: the binary fragments verbatim plus the standalone call broken one argument per line with a trailing comma; nothing is derived from formatter output.
 // @evidence contracts/testing.md#distinguishing-cases Unsupported binary-expression lines must be left alone, avoiding the ten-pass non-convergence, while the standalone call (the negative twin) must still reflow; comparing the whole file on both passes also detects drift on the second run.

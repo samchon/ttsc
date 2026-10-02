@@ -24,6 +24,7 @@ import "testing"
 //     change behavior.
 //  3. Skip an access from outside the namespace and a path into an inner
 //     namespace, where the qualifier is not the enclosing scope.
+//
 // @evidence contracts/testing.md#behavioral-verification A qualifier may report only when removal preserves binding identity.
 // @evidence contracts/testing.md#independent-expectations Authored Foo.Bar, Color.Red and NS.Item markers fix exact ranges; four load-bearing cases require no findings.
 // @evidence contracts/testing.md#distinguishing-cases Member shadowing, namespace-name shadowing, outside access and inner-namespace paths distinguish symbols from matching text.

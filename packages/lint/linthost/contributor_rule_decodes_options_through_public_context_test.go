@@ -13,7 +13,7 @@ import (
 // third-party rule that uses `ctx.DecodeOptions` receives the user's
 // options blob through `contributorAdapter`.
 //
-// Built-in rules in `package main` read `Context.Options` directly; the
+// Built-in rules in the host package read `Context.Options` directly; the
 // public `rule.Context` exposes the same field and a `DecodeOptions`
 // helper so contributors can ship `[severity, options]`-aware rules
 // without coupling to host internals. The adapter at

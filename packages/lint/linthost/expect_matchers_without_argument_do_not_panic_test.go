@@ -2,17 +2,16 @@ package linthost
 
 import "testing"
 
-/**
- * Verifies testing-library expect matcher rules: empty expect calls do not panic.
- *
- * Locks the nil-argument guard around matcher rules that inspect the first
- * `expect` argument. A bare `expect()` is invalid test code, but linting it
- * should still return diagnostics instead of crashing the lint run.
- *
- * 1. Import a Testing Library async utility so the rule family is active.
- * 2. Use matcher calls with `expect()` and no first argument.
- * 3. Assert the enabled matcher preference rules complete without panicking.
- */
+// TestExpectMatchersWithoutArgumentDoNotPanic verifies testing-library expect
+// matcher rules report nothing and do not panic on empty `expect()` calls.
+//
+// Locks the nil-argument guard around matcher rules that inspect the first
+// `expect` argument. A bare `expect()` is invalid test code, but linting it
+// should still return diagnostics instead of crashing the lint run.
+//
+//  1. Import a Testing Library async utility so the rule family is active.
+//  2. Use matcher calls with `expect()` and no first argument.
+//  3. Assert the enabled matcher preference rules complete without panicking.
 //
 // @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify empty expect arguments produce no matcher-preference findings or swallowed panic diagnostics; exact normalized findings reject extra or missing results.
 // @evidence contracts/testing.md#independent-expectations With no actual argument, none of these query-specific preferences has a qualifying query to report.

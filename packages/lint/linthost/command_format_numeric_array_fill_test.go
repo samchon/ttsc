@@ -8,8 +8,12 @@ import "testing"
 // numeric array stays flat; a single-element array never fills. All sources are
 // Prettier-3-canonical at printWidth 60, so format must keep them byte-identical.
 //
-//  1. Exercise the authored command format numeric array fill fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Format canonical numeric, signed-numeric, string, identifier, short and
+//     single-element arrays and `new Float32Array([...])` fills, and require
+//     them unchanged.
+//  2. Format a flat numeric array that overflows printWidth 60 and require the
+//     packed fill layout.
+//
 // @evidence contracts/testing.md#behavioral-verification Nine subcases run the in-process `format` command at printWidth 60 (two at the default width): numeric and signed-numeric arrays packed several per line, string and identifier arrays one per line, a short and a single-element numeric array flat, an overflowing flat numeric array rewritten to packed form, a numeric fill hugged in `new Float32Array([...])`, and a long fill wrapping over several lines.
 // @evidence contracts/testing.md#independent-expectations Sources and the one rewrite expectation are authored literals described as Prettier 3 canonical layouts; expected text is never computed from the formatter.
 // @evidence contracts/testing.md#distinguishing-cases Positive fill cases are contrasted with negatives (string, identifier, short, single-element arrays). Only numeric_array_flat_reflows_to_fill starts from a layout that must change; the other eight are fixed points.

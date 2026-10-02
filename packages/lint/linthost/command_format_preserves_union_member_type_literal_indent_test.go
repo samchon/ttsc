@@ -8,8 +8,10 @@ import "testing"
 // line rather than the block depth; the formatter must keep the layout
 // byte-identical instead of de-indenting the operand's members.
 //
-//  1. Exercise the authored command format preserves union member type literal indent fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Seed a union of two object-literal members on separate `|` lines.
+//  2. Run `ttsc format` with the default format block.
+//  3. Require the file byte-identical.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on `type T =` with two object-literal union members written on separate `|` lines, each with its members indented relative to the operand line, and requires the file byte-identical.
 // @evidence contracts/testing.md#independent-expectations The source is an authored literal in Prettier's union layout and is its own expected output.
 // @evidence contracts/testing.md#distinguishing-cases One fixed-point case guarding multi-line union operands against de-indentation to block depth; no mis-indented input is repaired here.

@@ -20,10 +20,11 @@ import "testing"
 // @evidence contracts/testing.md#execution-ownership runBoundaryRule executes NewEngineWithResolver.Run for authored unmatched shared and known app paths. This entry owns the one-finding and configured-element message checks.
 func TestBoundariesNoUnknownRejectsUnknownImportTarget(t *testing.T) {
   const ruleName = "boundaries/no-unknown"
-  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
+  source := `
     import "../shared/util";
     import "./local";
-  `, `{
+  `
+  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", source, `{
     "elements": [
       { "type": "app", "pattern": "src/app/**" },
       { "type": "domain", "pattern": "src/domain/**" }
@@ -36,4 +37,7 @@ func TestBoundariesNoUnknownRejectsUnknownImportTarget(t *testing.T) {
   // The rule holds the configured element types at the moment it reports, so
   // the message names them rather than leaving the reader to open lint.config.
   assertSingleBoundaryFinding(t, ruleName, findings, `Configured elements: app, domain.`)
+  if got := source[findings[0].Pos:findings[0].End]; got != `"../shared/util"` {
+    t.Fatalf("finding range text = %q, want %s", got, `"../shared/util"`)
+  }
 }

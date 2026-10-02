@@ -18,6 +18,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification Fixes outer concatenation while retaining a parenthesized arithmetic subchain as one slot.
 // Every dynamic slot explicitly retains default-hint concatenation coercion.
+//
 // @evidence contracts/testing.md#independent-expectations Explicit parentheses require a+b to complete before suffix concatenation; the literal expected ${"" + ((a + b))} preserves that boundary.
 // @evidence contracts/testing.md#distinguishing-cases Parenthesized subchain differs from unparenthesized operands already under string coercion.
 // @evidence contracts/testing.md#execution-ownership assertFixSnapshot calls runFixSnapshot, applies the rule's actual edits to the fixture and compares complete independently authored output. This Test entry owns this exact source/output pair. All execute in the lint Go process without installing consumers or building/launching a native product host.

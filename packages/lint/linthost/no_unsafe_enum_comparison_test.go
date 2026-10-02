@@ -25,6 +25,7 @@ import (
 //  2. Run `check` with typescript/no-unsafe-enum-comparison enabled as
 //     error.
 //  3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification Comparing an enum to a raw string must report.
 // @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/no-unsafe-enum-comparison rendered error at line 3, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
 // @evidence contracts/testing.md#distinguishing-cases A same-enum member is the clean comparison.

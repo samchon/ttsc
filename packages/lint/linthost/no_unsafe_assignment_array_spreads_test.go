@@ -8,6 +8,7 @@ import "testing"
 // 1. Spread direct `any`, `any[]`, and `string[]` into array literals.
 // 2. Keep the typed spread as the negative twin.
 // 3. Require one finding for each unsafe spread operand.
+//
 // @evidence contracts/testing.md#behavioral-verification Array spreads must inspect unsafe operand element types.
 // @evidence contracts/testing.md#independent-expectations The fixture's independently authored expect markers require two authored direct-any and any-array spread findings; the oracle compares the complete sorted rule/error line multiset, error message prefix, code 2 and empty stdout.
 // @evidence contracts/testing.md#distinguishing-cases string-array spread stays clean.

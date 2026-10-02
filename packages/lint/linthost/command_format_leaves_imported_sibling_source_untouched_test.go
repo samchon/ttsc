@@ -20,6 +20,7 @@ import (
 //  1. Give the consumer and the sibling the identical over-wide object literal.
 //  2. Run format with `printWidth: 20`, which reflows that literal.
 //  3. Assert the consumer was reflowed and the sibling is byte-identical.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command with printWidth 20 on a consumer project that imports a sibling package's TypeScript source, where both files hold an over-wide object literal; it requires exit 0 with empty output, the consumer reflowed, and the sibling file byte-identical.
 // @evidence contracts/testing.md#independent-expectations The sibling expectation is its original literal source; the consumer is checked only for containing the reflowed line `\n  aa: legacy,\n`, a partial rather than whole-file comparison.
 // @evidence contracts/testing.md#distinguishing-cases The two files are identical in shape, so the only property separating them is ownership: the consumer is inside the project file list and the sibling is only reached through an import. A formatter that rewrote files reachable through imports would change the sibling.

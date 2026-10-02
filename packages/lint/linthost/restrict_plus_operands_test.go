@@ -23,6 +23,7 @@ import (
 // 1. Seed a project that adds a number literal to a string literal.
 // 2. Run `check` with typescript/restrict-plus-operands enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification Mixed number/string addition must report.
 // @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/restrict-plus-operands rendered error at line 1, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
 // @evidence contracts/testing.md#distinguishing-cases Number-plus-number is the valid counterpart.

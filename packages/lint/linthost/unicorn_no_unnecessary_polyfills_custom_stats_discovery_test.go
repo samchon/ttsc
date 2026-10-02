@@ -19,6 +19,7 @@ import (
 //     reports, `array/to-sorted` stays silent.
 //  2. Supply the same query through the option with only the stats file: same
 //     positive/negative split.
+//
 // @evidence contracts/testing.md#behavioral-verification The actual rule resolves sibling custom statistics from both discovered configuration and explicit query options, distinguishing Chrome 80 from an empty-target fallback.
 // @evidence contracts/testing.md#independent-expectations Chrome 80 supports Object.assign but still needs Array#toSorted; these independently chosen feature boundaries require opposite outcomes for one population.
 // @evidence contracts/testing.md#distinguishing-cases Both query origins report object-assign and retain core-js/features/array/to-sorted without a report; feature and query origin vary while the population stays identical.

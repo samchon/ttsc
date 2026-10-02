@@ -9,9 +9,9 @@ import "testing"
 //
 // Negative twin for the trailing-comma tolerance in
 // `arrowParamRegionHasComment`: a comma is only skipped *before* the closing
-// paren (a parameter-list trailing comma). A comma after the `)` belongs to
-// the enclosing list, so a comment beyond it is not a parameter comment and
-// must not make the rule abstain.
+// paren (a parameter-list trailing comma), and the trailing scan stops at the
+// `=>`. The comma and comment here follow the arrow body inside the enclosing
+// array, so they are not parameter trivia and must not make the rule abstain.
 //
 //  1. Parse `const a = [(x) => x, /* c */ 1];`.
 //  2. Apply format/arrow-parens with prefer:"avoid".

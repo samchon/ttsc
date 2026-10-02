@@ -10,7 +10,6 @@ import (
 // rule-setting merge semantics: a later severity-only declaration preserves a
 // tuple from an earlier matching entry, but never one from a nonmatching entry.
 //
-//
 // 1. Declare global options, a test severity-only override and script options.
 // 2. Resolve one test and one script source.
 // 3. Require inherited matching options for the test and explicit options for the script.

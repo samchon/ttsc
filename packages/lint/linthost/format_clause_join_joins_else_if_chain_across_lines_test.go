@@ -11,9 +11,8 @@ import (
 // Prettier prints an `else if` chain flat, so the alternate being an `if` is
 // exempt from the single-line-body guard. Hoisting it also moves its
 // continuation lines, and the inner join then contends for the same bytes, so
-// the chain must settle through the cascade. The command is the
-// level that contract lives at, and `ttsc format` runs the cascade to a fixed
-// point.
+// the chain must settle through the cascade. The command is the level that
+// contract lives at, and `ttsc format` runs the cascade to a fixed point.
 //
 //  1. Seed a project with an `else` whose alternate is an `if` across two lines.
 //  2. Run `ttsc format`.

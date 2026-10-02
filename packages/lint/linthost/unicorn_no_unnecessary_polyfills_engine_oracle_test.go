@@ -52,6 +52,7 @@ func assertPolyfillStringSlice(t *testing.T, label string, got, want []string) {
 //  1. Load the recorded query/result pairs and the clock they were frozen at.
 //  2. Resolve each query string or query array through the Go engine.
 //  3. Assert the resolved browser list matches upstream exactly and in order.
+//
 // @evidence contracts/testing.md#behavioral-verification browserslistResolve executes every fixture query with a frozen clock and requires its complete target list or a resolver error.
 // @evidence contracts/testing.md#independent-expectations Expected lists and errors originate from pinned upstream Browserslist execution under the recorded clock and environment, not the Go resolver.
 // @evidence contracts/testing.md#distinguishing-cases Successful, empty and malformed/error queries remain distinct; failures print their actual query or index, preserving identity inside the shared loop.

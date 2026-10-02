@@ -2,7 +2,8 @@ package linthost
 
 import "testing"
 
-// Verifies suffix flushing preserves multiline payloads before the triggering break.
+// TestEngineLineSuffixFlushPreservesEmbeddedNewline verifies suffix flushing
+// preserves multiline payloads before the triggering break.
 //
 // A queued suffix containing a newline must remain before the requested Hardline and the following b. The output assertion observes payload and break order; Hardline resets column state, so it does not isolate the preceding column tracker.
 //

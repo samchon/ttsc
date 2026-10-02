@@ -12,6 +12,7 @@ import (
 //  1. Await valid and zero-parameter structural then methods.
 //  2. Run check with typescript/await-thenable enabled as error.
 //  3. Assert only the invalid then signature reports.
+//
 // @evidence contracts/testing.md#behavioral-verification Structural thenability must require a fulfillment-callback signature.
 // @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix the complete rule/error line list 10 with code 2 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
 // @evidence contracts/testing.md#distinguishing-cases The original valid then(callback) await stays clean while then():void reports; original compiler suppression for the malformed signature remains retained.

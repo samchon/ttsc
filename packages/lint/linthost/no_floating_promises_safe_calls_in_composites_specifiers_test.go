@@ -7,6 +7,7 @@ import (
 
 // TestNoFloatingPromisesSafeCallsInCompositesHonorStructuredSpecifiers proves
 // nested matching retains file, package, and TypeScript-lib source boundaries.
+//
 // @evidence contracts/testing.md#behavioral-verification Structured known-safe call identities must survive composite-expression traversal.
 // @evidence contracts/testing.md#independent-expectations Independently authored source and original assertions require exact error lines 7, code 2 and empty stdout for reporting command runs; all original inputs/options and clean arms are retained.
 // @evidence contracts/testing.md#distinguishing-cases File, package and lib-resolve calls stay exempt inside logical/conditional expressions; unlisted native reject reports. The synthetic package manifest feeds actual resolver behavior, not a file-existence check.

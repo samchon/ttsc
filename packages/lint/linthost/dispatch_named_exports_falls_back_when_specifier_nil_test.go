@@ -17,8 +17,10 @@ import (
 //
 //  1. Parse any source file to obtain a valid PrintContext.
 //  2. Use NodeFactory to build a NamedExports node whose Elements list
-//     contains a single nil entry.
-//  3. Call printNamedExports directly and assert it does not panic.
+//     contains a single nil entry, call printNamedExports directly and
+//     assert the output is empty.
+//  3. Parse `export { a, b };`, replace the parsed Elements.Nodes with a
+//     single nil entry and assert the output is the original `{ a, b }`.
 //
 // @evidence contracts/testing.md#behavioral-verification printNamedExports must preserve { a, b } when a parsed specifier list contains nil, avoiding missing or invented export bindings.
 // @evidence contracts/testing.md#independent-expectations The export fixture literal fixes both names and their order independently; the synthetic range contributes no source bytes.

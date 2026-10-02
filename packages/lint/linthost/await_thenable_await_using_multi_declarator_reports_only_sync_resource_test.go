@@ -16,11 +16,12 @@ import (
 // exactly one finding anchored at the second initializer pins both
 // directions.
 //
-//  1. Seed a project with `await using ok = makeAsync(), bad = makeSync();`.
+//  1. Seed a project with `await using first = makeAsync(), second = makeSync();`.
 //  2. Prove the fixture type-checks without a lint plugin entry.
 //  3. Run `check` with typescript/await-thenable enabled as error.
 //  4. Assert exactly one finding, anchored at the second declarator's
 //     initializer expression.
+//
 // @evidence contracts/testing.md#behavioral-verification Multiple await-using declarators must classify each initializer separately.
 // @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix exact rule/error rendered lines 11 with code 2 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
 // @evidence contracts/testing.md#distinguishing-cases The first async resource is clean and the second sync resource alone reports at original line11 column45.

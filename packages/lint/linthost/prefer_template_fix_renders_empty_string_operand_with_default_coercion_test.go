@@ -18,6 +18,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification Fixes empty-string plus a as a coercion-preserving interpolation without adding literal characters.
 // Every dynamic slot explicitly retains default-hint concatenation coercion.
+//
 // @evidence contracts/testing.md#independent-expectations Empty string contributes no characters but establishes string coercion; authored ${"" + (a)} preserves that meaning.
 // @evidence contracts/testing.md#distinguishing-cases Empty literal operand is the zero-length segment boundary beside ordinary prefix/suffix cases.
 // @evidence contracts/testing.md#execution-ownership assertFixSnapshot calls runFixSnapshot, applies the rule's actual edits to the fixture and compares complete independently authored output. This Test entry owns this exact source/output pair. All execute in the lint Go process without installing consumers or building/launching a native product host.

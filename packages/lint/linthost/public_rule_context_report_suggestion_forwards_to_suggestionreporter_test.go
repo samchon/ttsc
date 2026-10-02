@@ -25,6 +25,7 @@ import (
 //     rule.Context.
 //  3. Assert the suggestion path fired once with both choices, and the
 //     diagnostic-only fallback did not.
+//
 // @evidence contracts/testing.md#behavioral-verification Public suggestion reporting forwards the complete ordered frames/framework alternatives with their edit coordinates and replacements plus the node/message, then independently forwards a range diagnostic without ordinary fallback.
 // @evidence contracts/testing.md#independent-expectations Two literal titled candidates with authored 0..3 replacement edits define the expected menu independently of the reporter. The range control uses 2..9, distinct from edit coordinates, with an independently authored message.
 // @evidence contracts/testing.md#distinguishing-cases Multiple differently sized alternatives distinguish title-only forwarding, truncation and reordering. Node/range anchors are separate positive routes; unsupported capability and zero choices have sibling negative controls.

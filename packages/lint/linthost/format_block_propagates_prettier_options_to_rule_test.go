@@ -16,8 +16,8 @@ import (
 // just incorrectly.
 //
 //  1. Build an ITtscLintConfig object whose `format` block exercises one non-default value per
-//     mapping cell: singleQuote, trailingComma, printWidth,
-//     tabWidth, useTabs, endOfLine, importOrder, jsDoc with
+//     mapping cell: semi, singleQuote, trailingComma, printWidth,
+//     tabWidth, useTabs, endOfLine, sortImports.order, jsDoc with
 //     tagSynonyms.
 //  2. Parse it and inspect the option blob attached to each rule.
 //  3. Assert every cell decodes to the expected JSON.

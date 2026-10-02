@@ -8,6 +8,7 @@ import "testing"
 // 1. Declare intrinsic attributes with string and unknown receiver types.
 // 2. Pass the same `any` expression to both attributes.
 // 3. Require only the concrete attribute to report.
+//
 // @evidence contracts/testing.md#behavioral-verification JSX assignments must use contextual attribute types.
 // @evidence contracts/testing.md#independent-expectations The fixture's independently authored expect markers require one authored concrete widget attribute finding; the oracle compares the complete sorted rule/error line multiset, error message prefix, code 2 and empty stdout.
 // @evidence contracts/testing.md#distinguishing-cases the same any expression assigned to the unknown attribute stays clean.

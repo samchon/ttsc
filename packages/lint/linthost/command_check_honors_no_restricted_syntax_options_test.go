@@ -5,6 +5,20 @@ import (
   "testing"
 )
 
+// TestCommandCheckHonorsNoRestrictedSyntaxOptions verifies the check command
+// carries a no-restricted-syntax selector and custom message from the lint
+// configuration into the rule.
+//
+// A severity-only configuration cannot show that the rule receives its option
+// tuple, so the selector must decide which call is reported and the message
+// must be the configured text. An `eval` call and an adjacent
+// `JSON.stringify` call share one source to show the selector discriminates.
+//
+//  1. Seed a project with `eval("1")` and a `JSON.stringify(1)` call.
+//  2. Write a lint configuration restricting `CallExpression[callee.name='eval']`
+//     with a custom message and run `check` in this process.
+//  3. Assert status 2, empty stdout and exactly one diagnostic carrying the
+//     custom message.
 //
 // @evidence contracts/testing.md#behavioral-verification Actual in-process check returns code two, no stdout and exactly one configured custom eval diagnostic.
 // @evidence contracts/testing.md#independent-expectations Authored selector and message specify eval rather than the adjacent JSON.stringify call; the fixed custom text independently verifies parsed option transport.

@@ -7,8 +7,10 @@ import "testing"
 // code and was caught by comparing the Go predicates 1:1 with prettier 3.8.3
 // source. All expected outputs are the pinned prettier 3.8.3 oracle.
 //
-//  1. Exercise the authored command format round2 hug fixes fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Seed five Prettier-canonical call layouts that differ by one hugging property.
+//  2. Run `ttsc format` with the default format block on each.
+//  3. Require every file byte-identical.
+//
 // @evidence contracts/testing.md#behavioral-verification Five subcases run the in-process `format` command on authored layouts and require each unchanged: a numeric array as last argument exploded, a non-numeric array last argument hugged, an empty-object last argument exploded, a zero-parameter React-hook callback with a deps array hugged, and a one-parameter callback with an array exploded.
 // @evidence contracts/testing.md#independent-expectations Sources are authored literals the test comment describes as the pinned Prettier 3.8.3 canonical form (not re-verified here) and serve as their own expected output.
 // @evidence contracts/testing.md#distinguishing-cases Each explode case has a hugging neighbour that differs by one property (numeric versus non-numeric array, empty versus non-empty object, zero versus one callback parameter). All are fixed points, so none shows a flat input being rewritten.

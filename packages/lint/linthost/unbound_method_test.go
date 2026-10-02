@@ -21,6 +21,7 @@ import (
 // 1. Seed a project that pulls a class instance method off as a value.
 // 2. Run `check` with typescript/unbound-method enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification Extracting a receiver-dependent instance method must report.
 // @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/unbound-method rendered error at line 8, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
 // @evidence contracts/testing.md#distinguishing-cases Calling through the receiver retains binding.

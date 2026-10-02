@@ -19,8 +19,11 @@ import (
 //
 //  1. Parse any source file to obtain a valid PrintContext.
 //  2. Use NodeFactory to build a NamedImports node whose Elements list
-//     contains a single nil entry.
-//  3. Call printNamedImports directly and assert it does not panic.
+//     contains a single nil entry, call printNamedImports directly and
+//     assert the output is empty.
+//  3. Parse `import { a, b } from "x";`, replace the parsed Elements.Nodes
+//     with a single nil entry and assert the output is the original
+//     `{ a, b }`.
 //
 // @evidence contracts/testing.md#behavioral-verification printNamedImports must retain both bindings verbatim when a parsed Elements list contains a nil specifier.
 // @evidence contracts/testing.md#independent-expectations The literal { a, b } determines binding names and order without rerendering the expected source.

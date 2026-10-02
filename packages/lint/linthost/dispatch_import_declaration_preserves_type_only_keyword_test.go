@@ -9,8 +9,8 @@ import (
 // TestDispatchImportDeclarationPreservesTypeOnlyKeyword verifies
 // `import type { … } from "x";` keeps its `type` modifier on reflow.
 //
-// The printer composes `import type ` based on the clause's
-// PhaseModifier kind. If that branch regressed, every `import type`
+// The printer composes `import type ` when the clause reports IsTypeOnly.
+// If that branch regressed, every `import type`
 // in a project would silently lose the modifier on the first
 // `ttsc format` pass, deleting an erasable-import guarantee.
 //

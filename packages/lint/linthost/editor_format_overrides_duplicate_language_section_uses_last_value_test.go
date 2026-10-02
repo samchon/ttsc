@@ -16,6 +16,7 @@ import (
 // 1. Place a combined language property before another matching property.
 // 2. Repeat the first property later with a disjoint replacement object.
 // 3. Assert its stale value disappears and its original merge position remains.
+//
 // @evidence contracts/testing.md#behavioral-verification Writes a settings.json in which `[json][typescript]` appears twice around `[javascript][typescript]`, with disjoint values in the two occurrences, calls editorFormatOverrides for typescript and asserts tabWidth 6, useTabs false and endOfLine crlf.
 // @evidence contracts/testing.md#independent-expectations Expected values are authored from the JSON-object rule that a duplicate property keeps its first position with its last value: the later occurrence replaces the earlier one entirely, so the stale `\n` end-of-line disappears.
 // @evidence contracts/testing.md#distinguishing-cases crlf shows the replaced section's stale `\n` is gone; useTabs false shows the replacement's insertSpaces applied; tabWidth 6 shows the replaced section keeps its original position before `[javascript][typescript]` rather than moving last (it would be 4 otherwise).

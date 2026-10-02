@@ -2,17 +2,15 @@ package linthost
 
 import "testing"
 
-/**
- * Verifies testing-library prefer-user-event-setup: setup calls are not reported.
- *
- * Locks the distinction between creating a user-event instance and invoking an
- * interaction method. The rule should ask direct event calls to use the setup
- * result, not flag the `userEvent.setup()` call that creates that result.
- *
- * 1. Import the default user-event object.
- * 2. Call `userEvent.setup()`, then mix a direct user-event call with a setup-result call.
- * 3. Assert only the direct interaction is reported.
- */
+// TestPreferUserEventSetupIgnoresSetupCall verifies testing-library prefer-user-event-setup: setup calls are not reported.
+//
+// Locks the distinction between creating a user-event instance and invoking an
+// interaction method. The rule should ask direct event calls to use the setup
+// result, not flag the `userEvent.setup()` call that creates that result.
+//
+// 1. Import the default user-event object.
+// 2. Call `userEvent.setup()`, then mix a direct user-event call with a setup-result call.
+// 3. Assert only the direct interaction is reported.
 //
 // @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify only the direct userEvent.click reports while setup and user.click remain clean; exact normalized findings reject extra or missing results.
 // @evidence contracts/testing.md#independent-expectations setup creates the supported interaction instance; creating it is not an event operation.

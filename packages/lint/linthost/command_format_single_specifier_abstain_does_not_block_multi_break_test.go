@@ -3,13 +3,13 @@ package linthost
 import "testing"
 
 // TestCommandFormatSingleSpecifierAbstainDoesNotBlockMultiBreak proves the
-// abstain is scoped to one specifier: a two-specifier clause, and a
-// default-plus-single clause, still break when flat and over width. Inputs are
+// abstain is scoped to one specifier: a two-specifier import or re-export
+// still breaks when flat and over width. Inputs are
 // the flat (mangled) forms; wants are the Prettier-canonical broken forms.
 //
 // @evidence contracts/testing.md#behavioral-verification Three subcases run the in-process `format` command on flat over-width declarations (a two-specifier import, a two-specifier re-export, and a two-short-specifier re-export with a long module tail) and require the exact broken output with one specifier per line.
 // @evidence contracts/testing.md#independent-expectations Each expected output is an authored literal that keeps the same bindings, order and module path and changes only braces, separators and breaks to the Prettier layout.
-// @evidence contracts/testing.md#distinguishing-cases These are the changed-input twins of the single-specifier inline cases: a clause with two specifiers must still break past 80 columns, including when only the `from` tail overflows. The default-plus-single case named in the comment is owned by the default-import test; the unchanged singles are owned by TestCommandFormatSingleSpecifierStaysInline.
+// @evidence contracts/testing.md#distinguishing-cases These are the changed-input twins of the single-specifier inline cases: a clause with two specifiers must still break past 80 columns, including when only the `from` tail overflows. The unchanged single-specifier and default-plus-single clauses are owned by TestCommandFormatSingleSpecifierStaysInline.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatResult; no child process, built binary or installed consumer.
 func TestCommandFormatSingleSpecifierAbstainDoesNotBlockMultiBreak(t *testing.T) {
   cases := []struct {

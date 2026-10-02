@@ -16,6 +16,7 @@ import (
 //  1. Load the recorded per-feature pattern/token records.
 //  2. Build the Go pattern table from the embedded compat data.
 //  3. Assert feature order, pattern source, and token list all match upstream.
+//
 // @evidence contracts/testing.md#behavioral-verification polyfillPatterns exposes the actual feature/pattern/token table and is compared in full and in order with the JavaScript reference fixture.
 // @evidence contracts/testing.md#independent-expectations The fixture uses pinned upstream compatibility data and camelCase with a transcribed reference table construction, rather than executing the upstream rule algorithm. Shared transcription errors remain a limitation, complemented by observable valid/invalid specifier tests.
 // @evidence contracts/testing.md#distinguishing-cases Every feature, pattern source and token sequence plus total cardinality is checked; static-specifier and valid/invalid target hosts add behavioral distinctions beyond table equality.

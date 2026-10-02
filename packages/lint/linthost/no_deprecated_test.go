@@ -17,6 +17,7 @@ import (
 //     it.
 //  2. Run `check` with typescript/no-deprecated enabled as error.
 //  3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification A call to a JSDoc-deprecated function must report its reference.
 // @evidence contracts/testing.md#independent-expectations The authored original source requires exactly one typescript/no-deprecated rendered error at line 3, exit code 2 and empty stdout; an independently authored clean source requires code 0 and no rule findings.
 // @evidence contracts/testing.md#distinguishing-cases A nondeprecated function with the same return shape remains clean.

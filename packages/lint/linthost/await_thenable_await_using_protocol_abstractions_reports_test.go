@@ -20,6 +20,7 @@ import (
 //  2. Prove the fixture type-checks without a lint plugin entry.
 //  3. Run `check` with typescript/await-thenable enabled as error.
 //  4. Assert exactly four findings on the four declaration lines.
+//
 // @evidence contracts/testing.md#behavioral-verification Sync-only disposal must report through aliases, inherited interfaces, intersections and constrained generic factories.
 // @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix exact rule/error rendered lines 13,14,15,19 with code 2 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
 // @evidence contracts/testing.md#distinguishing-cases ProtocolAbstractionsAllows supplies the same four abstraction forms with async-dispose.

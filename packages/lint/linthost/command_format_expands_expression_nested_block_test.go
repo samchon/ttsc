@@ -17,6 +17,7 @@ import (
 //     expression positions.
 //  2. Run `ttsc format` and compare with the Prettier 3.8.3 answer key.
 //  3. Run a second pass and require idempotence.
+//
 // @evidence contracts/testing.md#behavioral-verification Eight subcases run the in-process `format` command on one-line sources with non-empty blocks in expression position (object method, callback, function expression, array element, conditional arms, parenthesized object body, call-bodied arrow, comment-only block) and require the exact expanded text, then a second run that must leave it unchanged.
 // @evidence contracts/testing.md#independent-expectations Each expected output is an authored literal, documented in the test comments as measured against Prettier 3.8.3 (not re-verified by this unit); the second-pass check is an idempotence check layered on top of the literal comparison.
 // @evidence contracts/testing.md#distinguishing-cases Eight distinct expression-position shapes each must change from one line to a broken block; the comment-only block is treated as non-empty. The empty-block counterpart that must stay flat is owned by TestCommandFormatKeepsEmptyExpressionNestedBlock.

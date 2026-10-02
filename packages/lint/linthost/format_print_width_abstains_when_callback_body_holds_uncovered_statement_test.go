@@ -22,6 +22,7 @@ import "testing"
 //     statement.
 //  2. Run formatPrintWidth.
 //  3. Assert the rule reports zero findings — no edit, no diagnostic.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs format/print-width (default options) on a `new Singleton(...)` whose arrow callback body holds a multi-line `do { ... } while (ready);` statement indented eight columns, and requires zero findings.
 // @evidence contracts/testing.md#independent-expectations The expected zero findings follows from the contract that the rule must abstain when a body holds a multi-line statement the printer would emit verbatim; it is an authored absence oracle, and the reflow of ordinary targets is verified by sibling tests.
 // @evidence contracts/testing.md#distinguishing-cases One abstention case where the enclosing call would otherwise be re-indented around a frozen multi-line `do` statement; no counterpart with a printable statement body is included here.

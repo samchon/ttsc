@@ -22,6 +22,7 @@ import (
 //     returns a promise.
 //  2. Run the rule.
 //  3. Assert only the last one reports.
+//
 // @evidence contracts/testing.md#behavioral-verification Async functions with for-await or Promise returns must not be mistaken for pointless async declarations.
 // @evidence contracts/testing.md#independent-expectations Original line16 must be the sole require-await error; original lines3,8,11 require absence and the complete rendered oracle rejects other rule identities/severities.
 // @evidence contracts/testing.md#distinguishing-cases For-await, Promise forwarding and ordinary-loop await are clean; literal-only async return is the positive control.

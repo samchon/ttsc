@@ -24,7 +24,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Engine.Run dispatches the registered contributor rule once per run; the public Context it receives carries rule.SeverityWarn for the warn run and rule.SeverityError for the error run, and the single collected finding is a file-anchored finding of that rule at SeverityWarn or SeverityError respectively.
 // @evidence contracts/testing.md#independent-expectations The expected severities are the configured literals of each run, taken from the test table rather than read back from the engine; the observed value is compared across the adapter boundary against the public constants.
-// @evidence contracts/testing.md#distinguishing-cases The warn and error runs are adjacent configurations of the same rule over the same source, so a swapped or shifted severity mapping fails one of them; off is not dispatched and is covered by the engine skip tests.
+// @evidence contracts/testing.md#distinguishing-cases The warn and error runs are adjacent configurations of the same rule over the same source, so a swapped or shifted severity mapping fails one of them; the off severity is not exercised here.
 // @evidence contracts/testing.md#execution-ownership Unit entry TestContributorRuleReceivesAndReportsConfiguredSeverity builds an in-process Engine over one parsed virtual source and a test-double contributor registration restored on cleanup; it starts no host, compiler program or native build.
 func TestContributorRuleReceivesAndReportsConfiguredSeverity(t *testing.T) {
   const ruleName = "severity-test/contributor"

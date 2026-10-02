@@ -11,6 +11,7 @@ import (
 //  1. Discard an async IIFE under scalar defaults.
 //  2. Run the real checker-backed rule command.
 //  3. Assert the IIFE is the single reported Promise.
+//
 // @evidence contracts/testing.md#behavioral-verification Async IIFEs must report by default.
 // @evidence contracts/testing.md#independent-expectations Independently authored source and original assertions require exact error lines 1, code 2 and empty stdout for reporting command runs; all original inputs/options and clean arms are retained.
 // @evidence contracts/testing.md#distinguishing-cases Options exercises ignoreIIFE=true on the same async-IIFE shape while retaining other active checks.

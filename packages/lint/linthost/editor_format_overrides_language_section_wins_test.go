@@ -16,6 +16,7 @@ import (
 // 1. Materialize settings.json with a top-level tabSize and a `[typescript]` one.
 // 2. Resolve overrides for a typescript file.
 // 3. Assert the language-section tabWidth wins.
+//
 // @evidence contracts/testing.md#behavioral-verification Writes a settings.json with top-level `editor.tabSize` 8 and `[typescript]` tabSize 2, calls editorFormatOverrides for typescript, and asserts tabWidth is 2.
 // @evidence contracts/testing.md#independent-expectations The expected 2 is authored from the rule that a language section overrides the top-level key; it is not derived from the resolver.
 // @evidence contracts/testing.md#distinguishing-cases One positive case showing the language section beats the top-level value (a resolver that ignored sections would return 8). Non-matching languages and combined sections are owned by sibling tests, and only tabWidth is asserted.

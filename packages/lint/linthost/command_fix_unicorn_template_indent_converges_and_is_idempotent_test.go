@@ -9,8 +9,11 @@ import (
 //
 // Authored canonical source independently establishes both the first transform and unchanged second pass rather than idempotency alone.
 //
-// 1. Execute the retained template source or configuration variants.
-// 2. Compare the authored diagnostic, edit or preserved source for each boundary.
+//  1. Seed a top-level `gql` tagged template whose lines are unindented and
+//     enable the template-indent rule.
+//  2. Run `fix` and assert silent success with the template body indented one
+//     level, preserving the relative indent of the nested `child` line.
+//  3. Run `fix` again and assert the file is byte-identical.
 //
 // @evidence contracts/testing.md#behavioral-verification The in-process public fix command executes twice and checks silent success plus the exact fixture file after each pass.
 // @evidence contracts/testing.md#independent-expectations Authored canonical source independently establishes both the first transform and unchanged second pass rather than idempotency alone.

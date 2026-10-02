@@ -2,9 +2,16 @@ package linthost
 
 import "testing"
 
+// TestFixPreferTemplatePreservesTemplateOperandGroup verifies that
+// `a + `x${y}` + "s"` keeps `a + `x${y}`` as one interpolation.
+//
 // An effectful right template must finish before the left object is coerced.
-// Preserve the complete a + template addition in one interpolation, and move
-// only the inert trailing string into the outer template's literal body.
+// The fix preserves the complete a + template addition in one interpolation,
+// and moves only the inert trailing string into the outer template's literal body.
+//
+// 1. Snapshot a chain whose second operand is a template literal with a substitution.
+// 2. Apply `prefer-template` fix.
+// 3. Assert the output groups `a` and the template in one slot followed by `s`.
 //
 // @evidence contracts/testing.md#behavioral-verification Real edits preserve the original a-plus-template grouping and its inner y substitution while moving the suffix into one outer template.
 // @evidence contracts/testing.md#independent-expectations Binary addition evaluates both operands before default-hint coercion. The literal full output retains that order instead of coercing a before the right template runs.

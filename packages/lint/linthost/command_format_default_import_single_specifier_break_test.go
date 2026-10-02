@@ -2,7 +2,8 @@ package linthost
 
 import "testing"
 
-// Verifies default-plus-named imports break when over-wide.
+// TestCommandFormatDefaultImportSingleSpecifierBreak verifies a default import
+// with one named specifier breaks the braces when the declaration is over-wide.
 //
 // The literal multiline output retains Default, the long named binding and the module path, independently of the dispatcher.
 //

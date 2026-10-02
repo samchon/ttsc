@@ -16,6 +16,7 @@ import "testing"
 //  2. Feed `foo<Alpha>(aaaaaa, bbbbbb, cccccc);` — the call breaks
 //     because its flat form is ~35 chars wide.
 //  3. Assert `<Alpha>` survives in the output.
+//
 // @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule parses the preserves call type arguments fixture and applies its edit; complete authored output equality rejects lost source content or punctuation alongside incorrect line layout. The owned result is: Assert `<Alpha>` survives in the output.
 // @evidence contracts/testing.md#independent-expectations The source operands and literal expected layout are authored independently of the rule printer. The fixture fixes printWidth and indentation, so expected line placement does not come from rendering the implementation under test.
 // @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Configure printWidth=24. The asserted decision is: Assert `<Alpha>` survives in the output. Other fixture shapes remain in their separately named hosts.

@@ -2,17 +2,15 @@ package linthost
 
 import "testing"
 
-/**
- * Verifies testing-library prefer-query-matchers: truthiness matchers around queries are rejected.
- *
- * Locks the matcher-name check for `toBeNull`, `toBeTruthy`, and `toBeFalsy`
- * when the `expect` argument is a Testing Library query. These assertions should
- * use jest-dom document matchers instead.
- *
- * 1. Import `screen` from Testing Library.
- * 2. Assert query results with null and truthiness matchers.
- * 3. Assert `prefer-query-matchers` reports each matcher call.
- */
+// TestPreferQueryMatchers verifies testing-library prefer-query-matchers: truthiness matchers around queries are rejected.
+//
+// Locks the matcher-name check for `toBeNull`, `toBeTruthy`, and `toBeFalsy`
+// when the `expect` argument is a Testing Library query. These assertions should
+// use jest-dom document matchers instead.
+//
+// 1. Import `screen` from Testing Library.
+// 2. Assert query results with null and truthiness matchers.
+// 3. Assert `prefer-query-matchers` reports each matcher call.
 //
 // @evidence contracts/testing.md#behavioral-verification The owning engine and Testing Library assertion helpers verify query assertions using toBeNull/toBeTruthy report; exact normalized findings reject extra or missing results.
 // @evidence contracts/testing.md#independent-expectations Document matchers state presence or absence instead of generic truthiness.

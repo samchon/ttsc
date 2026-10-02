@@ -14,6 +14,7 @@ import "testing"
 //  1. Parse an over-width consequent-nested ternary (printWidth 40).
 //  2. Apply format/print-width.
 //  3. Assert the inner rungs indent to 4 and the outer `: e` to 2.
+//
 // @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule parses the indents nested consequent ternary fixture and applies its edit; complete authored output equality rejects lost source content or punctuation alongside incorrect line layout. The owned result is: Assert the inner rungs indent to 4 and the outer `: e` to 2.
 // @evidence contracts/testing.md#independent-expectations The source operands and literal expected layout are authored independently of the rule printer. The fixture fixes printWidth and indentation, so expected line placement does not come from rendering the implementation under test.
 // @evidence contracts/testing.md#distinguishing-cases The fixture is a single-line ternary whose consequent is itself a conditional and whose flat form exceeds printWidth 40. The asserted decision is that the inner `? c` and `: d` rungs step to indent 4 while the outer `: e` returns to indent 2; the nested-alternate shape is owned by the sibling alternate-ternary test.

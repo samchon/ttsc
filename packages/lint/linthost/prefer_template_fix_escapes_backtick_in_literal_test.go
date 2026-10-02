@@ -18,6 +18,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification Fixes concatenation while escaping the literal backtick inside the template.
 // Every dynamic slot explicitly retains default-hint concatenation coercion.
+//
 // @evidence contracts/testing.md#independent-expectations The literal expected escaped backtick preserves the original string character and cannot terminate the new template.
 // @evidence contracts/testing.md#distinguishing-cases Embedded delimiter boundary complements ordinary three-part concatenation.
 // @evidence contracts/testing.md#execution-ownership assertFixSnapshot calls runFixSnapshot, applies the rule's actual edits to the fixture and compares complete independently authored output. This Test entry owns this exact source/output pair. All execute in the lint Go process without installing consumers or building/launching a native product host.

@@ -17,8 +17,10 @@ type formatApplicabilityFile struct {
 // mode sees it, so these cases also prevent an outer resolver from duplicating
 // glob logic through a concrete-type assertion.
 //
-//  1. Exercise the authored command format respects resolved entry applicability fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Build a disposable project per subcase, with the config shape the subcase names.
+//  2. Run `ttsc format` twice, then resolve the file's rules and, for the first three subcases, format its LSP buffer.
+//  3. Require the authored file text, the resolver's Ignored, OutOfScope and format/semi state, and the LSP edit result.
+//
 // @evidence contracts/testing.md#behavioral-verification Five subcases (three named, plus no_config and empty_config generated in a loop) build disposable projects and run the in-process `format` command twice, comparing each file's whole text against the authored result; they also inspect the config resolver's Ignored, OutOfScope and format/semi state and compare the LSP buffer-format result for each file.
 // @evidence contracts/testing.md#independent-expectations Expected file texts (semicolon added or source unchanged) are authored literals; the resolver-state and LSP-edit checks follow from the entry ignores/files contract, not from the format command's output.
 // @evidence contracts/testing.md#distinguishing-cases Distinguishes an ignore-only entry (unignored file still formatted), a scoped base entry ignoring a path that a global child still formats, overlapping extends entries that each match different files, a file outside every entry, and projects with no config or an empty config keeping defaults. The LSP half is applied only to the first three subcases; the no_config and empty_config subcases use the command check only.

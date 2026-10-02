@@ -13,6 +13,7 @@ import (
 // the CLI must all activate the same always-on formatter defaults. In
 // particular, the LSP front doors must not fail just because lint.config.json
 // is absent.
+//
 // @evidence contracts/testing.md#behavioral-verification Code-action discovery, disk execution, dirty-buffer execution and format dispatch all activate semicolon defaults without a lint configuration.
 // @evidence contracts/testing.md#independent-expectations The authored const value = 1 semicolon text and exactly one format-document action independently constrain all four front doors.
 // @evidence contracts/testing.md#distinguishing-cases Absent lint configuration contrasts with the rules-only configuration companion and prevents merely testing an explicit format block.

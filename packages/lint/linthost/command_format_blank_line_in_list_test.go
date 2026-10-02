@@ -7,8 +7,12 @@ import "testing"
 // and a broken array. A blank line forces the list broken; without a blank the
 // list reflows normally (no spurious blank). All sources are Prettier-canonical.
 //
-//  1. Exercise the authored command format blank line in list fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Format, at printWidth 70, an object, a call argument list and a broken
+//     array that each hold one blank line, and require them unchanged.
+//  2. Format a short object with no blank line and require it to stay flat.
+//  3. Format an object with three consecutive blank lines and require exactly
+//     one blank line to remain.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command at printWidth 70 over five authored lists: blank lines kept in an object, a call argument list and a broken array, a short object without blank staying flat, and three blank lines collapsing to one.
 // @evidence contracts/testing.md#independent-expectations Sources and the single collapsed expectation are authored literals following the stated rule that one source blank line between list items is preserved and runs collapse to one; nothing is derived from formatter output.
 // @evidence contracts/testing.md#distinguishing-cases Positives (blank preserved in object, call args, array), a negative (no blank stays flat) and a changing case (three blank lines become one) are distinguished; the only transformation case is the collapse, the rest are fixed points.

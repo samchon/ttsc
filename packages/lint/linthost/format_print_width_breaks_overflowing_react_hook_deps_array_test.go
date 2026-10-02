@@ -11,6 +11,7 @@ import "testing"
 //
 //  1. Exercise the authored format print width breaks overflowing react hook deps array fixtures through the Go format dispatcher.
 //  2. Require the exact authored output or rejection result for each fixture.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on a `useEffect(() => {...}, [...])` call whose callback body is hugged and whose deps array is already broken one element per line (the flat array would overflow), and requires the file byte-identical.
 // @evidence contracts/testing.md#independent-expectations The source is an authored literal in the layout the test comment attributes to Prettier's React-hook handling (callback hugged, deps array broken); it is its own expected output. It is a fixed point, so it does not show a flat input being rewritten into this layout.
 // @evidence contracts/testing.md#distinguishing-cases One fixed-point case for the overflowing-deps branch; the short-deps case that stays flat is covered elsewhere. A formatter that did nothing, or one that exploded the whole call instead of hugging the callback, would differ only in the second case.

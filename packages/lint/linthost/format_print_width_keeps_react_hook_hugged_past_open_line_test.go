@@ -13,6 +13,7 @@ import "testing"
 //     open line past 80 columns.
 //  2. Run the in-process format command with a default format block.
 //  3. Require the file on disk to be byte-identical to the source.
+//
 // @evidence contracts/testing.md#behavioral-verification The in-process format command runs over one hook-with-deps call whose open line overflows 80 columns and the complete file text must equal the authored source, so exploding the arguments one per line (the defect) fails the equality.
 // @evidence contracts/testing.md#independent-expectations The expected text is the hugged layout that Prettier's React-hook-with-deps-array rule produces, authored as a literal and equal to the input; it is not derived from the command result. This is a preservation assertion on one canonical input and does not establish correctness for arbitrary layouts.
 // @evidence contracts/testing.md#distinguishing-cases This case owns the single overflow-tolerated hug: a zero-parameter block-bodied arrow plus a deps array stays hugged although the open line is past printWidth. Ordinary over-width calls that must break are owned by the sibling print-width reflow tests.

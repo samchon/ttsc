@@ -15,6 +15,7 @@ import (
 //
 //  1. Seed different disk and stdin source texts.
 //  2. Format stdin and require its literal result while checking unchanged disk bytes.
+//
 // @evidence contracts/testing.md#behavioral-verification The stdin format command returns const x = 1 with its missing semicolon and leaves the unrelated disk document unchanged.
 // @evidence contracts/testing.md#independent-expectations Literal const x = 1 semicolon output and original const completely = 999 disk bytes independently discriminate the two input sources.
 // @evidence contracts/testing.md#distinguishing-cases Different identifiers and values on disk versus stdin expose fallback to disk; absent targets are exercised separately by the phantom-file host.

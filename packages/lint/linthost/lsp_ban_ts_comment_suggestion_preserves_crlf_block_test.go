@@ -7,6 +7,7 @@ import (
 
 // TestLSPBanTsCommentSuggestionPreservesCRLFBlock verifies quickfix.ttsc
 // rewrites only the directive inside a block comment above a real type error.
+//
 // @evidence contracts/testing.md#behavioral-verification Signed quickfix changes only ts-ignore to ts-expect-error in a CRLF block above a real type error.
 // @evidence contracts/testing.md#independent-expectations Authored complete CRLF text retains the header, description, erroneous assignment and stringify call; literal title and command independently constrain discovery.
 // @evidence contracts/testing.md#distinguishing-cases A block directive with a description and CRLF detects whole-comment or line-ending replacement; the suggestion-only fix-all host owns automatic-application rejection.

@@ -17,6 +17,7 @@ import (
 // 1. Write both declaration-order permutations of the conflicting sections.
 // 2. Resolve each settings file repeatedly for TypeScript.
 // 3. Assert the exact section wins every time.
+//
 // @evidence contracts/testing.md#behavioral-verification Writes two settings.json files that declare `[javascript][typescript]` (tabSize 4) and `[typescript]` (tabSize 2) in opposite orders and calls editorFormatOverrides for typescript 64 times each, asserting tabWidth 2 every time.
 // @evidence contracts/testing.md#independent-expectations The expected 2 is authored from the rule that the exact section wins over a matching combined section regardless of declaration order.
 // @evidence contracts/testing.md#distinguishing-cases Both declaration orders are covered, so the exact section wins whether it comes before or after the combined one; the 64 repetitions guard against map-iteration-order dependence, though the current resolver iterates an ordered slice.

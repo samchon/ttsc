@@ -7,7 +7,8 @@ import (
   "testing"
 )
 
-// Verifies print-width convergence across unbraced control-flow layouts.
+// TestCommandFormatPrintWidthConvergesOnUnbracedControlFlow verifies print-width
+// convergence across unbraced control-flow layouts.
 //
 // A condition and its unbraced body otherwise alternate their column budgets
 // and hit the ten-pass cascade cap (#1366). Braced bodies remain independent
@@ -16,6 +17,7 @@ import (
 // 1. Seed condition/body calls in each unbraced control-flow form.
 // 2. Format twice and require unchanged fragments and byte-identical output.
 // 3. Require long calls in braced bodies and standalone calls to reflow.
+//
 // @evidence contracts/testing.md#behavioral-verification Nine subcases run the in-process `format` command twice (printWidth 80) on an over-wide unbraced `if`, `else if`, `else`, `while`, `for(;;)`, `for-of`, `for-in`, `do-while` and `with` form, requiring exit 0, the condition fragment and the throw branch still present, and the second output equal to the first; a final project at width 40 requires exactly five `standalone(` calls to be broken across lines with a stable second pass.
 // @evidence contracts/testing.md#independent-expectations The unbraced cases check only that fragments survive and the output is stable, not an exact layout; the braced case checks a count of five broken calls, not the full text. No expected full file is authored for these cases.
 // @evidence contracts/testing.md#distinguishing-cases Separates unbraced control-flow forms (which must not alternate column budgets and hit the pass cap) from braced bodies and a standalone call (which must reflow). Because exact output is not asserted, a wrong but stable layout would still pass.

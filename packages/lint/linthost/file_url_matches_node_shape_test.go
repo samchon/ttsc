@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestFileURLMatchesNodeShape pins the file URL strings generated for the
+// TestFileURLMatchesNodeShape verifies the file URL strings generated for the
 // ephemeral TypeScript config loader. Node consumes these with dynamic import,
 // so the Go side must match Node's pathToFileURL shape for Windows drive and
 // UNC paths, including characters that require URL escaping.

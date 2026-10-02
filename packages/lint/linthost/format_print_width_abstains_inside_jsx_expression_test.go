@@ -25,6 +25,7 @@ import (
 //  1. Parse the oscillating `.tsx` repro under ScriptKindTSX.
 //  2. Run format/print-width at printWidth=40 with the engine resolver.
 //  3. Assert the rule emits zero findings — the JSX expressions stay intact.
+//
 // @evidence contracts/testing.md#behavioral-verification Parses a one-line TSX component with a conditional in a JSX attribute `{...}` and an `items.map(...)` call in a JSX child `{...}`, runs format/print-width at printWidth 40 through the engine, and requires zero findings.
 // @evidence contracts/testing.md#independent-expectations The expectation (no finding, so the JSX expressions stay as written) follows from the stated contract that nodes inside a JSX expression container must not be reflowed; it is an authored absence oracle, not compared with another printer pass.
 // @evidence contracts/testing.md#distinguishing-cases One abstention case covering both JSX expression positions (attribute initializer and child) at a width that would otherwise break them. Without the abstention the cascade oscillates; the fitting-width case where nothing would break is not included.

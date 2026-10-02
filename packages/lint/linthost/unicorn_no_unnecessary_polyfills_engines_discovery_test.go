@@ -13,6 +13,7 @@ import (
 //
 //  1. `engines.node ">=18"` -> `array-from-async` still needed -> silent.
 //  2. `engines.node "22"` -> redundant -> report.
+//
 // @evidence contracts/testing.md#behavioral-verification The rule resolves nearest package engines when neither explicit targets nor Browserslist configuration exists, exercising the real fallback through array-from-async.
 // @evidence contracts/testing.md#independent-expectations Retained upstream issue-2270 inputs establish that Node >=18 includes runtimes needing Array.fromAsync whereas Node 22 already provides it.
 // @evidence contracts/testing.md#distinguishing-cases The same import is clean under engines.node >=18 and reports under 22; separate hosts own explicit-option and Browserslist precedence.

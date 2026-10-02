@@ -6,8 +6,15 @@ import (
 )
 
 // TestFormatCommandResolverVariantsReplaceBareOptionsWithReachableDefaults
-// keeps eager validation aligned with runtime binding. A nil inner payload is
-// not reachable when the format command supplies a synthetic default.
+// verifies eager validation stays aligned with runtime binding.
+//
+// A nil inner payload is not reachable when the format command supplies a
+// synthetic default, so RuleOptionsVariants must return the default alone.
+//
+// 1. Build a resolver whose inner config disables format/semi and whose
+//    default options carry `{"prefer":"always"}`.
+// 2. Ask for the option variants of format/semi.
+// 3. Assert exactly the one default payload is returned.
 //
 // @evidence contracts/testing.md#behavioral-verification formatCommandResolver.RuleOptionsVariants must expose exactly the reachable always-semi default instead of a bare disabled inner payload.
 // @evidence contracts/testing.md#independent-expectations The literal one-element JSON default is authored in the resolver fixture and is the only reachable command option by contract.

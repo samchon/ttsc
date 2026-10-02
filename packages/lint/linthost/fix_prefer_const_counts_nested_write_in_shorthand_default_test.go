@@ -14,7 +14,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification prefer-const preserves mutable reassigned inside a shorthand default and declaration-only target.
 // @evidence contracts/testing.md#independent-expectations The authored nested assignment and unchanged-source oracle ensure neither declaration is automatically rewritten.
-// @evidence contracts/testing.md#distinguishing-cases A nested default write is still a write; the stable initialized positive arm changes to const.
+// @evidence contracts/testing.md#distinguishing-cases A nested default write is still a write, so it differs from a never-reassigned initialized let; that positive rewrite is owned by TestFixPreferConstReplacesSingleLetKeyword.
 // @evidence contracts/testing.md#execution-ownership TestFixPreferConstCountsNestedWriteInShorthandDefault calls assertNoFixSnapshot with the real Program/checker path.
 func TestFixPreferConstCountsNestedWriteInShorthandDefault(t *testing.T) {
   assertNoFixSnapshot(t, "prefer-const", `let mutable = 0;

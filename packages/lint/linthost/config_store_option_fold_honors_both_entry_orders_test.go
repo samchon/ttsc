@@ -6,11 +6,10 @@ import (
   "testing"
 )
 
-// TestConfigStoreOptionFoldHonorsBothEntryOrders proves declaration order is
+// TestConfigStoreOptionFoldHonorsBothEntryOrders verifies declaration order is
 // applied only among entries that match the requested file. Reversing global
 // and scoped tuples reverses the selected-file winner without changing the
 // unselected file's payload.
-//
 //
 // 1. Declare global and file-scoped tuples in both orders.
 // 2. Resolve a selected test file and an unselected main file.

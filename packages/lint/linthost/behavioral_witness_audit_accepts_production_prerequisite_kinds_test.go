@@ -10,7 +10,6 @@ import (
 // not execute production rules or claim that these fixture records observed a
 // diagnostic; the semantic harnesses own those positive production observations.
 //
-//
 //  1. Submit authored records for options, filename, project, checker and platform prerequisites.
 //  2. Require one canonical route per public identity and accept the full kind set after adding engine.
 //

@@ -17,6 +17,7 @@ import "testing"
 //     the object literal would reflow regardless of the comment.
 //  3. Assert the JSDoc survives in the output, sitting above the
 //     reflowed declaration.
+//
 // @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule parses the preserves leading jsdoc above reflowed node fixture and applies its edit; complete authored output equality rejects lost source content or punctuation alongside incorrect line layout. The owned result is: Assert the JSDoc survives in the output, sitting above the reflowed declaration.
 // @evidence contracts/testing.md#independent-expectations The source operands and literal expected layout are authored independently of the rule printer. The fixture fixes printWidth and indentation, so expected line placement does not come from rendering the implementation under test.
 // @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Configure printWidth=20. The asserted decision is: Assert the JSDoc survives in the output, sitting above the reflowed declaration. Other fixture shapes remain in their separately named hosts.

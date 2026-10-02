@@ -16,6 +16,7 @@ import "testing"
 //     second is a plain identifier (printWidth 40).
 //  2. Apply format/print-width.
 //  3. Assert the callback hugs the parens and `, target)` trails.
+//
 // @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule parses the hugs first callback argument fixture and applies its edit; complete authored output equality rejects lost source content or punctuation alongside incorrect line layout. The owned result is: Assert the callback hugs the parens and `, target)` trails.
 // @evidence contracts/testing.md#independent-expectations The source operands and literal expected layout are authored independently of the rule printer. The fixture fixes printWidth and indentation, so expected line placement does not come from rendering the implementation under test.
 // @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Parse an over-width call whose first arg is a block callback and second is a plain identifier (printWidth 40). The asserted decision is: Assert the callback hugs the parens and `, target)` trails. Other fixture shapes remain in their separately named hosts.

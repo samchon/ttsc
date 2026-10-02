@@ -8,7 +8,6 @@ import (
 // TestBehavioralWitnessAuditRejectsInvalidNonCanonicalCandidate checks every
 // candidate, including one that would lose canonical lexical selection.
 //
-//
 //  1. Accept the authored valid Alpha record alone.
 //  2. Add later records with wrong identity, empty route, unsupported kind or invalid source addresses and require rejection.
 //

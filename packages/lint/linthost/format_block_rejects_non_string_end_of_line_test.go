@@ -20,7 +20,7 @@ import (
 //  1. Call expandFormatBlock with `endOfLine: false` (non-string).
 //  2. Assert an error naming `format.endOfLine`.
 //  3. Call expandFormatBlock with `endOfLine: "windows"` (invalid string).
-//  4. Assert an error mentioning `endOfLine`.
+//  4. Assert an error mentioning `endOfLine` and the allowed `"lf"` or `"crlf"`.
 //
 // @evidence contracts/testing.md#behavioral-verification expandFormatBlock rejects endOfLine false and the unsupported string windows, with field context for both failures.
 // @evidence contracts/testing.md#independent-expectations Line ending accepts only lf or crlf string values; independently authored Boolean false and string windows exercise distinct type and vocabulary violations.
@@ -41,5 +41,8 @@ func TestFormatBlockRejectsNonStringEndOfLine(t *testing.T) {
   }
   if !strings.Contains(err.Error(), "endOfLine") {
     t.Errorf("expected error to mention endOfLine, got: %v", err)
+  }
+  if !strings.Contains(err.Error(), `"lf" or "crlf"`) {
+    t.Errorf("expected error to list the allowed values, got: %v", err)
   }
 }

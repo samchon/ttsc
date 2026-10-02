@@ -19,6 +19,7 @@ import (
 //  2. Run `check` with typescript/no-unnecessary-type-assertion enabled
 //     as error.
 //  3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification A type assertion that leaves the checker-resolved type unchanged must report.
 // @evidence contracts/testing.md#independent-expectations The authored original source requires exactly one typescript/no-unnecessary-type-assertion rendered error at line 2, exit code 2 and empty stdout; an independently authored clean source requires code 0 and no rule findings.
 // @evidence contracts/testing.md#distinguishing-cases An unknown-to-string narrowing assertion changes the type and stays clean.

@@ -19,6 +19,7 @@ import (
 //  1. Seed a project whose lint config declares no hint-publishing rule.
 //  2. Run lsp-hints against a tsconfig path that does not exist.
 //  3. Assert an empty corpus, exit 0, and a silent stderr.
+//
 // @evidence contracts/testing.md#behavioral-verification lsp-hints returns the empty corpus with status 0 and silent stderr despite a nonexistent tsconfig when no rule publishes hints.
 // @evidence contracts/testing.md#independent-expectations The authored nonexistent config and absent publisher establish that Program loading must not occur; literal empty output is an independent short-circuit expectation.
 // @evidence contracts/testing.md#distinguishing-cases The only enabled rule is no-var, which publishes no hints, and the tsconfig path does not exist, so any Program load would write a loader error and fail; the required exit 0, an empty array and silent stderr show the load was skipped. The declared-publisher counterpart that must still fail is owned by the still-loads test.

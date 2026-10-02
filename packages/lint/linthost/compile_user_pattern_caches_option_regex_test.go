@@ -63,4 +63,9 @@ func TestCompileUserPatternCachesOptionRegex(t *testing.T) {
   if err1.Error() != err2.Error() {
     t.Fatalf("cached error must be stable: %q != %q", err1, err2)
   }
+  // regexp.Compile allocates a fresh *syntax.Error on every call, so the same
+  // error value on the second request proves the failure was not recompiled.
+  if err1 != err2 {
+    t.Fatalf("invalid pattern was recompiled: distinct error values %p / %p", err1, err2)
+  }
 }

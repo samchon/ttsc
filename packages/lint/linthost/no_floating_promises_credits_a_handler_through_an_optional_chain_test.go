@@ -21,6 +21,7 @@ import (
 //  2. Run the rule with no options.
 //  3. Assert only the two genuinely unhandled statements report, so the chain's
 //     handler is credited without disarming the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification Optional-chain rejection handlers must be credited while unhandled expressions report.
 // @evidence contracts/testing.md#independent-expectations Independently authored source and original assertions require exact error lines 4, 6, code 2 and empty stdout for reporting command runs; all original inputs/options and clean arms are retained.
 // @evidence contracts/testing.md#distinguishing-cases Original handled optional catch and direct catch remain clean; optional call and raw Promise report.

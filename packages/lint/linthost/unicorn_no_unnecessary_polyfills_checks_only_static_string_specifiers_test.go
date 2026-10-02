@@ -17,6 +17,7 @@ import (
 //  2. Assert relative/absolute specifiers, member/optional/multi-arg require,
 //     `import = require`, `export ... from`, and non-literal specifiers are all
 //     silent.
+//
 // @evidence contracts/testing.md#behavioral-verification NewEngine.Run evaluates import, dynamic import and require ASTs and requires exact redundant-polyfill reports only for supported static-string shapes.
 // @evidence contracts/testing.md#independent-expectations The supported source-shape contract and independently authored Node 8 Object.assign boundary establish both matching and redundancy.
 // @evidence contracts/testing.md#distinguishing-cases Three reported forms contrast with relative/absolute paths, extra arguments, optional/member/template require, nonstatic dynamic import, reexports and import-equals; every original near-miss remains.

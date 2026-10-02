@@ -8,12 +8,13 @@ import (
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
-// TestContributorTypeAwareMarkerKeepsChecker is the negative twin of
-// TestContributorAstOnlyMarkerSkipsStandaloneChecker: a contributor whose
-// `rule.TypeAwareRule` marker returns true must stay on the checker path,
-// exactly as if it had not implemented the marker at all. This pins the
-// documented "returning true is equivalent to not implementing" boundary so an
-// explicit true can never be misread as an opt-out.
+// TestContributorTypeAwareMarkerKeepsChecker verifies a contributor whose
+// `rule.TypeAwareRule` marker returns true stays on the checker path.
+//
+// This is the negative twin of TestContributorAstOnlyMarkerSkipsStandaloneChecker:
+// the contributor must behave exactly as if it had not implemented the marker
+// at all. It covers the documented "returning true is equivalent to not
+// implementing" boundary so an explicit true can never be misread as an opt-out.
 //
 // 1. Inspect a contributor whose marker returns true and wrap it.
 // 2. Ask the internal checker gate about the wrapped rule.

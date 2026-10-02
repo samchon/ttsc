@@ -14,6 +14,7 @@ import (
 //  3. Format the same buffer through the in-memory path (--content-stdin,
 //     buffer fed on stdin).
 //  4. Assert both applied texts agree.
+//
 // @evidence contracts/testing.md#behavioral-verification Disk command and stdin buffer command both return the authored multiline import/object text; agreeing on the same wrong formatting now fails.
 // @evidence contracts/testing.md#independent-expectations The literal double quotes, semicolons, three import entries, three object entries and 20-column line breaks are authored independently of either output.
 // @evidence contracts/testing.md#distinguishing-cases The same unformatted input crosses disk and buffer paths with interacting width rules; the unequal disk-content and absent-file companions own different admission boundaries.

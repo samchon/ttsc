@@ -25,6 +25,7 @@ import (
 // 1. Seed a project that passes an `any` argument to a `number` parameter.
 // 2. Run `check` with typescript/no-unsafe-argument enabled as error.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification Any flowing into a concrete number parameter must report.
 // @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/no-unsafe-argument rendered error at line 3, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
 // @evidence contracts/testing.md#distinguishing-cases A number argument satisfies the same parameter.

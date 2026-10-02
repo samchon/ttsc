@@ -15,6 +15,7 @@ import "testing"
 // 1. Configure printWidth=20 and feed a single-line array rest target that overflows.
 // 2. Run formatPrintWidth so the array breaks one element per line.
 // 3. Assert the broken output has no trailing comma after the rest element.
+//
 // @evidence contracts/testing.md#behavioral-verification Applies format/print-width at printWidth 20 to `[alpha, ...restItems] = sourceArray;` and requires the exact output `[\n  alpha,\n  ...restItems\n] = sourceArray;\n` with no comma after the rest element.
 // @evidence contracts/testing.md#independent-expectations The expected text is an authored literal; a trailing comma after a rest element in an assignment target is a syntax error, so omitting it is required rather than derived from the printer.
 // @evidence contracts/testing.md#distinguishing-cases One changing case where a width-driven break would normally add a trailing comma; the rest-target guard distinguishes the valid output from `...restItems,`. Object-pattern rest targets are owned by a separate test.

@@ -7,8 +7,10 @@ import "testing"
 // type-parameter list breaks, Prettier keeps `extends` inline after `>`. The
 // interface-specific own-line fix must not regress this.
 //
-//  1. Exercise the authored command format preserves class typeparam heritage inline fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Seed a class whose type-parameter list is broken one per line and whose
+//     `> extends Base<TKey> {` stays on the closing line.
+//  2. Run `ttsc format` and require the file to stay byte-identical.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on a class whose type-parameter list is broken one per line and whose `> extends Base<TKey> {` stays on the closing line, and requires the file byte-identical.
 // @evidence contracts/testing.md#independent-expectations The class is an authored literal in the Prettier layout (heritage inline after `>`) and is its own expected output.
 // @evidence contracts/testing.md#distinguishing-cases One fixed-point case guarding the class path against the interface-specific own-line heritage rule. The interface twin is owned by the interface-heritage tests; no flat input that must change is included.

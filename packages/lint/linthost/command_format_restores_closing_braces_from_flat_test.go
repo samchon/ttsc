@@ -23,6 +23,7 @@ import (
 //  1. Build a flat (column-0) version of a nested-block canonical.
 //  2. Run `ttsc format`.
 //  3. Assert it converges and the output equals the canonical exactly.
+//
 // @evidence contracts/testing.md#behavioral-verification Strips the leading whitespace from every line of an authored function with two nested `if` blocks, runs the in-process `format` command (semi false), and requires exit 0 without a did-not-converge message and the file equal to the authored indented text.
 // @evidence contracts/testing.md#independent-expectations The expected text is an authored canonical literal; the flat input is derived from it by removing leading whitespace, which leaves the syntax tree identical.
 // @evidence contracts/testing.md#distinguishing-cases One input that must change: statements and all three closing `}` lines start at column 0; re-indenting statements alone would leave the braces at column 0. Only nested if blocks are covered; class and switch braces are owned by sibling tests.

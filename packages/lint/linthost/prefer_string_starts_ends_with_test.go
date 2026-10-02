@@ -26,6 +26,7 @@ import (
 //  2. Run `check` with typescript/prefer-string-starts-ends-with
 //     enabled as error.
 //  3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification String indexOf compared to zero must report.
 // @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/prefer-string-starts-ends-with rendered error at line 3, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
 // @evidence contracts/testing.md#distinguishing-cases Direct startsWith keeps the prefix query.

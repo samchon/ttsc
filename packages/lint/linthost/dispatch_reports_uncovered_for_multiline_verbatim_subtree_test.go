@@ -17,10 +17,10 @@ import (
 // hazard as `covered == false`; a regression that returned `true` would let the
 // rule emit a corrupt edit.
 //
-// The subject moved from `if` to `switch` as those printers landed. A `do`
-// statement is the stand-in now: still verbatim and still multi-line. When it
-// gains a printer this case needs another subject, not deletion. What it pins
-// is the hazard, and there is always some kind the dispatcher does not cover.
+// A `do` statement is the subject because dispatchNode has no case for
+// KindDoStatement, so it prints verbatim and spans several lines. If it gains
+// a printer this case needs another unhandled kind, not deletion: what it pins
+// is the hazard, not the statement.
 //
 //  1. Parse a call whose callback body contains a multi-line `do`
 //     statement (no per-node printer, spans several source lines).

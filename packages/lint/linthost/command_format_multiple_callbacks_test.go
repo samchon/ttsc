@@ -12,8 +12,10 @@ import "testing"
 // Every source is the Prettier-canonical output at printWidth 80, so format
 // must keep it byte-identical (the exploded forms carry the trailing comma).
 //
-//  1. Exercise the authored command format multiple callbacks fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Seed 16 call layouts: two or three function arguments, single
+//     callbacks, composed calls and decorator forms.
+//  2. Run `ttsc format` on each and require the file to stay byte-identical.
+//
 // @evidence contracts/testing.md#behavioral-verification Sixteen subcases run the in-process `format` command on authored call layouts and require each file unchanged: two or three function arguments exploded one per line even when they would fit, single callbacks and plain calls kept inline, composed-call arguments exploded, and decorator cases.
 // @evidence contracts/testing.md#independent-expectations Every source is an authored literal that the test describes as Prettier-canonical at width 80 (exploded forms carry trailing commas); expectations equal the inputs and are not derived from the implementation.
 // @evidence contracts/testing.md#distinguishing-cases Explode cases (two arrows, two function expressions, three arrows, call-with-callback argument, composed map call, composition overriding last-arg hug, decorator without huggable last argument) are paired with stay-inline cases (single leading, trailing or sole arrow, no function, single composed call, call without callback, new with callback, fitting decorator, decorator hug). All are fixed points, so none shows a flat input being rewritten.

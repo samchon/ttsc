@@ -2,7 +2,8 @@ package linthost
 
 import "testing"
 
-// Verifies a long module tail forces a multi-specifier import to break.
+// TestCommandFormatImportMultiSpecifierFromOverflowBreak verifies a long module
+// tail forces a multi-specifier import to break.
 //
 // The authored multiline output preserves ShortC, ShortD and the exact module path; it prevents an implementation measuring only the names from passing.
 //

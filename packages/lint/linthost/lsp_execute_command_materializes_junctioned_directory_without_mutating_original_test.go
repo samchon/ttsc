@@ -23,9 +23,10 @@ import (
 //  2. Execute `ttsc.lint.fixAll` against the visible junction path.
 //  3. Assert the returned WorkspaceEdit fixes the document.
 //  4. Assert both the junction path and backing file still contain source text.
+//
 // @evidence contracts/testing.md#behavioral-verification Fix-all must stage the visible Windows junction source and return its authored edit without mutating either the junction-visible or backing text.
 // @evidence contracts/testing.md#independent-expectations Original and fixed fixture text are authored independently of workspace materialization; both physical and visible reads must retain the original bytes.
-// @evidence contracts/testing.md#distinguishing-cases This host owns Seed a project whose `src` directory is a junction to `real-src`. Its decision boundary is Assert both the junction path and backing file still contain source text. Other fixture shapes remain in their separately named hosts.
+// @evidence contracts/testing.md#distinguishing-cases The whole `src` directory is a junction to `real-src`, so a staging step that resolved the target to the physical `real-src` would match no finding and return no edit; the literal let rewrite must be returned and both the junction path and the backing file must still read the original var text. Symlink and file-link shapes are owned by the sibling materialization tests.
 // @evidence contracts/testing.md#execution-ownership This Windows-constrained Go unit directly invokes the maintained package operation in the owning linthost process over disposable filesystem inputs. Windows supplies aliases and junction fixtures; no installed SDK, source overlay, product build or product host child is required. Fixture-only mklink preparation does not execute the behavior under test.
 func TestLSPExecuteCommandMaterializesJunctionedDirectoryWithoutMutatingOriginal(t *testing.T) {
   root := t.TempDir()

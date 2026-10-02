@@ -21,15 +21,16 @@ import (
 //
 // 1. Write a ttsc-lint.config.cjs exporting `{ format: { printWidth: 120 } }`.
 // 2. Load it through LoadConfigResolver and read the formatPrintWidth options.
-// 3. Assert `printWidth` decodes to 120 ??proof `format` was not dropped.
+// 3. Assert `printWidth` decodes to 120, proving `format` was not dropped.
+//
 // @evidence contracts/testing.md#behavioral-verification LoadConfigResolver evaluates the CJS format-only module and returns nonempty print-width options decoding to 120.
 // @evidence contracts/testing.md#independent-expectations The authored fixture explicitly requests printWidth 120, independently of the loader serializer.
 // @evidence contracts/testing.md#distinguishing-cases Owns CJS format-only output rather than rules; TypeScript format transport is owned by the adjacent typed round-trip case.
 // @evidence contracts/testing.md#execution-ownership The lint E2E entry calls nativeLintConnections, which selects TestLoadRuleConfigJavaScriptConfigFileRoundTripsFormatBlock by exact name through GoBoundary.run with the e2e build tag in packages/lint/linthost. Go test retains this entry and its subcase failure identities; ordinary Go unit execution does not select this tagged file.
 // @evidence contracts/e2e.md#necessary-boundary Real Node serialization into Go resolver options can drop format despite direct Go config parsing succeeding.
 // @evidence contracts/e2e.md#shared-execution One CJS evaluator request belongs to this isolated format-only module; it shares the one compiled Go boundary harness.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns each mutable fixture and t.Setenv restores changed environment; the production evaluator waits for each child and defers scratch removal and context cancellation on return; an external process kill cannot guarantee deferred cleanup. Distinct absolute config identities prevent cross-case cached answers, while intentional mutation and recovery states remain observable.
-// @evidence contracts/e2e.md#preserved-coverage Every original fixture, test-function body, assertion and helper is retained byte-for-byte; portable config units keep their separate selection and this move only makes the existing real boundary ownership physical.
+// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns each mutable fixture; the production evaluator waits for each child and defers scratch removal and context cancellation on return; an external process kill cannot guarantee deferred cleanup. Distinct absolute config identities prevent cross-case cached answers, while intentional mutation and recovery states remain observable.
+// @evidence contracts/e2e.md#preserved-coverage This fixture and its assertions run only under the e2e build tag, through the shared Go boundary entry; the portable config units keep their separate untagged selection.
 func TestLoadRuleConfigJavaScriptConfigFileRoundTripsFormatBlock(t *testing.T) {
   dir := t.TempDir()
   writeFile(t, filepath.Join(dir, "tsconfig.json"), "{}")

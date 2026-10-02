@@ -13,8 +13,10 @@ import "testing"
 // Each source is the Prettier-canonical output at printWidth 80, so format
 // must keep it byte-identical.
 //
-//  1. Exercise the authored command format test call hug fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Seed nine test-framework or look-alike call layouts, each Prettier-canonical at width 80.
+//  2. Run `ttsc format` with the default format block on each.
+//  3. Require every file byte-identical.
+//
 // @evidence contracts/testing.md#behavioral-verification Nine subcases run the in-process `format` command on authored test-framework call layouts and require each unchanged: overflowing descriptions hugging the callback (plain, `.only`, async, three-parameter, `test.fixme`), a short call staying flat, and non-test shapes (`notATest`, a non-string first argument, `myRunner.todo`) behaving as ordinary calls.
 // @evidence contracts/testing.md#independent-expectations Sources are authored literals the test describes as Prettier-canonical at width 80 and serve as their own expected output; they are not derived from the formatter.
 // @evidence contracts/testing.md#distinguishing-cases Hugging cases are contrasted with three gates: callee name (notATest, myRunner.todo explode), first-argument kind (dynamicName stays an ordinary short call) and fitting width. All are fixed points, so none shows a flat input being rewritten.

@@ -17,9 +17,11 @@ import (
 // refactors. A verbatim Doc on a zero-length source slice renders as
 // the empty string, which is a safe round-trip for an empty node.
 //
-// 1. Parse any source file to obtain a valid PrintContext.
-// 2. Use NodeFactory to build a NamedImports node with nil Elements.
-// 3. Call printNamedImports directly and assert it does not panic.
+//  1. Parse any source file to obtain a valid PrintContext.
+//  2. Use NodeFactory to build a NamedImports node with nil Elements, call
+//     printNamedImports directly and assert the output is empty.
+//  3. Parse `import { a, b } from "x";`, clear the parsed node's Elements and
+//     assert the output is the original `{ a, b }`.
 //
 // @evidence contracts/testing.md#behavioral-verification printNamedImports must retain { a, b } instead of losing the bindings when Elements is nil.
 // @evidence contracts/testing.md#independent-expectations The independently supplied import source determines the exact binding clause; empty synthetic range remains an empty-output boundary.

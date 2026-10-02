@@ -8,6 +8,7 @@ import "testing"
 // 1. Assign `Set<Set<Set<any>>>` to matching string and unknown targets.
 // 2. Assign it to its identical type as the safe same-type twin.
 // 3. Require only the deeply nested concrete mismatch to report.
+//
 // @evidence contracts/testing.md#behavioral-verification Recursive generic comparison must find deeply nested same-target any escapes.
 // @evidence contracts/testing.md#independent-expectations The fixture's independently authored expect markers require one authored three-level Set<any> to Set<string> finding; the oracle compares the complete sorted rule/error line multiset, error message prefix, code 2 and empty stdout.
 // @evidence contracts/testing.md#distinguishing-cases nested unknown and identical any targets stay clean.

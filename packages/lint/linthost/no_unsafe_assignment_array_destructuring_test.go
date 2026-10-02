@@ -8,6 +8,7 @@ import "testing"
 // 1. Destructure direct `any`, an `any[]`, and a tuple with two `any` leaves.
 // 2. Destructure a tuple of `unknown` and string as the safe twin.
 // 3. Require one boundary finding for the first two and one per unsafe tuple leaf.
+//
 // @evidence contracts/testing.md#behavioral-verification Destructuring must expose direct any, any-array and tuple-leaf escapes without duplicate contextual findings.
 // @evidence contracts/testing.md#independent-expectations The fixture's independently authored expect markers require four authored findings, including two on the tuple destructuring line; the oracle compares the complete sorted rule/error line multiset, error message prefix, code 2 and empty stdout.
 // @evidence contracts/testing.md#distinguishing-cases unknown/string tuple leaves remain clean.

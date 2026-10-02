@@ -22,6 +22,7 @@ import (
 //  2. Run `ttsc format`.
 //  3. Assert it exits cleanly (converges), merges the guard, and is
 //     idempotent on a second run.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command (semi false) twice on a `new Promise` callback whose body is a standalone `;` line followed by `(x as Y).z = r`; the first run must exit 0 without a did-not-converge message and the file must contain `;(x as Y).z = r`, the second run must exit 0 and leave the file identical.
 // @evidence contracts/testing.md#independent-expectations The merged guard form is an authored substring expectation from the no-semi rule that a `(`-leading statement keeps a glued `;` guard; it is a Contains check, not a whole-file comparison, and the second-run equality is a self-consistency check, not an independent oracle.
 // @evidence contracts/testing.md#distinguishing-cases One input where the cascade used to ping-pong between orphan-semi and statement-split; the assertions distinguish non-convergence (non-zero exit), a missing merge, and second-pass drift. Surrounding text of the first-run output is not compared.

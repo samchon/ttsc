@@ -5,7 +5,8 @@ import "testing"
 // TestFormatArrowParensKeepsIneligibleTrailingCommaParams verifies
 // prefer:"avoid" still leaves every ineligible single-parameter shape alone
 // when a legal trailing comma follows it: typed `(x: T,)`, defaulted
-// `(x = 1,)`, destructured `({ x },)`, and a generic arrow `<T>(x,)`.
+// `(x = 1,)`, destructured `({ x },)`, a generic typed arrow `<T>(x: T,)`, and
+// a generic arrow whose parameter is otherwise bare, `<T>(x,)`.
 //
 // These shapes are excluded by `isBareIdentifierParam` (or the
 // type-parameter guard) *before* the trailing-comma-aware wrappedness scan
@@ -51,6 +52,14 @@ func TestFormatArrowParensKeepsIneligibleTrailingCommaParams(t *testing.T) {
       t,
       "format/arrow-parens",
       "const a = <T>(x: T,) => x;\n",
+      `{"prefer":"avoid"}`,
+    )
+  })
+  t.Run("generic_bare_parameter", func(t *testing.T) {
+    assertRuleSkipsSourceWithOptions(
+      t,
+      "format/arrow-parens",
+      "const a = <T>(x,) => x;\n",
       `{"prefer":"avoid"}`,
     )
   })

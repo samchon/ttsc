@@ -20,11 +20,15 @@ import "testing"
 // @evidence contracts/testing.md#execution-ownership runBoundaryRule executes NewEngineWithResolver.Run on the authored legacy/react imports. The entry owns assertSingleBoundaryFinding and its allowed-react control.
 func TestBoundariesExternalRejectsDisallowedPackage(t *testing.T) {
   const ruleName = "boundaries/external"
-  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
+  source := `
     import "@legacy/sdk/client";
     import "react";
-  `, `{
+  `
+  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", source, `{
     "disallow": ["@legacy/sdk"]
   }`, nil)
   assertSingleBoundaryFinding(t, ruleName, findings, `@legacy/sdk/client`)
+  if got := source[findings[0].Pos:findings[0].End]; got != `"@legacy/sdk/client"` {
+    t.Fatalf("finding range text = %q, want %s", got, `"@legacy/sdk/client"`)
+  }
 }

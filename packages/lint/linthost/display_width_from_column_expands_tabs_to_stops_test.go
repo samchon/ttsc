@@ -30,7 +30,7 @@ func TestDisplayWidthFromColumnExpandsTabsToStops(t *testing.T) {
     {"complete-emoji-then-tab", "\U0001F468\u200D\U0001F469\u200D\U0001F467\t", 4, 0, 4},
     // The negative twin, and the reason the case above proves anything: an
     // INCOMPLETE ZWJ sequence is not an RGI emoji, so Prettier charges its
-    // parts \u2014 2 + 1 + 2 \u2014 and measures 5, putting the tab stop at 8. Measured,
+    // parts (2 + 1 + 2) and measures 5, putting the tab stop at 8. Measured,
     // not assumed; an implementation that segmented by grapheme cluster would
     // answer 2 here and look correct on the case above.
     {"incomplete-emoji-then-tab", "\U0001F468\u200D\U0001F469\t", 4, 0, 8},

@@ -17,7 +17,7 @@ import "testing"
 //  3. Assert the clamping boundaries: negative, past-end, and mid-rune offsets.
 //
 // @evidence contracts/testing.md#behavioral-verification The raw-text position converter produces literal line/UTF-16 columns for ASCII, BMP, astral and combining text, handles LF/CRLF/lone CR/Unicode line separators, and clamps negative, past-end and mid-rune byte offsets.
-// @evidence contracts/testing.md#independent-expectations The authored numeric line/column table follows UTF-16 unit widths and the specified line-break forms; no second converter or compiler line map generates expected coordinates.
+// @evidence contracts/testing.md#independent-expectations The authored numeric line/column table follows UTF-16 unit widths and the line-break set of the compiler line map that the converter is documented to agree with (LF, CR, CRLF, U+2028, U+2029; the LSP text-document spec itself lists only LF, CR and CRLF, so the two separator rows pin the compiler-parity choice rather than the LSP spec); no second converter or compiler line map generates expected coordinates.
 // @evidence contracts/testing.md#distinguishing-cases Start, ASCII, three-byte BMP, four-byte astral and combining marks distinguish byte/scalar/grapheme counting. Original LF/CRLF and clamps remain; lone CR and Unicode separator controls cover the remaining supported line breaks.
 // @evidence contracts/testing.md#execution-ownership Each authored raw string is passed directly to byteOffsetToLSPPosition in the Go process and compared with literal coordinates. The test owns the raw-text helper, while source-backed consumers have separate runtime paths; no native artifact, install or product process runs.
 func TestLSPPositionColumnsCountUTF16AcrossPlanes(t *testing.T) {

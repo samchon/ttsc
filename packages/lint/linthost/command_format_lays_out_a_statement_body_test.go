@@ -21,6 +21,7 @@ import (
 //  1. Put each statement kind on one line inside a reflowed callback body.
 //  2. Run `ttsc format` and compare with the Prettier answer key.
 //  3. Run a second pass and require idempotence.
+//
 // @evidence contracts/testing.md#behavioral-verification Nine subcases (for-of, for-in, while, for, if-else, try-catch-finally, switch, variable with callback, throw) run the in-process `format` command on a callback whose body statement is on one line and require the exact expanded text, then a second run that must leave it unchanged.
 // @evidence contracts/testing.md#independent-expectations Each expected output is an authored literal that the test comments say was measured on Prettier 3.8.3 (not re-verified by this unit); the second pass is an additional idempotence check.
 // @evidence contracts/testing.md#distinguishing-cases Each statement kind is its own input that must change from half-frozen one-line form to fully laid-out form. All cases sit inside a callback body, so top-level placement and statements beyond the nine listed are not covered.

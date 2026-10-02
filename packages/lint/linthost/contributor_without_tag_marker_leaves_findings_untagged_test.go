@@ -5,15 +5,14 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestContributorWithoutTagMarkerLeavesFindingsUntagged is the negative twin: a
-// rule that supplies no tags or does not implement TaggedRule produces
-// untagged findings.
+// TestContributorWithoutTagMarkerLeavesFindingsUntagged verifies a rule that
+// supplies no tags, or does not implement TaggedRule, produces untagged
+// findings. It is the negative twin of TestContributorTaggedRuleMarksFindings.
 //
 // Most findings are neither unnecessary nor deprecated, so untagged is the
 // default and must survive. If the plumbing tagged everything, a plain rule's
 // findings would be greyed out — the editor telling authors correct code is
 // unnecessary.
-//
 //
 //  1. Run both a contributor returning nil tags and one lacking the optional tag marker on the same source.
 //  2. Require one original-message untagged warning finding from each adapter.

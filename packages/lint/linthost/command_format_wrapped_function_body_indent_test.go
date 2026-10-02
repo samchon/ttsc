@@ -9,8 +9,10 @@ import "testing"
 // format/indent must cede such a body instead of de-indenting it to the
 // block-depth column.
 //
-//  1. Exercise the authored command format wrapped function body indent fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Seed a function expression wrapped onto a continuation line and a same-line arrow initializer.
+//  2. Run `ttsc format` with the default format block on each.
+//  3. Require both files byte-identical.
+//
 // @evidence contracts/testing.md#behavioral-verification Two subcases run the in-process `format` command on authored layouts and require each unchanged: a function expression whose header is wrapped onto a continuation line after a long typed initializer, with its body one level past that header, and an arrow initializer on the same line with an ordinary body.
 // @evidence contracts/testing.md#independent-expectations Sources are authored literals in Prettier's layout and serve as their own expected output.
 // @evidence contracts/testing.md#distinguishing-cases The wrapped case (body depth differs from block depth) is paired with the unaffected inline arrow; a formatter that de-indented the wrapped body to block depth would fail. Both are fixed points.

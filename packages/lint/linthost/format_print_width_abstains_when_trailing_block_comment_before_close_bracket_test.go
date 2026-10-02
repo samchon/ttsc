@@ -20,6 +20,7 @@ import "testing"
 //     before `)`.
 //  3. Assert the rule emits zero findings — comment preserved by
 //     abstention.
+//
 // @evidence contracts/testing.md#behavioral-verification Runs format/print-width at printWidth 10 on `foo(a, b /* tail */);` and requires zero findings so the trailing comment before `)` is preserved.
 // @evidence contracts/testing.md#independent-expectations The expected zero findings follows from the contract that reflow must not drop a comment; the authored input exceeds the width so a reflow would otherwise fire.
 // @evidence contracts/testing.md#distinguishing-cases One abstention case with the comment after the last argument and before the closing bracket, the edge position that a between-members check could miss; a comment between members is owned by the inter-member test.

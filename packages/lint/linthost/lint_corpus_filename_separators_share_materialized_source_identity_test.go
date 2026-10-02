@@ -9,9 +9,22 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
+// TestLintCorpusFilenameSeparatorsShareMaterializedSourceIdentity verifies
+// that every spelling of one `@ttsc-corpus-filename` path yields the same
+// read and write identity.
+//
 // Filename directives describe portable corpus paths, not native path strings.
 // The loader's source identity must point to the exact file the writer creates,
 // even on hosts where a backslash would otherwise remain a filename character.
+//
+//  1. Load a corpus entry renamed through each of six spellings of
+//     `src/Paths/Named.ts` (slash, single and doubled backslash, mixed
+//     separators, dot segments) and require the slash identity.
+//  2. Materialize the project, read the main source through that identity,
+//     and run `no-var` over it.
+//  3. Assert the one diagnostic covers the exact `var` statement in that file.
+//  4. Assert four escaping, absolute or outside-`src` spellings are rejected.
+//
 // @evidence contracts/testing.md#behavioral-verification The real loader interprets each authored filename directive, the materializer writes it, the reader opens the returned identity and the no-var Engine reports the original source's exact var range and filename.
 // @evidence contracts/testing.md#independent-expectations Portable directive spelling accepts both separators and dot segments but yields the independently authored case-preserving src/Paths/Named.ts identity. Native conversion occurs only after that normalization; the literal var span and one diagnostic come from the fixture rather than the implementation.
 // @evidence contracts/testing.md#distinguishing-cases Forward, single/doubled backslash, mixed separators and dot-segment spellings share one read/write identity without case folding. Escaping, absolute and outside-src names remain rejected. The slash invariant distinguishes the Linux literal-backslash failure even when this unit runs on Windows.

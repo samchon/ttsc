@@ -10,7 +10,7 @@ import (
 // int, int32, int64, integer-valued float64, and json.Number correctly, and
 // rejects fractional float64, non-integer json.Number, and invalid types.
 //
-// Locks six arms of the asInt type switch plus the error fallthrough:
+// Locks the five arms of the asInt type switch plus the error fallthrough:
 //
 //   - int: preserve the directly supplied integer value.
 //

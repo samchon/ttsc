@@ -12,6 +12,7 @@ import "testing"
 // 1. Build a mixed finding slice with lint and format entries.
 // 2. Run `filterLintFindings`.
 // 3. Assert only non-format findings survive.
+//
 // @evidence contracts/testing.md#behavioral-verification filterLintFindings admits the original no-var and eqeqeq findings and rejects the format entry and nil sentinel. Original-pointer membership also rejects a duplicated survivor while permitting either output order.
 // @evidence contracts/testing.md#independent-expectations The authored IsFormat flags determine the two admissible original findings independently of filter traversal.
 // @evidence contracts/testing.md#distinguishing-cases A four-entry slice with two lint findings, one format finding and a nil entry: only the two non-format findings (original pointers) survive. Fix presence is not varied in this test.

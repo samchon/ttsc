@@ -8,8 +8,9 @@ import "testing"
 // last-arg hug, a first-arg hug, and two shapes Prettier does NOT hug (it
 // explodes) because more than one argument is complex.
 //
-//  1. Exercise the authored command format arg hugging fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Seed 31 call-argument layouts that Prettier 3 keeps hugged or explodes.
+//  2. Run `ttsc format` on each and require the file to stay byte-identical.
+//
 // @evidence contracts/testing.md#behavioral-verification Each of 31 named subcases seeds an authored call-argument layout, runs the in-process `format` command with an empty format block, and requires the file to stay byte-identical, so the formatter must neither hug nor explode argument lists differently from the authored Prettier-style layout.
 // @evidence contracts/testing.md#independent-expectations Every source is an authored literal described as the Prettier 3 canonical layout at width 80 (hug last/first argument, or explode); the expectation is the input itself, with no output derived from the implementation. Agreement with an installed Prettier is not checked in this unit.
 // @evidence contracts/testing.md#distinguishing-cases Pairs hugging cases (last-arg arrow, first-arg arrow with short, empty-object, unary, single-binary, simple-cast, single-type-arg-cast trailing arguments; simple_simple_object; decorator) with exploding twins (two-arg or nested-call trailing, non-empty object, long or chained binary, non-empty-array, call, object-type, multi-type-arg, nested-generic, union casts; two_arrows_then_object; object_then_object). Because every case is an unchanged fixed point, a formatter that rewrote nothing would also pass; the changed-input direction is owned elsewhere.

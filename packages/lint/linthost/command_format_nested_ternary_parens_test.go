@@ -8,8 +8,12 @@ import "testing"
 // the parens drop for the broken staircase. A ternary nested in the ALTERNATE
 // (`:`) position chains without parens.
 //
-//  1. Exercise the authored command format nested ternary parens fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
+//  1. Format four canonical nested ternaries (flat consequent-nested with
+//     parentheses, flat alternate-nested without, broken consequent-nested
+//     without) and require them unchanged.
+//  2. Format two broken ternaries whose source parenthesizes the nested ternary
+//     and require the paren-free staircase.
+//
 // @evidence contracts/testing.md#behavioral-verification Six subcases run the in-process `format` command: flat consequent-nested ternaries keep their parentheses, a flat alternate-nested chain has none, a broken consequent-nested staircase has none, and parenthesized nested ternaries written in the source (consequent and alternate position, broken layout) must be rewritten to the paren-free staircase.
 // @evidence contracts/testing.md#independent-expectations Sources and expected outputs are authored literals following the stated Prettier ternary rule (parens only for a flat consequent-nested ternary); the two source-paren cases carry the parenthesized input and the paren-free expected text.
 // @evidence contracts/testing.md#distinguishing-cases Separates consequent from alternate position, flat from broken rendering, and member-expression from simple tests. Four cases are fixed points; the two source-paren cases are the inputs that must change.

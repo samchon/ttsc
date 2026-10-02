@@ -19,6 +19,7 @@ import (
 // 1. Seed a project that interpolates an object value into a template.
 // 2. Run `check` with typescript/restrict-template-expressions enabled.
 // 3. Assert the command exits non-zero and stderr mentions the rule.
+//
 // @evidence contracts/testing.md#behavioral-verification Object interpolation must report unsupported conversion.
 // @evidence contracts/testing.md#independent-expectations The original authored input fixes exactly one typescript/restrict-template-expressions rendered error at line 2, code 2 and empty stdout; its independently authored typed counterpart requires code 0 and no rule errors.
 // @evidence contracts/testing.md#distinguishing-cases String interpolation retains the template shape with a supported operand.

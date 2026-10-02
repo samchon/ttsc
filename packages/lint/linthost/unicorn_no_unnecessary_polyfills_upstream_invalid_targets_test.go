@@ -17,6 +17,7 @@ import (
 //  1. Feed each specifier the exact upstream targets option.
 //  2. Assert exactly one finding.
 //  3. Assert the finding's message equals the upstream message id's text.
+//
 // @evidence contracts/testing.md#behavioral-verification Actual rule execution checks every retained redundant-polyfill source/target case for one exact error finding, detecting missed compatibility decisions and wrong module messages.
 // @evidence contracts/testing.md#independent-expectations Retained upstream invalid inputs and literal built-in/core-js diagnostic text establish reports. The test formatter interpolates the authored module name without calling the product formatter.
 // @evidence contracts/testing.md#distinguishing-cases Original package, core-js/core-js-pure, feature, target and import distinctions remain; UpstreamValidTargets owns needed-feature and nonmatching counterparts.

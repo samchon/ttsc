@@ -19,10 +19,11 @@ import "testing"
 // @evidence contracts/testing.md#execution-ownership runBoundaryRule executes NewEngineWithResolver.Run against the authored private/public fixture paths. This entry owns assertSingleBoundaryFinding and the implicit no-report public control.
 func TestBoundariesNoPrivateRejectsCrossElementPrivateImport(t *testing.T) {
   const ruleName = "boundaries/no-private"
-  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", `
+  source := `
     import "../domain/internal/secret";
     import "../domain/public";
-  `, `{
+  `
+  findings := runBoundaryRule(t, ruleName, "src/app/main.ts", source, `{
     "elements": [
       { "type": "app", "pattern": "src/app/**" },
       { "type": "domain", "pattern": "src/domain/**", "private": "internal/**" }
@@ -32,4 +33,7 @@ func TestBoundariesNoPrivateRejectsCrossElementPrivateImport(t *testing.T) {
     "src/domain/public.ts": "export {};",
   })
   assertSingleBoundaryFinding(t, ruleName, findings, `private boundary file`)
+  if got := source[findings[0].Pos:findings[0].End]; got != `"../domain/internal/secret"` {
+    t.Fatalf("finding range text = %q, want %s", got, `"../domain/internal/secret"`)
+  }
 }

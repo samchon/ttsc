@@ -29,6 +29,7 @@ import (
 //  2. Resolve a candidate that lands directly on the root and require the same.
 //  3. Resolve an ordinary in-project candidate and require its parent directory
 //     digest to survive, so the narrowing did not remove real invalidation.
+//
 // @evidence contracts/testing.md#behavioral-verification loadConfigFileEvaluation preserves literal severities while excluding the filesystem root and retaining exact missing entries and the ordinary parent watch directory.
 // @evidence contracts/testing.md#independent-expectations Literal error/warning modules and explicit root exclusion versus owned-parent directory requirements define the watch scope.
 // @evidence contracts/testing.md#distinguishing-cases Owns absent first ancestor, root-level absent candidate and ordinary in-project parent control.
@@ -105,6 +106,13 @@ func TestConfigDependencyGraphNeverPublishesTheFilesystemRoot(t *testing.T) {
   }
   assertConfigRuleSeverity(t, rootLevel.value, "no-var", "warning")
   assertConfigDependencyAbsent(t, rootLevel.dependencyDigests, filesystemRoot)
+  assertConfigDependencyKindScope(
+    t,
+    rootLevel.dependencyDigests,
+    rootLevelMain,
+    configDependencyEntry,
+    configDependencyWatch,
+  )
 
   // 3. The parent digest itself is untouched away from the root. An ordinary
   //    in-project ancestor still fingerprints the directory that owns the

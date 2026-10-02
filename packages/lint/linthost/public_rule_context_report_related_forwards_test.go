@@ -23,6 +23,7 @@ import (
 //  2. Call ReportRelated (node) and ReportRangeRelated (range) with one location.
 //  3. Assert each fired its related method exactly once, payload preserved, with
 //     no fallback to Report / ReportRange.
+//
 // @evidence contracts/testing.md#behavioral-verification Public node and range related reports select their corresponding rich callbacks once, retain the diagnostic node/range/message and the full location list, and avoid ordinary fallback.
 // @evidence contracts/testing.md#independent-expectations Literal messages and 1..4 diagnostic versus 3..7 related coordinates define different authored anchors; parsed node identity and exact callback counts specify the expected result independently of the observing reporter.
 // @evidence contracts/testing.md#distinguishing-cases Both node and range routes are checked separately against nonempty related payloads. Legacy capability absence and empty locations have separate negative controls in the sibling fallback unit.

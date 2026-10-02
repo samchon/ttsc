@@ -18,6 +18,7 @@ import (
 //  1. Seed a project violating no-alert (core) and unicorn/no-null (unicorn).
 //  2. Run lsp-diagnostics against the file URI.
 //  3. Assert each diagnostic carries the documentation URL for its family.
+//
 // @evidence contracts/testing.md#behavioral-verification lsp-diagnostics must attach the exact independently authored documentation URLs to no-alert and unicorn/no-null, retaining both findings.
 // @evidence contracts/testing.md#independent-expectations Literal ESLint and Unicorn documentation URLs express the per-family mapping contract, independent of ruleDocumentationURL output.
 // @evidence contracts/testing.md#distinguishing-cases One project violates a core rule (no-alert) and a unicorn rule (unicorn/no-null); the lsp-diagnostics output must carry the eslint.org URL on the first and the eslint-plugin-unicorn repository URL on the second, so a single hardcoded base URL fails. Other rule families are not covered.

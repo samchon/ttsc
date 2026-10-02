@@ -12,6 +12,7 @@ import (
 //  1. Materialize local and package declarations plus built-in Promise types.
 //  2. Run matching and deliberately wrong-source configurations.
 //  3. Assert only declarations outside each configured boundary report.
+//
 // @evidence contracts/testing.md#behavioral-verification Structured safe-call and safe-Promise exemptions must bind their declared source.
 // @evidence contracts/testing.md#independent-expectations Independently authored source and original assertions require exact lists 10; 6,7,8,9,10; and 5 across the original three command runs, plus a zero-finding direct Engine source, code 2 and empty stdout for reporting command runs; all original inputs/options and clean arms are retained.
 // @evidence contracts/testing.md#distinguishing-cases Matching local/package names leave only ordinaryPromise; wrong file/package names expose all five; lib-only Promise exemption does not exempt a local subclass; direct Engine current-directory resolution stays clean.

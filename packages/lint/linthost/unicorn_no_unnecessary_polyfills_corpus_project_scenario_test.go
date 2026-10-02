@@ -16,6 +16,7 @@ import (
 //  1. Place `src/main.ts` (importing `object-assign`) beside `src/package.json`.
 //  2. Set `engines.node` to a version that already ships `Object.assign`.
 //  3. Assert exactly one built-in diagnostic.
+//
 // @evidence contracts/testing.md#behavioral-verification The unit rule discovers src/package.json from src/main.ts and reports redundant object-assign, exercising source-relative fixture resolution.
 // @evidence contracts/testing.md#independent-expectations The authored engines.node 8 target already supplies Object.assign and independently requires the literal built-in diagnostic.
 // @evidence contracts/testing.md#distinguishing-cases This host retains the original source-relative manifest/import shape; EnginesDiscovery and SilentWithoutResolvableTargets distinguish needed and absent target populations.

@@ -8,6 +8,7 @@ import "testing"
 // 1. Supply Promise-returning callbacks to void-only signature positions.
 // 2. Supply the same callbacks to Promise-aware overloads and unions.
 // 3. Require findings only where every applicable contract discards returns.
+//
 // @evidence contracts/testing.md#behavioral-verification Promise callbacks must report only when applicable signatures discard their returns.
 // @evidence contracts/testing.md#independent-expectations Authored expect markers fix every void-only argument diagnostic line, code 2 and empty stdout.
 // @evidence contracts/testing.md#distinguishing-cases Overloads, unions, generic/optional/rest/tuple positions, constructors and named APIs are paired with Promise-aware contracts; nested callbacks distinguish direct from nested returns.

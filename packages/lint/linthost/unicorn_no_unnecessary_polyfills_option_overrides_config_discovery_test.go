@@ -15,6 +15,7 @@ import (
 //  1. Materialize a `.browserslistrc` that alone would report.
 //  2. Lint with `targets: {node: "0.12"}`.
 //  3. Assert silence.
+//
 // @evidence contracts/testing.md#behavioral-verification Actual rule execution supplies explicit targets beside a Browserslist file with the opposite decision, detecting a failure to honor option precedence.
 // @evidence contracts/testing.md#independent-expectations The supported explicit-target precedence and Node 0.12 Object.assign boundary require silence independently of discovered production Node 6.
 // @evidence contracts/testing.md#distinguishing-cases Explicit node 0.12 stays clean despite the on-disk production node 6; BrowserslistrcDiscovery owns its reported counterpart without the override.

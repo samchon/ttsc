@@ -19,6 +19,7 @@ import "testing"
 //  1. Configure printWidth=40 so the 3-element array overflows.
 //  2. Run formatPrintWidth on an array of `"http://…"` strings.
 //  3. Assert the canonical one-element-per-line reflow with a trailing comma.
+//
 // @evidence contracts/testing.md#behavioral-verification The registered format/print-width rule parses the reflows wide array with slash strings fixture and applies its edit; complete authored output equality rejects lost source content or punctuation alongside incorrect line layout. The owned result is: Assert the canonical one-element-per-line reflow with a trailing comma.
 // @evidence contracts/testing.md#independent-expectations The source operands and literal expected layout are authored independently of the rule printer. The fixture fixes printWidth and indentation, so expected line placement does not come from rendering the implementation under test.
 // @evidence contracts/testing.md#distinguishing-cases The authored scenario begins with: Configure printWidth=40 so the 3-element array overflows. The asserted decision is: Assert the canonical one-element-per-line reflow with a trailing comma. Other fixture shapes remain in their separately named hosts.

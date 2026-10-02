@@ -12,16 +12,15 @@ import (
 // nested inside another function — its decorator line AND its `function f`
 // declaration line — from a fully flattened source. ttsc-only self-check.
 //
-// FIX C completion: the parser attaches the leading `@Dec` to the
-// FunctionDeclaration's Decorators() (verified by probe), so a decorated
-// nested function is a decorated declaration statement. Before the completion
-// the statement pass moved only the `@` line and left `function f` at column
-// 0. The statement pass now re-indents the declaration line of any decorated
-// declaration, not just classes.
+// The parser attaches the leading `@Dec` to the FunctionDeclaration, so a
+// decorated nested function is a decorated declaration statement. The
+// statement pass must re-indent the declaration line of any decorated
+// declaration, not just classes, or `function f` would stay at column 0.
 //
 //  1. Flatten a function-nested decorated function canonical to column 0.
 //  2. Run `ttsc format`.
 //  3. Assert it converges and restores the canonical exactly.
+//
 // @evidence contracts/testing.md#behavioral-verification Strips the leading whitespace from every line of an authored function containing a decorated nested `function f` and a `return f`, runs the in-process `format` command (semi false), and requires exit 0 without a did-not-converge message and the file equal to the authored indented text.
 // @evidence contracts/testing.md#independent-expectations The expected text is an authored canonical literal; the flat input is derived from it by removing leading whitespace, which leaves the syntax tree identical.
 // @evidence contracts/testing.md#distinguishing-cases One input that must change: the `@Dec` line and the nested `function f` declaration line start at column 0 and both must move, showing the declaration re-indent is not limited to classes.

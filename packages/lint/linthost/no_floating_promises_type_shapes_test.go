@@ -12,6 +12,7 @@ import (
 //     assertions, arrays, and explicit Promise/non-Promise tuples.
 //  2. Run the rule with scalar defaults.
 //  3. Assert every Promise-bearing shape and no clean control is reported.
+//
 // @evidence contracts/testing.md#behavioral-verification Promise detection must preserve the supported composite and asserted expression shapes.
 // @evidence contracts/testing.md#independent-expectations Independently authored source and original assertions require exact error lines 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 25, 27, 29, 33, 34, 35, 36, 39, 40, 43, code 2 and empty stdout for reporting command runs; all original inputs/options and clean arms are retained.
 // @evidence contracts/testing.md#distinguishing-cases Aliases, subclasses, intersections/unions, optional calls, composites, tuples/arrays, assertions/non-null/satisfies and uncertain branches have authored positive/clean counterparts; unknown/any uncertainty is not a runtime completion guarantee.

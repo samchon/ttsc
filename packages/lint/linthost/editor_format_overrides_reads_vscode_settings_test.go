@@ -17,6 +17,7 @@ import (
 // 1. Materialize a temp dir with a JSONC .vscode/settings.json.
 // 2. Resolve overrides for a typescript file from that dir.
 // 3. Assert tabWidth and useTabs reflect the settings.
+//
 // @evidence contracts/testing.md#behavioral-verification Writes a JSONC settings.json (line comment, trailing comma) with editor.tabSize 4 and editor.insertSpaces false, calls editorFormatOverrides for typescript, and asserts tabWidth 4 as a number and useTabs true.
 // @evidence contracts/testing.md#independent-expectations Expected values are authored from the documented mapping (tabSize to tabWidth, insertSpaces inverted to useTabs); they are not derived from the resolver.
 // @evidence contracts/testing.md#distinguishing-cases One positive case covering number mapping, boolean inversion and JSONC tolerance together. A missing file, malformed file or nested directory is covered by other tests; endOfLine is not asserted here.

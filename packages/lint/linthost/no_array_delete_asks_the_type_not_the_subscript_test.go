@@ -19,6 +19,7 @@ import (
 //     array by call result, and a tuple by literal.
 //  2. Run the rule.
 //  3. Assert only the three array deletes report.
+//
 // @evidence contracts/testing.md#behavioral-verification Array deletion must report by receiver type rather than key spelling.
 // @evidence contracts/testing.md#independent-expectations Authored array/tuple deletion lines 9,10,11 fix three rule/error diagnostics; record and index-signature lines 7,8 must stay clean.
 // @evidence contracts/testing.md#distinguishing-cases Literal and call-result array keys contrast with object identifier keys, exposing both old missed and false-positive boundaries.

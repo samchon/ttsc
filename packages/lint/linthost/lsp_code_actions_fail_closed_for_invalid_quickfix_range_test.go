@@ -13,6 +13,7 @@ import (
 //  3. Request quick fixes with missing, malformed, incomplete, reversed, and
 //     non-overlapping ranges, including omitted position fields.
 //  4. Require every request to return no actions rather than file-wide edits.
+//
 // @evidence contracts/testing.md#behavioral-verification Range parsing and quickfix discovery distinguish closed-open start/inside/end overlap and missing, malformed, reversed, incomplete or non-overlapping selections; invalid requests yield no action.
 // @evidence contracts/testing.md#independent-expectations Literal cursor overlap booleans come from closed-open LSP ranges. Empty action arrays follow the explicit admission contract, independently of diagnostic position calculation.
 // @evidence contracts/testing.md#distinguishing-cases Cursor positions at a diagnostic's start and inside it must overlap while the end position must not; nine malformed or structurally incomplete range strings (empty, empty object, broken JSON, missing end, missing line or character fields, reversed) must both fail parseRequestedLSPRange and yield no quick fixes, and one structurally valid range that does not overlap the finding must also yield none. A positive overlapping request that returns the action is owned by the switch-exhaustiveness suggestion test, so this test cannot detect an implementation that always returns nothing.

@@ -16,6 +16,7 @@ import (
 //
 //  1. Build an engine with each legal options payload.
 //  2. Assert no ConfigError is raised.
+//
 // @evidence contracts/testing.md#behavioral-verification Real engine construction accepts each legal options shape with nil ConfigError, detecting rejection of supported configuration.
 // @evidence contracts/testing.md#independent-expectations The supported targets schema independently permits omitted options, an empty object, a query string, a query array and a target map.
 // @evidence contracts/testing.md#distinguishing-cases The five legal shapes contrast with RejectsMalformedOptions, which owns nonobject outer options, unknown keys and unsupported target primitive values.

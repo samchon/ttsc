@@ -3,6 +3,7 @@ package linthost
 import "testing"
 
 // Re-entering an uninitialized var declaration retains its prior value.
+//
 // @evidence contracts/testing.md#behavioral-verification Actual no-var edits retain uninitialized repeated body declarations and still rewrite an initialized body declaration and assigned for-of header.
 // @evidence contracts/testing.md#independent-expectations Var is one function binding; fresh let bindings would change the authored two-iteration result from [0,0] to [0,1]. Initializers and for-of assignments reset values independently.
 // @evidence contracts/testing.md#distinguishing-cases For, while and do bodies decline without initializers; an initialized body and value-assigned header remain positive controls.

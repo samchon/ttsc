@@ -163,10 +163,12 @@ func init() {
   }
 }
 
-// TestMain exercises the only fresh-process bootstrap before ordinary tests
+// TestMain verifies the only fresh-process bootstrap before ordinary tests
 // reuse Main. The init-time contributors above deliberately cover every
 // collision class and metadata panic boundary; racing real entry calls proves
 // one owner inspects them and publishes the immutable registries to all peers.
+// The Name-panicking "metadata boom" fixture is registered by the init in
+// contributor_panics_preserve_other_rules_in_process_test.go.
 //
 //  1. Release concurrent Main calls against the uninitialized host.
 //  2. Assert every initial collision/panic warning appears exactly once and

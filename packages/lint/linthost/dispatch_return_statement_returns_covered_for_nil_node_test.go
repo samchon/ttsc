@@ -11,9 +11,8 @@ import (
 // The nil guard in printReturnStatement mirrors those in the arrow-function
 // and expression-statement printers: a nil node must not panic. covered==true
 // is returned because an empty Doc contributes no multi-line content to the
-// enclosing Doc tree. A regression that returned covered==false would
-// incorrectly taint a block's coverage flag through a nil statement
-// placeholder during error-recovery parsing.
+// enclosing Doc tree. PrintNode and printBlock screen nil before
+// dispatching, so the guard is reachable only through a direct call.
 //
 //  1. Build a PrintContext from any valid parsed file.
 //  2. Call printReturnStatement(ctx, nil) directly.

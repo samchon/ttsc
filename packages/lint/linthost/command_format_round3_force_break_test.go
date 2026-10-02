@@ -6,12 +6,15 @@ import "testing"
 // fast path: a force-breaking node nested inside an otherwise-fitting call/new
 // (an array `shouldBreak`, or a function-composition `new`) must still explode,
 // and the BigInt array must NOT fill. Each `assertFormatResult` feeds a FLAT
-// (fits-80) source and asserts the prettier-canonical broken output, exercising
-// the flat -> broken reflow direction the existing suite never covered.
+// source (the first three fit in 80 columns, the BigInt array is 81) and asserts
+// the Prettier-canonical broken output, exercising the flat -> broken reflow
+// direction.
 //
-//  1. Exercise the authored command format round3 force break fixtures through the Go format dispatcher.
-//  2. Require the exact authored output or rejection result for each fixture.
-// @evidence contracts/testing.md#behavioral-verification Four subcases run the in-process `format` command on flat sources that fit in 80 columns and require the exact broken output: an array of arrays inside `new Map([...])` and inside `foo([...])`, `new Foo(() => a, () => b)` exploded, and an overflowing BigInt array exploded one element per line rather than filled.
+//  1. Seed four flat sources whose canonical form is broken.
+//  2. Run `ttsc format` with the default format block on each.
+//  3. Require the exact broken output.
+//
+// @evidence contracts/testing.md#behavioral-verification Four subcases run the in-process `format` command on flat sources (three fit in 80 columns, the BigInt array is 81) and require the exact broken output: an array of arrays inside `new Map([...])` and inside `foo([...])`, `new Foo(() => a, () => b)` exploded, and an overflowing BigInt array exploded one element per line rather than filled.
 // @evidence contracts/testing.md#independent-expectations Inputs and expected outputs are authored literals the test describes as Prettier canonical broken forms; nothing is derived from the formatter.
 // @evidence contracts/testing.md#distinguishing-cases All four are inputs that must change from a flat layout (the flat-to-broken direction), including the negative-fill case where BigInt elements must not be packed like numbers.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatResult; no child process, built binary or installed consumer.

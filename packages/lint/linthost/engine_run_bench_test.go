@@ -23,7 +23,7 @@ import (
 //
 // Usage:
 //
-//  node `go test` -bench=^BenchmarkEngineRun$ -benchtime=3s
+//  go test ./linthost -run ^$ -bench=^BenchmarkEngineRun$ -benchtime=3s
 func BenchmarkEngineRun(b *testing.B) {
   source := engineBenchSource()
   file := parseBenchTSFile(b, "/virtual/bench.ts", source)
@@ -56,10 +56,8 @@ func BenchmarkEngineRun(b *testing.B) {
 // so per-identifier work (e.g. dictionary lookups, lowercasing) sets
 // the per-op cost.
 //
-// Currently the corpus enables `no-undefined` and `no-shadow-restricted-names`
-// (both Identifier visitors). Adding `unicorn/prevent-abbreviations`
-// here once its perf shortcut lands will exercise the dictionary
-// short-circuit.
+// The rule set enables `no-undefined`, `no-shadow-restricted-names` and
+// `unicorn/prevent-abbreviations`, all of which visit identifiers.
 func BenchmarkEngineRunIdentifierHeavy(b *testing.B) {
   source := engineBenchIdentifierSource()
   file := parseBenchTSFile(b, "/virtual/bench-id.ts", source)
@@ -243,7 +241,7 @@ function fn${i}(arg: number) { return arg + a${i}; }
     sb.WriteString(s)
   }
   // Sprinkle some abbreviation-likely names (idx, ctx, ret, …) that
-  // `unicorn/prevent-abbreviations` should detect once enabled.
+  // `unicorn/prevent-abbreviations` should detect.
   sb.WriteString(`
 function ctxHandler(ctx: any, idx: number, ret: any, opts: any) {
   const tmp = ctx;

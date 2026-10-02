@@ -32,6 +32,7 @@ func init() {
 //     through the checker-backed contributor and require the exact FINAL text.
 //  2. Format a syntactically invalid dirty buffer and require no changes, with
 //     the valid disk twin untouched in both cases.
+//
 // @evidence contracts/testing.md#behavioral-verification The registered checker-backed contributor advances dirty-buffer FIRST to FINAL through two passes while preserving bufferOnly and disk bytes; malformed dirty syntax produces no changes.
 // @evidence contracts/testing.md#independent-expectations The authored FINAL text, original diskOnly source and empty error edit establish independent answers. The fixture contributor independently requires the imported value to infer number before reporting either edit.
 // @evidence contracts/testing.md#distinguishing-cases Named subcases retain these distinct inputs and failure identities: checker-backed multi-pass edits use the buffer, syntax errors do not fall back to disk. Each keeps its own assertions under this one discoverable entry.
