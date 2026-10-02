@@ -54,16 +54,16 @@ export namespace E2eCacheObservations {
   /** Requires the same selected roots; does not call additions cache misses. */
   export function difference(before: Snapshot, after: Snapshot): Delta[] {
     const roots = Object.keys(before.roots);
-    if (roots.length !== Object.keys(after.roots).length || roots.some(root => !(root in after.roots)))
+    if (roots.length !== Object.keys(after.roots).length || roots.some(root => !Object.hasOwn(after.roots, root)))
       throw new Error("Cache observation roots changed between phases");
     return roots.map(root => {
       const previous = before.roots[root]!;
       const current = after.roots[root]!;
       return {
         root,
-        added: Object.keys(current).filter(file => !(file in previous)).sort(),
-        removed: Object.keys(previous).filter(file => !(file in current)).sort(),
-        changed: Object.keys(current).filter(file => file in previous &&
+        added: Object.keys(current).filter(file => !Object.hasOwn(previous, file)).sort(),
+        removed: Object.keys(previous).filter(file => !Object.hasOwn(current, file)).sort(),
+        changed: Object.keys(current).filter(file => Object.hasOwn(previous, file) &&
           JSON.stringify(previous[file]) !== JSON.stringify(current[file])).sort(),
       };
     });
