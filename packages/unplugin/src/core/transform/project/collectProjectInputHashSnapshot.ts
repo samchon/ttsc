@@ -16,10 +16,16 @@ import { collectProjectInputSnapshot } from "./collectProjectInputSnapshot";
  * @evidence contracts/common.md#clear-and-simple-design The wrapper projects the detailed snapshot into the hash-plus-completeness shape needed by cache-key consumers rather than implementing another walk.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A readable subset cannot count as a complete program when enumeration or attribution failed.
  * @evidence contracts/common.md#meaningful-documentation The native comment explicitly requires cache-key hosts to reject incomplete observations, distinguishing this API from the hash-only convenience wrapper.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Delegates to collectProjectInputSnapshot, which reads through the supplied filesystem and identity context; this wrapper only reports completeness.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The selected root, membership policy, observing operations and native
+ *   identity context pass unchanged to the snapshot producer. Omitted context
+ *   uses host defaults; projection does not invent case/alias/backend policy.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Projection is fixed work after the required walk: directory enumeration,
+ *   admitted file reads/hashes and native identity/metadata observations scale
+ *   with selected entries, path text and content bytes. The producer's full
+ *   snapshot/witness storage is allocated even though this API returns two
+ *   fields; delegation does not make that computation constant.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources

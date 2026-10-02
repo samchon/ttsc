@@ -20,10 +20,15 @@ import { collectProjectInputHashSnapshot } from "./collectProjectInputHashSnapsh
  * @evidence contracts/common.md#clear-and-simple-design One delegated call exposes the convenience view while the richer snapshot API retains the evidence required for reuse decisions.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No separate traversal or fabricated marker hides errors; callers needing coherent proof are explicitly directed to the completeness-bearing API.
  * @evidence contracts/common.md#meaningful-documentation Native prose names the shared walk and warns that this projection drops completeness, so its return type cannot be mistaken for a reuse certificate.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Delegates the walk and hashing to collectProjectInputHashSnapshot and returns its hashes; it adds no path handling.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ * @evidence contracts/portability.md#os-neutral-implementation
+ *   The root, supplied observing view, identity context and membership policy
+ *   govern the actual native snapshot producer; omission selects host defaults.
+ *   Returned protocol keys do not replace native spellings passed to reads.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Selecting the hashes is fixed work, but the delegated snapshot still walks
+ *   directory entries and hashes admitted bytes under native identity/metadata
+ *   observations. Total work/temporary snapshot storage follows that population
+ *   and path/content text; dropping completeness does not skip its computation.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
