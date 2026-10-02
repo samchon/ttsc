@@ -24,7 +24,7 @@ import { projectInputReplacementStrandsWatchers } from "../../../../../packages/
  * @evidence contracts/testing.md#behavioral-verification projectInputReplacementStrandsWatchers requests rearming only for an anchored directory on the path-keyed backend.
  * @evidence contracts/testing.md#independent-expectations Node path-keyed recursive watches require rearming after ancestor replacement while native subtree backends preserve coverage.
  * @evidence contracts/testing.md#distinguishing-cases Linux declared ancestors and exact reload roots contrast with macOS and Windows, ordinary files, deep glob descendants and reload-directory children.
- * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it calls projectInputReplacementStrandsWatchers with the default path identity context over real directories and files created in a TestProject.tmpdir (the decision checks whether the replaced path is a directory), passing the platform as an argument. It opens no watcher and starts no process.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it calls projectInputReplacementStrandsWatchers with default native identity over TestProject-owned directories/files and explicit backend selection. Native stat/identity or read-only case queries are preparation/selection observations, not actual watcher delivery. No watcher, compiler or product host starts; the literal policy decisions do not prove native backend rearm effects.
  */
 export function test_project_input_replacement_strands_only_path_keyed_watchers(): void {
     const root = TestProject.tmpdir("ttsc-project-input-strand-");
