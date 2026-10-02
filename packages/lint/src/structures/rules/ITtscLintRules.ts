@@ -52,15 +52,15 @@ import type { ITtscLintVitestRules } from "./ITtscLintVitestRules";
  *   public rules surface.
  * - Any other `"<namespace>/<rule>"` key is accepted via
  *   {@link ITtscLintContributorRules} so plugin-shipped rules compose cleanly
- *   without ambient module augmentation. A plugin can augment
- *   `ITtscLintRuleOptionsMap`; {@link TtscLintRuleOptionsOverlay} then tightens
- *   that rule's options while the open fallback remains for unregistered
- *   contributor names.
+ *   without ambient module augmentation. A plugin publishes an exported rule
+ *   interface that the user passes to `ITtscLintConfig` as its generic argument;
+ *   {@link TtscLintContributorOverlay} then tightens those rules' options while
+ *   the open fallback remains for unlisted contributor names.
  *
- * @evidence contracts/common.md#principled-implementation Intersecting family maps and the contributor overlay preserves concrete built-in properties while tightening augmented options for known names.
+ * @evidence contracts/common.md#principled-implementation Intersecting family maps and the contributor overlay preserves concrete built-in properties while keeping the open contributor fallback for unlisted names; the typed contributor overlay is added by the config type that uses this alias.
  * @evidence contracts/common.md#clear-and-simple-design One composition alias assembles independently owned rule families and the contributor extension boundary.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Rule families enter through explicit types and augmentation rather than consumer-specific aliases or runtime mutation.
- * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes bare, namespaced, formatter and contributor identities and explains augmentation; lists, paragraphs and tag separation follow documentation guidance.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Rule families enter through explicit types rather than consumer-specific aliases or runtime mutation.
+ * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes bare, namespaced, formatter and contributor identities and explains the generic contributor overlay; lists, paragraphs and tag separation follow documentation guidance.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintRules is a declaration of data shape and performs no filesystem, path or process operation.
  * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintRules is a declaration of data shape and chooses no algorithm or processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintRules is a declaration of data shape and coordinates no computation that could be shared.

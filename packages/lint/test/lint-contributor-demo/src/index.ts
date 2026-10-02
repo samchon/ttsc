@@ -8,8 +8,8 @@
 // The `rules` array is advisory — actual rule registration happens in
 // the Go `init()` of `rules/no_todo_comment.go` via
 // `rule.Register(noTodoComment{})`. Typed `demo/*` keys in the user's `rules`
-// map come from the module augmentations below, not from this list.
-import type { ITtscLintPlugin, TtscLintRuleSetting } from "@ttsc/lint";
+// map come from `IDemoLintRules` below, not from this list.
+import type { ITtscLintPlugin } from "@ttsc/lint";
 import path from "node:path";
 
 /**
@@ -33,24 +33,26 @@ const plugin = {
   source: path.resolve(__dirname, "..", "rules"),
 } satisfies ITtscLintPlugin;
 
-// `demo/no-marker-comment` accepts a `{ markers: string[] }` options blob.
-// Augmenting `ITtscLintRuleOptionsMap` adds this key to @ttsc/lint's mapped
-// options overlay, which is intersected into `ITtscLintRules`. The known rule
-// therefore gets exact `markers` checking while the contributor index
-// signature remains an `unknown`-options fallback for plugins whose typings
-// were not imported. The Go rule's `noMarkerCommentOptions` struct uses the
-// same JSON key so the checked payload decodes cleanly on the host side.
-declare module "@ttsc/lint" {
-  interface ITtscLintRuleOptionsMap {
-    "demo/no-marker-comment": {
-      /** Comment substrings to flag. Defaults to `["TODO", "FIXME"]`. */
-      markers?: readonly string[];
-    };
-  }
+/**
+ * Typed `demo/*` rule settings for `ITtscLintConfig`.
+ *
+ * Pass this interface as the generic argument of the config type, for example
+ * `satisfies ITtscLintConfig<IDemoLintRules>`, so `demo/no-marker-comment`
+ * gets exact `markers` checking and `demo/capitalize-exports` accepts a
+ * severity only. A `demo/*` rule that is not listed here, and every config that
+ * omits the generic, keeps the open `unknown`-options fallback. The Go rule's
+ * `noMarkerCommentOptions` struct uses the same JSON key so the checked payload
+ * decodes cleanly on the host side.
+ */
+export interface IDemoLintRules {
+  /** `demo/no-marker-comment` accepts a `{ markers: string[] }` options blob. */
+  "demo/no-marker-comment": {
+    /** Comment substrings to flag. Defaults to `["TODO", "FIXME"]`. */
+    markers?: readonly string[];
+  };
 
-  interface ITtscLintContributorRules {
-    "demo/capitalize-exports"?: TtscLintRuleSetting;
-  }
+  /** `demo/capitalize-exports` takes a severity and no options. */
+  "demo/capitalize-exports": void;
 }
 
 export default plugin;

@@ -1150,17 +1150,25 @@ Contributor rules run on declaration files (`.d.ts`) by default. The engine skip
 
 Contributor rules also keep accepting options by default because `rule.Context.Options` predates the options-capability contract. A contributor that is genuinely optionless can implement `rule.OptionsRule` with `AcceptsTtscLintOptions() bool { return false }`; the host then rejects any payload before calling the rule. The domain-specific method name avoids capturing an unrelated `AcceptsOptions` method on an existing contributor. The same marker applies to `rule.ProjectRule` implementations.
 
-A typed contributor package should publish the same optionless contract by augmenting `ITtscLintContributorRules` directly with `TtscLintRuleSetting`. Without this augmentation, the open contributor fallback keeps accepting an unknown payload for packages whose typings were not imported.
+A typed contributor package publishes an ordinary exported interface that maps each rule name to its options object, or to `void` for a severity-only rule. The user passes it, or an intersection of several, as the generic argument of `ITtscLintConfig`; the listed rules then get exact option checking and a payload on a `void` rule is rejected. A namespace that is not passed keeps the open fallback that accepts an unknown payload.
 
 ```ts
-import type { TtscLintRuleSetting } from "@ttsc/lint";
-
-declare module "@ttsc/lint" {
-  interface ITtscLintContributorRules {
-    "demo/capitalize-exports"?: TtscLintRuleSetting;
-  }
+// the contributor package
+export interface IDemoLintRules {
+  "demo/no-marker-comment": { markers?: readonly string[] };
+  "demo/capitalize-exports": void;
 }
+
+// lint.config.ts
+import type { ITtscLintConfig } from "@ttsc/lint";
+import type { IDemoLintRules } from "ttsc-lint-plugin-demo";
+
+export default {
+  rules: { "demo/no-marker-comment": ["error", { markers: ["TODO"] }] },
+} satisfies ITtscLintConfig<IDemoLintRules>;
 ```
+
+Packages that already augment `ITtscLintRuleOptionsMap` or `ITtscLintContributorRules` with `declare module "@ttsc/lint"` keep compiling; the exported-interface form needs no ambient declaration.
 
 ### Project-scoped contributor rules
 

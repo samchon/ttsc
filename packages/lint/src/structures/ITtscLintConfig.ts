@@ -1,12 +1,20 @@
 import type { ITtscLintPlugin } from "./ITtscLintPlugin";
 import type { ITtscLintFormat } from "./format/ITtscLintFormat";
+import type { TtscLintContributorOverlay } from "./rules/TtscLintContributorOverlay";
 import type { ITtscLintRules } from "./rules/ITtscLintRules";
 
 /**
  * Top-level object accepted by `@ttsc/lint` config files.
  *
  * Keep the file shape plain: users export an object and use `satisfies
- * ITtscLintConfig` when they want type checking.
+ * ITtscLintConfig` when they want type checking. A config that uses typed
+ * contributor rules passes the contributor's published rule interface, or an
+ * intersection of several, as the generic argument:
+ * `satisfies ITtscLintConfig<IDemoLintRules>`.
+ *
+ * @typeParam TContributors - Contributor rule interfaces whose rules receive
+ *   exact option checking; see {@link TtscLintContributorOverlay}. Omitted, every
+ *   contributor rule keeps the open `unknown`-options fallback.
  *
  * @evidence contracts/common.md#principled-implementation Optional selection, inheritance, formatting and rule fields represent one flat-config entry; the host folds entries in order.
  * @evidence contracts/common.md#clear-and-simple-design One interface owns the entry shape while rule and formatter schemas remain in their respective types.
@@ -17,7 +25,9 @@ import type { ITtscLintRules } from "./rules/ITtscLintRules";
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintConfig is a declaration of data shape and coordinates no computation that could be shared.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintConfig is a declaration of data shape; the code that holds its values owns their lifetime.
  */
-export interface ITtscLintConfig {
+export interface ITtscLintConfig<
+  TContributors extends object = Record<never, never>,
+> {
   /** Globs that select the files this entry applies to. */
   files?: string | readonly string[];
 
@@ -51,7 +61,7 @@ export interface ITtscLintConfig {
    * Project-scoped contributor rules use this same map, but their configuration
    * must come from entries without a `files` selector.
    */
-  rules?: ITtscLintRules;
+  rules?: ITtscLintRules & TtscLintContributorOverlay<TContributors>;
 
   /** Contributor plugin objects keyed by namespace. */
   plugins?: Record<string, ITtscLintPlugin>;
