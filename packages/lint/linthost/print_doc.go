@@ -203,14 +203,14 @@ func Literalline() Doc { return Doc{Kind: docLiteralline} }
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Group performs no filesystem or process operation of its own.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Group has no loop of its own and runs a fixed number of steps.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Group keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Group acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned group shares the supplied child backing slice and all reachable child payloads; the caller owns tree lifetime and must keep that storage immutable while printing. The constructor copies no child records and stores no historical groups, handle or task.
 func Group(parts ...Doc) Doc { return Doc{Kind: docGroup, Children: parts} }
 
 // ConditionalGroup picks the first option whose first line fits the
 // remaining width budget, falling back to the last option when none
 // fit. Where Group makes a single flat-or-break decision, a
-// ConditionalGroup lets a printer offer several distinct shapes — a
-// call's hugged vs. exploded argument list — and have the engine choose
+// ConditionalGroup lets a printer offer distinct shapes, such as a hugged
+// versus expanded argument list, and have the engine choose
 // between them. The last option must always be a safe fallback.
 //
 // @evidence contracts/common.md#principled-implementation Ordered options represent valid alternative layouts with the last serving as the required unconditional fallback.
@@ -220,7 +220,7 @@ func Group(parts ...Doc) Doc { return Doc{Kind: docGroup, Children: parts} }
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ConditionalGroup performs no filesystem or process operation of its own.
 // @evidenceExclude contracts/performance.md#efficient-algorithms ConditionalGroup has no loop of its own and runs a fixed number of steps.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work ConditionalGroup keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ConditionalGroup acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned conditional group shares the supplied option slice and reachable alternative trees, including unused alternatives, until its owner releases them. The caller owns that storage and must keep it immutable during printing; this constructor adds no historical-option cache, handle or task.
 func ConditionalGroup(options ...Doc) Doc {
   return Doc{Kind: docConditionalGroup, Children: options}
 }
