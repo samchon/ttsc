@@ -9,7 +9,7 @@ import { createFilesystemPathIdentityContext } from "../../../../../packages/tts
 import { TestProject } from "../../../../utils/src/TestProject";
 
 /**
- * Checks runtime source-root metadata before any project build executes.
+ * Verifies runtime source-root metadata before any project build executes.
  *
  * The private authored operation is extracted as an AST declaration and bound
  * to its actual option reader and filesystem identity owner. A separate null

@@ -6,7 +6,8 @@ import path from "node:path";
 import { resolveRuntimeCleanTargets } from "../../../../../packages/ttsc/src/launcher/internal/runtime/resolveRuntimeCleanTargets";
 
 /**
- * Verifies runtime cleanup removes only a tree whose runs have no unproven owner.
+ * Verifies the cleanup planner selects absent or empty trees and preserves
+ * legacy and malformed-owner runs without selecting deletion targets.
  *
  * Ownership uncertainty is not evidence that cleanup can remove a run.
  *

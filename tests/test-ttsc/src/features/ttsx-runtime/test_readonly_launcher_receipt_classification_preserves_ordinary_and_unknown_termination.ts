@@ -9,6 +9,10 @@ import { isOrdinarilyClosedReadonlyLauncher } from "../../../../utils/src/isOrdi
  * Actual native completion, descendant joins and ACL restoration remain the
  * readonly corpus's separate boundary; this unit claims none of those results.
  *
+ * 1. Classify ordinary statuses 0, 1 and 2 with complete metadata.
+ * 2. Refuse missing status, signals, launch errors and invalid PID tuples.
+ * 3. Collect each labeled literal mismatch before failing the unit.
+ *
  * @evidence contracts/testing.md#behavioral-verification Executes the actual source predicate for all twelve receipt tuples and collects each labeled mismatch before failing the owning unit.
  * @evidence contracts/testing.md#independent-expectations Explicit true/false literals independently specify ordinary metadata versus uncertainty; expected values are not derived from the classifier or a child result.
  * @evidence contracts/testing.md#distinguishing-cases Completed statuses 0, 2 and 1 contrast with null status, signals, launch errors, error despite status, zero/negative/noninteger/infinite PIDs.
