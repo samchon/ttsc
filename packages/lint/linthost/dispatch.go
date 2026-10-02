@@ -32,10 +32,10 @@ var Version = "dev"
 // @evidence contracts/common.md#clear-and-simple-design The public entry delegates to one command dispatcher shared by native consumers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Command names are the supported CLI discriminants, and contributor registration uses its normal bootstrap rather than patched dispatch.
 // @evidence contracts/common.md#meaningful-documentation Native prose states argument ownership, supported verbs and exit-code propagation; paragraphs and tags follow documentation guidance.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation Main performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Main has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Main keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Main acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/portability.md#os-neutral-implementation Main forwards argv elements rather than constructing shell text. Selected commands own native cwd/config/source paths, filesystem or process operations and host-specific representations; browser-supported routing and writer injection do not remove those delegated boundaries. This dispatcher neither guesses file identity from OS names nor rewrites path case.
+// @evidence contracts/performance.md#efficient-algorithms Command selection has a fixed set of verb branches plus input/output string bytes. Valid project routes also wait for shared contributor bootstrap, whose first execution inspects and sorts registered metadata and installs adapters, then pay the chosen command's parsing, project/config and diagnostic or emit work. No constant bound for the complete dispatched invocation is claimed.
+// @evidence contracts/performance.md#reuse-equivalent-work Valid routes share completed or in-flight contributor initialization through sync.Once because immutable init-time registries determine the same installed adapters. Each selected command retains its own config/Program reuse premises; returned exit codes or matching argv alone do not justify replaying effectful commands. Version and rejected verbs skip bootstrap.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Argv and output streams remain caller/process-owned. Bootstrap installs process-lifetime contributor adapters with no unregister or count cap; the selected command owns Program, temporary files, evaluator children or resident sessions and their release. The dispatcher returns that command's exit code and introduces no independent command-state cache, resource cap or cancellation deadline.
 func Main(args []string) int {
   return run(args)
 }
@@ -44,14 +44,14 @@ func Main(args []string) int {
 // process-global stdout or stderr. Native-only mutation and LSP commands retain
 // Main as their CLI entrypoint.
 //
-// @evidence contracts/common.md#principled-implementation Explicit output streams and browser-supported check/build/transform routes preserve invocation isolation; nil writers intentionally discard output and unavailable verbs fail.
+// @evidence contracts/common.md#principled-implementation Explicit command output streams and browser-supported check/build/transform routes preserve command writer ownership; nil writers discard command output and unavailable verbs fail. Shared bootstrap warnings remain a process-level channel.
 // @evidence contracts/common.md#clear-and-simple-design One browser dispatcher passes stream ownership directly to the existing project commands.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The narrower command surface is a documented host boundary rather than process-global stdout replacement.
-// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes browser-owned streams from native mutation and LSP commands; separated tags follow documentation guidance.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation MainWithIO performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms MainWithIO has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work MainWithIO keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources MainWithIO acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes command-owned streams, process-level bootstrap warnings and the native mutation/LSP entry; separated tags follow documentation guidance.
+// @evidence contracts/portability.md#os-neutral-implementation MainWithIO forwards argv elements rather than constructing shell text. Selected commands own native cwd/config/source paths, filesystem or process operations and host-specific representations; browser-supported routing and writer injection do not remove those delegated boundaries. This dispatcher neither guesses file identity from OS names nor rewrites path case.
+// @evidence contracts/performance.md#efficient-algorithms Command selection has a fixed set of verb branches plus input/output string bytes. Valid project routes also wait for shared contributor bootstrap, whose first execution inspects and sorts registered metadata and installs adapters, then pay the chosen command's parsing, project/config and diagnostic or emit work. No constant bound for the complete dispatched invocation is claimed.
+// @evidence contracts/performance.md#reuse-equivalent-work Valid routes share completed or in-flight contributor initialization through sync.Once because immutable init-time registries determine the same installed adapters. Each selected command retains its own config/Program reuse premises; returned exit codes or matching argv alone do not justify replaying effectful commands. Version and rejected verbs skip bootstrap.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Argv and output streams remain caller/process-owned. Bootstrap installs process-lifetime contributor adapters with no unregister or count cap; the selected command owns Program, temporary files, evaluator children or resident sessions and their release. The dispatcher returns that command's exit code and introduces no independent command-state cache, resource cap or cancellation deadline.
 func MainWithIO(args []string, stdout, stderr io.Writer) int {
   if stdout == nil {
     stdout = io.Discard
