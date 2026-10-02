@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 
 /**
- * Verifies a remote Swagger response is read only up to the document limit.
+ * Verifies remote Swagger admission accepts the byte limit and rejects overflow.
  *
  * A URL source has no stat to admit it, so the limit applies to the bytes the
  * stream actually delivers. A document exactly at the limit must load and one

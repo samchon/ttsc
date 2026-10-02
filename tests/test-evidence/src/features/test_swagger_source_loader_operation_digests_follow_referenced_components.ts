@@ -22,7 +22,7 @@ import { TestProject } from "../../../utils/src/TestProject";
  * @evidence contracts/testing.md#behavioral-verification Calls the authored loadSwaggerOperations source API on real files. A digest that covered only the written operation would not move when its referenced DTO changes, and a digest that covered the whole document would move for the unrelated sibling; both fail an assertion below.
  * @evidence contracts/testing.md#independent-expectations Operation identities, ordering and which operation must or must not move follow from the authored documents and the contract that an operation owns what it references. Digests are compared relationally and no hash value is computed from the implementation.
  * @evidence contracts/testing.md#distinguishing-cases The referenced-schema edit is the positive arm for POST and the negative arm for GET; the description edit is the converse. Reordered keys must leave both unchanged, a self-referencing schema must load and still distinguish an edit beneath it, and the path and duplicate-method documents are the malformed boundaries.
- * @evidence contracts/testing.md#execution-ownership The matching src/features export is discovered by test-evidence's runner and central function claim. It imports the maintained loader source and reads temporary files in the same Node process, installing no consumer and starting no compiler, Go host or product process.
+ * @evidence contracts/testing.md#execution-ownership The matching src/features export is discovered by test-evidence's runner and central function claim. It imports the maintained loader source and reads temporary files in the same Node process, installing no consumer and starting no compiler, Go host or product process. Each load records its own failure and leaves independent variants and malformed-source cases executable; comparisons blocked by a failed load are not treated as coverage.
  */
 export async function test_swagger_source_loader_operation_digests_follow_referenced_components(): Promise<void> {
   const { loadSwaggerOperations } = (await import(
@@ -74,33 +74,38 @@ export async function test_swagger_source_loader_operation_digests_follow_refere
   const load = async (
     name: string,
     value: unknown,
-  ): Promise<Record<string, string>> => {
-    fs.writeFileSync(path.join(root, name), JSON.stringify(value));
-    const result = await loadSwaggerOperations({ root, sources: [name] });
-    assert.deepEqual(result.problems, [], name);
-    assert.equal(result.documents.length, 1, name);
-    return Object.fromEntries(
-      result.documents[0]!.operations.map((operation) => [
-        `${operation.method} ${operation.path}`,
-        operation.digest,
-      ]),
-    );
+  ): Promise<Record<string, string> | undefined> => {
+    try {
+      fs.writeFileSync(path.join(root, name), JSON.stringify(value));
+      const result = await loadSwaggerOperations({ root, sources: [name] });
+      assert.deepEqual(result.problems, [], name);
+      assert.equal(result.documents.length, 1, name);
+      return Object.fromEntries(
+        result.documents[0]!.operations.map((operation) => [
+          `${operation.method} ${operation.path}`,
+          operation.digest,
+        ]),
+      );
+    } catch (cause) {
+      failures.push(new Error(`Swagger digest input failed: ${name}`, { cause }));
+      return undefined;
+    }
   };
   try {
     const baseline = await load("baseline.json", document(schemaOf("string")));
-    check(() =>
+    if (baseline) check(() =>
       assert.deepEqual(Object.keys(baseline), ["GET /sales", "POST /members"]),
     );
 
     const retyped = await load("retyped.json", document(schemaOf("number")));
-    check(() =>
+    if (retyped && baseline) check(() =>
       assert.notEqual(
         retyped["POST /members"],
         baseline["POST /members"],
         "an edit to the referenced schema must move the operation that references it",
       ),
     );
-    check(() =>
+    if (retyped && baseline) check(() =>
       assert.equal(
         retyped["GET /sales"],
         baseline["GET /sales"],
@@ -114,10 +119,10 @@ export async function test_swagger_source_loader_operation_digests_follow_refere
         responses: { "200": { description: "Changed" } },
       }),
     );
-    check(() =>
+    if (described && baseline) check(() =>
       assert.notEqual(described["GET /sales"], baseline["GET /sales"]),
     );
-    check(() =>
+    if (described && baseline) check(() =>
       assert.equal(described["POST /members"], baseline["POST /members"]),
     );
 
@@ -137,7 +142,7 @@ export async function test_swagger_source_loader_operation_digests_follow_refere
       "reordered.json",
       reversed(document(schemaOf("string"))),
     );
-    check(() => assert.deepEqual(reordered, baseline));
+    if (reordered && baseline) check(() => assert.deepEqual(reordered, baseline));
 
     const recursive = (type: string) =>
       schemaOf(type, { parent: { $ref: "#/components/schemas/IMember" } });
@@ -146,7 +151,7 @@ export async function test_swagger_source_loader_operation_digests_follow_refere
       "cyclic-edited.json",
       document(recursive("number")),
     );
-    check(() =>
+    if (cyclicEdited && cyclic) check(() =>
       assert.notEqual(
         cyclicEdited["POST /members"],
         cyclic["POST /members"],
