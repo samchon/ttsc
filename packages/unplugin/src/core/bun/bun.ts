@@ -131,6 +131,8 @@ export function bun(options?: TtscBunOptions): BunLikePlugin {
             undefined,
             cache,
             {
+              // The path this loader just read from disk is the file's own.
+              exactPath: true,
               watching: false,
               markVolatile: () => withdrawTtscTransformGenerations(cache),
             },

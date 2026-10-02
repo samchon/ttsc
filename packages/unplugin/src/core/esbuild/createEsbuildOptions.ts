@@ -135,6 +135,8 @@ export function createEsbuildOptions(
                 undefined,
                 cache,
                 {
+                  // esbuild's `path` is the file's own, its query held apart.
+                  exactPath: true,
                   project: {
                     register,
                     toolDirectory: hostToolDirectory(root),

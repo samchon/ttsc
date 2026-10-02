@@ -64,7 +64,9 @@ import { notifyWatchInputs } from "./watch/notifyWatchInputs";
  * mapped in the maintainer page
  * `website/src/content/docs/development/reference/unplugin-invalidation.mdx`.
  *
- * @param id - Bundler module id (may carry a query string or virtual prefix).
+ * @param id - Bundler module id (may carry a query string or virtual prefix),
+ *   or, with `hooks.exactPath`, a bare filesystem path that keeps every `?` and
+ *   `#` as part of its name.
  * @param source - Current file content supplied by the bundler.
  * @param options - Resolved plugin options.
  * @param aliases - Raw Vite alias configuration (object or array).
@@ -93,7 +95,8 @@ export async function transformTtsc(
   hooks?: TtscTransformHooks,
 ): Promise<TtscTransformResult | undefined> {
   const filesystem = transformFilesystem(cache);
-  const clean = stripQuery(id);
+  const exact = hooks?.exactPath === true;
+  const clean = exact ? id : stripQuery(id);
   if (clean.includes("\0")) {
     return undefined;
   }
@@ -101,7 +104,7 @@ export async function transformTtsc(
   // file's program: substituting the compiled program would change what the
   // import yields, and its text would poison the generation's baseline
   // (samchon/ttsc#1394).
-  if (isHostWrapperQuery(id)) {
+  if (!exact && isHostWrapperQuery(id)) {
     return undefined;
   }
   const file = path.resolve(clean);

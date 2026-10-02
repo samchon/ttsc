@@ -10,7 +10,6 @@ import { TtscCompileFailureError } from "../transform/errors/TtscCompileFailureE
 import { readTtscTransformSession } from "../transform/session/readTtscTransformSession";
 import { shareTtscTransformCache } from "../transform/session/shareTtscTransformCache";
 import { transformTtsc } from "../transform/transformTtsc";
-import { stripQuery } from "../transform/utils/stripQuery";
 import type { TtscProjectRegistration } from "../transform/watch/TtscProjectRegistration";
 import type { TtscTransformHooks } from "../transform/watch/TtscTransformHooks";
 import type { TtscTurbopackLoaderContext } from "./TtscTurbopackLoaderContext";
@@ -107,7 +106,9 @@ export function turbopack(
   source: string,
 ): void {
   const callback = this.async();
-  const file = stripQuery(this.resourcePath);
+  // The loader context's `resourcePath` is the file's own; its query is
+  // `resourceQuery`, so a `?` or `#` here belongs to a directory or file name.
+  const file = this.resourcePath;
   // The shared predicate itself, not a copy of part of it. A rule wider than
   // the four exact TypeScript source rules is natural for a mixed project, but
   // it used to route JavaScript and virtual ids into the whole-project
@@ -163,6 +164,7 @@ export function turbopack(
     refreshProjectRecordFiles(toolDirectory);
   }
   const hooks: TtscTransformHooks = {
+    exactPath: true,
     ...(addDependency === undefined
       ? {}
       : {

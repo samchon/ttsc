@@ -56,6 +56,17 @@ export interface TtscTransformHooks {
   membership?: boolean;
 
   /**
+   * Whether the delivered id is already a bare filesystem path, as esbuild,
+   * Bun and a webpack-style loader context hand it (`args.path`,
+   * `resourcePath`), with any query or hash held apart by the host. A `?` or
+   * `#` in such a path belongs to a directory or file name, so the transform
+   * uses the id as it is. Left unset, the id is a bundler module id (Vite,
+   * Rollup, webpack, Rspack, Farm) whose query and hash suffix is stripped and
+   * whose host-wrapper queries (`?raw`, `?url`) are left to the host.
+   */
+  exactPath?: boolean;
+
+  /**
    * Actual delivery lifecycle reported by the adapter. False identifies a
    * one-shot execution; true identifies watching, and absence leaves it
    * unknown. Fresh output with unavailable observations requires false plus
