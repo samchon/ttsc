@@ -139,9 +139,9 @@ type Doc struct {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The supplied string is real printer content rather than a consumer-specific expected result.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies verbatim semantics and the file contract explains width behavior; tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Text performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Text has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Text keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Text acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This constructor chooses no text-processing algorithm: copying the string descriptor and Kind is constant work, with no byte traversal or rendered output allocation. The printer owns later width measurement and output writing.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Text constructs a value, not a request coordinator or memoized render. The immutable string bytes are already shared; renderer width/options and layout effects belong to the printing owner.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned Doc keeps the supplied string storage reachable without copying its bytes; a substring may retain a larger backing string. The caller owns Doc/tree lifetime, and release of all references permits reclamation. No historical text cache, handle or task is created here.
 func Text(s string) Doc { return Doc{Kind: docText, Text: s} }
 
 // Line is the soft separator: space when flat, newline+indent when broken.
