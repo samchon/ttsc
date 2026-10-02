@@ -6,7 +6,7 @@ import "testing"
 // projection would overflow the column budget renders its Line as
 // newline+indent.
 //
-// This is the break branch — the entire premise of printWidth-style
+// This is the break branch, the premise of printWidth-style
 // reflow. The fixture uses a deliberately tight budget (printWidth=4)
 // so a two-fragment group is forced to break even though the flat
 // rendering would only be 7 characters wide.
