@@ -9,8 +9,8 @@ import (
 // the per-file input lists a producer reports and the subset of files whose
 // list is complete.
 //
-// A producer that declares nothing leaves both fields empty, so its envelope is
-// byte-identical to what it was before this existed. The lane with no linked
+// A producer that declares nothing leaves both fields empty, so its envelope
+// carries neither. The lane with no linked
 // plugin at all is the deliberate exception: nothing there can contribute to a
 // file, so every file is listed.
 //
@@ -58,8 +58,7 @@ type TransformDependencies struct {
 // With no linked plugin at all the contributor set is empty and every file is
 // complete with an empty list, which is the rule above stated for the lane that
 // has nothing but the host in it. A contributor that declares nothing leaves
-// every file unlisted, which is exactly the behaviour of every producer written
-// before this existed.
+// every file unlisted, the same as a producer that predates the declaration.
 //
 // An embedder that supplies LoadProgramOptions.SourcePreamble itself, rather
 // than obtaining it from a linked plugin, makes the same claim about that text

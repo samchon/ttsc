@@ -15,7 +15,7 @@ import (
 // transform path (utility-host `serve`) deliberately does not use it: the
 // linked-plugin pass mutates source ASTs in place, so a transform cannot reuse a
 // warm clean program and must rebuild a fresh one per edit. Session therefore
-// provides type-check reuse, not transform reuse (samchon/ttsc#255).
+// provides type-check reuse, not transform reuse.
 //
 // Construct one per project (cwd absolute), feed file edits through Apply, and
 // read the resident program's source through SourceText. Apply reuses the

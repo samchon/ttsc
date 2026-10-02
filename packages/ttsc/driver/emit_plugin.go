@@ -133,14 +133,11 @@ func (p *Program) EmitLinkedTransforms(writeFile shimcompiler.WriteFile) ([]Diag
 // because the emit context's update hook only records the original, it does not
 // copy `DeclarationBase.Symbol`.
 //
-// #201 added this against a real panic in the walk that
-// MarkLinkedReferencesRecursively used to run over the transformed tree. That
-// walk no longer happens here — the builtin chain is built from the parse tree
-// below — so the original trigger is gone, and no probe reproduces a panic with
-// this call stubbed out.
-//
-// Keep it anyway, because the remaining exposure is unproven rather than
-// absent. tsgo's own defense against a plugin-built node is ast.IsParseTreeNode,
+// It guards the walk MarkLinkedReferencesRecursively would run over a
+// transformed tree. That walk does not happen here, because the builtin chain
+// is built from the parse tree below, and no probe reproduces a panic with this
+// call stubbed out. The restoration stays because the remaining exposure is
+// unproven rather than absent. tsgo's own defense against a plugin-built node is ast.IsParseTreeNode,
 // which most EmitResolver reference methods test to bail out early — and a
 // REBUILT container does not trip it. The emit context stamps
 // NodeFlagsSynthesized when its factory creates a node, but ast.updateNode then
@@ -307,7 +304,7 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
       // trailer, and an `emitBOM` build its leading mark: the hand-assembled
       // emit pipeline does not run tsgo's emitter, so everything printSourceFile
       // would otherwise do around the printer has to happen here. With maps and
-      // emitBOM off this is the same bare-printer output as before.
+      // emitBOM off the output is the bare printer's.
       printed := shimcompiler.PrintFileWithSourceMap(ec, out.AsNode(), out, options, host, paths.JsFilePath(), paths.SourceMapFilePath())
       // A source-level preamble (e.g. @ttsc/banner linked into a typia host)
       // shifts the map's source coordinates; correct them here too, so the
@@ -404,8 +401,7 @@ func (p *Program) EmitWithPluginTransformers(transforms []PluginTransform, write
 //   - SourceMapUrlPos: the offset of the `//# sourceMappingURL=` trailer, or -1
 //     when none was written. PrintFileWithSourceMap records it exactly where
 //     printSourceFile does, so a consumer that relocates or rewrites the trailer
-//     works the same on both lanes. This is why a nil data was a real loss and
-//     not merely a cosmetic one.
+//     works the same on both lanes.
 //   - Diagnostics: always empty. The emitter's field carries its accumulated
 //     emitterDiagnostics, which on the JavaScript lane are its own write
 //     failures; here a write failure is returned as an `error` from
