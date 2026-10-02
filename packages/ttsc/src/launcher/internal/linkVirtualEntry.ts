@@ -4,23 +4,29 @@ import fs from "node:fs";
  * Mirror one directory entry of the project into ttsx's virtual layout.
  *
  * Directories become junctions on Windows and symlinks elsewhere; files are
- * hard-linked, or copied across devices. A symbolic link is re-linked as is,
- * except where Windows refuses file symlinks without a privilege: a link to a
- * directory becomes a junction, a link to a file falls back to a hard link or a
- * copy, and a dangling link is skipped because no fallback can materialize it.
+ * hard-linked, or copied when hard-link creation fails. On Windows a symbolic
+ * link whose target is observed as a directory becomes a junction. Other entries
+ * get a symlink to the original entry path, rather than a copy of its readlink
+ * text. If that creation fails on any host, an existsSync false result skips the
+ * entry; otherwise a hard-link attempt falls back to copying on failure. A
+ * dangling target can therefore be mirrored successfully or skipped after a
+ * failed symlink attempt. Failure alone does not identify a privilege error.
  *
- * Exported for direct exercise by the ttsx e2e suite: the Windows fallback
- * branches cannot be reached through a spawned run on CI, because creating a
- * file-symlink fixture needs the very privilege the fallback avoids.
+ * The launcher enumerates source entries and avoids known existing virtual
+ * entries before calling this operation. That is not an atomic destination
+ * reservation: a racing or direct caller can reach the copy fallback with an
+ * existing destination. Native copy defaults can replace its bytes. The runtime
+ * generation owner controls destination lifetime and cleanup; this operation
+ * retains no open descriptor or cleanup handle after returning.
  *
  * @evidence contracts/common.md#principled-implementation The entry kind selects a directory link, file hard-link/copy or symlink route; a missing target cannot be materialized by the file-copy fallback.
  * @evidence contracts/common.md#clear-and-simple-design One mirror operation owns link creation and its native fallback; the private target-kind helper only resolves directory symlinks.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Copying after an unavailable hard link and junctions after Windows symlink restrictions address supported filesystem differences; no test identity changes production behavior.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain alias/copy behavior, dangling targets and Windows privilege constraints, with acknowledgment tags separated from that explanation.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Windows directory targets select junctions directly; hard-link and final symlink failures trigger the documented native fallbacks without errno attribution. No test identity changes production behavior, and copy/skip outcomes retain their documented ownership and failure limits.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain link-to-original-path representation, failure-driven copy/absence behavior, destination replacement and caller-owned lifetime, with acknowledgment tags separated from that explanation.
  * @evidence contracts/portability.md#os-neutral-implementation Node filesystem APIs represent actual link/copy capabilities; Windows junction selection is explicit, while failed hard-link/symlink operations determine the fallback rather than guessed volume policy.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources linkVirtualEntry declares a signature only; the implementation owns acquisition and release of resources.
- * @evidenceExclude contracts/performance.md#efficient-algorithms linkVirtualEntry declares a signature only; the implementation owns the processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work linkVirtualEntry declares a signature only; the implementation owns any shared work.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous native operations leave no retained descriptor or in-memory entry history. Created links/files persist until the caller removes the virtual generation; copying can allocate the full target contents, with no byte quota at this boundary.
+ * @evidence contracts/performance.md#efficient-algorithms One entry selects a fixed number of native link/stat/existence attempts, without recursive directory enumeration. Copy fallback performs content-sized native work; path/target lookup and payload sizes are not capped by the entry count.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation establishes a caller-owned destination rather than coordinating an equivalent producer or caching native capability/target observations. Different destinations require their own materialization and current native failures select the fallback.
  */
 export function linkVirtualEntry(
   realEntry: string,
@@ -54,12 +60,10 @@ export function linkVirtualEntry(
     fs.symlinkSync(realEntry, virtualEntry, "junction");
     return;
   }
-  // Symlinks (and other special entries) are re-symlinked as-is. On Windows,
-  // a file symlink needs SeCreateSymbolicLinkPrivilege (admin or Developer
-  // Mode), so mirror the plain-file branch's hard-link/copy fallback instead
-  // of failing the run. A link whose target no longer exists is
-  // skipped: it can serve no module, and none of the fallbacks can
-  // materialize it without symlink privileges.
+  // Link to the original entry path, including for symlinks and special entries.
+  // Windows file-link privilege restrictions motivated the fallback, but any
+  // creation error reaches it on every host. Only after that failure does an
+  // existsSync false result skip the entry; otherwise attempt hard-link/copy.
   try {
     fs.symlinkSync(realEntry, virtualEntry);
   } catch {
