@@ -29,13 +29,10 @@ const (
 // HintTrigger is the declarative answer to "does this hint apply at the
 // cursor?".
 //
-// It must be declarative because the rule that produced it is gone. The lint
-// engine is a separate process that reloads the Program on every invocation, so
-// nothing can ask a rule a question per keystroke. A Go predicate is the obvious
-// API and is exactly the one that cannot ship: it does not survive the process
-// boundary. Every editor-assistance system that lets a rule answer live does so
-// in-process on a shared AST; this host cannot, so the corpus travels instead of
-// the question.
+// The corpus crosses the sidecar protocol as JSON. A Go predicate cannot be
+// serialized into the language-server proxy, which matches cached trigger
+// values locally for each cursor request. A resident sidecar may keep the rule
+// and Program alive; local matching does not depend on their process lifetime.
 //
 // The host matches a trigger against the current line up to the cursor: the hint
 // applies when the cursor sits inside Scope and the line prefix contains After.
@@ -43,8 +40,8 @@ const (
 // against, and the range the completion replaces. Two consequences to design
 // around:
 //
-// After must end exactly where the completed token begins — `"@evidence "` with
-// its trailing space, not `"@evidence"` — or the token swallows the separator
+// After must end exactly where the completed token begins: `"@evidence "` with
+// its trailing space, not `"@evidence"`, or the token swallows the separator
 // and nothing filters.
 //
 // When several triggers match one line, the occurrence nearest the cursor wins.
@@ -71,7 +68,7 @@ type HintTrigger struct {
 // Hint is one completion an editor may offer.
 //
 // It is a value, not a behavior: the host serializes the corpus and hands it to
-// the LSP proxy, which answers from cache long after the lint process exited. A
+// the LSP proxy, which answers cursor requests from its cached values. A
 // closure, a channel, or an AST node cannot be carried here, and that constraint
 // is the whole shape of the type.
 //
@@ -89,14 +86,13 @@ type Hint struct {
   // literal.
   Insert string `json:"insert"`
 
-  // Label is what the editor lists and filters on. Empty means Insert, which
-  // is the common case. Set it only when the two genuinely differ, and
-  // remember the filter is what the user typed AFTER the trigger: a Label
-  // repeating the trigger text will not prefix-match anything.
+  // Label is the editor display text. Empty means Insert, which is the common
+  // case. Matching and client-side filtering use Insert even when Label differs,
+  // so a friendly display label need not repeat a typed path prefix.
   Label string `json:"label,omitempty"`
 
   // Detail is a short annotation rendered beside Label. Use it for the fact
-  // distinguishing two similar entries — a heading's text, a count. It is not
+  // distinguishing two similar entries, such as heading text or a count. It is not
   // documentation: editors truncate it, so a sentence is wasted.
   Detail string `json:"detail,omitempty"`
 
@@ -106,17 +102,18 @@ type Hint struct {
   Trigger HintTrigger `json:"trigger"`
 }
 
-// HintContext is the read-only handle the host passes to Hints.
+// HintContext contains the resolved projection inputs the host passes to Hints.
+// Contributors treat these inputs as read-only.
 //
-// It carries State because a rule value is stateless: contributors register
-// `myRule{}`, not a pointer with fields, and the host owns everything Check
-// produced. Without State here, Hints could only ever return constants.
+// State carries the value Check published for this Program. Hints can project
+// that value without storing Program data in the registered rule object;
+// registration itself accepts both value and pointer rule implementations.
 //
 // @evidence contracts/common.md#principled-implementation Program identity, published state and resolved settings give the projection the same binding that Check established.
 // @evidence contracts/common.md#clear-and-simple-design The context groups the read-only projection inputs without adding another state owner.
-// @evidence contracts/common.md#prohibited-implementation-shortcuts Published state uses the supported context boundary rather than retaining a foreign Program or replacing host state.
+// @evidence contracts/common.md#prohibited-implementation-shortcuts The completed result supplies identity, published state and settings through the supported context; publication synthesizes no replacement Program and patches no host state.
 // @evidence contracts/common.md#meaningful-documentation Native comments explain state assertion and resolved configuration; paragraphs, member spacing and tags follow documentation guidance.
-// @evidenceExclude contracts/portability.md#os-neutral-implementation HintContext is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidence contracts/portability.md#os-neutral-implementation Identity retains the checked Program's host-resolved native logical/physical paths, cwd and optional origins. This input container preserves those channels; ProjectIdentity and the host own native resolution and spelling, and projection does not infer path case policy or recast paths as protocol URLs.
 // @evidenceExclude contracts/performance.md#efficient-algorithms HintContext is a declaration of data shape and chooses no algorithm or processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work HintContext is a declaration of data shape and coordinates no computation that could be shared.
 // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources HintContext is a declaration of data shape; the code that holds its values owns their lifetime.
