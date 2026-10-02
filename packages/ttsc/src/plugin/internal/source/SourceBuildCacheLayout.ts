@@ -113,14 +113,15 @@ export namespace SourceBuildCacheLayout {
   }
 
   /**
-   * Collect every single-file part (`CACHE_FILE_DIRNAMES`) of `root`.
+   * Apply the opportunistic collector to each single-file part
+   * (`CACHE_FILE_DIRNAMES`) of `root`.
    *
-   * @evidence contracts/common.md#principled-implementation Each declared answer-cache part receives the same single-file collector, so its contents are reclaimed independently of binary and runtime directories.
+   * @evidence contracts/common.md#principled-implementation Each declared answer-cache part receives the same single-file collector independently of binary and runtime directories; that owner decides interval admission, protection and tolerated deletion failure rather than this adapter guaranteeing reclamation.
    * @evidence contracts/common.md#clear-and-simple-design One loop over the layout's fixed part list centralizes maintenance dispatch.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The part list is the persisted layout contract, not a list of recognized projects or expected answers.
    * @evidence contracts/common.md#meaningful-documentation The native comment identifies the collected population and references the owning layout constant; tags follow a blank comment line.
    * @evidence contracts/portability.md#os-neutral-implementation path.join constructs native children; directory checks and deletion policy stay in the collector.
-   * @evidence contracts/performance.md#efficient-algorithms Dispatch is linear in the fixed part count; dominant work is the sum of their entry scans and optional sorts.
+   * @evidence contracts/performance.md#efficient-algorithms Dispatch visits the fixed part list and constructs native child paths with work proportional to their text. Admitted collectors additionally pay their metadata/filename scans and optional entry sorts; payload population is not bounded by the part count.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A maintenance pass has filesystem effects and cannot be reused merely because it returns void.
    *
