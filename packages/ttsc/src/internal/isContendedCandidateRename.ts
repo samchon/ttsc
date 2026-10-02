@@ -8,7 +8,7 @@
  * holds, or one it is deleting, as `EPERM` or `EACCES`. A holder that releases
  * between the failed rename and a later look at the destination leaves nothing
  * to see, so asking whether the destination exists would take the lost race for
- * a permission failure (samchon/ttsc#1582). The error alone decides.
+ * a permission failure. The error alone decides.
  *
  * @param error What the rename threw.
  *

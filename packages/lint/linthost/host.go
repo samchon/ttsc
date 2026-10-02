@@ -6,7 +6,7 @@
 // dependency the public proxy cannot satisfy and that conflicts with
 // ttsc's runtime-generated go.work overlay. Instead, this file inlines a
 // minimal Program/Checker bootstrap (the same pattern documented in
-// 03-tsgo.md and used by every other source-plugin reference fixture).
+// website/src/content/docs/development/concepts/tsgo.mdx).
 package linthost
 
 import (
@@ -82,8 +82,8 @@ type loadProgramOptions struct {
 
 // loadProgram parses the given tsconfig and builds a Program. When
 // needsRuleChecker is set, it also creates a standalone checker for lint rules.
-// Mirrors the canonical bootstrap pattern from
-// `03-tsgo.md` — the only ttsc-specific bit is that `forceEmit`/
+// Mirrors the canonical bootstrap pattern documented in
+// website/src/content/docs/development/concepts/tsgo.mdx — the only ttsc-specific bit is that `forceEmit`/
 // `forceNoEmit`/`outDir` overrides are merged into the parsed config
 // before the program is created so `--noEmit` and friends behave like
 // they do in `ttsc check`.

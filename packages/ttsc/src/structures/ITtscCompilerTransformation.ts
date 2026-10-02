@@ -160,7 +160,7 @@ export namespace ITtscCompilerTransformation {
 
   /**
    * Version 3 source map from one transformed file's text back to the text it
-   * was transformed from (samchon/ttsc#1392).
+   * was transformed from.
    *
    * `sources` are relative to the transformed file's directory, joined to
    * {@link sourceRoot} when one is set. `sourcesContent` carries the text each
@@ -341,8 +341,7 @@ export namespace ITtscCompilerTransformation {
      * to their binaries, by absolute path: each plugin's module root and each
      * contributor's source, with the digest of the files the build keyed its
      * binary on, as the build read them, together with the environment a build
-     * there is keyed on, its Go compiler, `go env`, and cgo's toolchain
-     * (samchon/ttsc#1487, samchon/ttsc#1493). ttsc's own sources, which change
+     * there is keyed on, its Go compiler, `go env`, and cgo's toolchain. ttsc's own sources, which change
      * only with ttsc itself, are not listed.
      *
      * A plugin's binary is keyed on its source and its environment, so every

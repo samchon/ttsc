@@ -28,11 +28,7 @@ import { id, print } from "../../internal/helpers";
 export const test_bundle_loop_variable_modifier_flags_and_placeholders =
   (): void => {
     const file = (name: string) =>
-      factory.createSourceFile(
-        [factory.createExpressionStatement(id(name))],
-        factory.createToken(SyntaxKind.EndOfFileToken),
-        0,
-      );
+      factory.createSourceFile([factory.createExpressionStatement(id(name))]);
     TestValidator.equals(
       "bundle",
       new TsPrinter().print(factory.createBundle([file("a"), file("b")])),

@@ -56,7 +56,7 @@ export interface ITtscPlugin {
    * read outside its module graph; `{}` declares that it read none. Only such a
    * descriptor, with a fingerprint for each {@link hostInputs} entry, has its
    * evaluation reused by a later launch, since ttsc cannot observe a plain `fs`
-   * read on every Node release it supports (samchon/ttsc#1561).
+   * read on every Node release it supports.
    */
   hostInputHashes?: Record<string, string | null>;
 

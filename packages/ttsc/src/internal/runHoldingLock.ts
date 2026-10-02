@@ -4,7 +4,7 @@
  *
  * A release that throws from a `finally` block replaced whatever the work
  * produced: a build that had published its binary failed, and a build that had
- * failed reported the release's error instead of its own (samchon/ttsc#1510).
+ * failed reported the release's error instead of its own.
  * The work's value is returned and its error is thrown as they were. A release
  * that still fails goes to `onReleaseFailure`, and the generation it left held
  * is reclaimed as abandoned once its owner exits, as any holder's is.

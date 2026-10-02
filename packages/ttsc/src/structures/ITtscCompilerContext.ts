@@ -91,7 +91,7 @@ export interface ITtscCompilerContext {
    * `ttsx` fallback), or the native compiler host used by
    * {@link TtscCompiler.compile}. `transformAsync` runs its whole transform on a
    * worker thread under the same merge, so its in-process work, such as the
-   * temporary directories it creates, follows it too (samchon/ttsc#1488).
+   * temporary directories it creates, follows it too.
    * Descriptor output is diagnostic text and is forwarded to stderr so it
    * cannot corrupt compiler/API protocol stdout.
    */

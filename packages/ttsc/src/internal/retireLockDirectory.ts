@@ -10,8 +10,7 @@ import type { RetireLockDirectoryOperations } from "./RetireLockDirectoryOperati
  * Windows refuses to rename a directory while any file below it is open, and
  * reports the refusal as `EPERM` or `EACCES` (or `EBUSY`). Every waiter of a
  * lock reads the holder's record inside the held generation, so a release that
- * overlaps one of those reads is refused for as long as the read lasts
- * (samchon/ttsc#1510). That refusal is transient; a lasting one, which the
+ * overlaps one of those reads is refused for as long as the read lasts. That refusal is transient; a lasting one, which the
  * filesystem's permissions would cause, is not. The two are told apart by
  * evidence rather than a time window: an empty directory, which no peer can
  * hold open, is renamed between the same two parents. When that probe renames,
