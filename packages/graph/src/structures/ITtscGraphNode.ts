@@ -16,10 +16,10 @@ import { TtscGraphNodeModifier } from "./TtscGraphNodeModifier";
  * @evidence contracts/common.md#clear-and-simple-design One node record groups identity, declaration shape and grounding while artifact parent and native flags remain optional facets.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Dynamic object members and non-enumerable types receive no fabricated outline or sampled literal set.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain stable identity, optional capability-backed facts and source-versus-implementation spans.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphNode declares a data shape or groups members and owns no handle, task or retained state.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphNode declares a data shape or groups members and chooses no algorithm.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphNode declares a data shape or groups members and coordinates no computation across requests.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphNode declares a data shape or groups members and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
  */
 export interface ITtscGraphNode {
   /** Position-invariant identity (see the interface doc for the id grammar). */
@@ -168,10 +168,10 @@ export namespace ITtscGraphNode {
    * @evidence contracts/common.md#clear-and-simple-design Two fields retain the callable spelling and value without minting a separate member node.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unfoldable values remain absent rather than receiving expected literals.
    * @evidence contracts/common.md#meaningful-documentation Native comments explain unqualified names and TypeScript source spelling of optional constants.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphNode.IEnumMember declares a data shape or groups members and owns no handle, task or retained state.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphNode.IEnumMember declares a data shape or groups members and chooses no algorithm.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphNode.IEnumMember declares a data shape or groups members and coordinates no computation across requests.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphNode.IEnumMember declares a data shape or groups members and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IEnumMember {
     /** The member's own name, unqualified (`Red` on `Colors.Red`). */
@@ -192,10 +192,10 @@ export namespace ITtscGraphNode {
    * @evidence contracts/common.md#clear-and-simple-design The outline stores only declaration presentation; relationships remain on graph nodes.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Spreads and unresolved computed names do not acquire invented member identities.
    * @evidence contracts/common.md#meaningful-documentation Comments document the property/method distinction, one-based line and compiler-snapshot signature.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscGraphNode.IObjectMember declares a data shape or groups members and owns no handle, task or retained state.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscGraphNode.IObjectMember declares a data shape or groups members and chooses no algorithm.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscGraphNode.IObjectMember declares a data shape or groups members and coordinates no computation across requests.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscGraphNode.IObjectMember declares a data shape or groups members and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
    */
   export interface IObjectMember {
     /** The source-visible static property name. */

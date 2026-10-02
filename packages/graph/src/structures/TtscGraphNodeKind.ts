@@ -12,10 +12,10 @@
  * @evidence contracts/common.md#clear-and-simple-design A single kind union is shared by node records instead of independent untyped classification strings.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Kinds express supported graph semantics, not fixture names or framework-specific categories.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain native-to-memory refinement and external leaves before the tags.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscGraphNodeKind declares a data shape or groups members and owns no handle, task or retained state.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscGraphNodeKind declares a data shape or groups members and chooses no algorithm.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscGraphNodeKind declares a data shape or groups members and coordinates no computation across requests.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphNodeKind declares a data shape or groups members and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
  */
 export type TtscGraphNodeKind =
   | "file"

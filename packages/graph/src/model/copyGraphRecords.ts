@@ -10,7 +10,7 @@ import type { TtscGraphReadonly } from "./TtscGraphReadonly";
  * @evidence contracts/performance.md#efficient-algorithms One structured clone copies the requested record population without repeated serialization or field-by-field intermediate copies.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The store owns continued shard reuse; a mutable output requires independent ownership rather than shared result aliases.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The detached result transfers to the caller and this helper retains no historical copies.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation copyGraphRecords operates on in-memory values and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation one structuredClone of in-memory records; no file, path or process is touched.
  */
 export function copyGraphRecords<T>(value: TtscGraphReadonly<T>): T {
   return structuredClone(value) as T;

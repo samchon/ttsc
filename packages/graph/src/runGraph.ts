@@ -27,9 +27,9 @@ const VERSION: string = (require("../package.json") as { version: string })
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A missing dump binary exposes only an explicitly qualified help summary; execution failures retain nonzero outcomes instead of fake graph answers.
  * @evidence contracts/common.md#meaningful-documentation Native lane bullets explain observable CLI behavior and resident refresh ownership with a blank line before tags.
  * @evidence contracts/portability.md#os-neutral-implementation Native lanes resolve the selected project's platform package and pass argv directly; stdio MCP uses Node transport APIs without shell path construction.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources runGraph hands every handle to its lane owner (startServer, runView or a synchronous dump child) and retains none itself.
- * @evidenceExclude contracts/performance.md#efficient-algorithms runGraph makes a bounded pass over its arguments and chooses no algorithm or data structure.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work runGraph computes its value from its arguments on each call and shares no completed or in-flight work.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources starts the stdio server (owned by startServer), runs a synchronous dump child to completion or hands over to runView, and keeps no handle itself.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms dispatches on the first argv token to one lane and the lanes own the work.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work runs one launcher lane per process invocation, so there is nothing to share.
  */
 export function runGraph(
   argv: readonly string[] = process.argv.slice(2),

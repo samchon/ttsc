@@ -22,7 +22,7 @@ import { DUMP_SCHEMA_VERSION } from "./loadGraph";
  * @evidenceExclude contracts/performance.md#efficient-algorithms apply owns staged validation and assembly algorithms; this declaration defines committed state.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work apply establishes permission to reuse unchanged shard payloads.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources apply owns population replacement and the session owns store retirement; the class declaration performs no independent lifecycle transition.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphShardStore declares a data shape or groups members and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation validates and assembles in-memory shard objects; no file, path or process.
  */
 export class TtscGraphShardStore {
   static readonly PROTOCOL_VERSION = 1;
@@ -51,7 +51,7 @@ export class TtscGraphShardStore {
    * @evidence contracts/performance.md#efficient-algorithms Map staging and manifest/ownership scans are linear in shards and facts; canonical hashes cost changed content bytes and deterministic dump sorting costs O(N log N + E log E).
    * @evidence contracts/performance.md#reuse-equivalent-work Unchanged frozen shard payloads retain their validated digest in the staged map; only upserts are rehashed, while the generation manifest validates continued membership and mutable output copies cannot change retained facts.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The store retains only the current manifest's shards and coordinates; commit drops removed payloads and rejection leaves the prior generation intact.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphShardStore.prototype.apply operates on in-memory values and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation validates and assembles shard objects in memory and hashes JSON text with node:crypto; no file, path or process.
    */
   apply(transaction: ITtscGraphSnapshot.ITransaction): ITtscGraphDump {
     this.assertCoordinates(transaction);
@@ -150,7 +150,7 @@ export class TtscGraphShardStore {
    * @evidence contracts/performance.md#efficient-algorithms Serialization preserves the wire object's insertion order, escapes Go-sensitive characters in one text pass and hashes the resulting bytes once.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This digest primitive computes one shard identity; apply coordinates continued reuse of validated payloads.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The digest string transfers to its caller and the canonical buffer is local to this computation.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphShardStore.shardDigest operates on in-memory values and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation hashes the canonical JSON text of one shard with node:crypto; no file, path or process.
    */
   static shardDigest(shard: ITtscGraphSnapshot.IShard): string {
     return digest(shard);

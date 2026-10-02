@@ -12,9 +12,9 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No global Error behavior is patched to classify launcher failures.
  * @evidence contracts/common.md#meaningful-documentation The native headline identifies the two supported causes without restating the class name.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Argument failure representation has no filesystem or process boundary.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GraphArgumentError declares a data shape or groups members and owns no handle, task or retained state.
- * @evidenceExclude contracts/performance.md#efficient-algorithms GraphArgumentError declares a data shape or groups members and chooses no algorithm.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work GraphArgumentError declares a data shape or groups members and coordinates no computation across requests.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources an Error subclass retains only its message and stack for the catcher.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms an Error subclass that only sets its name, so it runs no algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work an Error subclass holds no computation that could be shared.
  */
 export class GraphArgumentError extends Error {
   public constructor(message: string) {
@@ -39,9 +39,9 @@ export const PROJECT_OPTIONS: readonly ILauncherOption[] = [
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Every token must match a configured option; unknown input is not silently accepted for a known fixture.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains repeated options and argument failures, with tags separated by a blank comment line.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Token parsing interprets no path and invokes no native process; projectOptions handles path-bearing options later.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources parseLauncherOptions acquires no handle or task and retains nothing beyond its return value.
- * @evidenceExclude contracts/performance.md#efficient-algorithms parseLauncherOptions makes a bounded pass over its arguments and chooses no algorithm or data structure.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work parseLauncherOptions computes its value from its arguments on each call and shares no completed or in-flight work.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources builds a local Map that it returns and keeps no handle.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms one pass over argv with a Map of flag aliases, linear in the argument count.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work parses one argv per launch and caches nothing.
  */
 export function parseLauncherOptions(
   argv: readonly string[],
@@ -97,9 +97,9 @@ export function parseLauncherOptions(
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Defaults are public launcher conventions rather than named-repository exceptions.
  * @evidence contracts/common.md#meaningful-documentation Native prose documents defaults and resolution timing instead of only listing returned keys.
  * @evidence contracts/portability.md#os-neutral-implementation Node path.resolve applies the host's native path rules without manually concatenating separators.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources projectOptions acquires no handle or task and retains nothing beyond its return value.
- * @evidenceExclude contracts/performance.md#efficient-algorithms projectOptions makes a bounded pass over its arguments and chooses no algorithm or data structure.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work projectOptions computes its value from its arguments on each call and shares no completed or in-flight work.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a fresh value and keeps no handle or state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms resolves two values in constant time.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work two lookups per call, nothing worth sharing.
  */
 export function projectOptions(values: ParsedLauncherOptions): IProjectOptions {
   return {
@@ -120,9 +120,9 @@ export function projectOptions(values: ParsedLauncherOptions): IProjectOptions {
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Bounds are supplied by the option contract rather than expected fixture values.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains numeric domain and the distinction between missing state and invalid input.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Numeric option validation has no native filesystem or process operation.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources nonNegativeIntegerOption acquires no handle or task and retains nothing beyond its return value.
- * @evidenceExclude contracts/performance.md#efficient-algorithms nonNegativeIntegerOption makes a bounded pass over its arguments and chooses no algorithm or data structure.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work nonNegativeIntegerOption computes its value from its arguments on each call and shares no completed or in-flight work.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a number and retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms one digit-pattern test and one Number conversion of a single option value.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work validates one option value per call.
  */
 export function nonNegativeIntegerOption(
   values: ParsedLauncherOptions,
@@ -155,9 +155,9 @@ export function nonNegativeIntegerOption(
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Zero rejection follows the option domain, not a special expected command case.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the additional restriction and identifies the shared validator.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation The positivity restriction is a platform-independent numeric predicate.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources positiveIntegerOption acquires no handle or task and retains nothing beyond its return value.
- * @evidenceExclude contracts/performance.md#efficient-algorithms positiveIntegerOption makes a bounded pass over its arguments and chooses no algorithm or data structure.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work positiveIntegerOption computes its value from its arguments on each call and shares no completed or in-flight work.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a number and retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms delegates to nonNegativeIntegerOption and compares the result with zero.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work validates one option value per call.
  */
 export function positiveIntegerOption(
   values: ParsedLauncherOptions,

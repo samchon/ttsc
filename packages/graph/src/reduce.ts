@@ -207,7 +207,7 @@ function displayKind(kind: string): string {
  * @evidence contracts/performance.md#efficient-algorithms Node/edge scans and degree maps cost O(N+E); degree selection sorts at most N nodes, adding O(N log N), with temporary maps/arrays proportional to the input.
  * @evidence contracts/performance.md#reuse-equivalent-work Within one projection, indexed live/kept id sets and degree maps serve multiple filters; callers share the resulting payload across render requests rather than repeat reduction.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Temporary arrays and indexes become unreachable after return; the caller owns only selected DTO arrays and counts, with selected populations bounded by maxNodes and induced edges.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation reduce rewrites path spellings as text and performs no filesystem or process operation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation rewrites path strings as text (separators and common root); it never opens, stats or resolves them.
  */
 export function reduce(
   raw: RawDump,

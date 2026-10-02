@@ -23,10 +23,10 @@ import { ITtscGraphApplication } from "../structures/ITtscGraphApplication";
  * @evidence contracts/common.md#clear-and-simple-design The integration delegates registration and result serialization to the library instead of maintaining another transport implementation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Handshake version uses the public createMcpServer option; no SDK private field or foreign method is patched.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain schema/JSDoc reflection, structured-result ownership and public version configuration.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources createServer returns a server whose lifetime its caller owns and retains nothing itself.
- * @evidenceExclude contracts/performance.md#efficient-algorithms createServer makes a bounded pass over its arguments and chooses no algorithm or data structure.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work createServer computes its value from its arguments on each call and shares no completed or in-flight work.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation createServer operates on in-memory values and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a server whose transport lifetime startServer owns.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms builds the MCP server once from the typia controller, with no loop of its own.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work called once per process; the schema reflection happens at compile time.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation creates an in-memory MCP server object; startServer attaches the stdio transport.
  */
 export function createServer(
   graph: TtscGraphSource,

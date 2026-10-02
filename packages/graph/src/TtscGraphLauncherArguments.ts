@@ -15,9 +15,9 @@ import {
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual facades consume these operations without alternate test entrypoints, executable stand-ins or weakened grammar.
  * @evidence contracts/common.md#meaningful-documentation Member prose identifies coordinate defaults, argv preservation and native completion ownership needed by the facades.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation The namespace groups contracts; its members own native path and process-value representation.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscGraphLauncherArguments declares a data shape or groups members and owns no handle, task or retained state.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscGraphLauncherArguments declares a data shape or groups members and chooses no algorithm.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscGraphLauncherArguments declares a data shape or groups members and coordinates no computation across requests.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns plain values and holds no handle.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms groups launcher parsers and completion mappers that each do bounded work.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work its members run once per launcher invocation, so nothing is shared.
  */
 export namespace TtscGraphLauncherArguments {
   /**
@@ -28,9 +28,9 @@ export namespace TtscGraphLauncherArguments {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Existing public flag and result contracts are used by actual facades without fixture branches or a synthetic producer.
    * @evidence contracts/common.md#meaningful-documentation The native headline states this operation's input/result ownership and relevant absence/default meaning.
    * @evidence contracts/portability.md#os-neutral-implementation Project normalization delegates to Node path.resolve; selected config spelling remains intact, with no shell or separator rewriting.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscGraphLauncherArguments.project acquires no handle or task and retains nothing beyond its return value.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms TtscGraphLauncherArguments.project makes a bounded pass over its arguments and chooses no algorithm or data structure.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscGraphLauncherArguments.project computes its value from its arguments on each call and shares no completed or in-flight work.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a fresh value and keeps no handle or state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms one parseLauncherOptions pass over argv plus a path.resolve.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work parses argv once per process start.
    */
   export function project(argv: readonly string[]): IProjectOptions {
     return projectOptions(parseLauncherOptions(argv, PROJECT_OPTIONS));
@@ -44,9 +44,9 @@ export namespace TtscGraphLauncherArguments {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Existing public flag and result contracts are used by actual facades without fixture branches or a synthetic producer.
    * @evidence contracts/common.md#meaningful-documentation The native headline states this operation's input/result ownership and relevant absence/default meaning.
    * @evidence contracts/portability.md#os-neutral-implementation Project normalization delegates to Node path.resolve; selected config spelling remains intact, with no shell or separator rewriting.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscGraphLauncherArguments.dump acquires no handle or task and retains nothing beyond its return value.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms TtscGraphLauncherArguments.dump makes a bounded pass over its arguments and chooses no algorithm or data structure.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscGraphLauncherArguments.dump computes its value from its arguments on each call and shares no completed or in-flight work.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a fresh value and keeps no handle or state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms one parseLauncherOptions pass over argv plus a path.resolve.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work parses argv once per process start.
    */
   export function dump(argv: readonly string[]): IProjectOptions & { artifactsSpecified: boolean } {
     const values = parseLauncherOptions(argv, DUMP_OPTIONS);
@@ -61,9 +61,9 @@ export namespace TtscGraphLauncherArguments {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Existing public flag and result contracts are used by actual facades without fixture branches or a synthetic producer.
    * @evidence contracts/common.md#meaningful-documentation The native headline states this operation's input/result ownership and relevant absence/default meaning.
    * @evidence contracts/portability.md#os-neutral-implementation Project normalization delegates to Node path.resolve; selected config spelling remains intact, with no shell or separator rewriting.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscGraphLauncherArguments.view acquires no handle or task and retains nothing beyond its return value.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms TtscGraphLauncherArguments.view makes a bounded pass over its arguments and chooses no algorithm or data structure.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscGraphLauncherArguments.view computes its value from its arguments on each call and shares no completed or in-flight work.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a fresh value and keeps no handle or state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms one parse pass over argv and up to two integer validations.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work parses argv once per process start.
    */
   export function view(argv: readonly string[]): IViewOptions {
     const values = parseLauncherOptions(argv, [
@@ -89,9 +89,9 @@ export namespace TtscGraphLauncherArguments {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Existing public flag and result contracts are used by actual facades without fixture branches or a synthetic producer.
    * @evidence contracts/common.md#meaningful-documentation The native headline states this operation's input/result ownership and relevant absence/default meaning.
    * @evidence contracts/portability.md#os-neutral-implementation Separate argv elements preserve path and equals-form spelling exactly for Node spawn, without shell quoting.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscGraphLauncherArguments.dumpVector acquires no handle or task and retains nothing beyond its return value.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms TtscGraphLauncherArguments.dumpVector makes a bounded pass over its arguments and chooses no algorithm or data structure.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscGraphLauncherArguments.dumpVector computes its value from its arguments on each call and shares no completed or in-flight work.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a fresh value and keeps no handle or state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms one parse pass over argv and a copy of it with at most two appended entries.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work builds one argv per spawn.
    */
   export function dumpVector(argv: readonly string[], artifacts: string | null): string[] {
     const values = parseLauncherOptions(argv, DUMP_OPTIONS);
@@ -106,9 +106,9 @@ export namespace TtscGraphLauncherArguments {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Existing public flag and result contracts are used by actual facades without fixture branches or a synthetic producer.
    * @evidence contracts/common.md#meaningful-documentation The native headline states this operation's input/result ownership and relevant absence/default meaning.
    * @evidence contracts/portability.md#os-neutral-implementation Node error and nullable numeric status are preserved as native result representations, with no platform shell exit interpretation.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscGraphLauncherArguments.dumpCompletion acquires no handle or task and retains nothing beyond its return value.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms TtscGraphLauncherArguments.dumpCompletion makes a bounded pass over its arguments and chooses no algorithm or data structure.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscGraphLauncherArguments.dumpCompletion computes its value from its arguments on each call and shares no completed or in-flight work.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a small record and retains nothing.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms reads two fields of the spawn result in constant time.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work maps one spawn result once.
    */
   export function dumpCompletion(result: { error?: Error; status: number | null }): { code: number; diagnostic?: string } {
     if (result.error) return { code: 1, diagnostic: `@ttsc/graph: ${result.error.message}\n` };
@@ -125,9 +125,9 @@ export namespace TtscGraphLauncherArguments {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The qualified help summary names the native authority and its possible drift; no graph fact or native success is fabricated.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes missing-install help from installed authoritative help and ordinary missing-install failure.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation This completion maps already parsed tokens to fixed text and numeric code, without filesystem or process operations.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscGraphLauncherArguments.missingDump acquires no handle or task and retains nothing beyond its return value.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms TtscGraphLauncherArguments.missingDump makes a bounded pass over its arguments and chooses no algorithm or data structure.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscGraphLauncherArguments.missingDump computes its value from its arguments on each call and shares no completed or in-flight work.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a small record of strings and retains nothing.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms tests argv against three help spellings and returns a constant summary or message.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work answers once per failed binary resolution.
    */
   export function missingDump(argv: readonly string[]): { code: 0 | 1; stdout?: string; stderr?: string } {
     if (argv.some((argument) => DUMP_HELP_FLAGS.has(argument)))

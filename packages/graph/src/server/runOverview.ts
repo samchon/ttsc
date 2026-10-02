@@ -24,7 +24,7 @@ const STRUCTURAL_KINDS = new Set<string>(["contains", "exports"]);
  * @evidence contracts/performance.md#efficient-algorithms Counts scan nodes once; selected facets scan their node/edge populations and sort candidate summaries, with dominant O(V log V + E) work for all facets.
  * @evidence contracts/performance.md#reuse-equivalent-work All facets borrow generation indexes; completed facet memoization is not implemented, so repeated requests recompute caller-owned mutable summaries.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Folder maps, candidate summaries and sets are local to one request; output facets are capped and no history or handles are retained.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation runOverview operates on in-memory values and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation counts and ranks in-memory nodes and edges; no file, path or process.
  */
 export function runOverview(
   graph: TtscGraphMemory,

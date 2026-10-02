@@ -35,7 +35,7 @@ type SnapshotEdge = TtscGraphReadonly<ITtscGraphEdge>;
  * @evidenceExclude contracts/performance.md#efficient-algorithms from owns index construction and its private synthesis/constructor helpers; this class declaration describes the resulting representation.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work from establishes one shared generation; the declaration does not independently coordinate requests.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources from transfers generation storage to its caller; session/caller release owns its duration rather than this declaration.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphMemory declares a data shape or groups members and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation an in-memory index over parsed facts; the source reader it owns is the only file reader.
  */
 export class TtscGraphMemory {
   private readonly byId: Map<string, SnapshotNode>;
@@ -121,7 +121,7 @@ export class TtscGraphMemory {
    * @evidence contracts/performance.md#efficient-algorithms Synthesis indexes nodes by file and handle, scanning only colliding owner buckets once per member; owned snapshot copying and index construction scan nodes, edges and facets; per-node target sets make citation deduplication linear in tag population without repeatedly scanning carrier buckets.
    * @evidence contracts/performance.md#reuse-equivalent-work One model builds all indexes once over owned frozen facts and buckets, so external mutation cannot invalidate shared generation identity.
    * @evidence contracts/performance.md#bound-retention-and-release-resources The model retains node/edge arrays, lookup indexes and source cache proportional to its generation; the session or direct caller releases the whole model when no longer needed.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphMemory.from operates on in-memory values and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation builds indexes from a parsed dump object and reads no file; source text goes through TtscGraphSourceReader.
    */
   static from(dump: ITtscGraphDump): TtscGraphMemory {
     const { nodes, edges } = copyGraphSnapshot(synthesize(dump));
@@ -138,7 +138,7 @@ export class TtscGraphMemory {
    * @evidence contracts/performance.md#efficient-algorithms Exact identity requires one construction-time map lookup and no node scan.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The accessor borrows a completed id index; from owns shared construction.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returning an existing node acquires no handle or independent retained entry.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphMemory.prototype.node operates on in-memory values and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation one Map lookup over in-memory facts.
    */
   node(id: string): SnapshotNode | undefined {
     return this.byId.get(id);
@@ -154,7 +154,7 @@ export class TtscGraphMemory {
    * @evidence contracts/performance.md#efficient-algorithms A map lookup returns the outgoing bucket without traversing unrelated edges.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work from owns the reused adjacency computation; the accessor only borrows its result.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Existing buckets remain generation-owned; the accessor acquires no separate resource.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphMemory.prototype.outgoing operates on in-memory values and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation one Map lookup over in-memory edges.
    */
   outgoing(id: string): readonly SnapshotEdge[] {
     return this.outEdges.get(id) ?? [];
@@ -170,7 +170,7 @@ export class TtscGraphMemory {
    * @evidence contracts/performance.md#efficient-algorithms A map lookup returns the incoming bucket without scanning graph edges.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This accessor borrows the index already shared by from rather than coordinating another producer.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It retains no state beyond the generation's existing edge bucket.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphMemory.prototype.incoming operates on in-memory values and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation one Map lookup over in-memory edges.
    */
   incoming(id: string): readonly SnapshotEdge[] {
     return this.inEdges.get(id) ?? [];
@@ -186,7 +186,7 @@ export class TtscGraphMemory {
    * @evidence contracts/performance.md#efficient-algorithms Exact-name lookup performs one map access instead of filtering all nodes.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Name-index construction and validity belong to from, not this borrowed bucket lookup.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned bucket remains generation-owned with no separately retained cache or handle.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphMemory.prototype.named operates on in-memory values and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation one Map lookup over in-memory facts.
    */
   named(name: string): readonly SnapshotNode[] {
     return this.byNameIndex.get(name) ?? [];
@@ -205,7 +205,7 @@ export class TtscGraphMemory {
    * @evidence contracts/performance.md#efficient-algorithms Both simple and qualified handles use the construction-time symbol index, so this accessor performs one map lookup without scanning candidates.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This borrows one already-built symbol bucket; model construction owns shared work.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Existing candidates remain frozen generation-owned records in a borrowed bucket; the accessor acquires no separate resource or retained entry.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphMemory.prototype.symbols operates on in-memory values and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation one Map lookup over in-memory facts.
    */
   symbols(handle: string): readonly SnapshotNode[] {
     return this.bySymbolIndex.get(handle) ?? [];
@@ -224,7 +224,7 @@ export class TtscGraphMemory {
    * @evidence contracts/performance.md#efficient-algorithms One O(V) filter over generation nodes selects exported nonexternal declarations; no separate export-flag index is built.
    * @evidence contracts/performance.md#reuse-equivalent-work Completed exported-list memoization is not implemented; every call returns a new mutable array over the shared generation nodes.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The projected array belongs to its caller; this method retains no separate state.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphMemory.prototype.exported operates on in-memory values and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation filters the in-memory node array; no file, path or process.
    */
   exported(): SnapshotNode[] {
     return this.nodes.filter((n) => n.exported && !n.external);
@@ -253,7 +253,7 @@ export class TtscGraphMemory {
    * @evidence contracts/performance.md#efficient-algorithms Reverse citation lookup uses the constructed target index instead of scanning all tags per request.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The accessor borrows the shared citation index; from owns synthesis and its validity key.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It returns an existing readonly carrier list and acquires no resource or historical cache.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphMemory.prototype.citing operates on in-memory values and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation one Map lookup over in-memory facts.
    */
   citing(target: string): readonly SnapshotNode[] {
     return this.byDocTagTarget.get(target) ?? [];
@@ -309,7 +309,7 @@ function docTagTargetsOf(node: SnapshotNode): string[] {
  * @evidence contracts/performance.md#efficient-algorithms Leading-token extraction and address classification scan only the tag text, with no graph-wide lookup.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure token classifier has no completed-work coordinator; from builds the reusable citation index.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The optional returned string owns no native resource or retained history.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation documentationTarget operates on in-memory values and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation tokenizes a tag string; the address it returns is text that is never resolved or opened.
  */
 export function documentationTarget(
   text: string | undefined,
@@ -339,7 +339,7 @@ export function documentationTarget(
  * @evidence contracts/performance.md#efficient-algorithms A single bounded text scan finds the token boundary without constructing a parser or scanning unrelated tags.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure per-string extraction does not coordinate reusable producer work.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the returned token survives the call; no retained map or handle is acquired.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation leadingToken operates on in-memory values and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation splits a string at whitespace or a brace group; the token is never resolved or opened.
  */
 export function leadingToken(text: string | undefined): string | undefined {
   const trimmed = text?.trim();

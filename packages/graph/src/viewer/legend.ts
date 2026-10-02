@@ -14,10 +14,10 @@
  * @evidence contracts/common.md#clear-and-simple-design The boundary exposes only required DOM capabilities, keeping legend construction independent of renderer startup.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Browser elements are supplied structurally without patching DOM globals or adding test-dependent rendering logic.
  * @evidence contracts/common.md#meaningful-documentation Native members identify class/style mutation and node insertion semantics rather than framing production behavior as a test utility.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources LegendElement declares a data shape or groups members and owns no handle, task or retained state.
- * @evidenceExclude contracts/performance.md#efficient-algorithms LegendElement declares a data shape or groups members and chooses no algorithm.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work LegendElement declares a data shape or groups members and coordinates no computation across requests.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation LegendElement describes browser DOM capabilities and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources signature only: the implementer owns any handle or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms signature only: the implementer owns the algorithm and its cost.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work signature only: the implementer decides what work is shared.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation signature only: the implementer owns any path or process work.
  */
 export interface LegendElement {
   /** CSS class assignment for generated swatches and their containers. */
@@ -36,10 +36,10 @@ export interface LegendElement {
    * @evidence contracts/common.md#clear-and-simple-design One required insertion capability supplies swatch content without a larger element wrapper.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Implementations use the host's normal append operation rather than monkey-patching document behavior.
    * @evidence contracts/common.md#meaningful-documentation Native prose states insertion order and accepted browser content categories.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources LegendElement.append acquires no handle or task and retains nothing beyond its return value.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms LegendElement.append makes a bounded pass over its arguments and chooses no algorithm or data structure.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work LegendElement.append computes its value from its arguments on each call and shares no completed or in-flight work.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation LegendElement.append describes browser DOM capabilities and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources signature only: the implementer owns any handle or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms signature only: the implementer owns the algorithm and its cost.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work signature only: the implementer decides what work is shared.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation signature only: the implementer owns any path or process work.
    */
   append(...nodes: unknown[]): void;
 
@@ -51,10 +51,10 @@ export interface LegendElement {
    * @evidence contracts/common.md#clear-and-simple-design The host owns child insertion; legend construction does not rebuild the footer.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Existing markup is preserved instead of replaced with fixture-specific HTML.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains ordering relative to existing children.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources LegendElement.prepend acquires no handle or task and retains nothing beyond its return value.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms LegendElement.prepend makes a bounded pass over its arguments and chooses no algorithm or data structure.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work LegendElement.prepend computes its value from its arguments on each call and shares no completed or in-flight work.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation LegendElement.prepend describes browser DOM capabilities and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources signature only: the implementer owns any handle or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms signature only: the implementer owns the algorithm and its cost.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work signature only: the implementer decides what work is shared.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation signature only: the implementer owns any path or process work.
    */
   prepend(...nodes: unknown[]): void;
 }
@@ -66,10 +66,10 @@ export interface LegendElement {
  * @evidence contracts/common.md#clear-and-simple-design Two capabilities avoid coupling the legend to the full browser document or 3D scene.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The host is injected through the supported structural boundary without mutating document globals.
  * @evidence contracts/common.md#meaningful-documentation Native method comments explain lookup absence and returned element ownership.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources LegendDocument declares a data shape or groups members and owns no handle, task or retained state.
- * @evidenceExclude contracts/performance.md#efficient-algorithms LegendDocument declares a data shape or groups members and chooses no algorithm.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work LegendDocument declares a data shape or groups members and coordinates no computation across requests.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation LegendDocument describes browser DOM capabilities and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources signature only: the implementer owns any handle or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms signature only: the implementer owns the algorithm and its cost.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work signature only: the implementer decides what work is shared.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation signature only: the implementer owns any path or process work.
  */
 export interface LegendDocument {
   /**
@@ -79,10 +79,10 @@ export interface LegendDocument {
    * @evidence contracts/common.md#clear-and-simple-design One host lookup avoids global document access inside the renderer-independent legend.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing markup is not fabricated by replacing document APIs.
    * @evidence contracts/common.md#meaningful-documentation Native prose specifies id lookup and null absence.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources LegendDocument.getElementById acquires no handle or task and retains nothing beyond its return value.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms LegendDocument.getElementById makes a bounded pass over its arguments and chooses no algorithm or data structure.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work LegendDocument.getElementById computes its value from its arguments on each call and shares no completed or in-flight work.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation LegendDocument.getElementById describes browser DOM capabilities and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources signature only: the implementer owns any handle or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms signature only: the implementer owns the algorithm and its cost.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work signature only: the implementer decides what work is shared.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation signature only: the implementer owns any path or process work.
    */
   getElementById(id: string): LegendElement | null;
 
@@ -93,10 +93,10 @@ export interface LegendDocument {
    * @evidence contracts/common.md#clear-and-simple-design Creation is separate from placement so one host can serve all generated swatches.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The contract does not substitute serialized fixture markup for actual element construction.
    * @evidence contracts/common.md#meaningful-documentation Native prose states the tag input and unattached ownership boundary.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources LegendDocument.createElement acquires no handle or task and retains nothing beyond its return value.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms LegendDocument.createElement makes a bounded pass over its arguments and chooses no algorithm or data structure.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work LegendDocument.createElement computes its value from its arguments on each call and shares no completed or in-flight work.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation LegendDocument.createElement describes browser DOM capabilities and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources signature only: the implementer owns any handle or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms signature only: the implementer owns the algorithm and its cost.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work signature only: the implementer decides what work is shared.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation signature only: the implementer owns any path or process work.
    */
   createElement(tag: string): LegendElement;
 }
@@ -170,10 +170,10 @@ const rendered = new WeakSet<LegendElement>();
  * @evidence contracts/common.md#clear-and-simple-design This DOM-only module is separate from fetch/3D startup; element construction and insertion stay with the injected document boundary.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Legend names and colors derive from the rendering vocabulary rather than repeated fixture-specific markup.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain map ownership and insertion before the static note, with typed host capabilities documented separately.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources renderLegend acquires no handle or task and retains nothing beyond its return value.
- * @evidenceExclude contracts/performance.md#efficient-algorithms renderLegend makes a bounded pass over its arguments and chooses no algorithm or data structure.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work renderLegend computes its value from its arguments on each call and shares no completed or in-flight work.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation renderLegend describes browser DOM capabilities and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources the WeakSet holds the footer element weakly and the function opens no handle.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms one map over the five link colors.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work a WeakSet guard skips a legend that is already rendered, which is the only work it shares.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation builds DOM nodes through the supplied document; no file, path or process.
  */
 export function renderLegend(host: LegendDocument): void {
   const legend = host.getElementById("legend");

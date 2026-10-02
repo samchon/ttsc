@@ -7,10 +7,10 @@ import { ITtscGraphNext } from "../structures/ITtscGraphNext";
  * @evidence contracts/common.md#clear-and-simple-design Shared control metadata wraps runner-specific facts without copying all result unions here.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Member caps are explicit so audits cannot silently claim completeness after omission.
  * @evidence contracts/common.md#meaningful-documentation Native member paragraphs explain next guidance and the capped-member audit consequence.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IRunnerOutput declares a data shape or groups members and owns no handle, task or retained state.
- * @evidenceExclude contracts/performance.md#efficient-algorithms IRunnerOutput declares a data shape or groups members and chooses no algorithm.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work IRunnerOutput declares a data shape or groups members and coordinates no computation across requests.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation IRunnerOutput declares a data shape or groups members and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
  */
 export interface IRunnerOutput<T> {
   /** The graph result structure. */
@@ -35,10 +35,10 @@ export interface IRunnerOutput<T> {
  * @evidence contracts/common.md#clear-and-simple-design One constructor centralizes omission of absent request metadata without owning runner policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The helper does not infer question intent or add a forced follow-up operation.
  * @evidence contracts/common.md#meaningful-documentation Native prose states caller policy ownership and conditional field omission.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources resultNext acquires no handle or task and retains nothing beyond its return value.
- * @evidenceExclude contracts/performance.md#efficient-algorithms resultNext makes a bounded pass over its arguments and chooses no algorithm or data structure.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work resultNext computes its value from its arguments on each call and shares no completed or in-flight work.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation resultNext operates on in-memory values and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a plain object and retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms builds one small object.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work pure constructor, nothing to share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation builds a plain object; no file, path or process.
  */
 export function resultNext(
   action: ITtscGraphNext["action"],

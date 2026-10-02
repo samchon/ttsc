@@ -26,10 +26,10 @@
  * @evidence contracts/common.md#clear-and-simple-design One shared relation vocabulary keeps producers and projections aligned without a second generic relation taxonomy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Documentation links remain compiler uses; dispatch follows actual implementation relations rather than guessing runtime calls.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain structural, documentation and dispatch relationships and their producer boundaries.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscGraphEdgeKind declares a data shape or groups members and owns no handle, task or retained state.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscGraphEdgeKind declares a data shape or groups members and chooses no algorithm.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscGraphEdgeKind declares a data shape or groups members and coordinates no computation across requests.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscGraphEdgeKind declares a data shape or groups members and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources data shape only: it holds no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms data shape only: it contains no loop or algorithm.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work data shape only: it computes nothing another request could share.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation data shape only: it touches no file, path or process.
  */
 export type TtscGraphEdgeKind =
   | "contains"

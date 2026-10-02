@@ -31,9 +31,9 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Resolution uses installed package contracts rather than guessing binary paths from repository layouts.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs and the ordered list explain peer placement, override precedence and target-project anchoring.
  * @evidence contracts/portability.md#os-neutral-implementation Native path checks and module resolution select the platform/architecture package; only Windows's required executable suffix differs explicitly.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources resolveGraphBinary acquires no handle or task and retains nothing beyond its return value.
- * @evidenceExclude contracts/performance.md#efficient-algorithms resolveGraphBinary makes a bounded pass over its arguments and chooses no algorithm or data structure.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work resolveGraphBinary computes its value from its arguments on each call and shares no completed or in-flight work.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources returns a path string and opens no handle.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms performs a constant number of module resolutions (ttsc, then its platform package).
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work resolves on every call and caches nothing, so a reinstall between calls is honored.
  */
 export function resolveGraphBinary(
   env: NodeJS.ProcessEnv = process.env,

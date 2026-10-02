@@ -5,10 +5,10 @@
  * @evidence contracts/common.md#clear-and-simple-design One handle groups two descriptors with read and disposal operations owned by the same capture.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts File capture avoids a guessed pipe ceiling without modifying spawnSync internals.
  * @evidence contracts/common.md#meaningful-documentation Native member comments state stream selection, caller ownership and the cleanup boundary.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CapturedProcessOutput declares a data shape or groups members and owns no handle, task or retained state.
- * @evidenceExclude contracts/performance.md#efficient-algorithms CapturedProcessOutput declares a data shape or groups members and chooses no algorithm.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work CapturedProcessOutput declares a data shape or groups members and coordinates no computation across requests.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation CapturedProcessOutput declares a data shape or groups members and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources signature only: the implementer owns any handle or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms signature only: the implementer owns the algorithm and its cost.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work signature only: the implementer decides what work is shared.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation signature only: the implementer owns any path or process work.
  */
 export interface CapturedProcessOutput {
   /**
@@ -19,10 +19,10 @@ export interface CapturedProcessOutput {
    * @evidence contracts/common.md#clear-and-simple-design Cleanup is one owned operation rather than independent caller-managed paths.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Cleanup preserves the child outcome instead of replacing it with a secondary removal error.
    * @evidence contracts/common.md#meaningful-documentation Native prose states invocation timing, failure coverage and best-effort removal.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CapturedProcessOutput.dispose acquires no handle or task and retains nothing beyond its return value.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms CapturedProcessOutput.dispose makes a bounded pass over its arguments and chooses no algorithm or data structure.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work CapturedProcessOutput.dispose computes its value from its arguments on each call and shares no completed or in-flight work.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation CapturedProcessOutput.dispose operates on in-memory values and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources signature only: the implementer owns any handle or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms signature only: the implementer owns the algorithm and its cost.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work signature only: the implementer decides what work is shared.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation signature only: the implementer owns any path or process work.
    */
   dispose(): void;
 
@@ -35,10 +35,10 @@ export interface CapturedProcessOutput {
    * @evidence contracts/common.md#clear-and-simple-design One reader shares the same storage paths as the capture owner.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts An unreadable capture is not replaced with empty text that could disguise lost output.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains encoding, timing and read-failure propagation.
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CapturedProcessOutput.read acquires no handle or task and retains nothing beyond its return value.
-   * @evidenceExclude contracts/performance.md#efficient-algorithms CapturedProcessOutput.read makes a bounded pass over its arguments and chooses no algorithm or data structure.
-   * @evidenceExclude contracts/performance.md#reuse-equivalent-work CapturedProcessOutput.read computes its value from its arguments on each call and shares no completed or in-flight work.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation CapturedProcessOutput.read operates on in-memory values and performs no filesystem, path or process operation.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources signature only: the implementer owns any handle or retained state.
+   * @evidenceExclude contracts/performance.md#efficient-algorithms signature only: the implementer owns the algorithm and its cost.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work signature only: the implementer decides what work is shared.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation signature only: the implementer owns any path or process work.
    */
   read(stream: "stdout" | "stderr"): string;
 
