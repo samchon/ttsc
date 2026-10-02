@@ -264,8 +264,9 @@ export const test_watch_topology_tracks_declared_missing_files_and_empty_globs =
       write(path.join(root, "api", "v1", "openapi.json"), "{}\n");
       await waitForNextProjectChange(changes, previousProjectChanges);
 
-      previousProjectChanges = projectChangeCount(changes);
       write(path.join(root, "unrelated.tmp"), "unrelated\n");
+      await waitForQuiet(changes);
+      previousProjectChanges = projectChangeCount(changes);
       write(path.join(root, "api", "v1", "openapi.json"), '{"changed":true}\n');
       await waitForNextProjectChange(changes, previousProjectChanges);
 
