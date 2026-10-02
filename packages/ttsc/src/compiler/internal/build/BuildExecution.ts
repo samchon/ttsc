@@ -197,13 +197,15 @@ export namespace BuildExecution {
    * Returns a finished `result` alongside effective options when plugin setup
    * failed, so plugin compilation/emission is skipped. An independent no-emit
    * compiler pass may still collect TypeScript diagnostics alongside it.
+   * Input-discovery, recovery and caller callback exceptions propagate rather
+   * than being converted to another completed setup result.
    *
    * @evidence contracts/common.md#principled-implementation Project noEmit is applied before dispatch; setup failure remains the result while independent diagnostic recovery may supplement it, and successful watch setup reports real dependency snapshots.
    * @evidence contracts/common.md#clear-and-simple-design Preparation separates setup timing, effective options and dependency reporting from compile execution, returning an explicit finished-result alternative.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Setup failure prevents plugin execution instead of retrying a malformed setup; independent type checking preserves the original failure rather than replacing it.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish skipped plugin emission from permitted independent diagnostics and explain watch-input reporting.
    * @evidence contracts/portability.md#os-neutral-implementation Native input discovery delegates spawning and identity reconciliation to the established process/filesystem boundaries; selected execution paths are preserved.
-   * @evidence contracts/performance.md#efficient-algorithms Preparation performs constant orchestration plus optional actual input discovery or failure type checking; those operations run only in their applicable branches.
+   * @evidence contracts/performance.md#efficient-algorithms Preparation records one optional timing line and applies options, potentially shallow-copying their fields. Applicable recovery/discovery adds argument/env projection, native child/runtime, snapshot or diagnostic text processing; supplied callback work is also part of this call and can throw. Fixed orchestration branches do not bound those inputs or duration.
    * @evidence contracts/performance.md#reuse-equivalent-work The resolved execution and setup result are reused by the build phase instead of reloading plugins or the project.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Preparation returns build-local state and uses synchronous discovery/check operations; retained watch state belongs to its caller.
@@ -530,16 +532,19 @@ export namespace BuildExecution {
    * must still block emit, but it must not hide unrelated errors in the user's
    * TypeScript source. The fallback runs only after a plugin failure, skips
    * modes whose contract intentionally omits diagnostics, and avoids appending
-   * a batch the plugin already reported itself.
+   * a batch the plugin already reported itself. A returned recovery preserves
+   * the original status; secondary compiler/environment/normalization errors
+   * can propagate before that result merge. NoEmit prevents compiler emission,
+   * not unrelated native/cache effects or incremental metadata writes.
    *
    * @evidence contracts/common.md#principled-implementation An independent no-emit pass adds only unreported diagnostics, seeds an otherwise unstructured plugin failure when needed and restores the original failure status after output merging.
    * @evidence contracts/common.md#clear-and-simple-design Recovery policy, compiler execution and diagnostic identity comparison are separate shared operations, with one result merge preserving the failed producer's ownership.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The second pass addresses a supported failed-sidecar reporting gap; it never retries emission or converts the plugin failure into a successful build.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain independent diagnostics, blocked emission, excluded modes and duplicate suppression; the seeding comment explains structured-consumer visibility.
    * @evidence contracts/portability.md#os-neutral-implementation Compiler execution uses the selected native binary/cwd; diagnostic filenames normalize against the same project root through the shared parser.
-   * @evidence contracts/performance.md#efficient-algorithms Excluded modes exit immediately; applicable recovery runs one compiler check and indexed diagnostic selection, with text work proportional to reports.
+   * @evidence contracts/performance.md#efficient-algorithms Excluded modes use scalar checks and the delegated forwarded-frame terminal selector. Applicable recovery adds option copy/pretty filtering, one native compiler check, indexed diagnostic/text selection and output merging; argument/environment/path/report bytes and child runtime remain inputs to the work.
    * @evidence contracts/performance.md#reuse-equivalent-work Existing reported diagnostics suppress equivalent fallback reports, while failed plugin execution cannot guarantee a complete Program check and therefore cannot replace this independent pass.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The fallback compiler runs synchronously; combined outputs are returned and no failed sidecar or historical diagnostic cache is retained here.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The fallback runs synchronously without a timeout supplied here. Intermediate failure/check/selected records and text remain live through merge; returned records transfer to the caller and no historical cache is retained. Delegated capture release is best effort, not a certificate that native descendants or failed cleanup resources were released.
    */
   export function appendTypeScriptDiagnosticsAfterPluginFailure(
     failure: TtscBuildResult,
@@ -773,11 +778,11 @@ export namespace BuildExecution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported compiler options express the check contract without intercepting writes or replacing compiler APIs; spawn errors remain errors.
    * @evidence contracts/common.md#meaningful-documentation Native prose explains the no-emit use and load-bearing argument precedence.
    * @evidence contracts/portability.md#os-neutral-implementation spawnNative uses the selected executable, separate argv and project cwd; environment composition handles native variable aliases and output text decoding is explicit UTF-8.
-   * @evidence contracts/performance.md#efficient-algorithms Argv is composed once, one compiler process runs and output is normalized once; cost is dominated by compiler work and captured text.
+   * @evidence contracts/performance.md#efficient-algorithms One argv composition includes delegated option-presence classification, threading/isolation text and argument copies. Environment composition can perform native runtime capability probes before the compiler launch; complete capture/decoding and diagnostic normalization follow. Work/storage depend on argument/env/path/report bytes and native child work, without an asserted measured cost ranking.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This executes the requested compiler pass; equivalence with other phases must be established by orchestration rather than caching a result here.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous spawn completion bounds process ownership to this invocation; captured outputs are transferred in the returned result.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The synchronous compiler call has no timeout or output-byte ceiling supplied here. Output/diagnostic records transfer to the caller; delegated file capture attempts cleanup with suppressed errors, so native release and inherited descendants are not certified by returning.
    */
   export function runTsgo(
     execution: ReturnType<typeof resolveExecutionContext>,
