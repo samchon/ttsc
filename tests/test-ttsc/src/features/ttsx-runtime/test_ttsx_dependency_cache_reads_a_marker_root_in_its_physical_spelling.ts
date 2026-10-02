@@ -23,10 +23,10 @@ import { readDependencyCache } from "../../../../../packages/ttsc/src/launcher/i
  *
  * @evidence contracts/testing.md#behavioral-verification The real reader resolves a published linked root to its filesystem identity while retaining a valid cache hit.
  * @evidence contracts/testing.md#independent-expectations Native realpath supplies the independent physical identity; the marker deliberately uses a different alias.
- * @evidence contracts/testing.md#distinguishing-cases A valid generation with linked root hits and reports the target identity; unsupported link creation remains an explicit execution limitation.
+ * @evidence contracts/testing.md#distinguishing-cases A valid generation with linked root hits and reports the target identity; when link creation is refused the entry returns false, which the runner reports as skipped with no coverage claimed.
  * @evidence contracts/testing.md#execution-ownership The named source-unit entry calls authored production functions directly; temporary fixture files are inputs, with no compiler build, consumer installation or product host.
  */
-export function test_ttsx_dependency_cache_reads_a_marker_root_in_its_physical_spelling() {
+export function test_ttsx_dependency_cache_reads_a_marker_root_in_its_physical_spelling(): void | false {
     const root = TestProject.tmpdir("ttsx-depcache-root-");
     const cacheDir = path.join(root, "entry");
     const metaPath = path.join(root, "entry.json");
@@ -49,7 +49,7 @@ export function test_ttsx_dependency_cache_reads_a_marker_root_in_its_physical_s
       console.warn(
         `SKIPPED linked marker root: ${(error as NodeJS.ErrnoException).code ?? String(error)}`,
       );
-      return;
+      return false;
     }
 
     fs.writeFileSync(

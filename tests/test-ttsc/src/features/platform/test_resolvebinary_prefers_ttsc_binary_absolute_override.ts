@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import path from "node:path";
 import { resolveBinary } from "../../../../../packages/ttsc/src/compiler/internal/resolveBinary";
 
 /**
@@ -14,7 +15,7 @@ import { resolveBinary } from "../../../../../packages/ttsc/src/compiler/interna
  *
  * @evidence contracts/testing.md#behavioral-verification resolveBinary returns an absolute override verbatim and never chooses a relative override.
  * @evidence contracts/testing.md#independent-expectations the explicit absolute override precedes platform lookup without requiring the target to exist.
- * @evidence contracts/testing.md#distinguishing-cases the absolute spelling contrasts with the relative spelling that must be ignored.
+ * @evidence contracts/testing.md#distinguishing-cases the absolute spelling contrasts with the relative spelling that must be ignored, which may resolve only to null or an absolute fallback path.
  * @evidence contracts/testing.md#execution-ownership The named test_resolvebinary_prefers_ttsc_binary_absolute_override function runs under src/features/platform and calls the authored resolver with explicit environment inputs directly; the relative-input control uses the existing workspace package fallback without installing or launching it.
  */
 export function test_resolvebinary_prefers_ttsc_binary_absolute_override() {
@@ -24,5 +25,10 @@ export function test_resolvebinary_prefers_ttsc_binary_absolute_override() {
     },
   });
   assert.equal(resolved, "/tmp/custom-ttsc");
-  assert.notEqual(resolveBinary({ env: { TTSC_BINARY: "relative-ttsc" } }), "relative-ttsc");
+  const ignored = resolveBinary({ env: { TTSC_BINARY: "relative-ttsc" } });
+  assert.notEqual(ignored, "relative-ttsc");
+  assert.ok(
+    ignored === null || path.isAbsolute(ignored),
+    "a relative override is ignored, leaving only the absolute fallbacks or null",
+  );
 }
