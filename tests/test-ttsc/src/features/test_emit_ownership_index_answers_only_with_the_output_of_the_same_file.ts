@@ -14,9 +14,9 @@ import { EmitOwnershipIndex } from "../../../../packages/ttsc/src/compiler/inter
  * trailing path segments, which answered for files the build never compiled
  * (samchon/ttsc#1382). The positive cases pin that no legitimate answer was
  * lost: an ordinary mirror, a directory the compiler saw through a link, a root
- * named through a link, and each extension mapping; the file symlink with
- * another name is owned by the sibling test
- * test_emit_ownership_index_pairs_a_file_symlink_with_the_file_it_points_at. The negative twins pin that a same-named file elsewhere, a
+ * named through a link, and each extension mapping; native source-alias inputs
+ * are owned by test_emit_ownership_index_pairs_a_source_alias_with_its_physical_target.
+ * The negative twins pin that a same-named file elsewhere, a
  * declaration file, a file outside the root, and an output the record does not
  * list are never answers. Same-stem siblings receive only the output whose
  * producer record names them, independently of maps or extension precedence.
@@ -29,7 +29,7 @@ import { EmitOwnershipIndex } from "../../../../packages/ttsc/src/compiler/inter
  * @evidence contracts/testing.md#behavioral-verification EmitOwnershipIndex pairs captured source coordinates with their recorded output, rejects unrecorded or external writes, and preserves a recorded output after its file disappears. Output-directory aliases must resolve to the same writer without changing the source owner.
  * @evidence contracts/testing.md#independent-expectations Authored source-to-output records define each owner independently of the index. Native realpath identifies equivalent writer aliases; distinct realpaths remain different files, and literal null/error expectations forbid guessed ownership.
  * @evidence contracts/testing.md#distinguishing-cases Same-stem siblings, declaration files, outside-root sources, linked directories, extension pairs, absent recorded outputs and unrecorded late writes retain their original controls. A linked writer alias with the same captured owner is accepted; conflicting owner rows for that same native writer reject both lookups. Case spellings are equivalent only when the native filesystem confirms identity.
- * @evidence contracts/testing.md#execution-ownership This exported source unit calls EmitOwnershipIndex directly on an isolated TestProject.tmpdir fixture. It creates source/output files and directory junctions but never builds, installs or starts a compiler. Every case runs in this one entry; the file-symlink lookup, which needs a privilege Windows may withhold, lives in its own sibling entry so that a refusal is reported as a skipped test.
+ * @evidence contracts/testing.md#execution-ownership This exported source unit calls EmitOwnershipIndex directly on an isolated TestProject.tmpdir fixture. It creates source/output files and directory junctions but never builds, installs or starts a compiler. Native source-alias inputs execute separately in test_emit_ownership_index_pairs_a_source_alias_with_its_physical_target, using a Windows junction or POSIX file symlink.
  */
 export const test_emit_ownership_index_answers_only_with_the_output_of_the_same_file =
   () => {
