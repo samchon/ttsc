@@ -1,5 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 
 import type { IRunResult } from "../../../../../utils/src/evidence/IRunResult";
@@ -44,11 +45,14 @@ const REBUILD_TIMEOUT: number = 120_000;
  * cleanup additionally requires actual launcher/stdio closure and agreement
  * between the response, final build marker and exit status. Ordinary callers
  * finish a build before closing, so a response with no completed status fails.
+ * A launcher that ignores the request is not retried: the failure reports its
+ * process state, CPU ticks, children and descriptors sampled at the request and
+ * at the deadline, with the output no build consumed.
  *
  * @evidence contracts/common.md#principled-implementation Build terminators advance one transcript cursor; startup/exit failures reject observations. Shutdown requires the owning launcher's nonce-bound joined response, its last completed 0/2 marker and matching actual close status. Signal, forced, missing-response or mismatched closure permanently retains fixture inputs; Node exit alone supplies no descendant authority.
  * @evidence contracts/common.md#clear-and-simple-design One owner exposes cycle, quiet-window and shutdown operations; notification bookkeeping is local and shutdown has one memoized operation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Real Node launcher/native watcher execution is preserved without foreign method replacement, fabricated cycle success or termination retries that hide a live child.
- * @evidence contracts/common.md#meaningful-documentation Native prose explains output preservation, watch-input diagnostics, resident telemetry and why shutdown needs both the owning joined response and real launcher closure; no-completed-build responses are outside these callers' lifecycle.
+ * @evidence contracts/common.md#meaningful-documentation Native prose explains output preservation, watch-input diagnostics, resident telemetry and why shutdown needs both the owning joined response and real launcher closure; no-completed-build responses are outside these callers' lifecycle; the unstopped-launcher report states what is sampled and that it is Linux-only.
  * @evidence contracts/portability.md#os-neutral-implementation Node spawns an executable plus argv without a shell; its real IPC channel requests graceful owning cleanup on Windows and POSIX rather than assuming signal delivery executes a JavaScript handler. Forced signals and actual close events still expose failure; fixture paths are native paths and protocol markers remain text.
  * @evidence contracts/performance.md#efficient-algorithms Marker searches start at the consumed cursor, while output append and diagnostic slices scale with transcript bytes; notifying current waiters scales with outstanding observations.
  * @evidence contracts/performance.md#reuse-equivalent-work One live watcher and cached native contributor serve successive changed Program cycles; memoized close requests share the same termination and join rather than starting duplicate shutdown work.
@@ -234,6 +238,7 @@ export const startWatch = (
         let force: NodeJS.Timeout | undefined;
         let deadline: NodeJS.Timeout | undefined;
         let settled = false;
+        let atStop: string | undefined;
         const settle = (success: boolean, error?: unknown): void => {
           if (settled) return;
           settled = true;
@@ -275,11 +280,15 @@ export const startWatch = (
         // Every success also joins launcher close;
         // every failure removes this shutdown owner's listener and timers.
         deadline = setTimeout(() => {
-          settle(false, new Error("The watch child did not close after termination."));
+          settle(false, new Error(
+            "The watch child did not close after termination.\n" +
+              describeUnstoppedLauncher(atStop, sampleLauncher(child.pid), text.slice(cursor)),
+          ));
         }, 20_000);
         try {
           if (child.exitCode === null && child.signalCode === null) {
             if (!child.connected) throw new Error("The watch child has no owning shutdown channel.");
+            atStop = sampleLauncher(child.pid);
             child.send({ type: "ttsc.watch.stop", id }, (error) => {
               if (error) settle(false, error);
             });
@@ -287,7 +296,8 @@ export const startWatch = (
               force = setTimeout(() => {
                 if (closed) return;
                 EvidenceProcessOwnership.retain(directory, new Error(
-                  "Watch shutdown required forced launcher termination.",
+                  "Watch shutdown required forced launcher termination.\n" +
+                    describeUnstoppedLauncher(atStop, sampleLauncher(child.pid), text.slice(cursor)),
                 ));
                 try {
                   child.kill("SIGKILL");
@@ -305,3 +315,71 @@ export const startWatch = (
     },
   };
 };
+
+/** Output a failure report keeps from the launcher's last unconsumed transcript. */
+const UNSTOPPED_TRANSCRIPT_LIMIT: number = 4_000;
+
+/**
+ * Report what a launcher that ignored its shutdown request was doing.
+ *
+ * Both samples are taken by the harness, so a launcher that is blocked, busy or
+ * waiting can be told apart without its cooperation: CPU time advancing between
+ * the request and the deadline means work, an unchanged sleeping state means a
+ * wait on a child or handle, and the transcript shows what it last printed.
+ * Only Linux exposes the process tables read here; elsewhere the samples are
+ * empty and the transcript alone is reported.
+ */
+function describeUnstoppedLauncher(
+  atStop: string | undefined,
+  atDeadline: string,
+  unconsumed: string,
+): string {
+  return [
+    "Launcher at the shutdown request: " + (atStop || "(not sampled)"),
+    "Launcher now: " + (atDeadline || "(not sampled)"),
+    "Launcher output not yet consumed by a build:",
+    unconsumed.length <= UNSTOPPED_TRANSCRIPT_LIMIT
+      ? unconsumed
+      : "..." + unconsumed.slice(-UNSTOPPED_TRANSCRIPT_LIMIT),
+  ].join("\n");
+}
+
+/** State, CPU ticks, wait channel, children and descriptors of one process. */
+function sampleLauncher(pid: number | undefined): string {
+  if (pid === undefined || process.platform !== "linux") return "";
+  const read = (file: string): string => {
+    try {
+      return fs.readFileSync(file, "utf8").trim();
+    } catch {
+      return "";
+    }
+  };
+  const stat = read("/proc/" + pid + "/stat");
+  // Fields follow the parenthesized command name: state is the first, user and
+  // system CPU ticks the twelfth and thirteenth after it.
+  const fields = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+  const children = read("/proc/" + pid + "/task/" + pid + "/children")
+    .split(" ")
+    .filter((child) => child !== "")
+    .map((child) => child + "=" + read("/proc/" + child + "/cmdline").replaceAll("\0", " ").slice(0, 120));
+  let descriptors: string[] = [];
+  try {
+    descriptors = fs.readdirSync("/proc/" + pid + "/fd").map((fd) => {
+      try {
+        return fd + "->" + fs.readlinkSync("/proc/" + pid + "/fd/" + fd);
+      } catch {
+        return fd;
+      }
+    });
+  } catch {
+    // The process may have exited between the sample and the listing.
+  }
+  return JSON.stringify({
+    state: fields[0],
+    utime: fields[11],
+    stime: fields[12],
+    wchan: read("/proc/" + pid + "/wchan"),
+    children,
+    descriptors,
+  });
+}
