@@ -44,62 +44,66 @@ export function test_runtime_cleanup_pins_a_retargeted_run_index(): void {
       failures.push(new Error(name, { cause }));
     }
   };
-  fs.mkdirSync(project);
-  fs.mkdirSync(path.dirname(runs), { recursive: true });
-  recordOwner(path.join(original, "stale"), deadPid);
-  recordOwner(path.join(original, "live"), process.pid);
-  recordOwner(path.join(victim, "stale"), process.pid);
-  fs.writeFileSync(path.join(victim, "stale", "keep.txt"), "victim");
-  fs.symlinkSync(original, runs, linkKind());
+  check("default clean retarget scenario", () => {
+    fs.mkdirSync(project);
+    fs.mkdirSync(path.dirname(runs), { recursive: true });
+    recordOwner(path.join(original, "stale"), deadPid);
+    recordOwner(path.join(original, "live"), process.pid);
+    recordOwner(path.join(victim, "stale"), process.pid);
+    fs.writeFileSync(path.join(victim, "stale", "keep.txt"), "victim");
+    fs.symlinkSync(original, runs, linkKind());
 
-  const plan = resolveRuntimeCleanTargets(cache);
-  check("live sibling retained", () => {
-    assert.equal(plan.kept.length, 1);
-    assert.deepEqual(plan.kept, [
-      path.join(fs.realpathSync.native(original), "live"),
-    ]);
+    const plan = resolveRuntimeCleanTargets(cache);
+    check("live sibling retained", () => {
+      assert.equal(plan.kept.length, 1);
+      assert.deepEqual(plan.kept, [
+        path.join(fs.realpathSync.native(original), "live"),
+      ]);
+    });
+    replaceLink(runs, victim);
+    const safe = resolveSafeCacheCleanupTargets(project, plan.targets);
+    const originalTarget = path.join(fs.realpathSync.native(original), "stale");
+    const plannedCorrectly = safe.some(
+      (target) => target.path === originalTarget,
+    );
+    check("physical cleanup target preserved", () =>
+      assert.equal(
+        plannedCorrectly,
+        true,
+        `clean selected ${safe.map((target) => target.path).join(", ")}`,
+      ),
+    );
   });
-  replaceLink(runs, victim);
-  const safe = resolveSafeCacheCleanupTargets(project, plan.targets);
-  const originalTarget = path.join(fs.realpathSync.native(original), "stale");
-  const plannedCorrectly = safe.some(
-    (target) => target.path === originalTarget,
-  );
 
-  const sweepAlias = path.join(root, "sweep-alias");
-  const sweepOriginal = path.join(root, "sweep-original");
-  const sweepVictim = path.join(root, "sweep-victim");
-  recordOwner(path.join(sweepOriginal, "stale"), deadPid);
-  recordOwner(path.join(sweepVictim, "stale"), deadPid);
-  fs.writeFileSync(path.join(sweepVictim, "stale", "keep.txt"), "victim");
-  fs.symlinkSync(sweepOriginal, sweepAlias, linkKind());
-  let switched = false;
-  ProcessOwnedDirectory.sweep(sweepAlias, () => {
-    if (!switched) {
-      switched = true;
-      replaceLink(sweepAlias, sweepVictim);
-    }
-    return true;
+  check("sweep after-enumeration retarget scenario", () => {
+    const sweepAlias = path.join(root, "sweep-alias");
+    const sweepOriginal = path.join(root, "sweep-original");
+    const sweepVictim = path.join(root, "sweep-victim");
+    recordOwner(path.join(sweepOriginal, "stale"), deadPid);
+    recordOwner(path.join(sweepVictim, "stale"), deadPid);
+    fs.writeFileSync(path.join(sweepVictim, "stale", "keep.txt"), "victim");
+    fs.symlinkSync(sweepOriginal, sweepAlias, linkKind());
+    let switched = false;
+    ProcessOwnedDirectory.sweep(sweepAlias, () => {
+      if (!switched) {
+        switched = true;
+        replaceLink(sweepAlias, sweepVictim);
+      }
+      return true;
+    });
+    check("after-enumeration retarget exercised", () =>
+      assert.equal(switched, true, "the sweep retarget was not exercised"),
+    );
+    check("original abandoned run removed", () =>
+      assert.equal(fs.existsSync(path.join(sweepOriginal, "stale")), false),
+    );
+    check("same-named victim bytes preserved", () =>
+      assert.equal(
+        fs.readFileSync(path.join(sweepVictim, "stale", "keep.txt"), "utf8"),
+        "victim",
+      ),
+    );
   });
-  check("after-enumeration retarget exercised", () =>
-    assert.equal(switched, true, "the sweep retarget was not exercised"),
-  );
-  check("physical cleanup target preserved", () =>
-    assert.equal(
-      plannedCorrectly,
-      true,
-      `clean selected ${safe.map((target) => target.path).join(", ")}`,
-    ),
-  );
-  check("original abandoned run removed", () =>
-    assert.equal(fs.existsSync(path.join(sweepOriginal, "stale")), false),
-  );
-  check("same-named victim bytes preserved", () =>
-    assert.equal(
-      fs.readFileSync(path.join(sweepVictim, "stale", "keep.txt"), "utf8"),
-      "victim",
-    ),
-  );
   if (failures.length)
     throw new AggregateError(failures, "runtime index retarget assertions failed");
 }
