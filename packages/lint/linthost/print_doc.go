@@ -283,7 +283,7 @@ func Align(parts ...Doc) Doc { return Doc{Kind: docAlign, Children: parts} }
 // @evidenceExclude contracts/portability.md#os-neutral-implementation IfBreak performs no filesystem or process operation of its own.
 // @evidenceExclude contracts/performance.md#efficient-algorithms IfBreak has no loop of its own and runs a fixed number of steps.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work IfBreak keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IfBreak acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned Doc owns one two-record child slice while the copied branch Docs still share their nested slices and string storage. The caller owns tree lifetime and printing immutability; releasing the tree permits reclamation of its owned slice. No historical alternatives, handle or task are retained here.
 func IfBreak(whenBroken, whenFlat Doc) Doc {
   return Doc{Kind: docIfBreak, Children: []Doc{whenBroken, whenFlat}}
 }
@@ -297,7 +297,7 @@ func IfBreak(whenBroken, whenFlat Doc) Doc {
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Concat performs no filesystem or process operation of its own.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Concat has no loop of its own and runs a fixed number of steps.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Concat keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Concat acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#bound-retention-and-release-resources Multiple operands keep their supplied backing slice reachable through the returned Doc; singleton returns the same child value with its shared nested payloads, and empty input retains any supplied empty-slice backing storage. The caller owns tree lifetime and printing immutability. This constructor stores no historical concatenations, handle or task.
 func Concat(parts ...Doc) Doc {
   if len(parts) == 1 {
     return parts[0]
