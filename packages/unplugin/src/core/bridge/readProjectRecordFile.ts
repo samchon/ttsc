@@ -20,8 +20,15 @@ import type { TtscProjectRecord } from "./TtscProjectRecord";
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain absent or unreadable records, nested validation and the next-delivery replacement policy; private helper comments state each consumed schema boundary.
  * @evidence contracts/portability.md#os-neutral-implementation Native UTF-8 reading observes the host record file; absence, access denial and partial in-place writes all produce unavailable evidence without guessing a platform-specific missing-file cause.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources readFileSync returns before the function does, so no handle outlives the call, and the parsed record belongs to the caller.
- * @evidence contracts/performance.md#efficient-algorithms One file read and one JSON parse with a structural validation linear in the parsed size; nothing is cached.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The proofs it feeds compare against the bytes now on disk, so each call must read them again; a cached parse would defeat the proof.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   One native read/JSON parse processes record bytes. Input values, policy
+ *   lists and predicate lists are checked linearly, including delegated native
+ *   realpath-spelling normalization and temporary normalized predicate arrays;
+ *   Object.values also allocates the full input-value array before early refusal.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work
+ *   Every call observes current file bytes and owns its decoded result; this
+ *   reader coordinates no cross-call cache. Reusing a parse would require fresh
+ *   byte equivalence rather than assuming that a prior record still holds.
  */
 export function readProjectRecordFile(
   file: string,
