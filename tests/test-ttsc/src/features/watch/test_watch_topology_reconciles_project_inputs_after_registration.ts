@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { type WatchInputChange } from "../../../../../packages/ttsc/lib/launcher/internal/watch/WatchInputChange.js";
+import { type WatchInputChange } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchInputChange";
 import { WatchTopology } from "../../../../../packages/ttsc/src/launcher/internal/watch/WatchTopology";
 import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/launcher/internal/watch/watchDirectoryThroughFsWatch";
 
@@ -54,15 +54,37 @@ export async function test_watch_topology_reconciles_project_inputs_after_regist
         return watcher as unknown as fs.FSWatcher;
       }) as typeof fs.watch;
 
-    try {
-      await verifySwallowedStartupEvent(root, callbacks, watchers, openFileWatch);
-      await verifyBackendEventWins(root, callbacks, openFileWatch);
-      await verifyCloseCancelsReconciliation(root, openFileWatch);
-    } finally {
-
+    const failures: Error[] = [];
+    for (const [name, run] of [
+      [
+        "swallowed startup",
+        () => verifySwallowedStartupEvent(root, callbacks, watchers, openFileWatch),
+      ],
+      [
+        "backend event wins",
+        () => verifyBackendEventWins(root, callbacks, openFileWatch),
+      ],
+      [
+        "close cancellation",
+        () => verifyCloseCancelsReconciliation(root, openFileWatch),
+      ],
+      [
+        "uncovered and healthy roots",
+        verifyUncoveredRootDoesNotDisableHealthyReconciliation,
+      ],
+      ["new physical owner", verifyReconciliationRegistersNewPhysicalOwner],
+    ] as const) {
+      try {
+        await run();
+      } catch (cause) {
+        failures.push(new Error(name, { cause }));
+      }
     }
-    await verifyUncoveredRootDoesNotDisableHealthyReconciliation();
-    await verifyReconciliationRegistersNewPhysicalOwner();
+    if (failures.length !== 0)
+      throw new AggregateError(
+        failures,
+        "project-input registration scenarios failed",
+      );
 }
 
 async function verifySwallowedStartupEvent(
@@ -129,12 +151,16 @@ async function verifyCloseCancelsReconciliation(root: string, openFileWatch: typ
   const changes: WatchInputChange[] = [];
   const input = path.join(root, "closed.md");
   const topology = createTopology(root, changes, openFileWatch);
-  topology.setProjectInputs({ files: [input], globs: [], root });
-  topology.close();
-  fs.writeFileSync(input, "{}\n", "utf8");
-  await Promise.resolve();
+  try {
+    topology.setProjectInputs({ files: [input], globs: [], root });
+    topology.close();
+    fs.writeFileSync(input, "{}\n", "utf8");
+    await Promise.resolve();
 
-  assert.deepEqual(changes, []);
+    assert.deepEqual(changes, []);
+  } finally {
+    topology.close();
+  }
 }
 
 async function verifyUncoveredRootDoesNotDisableHealthyReconciliation(): Promise<void> {
@@ -251,6 +277,11 @@ async function verifyReconciliationRegistersNewPhysicalOwner(): Promise<void> {
       externalRoot,
       link,
       process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.equal(fs.lstatSync(link).isSymbolicLink(), true);
+    assert.equal(
+      fs.realpathSync.native(link),
+      fs.realpathSync.native(externalRoot),
     );
     await Promise.resolve();
 
