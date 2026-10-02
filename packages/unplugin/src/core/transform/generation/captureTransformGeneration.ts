@@ -170,6 +170,7 @@ export async function captureTransformGeneration(props: {
     | Extract<TtscSharedCompileClaim, { kind: "compile" }>
     | undefined;
   let captured: TtscCachedProjectTransform | undefined;
+  let captureFailed = false;
   try {
     if (props.retainProjectMembership) {
       try {
@@ -741,6 +742,9 @@ export async function captureTransformGeneration(props: {
       retainClockReferenceDirectory = true;
     }
     captured = cached;
+  } catch (error) {
+    captureFailed = true;
+    throw error;
   } finally {
     // Waiters must never block on a lock whose holder threw.
     sharedClaim?.release();
@@ -800,7 +804,10 @@ export async function captureTransformGeneration(props: {
       ) {
         disposeFilesystemClockReference(clockReferenceDirectory);
       }
-      throw cleanupFailure;
+      // A capture that already failed keeps its own error: a cleanup failure
+      // thrown from this block would replace it, and the first failure is the
+      // one that explains why no generation exists.
+      if (!captureFailed) throw cleanupFailure;
     }
   }
   if (captured === undefined) {
