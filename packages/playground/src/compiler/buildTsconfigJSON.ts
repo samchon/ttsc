@@ -12,6 +12,10 @@ import { DEFAULT_PLAYGROUND_COMPILER_OPTIONS } from "./DEFAULT_PLAYGROUND_COMPIL
  * @evidence contracts/common.md#clear-and-simple-design This operation only serializes configuration; the caller owns virtual writes and execution.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Defaults are supported project settings and caller overrides remain explicit, without fixture-dependent branches.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains serialization ownership and validation timing in separate paragraphs under the documentation skill.
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It keeps no state, handle or listener after returning.
+  * @evidenceExclude contracts/performance.md#efficient-algorithms A single pass or constant work over its arguments; no algorithm choice scales beyond that.
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function buildTsconfigJSON(options: IBuildTsconfigOptions): string {
   return JSON.stringify({

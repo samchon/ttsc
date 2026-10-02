@@ -56,6 +56,7 @@ const BUILTIN_MODULES = new Set([
  * @evidence contracts/performance.md#efficient-algorithms Prefix and separator checks cost O(specifier length); built-in membership uses a fixed indexed set independent of source population.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure name classifier does not coordinate request-level computation reuse.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The built-in table is fixed product metadata; the function owns no growing state or handles.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function packageNameFromSpecifier(specifier: string): string | null {
   const nodePrefixed = specifier.startsWith("node:");

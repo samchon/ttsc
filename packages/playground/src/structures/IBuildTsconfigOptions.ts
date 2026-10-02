@@ -6,6 +6,10 @@
  * @evidence contracts/common.md#clear-and-simple-design A flat options record separates compiler entries from project include globs without another configuration layer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Literal module choices are supported compiler settings; callers supply extensions through compilerOptions.
  * @evidence contracts/common.md#meaningful-documentation JSDoc states override precedence, directory defaults and emit purpose; paragraphs and member spacing follow the documentation skill.
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
+  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export interface IBuildTsconfigOptions {
   /**

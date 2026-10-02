@@ -58,6 +58,7 @@ type Tab = "javascript" | "lint";
  * @evidence contracts/performance.md#efficient-algorithms Dependency-root delta uses indexed sets rather than pairwise scans; display renders current findings and console values. Each console append currently copies its accumulated message list, so a run with m messages can require O(m²) reference copying; no unmeasured speedup is claimed.
  * @evidence contracts/performance.md#reuse-equivalent-work One Worker client is memoized per script URL; exact mounted package identities validate additive graph reuse and removed roots force complete replacement. Compile inputs debounce, tab changes only switch views, and unchanged dependency roots avoid another install solve.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The shell owns timers, install aborts, Worker generations and current dependency/console maps; replacement and unmount fence callbacks, clear timers, cancel install/Execute and reset the client. Dependency maps follow the current source graph; console values persist until clear or the next Execute, without a per-run message budget. The site owns resources created by its execution hook.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation Browser UI logic with no native filesystem, path-identity or process boundary.
  */
 export function PlaygroundShell({
   workerUrl,

@@ -15,6 +15,10 @@ import type { ITransformOptions } from "./ITransformOptions";
  * @evidence contracts/common.md#clear-and-simple-design Explicit props keep site policy outside shell lifecycle implementation; option metadata and example records have their own types.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Site policy enters through declared props and callbacks rather than consumer-specific branches.
  * @evidence contracts/common.md#meaningful-documentation Member prose explains defaults, runtime-file namespace and cancellation limits, with documentation-skill paragraphs and member spacing.
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
+  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export interface IPlaygroundShellProps {
   /**
@@ -103,6 +107,10 @@ export interface IPlaygroundShellProps {
  * @evidence contracts/common.md#clear-and-simple-design One asynchronous hook keeps site execution policy separate from bundling, console presentation and compiler Worker ownership.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A declared hook permits site-owned isolation without patching foreign runtime behavior.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe cancellation limits and ownership before the acknowledgment tags.
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
+  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export type PlaygroundBundleExecutor = (
   code: string,
@@ -125,5 +133,9 @@ export type PlaygroundBundleExecutor = (
  * @evidence contracts/common.md#clear-and-simple-design A string-returning presentation callback stays independent of compiler configuration.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A caption is a UI label rather than evidence that a particular output was produced.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies the display purpose and parameter before the separated tags.
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
+  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export type PlaygroundResultCaption = (options: ITransformOptions) => string;

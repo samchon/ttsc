@@ -23,6 +23,7 @@ import { packageNameFromSpecifier } from "./packageNameFromSpecifier";
  * @evidence contracts/performance.md#efficient-algorithms Indexed ignored/found sets avoid pairwise name comparisons and final sorting costs O(p log p) for p package names. Token storage scales with source size; nested template substitutions rescan nested slices and import-clause searches can revisit tokens, so worst-case discovery is not claimed linear for adversarial source.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This lexical pass handles one source snapshot; the shell owns input debouncing and dependency-graph reuse across edits.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Tokens and sets are per-call temporaries and only package names transfer to the caller; it retains no listeners or caches.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function collectExternalPackageNames(
   source: string,

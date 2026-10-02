@@ -18,6 +18,7 @@ import type { ISourceEditorProps } from "../structures/ISourceEditorProps";
  * @evidence contracts/performance.md#efficient-algorithms Extra-library replacement traverses previous disposables and new entries once, O(old libraries + new libraries) besides Monaco processing; controlled text rendering delegates to the editor.
  * @evidence contracts/performance.md#reuse-equivalent-work Extra-lib entries are memoized by map identity and installation effects change only when those inputs change; callers must replace the map rather than mutate it in place. Source editing reuses the mounted Monaco instance.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The component owns extra-lib registration handles and disposes every prior set on replacement or unmount. Handle count grows with the current map, and Monaco owns its shared defaults and model lifecycle through the wrapper.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation Browser UI logic with no native filesystem, path-identity or process boundary.
  */
 export function SourceEditor({
   value,

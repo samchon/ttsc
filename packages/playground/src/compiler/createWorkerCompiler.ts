@@ -45,6 +45,7 @@ import { createWorkerCompilerService } from "./internal/createWorkerCompilerServ
  * @evidence contracts/performance.md#efficient-algorithms The bound service builds two config strings once, then writes the current project and processes its actual transform, emit and diagnostics. The shared mutation queue permits one pipeline to mutate the virtual project at a time; compiler algorithm cost remains with the WASM engine.
  * @evidence contracts/performance.md#reuse-equivalent-work The service closure shares runtime boot and a separately retryable source mount; stable factory options define their identity. Pre-start boot failures evict the runtime attempt, post-start failures remain terminal, and mount failures retry using the already-ready runtime rather than starting another Go instance.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The service retains one runtime, mounted virtual files and a promise-chain tail for its Worker lifetime; queued requests retain their closures until settlement without a request-count bound. The owning client terminates the Worker on replacement or unmount because the Go runtime has no in-Worker disposal mechanism.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function createWorkerCompiler(
   options: ICreateWorkerCompilerOptions,

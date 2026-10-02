@@ -9,6 +9,7 @@
  * @evidence contracts/performance.md#efficient-algorithms One scan to the clamped UTF-16 offset costs O(offset) time and constant temporary space; it avoids prefix strings and newline arrays.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure coordinate conversion does not coordinate reuse across requests; callers own any source-index lifetime.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It retains no state or handles after returning the coordinate pair.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function lineColumnOf(
   source: string,

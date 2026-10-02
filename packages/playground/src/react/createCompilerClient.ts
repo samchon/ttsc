@@ -20,6 +20,7 @@ import type { ICreateCompilerClientOptions } from "../structures/ICreateCompiler
  * @evidence contracts/performance.md#efficient-algorithms Connection state and identity checks use constant space and work independent of request count; transport startup is delegated to one connector per generation.
  * @evidence contracts/performance.md#reuse-equivalent-work Calls in one client generation share its connection promise and driver; reset invalidates that identity before waiting, and failed current connections are evicted. A new client URL belongs to a separate factory instance.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The connection record owns its connector and memoized close promise; reset clears current ownership then awaits settlement and closes once. Concurrent explicit resets can have outstanding old generations, and tgrid exposes no cancellation for a still-pending connection, so disposal can wait for its settlement.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation Browser UI logic with no native filesystem, path-identity or process boundary.
  */
 export function createCompilerClient(options: ICreateCompilerClientOptions): {
   connect(): Promise<ICompilerService>;

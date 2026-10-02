@@ -23,6 +23,7 @@ const ANSI_REGEXP = /\x1b\[[0-9;]*m/g;
  * @evidence contracts/performance.md#efficient-algorithms Stderr normalization and source-line indexing each occur once per parse; each matched finding inspects only its referenced source line, avoiding a complete source split for every diagnostic. Temporary arrays grow with stderr lines, source lines and findings.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation parses one completed output and does not coordinate sharing across lint requests; per-parse line indexing is part of its algorithm.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Line indexes are local temporaries and findings transfer to the caller; no retained cache or native handle is owned here.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function parseLintDiagnostics(
   stderr: string,

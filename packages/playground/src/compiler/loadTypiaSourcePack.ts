@@ -65,6 +65,7 @@ const packCaches = new WeakMap<
  *   Weak transport keys permit abandoned injected transports and their records
  *   to be collected. Live transports retain successful URL records, with memory
  *   scaling with distinct URLs and pack contents and no fixed eviction budget.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function loadTypiaSourcePack(
   options: IInstallTypiaSourcePackOptions,

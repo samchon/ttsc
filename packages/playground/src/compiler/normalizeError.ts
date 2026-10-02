@@ -6,6 +6,10 @@
  * @evidence contracts/common.md#clear-and-simple-design One normalization boundary leaves rendering and recovery classification to their consumers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The mapper carries actual errors without converting rejection into fabricated compiler success.
  * @evidence contracts/common.md#meaningful-documentation Native prose states copying and preservation policies, separated from tags under the documentation skill.
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It keeps no state, handle or listener after returning.
+  * @evidenceExclude contracts/performance.md#efficient-algorithms A single pass or constant work over its arguments; no algorithm choice scales beyond that.
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function normalizeError(error: unknown): unknown {
   if (error instanceof Error) {

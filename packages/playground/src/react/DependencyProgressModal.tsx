@@ -15,6 +15,10 @@ interface DependencyProgressModalProps {
  * @evidence contracts/common.md#clear-and-simple-design The component is a pure progress view; installation and cancellation stay with its owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The minimum visible bar and chip limit are UI presentation policy rather than fabricated install outcomes.
  * @evidence contracts/common.md#meaningful-documentation Native prose defines visibility, count units and chip truncation with tag separation under the documentation skill.
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It keeps no state, handle or listener after returning.
+  * @evidenceExclude contracts/performance.md#efficient-algorithms A single pass or constant work over its arguments; no algorithm choice scales beyond that.
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation Browser UI logic with no native filesystem, path-identity or process boundary.
  */
 export function DependencyProgressModal({
   progress,

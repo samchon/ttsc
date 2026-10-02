@@ -2,66 +2,16 @@
   "severity": "error",
   "claims": [
     {
-      "name": "TypeScript production declarations (common checklist)",
+      "name": "TypeScript production declarations",
       "type": "typescript",
-      "files": [
-        "src/**/*.ts",
-        "src/**/*.tsx",
-        "!src/index.ts",
-        "!src/compiler/createWorkerCompiler.ts",
-        "!src/compiler/lineColumnOf.ts",
-        "!src/compiler/mapDiagnostic.ts",
-        "!src/compiler/pickEmittedJS.ts",
-        "!src/compiler/loadTypiaSourcePack.ts",
-        "!src/compiler/internal/parseLintDiagnostics.ts",
-        "!src/npm/collectExternalPackageNames.ts",
-        "!src/npm/installPlaygroundDependencies.ts",
-        "!src/npm/packageNameFromSpecifier.ts",
-        "!src/react/PlaygroundShell.tsx",
-        "!src/react/SourceEditor.tsx",
-        "!src/react/createCompilerClient.ts",
-        "!src/sandbox/createSandboxRequire.ts",
-        "!src/sandbox/loadTypiaRuntimePack.ts"
-      ],
-      "symbol": [
-        "type",
-        "function"
-      ],
-      "reference": {
-        "type": "markdown",
-        "root": "../../.agents/skills",
-        "files": [
-          "contracts/common.md"
-        ],
-        "symbol": "h2",
-        "checklist": true
-      }
-    },
-    {
-      "name": "functions that also own an algorithm, shared computation or retained resource (common and performance checklists)",
-      "type": "typescript",
-      "files": [
-        "src/compiler/createWorkerCompiler.ts",
-        "src/compiler/lineColumnOf.ts",
-        "src/compiler/mapDiagnostic.ts",
-        "src/compiler/pickEmittedJS.ts",
-        "src/compiler/loadTypiaSourcePack.ts",
-        "src/compiler/internal/parseLintDiagnostics.ts",
-        "src/npm/collectExternalPackageNames.ts",
-        "src/npm/installPlaygroundDependencies.ts",
-        "src/npm/packageNameFromSpecifier.ts",
-        "src/react/PlaygroundShell.tsx",
-        "src/react/SourceEditor.tsx",
-        "src/react/createCompilerClient.ts",
-        "src/sandbox/createSandboxRequire.ts",
-        "src/sandbox/loadTypiaRuntimePack.ts"
-      ],
-      "symbol": "function",
+      "files": ["src/**/*.ts", "src/**/*.tsx"],
+      "symbol": ["type", "function"],
       "reference": {
         "type": "markdown",
         "root": "../../.agents/skills",
         "files": [
           "contracts/common.md",
+          "contracts/portability.md",
           "contracts/performance.md"
         ],
         "symbol": "h2",

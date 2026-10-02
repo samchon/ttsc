@@ -8,6 +8,10 @@ import type { ITypiaPluginConfig } from "./ITypiaPluginConfig";
  * @evidence contracts/common.md#clear-and-simple-design Boot inputs, virtual layout and plugin options remain one explicit factory record with nested plugin responsibilities.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Plugin names and defaults describe the supported playground integrations; sites override them through explicit configuration.
  * @evidence contracts/common.md#meaningful-documentation Member JSDoc explains defaults, registration identity and compiler-option ownership, with blank member lines following the documentation skill.
+  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
+  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
+  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export interface ICreateWorkerCompilerOptions {
   /** URL of the site's pre-built playground.wasm. */

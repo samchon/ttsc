@@ -67,6 +67,7 @@ const packCache = new Map<string, RuntimePackEntry>();
  *   Failed attempts are evicted and cancellation listeners are disposed.
  *   Successful records remain for the module lifetime, with memory growing
  *   with distinct URLs and retained bytes and no fixed successful-entry bound.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function loadTypiaRuntimePack(
   url: string,

@@ -12,6 +12,7 @@
  * @evidence contracts/performance.md#efficient-algorithms Five indexed candidate checks precede an O(output keys) fallback that stops at the first JavaScript key; it does not allocate a second array of every matching output.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This selector consumes one caller-owned emit map and does not coordinate repeated builds or shared results.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It retains no state or handles and returns text already owned by the output map.
+  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function pickEmittedJS(
   output: Record<string, string>,
