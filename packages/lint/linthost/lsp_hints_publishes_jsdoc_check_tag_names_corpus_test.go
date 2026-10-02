@@ -8,7 +8,7 @@ import (
 )
 
 // TestLSPHintsPublishesJSDocCheckTagNamesCorpus verifies the real sidecar verb
-// carries the built-in tag corpus across the process boundary.
+// carries the built-in tag corpus through command dispatch and JSON.
 //
 // Direct collection alone would not pin config discovery, Program loading, or
 // JSON serialization. This fixture enables the rule in a discovered lint

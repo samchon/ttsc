@@ -9,12 +9,10 @@ import (
 // TestLSPHintsSkipsTheProgramWhenNothingPublishes verifies the corpus verb
 // refuses to build a Program that no declared rule will project.
 //
-// The witness is a project that cannot load at all: `--tsconfig` names a file
-// that does not exist. The verb used to build the engine and then load a Program
-// regardless of whether anything could publish hints, so this load failed and
-// the sidecar wrote tsgo's error to stderr — for a question whose answer was an
-// empty corpus either way. A project with no hint-publishing rule is the common
-// case, and ttscserver asks this verb on every save.
+// The witness is a project that cannot load: its requested tsconfig does not
+// exist. Loading it would report a failure instead of answering the empty
+// corpus requested from a configuration with no publisher. The declared
+// publisher counterpart distinguishes this fast path from blanket suppression.
 //
 //  1. Seed a project whose lint config declares no hint-publishing rule.
 //  2. Run lsp-hints against a tsconfig path that does not exist.

@@ -10,10 +10,10 @@ import (
 // TestJSDocCheckTagNamesPublishesCanonicalHints verifies the built-in
 // validator also supplies the exact tag vocabulary it accepts to editors.
 //
-// The map is the rule's source of truth, so copying it into a second fixture
-// would let validation and completion drift together unnoticed. The assertion
-// derives the expected order from that map, then pins the JSDoc trigger and the
-// existing type, empty, and synonym classifications used as item detail.
+// Complete table-to-output equality checks the adapter's ordering and metadata
+// correspondence, not the vocabulary's independent correctness. Literal detail
+// expectations cover four classifications, and real validation accepts @param
+// while rejecting its adjacent @parm spelling.
 //
 //  1. Evaluate the globally enabled rule through its project companion.
 //  2. Collect the finished hint corpus through the host gate.

@@ -5,15 +5,12 @@ import (
   "testing"
 )
 
-// TestLSPHintsStillLoadsTheProgramForADeclaredPublisher is the negative twin of
-// TestLSPHintsSkipsTheProgramWhenNothingPublishes.
+// TestLSPHintsStillLoadsTheProgramForADeclaredPublisher verifies a configured
+// publisher reaches the loader and preserves its failure.
 //
-// That case proves an unloadable project answers an empty corpus when nothing
-// can publish one. On its own it would also pass if the verb had stopped loading
-// a Program at all, or had started swallowing every loader failure — both of
-// which would silently break the corpus this verb exists to produce. Declaring a
-// publisher against the same unloadable project separates those: the loader must
-// be reached, and its failure must still be reported.
+// A nonexistent config answers an empty corpus only when nothing publishes.
+// Enabling a publisher against that same missing config distinguishes the
+// intended fast path from a verb that suppresses every Program load or failure.
 //
 //  1. Seed a project whose lint config declares the JSDoc validator.
 //  2. Run lsp-hints against a tsconfig path that does not exist.

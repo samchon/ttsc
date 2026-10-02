@@ -9,21 +9,20 @@ import (
   publicrule "github.com/samchon/ttsc/packages/lint/rule"
 )
 
-// TestLSPServeAnswersHintsFromTheResidentDaemon verifies the corpus verb is
-// served by the warm daemon rather than only by a fresh process.
+// TestLSPServeAnswersHintsFromTheResidentDaemon verifies one hints request
+// receives the configured corpus through the resident stream dispatcher.
 //
-// lsp-hints was the one Program-loading verb the daemon did not answer, so
-// ttscserver respawned the sidecar and rebuilt the whole Program on every save
-// to publish a corpus. A daemon that rejects the verb replies with a nonzero
-// code and no result, which is what this pins against.
+// A valid request must return a successful framed response with the typed param
+// completion. This case exercises the resident loop in process; one request
+// does not establish warm Program reuse or a spawned sidecar connection.
 //
 //  1. Seed a project with the JSDoc validator enabled.
 //  2. Drive lsp-serve with one lsp-hints request line.
-//  3. Assert the reply carries code 0 and the built-in tag corpus.
+//  3. Assert code 0, corpus size correspondence and literal param metadata.
 //
-// @evidence contracts/testing.md#behavioral-verification The in-process lsp-serve stream handles one hints request and returns code 0 with the configured built-in tag corpus.
-// @evidence contracts/testing.md#independent-expectations The authored request line and literal reply code zero express the resident protocol contract. The corpus is checked only by comparing its length with the production knownJSDocTags table, so the tag contents are not independently asserted here.
-// @evidence contracts/testing.md#distinguishing-cases A daemon that rejects or omits the lsp-hints verb would reply with a nonzero code or an empty or undecodable result, which this single request detects. Other verbs and multiple requests per stream are not covered.
+// @evidence contracts/testing.md#behavioral-verification The in-process lsp-serve stream handles one hints request and returns code 0 with corpus size correspondence and the complete literal param completion.
+// @evidence contracts/testing.md#independent-expectations The authored request line and literal reply code zero express the resident protocol contract. Literal param insertion, empty label, typed detail, jsdoc scope and @ trigger independently require the representative payload. Size equality with knownJSDocTags is only adapter correspondence and cannot prove every vocabulary entry.
+// @evidence contracts/testing.md#distinguishing-cases A daemon that rejects or omits the lsp-hints verb would reply with a nonzero code or an empty, malformed or incorrect representative payload, which this single request detects. Other verbs and multiple requests per stream are not covered.
 // @evidence contracts/testing.md#execution-ownership Drives RunLSPServe in process with a one-line stdin reader and a buffer writer and decodes the reply; the daemon loop runs inside the test process rather than as a spawned binary.
 func TestLSPServeAnswersHintsFromTheResidentDaemon(t *testing.T) {
   root := seedLintProject(t, "/** Public value. */\nexport const value = 1;\n")
@@ -53,5 +52,22 @@ func TestLSPServeAnswersHintsFromTheResidentDaemon(t *testing.T) {
   }
   if len(hints) != len(knownJSDocTags) {
     t.Fatalf("want %d known-tag hints, got %d", len(knownJSDocTags), len(hints))
+  }
+  expected := publicrule.Hint{
+    Insert:  "param",
+    Detail:  "accepts a type",
+    Trigger: publicrule.HintTrigger{Scope: publicrule.HintScopeJSDoc, After: "@"},
+  }
+  found := false
+  for _, hint := range hints {
+    if hint.Insert == "param" {
+      found = true
+      if hint != expected {
+        t.Fatalf("param completion: want %#v, got %#v", expected, hint)
+      }
+    }
+  }
+  if !found {
+    t.Fatal("resident hints response omitted param")
   }
 }
