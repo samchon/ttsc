@@ -14,10 +14,10 @@ import { GoSourceInputs } from "./GoSourceInputs";
  *
  * The build verifies its copy against the key's digest of the source
  * (`pluginSourceDigest`), so the two have to read the same files. A copy that
- * judged every entry by its name alone left out a file the key read, such as
- * the `.git` file at the root of a Git worktree or submodule, and read a
- * directory the key's walk entered, such as one named like an editor backup;
- * every build of such a source then failed as edited while it was built.
+ * judged every entry by its name alone would leave out a file the key reads,
+ * such as the `.git` file at the root of a Git worktree or submodule, and read
+ * a directory the key's walk enters, such as one named like an editor backup;
+ * every build of such a source would then fail as edited while it was built.
  *
  * A link is never copied: the key's walk refuses one the build would read
  * before any copy, and passes over the rest.
