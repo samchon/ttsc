@@ -1,6 +1,7 @@
 import * as mod from "../../../../../packages/vscode/src/serverResolution";
 import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 
 /**
@@ -19,13 +20,13 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification rootsToStopForTarget identifies conflicts when selecting parent or nested clients.
  * @evidence contracts/testing.md#independent-expectations The expectations are authored literals from the one-owner-per-document rule: an existing nested client must stop when its ancestor becomes the target, and an existing ancestor must stop when a nested target starts, while a sibling directory must not.
  * @evidence contracts/testing.md#distinguishing-cases Target=parent with running [nested] returns the nested root; target=nested with running [root, sibling] returns only the root and keeps the sibling, so overlap is directional in both ways and a non-overlapping sibling is retained. Alias, equal-root and case-variant targets are not covered.
- * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls rootsToStopForTarget with the default identity context over path strings that are never created on disk (lexical containment), with no fixture files, language client or child process.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the actual selector over missing child paths in a fresh tracked temporary parent. Native absence assertions establish lexical fallback with no language client or child process.
  */
 export function test_vscode_server_resolution_replaces_overlapping_client_roots() {
-  const repo = TestProject.WORKSPACE_ROOT;
-  const root = path.join(repo, "tmp", "repo");
+  const root = path.join(TestProject.tmpdir("vscode-stop-missing-roots-"), "repo");
   const nested = path.join(root, "packages", "demo");
   const sibling = path.join(root, "tools");
+  for (const entry of [root, nested, sibling]) assert.equal(fs.existsSync(entry), false);
   const observed = (() => {
     return {
       parent: mod.rootsToStopForTarget([(nested)], (root)),

@@ -1,6 +1,7 @@
 import * as mod from "../../../../../packages/vscode/src/serverResolution";
 import { TestProject } from "../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 
 /**
@@ -18,13 +19,14 @@ import path from "node:path";
  * @evidence contracts/testing.md#behavioral-verification rootsInsideRemovedWorkspace returns clients below the removed workspace only.
  * @evidence contracts/testing.md#independent-expectations The expected list is the single authored nested path: a client rooted below the removed workspace must stop and a client in another workspace must remain, which follows from the removal contract rather than from the helper's containment code.
  * @evidence contracts/testing.md#distinguishing-cases A nested client below the removed root is selected and an unrelated sibling directory (tmp/other next to tmp/repo) is not. The removed root itself in the list and an alias or case-variant spelling are not covered.
- * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls rootsInsideRemovedWorkspace with the default identity context over three path strings that are never created on disk (identity falls back to lexical containment), with no fixture files, language client or child process.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/ttscserver; it calls the actual selector over missing child paths in a fresh tracked temporary parent. Native absence assertions establish lexical fallback with no language client or child process.
  */
 export function test_vscode_server_resolution_removes_descendant_workspace_roots() {
-  const repo = TestProject.WORKSPACE_ROOT;
-  const removed = path.join(repo, "tmp", "repo");
+  const parent = TestProject.tmpdir("vscode-removed-missing-roots-");
+  const removed = path.join(parent, "repo");
   const nested = path.join(removed, "packages", "demo");
-  const sibling = path.join(repo, "tmp", "other");
+  const sibling = path.join(parent, "other");
+  for (const entry of [removed, nested, sibling]) assert.equal(fs.existsSync(entry), false);
   const observed = (() => {
     return mod.rootsInsideRemovedWorkspace([
       (nested),
