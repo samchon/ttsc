@@ -7,14 +7,17 @@ import type { ITtscCompilerTransformation } from "../../structures/ITtscCompiler
  * Parse the JSON envelope written by the native transform host to stdout.
  *
  * The `typescript` field must be a `Record<string, string>`. Any other shape is
- * treated as a protocol error and throws with the stderr/stdout context. JSON
- * parse errors are also wrapped with the same context message.
+ * treated as a protocol error with a specific source-shape message. JSON parse
+ * errors instead report the captured stderr, or stdout when stderr is empty.
  *
  * The optional `dependencies`, `dependenciesComplete`, `graph`, `sourceMaps`,
  * and `volatile` fields (see `ITtscCompilerTransformation`) are forwarded when
  * well-formed; entries that do not match the expected shape are dropped rather
- * than failing the transform — the fields are advisory invalidation metadata,
+ * than failing the transform. The fields are advisory invalidation metadata,
  * not output.
+ *
+ * Source-keyed records retain literal keys, including names inherited by
+ * ordinary JavaScript objects, as enumerable own data properties.
  *
  * Dropping a malformed `dependenciesComplete` member is the safe direction on
  * purpose: an unlisted file keeps the sound host-owned bound, so a garbled
@@ -25,12 +28,12 @@ import type { ITtscCompilerTransformation } from "../../structures/ITtscCompiler
  * unavailable reason. Invalid limit metadata fails instead of becoming an
  * exemption; omission asserts no completeness.
  *
- * @evidence contracts/common.md#principled-implementation Required source output is decoded as an object of strings; advisory members are retained only by their declared shape, while malformed observation exemptions fail rather than authorize reuse.
+ * @evidence contracts/common.md#principled-implementation Required source output is decoded as an object of strings; advisory members are retained only by their declared shape with literal source keys stored as own data properties, while malformed observation exemptions fail rather than authorize reuse.
  * @evidence contracts/common.md#clear-and-simple-design This decoder owns the wire shape independently of process execution and proof revalidation; private helpers validate the distinct optional sections.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or malformed source output is never synthesized; omission of optional metadata cannot create observation authority.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain required output, advisory filtering, stricter observation limits and diagnostic context; returned fields distinguish source text from producer claims.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish source-shape errors from JSON error context and explain advisory filtering, literal source-key retention and stricter observation limits; returned fields distinguish source text from producer claims.
  * @evidence contracts/portability.md#os-neutral-implementation Host proof paths use native path.isAbsolute and path.resolve; graph keys retain compiler spellings. Decoding opens no file or process and applies no platform case folding.
- * @evidence contracts/performance.md#efficient-algorithms JSON decoding and section filtering traverse the input bytes and section entries once; predicate consistency checks inspect a fixed number of fields per observation.
+ * @evidence contracts/performance.md#efficient-algorithms JSON decoding and bounded section scans take time and request space linear in envelope bytes, keys and list members; Object.keys emptiness checks add linear scans without changing that bound, and predicate consistency checks inspect fixed fields without rereading directory-list members.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each captured producer response is independently decoded; the function retains no result or validity proof for later requests.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Decoded records are request-owned and transfer to the caller; no response history, watcher or native handle survives in the decoder.
  */
@@ -205,8 +208,11 @@ function parseSourceMaps(
     ) {
       continue;
     }
-    output[file] =
-      candidate as unknown as ITtscCompilerTransformation.ISourceMap;
+    storeRecordEntry(
+      output,
+      file,
+      candidate as unknown as ITtscCompilerTransformation.ISourceMap,
+    );
   }
   return Object.keys(output).length === 0 ? undefined : output;
 }
@@ -273,7 +279,7 @@ function parseDependencyLists(
       (entry): entry is string => typeof entry === "string",
     );
     if (files.length !== 0) {
-      output[key] = files;
+      storeRecordEntry(output, key, files);
     }
   }
   return Object.keys(output).length === 0 ? undefined : output;
@@ -296,8 +302,10 @@ function parseGraphEdges(value: unknown): Record<string, string[]> | undefined {
     if (key.length === 0 || !Array.isArray(entries)) {
       continue;
     }
-    output[key] = entries.filter(
-      (entry): entry is string => typeof entry === "string",
+    storeRecordEntry(
+      output,
+      key,
+      entries.filter((entry): entry is string => typeof entry === "string"),
     );
   }
   return Object.keys(output).length === 0 ? undefined : output;
@@ -400,9 +408,9 @@ function parseGraphInputObservations(value: unknown): {
     if (file.length === 0) continue;
     const parsed = parseGraphInputObservation(entry);
     if (parsed === "malformed" || parsed === "conflicting") {
-      failures[file] = `${parsed}-observation`;
+      storeRecordEntry(failures, file, `${parsed}-observation`);
     } else {
-      observations[file] = parsed;
+      storeRecordEntry(observations, file, parsed);
     }
   }
   return {
@@ -564,7 +572,7 @@ function parseGraphInputProofFailures(
     ) {
       continue;
     }
-    output[file] = reason;
+    storeRecordEntry(output, file, reason);
   }
   return Object.keys(output).length === 0 ? undefined : output;
 }
@@ -585,7 +593,7 @@ function parseGraphInputHashes(
     ) {
       continue;
     }
-    output[file] = hash;
+    storeRecordEntry(output, file, hash);
   }
   return Object.keys(output).length === 0 ? undefined : output;
 }
@@ -606,7 +614,11 @@ function parseGraphInputRealpaths(
     ) {
       continue;
     }
-    output[file] = realpath === null ? null : path.resolve(realpath);
+    storeRecordEntry(
+      output,
+      file,
+      realpath === null ? null : path.resolve(realpath),
+    );
   }
   return Object.keys(output).length === 0 ? undefined : output;
 }
@@ -624,6 +636,24 @@ function parseFileList(value: unknown): string[] | undefined {
     (entry): entry is string => typeof entry === "string" && entry.length !== 0,
   );
   return files.length === 0 ? undefined : files;
+}
+
+/**
+ * Retain a literal wire key without invoking an inherited setter.
+ * The ordinary record prototype and mutable, enumerable property shape remain
+ * compatible with existing consumers and JSON serialization.
+ */
+function storeRecordEntry<T>(
+  record: Record<string, T>,
+  key: string,
+  value: T,
+): void {
+  Object.defineProperty(record, key, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  });
 }
 
 /** Type guard: true when `value` is a non-null, non-array object of strings. */
