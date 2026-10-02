@@ -9,12 +9,12 @@ import (
 /**
  * Verifies a reason keeps its words and loses only its terminator.
  *
- * Thirteen messages join a reason to a sentence of their own, and Windows writes
- * a terminator where POSIX does not, so the rule that decides which one survives
- * is asserted here rather than thirteen times. Five take their reason as text
- * rather than as an error, which is how one of them stayed unrepaired through two
- * commits that claimed the class was empty, and the reasons come from the
- * filesystem, a subprocess, a parser behind one, and this rule's own validation.
+ * Every message that joins a reason to a sentence of its own goes through one of
+ * two functions, and Windows writes a terminator where POSIX does not, so the
+ * rule that decides which one survives is asserted here rather than once per
+ * message. Some messages take their reason as text rather than as an error, and
+ * the reasons come from the filesystem, a subprocess, a parser behind one, and
+ * this rule's own validation.
  *
  *  1. Trim a reason ending in a period, one that does not, a doubled one, a
  *     question mark, a bare period, and an empty string.

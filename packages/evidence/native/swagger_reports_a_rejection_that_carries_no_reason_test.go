@@ -13,8 +13,8 @@ import (
  * non-empty. If emptiness were what marked an outcome as a failure, a
  * reason-less rejection would materialize zero operations and report nothing —
  * a refused document that reads exactly like an empty document the graph is
- * content with, which is the shape `test_evidence_graph_reports_swagger_source_failures`
- * exists to forbid.
+ * content with, which is the shape every Swagger source failure report exists
+ * to forbid.
  *
  *  1. Remember a rejection carrying no message.
  *  2. Load with an unusable normalizer so the entry is what answers.
