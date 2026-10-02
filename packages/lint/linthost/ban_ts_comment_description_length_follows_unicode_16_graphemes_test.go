@@ -6,15 +6,16 @@ import (
   "testing"
 )
 
-// TestBanTsCommentDescriptionLengthFollowsUnicode16Graphemes verifies the
-// real ban-ts-comment rule measures descriptions with complete UAX #29
-// extended grapheme clusters.
+// TestBanTsCommentDescriptionLengthFollowsUnicode16Graphemes checks authored
+// Unicode 16 extended-grapheme cases through the real ban-ts-comment rule.
 //
-// GB9b Prepend, GB9c Indic conjuncts, and category-Cf emoji tags were absent
-// from the former approximation. Positive cases pin each no-break context;
-// reversed, control, and missing-linker twins prevent broad joins, while an
-// incomplete tag sequence proves tags extend clusters independent of emoji
-// sequence completeness.
+// The twenty-five rows exercise Prepend, Indic linker, emoji tag, combining
+// mark, Hangul, ZWJ, modifier and regional-indicator boundaries. Reversed,
+// control and missing-linker twins reject overly broad joins; incomplete
+// emoji tags still extend their preceding cluster under GB9. The table owns
+// finding counts at the two- and three-cluster thresholds, not exact messages
+// or universal segmentation coverage. The corpus sibling owns its published
+// per-boundary cases independently of this authored rule table.
 //
 // 1. Run standards-derived positive and negative twins through the real rule.
 // 2. Exercise custom two-cluster and default three-cluster thresholds.
@@ -22,7 +23,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification The rule applies Unicode 16 cluster boundaries to description thresholds.
 // @evidence contracts/testing.md#independent-expectations Authored wantFinding values follow Unicode grapheme break rules for prepend, Indic linker, emoji tags/ZWJ/modifiers, Hangul and regional indicators.
-// @evidence contracts/testing.md#distinguishing-cases Twenty-five named subcases include reversed/missing controls and default two-versus-three boundaries; the official corpus sibling validates the segmenter exhaustively.
+// @evidence contracts/testing.md#distinguishing-cases Twenty-five named subcases include reversed/missing controls and default two-versus-three boundaries; the corpus sibling checks each published Unicode 16 corpus boundary, not every possible string.
 // @evidence contracts/testing.md#execution-ownership This Test registers each table row with t.Run(testCase.name), calls runRuleFindingsSnapshot and owns its literal finding/no-finding expectation. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentDescriptionLengthFollowsUnicode16Graphemes(t *testing.T) {
   const (
