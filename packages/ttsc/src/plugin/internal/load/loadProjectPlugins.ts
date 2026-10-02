@@ -50,15 +50,20 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  * Reads the project config, discovers plugin entries (from tsconfig and package
  * auto-discovery), validates and composes their descriptors, then invokes
  * `buildSourcePlugin` to compile each Go source package into a cached binary.
- * Returns the ordered native plugins, parsed project config, exact
- * JavaScript-host files that universally influence the loaded selection, and
- * the state of every Go source directory the plugins supplied to the builds
+ * Returns the ordered native plugins, parsed project config,
+ * recorded JavaScript-host inputs and unresolved selection candidates, and
+ * the keyed state of reported Go source directories supplied to the builds
  * (`pluginSources`): each plugin's module root and each
  * contributor's source, with its state (`pluginSourceState`), the sources as
  * the build read them together with the environment a build there is keyed on.
- * ttsc's own sources, its overlays and the host it builds
- * for linked plugins, are keyed too but not reported: they change only with
- * ttsc itself.
+ * Directories within ttsc's installed package, including its overlays and the
+ * fallback linked-plugin host, are keyed but omitted from this report under
+ * the installed-package/version ownership policy. That policy does not prove
+ * the installation cannot be edited in place.
+ * Descriptor completeness relies on the runtime recorder's status and the
+ * descriptor's explicit external-read declaration. Sequential content,
+ * metadata and physical-path observations are not an atomic snapshot or
+ * detection of every omitted read.
  *
  * @param options.binary - Absolute path to the ttsc native helper binary.
  * @param options.cacheDir - Override the plugin binary cache directory.
@@ -79,9 +84,9 @@ import { visitImportMappedCandidates } from "./visitImportMappedCandidates";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Descriptor module caches are isolated rather than deleting application singletons. ttsx retry occurs only for explicit supported TypeScript loader incompatibility, with plugins disabled to avoid recursive self-hosting; arbitrary descriptor failures are not retried into false success.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains result provenance, environment and path options; helper comments explain input races, conservative proof omission, fallback authority and cleanup. Member/tag spacing and separated concepts follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path/file-URL conversion, createRequire and hidden spawn with explicit argv/environment implement OS-neutral selection and process execution. Physical identities are preserved separately from lexical candidates; Bun-specific differences are capability decisions, not OS guesses.
- * @evidence contracts/performance.md#efficient-algorithms Input merging and conflicts use Sets/maps, descriptor hits avoid process startup, and source/environment digests are shared per load. Composition currently scans aggregates against plugins and aliases; this finite configured-plugin policy can be quadratic and is not claimed linear.
- * @evidence contracts/performance.md#reuse-equivalent-work Proven descriptor evaluations share only complete context/environment/runtime/version identities whose actual inputs still hold; within a generation source/environment digests are shared by directory and one selected transform host serves linked contributors.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Evaluator directories and diagnostic descriptors are released in finally, child lifetimes end with synchronous evaluation, injected env locators are restored, and generation maps are local. Temp removal remains best effort; descriptor/capability disk answers have default cache pruning and caller-selected roots retain caller ownership.
+ * @evidence contracts/performance.md#efficient-algorithms Input merging and conflicts use Sets/maps and sorted path populations, with path/key/value byte costs. Discovery can repeat config/manifest/candidate reads and full hashes; descriptor work includes runtime probes, full observation/JSON processing and possibly synchronous evaluation. Builds delegate source/environment hashing, copying and Go execution; per-load digest maps share selected work. Composition can be quadratic in configured plugins/aliases, and native lookup/file/output bytes are not bounded by plugin count alone.
+ * @evidence contracts/performance.md#reuse-equivalent-work Descriptor hits require the cache's context/environment/runtime/version identity and matching recorded projections, subject to producer declarations and sequential-observation limits. Per-load source/environment maps share directory-keyed digests and one selected transform host serves linked contributors; these identities do not certify every undeclared read or atomic filesystem stability.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Finally restores injected environment locators, attempts evaluator directory removal and closes direct-evaluator diagnostic descriptors. Close/removal can fail; synchronous completion concerns the selected evaluator and does not certify arbitrary descendants are gone. Generation maps/results scale with observed data, and disk diagnostics/result/observation files have no independent byte ceiling here. Default disk pruning has its own interval/protection/failure policy; explicit roots remain caller-owned.
  */
 export function loadProjectPlugins(options: {
   /** Absolute native ttsc helper used in descriptor factory contexts. */
@@ -124,8 +129,10 @@ export function loadProjectPlugins(options: {
   deferredHostInputs: string[];
 
   /**
-   * Whether every descriptor declared the files it read outside its module
-   * graph (`declaresHostInputReads`). When one did not, the host inputs cannot
+   * Whether every descriptor reported complete runtime observations and an
+   * explicit external-read declaration (`declaresHostInputReads`). This flag
+   * does not discover reads omitted by that producer. Without the declaration,
+   * the host inputs cannot
    * prove the load's answer to a later launch. The runtime
    * must also explicitly complete its module observations; retained partial
    * records do not establish that declaration's input graph.
@@ -138,7 +145,7 @@ export function loadProjectPlugins(options: {
   /** Physical observations captured alongside the host-input reads. */
   hostInputRealpaths: Record<string, string | null>;
 
-  /** All universal loader inputs, including unresolved discovery candidates. */
+  /** Reported loader inputs, including unresolved discovery candidates. */
   hostInputs: string[];
 
   /**
@@ -1354,8 +1361,8 @@ function loadCommonJsDescriptor(
         ]),
       ].sort(),
     };
-    // A hit replays nothing, so only an evaluation that printed nothing is
-    // kept.
+    // A hit replays no diagnostics, so only an evaluation with an empty
+    // captured diagnostics file is kept.
     if (
       cacheFile !== null &&
       fs.statSync(diagnostics).size === 0 &&
