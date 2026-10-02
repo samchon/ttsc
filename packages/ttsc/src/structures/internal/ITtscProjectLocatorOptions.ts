@@ -14,12 +14,15 @@ export interface ITtscProjectLocatorOptions {
   /** Working directory for relative paths and upward config discovery. */
   cwd?: string;
 
-  /** Source file used as the starting point for nearest-config discovery. */
+  /**
+   * Source path resolved from `cwd`; discovery begins at its parent, or at
+   * the path itself when it names an existing directory.
+   */
   file?: string;
 
-  /** Project root override for generated tsconfig wrappers. */
+  /** Selected project root resolved from `cwd`, separate from config selection. */
   projectRoot?: string;
 
-  /** Explicit tsconfig/jsconfig path. */
+  /** Explicit config file or directory, absolute or resolved from `cwd`. */
   tsconfig?: string;
 }
