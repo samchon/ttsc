@@ -33,6 +33,9 @@ import { PassthroughFlags } from "./PassthroughFlags";
  * consumer. Ownership metadata never changes that status or its diagnostics.
  * Profiling and tracing options suppress probes so their artifacts remain owned
  * by the emitting run.
+ * TSFILE rows are the selected producer's write reports, not output-file byte
+ * observations. Admission assumes that producer uses the supported upstream
+ * naming subset; this adapter does not certify arbitrary compiler behavior.
  *
  * Normally reported ownerless outputs carry their actual failed proof boundary
  * in emittedSourceProofFailures. These explanations preserve compiler streams
@@ -43,9 +46,9 @@ import { PassthroughFlags } from "./PassthroughFlags";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The selected executable and original arguments remain authoritative. Unknown layouts are reported unknown instead of switching compilers, guessing same-stem ownership or consulting source maps.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain producer preservation, unknown states and the non-atomic observation limitation; the investigation record documents the supported upstream naming subset.
  * @evidence contracts/portability.md#os-neutral-implementation Native node:path and filesystem realpath/stat separate writer spelling from physical source identity. Executables receive separate argv entries through spawnNative, without a shell or OS-based case folding.
- * @evidence contracts/performance.md#efficient-algorithms Source and output indexes avoid cross-product matching. Response inspection uses an iterative frame stack and active physical-path set; processing scales with expanded argv occurrences and observed source/response bytes and paths, plus compiler probes and physical filesystem operations.
+ * @evidence contracts/performance.md#efficient-algorithms Source and output indexes avoid cross-product matching. Response inspection uses an iterative frame stack and active physical-path set. Repeated response/source/executable observations read and hash complete files; showConfig text, source/output lists, signature JSON, candidate path components and byte buffers are processed at their actual sizes alongside native probes/path operations. No native duration or report-size ceiling follows from using one index.
  * @evidence contracts/performance.md#reuse-equivalent-work Each source observation and predicted output index is shared by all outputs in this invocation. Cross-build reuse is unavailable because arbitrary external producer and filesystem dependencies have no invalidation contract.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Probe processes complete synchronously through spawnNative's capture owner; hashes, response-frame tokens, observations and indexes live only for this call and scale with expanded arguments and selected paths, while transient read buffers scale with the largest observed file, including the executable.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Response/config/source tokens and predicted owner sets live for this invocation; returned provenance/refusal records transfer to the caller. Retained bytes grow with complete reports, expanded arguments, paths and observations, while individual file reads allocate full file buffers. Probe capture cleanup is delegated and may be best effort; no timeout, output ceiling or descendant-release certification is provided here.
  */
 export function runExternalEmitProvenance(options: {
   /** Complete original compiler argv, including project selection. */
