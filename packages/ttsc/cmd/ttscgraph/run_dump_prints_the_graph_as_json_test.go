@@ -33,7 +33,7 @@ func writeGraphFile(t *testing.T, path, content string) {
 // @evidence contracts/testing.md#behavioral-verification The real prepareDumpCommand and encode operations return zero and stream parseable graph JSON with nonempty node/edge arrays and the expected wire endpoint/kind fields. This helper does not execute top-level dispatch.
 // @evidence contracts/testing.md#independent-expectations The literal fixture declares two functions and one call, so a successful dump cannot have empty nodes or edges. Only the first edge's from and kind keys are asserted; the other edge and node fields are not checked here.
 // @evidence contracts/testing.md#distinguishing-cases A successful loaded project contrasts malformed invocation/load cases elsewhere; nonempty graph facts and raw wire keys distinguish a graph document from unrelated or legacy output.
-// @evidence contracts/testing.md#execution-ownership This Go source-unit entry calls runSourceDumpCommand, which supplies dump and delegates to actual prepareDumpCommand/encode with empty ignore membership. Installed test_ttscgraph_installed_launcher_preserves_argument_boundary retains real bin/native dispatch; this unit builds or starts no native product.
+// @evidence contracts/testing.md#execution-ownership This Go source-unit entry calls runSourceDumpCommand, which supplies dump and delegates to actual prepareDumpCommand/encode with empty ignore membership. The installed-launcher E2E case_ttscgraph_installed_launcher_preserves_argument_boundary retains real bin/native dispatch; this unit builds or starts no native product.
 func TestRunDumpPrintsTheGraphAsJSON(t *testing.T) {
   root := t.TempDir()
   writeGraphFile(t, filepath.Join(root, "tsconfig.json"), `{

@@ -810,7 +810,7 @@ func observeTestCLICommandCheckAliasSuppressesEmit(t *testing.T, root string, in
 //
 // Testing behavioral-verification: -h, --help and help return zero with Project build: and version text and without demo.
 // Testing independent-expectations: The native CLI command surface supplies literal help fragments; the checks permit unrelated extra text and do not enforce empty stderr.
-// Testing distinguishing-cases: Three named alias subtests retain all help inputs and Project build and no-demo assertions from TestCLIRunHelpVariants, with the additional version fragment check.
+// Testing distinguishing-cases: Three named alias subtests cover every help input with the Project build and no-demo assertions, plus a version fragment check.
 // Testing execution-ownership: The named aggregate supplies the declared fixture and actual closure; this observer owns only original argv/result assertions. Preparation and borrowed semantic execution are explicitly separated by that owner, and no response is replayed.
 func observeTestCLICommandHelpAliases(t *testing.T, root string, invoke func(*testing.T, ...string) (int, string, string)) {
   for _, flag := range []string{"-h", "--help", "help"} {
@@ -929,7 +929,7 @@ func observeTestCLICommandRunsProjectFromCurrentDirectory(t *testing.T, root str
 //
 // Testing behavioral-verification: -v, --version and version each return zero and include ttsc, commit and go metadata fragments.
 // Testing independent-expectations: The native build metadata contract defines field presence; variable release values are intentionally not copied from the binary.
-// Testing distinguishing-cases: Three named alias subtests retain all inputs and metadata fragments from TestCLIRunVersion; requiring go followed by a space strengthens its original go substring assertion.
+// Testing distinguishing-cases: Three named alias subtests cover every version input and metadata fragment; requiring go followed by a space is stricter than a bare go substring.
 // Testing execution-ownership: The named aggregate supplies the declared fixture and actual closure; this observer owns only original argv/result assertions. Preparation and borrowed semantic execution are explicitly separated by that owner, and no response is replayed.
 func observeTestCLICommandVersionAliases(t *testing.T, root string, invoke func(*testing.T, ...string) (int, string, string)) {
   for _, flag := range []string{"-v", "--version", "version"} {
