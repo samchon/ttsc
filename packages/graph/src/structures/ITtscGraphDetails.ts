@@ -184,13 +184,13 @@ export namespace ITtscGraphDetails {
     /** Assigned implementation span, when source comes from one. */
     implementation?: ITtscGraphEvidence;
 
-    /** Direct execution dependencies, ranked by relation then source position and capped by `dependencyLimit`, with edge evidence. */
+    /** Direct execution dependencies in source order, with edge evidence. */
     calls?: IReference[];
 
-    /** Direct type dependencies, ranked by relation then source position and capped by `dependencyLimit`, with edge evidence. */
+    /** Direct type dependencies in source order, with edge evidence. */
     types?: IReference[];
 
-    /** Nodes that implement or override this interface/base member, capped by `dependencyLimit`. */
+    /** Concrete nodes that implement or override this interface/base member. */
     implementedBy?: IReference[];
 
     /**

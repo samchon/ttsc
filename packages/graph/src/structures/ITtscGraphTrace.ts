@@ -21,7 +21,7 @@ export interface ITtscGraphTrace {
   /** Edges traversed, in breadth-first order. */
   hops: ITtscGraphTrace.IHop[];
 
-  /** Unique nodes reached (excluding the start), each with its depth, and its roles on an impact trace. */
+  /** Unique nodes reached (excluding the start), each with its depth and roles. */
   reached: ITtscGraphTrace.INode[];
 
   /** In an open trace, true when a bound omitted an eligible node or hop. */
@@ -165,7 +165,6 @@ export namespace ITtscGraphTrace {
     /**
      * Hops deep to follow (open forward/reverse cap at 8, impact at 4, path
      * mode at 12). Raise it to follow a runtime chain to its end in one call.
-     * Path mode searches to its cap of 12 when this is omitted.
      *
      * @default 3
      */

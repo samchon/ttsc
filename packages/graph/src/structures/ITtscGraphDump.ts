@@ -87,9 +87,7 @@ export namespace ITtscGraphDump {
      * uncollected one look identical on the wire.
      *
      * The known members are `universe`, `sourceDigests`, `diskDigests`,
-     * `diagnostics`, `docTags`, and `artifactNodes`, which the producer lists
-     * only when it asked the project's configured plugins for artifact nodes.
-     * The type stays `string[]` rather than a
+     * `diagnostics`, and `docTags`. The type stays `string[]` rather than a
      * union of those on purpose: a union would make `typia.assert` reject a
      * newer producer for naming a capability this client has not heard of,
      * turning "proves more than you know about" into a hard failure. An unknown

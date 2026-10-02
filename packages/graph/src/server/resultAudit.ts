@@ -1,5 +1,4 @@
 import { TTSC_GRAPH_ARTIFACT_NODE_KINDS } from "../structures/TtscGraphArtifactNodeKind";
-import { MAX_SIGNATURE_LINES } from "./runDetails";
 
 /**
  * What the audits say about facts the compiler did not resolve.
@@ -142,9 +141,7 @@ A returned span is the citation, not a cue to open the file to confirm it.
 
 What was selected is heuristic, not exhaustive. This result was matched against your
 natural-language question, scored and ranked, held to a few hits per file, and cut to a
-limit; a \`score\` is that ranking. A lookup's \`truncated\` marks matches the limit left out, while
-an entrypoints or tour \`truncated\` marks only the low-signal extras it capped, so hits cut by the
-limit are not flagged there. Each fact
+limit; a \`score\` is that ranking, and \`truncated\` marks where more was left out. Each fact
 it returns is compiler-verified, but whether the shortlist covers what you asked is yours to
 judge — if the top of it does not, refining the query, raising the limit, or reading a cited
 span is a sound next step, not a failure to trust the result.
@@ -178,7 +175,7 @@ ${NOT_COMPILER_RESOLVED}
 
 This is the structure the graph holds for the handles you named. What a symbol is — its
 members, its values, its signature — is complete: trust it and do not open the file to read
-what is already here. A signature longer than ${MAX_SIGNATURE_LINES} lines is the one exception: it stops at line ${MAX_SIGNATURE_LINES}, and the cited span holds the rest. What a symbol reaches or is reached by — its calls, its type
+what is already here. What a symbol reaches or is reached by — its calls, its type
 references, its implementers, and under \`neighbors\` its dependents — is a short orientation
 slice, not the whole set, because that grows with how widely a symbol is used; \`trace\`
 follows it in full.

@@ -21,29 +21,40 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * 1. Author the nine config, membership, lane, fingerprint and owner-handoff
  *    scenarios.
- * 2. Drive swallowed and event-first transitions under the preserved platform
- *    guards.
+ * 2. Drive swallowed and event-first transitions, running the POSIX-only and
+ *    Windows-only scenarios on their own platform and logging a skip elsewhere.
  * 3. Collect every scenario result and require exact reports, errors and handle
  *    retirements.
  *
  * @evidence contracts/testing.md#behavioral-verification Preserves all nine handoff scenarios: swallowed config and membership events, event-first deduplication, deleted JSON handoff, Windows mixed membership, transient directory failure, POSIX owner rebind, failed refresh containment and close cancellation.
  * @evidence contracts/testing.md#independent-expectations Authored config/source/JSON changes, literal error and notification counts, distinct inode assertions and exact close counts define independent handoff outcomes.
- * @evidence contracts/testing.md#distinguishing-cases Preserves all nine handoff scenarios: swallowed config and membership events, event-first deduplication, deleted JSON handoff, Windows mixed membership, transient directory failure, POSIX owner rebind, failed refresh containment and close cancellation; the native observer's uncontrolled event scheduling remains exercised by the separate actual fs.watch watch boundaries.
+ * @evidence contracts/testing.md#distinguishing-cases Contrasts: a swallowed config deletion reports one config change and one error while a swallowed new compiler member reports one topology refresh and no input change; a backend event that wins reconciliation reports exactly one compiler change; a consumed warm creation is not repeated by delayed project and compiler deliveries, a mixed source-plus-JSON membership keeps its broader topology reload, and reload-file and reload-directory deltas are consumed once; a first directory read that fails with ENOENT yields one config change and no error; an identical atomic replacement invents no change but a later edit does, and a rearm after a failed refresh neither repeats the config notice nor the error; after close nothing is reported. POSIX-only and Windows-only scenarios are logged as skipped on the other platform.
  * @evidence contracts/testing.md#execution-ownership Actual source WatchTopology and directory adapters consume recorded notifications and explicitly supplied absolute compiler membership. This unit starts no compiler process or native watcher; retained native E2E cases own compiler population and physical delivery. Every original semantic assertion remains in this unit.
  */
 export async function test_watch_topology_reconciles_compiler_inputs_after_registration() {
   const failures: Error[] = [];
-  for (const run of [
-    verifySwallowedConfigDeletion,
-    verifySwallowedCompilerMembership,
-    verifyBackendEventWinsReconciliation,
-    verifyDeletedProjectMemberReconcilesBeforeFileNotification,
-    verifyWindowsProjectCompilerMembershipHandoff,
-    verifyTransientReloadDirectoryFingerprintRace,
-    verifyAtomicReplacementRebindsPosixFileWatcher,
-    verifyFileRearmDoesNotRepeatCompilerRefresh,
-    verifyCloseCancelsReconciliation,
-  ]) {
+  for (const [run, platform] of [
+    [verifySwallowedConfigDeletion, "any"],
+    [verifySwallowedCompilerMembership, "any"],
+    [verifyBackendEventWinsReconciliation, "any"],
+    [verifyDeletedProjectMemberReconcilesBeforeFileNotification, "posix"],
+    [verifyWindowsProjectCompilerMembershipHandoff, "win32"],
+    [verifyTransientReloadDirectoryFingerprintRace, "any"],
+    [verifyAtomicReplacementRebindsPosixFileWatcher, "posix"],
+    [verifyFileRearmDoesNotRepeatCompilerRefresh, "posix"],
+    [verifyCloseCancelsReconciliation, "any"],
+  ] as const) {
+    // A scenario owned by another platform is reported rather than passed
+    // silently, so the run never claims coverage it did not execute.
+    if (
+      (platform === "posix" && process.platform === "win32") ||
+      (platform === "win32" && process.platform !== "win32")
+    ) {
+      console.log(
+        `  - ${run.name}: SKIPPED on ${process.platform} (${platform}-only scenario; no coverage claimed)`,
+      );
+      continue;
+    }
     try {
       await run();
     } catch (error) {
@@ -200,8 +211,6 @@ async function verifyBackendEventWinsReconciliation(): Promise<void> {
 }
 
 async function verifyDeletedProjectMemberReconcilesBeforeFileNotification(): Promise<void> {
-  if (process.platform === "win32") return;
-
   const root = TestProject.tmpdir("ttsc-watch-project-delete-handoff-");
   const source = path.join(root, "src", "main.ts");
   const json = path.join(root, "api", "openapi.json");
@@ -272,8 +281,6 @@ async function verifyDeletedProjectMemberReconcilesBeforeFileNotification(): Pro
 }
 
 async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
-  if (process.platform !== "win32") return;
-
   const fixture = createFixture("ttsc-watch-membership-handoff-", {
     compilerOptions: {
       esModuleInterop: true,
@@ -602,8 +609,6 @@ async function verifyTransientReloadDirectoryFingerprintRace(): Promise<void> {
 }
 
 async function verifyAtomicReplacementRebindsPosixFileWatcher(): Promise<void> {
-  if (process.platform === "win32") return;
-
   const fixture = createFixture("ttsc-watch-compiler-registration-replace-");
   const changes: WatchInputChange[] = [];
   const errors: unknown[] = [];
@@ -682,8 +687,6 @@ async function verifyAtomicReplacementRebindsPosixFileWatcher(): Promise<void> {
 }
 
 async function verifyFileRearmDoesNotRepeatCompilerRefresh(): Promise<void> {
-  if (process.platform === "win32") return;
-
   const fixture = createFixture("ttsc-watch-compiler-registration-error-");
   const changes: WatchInputChange[] = [];
   const errors: unknown[] = [];
