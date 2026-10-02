@@ -9,9 +9,9 @@ import fs from "node:fs";
  * @evidence contracts/common.md#meaningful-documentation The owning headline and retained diagnostic explain how callers correct a missing path.
  *
  * @evidence contracts/portability.md#os-neutral-implementation Accepts the caller-selected native path directly at fs.existsSync; diagnostic path spelling is retained and no slash assumptions or shell operations are introduced.
- * @evidence contracts/performance.md#efficient-algorithms One existence probe and a bounded diagnostic construct do not traverse the source tree.
+ * @evidence contracts/performance.md#efficient-algorithms One native existence probe avoids source-tree traversal; absent-path diagnostics copy source and label text plus fixed guidance, so cost/storage include native path and supplied label lengths.
  * @evidence contracts/performance.md#reuse-equivalent-work The operation reobserves caller-owned filesystem state per request because a previous absence or presence does not establish continued validity.
- * @evidence contracts/performance.md#bound-retention-and-release-resources It retains no source contents or handles; the synchronous filesystem probe finishes before the decision returns.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The synchronous existence query opens no source stream and this guard retains no cache, handle or historical presence answer; a thrown diagnostic transfers to its caller.
  */
 export function requirePluginSource(source: string, label: string): void {
   if (!fs.existsSync(source)) {

@@ -10,15 +10,20 @@ import { requirePluginSource } from "./requirePluginSource";
 /**
  * Resolve the Go module and executable or linked ownership of a source.
  *
- * @evidence contracts/common.md#principled-implementation Actual module/package resolution and the leading production Go package clause determine executable versus linked source identity independently of plugin name; Go comments, initial BOM and Unicode identifiers retain their lexical meaning.
- * @evidence contracts/common.md#clear-and-simple-design Module discovery, directory admission and package parsing are separate owning operations; the private scanner only reads immediate production Go files.
+ * Classification uses the first scanned regular non-test .go file yielding
+ * a package-clause prefix. It does not validate full package syntax, build
+ * constraints, ignored filename prefixes or platform suffixes; Go compilation
+ * remains authoritative for actual buildability.
+ *
+ * @evidence contracts/common.md#principled-implementation Actual module discovery and the first accepted leading package-clause prefix determine executable versus linked classification independently of the diagnostic label. Comments, initial BOM and Unicode identifiers are recognized, but filename/prefix admission is not full Go package validation.
+ * @evidence contracts/common.md#clear-and-simple-design Module discovery, directory admission and package parsing are separate owning operations; the private scanner reads immediate regular non-test .go candidates.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Classification invokes the real source resolver and native filesystem rather than a guessed kind or cached filename.
  * @evidence contracts/common.md#meaningful-documentation The headline explains native ownership and the Go module returned to the loader.
  *
- * @evidence contracts/portability.md#os-neutral-implementation The module resolver and native fs/path operations preserve actual directory and file identity; no platform case or path separator heuristic selects ownership.
- * @evidence contracts/performance.md#efficient-algorithms After ancestor module discovery, the scanner visits immediate entries and reads candidate production Go files until it finds a package clause. Each file read scales with its bytes; lexical scanning only visits its leading trivia and two identifiers, without allocating a line array or recursively traversing module payload.
- * @evidence contracts/performance.md#reuse-equivalent-work Classification reobserves the supplied source because its files and package declaration can change between loads; repeated label selection is shared through one pure owning helper.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Directory entries and file strings remain local to one query and synchronous reads leave no retained source handle or global classification cache.
+ * @evidence contracts/portability.md#os-neutral-implementation The module resolver and native fs/path queries use caller-selected native spelling and regular-file metadata without blanket case folding or separator guessing. These preflight queries do not freeze physical identity or certify platform-specific Go build eligibility.
+ * @evidence contracts/performance.md#efficient-algorithms After ancestor module discovery, the scanner visits immediate entries and reads candidate production Go files until it finds a package clause. Full immediate-directory materialization and candidate file reads/UTF-8 decoding scale with entry/path and file bytes; lexical scanning visits leading trivia and two identifiers without line arrays or recursive payload traversal. Ancestor path queries and label/property text handling remain part of the delegated cost.
+ * @evidence contracts/performance.md#reuse-equivalent-work Classification reobserves the supplied source because its files and package declaration can change between loads; the label is selected once for this query and shared across its source/module diagnostics; no cross-load classification cache is established.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Directory entries and candidate file strings are invocation-local, growing with the immediate population and complete file sizes; returned classification/module strings transfer to the loader. Synchronous filesystem calls retain no source handle here, and no population ceiling or global classification history is owned.
  */
 export function resolveNativeSource(
   source: string,
