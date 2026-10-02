@@ -11,7 +11,8 @@ import { TestProject } from "../../../utils/src/TestProject";
  * A version upgrader can turn a nested or foreign reference into a local schema
  * with the same final token. Private names used to preserve its original target
  * must not leak into digests, bind author-written data or change cycle guards.
- * These inputs omit the emended marker and therefore exercise real conversion.
+ * Raw inputs omit the emended marker and exercise real conversion. A marked 3.2
+ * YAML comparison also separates shared schema objects from their data positions.
  *
  * 1. Load raw 3.1/3.2 pointers with selected, decoy and unrelated edits.
  * 2. Require literal operation hashes for ordinary, tuple, recursive and allOf
@@ -20,7 +21,7 @@ import { TestProject } from "../../../utils/src/TestProject";
  *    unresolved allOf controls require invariance without inventing their shape.
  * 4. Collect every independent load and assertion before reporting failures.
  *
- * @evidence contracts/testing.md#behavioral-verification Calls actual loadSwaggerOperations source over raw documents, using the real YAML parser and version upgrader. Exact operation digests distinguish original targets from final-token decoys; selected edits change the literal expected contract while decoy and unrelated edits leave it intact. Tuple relocation, allOf object merging, recursive guard identity and reference-shaped data are observable through those operation digests. The existing normalized-fragment test owns the marked-document branch and stays unchanged.
+ * @evidence contracts/testing.md#behavioral-verification Calls actual loadSwaggerOperations source over raw documents, using the real YAML parser and version upgrader, plus one marked 3.2 shared-anchor comparison. Exact operation digests distinguish original targets from final-token decoys; selected edits change the literal expected contract while decoy and unrelated edits leave it intact. Tuple relocation, allOf object merging, recursive guard identity and reference-shaped data are observable through those operation digests. The existing normalized-fragment test owns its pointer matrix and stays unchanged.
  * @evidence contracts/testing.md#independent-expectations RFC 6901 establishes original local pointer selection and invalid escapes. Expected SHA-256 hashes use independently written canonical operation JSON, not loader output or its serializer. Literal merged object properties and finite recursive boundaries state the selected contracts. Foreign/non-component allOf controls assert only that unrelated local edits cannot affect them: the standard upgrader's unresolved-allOf representation is not claimed to preserve a literal reference. This entry does not certify unsupported raw dialects or webhook operation materialization.
  * @evidence contracts/testing.md#distinguishing-cases Both raw versions cover plain/encoded prefixes and keys, plain/encoded nested targets, escaped names, missing/malformed/foreign/non-component references, a raw tuple item, plain/encoded self and mutual cycles, allOf selected objects and unresolved controls. Author-written alias keys and alias-looking data contrast with private allocation; example/default/const/enum/extension objects containing $ref remain data. A YAML anchor shares one reference object between a schema and example data: only the schema occurrence resolves. Request/response content, path/operation/component parameters, response/component headers and body/response components carry schema references; 3.2 itemSchema and each dialect's additional operations retain their real holders. Unrelated component and webhook additions must not move selected or sibling digests.
  * @evidence contracts/testing.md#execution-ownership The matching named src/features export uses maintained source directly in the unit runner's Node process, with no installed consumer, native build or product child. Each row/version/edit has its own load and failure label. Failed admission blocks only that load's dependent assertions; independent inputs continue. Unresolved-allOf comparisons blocked by a missing baseline are not coverage. Cleanup removes only this invocation's tracked temporary root and collects removal and absence failures separately. The function claim's existing src/features glob will select the added entry; runtime execution and exact scanner census must be verified separately when execution is authorized.
@@ -43,6 +44,7 @@ export async function test_swagger_source_loader_preserves_raw_reference_provena
     pathParameters?: unknown[];
     custom?: boolean;
     yamlAlias?: boolean;
+    normalized?: boolean;
   };
   type Row = {
     name: string;
@@ -192,6 +194,13 @@ export async function test_swagger_source_loader_preserves_raw_reference_provena
     expected: selected => postText('{"example":{"value":' + literalRefText(encoded) +
       '},"properties":{"value":' + scalarText(selected) + '},"type":"object"}'),
   });
+  rows.push({
+    name: "marked-shared-YAML-schema-data-anchor",
+    version: "3.2.0",
+    input: () => ({ yamlAlias: true, normalized: true }),
+    expected: selected => postText('{"example":{"value":' + literalRefText(encoded) +
+      '},"properties":{"value":' + scalarText(selected) + '},"type":"object"}'),
+  });
   const parameter = { name: "q", in: "query", schema: ref(encoded) };
   const parameterText = (selected: string): string => '{"parameters":[{"in":"query","name":"q","schema":' +
     scalarText(selected) + '}],"responses":{"200":{"description":"OK"}}}';
@@ -257,6 +266,7 @@ export async function test_swagger_source_loader_preserves_raw_reference_provena
             const source = label.replaceAll(":", "-") + (input.yamlAlias ? ".yaml" : ".json");
             const document = {
               openapi: version, info: { title: "Raw provenance", version: "1" },
+              ...(input.normalized ? { "x-typia-emended-v12": true } : {}),
               paths: { "/selected": selectedPath, "/sibling": { get: { responses: ok } } },
               components: { ...input.components, schemas: {
                 ...(clutter ? { Unrelated: { oneOf: [ref(target), scalar("null")] } } : {}),
@@ -267,7 +277,7 @@ export async function test_swagger_source_loader_preserves_raw_reference_provena
             };
             fs.writeFileSync(path.join(root, source), input.yamlAlias
               ? `openapi: ${version}
-info: { title: Shared schema and data, version: '1' }
+${input.normalized ? "x-typia-emended-v12: true\n" : ""}info: { title: Shared schema and data, version: '1' }
 paths:
   /selected:
     post:
