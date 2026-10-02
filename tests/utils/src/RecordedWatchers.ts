@@ -86,14 +86,24 @@ export function recordWatchers(adapter: RecordedDirectoryAdapter): {
   return { openDirectoryWatch, openFileWatch, watchers };
 }
 
-/** Deliver the authored path to every active subscription covering that path. */
+/**
+ * Deliver the authored path to every subscription that exists when the event
+ * occurs.
+ *
+ * A listener may retire and reinstall subscriptions while handling the event,
+ * as the topology does on a backend whose handle stays bound to a replaced
+ * directory. An operating system never delivers an event that already happened
+ * to a watcher installed after it, so the delivery set is fixed before the first
+ * listener runs. Walking the live registration array would revisit every
+ * reinstalled watcher without end.
+ */
 export function deliverWatchEvent(
   watchers: readonly IRecordedWatcher[],
   entry: string,
   event: string,
 ): void {
   let delivered = 0;
-  for (const watcher of watchers) {
+  for (const watcher of [...watchers]) {
     if (!watcher.active) continue;
     const relative = path.relative(watcher.location, entry);
     const observed =
