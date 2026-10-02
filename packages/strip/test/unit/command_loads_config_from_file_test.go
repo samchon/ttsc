@@ -22,6 +22,7 @@ import (
 //     console.info (kept); supply config via strip.config.json.
 //  2. Run transform via configFile (explicit) and via auto-discovery (implicit).
 //  3. Assert console.warn is absent and console.info is present in both cases.
+//
 // @evidence contracts/testing.md#behavioral-verification Explicit configFile and auto-discovery each load calls:[console.warn],statements:[] through transform; warn disappears and console.info("keep") remains in successful JSON output.
 // @evidence contracts/testing.md#independent-expectations The authored JSON explicitly selects warn and leaves info outside the target set, so literal absent/present output gives an independent option oracle.
 // @evidence contracts/testing.md#distinguishing-cases Separate disposable explicit and implicit projects use the same policy. Retained info detects over-stripping; both source-selection routes must carry the policy into transform.

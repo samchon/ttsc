@@ -9,9 +9,9 @@ import (
 
 // TestCommandRunsTransform verifies strip transform output.
 //
-// The strip command is tested through its package wrapper because hosts care about emitted
-// JavaScript with selected statements removed. These scenarios keep command dispatch, project
-// loading, and the shared utility transform path observable from the package boundary.
+// Direct utility dispatch applies the registered strip driver and prints the
+// resulting TypeScript into a JSON payload in this Go test process. No sidecar
+// is started and no emitted JavaScript is used as this case's oracle.
 //
 // Transform mode is the narrowest host path for receiving mutated TypeScript text. The fixture
 // keeps one removable call and one retained statement so the assertion proves selective
@@ -20,6 +20,7 @@ import (
 // 1. Create a source file with a configured strip target.
 // 2. Run transform through the production command dispatch.
 // 3. Decode the JSON payload and assert removed and retained statements separately.
+//
 // @evidence contracts/testing.md#behavioral-verification Transform returns nonempty typescript[src/main.ts], removes debugger and console.log, and retains export const value = "ok" with status zero and empty stderr.
 // @evidence contracts/testing.md#independent-expectations The default strip targets and authored retained exported value give independent changed/unchanged expectations, rather than snapshotting the plugin result.
 // @evidence contracts/testing.md#distinguishing-cases Targets disappear while ordinary code remains. Build covers disk publication; the embedded-statements entry covers additional syntax and non-target call negatives.

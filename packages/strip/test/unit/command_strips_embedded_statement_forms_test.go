@@ -22,6 +22,7 @@ import (
 //  2. Run transform with a manifest carrying no inline config, so the
 //     strip.config.json is auto-discovered from the tsconfig directory.
 //  3. Assert stripped calls disappear while non-target calls and non-call expressions remain.
+//
 // @evidence contracts/testing.md#behavioral-verification One configured transform (strip.config.json auto-discovered; calls console.log, console.debug, assert.*, drop; statements debugger) must remove debugger, every console.log( call including those in if, do, while, for, for-in, for-of, with, label and block bodies, the else-branch console.debug, the assert.* wildcard call and the bare drop() call; retained keep(...) calls, console.info, keep(console.log), console["log"](...) and getConsole().log(...) must remain in the output.
 // @evidence contracts/testing.md#independent-expectations The authored calls/statements JSON and literal removed/retained markers determine independent expectations. Text presence checks do not prove complete emitted grammar or runtime behavior.
 // @evidence contracts/testing.md#distinguishing-cases Positive targets differ from keep calls, console.info, passing console.log as a value, console["log"] and getConsole().log. All supported embedded-statement forms share one project and invocation.

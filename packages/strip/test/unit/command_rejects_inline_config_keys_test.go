@@ -20,10 +20,11 @@ import (
 // offending key and direct the user to a strip.config.* file.
 //
 //  1. Create a minimal project with no config file.
-//  2. Invoke transform with a manifest that carries "calls" directly on the
-//     plugin entry.
+//  2. Invoke transform with each former inline key, calls and statements, on
+//     the plugin entry.
 //  3. Assert a non-zero exit, structured recovery metadata without source output,
 //     and a diagnostic naming the unsupported key and strip.config.*.
+//
 // @evidence contracts/testing.md#behavioral-verification For calls and statements supplied inline, transform must fail and return empty source output, one key-specific diagnostic and graph.configs containing tsconfig.json, plus migration guidance on stderr.
 // @evidence contracts/testing.md#independent-expectations The file-only strip configuration contract rejects both former inline keys; literal key names and strip.config guidance independently specify the migration failure.
 // @evidence contracts/testing.md#distinguishing-cases Both former inline keys (calls, statements) are tried against one project and each must fail with an empty typescript map plus graph.configs. No success route and no malformed-JSON route is run in this body; file-based success belongs to command_loads_config_from_file.

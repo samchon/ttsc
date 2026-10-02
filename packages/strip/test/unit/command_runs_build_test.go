@@ -8,9 +8,9 @@ import (
 
 // TestCommandRunsBuild verifies the strip command removes configured calls during build emit.
 //
-// The strip command is tested through its package wrapper because hosts care about emitted
-// JavaScript with selected statements removed. These scenarios keep command dispatch, project
-// loading, and the shared utility transform path observable from the package boundary.
+// Direct utility dispatch loads the fixture project and applies the registered
+// strip driver in this Go test process. The emitted JavaScript exposes strip
+// application and emit-callback behavior without starting the sidecar.
 //
 // Build exercises the file-writing branch of the shared utility host. The scenario checks the
 // on-disk JavaScript so regressions in emit callbacks or strip pattern application are visible.
@@ -18,6 +18,7 @@ import (
 // 1. Create a project with outDir and a removable call.
 // 2. Execute build with --emit and a strip manifest.
 // 3. Assert the emitted file dropped the configured call but kept ordinary code.
+//
 // @evidence contracts/testing.md#behavioral-verification Strip build --emit --quiet succeeds with empty streams and emitted main.js contains neither debugger nor console.log.
 // @evidence contracts/testing.md#independent-expectations The fixture default strip policy removes debugger statements and console.log calls; literal forbidden output fragments pin removal independently of the rewriter.
 // @evidence contracts/testing.md#distinguishing-cases This entry owns disk emit of removed targets. The retained exported literal guards against emptied output; broader meaning preservation is owned by the transform and linked-program cases.

@@ -8,16 +8,14 @@ import (
 
 // TestCommandRunsCheck verifies the strip command can run a no-emit project check.
 //
-// The strip command is tested through its package wrapper because hosts care about emitted
-// JavaScript with selected statements removed. These scenarios keep command dispatch, project
-// loading, and the shared utility transform path observable from the package boundary.
-//
-// The check branch must accept a real strip manifest while leaving the filesystem untouched.
-// That proves command parsing and project loading work without confusing check with build.
+// Direct utility dispatch loads and checks the fixture with the registered
+// strip manifest in this Go test process. The source-adjacent JavaScript path
+// must remain absent; this case does not enumerate every possible write.
 //
 // 1. Materialize a project containing a removable statement.
 // 2. Run check with the strip plugin manifest.
-// 3. Assert success and verify no output file was emitted.
+// 3. Assert success and verify src/main.js remains absent.
+//
 // @evidence contracts/testing.md#behavioral-verification Strip check --quiet accepts the default-policy fixture with status zero and empty streams and must not create src/main.js.
 // @evidence contracts/testing.md#independent-expectations The diagnostic-only command contract requires no JavaScript emit; the assertion covers the source-adjacent output location rather than all possible writes.
 // @evidence contracts/testing.md#distinguishing-cases The removable statements remain only fixture input during check; actual removal is owned by transform/build. This entry distinguishes no-emit success from publication.
