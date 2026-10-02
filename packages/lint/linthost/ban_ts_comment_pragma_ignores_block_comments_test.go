@@ -6,8 +6,8 @@ import "testing"
 // typescript/ban-ts-comment never treats block comments as check/nocheck pragmas.
 //
 // The compiler only activates `@ts-check`/`@ts-nocheck` from `//` line
-// comments, so upstream keeps every block-comment spelling — plain,
-// JSDoc, single-line, and multi-line — as a valid negative control even
+// comments, so upstream keeps each authored block spelling (plain,
+// JSDoc and multiline) as a valid negative control even
 // with both directives configured to report.
 //
 //  1. Lint block-comment nocheck/check spellings with `ts-check: true`
