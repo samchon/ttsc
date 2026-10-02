@@ -2,8 +2,12 @@ import { TRANSFORM_CACHE_EPOCHS } from "./TRANSFORM_CACHE_EPOCHS";
 import type { TtscTransformCache } from "./TtscTransformCache";
 
 /**
- * Open a new delivery pass, enabling constant-time first delivery for every
- * module this pass asks for.
+ * Open a delivery pass that can share a retained generation's complete proof.
+ *
+ * The counter update is fixed work. The pass's first delivery still proves the
+ * recorded snapshot; later first deliveries reaching source comparison hash
+ * their text and may compare disk bytes before sharing that proof. Repeated
+ * module deliveries retain their existing validation path.
  *
  * This deliberately retains the cached generation. The pass boundary is a
  * statement about _deliveries_ — each module is requested at most once inside
@@ -28,7 +32,10 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
  *   Performs no filesystem, path or process operation of its own.
  */
-export function beginTtscTransformBuild(cache: TtscTransformCache): void {
+export function beginTtscTransformBuild(
+  /** Cache whose next deliveries belong to a newly declared host pass. */
+  cache: TtscTransformCache,
+): void {
   TRANSFORM_CACHE_EPOCHS.set(
     cache,
     (TRANSFORM_CACHE_EPOCHS.get(cache) ?? 0) + 1,

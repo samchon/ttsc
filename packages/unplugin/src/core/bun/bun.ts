@@ -95,8 +95,9 @@ export function bun(options?: TtscBunOptions): BunLikePlugin {
       const ownsInMemoryFile = createBunInMemoryFileMatcher(build);
       // Bun.plugin() has no onStart callback, but one setup invocation belongs
       // to exactly one runtime process and module-loading session. Mark that
-      // session up front so first delivery of every emitted project module is
-      // constant-time instead of re-reading the whole project. Bun.build()
+      // session up front so later first module deliveries can share a settled
+      // generation proof, retaining source comparison rather than repeating
+      // the complete snapshot validation. Bun.build()
       // immediately starts the same initial scope again through onStart and
       // repeats it for subsequent builds.
       beginTtscTransformBuild(cache);
