@@ -41,11 +41,16 @@ export const test_playground_compiler_serializes_requests_and_retries_only_the_m
       const gate = new Promise<void>((resolve) => {
         release = resolve;
       });
+      let buildStarted!: () => void;
+      const started = new Promise<void>((resolve) => {
+        buildStarted = resolve;
+      });
       const { service } = makeFakeWorker(
         { ...BASE_OPTIONS, typiaPlugin: false, lintPlugin: {} },
         {
           build: async () => {
             log.push("build:start");
+            buildStarted();
             await gate;
             log.push("build:end");
             return envelope({
@@ -61,7 +66,8 @@ export const test_playground_compiler_serializes_requests_and_retries_only_the_m
       const first = service.compile({ source: "export const a = 1;" });
       const lint = service.lint({ source: "export const a = 1;" });
       const second = service.compile({ source: "export const b = 2;" });
-      await new Promise<void>((resolve) => setTimeout(resolve, 20));
+      await started;
+      await new Promise<void>((resolve) => setImmediate(resolve));
       assert.deepEqual(
         log,
         ["build:start"],

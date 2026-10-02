@@ -15,8 +15,8 @@ import { packageNameFromSpecifier } from "../../../../packages/playground/src/np
  *
  * @evidence contracts/testing.md#behavioral-verification Calls packageNameFromSpecifier on incomplete and complete specifiers and compares each result with an authored literal.
  * @evidence contracts/testing.md#independent-expectations Expected names follow npm's scope/name package identity, written by hand per input rather than computed.
- * @evidence contracts/testing.md#distinguishing-cases Four incomplete scopes contrast with scoped, scoped-with-subpath, bare and bare-with-subpath names; the `node:` prefix contrasts a built-in with a similarly named package.
- * @evidence contracts/testing.md#execution-ownership Unit entry calling only the pure function in the test process; built-in, relative and URL specifier families are owned by test_package_name_from_specifier_matches_node_builtins.
+ * @evidence contracts/testing.md#distinguishing-cases Four incomplete scopes contrast with scoped, scoped-with-subpath, bare and bare-with-subpath names; fs-extra remains an npm name despite sharing the builtin fs prefix.
+ * @evidence contracts/testing.md#execution-ownership Unit entry calling only the pure function in the test process; builtin and URL families are owned by test_package_name_from_specifier_matches_node_builtins, and relative paths by test_collect_external_package_names_ignores_non_code.
  */
 export function test_package_name_from_specifier_rejects_incomplete_scopes_and_keeps_valid_names(): void {
   for (const incomplete of ["@scope", "@scope/", "@/x", "@scope//x"])

@@ -5,7 +5,7 @@ import { createCompilerClient } from "../../../../packages/playground/src/react/
 
 interface IControlledConnector {
   close(): Promise<void>;
-  connect(): Promise<void>;
+  connect(workerUrl: string): Promise<void>;
   getDriver(): { connectorId: number };
 }
 
@@ -37,11 +37,11 @@ interface IRecord {
  * 2. Assert each invalidated connector closes exactly once and B remains the
  *    shared cached connection until its own reset.
  * 3. Reset twice concurrently on a settled connection, fail a current boot and
- *    retry it, then reset a connector whose close throws.
+ *    retry it, then reset a connector whose close throws and connect again.
  *
- * @evidence contracts/testing.md#behavioral-verification createCompilerClient connect/reset run against a patched tgrid WorkerConnector: the replacement connection stays the cached promise after the stale one settles or rejects, and after all four scenarios exactly seven allocated connectors were each closed once.
- * @evidence contracts/testing.md#independent-expectations Connector ids 2, 4 and 7 for the surviving drivers, the per-connector close counters [1,1,1,1,1,1,1] and strictEqual promise identity are authored from the generation-ownership contract (allocation order of the scripted connects), not read from client state.
- * @evidence contracts/testing.md#distinguishing-cases Four scripted orderings: replacement resolves before the stale connect, stale connect rejects after the replacement resolved, two concurrent resets over one connection, and a failed current boot followed by a retry. A fresh-client reset and a close that throws on the final reset are included; a throwing close is only exercised at the last reset and is not shown to block a later retry.
+ * @evidence contracts/testing.md#behavioral-verification createCompilerClient connect/reset run against a patched tgrid WorkerConnector: replacement promises remain cached after stale settlement/rejection, failed boot and failed close permit retry, and eight allocated connectors each close once with the requested worker URL.
+ * @evidence contracts/testing.md#independent-expectations Connector ids 2, 4, 7 and 8, literal eight close counters of one and strict promise identities follow the scripted generation ownership independently of client state. Recorded URLs compare with the authored worker URL.
+ * @evidence contracts/testing.md#distinguishing-cases Replacement-first success, stale rejection, concurrent resets, failed-current retry and throwing-close retry contrast generation transitions. Empty reset supplies the no-current control.
  * @evidence contracts/testing.md#execution-ownership Unit-layer entry that patches connect, getDriver and close on the real CommonJS tgrid WorkerConnector prototype (restored in finally); gates and ids are local to this call and no Worker or wasm host starts.
  */
 export const test_compiler_client_fences_connection_generations = async () => {
@@ -58,6 +58,7 @@ export const test_compiler_client_fences_connection_generations = async () => {
   };
   const gates: IGate[] = [];
   const records = new Map<object, IRecord>();
+  const urls: string[] = [];
   const throwOnClose = new Set<number>();
   let nextId = 0;
   const recordOf = (connector: object): IRecord => {
@@ -69,7 +70,8 @@ export const test_compiler_client_fences_connection_generations = async () => {
     return record;
   };
 
-  prototype.connect = function (): Promise<void> {
+  prototype.connect = function (url: string): Promise<void> {
+    urls.push(url);
     recordOf(this);
     return new Promise<void>((resolve, reject) =>
       gates.push({ resolve, reject }),
@@ -155,11 +157,18 @@ export const test_compiler_client_fences_connection_generations = async () => {
     );
     throwOnClose.add(retryDriver.connectorId);
     await retryClient.reset();
+    const afterCloseFailure = retryClient.connect();
+    await waitForGates(8);
+    gates[7]!.resolve();
+    assert.deepEqual(await afterCloseFailure, { connectorId: 8 });
+    assert.strictEqual(retryClient.connect(), afterCloseFailure);
+    await retryClient.reset();
+    assert.deepEqual(urls, Array(8).fill("worker.js"));
 
     const counts = [...records.values()].map((record) => record.closeCount);
     assert.deepEqual(
       counts,
-      [1, 1, 1, 1, 1, 1, 1],
+      [1, 1, 1, 1, 1, 1, 1, 1],
       "each allocated connector must remain reachable until one close",
     );
     assert.deepEqual(bDriver, { connectorId: 2 });

@@ -72,10 +72,16 @@ export const test_playground_plugin_failure_transform_nonzero_never_emits_untran
               typescript: { "src/playground.ts": "export const x = 1; /*t*/" },
             }),
           }),
-        build: () =>
-          envelope({
+        build: () => {
+          assert.equal(
+            record.writes["/work/src/playground.ts"],
+            "export const x = 1; /*t*/",
+            "the transformed source must exist when build starts",
+          );
+          return envelope({
             result: compilePayload({ "src/playground.js": "x = 1;" }),
-          }),
+          });
+        },
       },
     );
     const ok = await service.compile({ source });

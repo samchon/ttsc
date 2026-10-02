@@ -20,8 +20,8 @@ import { pickEmittedJS } from "../../../../packages/playground/src/compiler/pick
  * 3. Map `.ts` and `.tsx` entry names, and a map with no
  *    JavaScript.
  *
- * @evidence contracts/testing.md#behavioral-verification pickEmittedJS returns the text of dist/<entry>, dist/src/<entry>, src/<entry> and <entry> in that order, falls back to the first .js key, returns null when none exists and never returns .d.ts, .js.map or .ts text. The literal chosen texts reject a reordered candidate list or a suffix test that accepts a map file.
- * @evidence contracts/testing.md#independent-expectations The candidate order is the documented contract of the picker (common outDir layouts first, then any JavaScript), and each distinct text value (A, X, C, D, E, F) names its key, so the result identifies which key was chosen without consulting the implementation.
+ * @evidence contracts/testing.md#behavioral-verification pickEmittedJS prefers dist/playground.js for the default src-root layout, then dist/src/playground.js, dist/src/src/playground.js, src/src/playground.js and src/playground.js. It falls back to the first .js key, returns null when none exists and rejects declaration/map/source suffixes; distinct literal texts expose wrong priority.
+ * @evidence contracts/testing.md#independent-expectations The documented default rootDir src/outDir dist makes src/playground.ts emit dist/playground.js before project-root layouts are considered. Authored distinct text values ROOT, A, X, C, D, E and F identify each selected key independently of the picker computation.
  * @evidence contracts/testing.md#distinguishing-cases Each candidate is removed in turn to show the next in order; a populated unrelated map contrasts with a candidate hit; declaration, map and TypeScript keys contrast with a JavaScript key; two entry extensions contrast; an empty and a JavaScript-free map return null.
  * @evidence contracts/testing.md#execution-ownership This entry calls only the pure pickEmittedJS function in the unit process with authored output maps; the service's use of the picked text is owned by test_playground_compile_interprets_build_envelopes.
  */
@@ -33,8 +33,10 @@ export function test_pick_emitted_js_prefers_the_entry_output_before_any_other_j
     "src/src/playground.js": "C",
     "dist/src/src/playground.js": "X",
     "dist/src/playground.js": "A",
+    "dist/playground.js": "ROOT",
   };
   const order: [string, string][] = [
+    ["dist/playground.js", "ROOT"],
     ["dist/src/playground.js", "A"],
     ["dist/src/src/playground.js", "X"],
     ["src/src/playground.js", "C"],
