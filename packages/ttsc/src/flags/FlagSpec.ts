@@ -58,8 +58,8 @@ export interface FlagSpec {
   /**
    * Terminal flags ask the underlying tool to print something and exit
    * (`--help`, `--version`, `--showConfig`, `--listFilesOnly`, `--all`,
-   * `--init`). ttsc must not wrap them in a pre-emit pass — that is how the
-   * `--showConfig prints twice` bug appeared (RC-2).
+   * `--init`). ttsc must not wrap them in a pre-emit pass: the wrapped pass
+   * would run the printing command twice.
    */
   readonly terminal?: boolean;
 
@@ -67,8 +67,8 @@ export interface FlagSpec {
    * `true` when a `terminal` flag's meaning does not presuppose a resolved
    * project, so ttsc must answer it before project resolution runs (`--init`
    * writes the starter tsconfig, `--all` and `-?` print tsgo's help). Without
-   * this split `ttsc --init` failed with "could not find tsconfig.json …" in
-   * the only directory where it is useful.
+   * this split `ttsc --init` would fail with "could not find tsconfig.json …"
+   * in the only directory where it is useful.
    *
    * `--showConfig` and `--listFilesOnly` are terminal but deliberately NOT
    * project-free: both describe a project, so failing without one is correct.
@@ -102,8 +102,8 @@ export interface FlagSpec {
 
   /**
    * Native sidecar capability that must be declared before ttsc sends this flag
-   * as a bare CLI argument. Everything else routes through `--tsgo-args` or
-   * stays in the JS launcher.
+   * as a bare CLI argument. Everything else routes through the
+   * `TTSC_TSGO_ARGS` environment payload or stays in the JS launcher.
    */
   readonly nativeCapability?: "diagnosticsTiming" | "threadingArgs";
 

@@ -75,7 +75,7 @@ export function parseFlags(opts: ParseOptions): ParseResult {
 
     // Only a `-`-prefixed token can name a flag. Bare tokens are input files
     // and flag values; resolving one against the schema would let the `all` of
-    // `--target all` masquerade as `--all` now that the lookup is dash- and
+    // `--target all` masquerade as `--all`, because the lookup is dash- and
     // case-insensitive.
     if (current.startsWith("-")) {
       const equalsIndex = current.indexOf("=");
@@ -175,10 +175,9 @@ function launcherFlagsForSubcommand(
     // or by native sidecars (e.g. `--showConfig`, `--listFilesOnly`)
     // must fall through to `forwardKnownButUnaccepted` so the launcher
     // forwards them verbatim instead of storing them in `values` where
-    // no consumer reads them back out. The previous shape — filter on
-    // `subcommands` only — silently dropped every tsgo-only terminal
-    // flag at the launcher boundary (the RC-1 / RC-2 class the schema
-    // is meant to make impossible).
+    // no consumer reads them back out. Filtering on `subcommands` alone
+    // would silently drop every tsgo-only terminal flag at the launcher
+    // boundary.
     if (!flag.consumedBy.includes("launcher")) continue;
     accepted.set(normalizeFlagToken(flag.name), flag);
     for (const alias of flag.aliases ?? []) {
@@ -215,8 +214,7 @@ function consumeFlag(
     if (inlineValue !== undefined) {
       // `--flag=false` / `--flag=true` inline form. Anything other than
       // a recognised literal stays loud: `--singleThreaded=yes` silently
-      // becoming `true` is the kind of footgun the RCA's RC-4 class
-      // covers. Mirrors `validatePositiveInt`'s style.
+      // becoming `true` would be a footgun. Mirrors `validatePositiveInt`'s style.
       const literal = parseBooleanLiteral(inlineValue);
       if (literal === undefined) {
         throw new Error(

@@ -8,9 +8,9 @@ import { COMPILER_OPTION_ASCII_FOLDS } from "./COMPILER_OPTION_ASCII_FOLDS";
  * lowercase mappings. Generated folds into its ASCII option-name domain
  * preserve mappings that JavaScript lowercase expands differently. Thus `--noEmit`,
  * `--noemit`, `--NOEMIT`, and `-noEmit` all name the same option to the tool
- * ttsc forwards to. The launcher used to key its index on the exact spelling,
- * so a case variant of a ttsc-owned flag fell through the unknown-flag escape
- * hatch: tsgo honoured it and every ttsc-side consumer of the same flag never
+ * ttsc forwards to. Keying the index on the exact spelling would let a case
+ * variant of a ttsc-owned flag fall through the unknown-flag escape hatch:
+ * tsgo would honour it while every ttsc-side consumer of the same flag never
  * fired, with no diagnostic.
  *
  * This is the single normalization. Everything that resolves a token against

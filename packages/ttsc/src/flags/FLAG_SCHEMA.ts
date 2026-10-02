@@ -385,9 +385,9 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
     // tsgo declares `--pretty` as `type: boolean`, so it occupies one argv
     // token and consumes a following one only when that token is the literal
     // `true` or `false` — the shape the engine's boolean branch implements.
-    // Declaring it `value` made the forwarding path swallow whatever followed,
-    // so `ttsc --pretty a.ts` lost its input file and silently switched to
-    // project mode.
+    // Declaring it `value` would make the forwarding path swallow whatever
+    // follows, so `ttsc --pretty a.ts` would lose its input file and silently
+    // switch to project mode.
     name: "--pretty",
     kind: "boolean",
     subcommands: ["ttsc", "ttsx", "build", "check", "fix", "format"],
@@ -475,13 +475,13 @@ export const FLAG_SCHEMA: readonly FlagSpec[] = [
   // back into the tsgo argv. Listed here so the schema describes every flag
   // the Go layers accept, not just the user-facing ones.
   //
-  // The launcher no longer emits it. A CLI flag is fatal to any host whose
-  // `flag.FlagSet` does not declare it, and this one was added to a plugin
-  // protocol third-party hosts had already frozen, so every forwarded compiler
-  // flag exited 2 on a typia/nestia-shaped sidecar (issue #1188). The payload
-  // now rides the `TTSC_TSGO_ARGS` environment variable, which an unaware host
-  // simply ignores. ttsc's own hosts still accept the flag so an older
-  // launcher, or an embedder that composes sidecar argv itself, keeps working.
+  // The launcher does not emit it. A CLI flag is fatal to any host whose
+  // `flag.FlagSet` does not declare it, and third-party hosts have a frozen
+  // plugin protocol, so forwarding compiler flags that way would exit 2 on a
+  // typia/nestia-shaped sidecar (issue #1188). The payload rides the
+  // `TTSC_TSGO_ARGS` environment variable, which an unaware host simply
+  // ignores. ttsc's own hosts still accept the flag so an older launcher, or an
+  // embedder that composes sidecar argv itself, keeps working.
   // -------------------------------------------------------------------------
   {
     name: "--tsgo-args",
