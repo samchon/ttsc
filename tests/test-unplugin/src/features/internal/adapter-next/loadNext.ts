@@ -18,8 +18,8 @@ const TEMPORARY_ENV = ["TEMP", "TMP", "TMPDIR"];
  * returns, and later scenarios see the environment they started with. The store
  * outlives every process (samchon/ttsc#1483) and belongs to the user, so each
  * call opens it below a temporary directory of its own, never the user's, which
- * the process removes when it exits. The session itself is covered in a child
- * process by `test_next_adapter_opens_a_session_its_workers_inherit`.
+ * the process removes when it exits. No unit here observes the session a worker
+ * inherits; this loader only keeps the shared process's environment unchanged.
  */
 export async function loadNext(): Promise<
   (config?: INextLikeConfig, options?: unknown) => INextLikeConfig

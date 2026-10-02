@@ -63,6 +63,6 @@ export async function test_bun_adapter_falls_through_for_excluded_and_unchanged_
   assert.deepEqual(
     await runtime.loader({ path: path.join(root, "src", "main.ts") }),
     { contents: source, loader: "ts" },
-    "test_bun_runtime_passes_through_unchanged_source must retain exact source bytes and its TypeScript loader",
+    "runtime mode must retain the exact source bytes and its TypeScript loader",
   );
 }
