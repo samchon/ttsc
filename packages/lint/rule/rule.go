@@ -446,16 +446,14 @@ type FixReporter interface {
 // `rule.Context` type-asserts against this shape, so any host whose reporter
 // exposes both methods opts into related locations without depending on a
 // private interface name. A host that does not implement it loses the related
-// locations, not the diagnostic — the same graceful degradation the other
+// locations, while retaining the diagnostic, as the other
 // optional reporter extensions give.
 //
-// Rule production code does NOT touch RelatedReporter directly — call
-// `ctx.ReportRelated` / `ctx.ReportRangeRelated`, and the host's reporter
-// receives the locations. The only place a contributor sees this interface is in
-// test code that fakes the reporter: such a fake must implement BOTH `Reporter`
-// AND `RelatedReporter` to observe the locations, because Go interface
-// satisfaction is all-or-nothing. Declaring `var _ rule.RelatedReporter =
-// &myFake{}` compile-checks the fake covers the related surface.
+// Rule implementations submit locations through ctx.ReportRelated or
+// ctx.ReportRangeRelated. A custom host or test reporter passed to NewContext
+// must satisfy Reporter; implementing both RelatedReporter methods also
+// enables related locations. The optional interface alone does not satisfy
+// the separate Reporter parameter.
 //
 // @evidence contracts/common.md#principled-implementation Optional related locations attach explanatory current-file ranges while the primary finding remains independently reportable.
 // @evidence contracts/common.md#clear-and-simple-design The related-location extension remains separate from fix and mandatory reporter interfaces.
@@ -491,17 +489,15 @@ type RelatedReporter interface {
   ReportRangeRelated(pos, end int, message string, related ...RelatedInformation)
 }
 
-// RelatedInformation is a secondary source location a finding points at, paired
-// with a message naming the connection. LSP renders each as its own clickable
-// line beneath the diagnostic, so "'x' is already defined." can lead the reader
-// to the first definition instead of only naming it.
+// RelatedInformation is a secondary current-file location paired with a
+// message naming its connection to the primary finding. For example, a
+// duplicate-definition diagnostic can also identify the first definition.
+// An LSP client may expose these locations as navigation targets.
 //
-// Pos/End are byte offsets into the CURRENT file — the same offsets a shim AST
-// node exposes and `ReportRange` consumes — so a related location lives in the
-// file the finding is in, and the host fills in that file's URI. A location in
-// ANOTHER file would need a URI this API does not yet carry, and is a separate
-// extension left deliberately out of scope so the same-file case ships without
-// waiting on it.
+// Pos and End are byte offsets into the finding's source file, in the same
+// coordinate system as shim AST nodes and ReportRange. The host normalizes
+// these ranges and supplies that file's URI during LSP serialization. This
+// value carries no URI or source identity for locations in another file.
 //
 // @evidence contracts/common.md#principled-implementation Byte positions and message represent a secondary location in the current file; the API deliberately carries no cross-file URI.
 // @evidence contracts/common.md#clear-and-simple-design A three-member value separates location and explanatory text without adding unsupported cross-file navigation.
