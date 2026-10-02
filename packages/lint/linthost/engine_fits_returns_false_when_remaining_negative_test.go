@@ -3,20 +3,11 @@ package linthost
 import "testing"
 
 // TestEngineFitsReturnsFalseWhenRemainingNegative verifies that fits
-// immediately returns false when the remaining-column budget is already
-// negative before examining any of the doc's content.
+// rejects a one-column Text when the available-column budget is -1.
 //
-// StartingColumn can exceed PrintWidth in degenerate reflow scenarios
-// (e.g. a node that begins past the right margin because its
-// surrounding context already overflowed). In that case
-// PrintWidth-StartingColumn is negative, and any group inside the node
-// must break regardless of its flat width. The early-exit guard lets
-// the caller pass a pre-computed negative remainder without forcing
-// fits to walk the full doc tree looking for a text that overflows.
-//
-//  1. Call fits directly with a doc that would otherwise fit in
-//     positive space (Text("x"), 1 column) but pass remaining=-1.
-//  2. Assert fits returns false immediately.
+// The direct boolean assertion establishes rejection of this literal
+// input. It does not measure traversal work or distinguish the early
+// guard from a later negative-budget check.
 //
 // @evidence contracts/testing.md#behavioral-verification fits must return false for Text x when remaining is minus one.
 // @evidence contracts/testing.md#independent-expectations A negative available-column budget cannot contain the one-column literal.

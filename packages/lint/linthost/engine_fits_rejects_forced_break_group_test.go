@@ -2,16 +2,12 @@ package linthost
 
 import "testing"
 
-// TestEngineFitsRejectsForcedBreakGroup verifies the flat fit
-// measurement treats a forced-broken Group as unable to render flat.
+// TestEngineFitsRejectsForcedBreakGroup verifies that fits rejects a
+// Concat containing a Group whose Break flag is true.
 //
-// A Group with Break set always renders broken, so any enclosing
-// measurement must count it as a hard line break — otherwise an outer
-// group could commit to a flat layout that in fact contains a newline.
-//
-//  1. Build a Concat of a Text and a forced-broken Group.
-//  2. Measure it with fits at a generous width.
-//  3. Assert fits reports false.
+// The fixture contains only short Text children and no line separator.
+// Its generous eighty-column budget isolates the forced-flat rejection
+// from text overflow; it does not assert a rendered newline.
 //
 // @evidence contracts/testing.md#behavioral-verification fits must reject a forced-broken group despite an eighty-column budget.
 // @evidence contracts/testing.md#independent-expectations Break explicitly prohibits flat layout, independently of the text width.
