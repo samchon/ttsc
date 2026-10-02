@@ -864,23 +864,20 @@ func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit
   fixer.ReportRangeFix(pos, end, message, edits...)
 }
 
-// ReportSuggestion records a finding at the node's range with a choice of
-// candidate fixes. A host that does not implement `SuggestionReporter` receives
-// the diagnostic without the choices, so design the rule so the message alone is
-// useful — the same best-effort contract as `ReportFix`.
-//
-// Use this over `ReportFix` only when there genuinely is a choice. One correct
-// rewrite is a fix; imposing it is the right thing. Several valid rewrites is a
-// suggestion; imposing one arbitrarily is not.
+// ReportSuggestion records a finding with candidate fixes selected explicitly
+// by the caller, rather than automatically applied. A host without
+// SuggestionReporter receives the diagnostic alone. A single candidate can
+// still require deliberate selection when automatic repair is inappropriate;
+// several alternatives leave that selection to the caller.
 //
 // @evidence contracts/common.md#principled-implementation Valid active node calls attach candidate choices when supported; absent choices or optional capability preserve the diagnostic alone.
 // @evidence contracts/common.md#clear-and-simple-design One capability branch separates author choice from mandatory reporting and automatic fixing.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Actual reporter compatibility governs fallback; no arbitrary candidate is imposed to satisfy a known consumer.
-// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes real choices from one correct fix and states legacy behavior; paragraphs and tags follow documentation guidance.
+// @evidence contracts/common.md#meaningful-documentation Native prose distinguishes explicit selection from automatic repair and states legacy behavior; paragraphs and tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ReportSuggestion performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ReportSuggestion has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ReportSuggestion keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ReportSuggestion acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Guards and capability selection delegate without choosing candidate processing. The hosted adapter converts s suggestions and e nested edits before node-range and collection work; the reporter owns that variable cost, not a fixed total guaranteed here.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Candidate reporting is an observable collection effect, not a shared request coordinator. Reporter identity and policy govern duplicate findings; equal node/message/candidates alone do not authorize omitting another invocation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This wrapper forwards candidate slices synchronously without storing report history or acquiring a handle/task. The retaining reporter owns candidate/edit copies and run-lifetime storage; the hosted adapter converts nested edits and the collector retains the resulting finding.
 func (c *Context) ReportSuggestion(node *shimast.Node, message string, suggestions ...Suggestion) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
     return
@@ -905,9 +902,9 @@ func (c *Context) ReportSuggestion(node *shimast.Node, message string, suggestio
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The compatibility branch uses a supported optional interface instead of patching reporter implementations.
 // @evidence contracts/common.md#meaningful-documentation Native prose names range-based choices and its shared reporting contract; tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ReportRangeSuggestion performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ReportRangeSuggestion has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ReportRangeSuggestion keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ReportRangeSuggestion acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidenceExclude contracts/performance.md#efficient-algorithms The wrapper selects a capability but chooses no candidate algorithm. The hosted reporter converts s choices and e nested edits and normalizes the range before collection; its variable work is not certified fixed-cost by direct delegation.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Range candidate reporting is an effectful call, not a completed/in-flight result coordinator. Reporter collection identity controls duplicate policy; equal coordinates/message/candidates alone cannot justify sharing or suppressing calls.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This method adds no result history, handle or task and forwards caller candidate storage synchronously. The reporter owns any retained nested edit/candidate copies and collection lifetime; hosted storage is run-owned rather than bounded by this wrapper.
 func (c *Context) ReportRangeSuggestion(pos, end int, message string, suggestions ...Suggestion) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff {
     return

@@ -12,13 +12,10 @@ import (
 // TestPublicRuleContextReportSuggestionForwardsToSuggestionReporter verifies the
 // contributor suggestion path.
 //
-// A choice of fixes is the one thing `ReportFix` cannot express, and it was
-// reachable only by built-in rules until `rule.Context` gained
-// `ReportSuggestion`. A contributor that knows three valid renames had to impose
-// one or describe them in prose. This pins that the public call reaches a host
-// implementing `SuggestionReporter` with every choice intact, so a refactor of
-// the unexported assertion site cannot silently downgrade it to a plain
-// diagnostic.
+// An observing SuggestionReporter captures the complete ordered candidates
+// and separate node/range diagnostic anchors. This case establishes public
+// capability selection and payload forwarding, without internal-host dispatch
+// or applying a selected candidate.
 //
 //  1. Build a reporter implementing Reporter + SuggestionReporter.
 //  2. Call `ctx.ReportSuggestion` with two titled suggestions through a public

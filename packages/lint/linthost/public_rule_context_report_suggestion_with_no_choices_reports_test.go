@@ -7,7 +7,7 @@ import (
 
 // TestPublicRuleContextReportSuggestionWithNoChoicesReports pins that an empty
 // suggestion set degrades to a plain diagnostic rather than an empty choice
-// menu — the same shape ReportFix takes when given no edits.
+// menu, the same shape ReportFix takes when given no edits.
 //
 //  1. Invoke public ReportSuggestion with an available suggestion reporter and no choices.
 //  2. Require one ordinary node/message diagnostic and no suggestion or unrelated range callback.

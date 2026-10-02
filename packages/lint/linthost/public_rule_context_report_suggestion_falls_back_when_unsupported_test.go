@@ -9,12 +9,11 @@ import (
 // twin: a host that does not implement SuggestionReporter still receives the
 // finding, just without the choices.
 //
-// This is the graceful-degradation contract that lets a contributor call
-// ReportSuggestion unconditionally. Without it, a rule offering choices would go
-// silent on any host that predates the interface — the failure the optional
-// assertion exists to prevent. It mirrors the ReportFix legacy-reporter twin.
+// The observer supports ordinary and automatic-fix reporting but lacks the
+// suggestion capability. The finding remains an ordinary diagnostic and no
+// offered candidate is substituted into the available fix channel.
 //
-//  1. Build a reporter implementing only rule.Reporter.
+//  1. Build a Reporter/FixReporter observer without SuggestionReporter.
 //  2. Call ctx.ReportSuggestion with two suggestions.
 //  3. Assert the diagnostic still lands through Report exactly once.
 //
