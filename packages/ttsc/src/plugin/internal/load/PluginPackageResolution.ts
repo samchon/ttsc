@@ -69,7 +69,7 @@ export namespace PluginPackageResolution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Regular-file kind comes from filesystem metadata rather than suffix guessing or a known-package exception.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc states both regular-file and link-following semantics, with separate acknowledgment prose under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native stat provides actual file kind through OS-neutral Node APIs; no platform path spelling assumption determines presence.
-   * @evidence contracts/performance.md#efficient-algorithms One metadata query avoids reading content to determine file kind.
+   * @evidence contracts/performance.md#efficient-algorithms One native metadata query avoids reading file contents for kind; path lookup/link traversal and path-text costs remain delegated rather than bounded by the query count.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Presence must be observed now; this predicate owns no metadata cache.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The synchronous query retains no handle or population.
@@ -93,7 +93,7 @@ export namespace PluginPackageResolution {
    *
    * @evidenceExclude contracts/portability.md#os-neutral-implementation This pure manifest-key extraction does not interpret native paths or process behavior.
    *
-   * @evidence contracts/performance.md#efficient-algorithms One pass over the two key populations uses average-constant Set membership and O(d) retained output.
+   * @evidence contracts/performance.md#efficient-algorithms Enumeration of the two accepted object key populations preserves first occurrence with a Set. Key/name bytes, property enumeration and hashing accompany key count; temporary key arrays and returned unique names coexist, so output storage is not measured by name count alone.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work The Set deduplicates this result but establishes no retained expensive-work cache.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The local Set and returned array belong to the call; no persistent population is kept.
@@ -173,15 +173,17 @@ export namespace PluginPackageResolution {
   }
 
   /**
-   * The physical path of the nearest `package.json` at or above `location`, the
-   * manifest whose scope the file belongs to.
+   * Select the nearest regular `package.json` at or above `location`, using its
+   * realpath when available and retaining the selected spelling on failure.
+   * Candidate enumeration and file-kind rechecks are separate observations;
+   * this query does not freeze package scope or certify unresolved identity.
    *
-   * @evidence contracts/common.md#principled-implementation The first regular package.json at or above the location determines package scope; canonicalization returns that selected manifest's physical identity.
+   * @evidence contracts/common.md#principled-implementation Ancestor candidates are rechecked for the first regular manifest, then best-effort canonicalization returns realpath or selected lexical spelling. This current scope observation is not a frozen physical-identity proof.
    * @evidence contracts/common.md#clear-and-simple-design Candidate enumeration and physical resolution stay in shared helpers while this adapter selects the nearest file.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Scope is derived from ancestor candidates, not a known-package path or manifest-shaped directory.
-   * @evidence contracts/common.md#meaningful-documentation Native JSDoc states nearest scope and physical output, with separate tags under the documentation skill.
+   * @evidence contracts/common.md#meaningful-documentation Native JSDoc states nearest scope, separate observations and realpath fallback, with separate tags under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native dirname/resolve/realpath provide OS-neutral ancestor and link semantics without manual slash splitting.
-   * @evidence contracts/performance.md#efficient-algorithms The candidate owner stops at the first regular manifest, bounding traversal by ancestor depth.
+   * @evidence contracts/performance.md#efficient-algorithms Candidate enumeration performs native start/ancestor queries and stores complete path strings; find then rechecks candidate file kinds before best-effort realpath. Native path/link lookup and path-text cost accompany depth, and the selection pass repeats metadata queries rather than reusing their earlier observations.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work This fresh scope query owns no retained discovery cache.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Candidate arrays and the returned path are call-owned with no open resource retained.
@@ -202,7 +204,7 @@ export namespace PluginPackageResolution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts It stops at the actual nearest regular manifest, without assuming a fixed workspace depth or adding every farther ancestor as a workaround.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc states candidate bounds and the existing-start-path requirement, with separate tag prose following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native stat/resolve/dirname provide OS-neutral starting kind and root termination, including Windows volume roots.
-   * @evidence contracts/performance.md#efficient-algorithms One loop visits each relevant ancestor once and stops immediately at a manifest or root; output is O(depth).
+   * @evidence contracts/performance.md#efficient-algorithms The initial kind stat and one manifest-kind query per ancestor accompany native path resolve/dirname work. Candidate storage includes complete path strings at each visited depth; native lookup/link topology and path-text processing are not bounded by ancestor count alone.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Current ancestor candidates are observed per query rather than cached.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned candidate array is caller-owned and no handle or global population is retained.
@@ -235,7 +237,7 @@ export namespace PluginPackageResolution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Arrays and primitive JSON are not promoted to package records by a type cast; parser errors are not suppressed to fabricate missing configuration.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc distinguishes missing/non-object results from attributed malformed-JSON errors, with paragraph/tag separation under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native file queries and the shared JSON reader interpret actual filesystem paths without POSIX-only parsing or shell invocation.
-   * @evidence contracts/performance.md#efficient-algorithms One metadata check and one file parse cost O(manifest bytes), with no unnecessary dependency traversal.
+   * @evidence contracts/performance.md#efficient-algorithms Native regular-file preflight precedes the shared full UTF-8 read, optional BOM normalization and strict JSON parse. Path/metadata lookup, decode, text/value allocation and parse-error attribution accompany manifest bytes; no dependency traversal or duplicate JSON parse is added.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Current manifest content is read per operation; no manifest-answer cache is owned here.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Synchronous reads close their descriptors and the parsed record belongs to the caller.
@@ -665,7 +667,7 @@ export namespace PluginPackageResolution {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The fallback preserves input data and does not fabricate a target or a cache-valid physical identity.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc states link resolution and unchanged-on-failure behavior, with separate tags following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Node realpath uses actual native link semantics without separator parsing or blanket case folding.
-   * @evidence contracts/performance.md#efficient-algorithms One native canonicalization query performs no redundant content scan.
+   * @evidence contracts/performance.md#efficient-algorithms One Node realpath request avoids file-content reads; delegated component/link resolution and returned path text depend on native path/topology rather than a constant-time request count.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Targets are observed now; no canonical-path cache is owned here.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned string is caller-owned and no open resource or population remains.
