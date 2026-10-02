@@ -12,11 +12,9 @@ import (
 // daemon's rule memo answers from cache while the configuration it was loaded
 // from is untouched, and reloads the moment it is not.
 //
-// Loading rules evaluates the project's lint configuration, which stands up a
-// JavaScript runtime — the dominant cost of a verb that builds no Program at
-// all. A one-shot process pays it once and exits. The daemon was paying it per
-// request, and a consumer that asks again whenever a watched file moves asks
-// once per edit, forever.
+// This entry loads JSON configuration directly and observes resolver-load
+// attempts through the resident cache's counter. Executable configuration and
+// its child runtime are separate E2E connections, not exercised here.
 //
 // The direction that matters is the second one. A memo that reloaded too often
 // would only be slow; a memo that kept a rule set the author has just changed
@@ -25,22 +23,31 @@ import (
 // config file's contents rather than trusted for the daemon's life.
 //
 //  1. Install a resident memo and load a project's rules through it.
-//  2. Ask again unchanged and require the very same resolver back.
-//  3. Rewrite the configuration and require a different one.
+//  2. Ask again unchanged and require no additional resolver load.
+//  3. Rewrite the configuration and require another resolver load.
 //  4. Send the client invalidate control and require the memo to survive it.
 //  5. Ask about a second project and require it to load on its own.
 //  6. Require a configuration that moved during the evaluation to be recorded
 //     as nothing at all, and one that shares the load's start instant to be
 //     recorded normally.
+//  7. Disable caching and require two loads for two unchanged JSON requests.
 //
-// @evidence contracts/testing.md#behavioral-verification Resident rule resolution reuses an unchanged resolver, replaces it after config changes, survives client invalidation, separates projects and detects configuration movement during evaluation.
-// @evidence contracts/testing.md#independent-expectations Authored configuration rewrites and project identities establish the expected same/different resolver identities; explicitly supplied movement digests pin unstable-evaluation state independently of memo lookup.
-// @evidence contracts/testing.md#distinguishing-cases The load counter distinguishes first load (1), unchanged request (still 1), edited config (2), settled request (still 2), client invalidate (still 2) and a second project (3). The recording check is driven by explicit start instants: now records a state, an instant an hour in the past records nothing, and the config files' own modification time records a state, so a coarse clock cannot disable the memo. Only the JSON configuration path is exercised.
-// @evidence contracts/testing.md#execution-ownership Calls acquireRules with an installed residentRuleCache, drives handleServeLSPLine for the invalidate control and calls hashRuleConfigs with explicit instants in process; only JSON configuration is used, so no executable-config subprocess runs.
+// @evidence contracts/testing.md#behavioral-verification Resident JSON resolution avoids additional loads while configuration is unchanged, reloads after edits, survives client invalidation, separates projects and rejects snapshots whose files postdate the supplied start instant. Explicit cache opt-out forces two loads for two unchanged requests.
+// @evidence contracts/testing.md#independent-expectations Authored configuration rewrites and project keys specify literal load counts, not returned resolver identity comparisons. Supplied current/past/file-modification instants independently specify the snapshot time boundary; no expected digest is copied from the memo.
+// @evidence contracts/testing.md#distinguishing-cases Original load counts remain 1/1/2/2/2/3 for initial, unchanged, edited, settled, invalidated and other-project requests. Snapshot recording accepts now and the exact file modification instant but rejects an hour-earlier instant. A separate disabled memo must load twice for two unchanged requests. Only JSON configuration is exercised; actual executable evaluation counts and project-input results remain E2E responsibilities.
+// @evidence contracts/testing.md#execution-ownership Calls acquireRules with test-owned resident caches, drives handleServeLSPLine for invalidation and calls hashRuleConfigs with supplied instants in process. Previous resident rule/program globals and the opt-out environment are restored, and the acquired Program cache is invalidated during cleanup. JSON loading starts no executable-config subprocess.
 func TestResidentRulesAreReusedOnlyWhileTheirConfigIsUnchanged(t *testing.T) {
   root := seedLintProject(t, "/** Public value. */\nexport const value = 1;\n")
   seedLintRules(t, root, map[string]string{"jsdoc/check-tag-names": "warn"})
   manifest := lintManifest(t)
+  t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "")
+  previousRules, previousPrograms := residentRules, residentPrograms
+  programCache := newResidentProgramCache()
+  defer func() {
+    programCache.invalidate()
+    residentRules = previousRules
+    residentPrograms = previousPrograms
+  }()
 
   // Without a memo installed every call loads, which is what a one-shot process
   // does and must keep doing: it has nothing to amortize and no way to be told
@@ -54,12 +61,7 @@ func TestResidentRulesAreReusedOnlyWhileTheirConfigIsUnchanged(t *testing.T) {
   residentRules = cache
   // The Program cache too, because the invalidate control below runs the
   // daemon's real request handler and that handler drops the Program first.
-  residentPrograms = newResidentProgramCache()
-  defer func() {
-    residentRules = nil
-    residentPrograms.invalidate()
-    residentPrograms = nil
-  }()
+  residentPrograms = programCache
 
   load := func(what string) {
     t.Helper()
@@ -140,11 +142,8 @@ func TestResidentRulesAreReusedOnlyWhileTheirConfigIsUnchanged(t *testing.T) {
     t.Fatal("a configuration that moved after the load began was recorded as the state the resolver was built from; the memo would answer from rules the project no longer declares until some later edit happened to disagree")
   }
 
-  // The boundary, pinned because rejecting it is the shape this guard first
-  // took and it disabled the memo outright on Windows. A save and the instant
-  // the load began are read from one clock whose tick is coarse there, so the
-  // edit an author makes immediately before asking routinely carries exactly
-  // the load's own start time — the ordinary case, not the suspicious one.
+  // Each file's actual modification instant supplies the equality boundary.
+  // Equality must remain accepted rather than be classified as a later write.
   for _, location := range configPathsOf(t, resolver) {
     info, err := os.Stat(location)
     if err != nil {
@@ -153,6 +152,15 @@ func TestResidentRulesAreReusedOnlyWhileTheirConfigIsUnchanged(t *testing.T) {
     if hashRuleConfigs(resolver, info.ModTime()) == nil {
       t.Fatalf("a configuration whose save shares the load's start instant recorded nothing; on a platform with a coarse clock that is every save, and the memo would never record at all")
     }
+  }
+
+  t.Setenv("TTSC_LINT_DISABLE_CONFIG_CACHE", "1")
+  disabled := &residentRuleCache{}
+  residentRules = disabled
+  load("cache-disabled first request")
+  load("cache-disabled unchanged request")
+  if disabled.loads != 2 {
+    t.Fatalf("two unchanged requests with caching disabled did %d resolver loads, want 2", disabled.loads)
   }
 }
 
