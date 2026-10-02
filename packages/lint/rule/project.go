@@ -622,9 +622,9 @@ var projectRegistry []ProjectRule
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Registration is the supported extension point; no consumer-specific rule list replaces it.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies initialization-time registration and deferred duplicate validation; tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation RegisterProject appends to an in-memory registry and touches no filesystem path or process.
-// @evidenceExclude contracts/performance.md#efficient-algorithms RegisterProject appends one element and has no loop.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work RegisterProject keeps no cache and shares no computation.
-// @evidence contracts/performance.md#bound-retention-and-release-resources The registry retains one entry per registered project rule for the process lifetime; its size is bounded by the number of rules registered at initialization and it has no release.
+// @evidence contracts/performance.md#efficient-algorithms One initialization-time append costs amortized O(1), with O(n) copying when the n-entry backing slice grows; the registry uses O(n) retained interface slots and performs no metadata traversal or duplicate search here.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Registration is a distinct initialization-time publication effect, including duplicate entries that the host must later inspect and diagnose. Caching by rule name here would discard that validation input rather than reuse equivalent computation.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The process registry retains n initialization-time entries and their shared rule references for the process lifetime, including duplicates pending host validation. Entry count and reachable contributor data have no configured size cap or release; this API relies on initialization-time collection rather than concurrent runtime registration.
 func RegisterProject(r ProjectRule) {
   if r == nil {
     panic("rule: RegisterProject called with nil rule")
@@ -641,9 +641,9 @@ func RegisterProject(r ProjectRule) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Registry access uses a supported defensive read instead of foreign storage mutation.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes the defensive slice from shared immutable rule objects; tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation RegisteredProjects copies an in-memory registry and touches no filesystem path or process.
-// @evidence contracts/performance.md#efficient-algorithms One slice copy, O(project rules).
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work RegisteredProjects keeps no cache and shares no computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RegisteredProjects returns a copy so callers cannot mutate the retained registry; no handle or task is acquired.
+// @evidence contracts/performance.md#efficient-algorithms Allocating and copying n registered interface slots costs O(n) work and returned storage without traversing the shared rule objects.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each accessor call transfers independently mutable slice slots; returning a shared cached slice would expose registry membership or another caller snapshot to mutation. Shared rule objects remain borrowed, and host bootstrap owns reuse of inspected contributor metadata.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The caller owns the returned O(n) slice allocation and its lifetime; referenced rule objects remain shared with the process registry and can retain arbitrary contributor data. This accessor creates no historical snapshot cache, handle or task, and does not release the process-owned registry.
 func RegisteredProjects() []ProjectRule {
   out := make([]ProjectRule, len(projectRegistry))
   copy(out, projectRegistry)
