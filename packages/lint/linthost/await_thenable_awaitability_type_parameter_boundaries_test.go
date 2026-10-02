@@ -14,7 +14,7 @@ import (
 //  3. Assert only the number-constrained await reports.
 //
 // @evidence contracts/testing.md#behavioral-verification Type-parameter awaitability must distinguish definitely scalar constraints from unknown or Promise constraints.
-// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix exact rule/error rendered lines 5 with code 2 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#independent-expectations The authored unconstrained, number-constrained and Promise-constrained operands independently require one error on line 5, code 2 and empty stdout. Rule-label counting rejects extras, and the rendered-main.ts helper checks line and error severity; unrelated diagnostics are outside that helper's scope.
 // @evidence contracts/testing.md#distinguishing-cases Unconstrained T and Promise-constrained T remain clean beside number-constrained T.
 // @evidence contracts/testing.md#execution-ownership TestAwaitThenableAwaitabilityTypeParameterBoundaries executes the in-process check command with a real Program/Checker in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableAwaitabilityTypeParameterBoundaries(t *testing.T) {

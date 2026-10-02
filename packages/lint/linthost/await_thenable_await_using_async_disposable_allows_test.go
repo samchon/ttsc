@@ -6,8 +6,8 @@ import (
 )
 
 // TestAwaitThenableAwaitUsingAsyncDisposableAllows verifies the `await using`
-// arm of typescript/await-thenable stays silent on every valid shape from the
-// upstream regression suite.
+// arm of typescript/await-thenable stays silent on the four authored resource
+// declaration shapes below.
 //
 // The negative twins of the sync-disposable positive: an object literal with
 // a real `[Symbol.asyncDispose]` method, an `any` initializer
@@ -24,7 +24,7 @@ import (
 //  4. Assert a clean exit with no await-thenable finding.
 //
 // @evidence contracts/testing.md#behavioral-verification Supported async disposable resources must not produce await-using findings.
-// @evidence contracts/testing.md#independent-expectations The authored source and original complete assertions fix zero rule findings with code 0 and empty stdout; added per-rule diagnostic parsing rejects wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#independent-expectations The authored four resource declarations independently require code 0, empty stdout and no rule-labelled stderr after a separate no-plugin clean compiler check. The rendered-main.ts helper also requires zero matches; it does not certify unrelated diagnostic anchors.
 // @evidence contracts/testing.md#distinguishing-cases Async-dispose, any, sync using and iterated async resources stay clean; SyncDisposableReports and AsyncMethodUnderDisposeSymbolReports provide opposite protocol cases.
 // @evidence contracts/testing.md#execution-ownership TestAwaitThenableAwaitUsingAsyncDisposableAllows executes the in-process check command with a real Program/Checker; the original separate no-plugin compiler-prerequisite check is retained before rule execution in the shared Go unit process. Fixture configuration is input; no child compiler, native build or installed consumer runs.
 func TestAwaitThenableAwaitUsingAsyncDisposableAllows(t *testing.T) {
