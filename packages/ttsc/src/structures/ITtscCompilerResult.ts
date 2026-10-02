@@ -22,7 +22,7 @@ import type { ITtscCompilerDiagnostic } from "./ITtscCompilerDiagnostic";
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
  * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
+ * @evidence contracts/portability.md#os-neutral-implementation Completed variants carry slash-separated project-relative or absolute output keys, and diagnostics retain the producer's native file paths and coordinate conventions.
  */
 export type ITtscCompilerResult =
   | ITtscCompilerResult.ISuccess
@@ -45,7 +45,7 @@ export namespace ITtscCompilerResult {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
    * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
+   * @evidence contracts/portability.md#os-neutral-implementation Output keys normalize native separators to slashes while preserving the capture lane's relative or absolute spelling; optional diagnostics retain native producer paths and coordinate conventions.
    */
   export interface ISuccess {
     /** Indicates that the compilation was successful. */
@@ -57,10 +57,15 @@ export namespace ITtscCompilerResult {
     /**
      * The generated compiler output.
      *
-     * A record mapping project-relative output file paths to their generated
-     * text content. This includes JavaScript, declaration files, source maps,
-     * declaration maps, and any other text artifact emitted through
-     * TypeScript-Go's `WriteFile` callback.
+     * A record mapping slash-separated output file paths to their generated
+     * text content. Keys can be project-relative or absolute, depending on
+     * output placement and the capture lane. In particular, output outside the
+     * project uses absolute keys. Native separators are normalized while
+     * literal POSIX backslashes remain filename data.
+     *
+     * This includes JavaScript, declaration files, source maps, declaration
+     * maps, and other text artifacts emitted through TypeScript-Go's
+     * `WriteFile` callback.
      */
     output: Record<string, string>;
   }
@@ -82,7 +87,7 @@ export namespace ITtscCompilerResult {
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
    * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation This type declaration describes a data shape only; it opens no file, builds no path and branches on no platform.
+   * @evidence contracts/portability.md#os-neutral-implementation Partial output uses the same slash-separated relative or absolute keys as success; required diagnostics preserve native producer file paths and coordinate conventions.
    */
   export interface IFailure {
     /** Indicates that compilation completed with diagnostics. */
@@ -96,6 +101,8 @@ export namespace ITtscCompilerResult {
      *
      * This may be partial or empty depending on the severity of the issues and
      * how far TypeScript-Go progressed before returning diagnostics.
+     * Paths use the same relative or absolute key convention as
+     * {@link ISuccess.output}.
      */
     output: Record<string, string>;
   }
@@ -103,21 +110,21 @@ export namespace ITtscCompilerResult {
   /**
    * Represents an unexpected error during the compilation process.
    *
-   * This interface is returned when ttsc cannot prepare, build, or spawn the
-   * native compiler host. Normal TypeScript diagnostics are represented by
-   * {@link IFailure}; this variant is reserved for host-level exceptions.
+   * This interface is returned for host-level exceptions during preparation,
+   * native execution, response decoding, output capture or cleanup. Normal
+   * TypeScript diagnostics are represented by {@link IFailure}.
    *
    * The thrown value is described as finite data. Error name, message, stack,
    * causes, aggregate failures and enumerable outcome fields are retained.
    *
    * Repeated objects use `$ttscReference` JSON-pointer markers. Exceptional
    * scalar values, accessors and failed inspection use `$ttscValue` markers.
-   * Getters are not invoked and foreign class internal slots are not copied.
+   * Serialization does not invoke getters or copy foreign class internal slots.
    *
    * @evidence contracts/common.md#principled-implementation Unknown accommodates finite causal error descriptions, outcome data and tagged exceptional values; the optional classifier identifies recognized preparation origins without pretending every exception is recognizable.
    * @evidence contracts/common.md#clear-and-simple-design The exception variant exposes only error and optional origin; completed outputs and diagnostic arrays remain with the completed variants.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing classification remains unknown rather than being guessed from a consumer or replaced with a fabricated compile result.
-   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain finite causal serialization, markers and accessor limits alongside preparation failures and classification; member and tag separation follow the documentation skill.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain finite causal serialization, markers and accessor limits alongside host-level execution, response and cleanup failures and classification; member and tag separation follow the documentation skill.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type declaration acquires and holds no runtime resource.
    * @evidenceExclude contracts/performance.md#efficient-algorithms A type declaration chooses no processing strategy.
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type declaration computes nothing, so there is no work to share.
