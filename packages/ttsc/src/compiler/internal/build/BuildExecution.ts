@@ -884,6 +884,11 @@ export namespace BuildExecution {
     const displayed = applyEmittedFileListing(result, userListedEmitted);
     const emittedFiles = displayed.emittedFiles ?? [];
     if (options.quiet === false) {
+      // A producer's last stdout line (the tsgo statistics block ends without a
+      // newline) must not swallow the summary's first marker.
+      if (displayed.stdout.length !== 0 && !displayed.stdout.endsWith("\n")) {
+        displayed.stdout += "\n";
+      }
       displayed.stdout += verboseBuildSummary(execution, options, emittedFiles);
     }
     return normalizeBuildOutput(displayed, execution.projectRoot);

@@ -46,7 +46,7 @@ export const test_ttsc_single_file_refuses_a_file_outside_the_project_file_set =
     assert.notEqual(refused.status, 0, refused.stdout);
     assert.match(
       refused.stderr,
-      /scripts[\\/]index\.ts is not part of the program of .*tsconfig\.json/,
+      /ttsc single-file emit: .*tsconfig\.json emitted no JavaScript owned by .*scripts[\\/]index\.ts;/,
     );
     assert.equal(fs.existsSync(path.join(root, "lib")), false);
 
