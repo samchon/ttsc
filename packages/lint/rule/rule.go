@@ -445,9 +445,8 @@ type FixReporter interface {
 // finding's related source locations. Like FixReporter, the public
 // `rule.Context` type-asserts against this shape, so any host whose reporter
 // exposes both methods opts into related locations without depending on a
-// private interface name. A host that does not implement it loses the related
-// locations, while retaining the diagnostic, as the other
-// optional reporter extensions give.
+// private interface name. A host without this capability still receives the
+// primary diagnostic, without its optional related locations.
 //
 // Rule implementations submit locations through ctx.ReportRelated or
 // ctx.ReportRangeRelated. A custom host or test reporter passed to NewContext
