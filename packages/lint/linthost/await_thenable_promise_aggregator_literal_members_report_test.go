@@ -14,7 +14,7 @@ import (
 //  3. Assert only the primitive member and non-awaitable spread report.
 //
 // @evidence contracts/testing.md#behavioral-verification Aggregator array literals must report independently nonawaitable members.
-// @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix the complete rule/error line list 3,7 with code 2 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#independent-expectations The authored scalar and boolean spread independently require two rule-labelled errors on lines 3,7, while Promise and maybe-Promise lines 4,5 stay clean, with code 2 and empty stdout. Count and literal anchors reject extras or missing findings; the rendered-main.ts helper checks lines and error severity, without certifying exact columns or unrelated diagnostics.
 // @evidence contracts/testing.md#distinguishing-cases Original literal number and spread boolean report; native Promise, maybe-Promise and hole entries remain unreported.
 // @evidence contracts/testing.md#execution-ownership TestAwaitThenablePromiseAggregatorLiteralMembersReport invokes the in-process check command with a real Program/Checker in the shared Go unit population; original source/configuration and all assertions remain, with no child compiler, installed consumer or native artifact build.
 func TestAwaitThenablePromiseAggregatorLiteralMembersReport(t *testing.T) {

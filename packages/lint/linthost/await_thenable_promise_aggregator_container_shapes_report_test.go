@@ -14,7 +14,7 @@ import (
 //  3. Assert one finding on the source line of each aggregator call.
 //
 // @evidence contracts/testing.md#behavioral-verification Typed aggregator containers must report definite scalar element boundaries.
-// @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix the complete rule/error line list 6,7,8,9,10 with code 2 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#independent-expectations The authored scalar array, mixed tuple, scalar iterable and mixed element/container unions independently require five rule-labelled errors on lines 6,7,8,9,10, code 2 and empty stdout. Count and literal anchors reject missing or extra findings; the rendered-main.ts helper checks each line and error severity, without certifying exact columns or unrelated diagnostics.
 // @evidence contracts/testing.md#distinguishing-cases Number arrays, mixed Promise/string tuples, scalar iterables and mixed typed element/container unions report; AwaitableInputsAllow supplies clean Promise-bearing inputs. These explicit fixtures pin the supported typed-container policy.
 // @evidence contracts/testing.md#execution-ownership TestAwaitThenablePromiseAggregatorContainerShapesReport invokes the in-process check command with a real Program/Checker in the shared Go unit population; original source/configuration and all assertions remain, with no child compiler, installed consumer or native artifact build.
 func TestAwaitThenablePromiseAggregatorContainerShapesReport(t *testing.T) {

@@ -14,7 +14,7 @@ import (
 //  3. Assert a clean run with no await-thenable finding.
 //
 // @evidence contracts/testing.md#behavioral-verification Promise aggregators must allow supported Promise-bearing and uncertain input elements.
-// @evidence contracts/testing.md#independent-expectations The authored source and original assertions fix zero rule findings with code 0 and empty stdout; the added per-rule rendered oracle excludes wrong severity or unrelated diagnostic anchors.
+// @evidence contracts/testing.md#independent-expectations The authored Promise array, tuple and iterable, uncertain literal members, hole and unconstrained generic iterable independently require code 0, empty stdout and no rule-labelled stderr. The rendered-main.ts helper also requires zero matches, without certifying unrelated diagnostics.
 // @evidence contracts/testing.md#distinguishing-cases Promise arrays, tuples, iterable values, maybe-Promise/unknown/any members, holes and unconstrained generic elements remain clean; ContainerShapesReport and LiteralMembersReport provide definite-scalar counterparts.
 // @evidence contracts/testing.md#execution-ownership TestAwaitThenablePromiseAggregatorAwaitableInputsAllow invokes the in-process check command with a real Program/Checker in the shared Go unit population; original source/configuration and all assertions remain, with no child compiler, installed consumer or native artifact build.
 func TestAwaitThenablePromiseAggregatorAwaitableInputsAllow(t *testing.T) {
