@@ -3,19 +3,9 @@ package linthost
 import "testing"
 
 // TestEngineIndentCompoundsInsideGroup verifies an Indent inside a Group
-// adds its width to every newline emitted by the broken group.
-//
-// Indent is how per-node printers express "this list level adds two
-// columns of indentation". A regression here breaks the most basic
-// readability invariant of a pretty printer — broken lists rendered
-// flush against the left margin.
-//
-//  1. Build a Group whose contents are Hardline + Text wrapped in an
-//     Indent of width 2 (default tabWidth).
-//  2. Print under default options. The Group always breaks because of
-//     the Hardline.
-//  3. Assert the inner Text appears on its own line indented by 2
-//     spaces.
+// adds two indentation columns to the requested Hardline before literal
+// inner. This single-level case expects a leading LF plus two spaces; it
+// does not claim literal-line indentation or arbitrary nested increments.
 //
 // @evidence contracts/testing.md#behavioral-verification Print must indent inner by two spaces after the requested hard break.
 // @evidence contracts/testing.md#independent-expectations Indent two applies precisely two literal columns to a continuation line while retaining inner.

@@ -6,15 +6,9 @@ import "testing"
 // inside a Group always emits a newline, even when the surrounding
 // budget would happily fit the flat form.
 //
-// Hardline is the printer's commit-to-multiline signal. Per-node
-// printers use it for declaration statements whose flat form (e.g.
-// `if (a) b;`) is grammatically valid but stylistically wrong. If
-// Hardline could be collapsed under a wide budget, every statement
-// boundary would be at the mercy of width measurement.
-//
-//  1. Build a Group with `foo`, Hardline, `bar`.
-//  2. Print under printWidth=80 (plenty of room).
-//  3. Assert the Hardline produced a newline despite the slack.
+// The two literal fragments are short enough for the default width, but an
+// authored Hardline still requires one LF between them. This direct Group
+// case distinguishes the mandatory break from an ordinary fitting Line.
 //
 // @evidence contracts/testing.md#behavioral-verification Print must retain a newline between foo and bar inside a generously sized Group.
 // @evidence contracts/testing.md#independent-expectations Hardline is unconditional in the Doc algebra, giving the literal foo\nbar.

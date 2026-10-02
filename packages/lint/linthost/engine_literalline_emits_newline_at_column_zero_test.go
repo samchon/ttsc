@@ -6,19 +6,10 @@ import "testing"
 // emits a newline without applying any indent, so the next character
 // lands at column 0 regardless of the surrounding Indent depth.
 //
-// Template-literal interior lines preserve their original source
-// column, which may be column 0 even when the template expression sits
-// inside several levels of indentation. Hardline would emit the
-// surrounding indent (offsetting the text to the wrong column);
-// Literalline must suppress it. This test pins the branch in Print
-// that sets `col = 0` instead of calling `writeIndent`, ensuring
-// Literalline stays distinct from Hardline under indentation.
-//
-//  1. Build Indent(4, Text("a"), Literalline(), Text("b")) — the
-//     Indent carries a 4-column increment that Hardline would apply.
-//  2. Print under default options.
-//  3. Assert the second line starts at column 0: the output is "a\nb",
-//     not "a\n    b".
+// The authored Indent four must not add spaces after this Literalline.
+// Literal a-LF-b output distinguishes it from Hardline under the same
+// indentation. This case observes bytes, not the internal column counter
+// or later group-fit decisions.
 //
 // @evidence contracts/testing.md#behavioral-verification Print must emit b at column zero after Literalline despite an enclosing Indent four.
 // @evidence contracts/testing.md#independent-expectations Literalline suppresses continuation indentation by contract; the literal a\nb retains both payloads.
