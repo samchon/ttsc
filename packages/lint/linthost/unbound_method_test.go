@@ -13,8 +13,7 @@ import (
 // by `no-floating-promises`'s corpus test: materialize a tsconfig project, run
 // `ttsc lint check`, and assert on the rendered diagnostics.
 //
-// Fixture-shape parity with packages/lint/test/testdata/corpus/typescript-unbound-method.ts is
-// enforced by TestLintFixtureCorpus; this Go scenario locks the minimum-viable
+// The corpus fixture packages/lint/test/testdata/corpus/typescript-unbound-method.ts is run by TestLintFixtureCorpus; this Go scenario locks the minimum-viable
 // trigger (a class method referenced as a value) so a future shim regression
 // surfaces here without depending on the full fixture.
 //

@@ -14,9 +14,7 @@ import (
 // established by `prefer-includes` and `no-for-in-array`: materialize a tsconfig
 // project, run `ttsc lint check`, and assert on the rendered diagnostics.
 //
-// Fixture-shape parity with
-// packages/lint/test/testdata/corpus/typescript-prefer-return-this-type.ts is
-// enforced by TestLintFixtureCorpus; this Go scenario locks the minimum-viable
+// The corpus fixture packages/lint/test/testdata/corpus/typescript-prefer-return-this-type.ts is run by TestLintFixtureCorpus; this Go scenario locks the minimum-viable
 // trigger (a class method declared to return the class name whose body is exactly
 // `return this;`) so a future shim regression surfaces here without depending on
 // the full fixture.

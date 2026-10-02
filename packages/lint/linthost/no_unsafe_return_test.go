@@ -14,9 +14,7 @@ import (
 // materialize a tsconfig project, run `ttsc lint check`, and assert on the rendered
 // diagnostics.
 //
-// Fixture-shape parity with
-// packages/lint/test/testdata/corpus/typescript-no-unsafe-return.ts is enforced by
-// TestLintFixtureCorpus; this Go scenario locks the minimum-viable trigger
+// The corpus fixture packages/lint/test/testdata/corpus/typescript-no-unsafe-return.ts is run by TestLintFixtureCorpus; this Go scenario locks the minimum-viable trigger
 // (returning an `any`-typed value from a function whose declared return type is
 // `number`) so a future shim regression surfaces here without depending on the full
 // fixture.

@@ -14,9 +14,7 @@ import (
 // shape established by `no-floating-promises` and `no-for-in-array`: materialize a
 // tsconfig project, run `ttsc lint check`, and assert on the rendered diagnostics.
 //
-// Fixture-shape parity with
-// packages/lint/test/testdata/corpus/typescript-restrict-plus-operands.ts is
-// enforced by TestLintFixtureCorpus; this Go scenario locks the minimum-viable
+// The corpus fixture packages/lint/test/testdata/corpus/typescript-restrict-plus-operands.ts is run by TestLintFixtureCorpus; this Go scenario locks the minimum-viable
 // trigger (`1 + "a"`) so a future shim regression surfaces here without depending
 // on the full fixture.
 //

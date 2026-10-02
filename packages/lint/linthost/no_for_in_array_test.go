@@ -14,9 +14,7 @@ import (
 // `non-nullable-type-assertion-style`: materialize a tsconfig project, run `ttsc
 // lint check`, and assert on the rendered diagnostics.
 //
-// Fixture-shape parity with
-// packages/lint/test/testdata/corpus/typescript-no-for-in-array.ts is enforced by
-// TestLintFixtureCorpus; this Go scenario locks the minimum-viable trigger (`for
+// The corpus fixture packages/lint/test/testdata/corpus/typescript-no-for-in-array.ts is run by TestLintFixtureCorpus; this Go scenario locks the minimum-viable trigger (`for
 // (const k in arr)` over a `number[]`) so a future shim regression surfaces here
 // without depending on the full fixture.
 //

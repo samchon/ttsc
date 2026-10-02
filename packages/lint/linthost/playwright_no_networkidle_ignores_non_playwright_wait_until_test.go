@@ -6,7 +6,7 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-// TestRuleCorpusPlaywrightNoNetworkidleIgnoresNonPlaywrightWaitUntil verifies the lint rule corpus fixture playwright/no-networkidle-non-playwright.ts.
+// TestRuleCorpusPlaywrightNoNetworkidleIgnoresNonPlaywrightWaitUntil verifies that a waitUntil networkidle option on a call that is not a Playwright navigation is not reported.
 //
 // Non-Playwright configuration APIs can use a waitUntil option with their own
 // semantics. This pins the regression where any call carrying

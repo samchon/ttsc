@@ -14,11 +14,13 @@ import "testing"
 //  2. Assert both become `\w`.
 //  3. Assert the same class missing its underscore reports nothing, since that
 //     one is genuinely narrower than `\w`.
+//  4. Assert an escaped opening bracket, `/\[A-Za-z0-9_]/`, reports nothing
+//     because it opens no class.
 //
 // @evidence contracts/testing.md#behavioral-verification regexp/prefer-w rewrites both accepted ASCII word-class orderings to backslash-w.
 // @evidence contracts/testing.md#independent-expectations Literal backslash-w/backslash-w output follows the authored complete letter/digit/underscore sets, preserving the separator.
-// @evidence contracts/testing.md#distinguishing-cases Classes missing underscore or digits stay silent because they are narrower than the supported word class.
-// @evidence contracts/testing.md#execution-ownership TestFixRegexpPreferWReplacesSpelledOutWordClass calls assertFixSnapshot for both complete word classes and assertRuleSkipsSource for both narrower classes.
+// @evidence contracts/testing.md#distinguishing-cases Classes missing underscore or digits stay silent because they are narrower than the supported word class, and an escaped opening bracket stays silent because it opens no class.
+// @evidence contracts/testing.md#execution-ownership TestFixRegexpPreferWReplacesSpelledOutWordClass calls assertFixSnapshot for both complete word classes and assertRuleSkipsSource for both narrower classes and the escaped-bracket source.
 func TestFixRegexpPreferWReplacesSpelledOutWordClass(t *testing.T) {
   assertFixSnapshot(
     t,
@@ -35,5 +37,10 @@ func TestFixRegexpPreferWReplacesSpelledOutWordClass(t *testing.T) {
     t,
     "regexp/prefer-w",
     "const value = /[A-Za-z_]/;\nJSON.stringify(value);\n",
+  )
+  assertRuleSkipsSource(
+    t,
+    "regexp/prefer-w",
+    "const value = /\\[A-Za-z0-9_]/;\nJSON.stringify(value);\n",
   )
 }

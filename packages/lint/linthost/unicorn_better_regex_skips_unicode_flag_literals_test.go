@@ -18,7 +18,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification assertRuleSkipsSource verifies Unicode-mode literals never enter the unsupported optimizer path.
 // @evidence contracts/testing.md#independent-expectations The authored u/v/gu fixtures follow upstream Unicode-mode exclusions and require literal zero findings.
-// @evidence contracts/testing.md#distinguishing-cases The optimizable digit class is clean with u/v/gu flags, and `u`-flagged alternation and character-class bodies that the optimizer would otherwise rewrite stay clean; the flagless digit class positive is TestRuleCorpusUnicornBetterRegex.
+// @evidence contracts/testing.md#distinguishing-cases The optimizable digit class is clean with u/v/gu flags, and `u`-flagged alternation and character-class bodies that the optimizer would otherwise rewrite stay clean; the flagless digit class positive is the corpus fixture unicorn-better-regex.ts.
 // @evidence contracts/testing.md#execution-ownership All five excluded sources execute in this named Go unit entry; the shared Go process runs owning operations without installing a consumer, building a native artifact or launching a product host.
 func TestUnicornBetterRegexSkipsUnicodeFlagLiterals(t *testing.T) {
   sources := []string{

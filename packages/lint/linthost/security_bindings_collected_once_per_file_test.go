@@ -26,7 +26,7 @@ import (
 //
 // @evidence contracts/testing.md#behavioral-verification Engine.Run shares the security binding scan across detect-child-process and detect-non-literal-require on each file. The atomic counter distinguishes repeated whole-file walks.
 // @evidence contracts/testing.md#independent-expectations Three source files require exactly three binding scans independently of their authored 50, 500 and 2000 exec calls. Findings must remain nonempty, but this test does not establish each finding location.
-// @evidence contracts/testing.md#distinguishing-cases Different call populations and two enabled readers expose per-node and per-rule caches; detailed reporting semantics are owned by TestSecurityDetectChildProcess and TestSecurityDetectNonLiteralRequire.
+// @evidence contracts/testing.md#distinguishing-cases Different call populations and two enabled readers expose per-node and per-rule caches; detailed reporting semantics are owned by the corpus fixture security-detect-child-process.ts and the corpus fixture security-detect-non-literal-require.ts.
 // @evidence contracts/testing.md#execution-ownership parseTSFile creates the three authored call-population ASTs; NewEngine.Run executes the two rules serially after resetting securityBindingsCollectCount. This entry owns the file-count oracle and nonempty findings, with no benchmark or host process.
 func TestSecurityBindingsCollectedOncePerFile(t *testing.T) {
   makeFile := func(name string, calls int) *shimast.SourceFile {

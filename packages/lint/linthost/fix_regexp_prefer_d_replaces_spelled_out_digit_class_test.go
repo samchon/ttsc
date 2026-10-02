@@ -5,21 +5,20 @@ import "testing"
 // TestFixRegexpPreferDReplacesSpelledOutDigitClass verifies `regexp/prefer-d`
 // rewrites every `[0-9]` character class in the literal to `\d`.
 //
-// The fix is located by the character-class walk rather than by the substring
-// test that decides the finding, and the difference is load-bearing: in
-// `/\[0-9]/` the bracket is escaped, so there is no class there at all and a
-// substring-driven splice would emit `/\\d/`, a literal backslash followed by
-// `d`. That literal keeps its (pre-existing) report and gets no edit.
+// In `/\[0-9]/` the bracket is escaped, so there is no class there at all: the
+// rule must not report it, and a substring-driven splice would emit `/\\d/`, a
+// literal backslash followed by `d`. An escaped bracket inside a real class, as
+// in `/[\[0-9]/`, likewise holds no `[0-9]` class.
 //
 //  1. Fix a literal holding two separate `[0-9]` classes.
 //  2. Assert both become `\d`.
-//  3. Assert the escaped-bracket literal applies no edit, and that `[0-9a]`
-//     and the negated `[^0-9]` report nothing.
+//  3. Assert the two escaped-bracket literals, `[0-9a]` and the negated
+//     `[^0-9]` report nothing.
 //
-// @evidence contracts/testing.md#behavioral-verification regexp/prefer-d changes both real [0-9] classes to backslash-d but does not rewrite an escaped bracket.
-// @evidence contracts/testing.md#independent-expectations Literal two-class output preserves the separator and quantifier; original escaped-bracket source requires zero edits.
-// @evidence contracts/testing.md#distinguishing-cases Real classes fix, the substring lookalike remains report-only, and extended/negated classes stay silent.
-// @evidence contracts/testing.md#execution-ownership TestFixRegexpPreferDReplacesSpelledOutDigitClass calls assertFixSnapshot for both real classes, assertNoFixSnapshot for the escaped bracket, and assertRuleSkipsSource for extended/negated classes.
+// @evidence contracts/testing.md#behavioral-verification regexp/prefer-d changes both real [0-9] classes to backslash-d and reports nothing for an escaped bracket.
+// @evidence contracts/testing.md#independent-expectations Literal two-class output preserves the separator and quantifier; the escaped-bracket sources require zero findings because they contain no character class.
+// @evidence contracts/testing.md#distinguishing-cases Real classes fix, and the escaped-bracket lookalikes and extended/negated classes stay silent.
+// @evidence contracts/testing.md#execution-ownership TestFixRegexpPreferDReplacesSpelledOutDigitClass calls assertFixSnapshot for both real classes and assertRuleSkipsSource for the escaped-bracket, extended and negated sources.
 func TestFixRegexpPreferDReplacesSpelledOutDigitClass(t *testing.T) {
   assertFixSnapshot(
     t,
@@ -27,10 +26,15 @@ func TestFixRegexpPreferDReplacesSpelledOutDigitClass(t *testing.T) {
     "const value = /[0-9]-[0-9]+/;\nJSON.stringify(value);\n",
     "const value = /\\d-\\d+/;\nJSON.stringify(value);\n",
   )
-  assertNoFixSnapshot(
+  assertRuleSkipsSource(
     t,
     "regexp/prefer-d",
     "const value = /\\[0-9]/;\nJSON.stringify(value);\n",
+  )
+  assertRuleSkipsSource(
+    t,
+    "regexp/prefer-d",
+    "const value = /[\\[0-9]/;\nJSON.stringify(value);\n",
   )
   assertRuleSkipsSource(
     t,

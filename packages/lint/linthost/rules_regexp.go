@@ -481,11 +481,35 @@ func regexpUselessFlagMessage(useless string) string {
 }
 
 func regexpHasPreferD(parts regexpLiteralParts) bool {
-  return strings.Contains(parts.pattern, "[0-9]")
+  return regexpPatternHasUnescaped(parts.pattern, "[0-9]")
 }
 
 func regexpHasPreferW(parts regexpLiteralParts) bool {
-  return strings.Contains(parts.pattern, "[A-Za-z0-9_]") || strings.Contains(parts.pattern, "[a-zA-Z0-9_]")
+  return regexpPatternHasUnescaped(parts.pattern, "[A-Za-z0-9_]") ||
+    regexpPatternHasUnescaped(parts.pattern, "[a-zA-Z0-9_]")
+}
+
+// regexpPatternHasUnescaped reports whether needle occurs with its first byte
+// unescaped. A bracket preceded by an odd run of backslashes is a literal
+// bracket and opens no character class, so the pattern `\[0-9]` holds no digit
+// class. The match stays a substring test so a spelled-out class nested in a
+// `v`-mode class is still reported, which the class walk would not see.
+func regexpPatternHasUnescaped(pattern, needle string) bool {
+  for offset := 0; ; {
+    index := strings.Index(pattern[offset:], needle)
+    if index < 0 {
+      return false
+    }
+    index += offset
+    backslashes := 0
+    for cursor := index - 1; cursor >= 0 && pattern[cursor] == '\\'; cursor-- {
+      backslashes++
+    }
+    if backslashes%2 == 0 {
+      return true
+    }
+    offset = index + 1
+  }
 }
 
 // regexpHasDuplicateClassCharacter compares decoded simple-class characters.

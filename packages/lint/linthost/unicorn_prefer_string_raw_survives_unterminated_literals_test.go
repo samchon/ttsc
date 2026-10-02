@@ -22,7 +22,7 @@ import "testing"
 //
 // @evidence contracts/testing.md#behavioral-verification The corpus helper runs Engine.Run and verifies unterminated strings/templates and one-byte lone delimiters remain silent without an out-of-bounds token slice; annotated rule/severity/line equality or explicit zero count rejects extra findings.
 // @evidence contracts/testing.md#independent-expectations Four authored zero-finding expectations express the editor-buffer safety contract for recovered malformed AST tokens; upstream does not execute malformed parser input, and these silence oracles are independent of the Go delimiter and slice guards.
-// @evidence contracts/testing.md#distinguishing-cases The four authored malformed inputs require zero findings; valid complete backslash payload is the positive TestRuleCorpusUnicornPreferStringRaw.
+// @evidence contracts/testing.md#distinguishing-cases The four authored malformed inputs require zero findings; valid complete backslash payload is the positive the corpus fixture unicorn-prefer-string-raw.ts.
 // @evidence contracts/testing.md#execution-ownership TestUnicornPreferStringRawSurvivesUnterminatedLiterals is a discoverable Go unit entry; its source fixtures run owning AST/engine operations in the shared Go process without installed consumers, native builds or product hosts. Corpus failure output retains the virtual source identity and expected/actual finding positions.
 func TestUnicornPreferStringRawSurvivesUnterminatedLiterals(t *testing.T) {
   for _, source := range []string{
