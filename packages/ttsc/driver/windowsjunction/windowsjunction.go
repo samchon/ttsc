@@ -7,6 +7,8 @@ import (
   "os"
   "os/exec"
   "strings"
+
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 const (
@@ -40,7 +42,10 @@ func Create(link, target string) error {
     linkEnvironment+"="+link,
     targetEnvironment+"="+target,
   )
-  if out, err := cmd.CombinedOutput(); err != nil {
+  observation := e2etrace.BeginCommand(cmd, "CombinedOutput")
+  out, err := cmd.CombinedOutput()
+  observation.Result(err)
+  if err != nil {
     return fmt.Errorf(
       "mklink /J failed: %v: %s",
       err,

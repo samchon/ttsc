@@ -12,6 +12,8 @@ import (
   "sync"
   "sync/atomic"
   "time"
+
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 // The serve verbs below are routed to the resident daemon because they load a
@@ -57,6 +59,7 @@ type residentSidecar struct {
   everServed       atomic.Bool
   output           io.ReadCloser
   stopClosingPipes func() bool
+  observation      *e2etrace.Command
 
   // invalidate piggybacks a full "drop the warm Program" onto the next request,
   // set for a change the proxy cannot localize.
@@ -228,12 +231,16 @@ func (sc *residentSidecar) spawn(s *NativePluginSource, plugin NativeLSPPluginEn
     _ = stdin.Close()
     return err
   }
-  if err := cmd.Start(); err != nil {
+  observation := e2etrace.BeginCommand(cmd, "Start")
+  err = cmd.Start()
+  observation.Result(err)
+  if err != nil {
     _ = stdin.Close()
     _ = stdout.Close()
     return err
   }
   sc.cmd = cmd
+  sc.observation = observation
   sc.stdin = stdin
   sc.stdout = bufio.NewReader(stdout)
   sc.output = stdout
@@ -259,9 +266,12 @@ func (sc *residentSidecar) kill() {
   }
   if sc.cmd != nil && sc.cmd.Process != nil {
     _ = sc.cmd.Process.Kill()
-    _ = sc.cmd.Wait()
+    sc.observation.BeginWait()
+    waitErr := sc.cmd.Wait()
+    sc.observation.Result(waitErr)
   }
   sc.cmd = nil
+  sc.observation = nil
   sc.stdin = nil
   sc.stdout = nil
   sc.output = nil

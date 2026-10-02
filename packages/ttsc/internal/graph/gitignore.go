@@ -3,6 +3,8 @@ package graph
 import (
   "os/exec"
   "strings"
+
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 // GitIgnoredFiles returns the graph's source files that git ignores: generated
@@ -46,7 +48,9 @@ func GitIgnoredFiles(cwd string, g *Graph) map[string]bool {
   // check-ignore exits 0 with the ignored paths on stdout, 1 (an error to
   // Output) with no output when none match, and 128 when git cannot run. Only
   // stdout matters: parse it whenever it is non-empty, ignore the exit code.
-  out, _ := cmd.Output()
+  observation := e2etrace.BeginCommand(cmd, "Output")
+  out, outputErr := cmd.Output()
+  observation.Result(outputErr)
   ignored := make(map[string]bool)
   for _, path := range strings.Split(string(out), "\x00") {
     if path != "" {

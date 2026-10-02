@@ -4,6 +4,7 @@ import (
   "context"
 
   shimtspath "github.com/microsoft/typescript-go/shim/tspath"
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 // Session is a resident compiler host for incremental type-checking: it keeps a
@@ -82,6 +83,7 @@ func (s *Session) Apply(absPath, content string) bool {
   newHost := DefaultHost(s.cwd, s.prog.FS)
   newProg, reused := s.prog.TSProgram.UpdateProgram(changed, newHost, nil)
   if newProg != nil {
+    e2etrace.Program("program-construction", "driver-update", "constructor-returned", reused, newProg)
     if s.prog.checkerRelease != nil {
       s.prog.checkerRelease()
     }
@@ -90,6 +92,7 @@ func (s *Session) Apply(absPath, content string) bool {
     s.prog.Checker = checker
     s.prog.checkerRelease = release
     s.prog.Host = newHost
+    e2etrace.Program("program-load-outcome", "driver-update", "facade-installed", reused, newProg)
   }
   return reused
 }

@@ -12,6 +12,8 @@ import (
   "sync"
   "sync/atomic"
   "time"
+
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 const nativePluginCommandStdoutLimit = 4 * 1024 * 1024
@@ -1073,7 +1075,9 @@ func (s *NativePluginSource) runWithStdin(plugin NativeLSPPluginEntry, command s
   stderr := limitedBuffer{limit: nativePluginCommandStderrLimit}
   cmd.Stdout = &stdout
   cmd.Stderr = &stderr
+  observation := e2etrace.BeginCommand(cmd, "Run")
   err := cmd.Run()
+  observation.Result(err)
   if err != nil {
     msg := strings.TrimSpace(stderr.String())
     if msg == "" {

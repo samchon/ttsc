@@ -11,6 +11,8 @@ import (
   "runtime/debug"
   "sync"
   "time"
+
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 // ErrLSPUpstreamPanic wraps a panic recovered from inside an upstream
@@ -200,7 +202,10 @@ func defaultUpstreamRunner(ctx context.Context, in io.Reader, out io.Writer, opt
   cmd.Stdin = in
   cmd.Stdout = out
   cmd.Stderr = opts.Err
-  if err := cmd.Run(); err != nil {
+  observation := e2etrace.BeginCommand(cmd, "Run")
+  err := cmd.Run()
+  observation.Result(err)
+  if err != nil {
     if ctx.Err() != nil {
       return ctx.Err()
     }

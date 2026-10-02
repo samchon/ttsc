@@ -16,6 +16,7 @@ import (
   "github.com/microsoft/typescript-go/shim/tsoptions"
   "github.com/microsoft/typescript-go/shim/tspath"
   "github.com/microsoft/typescript-go/shim/vfs"
+  "github.com/samchon/ttsc/packages/ttsc/internal/e2etrace"
 )
 
 // SemanticConfigPathEnv carries the user-authored config path when an embedder
@@ -515,6 +516,9 @@ func CreateProgramFromConfig(parsed *tsoptions.ParsedCommandLine, host shimcompi
     UseSourceOfProjectReference: true,
   }
   p := shimcompiler.NewProgram(opts)
+  if p != nil {
+    e2etrace.Program("program-construction", "driver-create", "constructor-returned", false, p)
+  }
   return p, nil, nil
 }
 
@@ -629,6 +633,7 @@ func LoadProgram(cwd, tsconfigPath string, options LoadProgramOptions) (*Program
     SourcePreamble: options.SourcePreamble,
   }
   prog.plugins = pluginState
+  e2etrace.Program("program-load-outcome", "driver-create", "facade-installed", false, tsProgram)
   return prog, nil, nil
 }
 
