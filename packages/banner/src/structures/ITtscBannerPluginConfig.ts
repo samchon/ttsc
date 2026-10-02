@@ -30,6 +30,14 @@
  *   failure behavior. Separate paragraphs explain why generated wrapper
  *   directories cannot become the discovery base, applying the documentation
  *   skill's clear prose and rationale guidance to the complete type contract.
+ *
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation The type declares optional host switches and a path string; the factory and native loader own every path operation.
+ *
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The type is a value shape with no algorithm to analyze.
+ *
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The type computes nothing, so no equivalent work exists to reuse.
+ *
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The type acquires no resource and retains nothing.
  */
 export interface ITtscBannerPluginConfig {
   /**
