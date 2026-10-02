@@ -11,16 +11,18 @@ import { isRelativePluginSpecifier } from "./isRelativePluginSpecifier";
  *
  * Every entry carries the directory its specifier resolves from. A bare package
  * specifier resolves from the project root, never from the base config an
- * `extends` chain declared it in; a relative one resolves from the file that
- * wrote it.
+ * `extends` chain declared it in. A configured relative entry uses its known
+ * declaring directory, falling back to project root; an automatic relative
+ * marker uses its package directory. Explicit invocation lists use project root
+ * for every entry, rather than recovering declaration provenance.
  *
  * @evidence contracts/common.md#principled-implementation Explicit entries replace discovery; otherwise inherited relative transforms retain their declaring base while bare packages resolve from the consumer, followed by distinct direct-dependency markers.
  * @evidence contracts/common.md#clear-and-simple-design Entry extraction owns ordering/provenance and delegates physical package resolution; descriptor execution/building remain outside discovery.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Deduplication compares actual resolved identity plus bare specifier names, avoiding consumer-name path exceptions and duplicate auto-loads of explicitly configured plugins.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Deduplication compares resolved selection strings plus bare specifier names, avoiding consumer-name exceptions. Best-effort realpath can retain lexical spelling; the index does not certify every physical alias as equivalent.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains declaring-config versus consumer bases and explicit/discovered order; helper comments explain marker validation and deduplication, with tag separation following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Shared relative-specifier classification accepts both native separator spellings; native dirname and shared resolution preserve actual package roots instead of assuming inherited configs own node_modules.
- * @evidence contracts/performance.md#efficient-algorithms Configured transforms are indexed once in raw/resolved Sets, making automatic-entry duplicate checks average constant time after resolution instead of rescanning all configured entries.
- * @evidence contracts/performance.md#reuse-equivalent-work The invocation-local resolved Set shares identity decisions for deduplication; current package reads are not retained across calls and persistent answers belong to descriptor/capability caches.
+ * @evidence contracts/performance.md#efficient-algorithms Configured mapping and a separate transform-index pass precede automatic discovery. Indexed duplicate checks avoid configured-by-automatic cross products, but field/name/path bytes, native nearest-manifest and package resolution, JSON marker parsing and output copying remain delegated costs; index cardinality alone is not a work ceiling.
+ * @evidence contracts/performance.md#reuse-equivalent-work Invocation-local raw/resolved selection Sets share duplicate membership across automatic entries, not a frozen physical-identity proof or cached package lookup. Current package reads are not retained across calls; persistent validated answers belong to descriptor/capability caches.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Discovery collections and returned entries are call-owned; no retained resource or cross-call population is acquired.
  */
@@ -28,7 +30,7 @@ export namespace ProjectPluginEntries {
   /**
    * One declared plugin and the directory its specifier resolves from.
    *
-   * @evidence contracts/common.md#principled-implementation Pairing original config with its resolution base preserves inherited relative selection without changing plugin-owned payload fields.
+   * @evidence contracts/common.md#principled-implementation Pairing the selected config value with its resolution base carries explicit/configured or copied dependency-marker provenance without changing plugin-owned payload fields; the type itself does not recover a declaration file.
    * @evidence contracts/common.md#clear-and-simple-design Two fields carry entry value and provenance directly rather than embedding resolver/build state.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts The base is actual declaration/consumer provenance, not a hardcoded package or fixture location.
    * @evidence contracts/common.md#meaningful-documentation Native member comments identify config preservation and transform resolution base, with blank member/tag spacing following the documentation skill.
@@ -42,7 +44,7 @@ export namespace ProjectPluginEntries {
     /** Directory the plugin's `transform` specifier is resolved against. */
     baseDir: string;
 
-    /** The entry as the project declared it. */
+    /** Selected explicit/configured value or copied dependency plugin marker. */
     config: ITtscProjectPluginConfig;
   };
 
@@ -56,7 +58,7 @@ export namespace ProjectPluginEntries {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Actual supported config provenance determines bases, and automatic markers are validated rather than silently repaired into guessed plugin configurations.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc states explicit versus discovered ordering; private code comments explain inherited-base choice and invalid-marker diagnostics, with separate tags following the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Shared relative detection and native dirname/shared resolver preserve OS-neutral consumer/declarer bases, including Windows relative config spelling.
-   * @evidence contracts/performance.md#efficient-algorithms Configured entries are processed once into raw/resolved Sets; each discovered dependency performs resolution and average-constant duplicate membership checks.
+   * @evidence contracts/performance.md#efficient-algorithms Explicit lists map directly; otherwise configured entries are mapped before a separate index pass. Automatic discovery includes native manifest/ancestor queries, dependency-name enumeration, selected target resolution and marker record copies. Set membership avoids duplicate cross products, while full name/path/manifest bytes and native query work remain part of cost.
    * @evidence contracts/performance.md#reuse-equivalent-work Invocation-local transform identity indexes are reused across every automatic entry, without caching mutable package authority across calls.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The output and Set indexes are invocation-owned and acquire no persistent resource or collection.
