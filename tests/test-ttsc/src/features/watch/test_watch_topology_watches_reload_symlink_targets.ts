@@ -42,8 +42,13 @@ export const test_watch_topology_watches_reload_symlink_targets =
     const declaration = path.join(root, "selection.json");
     try {
       fs.symlinkSync(target, declaration, "file");
-    } catch {
-      // The filesystem cannot express the alias this case is about.
+    } catch (error) {
+      // The filesystem cannot express the alias this case is about: a file
+      // symlink needs a privilege Windows may withhold, and no junction or
+      // hard link has the same lexical-versus-target identity.
+      console.warn(
+        `SKIPPED reload symlink targets: ${(error as NodeJS.ErrnoException).code ?? String(error)}`,
+      );
       return false;
     }
 
