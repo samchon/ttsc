@@ -7,6 +7,7 @@ import (
   "os"
   "os/exec"
   "path/filepath"
+  "runtime"
   "strconv"
   "strings"
   "sync"
@@ -126,7 +127,7 @@ func newEvidenceBridgeTrace(kind string) *evidenceBridgeTrace {
 // record appends one observed event, with failures reported only to the trace.
 // The caller's actual values are serialized, never generated as an oracle.
 // Each event's transient encoding costs its data size; no event is retained.
-func (trace *evidenceBridgeTrace) record(event string, pid int, data any) {
+func (trace *evidenceBridgeTrace) record(event string, pid int, data map[string]any) {
   if trace == nil {
     return
   }
@@ -145,13 +146,20 @@ func (trace *evidenceBridgeTrace) record(event string, pid int, data any) {
 // A reserved tail permits an integrity event after the ordinary budget ends.
 // Core invocation includes the writer instance; the private ordinal remains
 // unchanged for payload filenames and all events use this same boundary.
+// A transient shallow copy preserves caller data while binding the actual Go
+// writer runtime; it does not identify the Node child or installed artifact.
 // It never prints or returns an error to the product operation.
-func (writer *evidenceTraceWriter) append(invocation string, event string, pid int, data any, failure bool) error {
+func (writer *evidenceTraceWriter) append(invocation string, event string, pid int, data map[string]any, failure bool) error {
   writer.sequence++
+  observedData := make(map[string]any, len(data)+1)
+  for key, value := range data {
+    observedData[key] = value
+  }
+  observedData["writerRuntime"] = runtime.Version()
   encoded, err := json.Marshal(evidenceTraceEvent{
     Schema: 1, Event: event, WriterPID: writer.pid, Instance: writer.instance,
     Sequence: writer.sequence, At: time.Now().UTC().Format(time.RFC3339Nano),
-    Invocation: writer.instance+":"+invocation, PID: pid, Data: data,
+    Invocation: writer.instance+":"+invocation, PID: pid, Data: observedData,
   })
   if err != nil {
     return err
