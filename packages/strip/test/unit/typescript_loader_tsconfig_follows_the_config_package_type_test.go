@@ -35,7 +35,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls stripTypeScriptLoaderTsconfig for package scopes and config extensions, decodes JSON, and asserts CommonJS/ESNext plus types [*].
 // @evidence contracts/testing.md#independent-expectations The nearest package.json bounds ambiguous .ts/.js scope: module selects ESNext; missing type or malformed JSON means CommonJS. Literal scope/extension expectations do not depend on generated output.
 // @evidence contracts/testing.md#distinguishing-cases Owns nearest-versus-parent scope, nested missing manifest, malformed manifest, .ts/.js ambiguity and .cts/.mts extension handling; actual compilation remains boundary coverage.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestTypeScriptLoaderTsconfigFollowsTheConfigPackageType is selected from test/unit by the utility runner unit overlay. Runs stripTypeScriptLoaderTsconfig and nearest-package reads in the Go process with ordinary manifests; JSON inspection does not compile the loader.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestTypeScriptLoaderTsconfigFollowsTheConfigPackageType is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Runs stripTypeScriptLoaderTsconfig and nearest-package reads in the Go process with ordinary manifests; JSON inspection does not compile the loader.
 func TestTypeScriptLoaderTsconfigFollowsTheConfigPackageType(t *testing.T) {
   root := t.TempDir()
   for name, manifest := range map[string]string{

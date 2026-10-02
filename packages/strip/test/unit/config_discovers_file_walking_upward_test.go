@@ -23,8 +23,9 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls stripLoadStripConfigMap from nested/src without configFile and asserts the ancestor JSON supplies exactly console.warn.
 // @evidence contracts/testing.md#independent-expectations Automatic discovery walks ancestors to the nearest supported config. The root is the only populated candidate and its literal calls value supplies the expectation.
 // @evidence contracts/testing.md#distinguishing-cases Owns successful multi-level upward discovery; environment override and same-directory ambiguity are separate cases.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigDiscoversFileWalkingUpward is selected from test/unit by the utility runner unit overlay. Runs stripLoadStripConfigMap, shared discovery and native JSON loading in the Go process over ordinary fixture files; no tsconfig Program is loaded.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigDiscoversFileWalkingUpward is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Runs stripLoadStripConfigMap, shared discovery and native JSON loading in the Go process over ordinary fixture files; no tsconfig Program is loaded.
 func TestConfigDiscoversFileWalkingUpward(t *testing.T) {
+  t.Setenv("TTSC_PLUGIN_CONFIG_DIR", "")
   root := shared.SeedProject(t, map[string]string{
     "strip.config.json":        `{"calls":["console.warn"],"statements":[]}`,
     "nested/src/tsconfig.json": `{"compilerOptions":{"target":"ES2022"}}`,

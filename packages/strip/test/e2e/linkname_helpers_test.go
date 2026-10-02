@@ -18,8 +18,22 @@ func stripLoaderTempBase(location, systemTemp string) string
 //go:linkname stripFindNearestNodeModules github.com/samchon/ttsc/packages/strip/driver.stripFindNearestNodeModules
 func stripFindNearestNodeModules(start string) string
 
-//go:linkname stripLoadStripConfigFile github.com/samchon/ttsc/packages/strip/driver.loadStripConfigFile
-func stripLoadStripConfigFile(location, resolutionRoot string) (any, error)
+type stripLoadedConfig struct {
+  complete  bool
+  hashes    map[string]*string
+  inputs    []string
+  realpaths map[string]*string
+  value     any
+}
+
+//go:linkname stripLoadStripConfigFileWithInputs github.com/samchon/ttsc/packages/strip/driver.loadStripConfigFileWithInputs
+func stripLoadStripConfigFileWithInputs(location, resolutionRoot string) (stripLoadedConfig, error)
+
+// stripLoadStripConfigFile returns the evaluated config value alone.
+func stripLoadStripConfigFile(location, resolutionRoot string) (any, error) {
+  loaded, err := stripLoadStripConfigFileWithInputs(location, resolutionRoot)
+  return loaded.value, err
+}
 
 //go:linkname stripPhysicalHostInput github.com/samchon/ttsc/packages/strip/driver.stripPhysicalHostInput
 func stripPhysicalHostInput(location string) *string

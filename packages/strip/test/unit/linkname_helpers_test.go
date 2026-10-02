@@ -13,8 +13,13 @@ import (
   shimast "github.com/microsoft/typescript-go/shim/ast"
 )
 
-//go:linkname stripLoadStripConfigMap github.com/samchon/ttsc/packages/strip/driver.loadStripConfigMap
-func stripLoadStripConfigMap(pluginConfig map[string]any, cwd, tsconfigPath string) (map[string]any, error)
+//go:linkname stripLoadStripConfigMapWithReporters github.com/samchon/ttsc/packages/strip/driver.loadStripConfigMapWithReporters
+func stripLoadStripConfigMapWithReporters(pluginConfig map[string]any, cwd, tsconfigPath string, reporter func(string), hashReporter, realpathReporter func(string, *string), incompleteReporters ...func()) (map[string]any, error)
+
+// stripLoadStripConfigMap loads the config without observing its inputs.
+func stripLoadStripConfigMap(pluginConfig map[string]any, cwd, tsconfigPath string) (map[string]any, error) {
+  return stripLoadStripConfigMapWithReporters(pluginConfig, cwd, tsconfigPath, nil, nil, nil)
+}
 
 type stripRewriter struct {
   calls         []stripCallPattern
@@ -37,9 +42,6 @@ func stripMatchesCall(s *stripRewriter, name string) bool
 
 //go:linkname stripParseCallPattern github.com/samchon/ttsc/packages/strip/driver.parseCallPattern
 func stripParseCallPattern(text string) (stripCallPattern, error)
-
-//go:linkname stripPatternMatches github.com/samchon/ttsc/packages/strip/driver.callPattern.matches
-func stripPatternMatches(p stripCallPattern, name string) bool
 
 //go:linkname stripShouldStripStatement github.com/samchon/ttsc/packages/strip/driver.shouldStripStatement
 func stripShouldStripStatement(node *shimast.Node, strip *stripRewriter) bool

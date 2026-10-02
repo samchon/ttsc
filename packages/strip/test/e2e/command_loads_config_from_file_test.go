@@ -31,7 +31,7 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary File-backed JSON selection must reach the native strip transform through manifest configuration and discovery. Direct config parsing cannot establish selected-file-to-project wiring; two command consumers currently remain.
 // @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts two transform processes, one per t.Run scenario (explicit configFile, auto-discovered), from that binary and shares no loaded project or running session with any other entry.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each t.Run scenario calls seedProject, so each of the two projects lives in its own t.TempDir removed when that subtest ends; the scenarios share only the compiled binary. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
-// @evidence contracts/e2e.md#preserved-coverage The status/stderr check (L74), JSON decode (L78) and the console.warn-absent / console.info-present checks (L82-L87) run in each of the two scenarios in this body; nothing is delegated to a unit test. The doc prose previously described console.log and debugger default targets, which this body does not run (prose corrected).
+// @evidence contracts/e2e.md#preserved-coverage The status/stderr check, JSON decode and the console.warn-absent / console.info-present checks run in each of the two scenarios in this body; nothing is delegated to a unit test.
 func TestCommandLoadsConfigFromFile(t *testing.T) {
   for _, scenario := range []struct {
     label  string

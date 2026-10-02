@@ -25,7 +25,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls stripLoadStripConfigMap with project/wrapper JSON configs present and asserts logger.trace from the project rather than wrapper console.info.
 // @evidence contracts/testing.md#independent-expectations TTSC_PLUGIN_CONFIG_DIR outranks wrapper ancestry. Distinct literal calls lists expose the wrong config without using resolver output as an oracle.
 // @evidence contracts/testing.md#distinguishing-cases Owns the populated wrapper decoy; environment discovery without a wrapper candidate and ordinary upward discovery have separate owners.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigDiscoveryEnvIgnoresConfigNextToWrapperTsconfig is selected from test/unit by the utility runner unit overlay. Runs stripLoadStripConfigMap, PluginConfigBaseDir, DiscoverConfigFile and JSON decoding in the Go process; neither config invokes Node or a compiler.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigDiscoveryEnvIgnoresConfigNextToWrapperTsconfig is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Runs stripLoadStripConfigMap, PluginConfigBaseDir, DiscoverConfigFile and JSON decoding in the Go process; neither config invokes Node or a compiler.
 func TestConfigDiscoveryEnvIgnoresConfigNextToWrapperTsconfig(t *testing.T) {
   project := shared.SeedProject(t, map[string]string{
     "strip.config.json": `{"calls":["logger.trace"],"statements":[]}`,

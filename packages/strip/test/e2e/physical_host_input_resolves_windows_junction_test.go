@@ -20,7 +20,7 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary The OS junction-to-physical-file connection is real. The helper semantics are in-process, and an E2E label cannot establish this Windows-only assertion on Linux.
 // @evidence contracts/e2e.md#shared-execution One target directory, one config file and one junction are created under t.TempDir; windowsjunction.Create is the only process started (cmd.exe mklink). No plugin build or project load occurs.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns the target, link and config file; no artifact cache or global override is retained.
-// @evidence contracts/e2e.md#preserved-coverage The body asserts one non-nil physical path equal to EvalSymlinks of the target file after resolving through a junction directory (L45); on non-Windows it skips at L23, so nothing is asserted there.
+// @evidence contracts/e2e.md#preserved-coverage The body asserts one non-nil physical path equal to EvalSymlinks of the target file after resolving through a junction directory; on non-Windows it skips, so nothing is asserted there.
 func TestPhysicalHostInputResolvesWindowsJunction(t *testing.T) {
   if runtime.GOOS != "windows" {
     t.Skip("Windows junction boundary")

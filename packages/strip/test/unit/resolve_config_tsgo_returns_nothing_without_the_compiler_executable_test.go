@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Seeds TypeScript and platform manifests without lib/tsc, then asserts stripResolveConfigTsgo returns empty rather than the missing executable path.
 // @evidence contracts/testing.md#independent-expectations A platform manifest alone does not establish a compiler executable. seedProjectTypeScriptWithoutCompiler independently omits that known file.
 // @evidence contracts/testing.md#distinguishing-cases Owns an install missing only the executable; full install success and missing platform package are covered separately.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoReturnsNothingWithoutTheCompilerExecutable is selected from test/unit by the utility runner unit overlay. Runs stripResolveConfigTsgo with ordinary manifest/stat fixtures in the Go process; no spawn failure is substituted for the resolution assertion.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoReturnsNothingWithoutTheCompilerExecutable is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Runs stripResolveConfigTsgo with ordinary manifest/stat fixtures in the Go process; no spawn failure is substituted for the resolution assertion.
 func TestResolveConfigTsgoReturnsNothingWithoutTheCompilerExecutable(t *testing.T) {
   shared.ShedConfigToolEnvironment(t)
   root := shared.StripRealpathIfPossible(t.TempDir())

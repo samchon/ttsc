@@ -22,8 +22,9 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls stripLoadStripConfigMap with JSON and JS candidates in one directory and asserts a nonnil multiple-strip-config-files error.
 // @evidence contracts/testing.md#independent-expectations Discovery has no format-preference rule: two supported candidates are ambiguous independently of their conflicting literal calls arrays.
 // @evidence contracts/testing.md#distinguishing-cases Owns same-directory ambiguity across JSON/JS. The assertion checks error category, not individual candidate names or remedy wording; single explicit/upward configs have separate owners.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigRejectsAmbiguousMultipleFiles is selected from test/unit by the utility runner unit overlay. Runs stripLoadStripConfigMap and DiscoverConfigFile in the Go process; ambiguity returns before either candidate is evaluated, so JS does not start Node.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigRejectsAmbiguousMultipleFiles is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Runs stripLoadStripConfigMap and DiscoverConfigFile in the Go process; ambiguity returns before either candidate is evaluated, so JS does not start Node.
 func TestConfigRejectsAmbiguousMultipleFiles(t *testing.T) {
+  t.Setenv("TTSC_PLUGIN_CONFIG_DIR", "")
   root := shared.SeedProject(t, map[string]string{
     "strip.config.json": `{"calls":["a"]}`,
     "strip.config.js":   `module.exports = { calls: ["b"] };`,

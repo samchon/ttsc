@@ -22,12 +22,12 @@ import (
 // 3. Assert the emitted file dropped the configured call but kept ordinary code.
 // @evidence contracts/testing.md#behavioral-verification Native strip build --emit --quiet succeeds with empty streams and emitted main.js contains neither debugger nor console.log.
 // @evidence contracts/testing.md#independent-expectations The fixture default strip policy removes debugger statements and console.log calls; literal forbidden output fragments pin removal independently of the rewriter.
-// @evidence contracts/testing.md#distinguishing-cases This entry owns disk emit of removed targets. Unlike transform, it does not assert retained ordinary code, so blanket meaning-preservation coverage is not claimed.
+// @evidence contracts/testing.md#distinguishing-cases This entry owns disk emit of removed targets. The retained exported literal guards against emptied output; broader meaning preservation is owned by the transform and linked-program cases.
 // @evidence contracts/testing.md#execution-ownership The discoverable TestCommandRunsBuild entry runs in the strip E2E population and calls the real compiled package sidecar; runPlugin captures its native exit and separate streams. This classification does not move its portable assertions into units.
 // @evidence contracts/e2e.md#necessary-boundary The strip registration and utility emit path must carry deletions into the actual JavaScript file. Direct strip AST decisions cannot detect missing emitted publication.
 // @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts one build process over one freshly seeded project from that binary and shares no loaded project or running session with any other entry.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity seedStripProject writes the fixture project under t.TempDir, which the test framework removes at cleanup; the single build process exits before dist/main.js is read. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
-// @evidence contracts/e2e.md#preserved-coverage The status/stream check (L36) and the debugger/console.log absence check on dist/main.js (L42) are made in this body; absence-only, so deleting all output would also pass, and no assertion is delegated elsewhere.
+// @evidence contracts/e2e.md#preserved-coverage The status/stream check and the debugger/console.log absence check on dist/main.js and the retained "ok" literal of the exported value are made in this body, so an emptied output cannot pass; no assertion is delegated elsewhere.
 func TestCommandRunsBuild(t *testing.T) {
   // Scenario setup: build mode needs outDir/rootDir so the emitted JavaScript
   // path is stable and easy to assert.
@@ -43,5 +43,8 @@ func TestCommandRunsBuild(t *testing.T) {
   // absent from runtime output.
   if strings.Contains(js, "debugger") || strings.Contains(js, "console.log") {
     t.Fatalf("build output was not stripped:\n%s", js)
+  }
+  if !strings.Contains(js, `"ok"`) {
+    t.Fatalf("build output lost the retained export:\n%s", js)
   }
 }

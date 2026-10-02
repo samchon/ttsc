@@ -19,7 +19,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls strip parsers, pattern/array/slice helpers and nil AST adapters to assert defaults, explicit trace options, invalid inputs and safe nil guards.
 // @evidence contracts/testing.md#independent-expectations The default policy strips console.log, assert.* and debugger statements but not console.info, which the literal default assertions check; literal exact/wildcard expectations distinguish segment matching, and the explicit trace config proves an empty statements list disables the debugger default.
 // @evidence contracts/testing.md#distinguishing-cases Owns default/explicit options, missing/nil/wrong-type/blank/non-string arrays, malformed call parts/middle wildcard, unsupported return statement, exact/wildcard matching, unequal slices and nil guards. Nonnil AST transforms stay in boundary cases.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigAndPatternHelpers is selected from test/unit by the utility runner unit overlay. Runs stripParseStrip, stripParseCallPattern, matching/config helpers and nil traversal adapters in the Go process; no Program, parser session or subprocess is prepared.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigAndPatternHelpers is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Runs stripParseStrip, stripParseCallPattern, matching/config helpers and nil traversal adapters in the Go process; no Program, parser session or subprocess is prepared.
 func TestConfigAndPatternHelpers(t *testing.T) {
   defaults, err := stripParseStrip(map[string]any{})
   if err != nil {
@@ -53,19 +53,24 @@ func TestConfigAndPatternHelpers(t *testing.T) {
     }
   }
 
-  pattern, err := stripParseCallPattern("console.*")
+  wildcard, err := stripParseStrip(map[string]any{"calls": []any{"console.*"}})
   if err != nil {
     t.Fatal(err)
   }
-  if !stripPatternMatches(pattern, "console.debug") || stripPatternMatches(pattern, "console") {
-    t.Fatalf("wildcard pattern mismatch: %#v", pattern)
+  if !stripMatchesCall(wildcard, "console.debug") || !stripMatchesCall(wildcard, "console.a.b") || stripMatchesCall(wildcard, "console") || stripMatchesCall(wildcard, "consolex.log") {
+    t.Fatal("wildcard pattern mismatch")
   }
-  exact, err := stripParseCallPattern("console.log")
+  exact, err := stripParseStrip(map[string]any{"calls": []any{"console.log"}})
   if err != nil {
     t.Fatal(err)
   }
-  if !stripPatternMatches(exact, "console.log") || stripPatternMatches(exact, "console.debug") {
-    t.Fatalf("exact pattern mismatch: %#v", exact)
+  if !stripMatchesCall(exact, "console.log") || stripMatchesCall(exact, "console.debug") || stripMatchesCall(exact, "console.log.x") {
+    t.Fatal("exact pattern mismatch")
+  }
+  for _, text := range []string{"*", "*.log", "con*sole.log", "console.lo*"} {
+    if _, err := stripParseCallPattern(text); err == nil {
+      t.Fatalf("expected call pattern %q to be rejected", text)
+    }
   }
   if _, err := stripParseCallPattern("console."); err == nil || !strings.Contains(err.Error(), "invalid call pattern") {
     t.Fatalf("expected invalid trailing part error, got %v", err)

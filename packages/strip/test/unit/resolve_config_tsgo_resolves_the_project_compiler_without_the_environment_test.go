@@ -27,7 +27,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Clears both tool overrides and asserts stripResolveConfigTsgo finds the executable fixture in the project platform package.
 // @evidence contracts/testing.md#independent-expectations The independently seeded npm layout supplies TypeScript and its platform sibling lib/tsc path. Platform-name vocabulary is pinned by its separate literal mapping table.
 // @evidence contracts/testing.md#distinguishing-cases Owns successful project discovery without overrides; absent TypeScript, platform package and executable each have dedicated negative cases.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoResolvesTheProjectCompilerWithoutTheEnvironment is selected from test/unit by the utility runner unit overlay. Runs stripResolveConfigTsgo through linkname and native manifest/stat lookup in the Go process; the empty compiler fixture is never spawned.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoResolvesTheProjectCompilerWithoutTheEnvironment is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Runs stripResolveConfigTsgo through linkname and native manifest/stat lookup in the Go process; the empty compiler fixture is never spawned.
 func TestResolveConfigTsgoResolvesTheProjectCompilerWithoutTheEnvironment(t *testing.T) {
   shared.ShedConfigToolEnvironment(t)
   root := shared.StripRealpathIfPossible(t.TempDir())

@@ -29,7 +29,7 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary The strip registration and the host transform must carry the selectively changed source through the stdout JSON payload; direct rewriter calls cannot show that the compiled sidecar serializes it under the src/main.ts key.
 // @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts one transform process over one freshly seeded project from that binary and shares no loaded project or running session with any other entry.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity seedStripProject writes the fixture project under t.TempDir, which the test framework removes at cleanup; the single transform process exits before stdout is decoded. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
-// @evidence contracts/e2e.md#preserved-coverage The status/stderr check (L38), JSON decode (L42), non-empty source (L47), stripped-fragment absence (L51) and retained-export presence (L54) are all made in this body; stdout is not asserted beyond decoding.
+// @evidence contracts/e2e.md#preserved-coverage The status/stderr check, JSON decode, non-empty source, stripped-fragment absence and retained-export presence are all made in this body; stdout is not asserted beyond decoding.
 func TestCommandRunsTransform(t *testing.T) {
   // Scenario setup: transform mode observes the in-memory source surface, so no
   // output directory is needed.

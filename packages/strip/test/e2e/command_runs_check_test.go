@@ -27,7 +27,7 @@ import (
 // @evidence contracts/e2e.md#necessary-boundary The compiled strip check route loads its manifest and project without taking the emitter path; direct transform units do not prove native exit/no-emit wiring.
 // @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts one check process over one freshly seeded project from that binary and shares no loaded project or running session with any other entry.
 // @evidence contracts/e2e.md#state-isolation-and-reuse-validity seedStripProject writes the fixture project under t.TempDir, which the test framework removes at cleanup; the single check process exits before src/main.js is stat-ed. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
-// @evidence contracts/e2e.md#preserved-coverage The status/stream check (L36) and the src/main.js absence check (L39) are made in this body; nothing about stripping is asserted and nothing is delegated elsewhere.
+// @evidence contracts/e2e.md#preserved-coverage The status/stream check and the src/main.js absence check are made in this body; nothing about stripping is asserted and nothing is delegated elsewhere.
 func TestCommandRunsCheck(t *testing.T) {
   // Scenario setup: outDir is omitted because check mode must not depend on
   // build output settings.

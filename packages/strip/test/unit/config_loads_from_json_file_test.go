@@ -23,8 +23,9 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls stripLoadStripConfigMap with relative strip.config.json and asserts the exact calls [trace] and statements [debugger] arrays.
 // @evidence contracts/testing.md#independent-expectations The explicit fixture contains those literal arrays. configFile resolves against its tsconfig directory and JSON loading must preserve both values.
 // @evidence contracts/testing.md#distinguishing-cases Owns explicit relative JSON loading and both option arrays; automatic discovery, ambiguity and unsupported entry keys have separate cases.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigLoadsFromJSONFile is selected from test/unit by the utility runner unit overlay. Runs stripLoadStripConfigMap, native path resolution and JSON loading in the Go process; no native plugin executable or Node child is used.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigLoadsFromJSONFile is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Runs stripLoadStripConfigMap, native path resolution and JSON loading in the Go process; no native plugin executable or Node child is used.
 func TestConfigLoadsFromJSONFile(t *testing.T) {
+  t.Setenv("TTSC_PLUGIN_CONFIG_DIR", "")
   root := shared.SeedProject(t, map[string]string{
     "tsconfig.json":     `{"compilerOptions":{"target":"ES2022"}}`,
     "strip.config.json": `{"calls":["trace"],"statements":["debugger"]}`,

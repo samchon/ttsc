@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Seeds root and nested workspace compilers, then asserts stripResolveConfigTsgo chooses the config-local compiler and rejects the root compiler as its answer.
 // @evidence contracts/testing.md#independent-expectations Config-first tool lookup gives the config its own toolchain. Distinct seeded executable paths expose reversed anchor order.
 // @evidence contracts/testing.md#distinguishing-cases Owns two successful competing anchors; root fallback after an unresolved config anchor and explicit override are separate cases.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoPrefersTheConfigAnchorOverTheProjectRoot is selected from test/unit by the utility runner unit overlay. Runs stripConfigToolAnchors and stripResolveConfigTsgo in the Go process over manifest/stat fixtures; no compiler executes.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoPrefersTheConfigAnchorOverTheProjectRoot is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Runs stripConfigToolAnchors and stripResolveConfigTsgo in the Go process over manifest/stat fixtures; no compiler executes.
 func TestResolveConfigTsgoPrefersTheConfigAnchorOverTheProjectRoot(t *testing.T) {
   shared.ShedConfigToolEnvironment(t)
   root := shared.StripRealpathIfPossible(t.TempDir())

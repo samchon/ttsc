@@ -26,7 +26,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls stripLoadStripConfigMap with a project override and wrapper tsconfig and asserts the project JSON config supplies exactly logger.trace.
 // @evidence contracts/testing.md#independent-expectations The explicit project directory must find the JSON fixture despite wrapper ancestry. Its literal calls list establishes the expected selected value.
 // @evidence contracts/testing.md#distinguishing-cases Owns environment discovery without a wrapper config; a populated wrapper decoy is owned by TestConfigDiscoveryEnvIgnoresConfigNextToWrapperTsconfig.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigDiscoveryAnchorsAtPluginConfigDirEnv is selected from test/unit by the utility runner unit overlay. Runs stripLoadStripConfigMap, base-dir/discovery and native JSON loading in the Go process; fixture tsconfig text is not loaded by a compiler.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigDiscoveryAnchorsAtPluginConfigDirEnv is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Runs stripLoadStripConfigMap, base-dir/discovery and native JSON loading in the Go process; fixture tsconfig text is not loaded by a compiler.
 func TestConfigDiscoveryAnchorsAtPluginConfigDirEnv(t *testing.T) {
   project := shared.SeedProject(t, map[string]string{
     "strip.config.json": `{"calls":["logger.trace"],"statements":[]}`,

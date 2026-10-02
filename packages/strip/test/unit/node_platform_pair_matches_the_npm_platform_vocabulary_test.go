@@ -26,7 +26,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls stripNodePlatformPairFor for explicit OS/architecture pairs and checks literal npm names, then excludes untranslated windows, amd64 and 386 in the runtime wrapper result.
 // @evidence contracts/testing.md#independent-expectations The independent table uses npm win32, sunos, x64, ia32 and ppc64 spellings and preserves other names. It does not derive answers from platform fixture helpers.
 // @evidence contracts/testing.md#distinguishing-cases Owns Windows/macOS/Linux architectures, Solaris, ppc64le and FreeBSD/s390x passthrough. The runtime wrapper assertion excludes known untranslated names only.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestNodePlatformPairMatchesTheNpmPlatformVocabulary is selected from test/unit by the utility runner unit overlay. Runs stripNodePlatformPairFor and stripNodePlatformPair in the Go process with literal inputs; no install, artifact or subprocess is needed.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestNodePlatformPairMatchesTheNpmPlatformVocabulary is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Runs stripNodePlatformPairFor and stripNodePlatformPair in the Go process with literal inputs; no install, artifact or subprocess is needed.
 func TestNodePlatformPairMatchesTheNpmPlatformVocabulary(t *testing.T) {
   cases := []struct{ goos, goarch, platform, arch string }{
     {"windows", "amd64", "win32", "x64"},

@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls stripConfigToolAnchors and asserts config first, root/package.json second, each nonblank input alone and no anchors for two empty inputs.
 // @evidence contracts/testing.md#independent-expectations Tool lookup starts with the config then the project root. The independently listed expected paths and order expose reversal or unintended blank entries.
 // @evidence contracts/testing.md#distinguishing-cases Owns both anchors, whitespace-only config, whitespace-only root and empty pair; actual filesystem resolution has separate cases.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigToolAnchorsListsTheConfigThenTheProjectRoot is selected from test/unit by the utility runner unit overlay. Calls stripConfigToolAnchors through linkname in the Go process to assemble strings; no project, compiler or child is loaded.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigToolAnchorsListsTheConfigThenTheProjectRoot is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Calls stripConfigToolAnchors through linkname in the Go process to assemble strings; no project, compiler or child is loaded.
 func TestConfigToolAnchorsListsTheConfigThenTheProjectRoot(t *testing.T) {
   root := filepath.Join("project", "root")
   config := filepath.Join(root, "packages", "app", "strip.config.ts")

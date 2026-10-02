@@ -25,7 +25,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls stripLoadStripConfigMap for custom.strip.json with a project override and wrapper tsconfig and asserts calls exactly logger.trace.
 // @evidence contracts/testing.md#independent-expectations Explicit configFile is relative to the project override. Only that independently written fixture supplies logger.trace; the test does not separately assert its debugger option.
 // @evidence contracts/testing.md#distinguishing-cases Owns custom JSON filename resolution through the environment project anchor; ordinary explicit JSON loading and automatic discovery have separate cases.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigFileResolvesRelativeToPluginConfigDirEnv is selected from test/unit by the utility runner unit overlay. Runs stripLoadStripConfigMap, path/base-dir resolution and native JSON loading in the Go process; no compiler or Node child is spawned.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestConfigFileResolvesRelativeToPluginConfigDirEnv is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Runs stripLoadStripConfigMap, path/base-dir resolution and native JSON loading in the Go process; no compiler or Node child is spawned.
 func TestConfigFileResolvesRelativeToPluginConfigDirEnv(t *testing.T) {
   project := shared.SeedProject(t, map[string]string{
     "custom.strip.json": `{"calls":["logger.trace"],"statements":["debugger"]}`,

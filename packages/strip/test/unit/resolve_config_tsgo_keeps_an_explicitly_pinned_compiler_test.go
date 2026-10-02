@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Sets TTSC_TSGO_BINARY with a competing seeded project compiler and asserts stripResolveConfigTsgo returns exactly the pinned path, not the project compiler.
 // @evidence contracts/testing.md#independent-expectations The explicit compiler override outranks discovery. The pinned and project identities are independent paths, and the override is permitted without checking its existence.
 // @evidence contracts/testing.md#distinguishing-cases Owns nonempty override precedence against a valid project install; empty-environment discovery and missing artifacts are covered separately.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoKeepsAnExplicitlyPinnedCompiler is selected from test/unit by the utility runner unit overlay. Runs stripResolveConfigTsgo in the Go process with testing-restored environment; neither compiler path is executed.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveConfigTsgoKeepsAnExplicitlyPinnedCompiler is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Runs stripResolveConfigTsgo in the Go process with testing-restored environment; neither compiler path is executed.
 func TestResolveConfigTsgoKeepsAnExplicitlyPinnedCompiler(t *testing.T) {
   shared.ShedConfigToolEnvironment(t)
   root := shared.StripRealpathIfPossible(t.TempDir())

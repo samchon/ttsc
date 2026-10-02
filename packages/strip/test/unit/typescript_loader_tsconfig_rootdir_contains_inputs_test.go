@@ -25,7 +25,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls stripTypeScriptLoaderTsconfig, decodes JSON and asserts slash-terminated rootDir with exactly two files, both beneath that root.
 // @evidence contracts/testing.md#independent-expectations Loader and config fixture paths share their filesystem root; a slash-terminated root prefix must contain both independently constructed input paths.
 // @evidence contracts/testing.md#distinguishing-cases Owns root spelling and two-file containment on the current host; module policy has separate coverage and this check does not run a compiler.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestTypeScriptLoaderTsconfigRootDirContainsInputs is selected from test/unit by the utility runner unit overlay. Runs stripTypeScriptLoaderTsconfig and native root/path calculations in the Go process; no compiler project or child launcher is loaded.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestTypeScriptLoaderTsconfigRootDirContainsInputs is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Runs stripTypeScriptLoaderTsconfig and native root/path calculations in the Go process; no compiler project or child launcher is loaded.
 func TestTypeScriptLoaderTsconfigRootDirContainsInputs(t *testing.T) {
   dir := t.TempDir()
   raw := stripTypeScriptLoaderTsconfig(

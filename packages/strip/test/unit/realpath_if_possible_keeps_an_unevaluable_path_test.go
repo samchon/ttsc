@@ -23,7 +23,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Calls stripRealpathIfPossible on an existing temp directory and a missing descendant; the first result must remain nonempty and the missing path must return unchanged.
 // @evidence contracts/testing.md#independent-expectations The fallback contract preserves the input when EvalSymlinks cannot resolve it. The missing path is constructed independently; the positive assertion only checks nonempty identity.
 // @evidence contracts/testing.md#distinguishing-cases Contrasts existing-directory success with missing-path fallback. Linked-install and Windows junction identity are owned by boundary cases.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestRealpathIfPossibleKeepsAnUnevaluablePath is selected from test/unit by the utility runner unit overlay. Calls stripRealpathIfPossible in the Go process on ordinary paths; it creates no link or subprocess.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestRealpathIfPossibleKeepsAnUnevaluablePath is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Calls stripRealpathIfPossible in the Go process on ordinary paths; it creates no link or subprocess.
 func TestRealpathIfPossibleKeepsAnUnevaluablePath(t *testing.T) {
   root := t.TempDir()
   if real := shared.StripRealpathIfPossible(root); real == "" {

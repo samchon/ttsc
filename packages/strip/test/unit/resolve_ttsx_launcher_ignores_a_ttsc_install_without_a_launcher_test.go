@@ -24,7 +24,7 @@ import (
 // @evidence contracts/testing.md#behavioral-verification Seeds a ttsc manifest without lib/launcher/ttsx.js and asserts stripResolveTtsxLauncher returns the bare ttsx fallback.
 // @evidence contracts/testing.md#independent-expectations The launcher contract requires its file as well as the package manifest. seedProjectTtscWithoutLauncher independently leaves that known path absent.
 // @evidence contracts/testing.md#distinguishing-cases Owns partial installation without a launcher; successful project lookup and complete absence of the package are separate cases.
-// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveTtsxLauncherIgnoresATtscInstallWithoutALauncher is selected from test/unit by the utility runner unit overlay. Runs stripResolveTtsxLauncher with native fixture stat operations in the Go process; no command is constructed or launched from its result.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestResolveTtsxLauncherIgnoresATtscInstallWithoutALauncher is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. Runs stripResolveTtsxLauncher with native fixture stat operations in the Go process; no command is constructed or launched from its result.
 func TestResolveTtsxLauncherIgnoresATtscInstallWithoutALauncher(t *testing.T) {
   shared.ShedConfigToolEnvironment(t)
   root := shared.StripRealpathIfPossible(t.TempDir())
