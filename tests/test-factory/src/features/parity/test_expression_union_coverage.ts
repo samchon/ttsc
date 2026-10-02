@@ -58,7 +58,7 @@ const legacyPartial = (expression: ts.Expression): ts.Expression =>
 
 /**
  * Verifies expression union coverage: printable JSX and partial wrappers reach
- * every parenthesizer predicate.
+ * representative statement, left-side, precedence and new-target contexts.
  *
  * `PartiallyEmittedExpression` prints only its inner expression, so treating
  * the wrapper as a primary expression loses parentheses around comma sequences,

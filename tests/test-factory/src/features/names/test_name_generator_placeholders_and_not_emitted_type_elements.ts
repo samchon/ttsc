@@ -29,12 +29,12 @@ const alias = (...members: TypeElement[]) =>
  * 1. Print each generator with no arguments, with affixes and, for the private
  *    form, with a leading `#`, an empty base and a plain base.
  * 2. Print type literals and interfaces with the placeholder in the middle, at
- *    either end, doubled, alone and beside a mapped type.
+ *    either end, doubled and alone, including a width-driven broken literal.
  * 3. Parse each printed alias or interface with the legacy parser and read back
  *    its member names.
  *
  * @evidence contracts/testing.md#behavioral-verification Prints each generator result and each placeholder-bearing declaration and requires the exact text; the declaration texts are also parsed by the legacy parser and their member names compared, so a stray separator that would not parse fails.
- * @evidence contracts/testing.md#independent-expectations The generator literals are the documented placeholder contract (`_temp`, caller text with affixes, `#_unique`), which no legacy name generator reproduces by design; the member lists come from the legacy parse of the printed text, independent of the printer.
+ * @evidence contracts/testing.md#independent-expectations The generator literals are the documented placeholder contract (`_temp`, caller text with affixes, `#_unique`), which no legacy name generator reproduces by design; authored expected member-name arrays are compared with the independent legacy parse of the printed text.
  * @evidence contracts/testing.md#distinguishing-cases No affix against both affixes, a leading `#` against none, an empty private base against a plain one, and a placeholder in the middle against first, last, doubled and alone distinguish the assembly and the empty-slot cases.
  * @evidence contracts/testing.md#execution-ownership Factory unit entry that calls the builders and TsPrinter in process; the legacy parser is only the grammar reference. Uniqueness is documented as not guaranteed and is therefore asserted as equal names for equal arguments.
  */

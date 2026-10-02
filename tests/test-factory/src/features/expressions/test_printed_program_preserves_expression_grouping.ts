@@ -5,6 +5,9 @@ import factory, { SyntaxKind, TsPrinter } from "../../../../../packages/factory/
 /**
  * Verifies printed programs preserve class scope and operand grouping.
  *
+ * Equivalent-looking source can move a class name into outer scope or regroup
+ * floating-point arithmetic and side-effecting numeric conversions.
+ *
  * 1. Build anonymous and named class expression statements through public builders.
  * 2. Parse each emitted statement and check the named expression introduces no
  *    binding in the enclosing scope.

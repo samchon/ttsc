@@ -44,9 +44,9 @@ const legacyElementChain = (): ts.Expression =>
  * `a?.b()` re-parses the call _into_ the chain, so a nullish head stops
  * throwing and quietly evaluates to `undefined`; in `new`, tagged-template and
  * decorator position the same omission does not compile at all (TS1209, TS1358,
- * TS1146). Every expectation below is the legacy printer's own output for the
- * same tree, taken through the differential oracle rather than from this
- * printer.
+ * TS1146). Positive rows compare separately constructed legacy trees through
+ * the differential oracle; exact source literals additionally pin this
+ * printer's spacing and the negative controls.
  *
  * 1. Print each non-optional consumer over each optional-chain node kind.
  * 2. Assert the printed text means what the legacy printer's text means, and pin

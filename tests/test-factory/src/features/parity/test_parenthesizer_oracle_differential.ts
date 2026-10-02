@@ -559,7 +559,7 @@ const requiredProductions: readonly string[] = [
 ];
 
 /**
- * Verifies every operand position the parenthesizer owns prints text that means
+ * Verifies the represented parenthesizer operand positions print text that means
  * what the legacy printer's text for the same tree means.
  *
  * The corpus is a full cross product of consuming positions and operand shapes,

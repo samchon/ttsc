@@ -6,9 +6,8 @@ import { id, print } from "../../internal/helpers";
 /**
  * Verifies printing of template strings.
  *
- * A single-substitution template, a multi-substitution template (head + middle
- *
- * - Tail), a tagged template, and a no-substitution template literal.
+ * A multi-substitution template must retain its head, middle and tail around
+ * both substitutions; zero and single spans exercise the adjacent boundaries.
  *
  * 1. Single/multiple spans, tagged templates and no-substitution templates preserve text, substitutions and tag identity.
  * 2. Exact independent template-source literals define backticks, ${} delimiters and segment order.

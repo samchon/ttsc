@@ -7,9 +7,10 @@ import { id, print } from "../../internal/helpers";
  * Verifies comma expression parenthesizer: wraps comma operands in delimited
  * contexts.
  *
- * Comma expressions are valid expressions, but in arrays, arguments, element
- * access, template spans, object members, and initializers they otherwise look
- * like separators and change the generated program shape.
+ * Arrays, call arguments, object values and initializers must distinguish comma
+ * expressions from list separators. The printer also explicitly groups comma
+ * expressions in element access and template spans, where grouping is a text
+ * convention rather than a necessary change in meaning.
  *
  * The expectations spell the comma `a, b`, the way every other producer writes
  * it. They read `a , b` until #834: the printer surrounded the comma with a

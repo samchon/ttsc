@@ -6,7 +6,7 @@ import { kw, param, print, ref } from "../../internal/helpers";
 /**
  * Verifies printing of the advanced type-system nodes.
  *
- * The `this` type, a conditional type, an `infer` type, a `typeof`-style type
+ * The `this` type, a conditional type, an `infer` type, an `is` type
  * predicate (plain and `asserts`), a constructor type, and a mapped type with
  * `readonly` / `?` modifiers.
  *
