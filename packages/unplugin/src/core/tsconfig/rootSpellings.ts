@@ -45,10 +45,16 @@ import { policyUsesCaseSensitiveFileNames } from "./policyUsesCaseSensitiveFileN
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains lexical, physical and watcher spelling and why child
  *   links and above-root globs must retain their original meaning.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   Tries each distinct root spelling once.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   At most three supplied root spellings are deduplicated and tested. Native
+ *   relative/resolution, literal compilation and component matching follow
+ *   their path lengths; the successful branch resolves one suffix under each
+ *   alias. An omitted case answer retains the shared predictor's placement
+ *   and native probe cost rather than becoming constant wrapper work.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Keeps no cache; the distinct-spelling Set is local.
+ *   This one-location conversion coordinates no cross-query result sharing.
+ *   Any provisional case-probe reuse belongs to the policy resolver; local
+ *   root deduplication is not an equivalence cache.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   The spellings Set is local to the call.
  */
