@@ -20,17 +20,14 @@
  *   remain configuration decisions instead of repeating a boolean expression.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares a bare directory name with three literals; it reads no filesystem and parses no path.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ *   Three exact fixed-length literals define the product-owned omission set;
+ *   no input collection/traversal or growing matching strategy is chosen.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Acquires no handle, timer or retained state of its own.
  */
 export function isIgnoredProjectDirectory(name: string): boolean {
-  // The residue of what used to be a fifteen-name list, kept to the VCS store,
-  // the package manager's tree, and ttsc's own plugin cache. Everything else
-  // is decided by the resolved project policy rather than a directory-name
-  // guess (samchon/ttsc#1307).
+  // These are discovery-owned stores. Other names remain project-policy choices.
   return name === ".git" || name === ".ttsc" || name === "node_modules";
 }
