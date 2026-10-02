@@ -692,9 +692,10 @@ async function startClient(
  * @evidence contracts/performance.md#efficient-algorithms
  *   Reconciliation sorts d open documents and plans r roots in O(d log d +
  *   r squared) local work beyond project discovery. Root sets are workspace
- *   projects, not source files. Each event rediscovers projects from disk, with
- *   one upward config walk and one launcher and toolchain resolution per
- *   distinct document directory, not per document.
+ *   projects, not source files. Within one reconciliation, each distinct
+ *   document-directory/workspace-boundary pair has one discovery result,
+ *   including absence. Launcher discovery belongs to that result; toolchain
+ *   resolution occurs only when a client starts, not once per document.
  *
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   The client map and each entry's ready promise share existing and in-flight
@@ -708,7 +709,7 @@ async function startClient(
  *   The context owns subscriptions and the trace channel. Client entries own
  *   transports and config watchers for planned roots; superseded roots stop
  *   before replacements, failed starts release watchers, and deactivation
- *   stops and releases all entries.
+ *   attempts every retained client's stop and releases its watcher.
  *   Serialized event tasks remain queued until processed; there is no hard
  *   backlog cap, and stop failures are reported rather than certified as release.
  *

@@ -118,7 +118,9 @@ const WRAPPED_COMMAND_IDS = ["ttsc.lint.fixAll", "ttsc.format.document"];
   *   It does a fixed number of module resolutions and file reads.
   *
   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It keeps no cache, so each call observes the current installation.
+  *   This adapter coordinates no cross-request cache. Each call rereads the
+  *   resolved manifest and checks the launcher; Node owns package-resolution
+  *   policy and any resolution caching.
   *
   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
   *   Its synchronous reads release their handles before returning.
@@ -305,13 +307,16 @@ export function findProjectConfig(
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
   *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   It performs one config walk per active file and per workspace root, with
-  *   nothing else to optimize.
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   W workspace entries plus the optional active file require O(W) local
+  *   iteration and candidate/Set storage, with one delegated config walk per
+  *   entry. Set membership preserves first-seen base/cwd order without
+  *   rescanning the accumulated candidates.
   *
   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   Each call rediscovers projects from disk by design, so a stale answer is
-  *   never reused.
+  *   This function keeps no result across calls. The extension owns
+  *   reconciliation-local directory memoization; config discovery here
+  *   remains scoped to constructing one candidate list.
   *
   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
   *   It retains only the returned candidate array.
@@ -389,11 +394,16 @@ export function createResolutionCandidates(
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
   *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   It builds a short fixed argument vector.
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   The argument count is fixed, but launcher and project path lengths drive
+  *   output size and Windows quoting work. Command-shim preparation processes
+  *   each argument and creates one private environment entry per argument;
+  *   root identity and hashing belong to executeCommandIDPrefix.
   *
   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It computes a cheap value and caches nothing.
+  *   This preparation coordinates no cross-request producer. The extension
+  *   builds launch options when starting a client and shares that client,
+  *   rather than caching a command independently of its launch inputs.
   *
   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
   *   It retains nothing; the caller owns the returned command.
@@ -456,12 +466,16 @@ export function createServerLaunchCommand(
  *   use separate native paragraphs under the documentation skill; member
  *   comments remain beside their fields.
   *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   It composes two cheap results.
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   Ordinary launches reuse the prepared options record. Windows shims copy
+  *   P inherited environment properties plus the fixed argument placeholders,
+  *   using O(P) local time and storage; command preparation and toolchain
+  *   resolution retain their owning helpers' costs.
   *
   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It caches nothing, so process options observe the current toolchain on
-  *   each call.
+  *   It coordinates no cross-request result cache. The extension calls it
+  *   when starting a client; the environment resolver and Node module
+  *   resolution own their observations, not this composition adapter.
   *
   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
   *   It retains nothing; the caller owns the returned executable.
@@ -541,9 +555,10 @@ export function createDocumentSelectorPattern<T>(
  * does not apply another client's command replies.
  *
  * @evidence contracts/common.md#principled-implementation
- *   Node sha256 hashes the shared rootKey identity, so aliases of one root
- *   share a namespace and distinct roots differ. The fixed ttsc.vscode. text
- *   and the trailing dot are concatenated around the digest, not hashed.
+ *   Node sha256 hashes the shared rootKey identity, so observed aliases of one
+ *   root share a namespace. The 64-bit truncated digest can collide between
+ *   distinct roots; it is a routing convention, not proof of unique identity.
+ *   Fixed prefix text and the trailing dot are not hashed.
  *
  * @evidence contracts/common.md#clear-and-simple-design
  *   A single function defines the namespace used by launch arguments and
@@ -565,8 +580,10 @@ export function createDocumentSelectorPattern<T>(
  *   and reasons use separate native paragraphs under the documentation skill;
  *   member comments remain beside their fields.
   *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   It hashes one short key once.
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   One SHA-256 update processes B bytes of the resolved identity key in
+  *   O(B) hashing work and produces a fixed-size digest. Native root identity
+  *   observation remains with rootKey; the adapter keeps no lookup table.
   *
   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
   *   It is recomputed where used and keeps no cache.
@@ -675,8 +692,9 @@ export function filterNonOverlappingCandidates(
   *   The cost belongs to planRootsByPhysicalIdentity.
   *
   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It creates or accepts one identity context per call; nothing is shared
-  *   across calls.
+  *   Observation reuse belongs to the supplied identity context, not an
+  *   independent plan cache. The caller controls the validity and lifetime of
+  *   an explicitly shared context; the default creates a fresh one.
   *
   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
   *   It retains nothing; the caller owns the plan.
@@ -1186,7 +1204,9 @@ function quoteWindowsArg(arg: string): string {
   *   It does a fixed number of module resolutions and one existence check.
   *
   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It keeps no cache, so each call observes the current installation.
+  *   This adapter retains no override result across requests. Node owns
+  *   package-resolution policy and caching; the adapter checks existence of
+  *   the binary returned through that resolution on each call.
   *
   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
   *   Its synchronous reads release their handles before returning.
@@ -1254,11 +1274,15 @@ export function resolveTsgoBinary(base: string): string | undefined {
  *   Purpose, conditions and reasons use separate native paragraphs under the
  *   documentation skill; member comments remain beside their fields.
   *
-  * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   It does one binary resolution and one environment copy.
+  * @evidence contracts/performance.md#efficient-algorithms
+  *   One delegated binary resolution precedes an O(P) copy of P environment
+  *   properties when an override exists. Without an override, the existing
+  *   process environment record is passed through without a copy.
   *
   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It keeps no cache, so each call observes the current toolchain.
+  *   It retains no cross-request options result. Binary resolution belongs
+  *   to resolveTsgoBinary and Node's resolver; the extension owns sharing the
+  *   client started with these options.
   *
   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
   *   It retains nothing; the caller owns the returned options.

@@ -27,7 +27,8 @@
   *   It keys a Map by a caller-supplied string and touches no path or process.
   *
   * @evidenceExclude contracts/performance.md#efficient-algorithms
-  *   It performs one Map lookup and at most one store.
+  *   It performs one Map membership check and either one retrieval or one
+  *   store; the supplied resolver owns the computation on a missing key.
   *
   * @evidence contracts/performance.md#reuse-equivalent-work
   *   Equivalent requests share one resolve call per key while the caller's memo

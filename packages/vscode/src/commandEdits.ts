@@ -173,8 +173,9 @@ export type NormalizedTextEdit = {
   *   It decodes LSP JSON and keeps URIs as strings without resolving a path.
   *
   * @evidence contracts/performance.md#efficient-algorithms
-  *   One pass over each changes entry and its edits costs O(E) time and O(E)
-  *   output for E replacements, with no sorting or rescanning.
+  *   M changes-map entries and E edit rows take O(M + E) time. Object.entries
+  *   allocates O(M) temporary entries and valid rows produce at most O(E)
+  *   output records; empty or invalid rows still require inspection.
   *
   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
   *   It is one pure decode of a single reply, so no other request shares its
@@ -242,8 +243,10 @@ export function collectWorkspaceEditChanges(
   *   It compares strings from JSON arguments and resolves no path.
   *
   * @evidence contracts/performance.md#efficient-algorithms
-  *   The recursion visits each argument value once, O(V) for V values, and each
-  *   string costs one lookup in the caller's Set.
+  *   Acyclic JSON data needs O(V) local traversal for V values, plus the
+  *   caller's string canonicalization and Set lookup costs. Object.values
+  *   allocates each visited object's values; nested arrays and objects use
+  *   recursive stack space and stop when a dirty target is found.
   *
   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
   *   It is a pure scan of one argument list with nothing to share across
@@ -296,8 +299,9 @@ export function commandArgumentsContainDirtyURI(
   *   It compares URI strings and resolves no path.
   *
   * @evidence contracts/performance.md#efficient-algorithms
-  *   It makes at most one Set lookup per replacement, O(E) for E replacements,
-  *   and stops at the first dirty target.
+  *   It visits at most E replacements with one canonicalization and Set
+  *   lookup per visited URI, stopping at the first dirty target. Local
+  *   traversal is O(E); string processing belongs to those supplied operations.
   *
   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
   *   It is a pure scan of one edit list with nothing to share across requests.
@@ -343,7 +347,8 @@ export function workspaceEditChangesTouchDirtyURI(
   *   It performs one string prefix comparison, so there is no algorithm choice.
   *
   * @evidenceExclude contracts/performance.md#reuse-equivalent-work
-  *   It is a constant-time predicate with nothing to share.
+  *   It coordinates no completed or in-flight computation across requests;
+  *   each command is checked against the current prefix.
   *
   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
   *   It retains nothing.
