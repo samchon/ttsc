@@ -11,7 +11,8 @@
 // The schema owns launcher allow-lists and documentation. Pinned native Go
 // declarations own compiler kinds, operand grammar, name folds and enum whitespace.
 // Generation/checks require Go; CLI runtime consumes only the generated tables.
-// Invoked from `pnpm format`; `--compiler-options-only` leaves the Go
+// `pnpm format` uses `--skip-website` to preserve website files while generating
+// all compiler and Go tables. `--compiler-options-only` leaves the Go
 // allow-lists and website untouched. CI checks all generated targets by default.
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
@@ -28,6 +29,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const ttscRoot = path.resolve(here, "..");
 const repoRoot = path.resolve(ttscRoot, "../..");
 const compilerOptionsOnly = process.argv.includes("--compiler-options-only");
+const skipWebsite = process.argv.includes("--skip-website");
 const compilerOptions = readCompilerOptionTable();
 if (FLAG_SCHEMA.some((flag) =>
   [flag.name, ...(flag.aliases ?? [])].some((name) => !/^[\x00-\x7f]+$/.test(name)),
@@ -57,10 +59,12 @@ writeFile(
   renderGoMap("linthost", "LintFlagAllowList", buildGoAllowList("lint")),
 );
 
-writeFile(
-  path.join(repoRoot, "website/src/content/docs/ttsc/flags.mdx"),
-  renderDocsTable(FLAG_SCHEMA),
-);
+if (!skipWebsite) {
+  writeFile(
+    path.join(repoRoot, "website/src/content/docs/ttsc/flags.mdx"),
+    renderDocsTable(FLAG_SCHEMA),
+  );
+}
 }
 
 // Format these generated artifacts with the same formatter as pnpm format, so
