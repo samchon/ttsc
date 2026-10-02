@@ -11,16 +11,16 @@ import assert from "node:assert/strict";
  * a CR-only or U+2028 line end, a no-break space or a mid-file byte-order mark
  * was an error, hexadecimal, fractional-leading, and separated numbers and the
  * `\x` escape were refused, and an empty file failed although the compiler
- * reads it as an empty config. Every row below was checked against the pinned
- * compiler: an accepted row compiles without a diagnostic, a rejected row fails
- * with the diagnostic named beside it.
+ * reads it as an empty config. Authored lexical inputs distinguish those forms;
+ * diagnostic labels beside rejection rows describe their compiler counterpart.
+ * This direct parser unit asserts positioned failure, not compiler diagnostics.
  *
  * 1. Parse text using each accepted lexical form.
  * 2. Parse text using each form the compiler reports.
  * 3. Assert the accepted values and a positioned failure for each rejection.
  *
  * @evidence contracts/testing.md#behavioral-verification parseJsonc is called on 15 accepted texts (CR-only and U+2028 comments, no-break and ideographic spaces, a mid-file BOM, hex/octal/binary/fractional/separated numbers, escapes, trailing commas, duplicate keys, empty and comment-only text), compared by deepEqual with literal values; 16 rejected texts must throw a SyntaxError ending in '(line N column M)', and a CRLF case must report line 4 column 8.
- * @evidence contracts/testing.md#independent-expectations Expected values are authored literals taken from the grammar the TypeScript-Go compiler reads (per the doc comment, rows were checked against that compiler, which this test does not run); the TS diagnostic codes next to rejected rows appear only in assertion messages, so the test checks that each rejection throws a positioned SyntaxError, not which diagnostic applies.
+ * @evidence contracts/testing.md#independent-expectations Literal expected values follow the TypeScript-Go scanner and JSON-value grammar; no product parse supplies an expected value. Diagnostic labels appear only in assertion messages: rejection assertions check a positioned SyntaxError and do not certify the corresponding compiler code.
  * @evidence contracts/testing.md#distinguishing-cases Accepted rows contrast with rejected rows by lexical form: line terminators in comments, Unicode whitespace, number radices/separators/fractions, escapes, trailing commas, duplicate and __proto__ keys versus single-quoted strings, bare identifiers, signs, legacy octals, bad separators, missing commas, trailing text, an unterminated comment and an unterminated string; position counting is checked for one CRLF input.
  * @evidence contracts/testing.md#execution-ownership A unit test calling parseJsonc directly with strings; no files, compiler process or ttsc host.
  */
