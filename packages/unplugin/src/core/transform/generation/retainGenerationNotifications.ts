@@ -32,15 +32,18 @@ export function generationNotificationsAvailable(
  * Actual observer creation, settlement and proof construction remain in the
  * capture owner. This operation attaches only qualified handles and returns
  * the exact ownership flags that its caller uses for finally cleanup.
+ * The caller supplies a newly captured generation without prior tracker
+ * ownership. Availability is its earlier settled sample, not a fresh health
+ * check performed here; live tracker consumers still qualify current authority.
  *
  * @evidence contracts/common.md#principled-implementation Retention requires the caller's membership and notification policies, complete generation proof and sampled observer availability together; failure of any premise leaves every tracker with its local cleanup owner.
  * @evidence contracts/common.md#clear-and-simple-design One synchronous admission gate attaches three optional handles and returns their independent ownership flags; acquisition and finally cleanup stay with capture.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts A healthy sibling cannot authorize a failed observer, missing snapshot authority cannot be promoted to complete proof, and no tracker is manufactured to satisfy retention.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts The supplied availability sample must cover every present observer rather than infer health from a sibling; missing snapshot authority cannot be promoted to complete proof, and no tracker is manufactured. This gate does not refresh the earlier sample.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies the caller-owned creation and settlement steps and the exact cleanup responsibility conveyed by the return value.
  * @evidence contracts/portability.md#os-neutral-implementation Backend-independent tracker references transfer through their actual lifecycle interface; the gate adds no OS-name or path-case inference.
  * @evidence contracts/performance.md#efficient-algorithms One Boolean gate and at most three assignments avoid additional native observations or project scans.
  * @evidence contracts/performance.md#reuse-equivalent-work Qualified existing observers transfer with the generation instead of opening equivalent observers again; unavailable authority leaves recorded-state validation responsible for reuse.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Returned flags identify each transferred observer independently, including a candidate when another tracker is absent; untransferred handles remain owned by the caller's finally block.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Returned flags identify each transferred observer independently, including a candidate when another tracker is absent. The fresh generation gains at most three tracker references, whose watch populations/lifecycle stay with the tracker and disposal owners; this gate does not replace or release pre-existing generation handles. Untransferred handles remain owned by capture finally cleanup attempts.
  */
 export function retainGenerationNotifications(props: {
   cached: TtscCachedProjectTransform;
