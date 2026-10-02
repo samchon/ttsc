@@ -8,11 +8,12 @@ export {
 } from "./server/resultAudit";
 export { resolveGraphBinary } from "./resolveGraphBinary";
 export { reduce } from "./reduce";
-export type { RawDump, RawEdge, RawNode, ViewerPayload } from "./reduce";
+export type { RawDump } from "./structures/RawDump";
+export type { RawEdge } from "./structures/RawEdge";
+export type { RawNode } from "./structures/RawNode";
+export type { ViewerPayload } from "./structures/ViewerPayload";
 export { DUMP_SCHEMA_VERSION, loadGraph } from "./model/loadGraph";
-export {
-  TtscGraphSession,
-  type TtscGraphRequestOptions,
-  type TtscGraphSessionOptions,
-} from "./model/TtscGraphSession";
+export { TtscGraphSession } from "./model/TtscGraphSession";
+export type { TtscGraphRequestOptions } from "./model/TtscGraphRequestOptions";
+export type { TtscGraphSessionOptions } from "./model/TtscGraphSessionOptions";
 export { runGraph } from "./runGraph";

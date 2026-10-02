@@ -1,3 +1,7 @@
+import type { ILauncherOption } from "./ILauncherOption";
+import type { IProjectOptions } from "./IProjectOptions";
+import type { ParsedLauncherOptions } from "./ParsedLauncherOptions";
+
 import path from "node:path";
 
 /**
@@ -14,56 +18,6 @@ export class GraphArgumentError extends Error {
     super(message);
     this.name = "GraphArgumentError";
   }
-}
-
-type OptionKind = "value" | "string" | "flag" | "boolean";
-
-/**
- * One recognized launcher option and its accepted flag aliases.
- *
- * @evidence contracts/common.md#principled-implementation Key identifies the parsed value while aliases and kind determine accepted syntax.
- * @evidence contracts/common.md#clear-and-simple-design One definition owns aliases and parsing mode so launchers share the same parser.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Accepted tokens are explicit launcher grammar, not special cases for expected command output.
- * @evidence contracts/common.md#meaningful-documentation Native member comments distinguish result key, accepted tokens and value/flag/boolean parsing.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Option descriptors define token grammar; projectOptions owns native path resolution.
- */
-export interface ILauncherOption {
-  /** Canonical map key shared by every alias. */
-  key: string;
-
-  /** Accepted complete option tokens, including their leading hyphens. */
-  flags: readonly string[];
-
-  /** Value requires nonempty text; string preserves native empty/dash values. */
-  kind: OptionKind;
-}
-
-/**
- * Parsed canonical option keys with textual or boolean values.
- *
- * @evidence contracts/common.md#principled-implementation ReadonlyMap represents absent options distinctly from false and empty text, with value kinds preserved.
- * @evidence contracts/common.md#clear-and-simple-design One map avoids separate alias-indexed result objects.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The public view is readonly rather than mutating consumer options during later validation.
- * @evidence contracts/common.md#meaningful-documentation The native headline explains canonical keys and the two stored value categories.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation This readonly token map carries text and flags without native path interpretation.
- */
-export type ParsedLauncherOptions = ReadonlyMap<string, string | boolean>;
-
-/**
- * Project coordinates passed to the native graph producer.
- *
- * @evidence contracts/common.md#principled-implementation Absolute working directory and configuration locator determine which project the producer loads.
- * @evidence contracts/common.md#clear-and-simple-design Two shared coordinates prevent launcher lanes from owning competing project defaults.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Configuration remains caller-selected rather than pinned to a named repository.
- * @evidence contracts/common.md#meaningful-documentation Native member comments identify directory absoluteness and configuration relativity.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation This result shape carries coordinates; projectOptions owns their native resolution.
- */
-export interface IProjectOptions {
-  /** Absolute project working directory. */
-  cwd: string;
-
-  /** Configuration path, relative to cwd unless already absolute. */
-  tsconfig: string;
 }
 
 export const PROJECT_OPTIONS: readonly ILauncherOption[] = [

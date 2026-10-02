@@ -6,7 +6,8 @@ import { ITtscGraphSpan } from "../structures/ITtscGraphSpan";
 import { isArtifactNodeKind } from "../structures/TtscGraphArtifactNodeKind";
 import { TtscGraphEdgeKind } from "../structures/TtscGraphEdgeKind";
 import { ttscGraphNodeIdPath } from "./TtscGraphNodeId";
-import { type TtscGraphReadonly, copyGraphSnapshot } from "./TtscGraphReadonly";
+import { copyGraphSnapshot } from "./copyGraphSnapshot";
+import { type TtscGraphReadonly } from "./TtscGraphReadonly";
 import { TtscGraphSourceReader } from "./TtscGraphSourceReader";
 
 type SnapshotNode = TtscGraphReadonly<ITtscGraphNode>;

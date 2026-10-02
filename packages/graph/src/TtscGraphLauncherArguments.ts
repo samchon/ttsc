@@ -1,5 +1,5 @@
+import type { IProjectOptions } from "./IProjectOptions";
 import {
-  type IProjectOptions,
   PROJECT_OPTIONS,
   nonNegativeIntegerOption,
   parseLauncherOptions,

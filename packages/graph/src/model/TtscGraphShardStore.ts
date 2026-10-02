@@ -4,11 +4,9 @@ import { createHash } from "node:crypto";
 import { ITtscGraphDump } from "../structures/ITtscGraphDump";
 import { ITtscGraphSnapshot } from "../structures/ITtscGraphSnapshot";
 import { isArtifactNodeKind } from "../structures/TtscGraphArtifactNodeKind";
-import {
-  TtscGraphReadonly,
-  copyGraphRecords,
-  copyGraphSnapshot,
-} from "./TtscGraphReadonly";
+import { TtscGraphReadonly } from "./TtscGraphReadonly";
+import { copyGraphRecords } from "./copyGraphRecords";
+import { copyGraphSnapshot } from "./copyGraphSnapshot";
 import { DUMP_SCHEMA_VERSION } from "./loadGraph";
 
 /**

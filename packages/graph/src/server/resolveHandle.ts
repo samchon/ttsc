@@ -1,3 +1,5 @@
+import type { IResolvedGraphHandle } from "./IResolvedGraphHandle";
+
 import { TtscGraphMemory } from "../model/TtscGraphMemory";
 import { parseTtscGraphNodeId } from "../model/TtscGraphNodeId";
 import { TtscGraphReadonly } from "../model/TtscGraphReadonly";
@@ -6,25 +8,6 @@ import { exportFanIn } from "./exportSurface";
 import { isSupportPath } from "./pathPolicy";
 
 type ITtscGraphNode = TtscGraphReadonly<NodeShape>;
-
-/**
- * Exact resolved node, ambiguous candidates or an empty unknown outcome.
- *
- * @evidence contracts/common.md#principled-implementation Optional node and candidates preserve the resolver's unique, ambiguous and absent states without fabricating identity.
- * @evidence contracts/common.md#clear-and-simple-design One compact outcome is shared by direct-id, name and file-qualified resolution paths.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Ranked candidates remain unresolved choices rather than a guessed definitive node.
- * @evidence contracts/common.md#meaningful-documentation Native member comments distinguish uniquely resolved identity from ranked ambiguity.
- * @evidenceExclude contracts/performance.md#efficient-algorithms This outcome record chooses no search or ranking strategy; resolveGraphHandle owns those choices.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The result transfers a resolution state without coordinating reusable computation.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Callers own the optional candidate array; this record retains no independent resource.
- */
-export interface IResolvedGraphHandle {
-  /** Present when the handle identifies exactly one node. */
-  node?: ITtscGraphNode;
-
-  /** Ranked remaining choices when more than one identity matches. */
-  candidates?: ITtscGraphNode[];
-}
 
 /**
  * Resolve a tool handle as an id, an exact symbol name, a dotted suffix, or a

@@ -1,3 +1,6 @@
+import type { TtscGraphRequestOptions } from "./TtscGraphRequestOptions";
+import type { TtscGraphSessionOptions } from "./TtscGraphSessionOptions";
+
 import { TtscGraphNativeArguments } from "./TtscGraphNativeArguments";
 import { TtscGraphLinePeer } from "./TtscGraphLinePeer";
 import { TtscGraphProtocol } from "./TtscGraphProtocol";
@@ -7,52 +10,12 @@ import { ensureExecutable } from "../nativeExecutable";
 import { resolveGraphBinary } from "../resolveGraphBinary";
 import { TtscGraphMemory } from "./TtscGraphMemory";
 import { TtscLintDaemon } from "./TtscLintDaemon";
+import type { IPublishedArtifacts } from "./IPublishedArtifacts";
 import {
-  type IPublishedArtifacts,
   artifactsAreStale,
   publishArtifacts,
   publishArtifactsResident,
 } from "./publishedArtifacts";
-
-/**
- * Construction options for a resident native graph session.
- *
- * @evidence contracts/common.md#principled-implementation Project coordinates and optional binary determine the native producer for one resident session.
- * @evidence contracts/common.md#clear-and-simple-design Construction identity is separate from per-call cancellation controls.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts An explicit binary remains supported rather than injecting a fixture-dependent resolver.
- * @evidence contracts/common.md#meaningful-documentation Member comments document producer project coordinates, binary absoluteness and project-relative resolution.
- * @evidenceExclude contracts/performance.md#efficient-algorithms Coordinates select a producer but choose no processing strategy; graph owns execution.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Construction options do not coordinate completed or in-flight computation.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Session graph/close own resources; this options shape acquires none.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation The options shape transfers coordinates; session construction and spawning perform native resolution.
- */
-export interface TtscGraphSessionOptions {
-  /** Project root passed to `ttscgraph serve`. */
-  cwd: string;
-
-  /** Project tsconfig passed to `ttscgraph serve`. */
-  tsconfig: string;
-
-  /** Absolute native binary path, resolved from `cwd` when omitted. */
-  binary?: string;
-}
-
-/**
- * Per-call controls for a native graph refresh.
- *
- * @evidence contracts/common.md#principled-implementation An optional AbortSignal represents caller cancellation independently of shared project identity.
- * @evidence contracts/common.md#clear-and-simple-design One field carries the only per-request lifecycle control without duplicating constructor options.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Cancellation is a supported caller signal rather than an idle reset or hidden timeout.
- * @evidence contracts/common.md#meaningful-documentation The member comment explains that cancellation also retires the native session.
- * @evidenceExclude contracts/performance.md#efficient-algorithms A signal descriptor chooses no queue or cancellation processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work graph owns producer reuse and request coordination; these options only carry caller control.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources graph owns abort registrations and tasks; the options shape exposes no acquisition or release operation.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation An AbortSignal descriptor performs no native operation itself.
- */
-export interface TtscGraphRequestOptions {
-  /** Cancel this refresh and retire its native session. */
-  signal?: AbortSignal;
-}
 
 /**
  * Resident bridge to `ttscgraph serve`.
