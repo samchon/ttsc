@@ -31,8 +31,8 @@ import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
  */
 export function parseTtsxCLI(argv: readonly string[]) {
   // ttsx accepts ttsc-style flags plus its own `--no-plugins` / `--require`.
-  // The shared schema engine recognises both; it returns the first unconsumed
-  // bare token as the entry, earlier forwarded flags/values as compiler
+  // The shared schema engine recognises both; after empty/response-token rules,
+  // it returns the first unconsumed bare token as the entry, earlier flags/values as compiler
   // passthrough and later tokens as the program tail, regardless of extension.
   //
   // The legacy uppercase `-P` spelling ttsx has always accepted needs no
@@ -54,8 +54,9 @@ export function parseTtsxCLI(argv: readonly string[]) {
       errorPrefix: "ttsx:",
       forwardAfterFirstPositional: true,
       honorDoubleDashSeparator: true,
-      // The entry is the first bare token that is no option's value, whatever
-      // its extension: the schema and the compiler's own option table say
+      // After empty/response-token handling, the entry is the first bare token
+      // that is no option's value, whatever its extension: the schema and the
+      // compiler's own option table say
       // which options take a value (the `es2020` of `--target es2020`), so a
       // JavaScript entry is the entry too rather than a forwarded value.
       subcommand: "ttsx",
@@ -135,9 +136,9 @@ function terminalRequest(tokens: readonly string[]): "help" | "version" | null {
 }
 
 /**
- * Index of the first bare token that is no option's value, or the length. Used
- * only where the parser itself failed, to still find the options before the
- * entry.
+ * Index of the first nonempty, non-response bare token that is no option's
+ * value, or the length. Used only where the parser itself failed, to still
+ * find the options before the entry.
  */
 function firstPositionalIndex(argv: readonly string[]): number {
   for (let index = 0; index < argv.length; index += 1) {

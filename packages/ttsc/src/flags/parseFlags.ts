@@ -20,7 +20,7 @@ import { resolveFlagSpec } from "./resolveFlagSpec";
  * @evidence contracts/performance.md#efficient-algorithms A monotonically advancing cursor processes N tokens without repeated array shifts; scanning and result storage are O(N) plus visited token/lookahead text and the caller's positional predicate cost. Head and separated remainder each need one invocation snapshot rather than a slice followed by another clone. Building a command's acceptance index scans fixed schema rows and their canonical/alias text once; subsequent invocations reuse it.
  * @evidence contracts/performance.md#reuse-equivalent-work Launcher acceptance indexes are shared by command identity because module-owned schema rows and normalization policy remain fixed for the loaded module; invocation argv, prefix and classifier stay local and never enter the cached computation.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The module retains at most one acceptance index per finite command identity, containing references to fixed schema rows. Each cursor and result collection is invocation-owned and grows with argv size; returning transfers only the result, not the cursor or input copy.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation parseFlags computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation The token-partitioning body reads metadata and argv without directly opening files, resolving paths or calling process APIs. Any native behavior in a supplied positional classifier belongs to that provider; the parser does not certify an arbitrary callback as pure.
  */
 export function parseFlags(opts: ParseOptions): ParseResult {
   const accepted = launcherFlagsForSubcommand(opts.subcommand);
@@ -321,13 +321,14 @@ function validatePositiveInt(
 /**
  * Forward a flag the schema knows about but the current subcommand does not
  * accept. The launcher will hand it to tsgo (or to native sidecars through the
- * `TTSC_TSGO_ARGS` environment payload); without this branch it would lose the value token of
- * a `--flag value` pair.
+ * `TTSC_TSGO_ARGS` environment payload); without this branch it would lose the
+ * value token of a `--flag value` pair.
  *
- * A value option owned by tsgo always consumes its next bare token, even when
- * it ends in `.ts`; `--rootDir src.ts main.ts` has one option value and one
- * source. Schema rows belonging only to another ttsc layer still consult
- * `isPositional`, because tsgo does not own their arity.
+ * Native metadata owns whether a following token is consumed. Scalar operands
+ * can include dash prefixes or `.ts` suffixes; `--rootDir src.ts main.ts` has
+ * one option value and one source. List and configuration-only operands retain
+ * their distinct native widths. Schema rows belonging only to another ttsc
+ * layer still consult `isPositional`, because tsgo does not own their arity.
  */
 function forwardKnownButUnaccepted(
   passthrough: string[],

@@ -1,7 +1,7 @@
 /**
  * Native command-line grammar of one pinned compiler option. Lists and
- * configuration-only options have their own lookahead rules; scalar options
- * consume a following dash-prefixed token as data.
+ * configuration-only options have their own lookahead rules; non-configuration
+ * scalar options consume a following dash-prefixed token as data.
  *
  * @evidence contracts/common.md#principled-implementation Kind, list element and configuration-only status preserve the distinctions consumed by the pinned native parser instead of collapsing every nonboolean option into one arity.
  * @evidence contracts/common.md#clear-and-simple-design One immutable metadata record describes grammar; occurrence reading separately owns argv lookahead and launcher FlagSpec separately owns launcher semantics.
