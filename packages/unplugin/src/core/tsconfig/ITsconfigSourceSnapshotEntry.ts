@@ -9,9 +9,6 @@
  *   Each entry contains one source observation; graph ordering and comparison
  *   remain snapshot-reader and generation-owner responsibilities.
  *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   The path carries lexical native spelling, not a URL or physical identity;
- *   contents is decoded source observation and null expresses unavailable proof.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Unavailable input has an explicit null state rather than invented bytes

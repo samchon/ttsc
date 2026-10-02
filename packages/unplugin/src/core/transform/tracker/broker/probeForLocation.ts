@@ -37,6 +37,9 @@ import { pathIsWithin } from "../../filesystem/pathIsWithin";
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral code compares the supplied filesystem's realpaths and uses
  *   node:path containment instead of assuming macOS aliases share a prefix.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing; the probe directory it names is owned by openBrokeredWatch.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One realpath and one containment test.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The probe directory is prepared once per project root by openBrokeredWatch; this only decides eligibility.
  */
 export function probeForLocation(
   directory: string,

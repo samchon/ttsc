@@ -22,6 +22,9 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * @evidence contracts/common.md#clear-and-simple-design One cache-owned counter declares the pass; validation and disposal remain separate operations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A pass boundary does not fabricate freshness or clear valid work to hide an invalidation error.
  * @evidence contracts/common.md#meaningful-documentation The paragraphs distinguish delivery epochs from generation validity and identify hosts that lack a guaranteed pass boundary.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The epoch is one number per cache in a WeakMap and is released with the cache; the generations' own resources are released by resetTtscTransformCache.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One counter increment.
+ * @evidence contracts/performance.md#reuse-equivalent-work Advancing the epoch instead of discarding the generation is what lets a repeating buildStart reuse its compile after the pass's first delivery proves it.
  */
 export function beginTtscTransformBuild(cache: TtscTransformCache): void {
   TRANSFORM_CACHE_EPOCHS.set(

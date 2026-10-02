@@ -13,6 +13,9 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The lexical fallback reproduces the compiler filesystem contract rather than fabricating successful physical resolution for a known input.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes empty, successful and fallback results; a blank comment line separates acknowledgments under the documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral replay uses the supplied resolver and explicit path dialect through resolveFilesystemPath; the cleaned fallback does not claim native alias or case equivalence.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The call returns before the function does; no handle is retained.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One native realpath call.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work It replays the compiler's observation against the filesystem now by design, so nothing is shared.
  */
 export function compilerInputRealpathObservation(
   file: string,

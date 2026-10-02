@@ -9,6 +9,7 @@
  * @evidence contracts/common.md#clear-and-simple-design One separator conversion owns protocol spelling while native path resolution and physical equivalence remain separate operations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Separator normalization does not pretend to prove containment, physical identity, or compiler-input freshness.
  * @evidence contracts/common.md#meaningful-documentation The native comment names the normalized representation's consumers and distinguishes it from filesystem identity.
+ * @evidence contracts/portability.md#os-neutral-implementation The slash conversion serves project keys, alias targets and compiler configuration values; a spelling handed to a filesystem or a bundler is never rewritten, and identity comes from the filesystem identity context.
  */
 export function normalizePath(file: string): string {
   return file.replace(/\\/g, "/");

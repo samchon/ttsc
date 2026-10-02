@@ -33,19 +33,8 @@ const compiled = new WeakMap<
  *   One entry point chooses relevant patterns and equivalent root spellings;
  *   compile owns grammar and matches owns the state transition algorithm.
  *
- * @evidence contracts/performance.md#efficient-algorithms
- *   Pattern compilation happens once per policy object and view platform. Each spelling checks
- *   at most the configured pattern count; matching uses bounded component
- *   states per path part rather than recursive wildcard expansion.
  *
- * @evidence contracts/performance.md#reuse-equivalent-work
- *   The WeakMap shares compiled patterns across queries of the same immutable
- *   policy and filesystem-view platform. Producers replace policies when configuration or compiler case
- *   answers change; mutating a retained policy violates that representation.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   The WeakMap does not keep discarded policies alive. Compiled patterns are
- *   retained while a caller retains their policy, with bytes driven by its specs.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Matching uses configured specs and the compiler's case answer, never a

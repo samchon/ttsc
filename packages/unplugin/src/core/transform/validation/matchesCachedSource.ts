@@ -40,9 +40,6 @@ import { notificationsProveProgramUnchanged } from "./notificationsProveProgramU
  * @evidence contracts/common.md#clear-and-simple-design This admission boundary chooses the required proof while dedicated validators own membership, universal inputs and content comparisons.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts An incomplete generation cannot earn a first-delivery shortcut; losing watcher proof falls back to recorded-state validation rather than a fabricated unchanged verdict.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain disk-versus-delivered authority, epoch qualification, fallback and related maintainer guidance before tags.
- * @evidence contracts/performance.md#efficient-algorithms Current source hashing costs its bytes; stable first deliveries avoid repeated whole-project checks, while persistent narrow proof visits derived inputs and unavailable proof pays one complete snapshot.
- * @evidence contracts/performance.md#reuse-equivalent-work A complete generation earns one whole-snapshot proof per new delivery epoch; later first deliveries share it, while repeated or persistent deliveries revalidate their authoritative dependency scope.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The generation retains the current epoch and delivered identity set, bounded by delivered modules; moving to another epoch clears the set rather than preserving history.
  * @evidence contracts/portability.md#os-neutral-implementation Project membership and path identity use recorded compiler case policy and injected native operations; OS names do not certify case sensitivity or watcher capabilities.
  */
 export function matchesCachedSource(

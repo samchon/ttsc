@@ -18,6 +18,7 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   The comment names the omitted stores and explains why other directory names
  *   remain configuration decisions instead of repeating a boolean expression.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares a bare directory name with three literals; it reads no filesystem and parses no path.
  */
 export function isIgnoredProjectDirectory(name: string): boolean {
   // The residue of what used to be a fifteen-name list, kept to the VCS store,

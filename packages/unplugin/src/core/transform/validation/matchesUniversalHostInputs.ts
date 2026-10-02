@@ -23,9 +23,6 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  * @evidence contracts/common.md#clear-and-simple-design One coordinator combines existing-entry, missing-name and tree authority without duplicating their native observations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Source watcher silence cannot replace toolchain/environment identity; failed or unproved scopes fall back to their owning validators.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs separate source-content reuse, mandatory environment checks and per-input fallback rather than claiming notifications eliminate every observation.
- * @evidence contracts/performance.md#efficient-algorithms The coverage scan stops at the first unproved input; fallback cost grows with unresolved bytes and directory entries in the manifest populations.
- * @evidence contracts/performance.md#reuse-equivalent-work Shared manifests and qualified silent sources avoid repeated content reads only while the owning tree validator also proves unchanged build environment.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The coordinator borrows generation manifests and trackers without retaining a result or acquiring a handle.
  * @evidence contracts/portability.md#os-neutral-implementation Filesystem-aware validators use actual tracker delivery capability and exact lexical coverage rather than platform-wide assumptions.
  */
 export function matchesUniversalHostInputs(

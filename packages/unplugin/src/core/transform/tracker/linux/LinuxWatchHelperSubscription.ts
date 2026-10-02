@@ -14,9 +14,6 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Native type and separated callback paragraphs explain protocol meaning,
  *   following the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation
- *   OS-neutral owners consume lifecycle callbacks while Linux-specific helper
- *   transport stays behind this interface.
  */
 export interface LinuxWatchHelperSubscription {
   /**
@@ -31,9 +28,6 @@ export interface LinuxWatchHelperSubscription {
    *   Readiness requires the helper's answer, not successful request submission.
    * @evidence contracts/common.md#meaningful-documentation
    *   Native JSDoc defines both boolean outcomes under the documentation skill.
-   * @evidence contracts/portability.md#os-neutral-implementation
-   *   OS-neutral owners rely on explicit backend acknowledgment, not an assumed
-   *   operating-system startup delay.
    */
   ready(live: boolean): void;
 
@@ -49,9 +43,6 @@ export interface LinuxWatchHelperSubscription {
    *   Unnamed events preserve uncertainty instead of being silently discarded.
    * @evidence contracts/common.md#meaningful-documentation
    *   Native JSDoc explains dropped-name breadth under the documentation skill.
-   * @evidence contracts/portability.md#os-neutral-implementation
-   *   OS-neutral owners receive native event uncertainty without guessing names
-   *   from platform-specific buffering behavior.
    */
   event(eventType: string, filename: string | null): void;
 
@@ -68,9 +59,6 @@ export interface LinuxWatchHelperSubscription {
    * @evidence contracts/common.md#meaningful-documentation
    *   Native JSDoc identifies terminal causes and the no-further-events condition
    *   under the documentation skill.
-   * @evidence contracts/portability.md#os-neutral-implementation
-   *   OS-neutral owners react to termination through this callback rather than
-   *   inspecting native process or descriptor details.
    */
   end(): void;
 }

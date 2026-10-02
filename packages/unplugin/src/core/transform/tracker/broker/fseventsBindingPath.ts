@@ -27,6 +27,9 @@ import { createRequire } from "node:module";
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral resolution delegates installation layout and path spelling to
  *   the module resolver; native FSEvents loading stays at the macOS boundary.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing; it returns a path or null.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One module resolution.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Resolved once per broker start; the broker itself is process-wide.
  */
 export function fseventsBindingPath(): string | null {
   try {

@@ -28,6 +28,7 @@ import { recordProjectChange } from "./recordProjectChange";
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Only the caller's bounded tracker sample and boolean survive the call;
  *   no independent event history or native resource is allocated.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Sets a flag and delegates to recordProjectChange; no path is parsed or compared.
  */
 export function recordProjectMutation(
   tracker: TtscProjectMutationTracker,

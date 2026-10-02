@@ -14,7 +14,6 @@
  * @evidence contracts/common.md#clear-and-simple-design Separate populations expose each validator's responsibility while one generation owns their shared lifetime.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Readable content, blockers and external build environments remain explicit rather than one blanket watcher-success flag.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs and separated member comments explain optional signatures, exact coverage, absence groups and tree environments.
- * @evidence contracts/portability.md#os-neutral-implementation Physical targets, lexical aliases, metadata clocks and qualified native notifications remain separate; actual case policy belongs to the generation context.
  */
 export interface TtscHostInputValidation {
   /** Lexical input spellings that existed when the generation was captured. */

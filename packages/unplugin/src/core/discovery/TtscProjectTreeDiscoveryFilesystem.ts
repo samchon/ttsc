@@ -13,9 +13,6 @@ import type { TtscProjectDiscoveryFilesystem } from "./TtscProjectDiscoveryFiles
  *   Extending the smaller discovery view preserves one stat contract while
  *   adding only operations needed to descend and cut link cycles.
  *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   Native entry kinds and physical spelling are explicit callback capabilities;
- *   callers can represent links and junctions without a universal OS case rule.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Linked traversal uses the supplied identity operation, not a guessed
@@ -36,9 +33,6 @@ export interface TtscProjectTreeDiscoveryFilesystem extends TtscProjectDiscovery
    * @evidence contracts/common.md#clear-and-simple-design
    *   One callback observes one directory, leaving traversal order to its caller.
    *
-   * @evidence contracts/portability.md#os-neutral-implementation
-   *   The boundary returns actual directory and link predicates for the supplied
-   *   native view; lexical names retain their observed spelling.
    *
    * @evidence contracts/common.md#prohibited-implementation-shortcuts
    *   Results come from the filesystem view rather than a fixture name table.
@@ -62,9 +56,6 @@ export interface TtscProjectTreeDiscoveryFilesystem extends TtscProjectDiscovery
    * @evidence contracts/common.md#clear-and-simple-design
    *   Optional identity access is distinct from lexical enumeration and stat.
    *
-   * @evidence contracts/portability.md#os-neutral-implementation
-   *   A supplied realpath must observe canonical physical names, including the
-   *   view's actual name case, so linked ancestry does not rely on an OS default.
    *
    * @evidence contracts/common.md#prohibited-implementation-shortcuts
    *   The signature requests actual identity rather than inferring it from OS

@@ -66,6 +66,7 @@ const FILESYSTEM_CLOCK_REFERENCES = new WeakMap<
  * @evidence contracts/performance.md#efficient-algorithms Operation-table and device maps provide constant-time reference selection rather than rescanning inputs to infer a clock.
  * @evidence contracts/performance.md#reuse-equivalent-work All proofs using the same operations object share its current device reference; replacement of that object creates independent evidence.
  * @evidence contracts/performance.md#bound-retention-and-release-resources Weak operation keys release tables with their filesystem view, and refresh replaces previous device entries rather than retaining clock history.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Keys a Map by the operations object and the device number it is given; it reads no filesystem and parses no path.
  */
 export function filesystemClockReferences(
   filesystem: TtscTransformFilesystemOperations,

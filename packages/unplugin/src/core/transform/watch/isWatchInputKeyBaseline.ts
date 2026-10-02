@@ -15,6 +15,9 @@ import type { TtscWatchInputKeyBaseline } from "./TtscWatchInputKeyBaseline";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported missing and directory markers are explicit codec constants; extra keys and inconsistent availability are rejected rather than tolerated for a known consumer.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the persisted-key trust boundary and validation scope, with separated tags following documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Both POSIX and Windows absolute path syntaxes are accepted for serialized identity payloads without assuming the current machine's OS establishes filesystem identity.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing.
+ * @evidence contracts/performance.md#efficient-algorithms Validates each baseline field once, linear in the baseline's entry lists.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A structural validation of one value; nothing is shared.
  */
 export function isWatchInputKeyBaseline(
   baseline: unknown,

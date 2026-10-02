@@ -22,9 +22,6 @@ import type { TtscHostInputValidation } from "./TtscHostInputValidation";
  * @evidence contracts/common.md#clear-and-simple-design Missing-name validation has its own boolean boundary, leaving the complete snapshot caller to use stronger recorded-state fallback.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreadable directories are never treated as empty listings; only ENOENT and ENOTDIR establish inaccessible path absence.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain inability-to-prove rejection and the narrower caller contract before tags.
- * @evidence contracts/performance.md#efficient-algorithms Case-qualified missing paths share one nearest-directory listing and name-set checks; unqualified paths require one native stat each without a directory scan.
- * @evidence contracts/performance.md#reuse-equivalent-work The generation manifest shares grouped absence observations across module consumers rather than independently probing every ancestor chain.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This pass borrows the manifest and holds only one temporary directory listing at a time; the generation owns retained groups.
  * @evidence contracts/portability.md#os-neutral-implementation Directory operations use the injected native filesystem and measured per-directory case policy; unavailable case observations require exact native probes rather than inventing a platform-wide casing rule.
  */
 export function matchesUniversalHostInputProbes(

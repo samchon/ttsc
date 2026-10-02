@@ -33,6 +33,7 @@ import type { TtscWatchInput } from "./TtscWatchInput";
  * @evidence contracts/performance.md#efficient-algorithms A Map performs O(N) selection and O(U) output allocation, avoiding pairwise duplicate searches before the one batch or U individual notifications.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Callback delivery is an effect for each module; matching input values do not authorize suppressing another host notification.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The chosen map and batch are call-local; host callbacks own any retained watcher state after delivery.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Deduplicates inputs by their exact spelling and hands them to host callbacks; no path is parsed.
  */
 export function handWatchInputs(
   hooks: TtscTransformHooks | undefined,

@@ -15,6 +15,7 @@ import { collectProjectInputSnapshot } from "./collectProjectInputSnapshot";
  * @evidence contracts/common.md#clear-and-simple-design The wrapper projects the detailed snapshot into the hash-plus-completeness shape needed by cache-key consumers rather than implementing another walk.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A readable subset cannot count as a complete program when enumeration or attribution failed.
  * @evidence contracts/common.md#meaningful-documentation The native comment explicitly requires cache-key hosts to reject incomplete observations, distinguishing this API from the hash-only convenience wrapper.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Delegates to collectProjectInputSnapshot, which reads through the supplied filesystem and identity context; this wrapper only reports completeness.
  */
 export function collectProjectInputHashSnapshot(
   projectRoot: string,

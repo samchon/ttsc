@@ -28,6 +28,7 @@ const LEARNED_FACTS = new Set([
  * @evidence contracts/performance.md#efficient-algorithms Every scans the bounded retained entries with constant-time learned-kind Set membership and short-circuits at the first other failure.
  * @evidence contracts/performance.md#reuse-equivalent-work The fixed learned-kind Set is shared across attempts; aggregate classification uses the current attempt rather than memoizing mutable failure collections.
  * @evidence contracts/performance.md#bound-retention-and-release-resources This predicate retains only two contract-defined kind strings; it acquires no per-attempt handles or historical result population.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Classifies failure kinds by a fixed set of strings; it reads no filesystem or path.
  */
 export function onlyLearnedCompileFacts(
   failures: TtscGenerationProofFailures,

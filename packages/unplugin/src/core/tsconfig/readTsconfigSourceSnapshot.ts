@@ -24,18 +24,8 @@ import { collectTsconfigSourceSnapshot } from "./collectTsconfigSourceSnapshot";
  *   relative anchors; physical realpath is a distinct cycle observation.
  *   Sorted output orders strings without asserting a filesystem case rule.
  *
- * @evidence contracts/performance.md#efficient-algorithms
- *   A lexical-source map avoids rereading an already observed graph node while
- *   branch physical ancestry cuts cycles. Work follows source bytes and distinct
- *   lexical graph edges; deterministic output sorts s sources in O(s log s).
  *
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Each call must observe current contents and extends resolution. Reusing
- *   a snapshot across calls requires a validity proof owned by its consumer.
  *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   The snapshot transfers to its caller and local graph state ends on return;
- *   this reader retains no historical sources or native handle.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Exact source observations replace timestamp guesses; snapshot equality is

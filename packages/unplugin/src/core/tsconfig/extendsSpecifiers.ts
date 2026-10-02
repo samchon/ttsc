@@ -19,6 +19,7 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose states ordering and invalid-shape handling, preserving the
  *   distinction between normalization and compiler diagnostics.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Normalizes the shape of an extends value into strings; it reads no filesystem and parses no path.
  */
 export function extendsSpecifiers(extended: unknown): string[] {
   if (typeof extended === "string") {

@@ -53,6 +53,9 @@ import { signalProjectRecordFile } from "./signalProjectRecordFile";
  *   Native paragraphs explain cached-session restoration and proof failure effects,
  *   with lifecycle comments and tag separation per documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Record persistence remains on the host's native filesystem, while project existence and proof use the supplied observation view; deletion errors remain retryable rather than being treated as successful removal.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources It keeps no handle. A record whose tsconfig is gone is removed, which ends a record no generation will write again, and a removal another process blocks is retried by the next proof.
+ * @evidence contracts/performance.md#efficient-algorithms One read per recorded input and one directory listing per project directory, the cost its comment states.
+ * @evidence contracts/performance.md#reuse-equivalent-work The proof of one record is paid once per project at a build start instead of once per module, because the host depends on the record rather than on each input.
  */
 export function refreshProjectRecordFile(
   file: string,

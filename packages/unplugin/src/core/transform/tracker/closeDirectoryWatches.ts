@@ -26,6 +26,7 @@
  *   The array transfers all current handles into this operation and becomes
  *   empty before callbacks. Every detached handle is attempted on failure as
  *   well as success; a throwing closer may still fail to release its resource.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Closes the handles it is given; it reads no path or filesystem.
  */
 export function closeDirectoryWatches(watchers: { close: () => void }[]): void {
   const owned = watchers.splice(0);

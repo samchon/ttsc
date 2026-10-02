@@ -17,6 +17,9 @@ import { TRANSFORM_RESULT_FILESYSTEM } from "./TRANSFORM_RESULT_FILESYSTEM";
  * @evidence contracts/common.md#clear-and-simple-design A result-keyed WeakMap lookup selects the existing operations table, with one native default for unregistered results.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The operation does not patch host filesystem methods or assume that an injected filesystem is the native one.
  * @evidence contracts/common.md#meaningful-documentation The comment explains why capture and validation must use the same filesystem view and states the unregistered-result default.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing; the table is weakly keyed by the result.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One WeakMap lookup.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The lookup returns the view a result was captured through; there is no computation to share.
  */
 export function resultFilesystem(
   result: ITtscCompilerTransformation,

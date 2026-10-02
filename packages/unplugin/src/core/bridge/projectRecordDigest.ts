@@ -23,6 +23,10 @@ import { hashText } from "../transform/utils/hashText";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains the cache consumer and byte ownership, with separated
  *   paragraphs and tags as documentation guidance requires.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Digesting acquires and retains no handle, task or state.
+ * @evidence contracts/performance.md#efficient-algorithms One SHA-256 pass over the record's bytes, linear in their length.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure digest of the bytes supplied; whether a digest may stand for a record is decided by the Rollup proof that calls it.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Hashes bytes it is given; no path, filesystem or process value is read.
  */
 export function projectRecordDigest(bytes: string | Buffer): string {
   return hashText(bytes);

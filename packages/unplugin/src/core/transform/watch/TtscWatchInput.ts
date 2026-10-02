@@ -7,7 +7,6 @@ import type { TtscWatchInputEvidence } from "./TtscWatchInputEvidence";
  * @evidence contracts/common.md#clear-and-simple-design The pair separates the host's registration path from the generation facts used to validate it.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing evidence remains explicit rather than supplying a guessed successful state.
  * @evidence contracts/common.md#meaningful-documentation Native member comments explain absolute spelling and recovery absence, with member spacing and a blank tag separator following documentation guidance.
- * @evidence contracts/portability.md#os-neutral-implementation Native lexical spelling remains separate from evidence identity; no OS-wide case assumption is encoded in the carrier.
  */
 export interface TtscWatchInput {
   /**

@@ -13,6 +13,7 @@ import { recordGenerationProofFailure } from "./recordGenerationProofFailure";
  * @evidence contracts/performance.md#efficient-algorithms Merge visits the source's bounded retained entries once and adds its omission count in constant work, without reconstructing discarded evidence.
  * @evidence contracts/performance.md#reuse-equivalent-work The shared recorder reuses retained target identities to suppress duplicates across evidence families; mutable aggregate merges are not memoized.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The target remains subject to the recorder's eight-entry/seen-key bound; merge retains no source history beyond copied witnesses and its saturated omission count.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Combines in-memory witness collections; it parses no path.
  */
 export function mergeGenerationProofFailures(
   target: TtscGenerationProofFailures,

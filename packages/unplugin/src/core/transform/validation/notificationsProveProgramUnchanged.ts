@@ -21,9 +21,6 @@ import { matchesUniversalHostInputs } from "./matchesUniversalHostInputs";
  * @evidence contracts/common.md#clear-and-simple-design One admission predicate composes membership, relevant tracker changes and universal proof for out-of-program deliveries.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed or omitted notification streams cannot prove unchanged state; unrelated project events are excluded only by compiler membership policy.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain out-of-program stability and relevant change categories before tags.
- * @evidence contracts/performance.md#efficient-algorithms Event scans stop at the first relevant change; authoritative stability avoids a whole walk while universal fallback costs unresolved input observations.
- * @evidence contracts/performance.md#reuse-equivalent-work One generation's watcher and universal authority serves out-of-program deliveries; lost proof requires the caller's complete snapshot.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Trackers and clock references belong to the generation owner; this predicate retains no history or resource.
  * @evidence contracts/portability.md#os-neutral-implementation Actual watcher content authority, compiler membership policy and same-device clock references qualify native observations without OS-name-derived case rules.
  */
 export function notificationsProveProgramUnchanged(

@@ -42,21 +42,8 @@ import { resolveNativeRootPath } from "./resolveNativeRootPath";
  *   Native realpath contributes physical spelling to validity, including link
  *   target changes, instead of assuming filename equality by OS case defaults.
  *
- * @evidence contracts/performance.md#efficient-algorithms
- *   Validation reads and hashes the current config graph rather than parsing
- *   every policy option again. A hit avoids policy extraction; a changed graph
- *   rereads once under the policy reader's transaction map. Exact bytes and
- *   fresh resolution are needed because metadata and old paths cannot prove it.
  *
- * @evidence contracts/performance.md#reuse-equivalent-work
- *   Delivered modules share a policy/reference entry only while a fresh extends
- *   graph, source contents and physical spelling match the proven stamp. Newly
- *   installed or redirected presets change that graph and force new extraction.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   PROJECT_SELECTION_ENTRIES owns strong entries for distinct lexical configs
- *   throughout the process lifetime. There is no eviction or fixed byte bound;
- *   each entry retains a policy, reference list and stamp, not an open file handle.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Fresh graph stamps replace mtime/size and old-resolution guesses; a read

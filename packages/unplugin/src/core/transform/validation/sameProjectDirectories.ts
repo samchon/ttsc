@@ -10,9 +10,7 @@ import type { TtscProjectDirectorySnapshot } from "../project/TtscProjectDirecto
  * @evidence contracts/common.md#clear-and-simple-design One equality helper compares already deterministic snapshots without rediscovering compiler membership policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Relevance is supplied by the actual walk policy; unrelated output churn is not used to invalidate a generation.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains both-sided relevance and why ignored-on-both directories cannot affect this proof.
- * @evidence contracts/performance.md#efficient-algorithms Two relevant maps and a union set permit linear path/signature comparison with temporary space proportional to relevant directories.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Snapshot admission owns sharing of the resulting proof; this helper computes one value comparison.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Temporary maps and path sets are local and no history or native handle is retained.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares directory signatures by recorded path string; the strings were produced by the same walk, and no filesystem is read.
  */
 export function sameProjectDirectories(
   left: readonly TtscProjectDirectorySnapshot[],

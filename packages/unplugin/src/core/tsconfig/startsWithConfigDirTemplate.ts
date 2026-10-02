@@ -16,6 +16,7 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   The comment states prefix and case semantics, avoiding a claim that this
  *   predicate validates the complete target path or resolves an actual file.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation A case-insensitive prefix test on a configuration string, as TypeScript-Go does before substitution; it reads no filesystem.
  */
 export function startsWithConfigDirTemplate(target: string): boolean {
   const template = "${configDir}";

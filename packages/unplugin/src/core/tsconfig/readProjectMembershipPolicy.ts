@@ -56,19 +56,8 @@ const DEFAULT_INCLUDE_SPEC = "**/*";
  *   realpath retain separate root aliases, including short-name expansion.
  *   Root matching later uses the compiler's case rule rather than the source OS.
  *
- * @evidence contracts/performance.md#efficient-algorithms
- *   A per-call parsed-source map reads and parses each lexical config once
- *   across option queries. Each query traverses the required inheritance paths;
- *   input bytes, graph edges and spec count drive the remaining work.
  *
- * @evidence contracts/performance.md#reuse-equivalent-work
- *   Option queries share parsed source within this read transaction. Later
- *   calls use a fresh map because unchanged metadata does not prove source
- *   equivalence; the selection-entry owner validates cross-call memoization.
  *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   Parsed-source maps and source sets are local; the returned policy transfers
- *   to its caller and this reader retains no handle or cross-call state.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Directory admission comes from configuration rather than a consumer-name

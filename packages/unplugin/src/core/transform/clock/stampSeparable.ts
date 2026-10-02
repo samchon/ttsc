@@ -16,6 +16,9 @@ import { filesystemClockReferences } from "./filesystemClockReferences";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Device metadata is not replaced by wall time, platform guesses, or a historical maximum that would miss same-tick writes.
  * @evidence contracts/common.md#meaningful-documentation The native paragraph explains strict ordering and the prerequisite that reference minting precede the content read.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral separability uses the observing filesystem's bigint device and nanosecond stamp rather than assuming one timestamp granularity or system-clock origin.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One map lookup and one bigint comparison.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The comparison must use the reference minted before the current proof's reads, so nothing is kept between proofs.
  */
 export function stampSeparable(
   filesystem: TtscTransformFilesystemOperations,

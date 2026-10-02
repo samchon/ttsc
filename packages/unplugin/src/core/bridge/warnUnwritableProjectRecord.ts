@@ -31,6 +31,10 @@ const WARNED = new Set<string>();
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain warning deduplication, error code and remedy;
  *   separate tags and parameter prose follow documentation guidance.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The set grows with the distinct unwritable record paths of the process and is never pruned, so its size has no bound beyond that population.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One set lookup and at most one warning.
+ * @evidence contracts/performance.md#reuse-equivalent-work A process-wide set suppresses a repeat warning for the same record, which is the work shared across deliveries.
+ * @evidence contracts/portability.md#os-neutral-implementation The remedy names the directory with path.dirname, which uses the host's native separators, so it is spelled as the user's platform spells it.
  */
 export function warnUnwritableProjectRecord(
   record: string,

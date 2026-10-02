@@ -42,6 +42,9 @@ import type { WatchBrokerSink } from "./WatchBrokerSink";
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral event construction uses node:path and owner-translated directory
  *   spellings; native drop and probe semantics are explicit protocol inputs.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The sink holds only the tracker it records into; the broker registration that references it is closed by the tracker's own close.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Builds a sink whose handlers do constant work per message.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each tracker has its own sink, and events are effects rather than computations to share.
  */
 export function brokeredTrackerSink(
   tracker: TtscProjectMutationTracker,

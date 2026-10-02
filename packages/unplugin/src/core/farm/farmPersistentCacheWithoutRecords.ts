@@ -31,6 +31,7 @@ import { farmRecordFallback } from "./farmRecordFallback";
  * @evidence contracts/common.md#clear-and-simple-design The configuration hook probes the two existing record locations and changes only persistentCache, preserving unrelated user configuration.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts This is a host capability boundary with a stated invalidation reason, rather than a test-only bypass, patched cache implementation, or assumed writable directory.
  * @evidence contracts/common.md#meaningful-documentation The comment explains why per-module opt-out is unavailable and why the warning and configuration-level fallback are necessary.
+ * @evidence contracts/portability.md#os-neutral-implementation Writability is proven by an actual write below the tool directory and the fallback, and the root is resolved with path.resolve against cwd, so no operating-system name, permission bit or drive layout is assumed.
  */
 export function farmPersistentCacheWithoutRecords<
   Config extends {

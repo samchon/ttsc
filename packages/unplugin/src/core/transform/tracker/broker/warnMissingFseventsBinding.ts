@@ -28,6 +28,9 @@ let warned = false;
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral host code receives this explicit macOS capability diagnostic;
  *   missing native support falls back to validation rather than unsafe silence.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources One boolean for the process lifetime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One boolean test and at most one warning.
+ * @evidence contracts/performance.md#reuse-equivalent-work A module flag makes the warning appear once per process, which is the work shared across registrations.
  */
 export function warnMissingFseventsBinding(): void {
   if (warned) return;

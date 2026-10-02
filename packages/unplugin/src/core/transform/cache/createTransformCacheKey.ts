@@ -18,6 +18,9 @@ import { stableStringify } from "../utils/stableStringify";
  * @evidence contracts/common.md#clear-and-simple-design Existing path identity and stable JSON encoding define the key; filesystem state remains the generation validator's responsibility.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Equivalent configuration spelling is normalized without dropping semantically relevant plugin order or pretending a matching key proves current inputs.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs name every key dimension and distinguish host-owned canonical manifest order from semantically observable external configuration order.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returns a string and retains nothing.
+ * @evidence contracts/performance.md#efficient-algorithms Four JSON serialisations and one path identity, linear in the option sizes, once per delivery.
+ * @evidence contracts/performance.md#reuse-equivalent-work The key is the sharing identity: equal configurations map to one generation and differing ones never share.
  */
 export function createTransformCacheKey(props: {
   aliasPaths: Record<string, string[]>;

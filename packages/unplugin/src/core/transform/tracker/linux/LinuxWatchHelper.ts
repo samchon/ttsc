@@ -22,9 +22,6 @@ import type { LinuxWatchHelperSubscription } from "./LinuxWatchHelperSubscriptio
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs and separated member comments explain shared transport
  *   and outstanding requests under the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation
- *   OS-neutral owners see subscription callbacks; Linux process and stdio state
- *   remain behind the explicit native helper boundary.
  */
 export interface LinuxWatchHelper {
   /** Whether the helper has answered anything, proving it speaks the protocol. */

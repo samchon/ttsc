@@ -7,6 +7,7 @@ import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMe
  * @evidence contracts/common.md#clear-and-simple-design One lowercased name and an early-terminating suffix scan represent the extension rule without performing filesystem work.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The predicate uses compiler-derived extension policy rather than selected test filenames or bundler output-directory exceptions.
  * @evidence contracts/common.md#meaningful-documentation The native comment states the bare-name input and policy boundary, avoiding an ambiguous reference to another helper's question.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares a lowercased basename suffix with the policy's extensions; it reads no filesystem.
  */
 export function isPossibleProgramFileName(
   name: string,

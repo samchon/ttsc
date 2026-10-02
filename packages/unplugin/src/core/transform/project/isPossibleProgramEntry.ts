@@ -16,6 +16,7 @@ import { isPossibleProgramFileName } from "./isPossibleProgramFileName";
  * @evidence contracts/common.md#clear-and-simple-design The Dirent wrapper delegates filename policy to the single helper also used by callers without an entry object.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Admitted extensions come from the resolved policy rather than fixture-specific emitted-file names.
  * @evidence contracts/common.md#meaningful-documentation The native comment explains future directory membership and why unadmitted emitted JavaScript does not invalidate a TypeScript-only program.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Tests a Dirent's kind and its name's extension against the policy; no path is parsed.
  */
 export function isPossibleProgramEntry(
   entry: fs.Dirent,

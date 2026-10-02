@@ -15,7 +15,6 @@
  * @evidence contracts/common.md#clear-and-simple-design Two readonly values supply containment and consumer spelling without combining them into a lossy canonical string.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Neither spelling is guessed by replacing a known temporary-directory prefix or assuming all roots avoid links.
  * @evidence contracts/common.md#meaningful-documentation The native paragraphs explain each producer's spelling and why containment must consider both.
- * @evidence contracts/portability.md#os-neutral-implementation OS-neutral path representation preserves realpath and configured spelling, including junctions and macOS linked temporary roots, rather than imposing universal case or separator identity.
  */
 export interface TtscProjectSpellings {
   /** The root's physical spelling, after every link. */

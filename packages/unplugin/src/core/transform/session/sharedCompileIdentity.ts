@@ -31,6 +31,10 @@ import { unpluginVersion } from "./unpluginVersion";
  * @evidence contracts/common.md#clear-and-simple-design One tuple hashes configuration and version identity; source-state proof remains separate rather than being duplicated in this key.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Platform identity legitimately separates compiled binaries; it is not a fixed platform assumption or an excuse to omit plugin-source validation on adoption.
  * @evidence contracts/common.md#meaningful-documentation The native comment explains retained publications, version ownership, and why plugin-source state is proven elsewhere.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing; it returns a string.
+ * @evidence contracts/performance.md#efficient-algorithms One JSON serialisation and one SHA-256 of the identity tuple, plus pluginBuildVersions, once per compile attempt.
+ * @evidence contracts/performance.md#reuse-equivalent-work The digest is the sharing identity: equal compiles across workers map to one publication, and any difference in options, plugins or versions separates them.
+ * @evidence contracts/portability.md#os-neutral-implementation The platform and architecture are part of the identity because the compiled binaries differ per platform, and the tsconfig path is hashed as spelled, without case or separator rewriting.
  */
 export function sharedCompileIdentity(props: {
   aliasPaths: Record<string, string[]>;

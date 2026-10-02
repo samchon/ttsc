@@ -19,6 +19,7 @@ import { fallbackToolDirectory } from "../bridge/fallbackToolDirectory";
  * @evidence contracts/common.md#clear-and-simple-design The adapter filters the shared temporary-directory provider with two host restrictions instead of creating another record location policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No drive letter or user directory is hardcoded; rejection follows the host's actual path and watcher capabilities.
  * @evidence contracts/common.md#meaningful-documentation The native comment names both host restrictions and explains why the root's own directory remains the alternative.
+ * @evidence contracts/portability.md#os-neutral-implementation Containment is decided with path.relative and path.isAbsolute, so a fallback on another Windows drive is refused without comparing drive letters, and node_modules is found as a path segment split on the platform's separator.
  */
 export function farmRecordFallback(root: string): string | undefined {
   const fallback = fallbackToolDirectory(root);

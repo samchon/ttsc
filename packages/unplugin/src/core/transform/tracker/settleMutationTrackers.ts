@@ -41,6 +41,7 @@ function drainOnNextTurn(): Promise<boolean> {
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Each tracker retains at most one settle promise and releases that reference
  *   on either resolution or rejection; backend drains own native request cleanup.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Awaits tracker drains; the backend-specific ordering belongs to each tracker's own drain.
  */
 export async function settleMutationTrackers(
   candidates: readonly (TtscProjectMutationTracker | undefined)[],

@@ -8,9 +8,6 @@
  * @evidence contracts/common.md#clear-and-simple-design
  *   Two readonly members carry one selection observation together.
  *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   The file member carries an absolute native spelling; fileExists carries
- *   a stat-time regular-file fact, preserving spelling and kind as distinct data.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The verdict is captured by the walk, not filled from an expected selection.

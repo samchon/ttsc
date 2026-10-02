@@ -15,9 +15,7 @@ import { derivationIdentity } from "./derivationIdentity";
  * @evidence contracts/common.md#clear-and-simple-design The source-closure selector differs visibly from target-edge selection only in including the start and choosing source spellings, reflecting their distinct consumer semantics.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Physical visited identities handle cycles and aliases without arbitrary traversal cutoffs or importer-name exceptions.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain importer ownership, start inclusion, spelling choice and cycle/alias behavior with separate acknowledgment tags under the documentation skill.
- * @evidence contracts/performance.md#efficient-algorithms Each reachable vertex is popped once and each reachable adjacency entry scanned once, for O(V + E) work over the visited subgraph plus shared identity lookup; local state grows with reached vertices.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work This source closure is an invocation-local computation; per-delivery watch-list reuse belongs to selectWatchInputs and generation index reuse belongs to envelopeGraphIndexes.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only the caller-owned output array escapes; the worklist and visited set are local, with no retained history, watchers or file handles.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Walks the edge index by the identity strings the envelope's identity context produced; it adds no platform assumption of its own.
  */
 export function selectReachableSources(
   graph: TtscEnvelopeGraphIndexes,

@@ -23,6 +23,7 @@ import type { TtscSharedCompilePublication } from "./TtscSharedCompilePublicatio
  * @evidence contracts/performance.md#efficient-algorithms Two unions of recorded/current keys compare content and physical identity in linear expected time and return at the first mismatch; temporary key sets grow with their respective external-input populations.
  * @evidence contracts/performance.md#reuse-equivalent-work The publisher's existing snapshots are reused as the comparison target, but the caller must supply a current observation; equality never retroactively proves bytes the publisher did not record.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The comparison borrows both snapshots and retains only local key sets; publication storage and generation lifetime belong to their owners.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares recorded and current hash and realpath maps by key; the realpath strings are compared as recorded, since their identity was resolved when they were captured.
  */
 export function adoptedExternalInputMismatch(
   publication: TtscSharedCompilePublication,

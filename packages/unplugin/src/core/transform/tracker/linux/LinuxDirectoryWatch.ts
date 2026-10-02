@@ -18,9 +18,6 @@ import type { LinuxWatchHelper } from "./LinuxWatchHelper";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native type and separated member comments explain readiness, observers and
  *   release ownership under the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation
- *   OS-neutral consumers receive backend-independent events; this type confines
- *   Linux helper subscription state to the native boundary.
  */
 export interface LinuxDirectoryWatch {
   /**
@@ -35,9 +32,6 @@ export interface LinuxDirectoryWatch {
    *   handle is closed while another owner still relies on it.
    * @evidence contracts/common.md#meaningful-documentation
    *   Native JSDoc states the last-subscriber condition under the documentation skill.
-   * @evidence contracts/portability.md#os-neutral-implementation
-   *   OS-neutral callers release through the closer without platform signals or
-   *   assumptions about native descriptor layout.
    */
   close(): void;
 

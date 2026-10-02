@@ -23,9 +23,6 @@ import type { WatchBrokerRegistration } from "./WatchBrokerRegistration";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native type and separated member comments identify scope, reference counts
  *   and spelling ownership under the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation
- *   OS-neutral consumers use sinks and translated spellings; native child and
- *   probe capability remain confined to this broker state boundary.
  */
 export interface WatchBroker {
   /** The isolated watch process; unreferenced whenever no reply is outstanding. */

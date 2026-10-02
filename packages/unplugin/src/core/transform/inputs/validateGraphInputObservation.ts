@@ -16,6 +16,9 @@ import { graphInputObservationFailures } from "./graphInputObservationFailures";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Malformed observations cannot bypass normalization or acquire fabricated successful predicates to match a cache entry.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains conflict versus changed-predicate results, followed by a blank acknowledgment separator under documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral normalization uses the supplied path dialect and constructs identity policy from that same filesystem's capabilities; recorded protocol paths are not blindly compared as native strings.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One normalization and one replay of the recorded predicates.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A replay answers for the filesystem now; callers decide whether an earlier replay may be shared.
  */
 export function validateGraphInputObservation(
   file: string,

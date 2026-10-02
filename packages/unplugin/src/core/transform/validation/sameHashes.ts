@@ -17,9 +17,7 @@
  * @evidence contracts/common.md#clear-and-simple-design One comparison exposes narrowed and legacy-wide semantics without owning project enumeration or membership discovery.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Irrelevant build artifacts cannot taint a declared generation, and narrowing never substitutes for the separate membership proof.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain declared-input scope, unrelated artifacts and the separate membership obligation.
- * @evidence contracts/performance.md#efficient-algorithms Declared comparison scans only its key set; legacy comparison materializes both key arrays then checks each left value, linear in compared population.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The generation validator decides whether this snapshot comparison may be shared; this helper computes one requested equality verdict.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Key arrays are local to the comparison and no retained cache or native resource is acquired.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares recorded and current hash maps by key; it reads no filesystem and parses no path.
  */
 export function sameHashes(
   left: Record<string, string>,

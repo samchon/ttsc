@@ -17,9 +17,6 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs and separated member comments explain named scopes and
  *   probe containment under the documentation skill.
- * @evidence contracts/portability.md#os-neutral-implementation
- *   OS-neutral callers supply paths in their own spelling; the broker translates
- *   canonical native paths and confines probe semantics to capable backends.
  */
 export interface WatchBrokerLocation {
   /**

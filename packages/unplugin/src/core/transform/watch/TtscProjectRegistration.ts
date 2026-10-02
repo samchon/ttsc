@@ -10,7 +10,6 @@ import type { TtscWatchInput } from "./TtscWatchInput";
  * @evidence contracts/common.md#clear-and-simple-design One delivery carrier groups the persisted record with its live-watch inputs while keeping reading behind a named callback signature.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts An absent digest remains absent when no current write landed; the type does not fabricate a cache proof for an existing record.
  * @evidence contracts/common.md#meaningful-documentation Native members explain digest ownership, recovery state and snapshot replacement; separated members and tags follow documentation guidance.
- * @evidence contracts/portability.md#os-neutral-implementation The actual native record spelling is carried separately from its content digest and input identities, with no OS-wide case assumption.
  */
 export interface TtscProjectRegistration {
   /**
@@ -47,6 +46,5 @@ export interface TtscProjectRegistration {
  * @evidence contracts/common.md#clear-and-simple-design A named function alias preserves the existing property signature and avoids changing callback assignability through method syntax.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Snapshot delivery carries recorded inputs instead of reconstructing evidence from an expected cache outcome.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs describe snapshot replacement and caller ownership; separated tags follow documentation guidance.
- * @evidence contracts/portability.md#os-neutral-implementation Native spellings and identity facts stay in the input carrier; this callback performs no platform-dependent path rewrite.
  */
 export type TtscWatchProjectInputs = () => readonly TtscWatchInput[];

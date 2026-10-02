@@ -30,6 +30,10 @@ import type { HostWatchBridge } from "./HostWatchBridge";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs identify delivery/bridge roles and the maintainer map;
  *   spaced property comments and tag separation follow documentation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing; the bridge and the host own what the registration keeps.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Two calls; no algorithm or data structure is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A registration is an effect run for every delivery; identical input arrays are deduplicated by the bridge, not here.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Forwards a record path the host already approved to the host's own channel; it reads no filesystem and parses no path.
  */
 export function registerProjectRecord(props: {
   /** The host's own file channel. */

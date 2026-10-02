@@ -15,6 +15,7 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   The native description identifies config-language semantics, which explains
  *   why the function is distinct from an arbitrary filesystem path conversion.
+ * @evidence contracts/portability.md#os-neutral-implementation Backslashes become slashes as TypeScript's configuration language treats them before native resolution; a path handed to the filesystem is resolved natively by the callers and never rewritten here.
  */
 export function normalizeTypeScriptPathSeparators(target: string): string {
   return target.replace(/\\/g, "/");

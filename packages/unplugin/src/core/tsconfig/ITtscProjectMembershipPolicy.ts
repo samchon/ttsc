@@ -18,10 +18,6 @@
  *   One policy couples selection with the provenance needed to overlay output
  *   options and invalidate a memo. Consumers implement matching and lifecycle.
  *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   Requested, regular-realpath and native-realpath roots carry observed native
- *   representations separately. The optional compiler-reported case flag governs
- *   pattern matching rather than imposing a universal source-filesystem OS rule.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Selection comes from config meaning and the compiler's reported case rule;

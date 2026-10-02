@@ -45,6 +45,9 @@ import type { WatchBroker } from "./WatchBroker";
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral consumers receive each registration's translated native spelling;
  *   canonical child paths are not compared by universal lowercase or alias prefix.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources A drain reply releases the waiter it names, and a message for a closed registration is ignored; the function keeps no state of its own.
+ * @evidence contracts/performance.md#efficient-algorithms A message is routed by id through Map lookups, and a drain reply visits the registrations once to hand each its verdict; no watched path is scanned.
+ * @evidence contracts/performance.md#reuse-equivalent-work One child serves every registration over one channel, and each message is applied once to the waiter or registration it names.
  */
 export function routeWatchBrokerMessage(
   broker: Pick<WatchBroker, "drainScopes" | "drains" | "registrations">,

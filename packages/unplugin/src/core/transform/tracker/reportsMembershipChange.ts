@@ -23,6 +23,10 @@ import type { TtscCachedProjectTransform } from "../cache/TtscCachedProjectTrans
  * @evidence contracts/common.md#meaningful-documentation
  *   Separate native paragraphs explain the verdict and why other trackers
  *   cannot supply it, following the documentation skill.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One optional boolean read.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A read of live tracker state, which must be current.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Reads one tracker flag; it reads no filesystem and parses no path.
  */
 export function reportsMembershipChange(
   cached: TtscCachedProjectTransform,

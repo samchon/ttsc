@@ -15,6 +15,9 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * @evidence contracts/common.md#clear-and-simple-design One capability lookup selects the view without copying snapshots or adding another filesystem abstraction.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit view selection avoids foreign-method monkeypatching and preserves the distinction between injected and native observations.
  * @evidence contracts/common.md#meaningful-documentation The native prose states both ownership by cache construction and the exact fallback cases.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing; the table is weakly keyed by the cache.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One WeakMap lookup.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The lookup returns the operation table the cache was created with; there is no computation to share.
  */
 export function transformFilesystem(
   cache: TtscTransformCache | undefined,

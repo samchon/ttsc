@@ -14,6 +14,9 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed stat calls never authorize a watch on a presumed directory, and the root exclusion follows the stated ownership boundary rather than a test-specific path.
  * @evidence contracts/common.md#meaningful-documentation The comment explains how creation is observed and why reaching a volume root returns undefined.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral ancestor selection uses native resolve/dirname and actual directory stat results, so volume-root and inaccessible-path behavior follow the observed host.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources statSync returns before the function does; no handle is retained.
+ * @evidence contracts/performance.md#efficient-algorithms Climbs one ancestor per stat, at most the path's depth, and never lists a directory's contents.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The answer depends on the filesystem now and is requested when an input registers; an earlier answer is not reused.
  */
 export function nearestExistingDirectory(file: string): string | undefined {
   let current = path.resolve(file);

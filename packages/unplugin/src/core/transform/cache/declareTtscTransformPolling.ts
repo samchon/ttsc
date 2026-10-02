@@ -17,6 +17,9 @@ import type { TtscTransformCache } from "./TtscTransformCache";
  * @evidence contracts/common.md#clear-and-simple-design One cache-keyed WeakSet records the policy; generation creation and withdrawal own watcher changes.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Polling requires recorded-state validation rather than treating absent native events as freshness proof.
  * @evidence contracts/common.md#meaningful-documentation The prose describes both newly captured and already retained generations under a changed host watch policy.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The WeakSet entry follows the cache's own lifetime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A WeakSet insert or delete.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work It records a policy and does not discard or reuse a computation; a generation captured earlier gives up its watchers at its next delivery.
  */
 export function declareTtscTransformPolling(
   cache: TtscTransformCache,

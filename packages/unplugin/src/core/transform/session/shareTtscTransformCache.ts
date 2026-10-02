@@ -18,6 +18,10 @@ import { TRANSFORM_CACHE_SESSIONS } from "./TRANSFORM_CACHE_SESSIONS";
  * @evidence contracts/common.md#clear-and-simple-design One WeakMap update declares the capability; actual claiming and adoption proof remain in their owning operations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The declaration does not treat cached output as proven or patch the cache's methods.
  * @evidence contracts/common.md#meaningful-documentation The native comment explains pooled-worker usage, later proof, and explicit withdrawal rather than suggesting immediate adoption.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The WeakMap entry follows the cache's own lifetime.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A WeakMap set or delete.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work It declares a capability; adoption and its proof stay in claimSharedCompile.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Stores an opaque store path string; it reads no filesystem and parses no path.
  */
 export function shareTtscTransformCache(
   cache: TtscTransformCache,

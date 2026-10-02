@@ -26,6 +26,9 @@ import type { TtscTransformFilesystemOperations } from "../../filesystem/TtscTra
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral callers delegate explicit native backend selection here.
  *   Platform checks concern watcher capability, not path equality or casing.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Constant-time comparisons.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure predicate over the filesystem view and the platform.
  */
 export function usesWatchBroker(
   filesystem: TtscTransformFilesystemOperations,

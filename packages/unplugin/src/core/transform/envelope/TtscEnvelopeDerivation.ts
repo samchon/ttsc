@@ -30,10 +30,6 @@ import type { TtscEnvelopeGraphIndexes } from "./TtscEnvelopeGraphIndexes";
  * @evidence contracts/common.md#clear-and-simple-design One generation state groups lazy indexes and memo tables behind envelopeDerivation rather than requiring every delivery to maintain an independent cache.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts First-match key indexes preserve the supported producer lookup precedence, and the built flag represents a genuine optional outcome rather than manufacturing an empty declared input set.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain generation ownership, laziness, freshness and costs; each optional member documents its unbuilt meaning and the built flag's distinct role with documentation-skill spacing.
- * @evidence contracts/portability.md#os-neutral-implementation A FilesystemPathIdentityContext owns physical identity and native case semantics; explicit physical and lexical root spellings avoid hardcoded separator or OS-based case rules in the state representation.
- * @evidence contracts/performance.md#efficient-algorithms Maps and sets support keyed membership and lazy indexes; their populations grow with paths and declarations actually consulted by a generation rather than forcing complete graph preprocessing for every delivery.
- * @evidence contracts/performance.md#reuse-equivalent-work The envelope object defines generation ownership; physical-key indexes share across deliveries while watch lists key exact lexical module spellings because aliases have different exclusions. Reuse assumes the envelope and its project/options remain stable.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The owning WeakMap ties these maps to the envelope lifetime; retained entries grow with generation inputs and requested module spellings, and the state owns no independent filesystem handles.
  */
 export interface TtscEnvelopeDerivation {
   /** One filesystem snapshot for every identity comparison in this envelope. */

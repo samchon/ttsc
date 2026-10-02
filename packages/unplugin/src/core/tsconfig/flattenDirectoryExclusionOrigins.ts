@@ -21,6 +21,7 @@ import { OUTPUT_DIRECTORY_OPTIONS } from "./OUTPUT_DIRECTORY_OPTIONS";
  * @evidence contracts/common.md#meaningful-documentation
  *   The comment states the replacement rule and its always-retained half,
  *   providing meaning beyond the array-building expression.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Concatenates already resolved absolute directory strings; it reads no filesystem.
  */
 export function flattenDirectoryExclusionOrigins(
   origins: NonNullable<

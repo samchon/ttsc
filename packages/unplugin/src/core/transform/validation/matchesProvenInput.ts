@@ -37,9 +37,6 @@ import { trackerProvesInputUnchanged } from "./trackerProvesInputUnchanged";
  * @evidence contracts/common.md#clear-and-simple-design One input-proof boundary chooses notification, predicate and scalar-signature authority while matchesRecordedInput owns the fallback comparison.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing content cannot earn a readable-content signature, and failed or unproven watcher silence supplies no proof.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain sibling reuse, same-tick rewrite prevention and physical link-target qualification before tags.
- * @evidence contracts/performance.md#efficient-algorithms Valid exact notification or metadata proof avoids content reads; otherwise one owning-codec comparison costs the consulted bytes or predicate listing.
- * @evidence contracts/performance.md#reuse-equivalent-work Successful comparison refreshes only this generation's exact spelling signature, permitting sibling consumers to reuse it while metadata and clock ordering hold.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Signatures remain in the generation's recorded input population and invalid witnesses are deleted; no per-delivery history or native handle is retained.
  * @evidence contracts/portability.md#os-neutral-implementation Lexical spellings qualify metadata and watcher coverage while physical content keys come from the generation's actual filesystem identity context.
  */
 export function matchesProvenInput(

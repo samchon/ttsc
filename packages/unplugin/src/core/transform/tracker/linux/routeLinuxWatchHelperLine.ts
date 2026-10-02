@@ -32,6 +32,9 @@ import { referenceLinuxWatchHelper } from "./referenceLinuxWatchHelper";
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral owners receive callback semantics while Linux-specific JSON
  *   framing and overflow translation remain in this native transport boundary.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources It ends a subscription the helper reports gone or refused, and keeps no state of its own.
+ * @evidence contracts/performance.md#efficient-algorithms One JSON parse and a table decision per line, with an overflow visiting each live subscription once.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A line is an event delivered once; there is no computation to share.
  */
 export function routeLinuxWatchHelperLine(
   helper: LinuxWatchHelper,

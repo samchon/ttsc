@@ -19,9 +19,6 @@ import { envelopeDerivation } from "./envelopeDerivation";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Alternate-spelling lookup supports actual absolute/relative producer keys and first-match precedence; malformed lists are omitted rather than replaced with guessed dependencies or consumer-specific paths.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains empty outcomes, exact/fallback key lookup and why lexical aliases survive; tags have a separate block under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native path.resolve handles dependency spelling, while toProjectKey and the shared identity context handle physical key matching without assuming case sensitivity or path separators from the OS name.
- * @evidence contracts/performance.md#efficient-algorithms Exact key access avoids scanning the record; one lazy first-match index serves later misses, and one pass over the selected list uses a set for lexical deduplication.
- * @evidence contracts/performance.md#reuse-equivalent-work The dependency index shares the immutable envelope's producer map and root across deliveries; normalization still returns a fresh array because only keyed lookup, not the final list, is memoized here.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The index retains at most one producer list per physical key on weak generation state; returned arrays belong to callers, and temporary deduplication sets or filesystem handles are not retained by this selector.
  */
 export function selectFileDependencies(props: {
   file: string;

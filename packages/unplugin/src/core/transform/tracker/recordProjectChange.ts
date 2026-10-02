@@ -30,6 +30,7 @@ const MAX_GENERATION_MUTATION_PATHS = 8;
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   The caller-owned tracker retains at most eight path strings plus an
  *   overflow bit for its generation; this function acquires no handles.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Adds the path string a backend reported to a bounded set as given; no path is parsed or compared.
  */
 export function recordProjectChange(
   tracker: TtscProjectMutationTracker,

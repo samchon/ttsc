@@ -25,6 +25,10 @@ import type { ITtscProjectMembershipPolicy } from "../tsconfig/ITtscProjectMembe
  * @evidence contracts/common.md#meaningful-documentation
  *   Native paragraphs explain writer/reader equivalence and undefined omission,
  *   with prose/tag separation following documentation guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Digesting acquires and retains no handle, task or state.
+ * @evidence contracts/performance.md#efficient-algorithms One JSON round trip of the policy and one digest over the relevant directories, linear in the policy and directory-list size; the round trip is what makes writer and reader digest the same bytes.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure function of its arguments; callers digest once per generation and nothing is shared here.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Operates on a JSON value and directory snapshots already collected; it reads no filesystem and parses no path.
  */
 export function membershipRecordDigest(
   policy: ITtscProjectMembershipPolicy,

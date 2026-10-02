@@ -11,6 +11,9 @@ import path from "node:path";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts String-prefix matching and universal path lowercasing are absent; the result does not pretend lexical containment proves physical identity.
  * @evidence contracts/common.md#meaningful-documentation The comment states lexical scope and explains both sibling prefixes and other-drive rejection.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral containment uses native resolve, relative, separator, and absolute-root semantics, including Windows drive boundaries without a fixed drive or separator assumption.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The predicate acquires and retains no handle, task or state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One path.relative and three comparisons; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A pure predicate recomputed per call.
  */
 export function containsPath(root: string, file: string): boolean {
   const relative = path.relative(path.resolve(root), path.resolve(file));

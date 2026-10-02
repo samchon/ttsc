@@ -19,6 +19,7 @@ import { collectProjectInputHashSnapshot } from "./collectProjectInputHashSnapsh
  * @evidence contracts/common.md#clear-and-simple-design One delegated call exposes the convenience view while the richer snapshot API retains the evidence required for reuse decisions.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No separate traversal or fabricated marker hides errors; callers needing coherent proof are explicitly directed to the completeness-bearing API.
  * @evidence contracts/common.md#meaningful-documentation Native prose names the shared walk and warns that this projection drops completeness, so its return type cannot be mistaken for a reuse certificate.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Delegates the walk and hashing to collectProjectInputHashSnapshot and returns its hashes; it adds no path handling.
  */
 export function collectProjectInputHashes(
   projectRoot: string,

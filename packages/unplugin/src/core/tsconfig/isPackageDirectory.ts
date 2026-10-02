@@ -21,6 +21,7 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose identifies the names and which wildcard rules exclude them,
  *   stating semantic purpose rather than only describing a regular expression.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares a bare directory name with three package-folder names, ignoring case as TypeScript's matcher does; it reads no filesystem.
  */
 export function isPackageDirectory(name: string): boolean {
   return /^(node_modules|bower_components|jspm_packages)$/i.test(name);

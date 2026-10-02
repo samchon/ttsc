@@ -11,9 +11,6 @@ import type fs from "node:fs";
  *   The smallest discovery boundary supports both the host and explicit
  *   alternate filesystem views; tree enumeration extends this interface.
  *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   Platform syntax is explicit for non-host views and stat supplies observed
- *   link-following capabilities; the type makes no filesystem case-policy claim.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   Callers replace an explicit observation boundary rather than patching
@@ -37,9 +34,6 @@ export interface TtscProjectDiscoveryFilesystem {
    * @evidence contracts/common.md#clear-and-simple-design
    *   The callback returns only metadata predicates discovery actually consumes.
    *
-   * @evidence contracts/portability.md#os-neutral-implementation
-   *   The location is a native filename interpreted by its filesystem view;
-   *   the returned predicates express observed kind, not platform-name guesses.
    *
    * @evidence contracts/common.md#prohibited-implementation-shortcuts
    *   The callback is an explicit dependency rather than a patched global stat.

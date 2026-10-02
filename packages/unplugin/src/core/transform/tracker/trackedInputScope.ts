@@ -29,6 +29,9 @@ import type { TtscTrackedInputScope } from "./TtscTrackedInputScope";
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral classification uses the supplied filesystem's stat and compiler
  *   observations; no platform-wide case or separator assumption is introduced.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The stat returns before the function does; no handle is retained.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms A few predicate checks and at most one stat.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A scope is derived per input at tracker construction; nothing is shared across requests.
  */
 export function trackedInputScope(
   file: string,

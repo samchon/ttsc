@@ -17,6 +17,9 @@ import { TTSC_TRANSFORM_SESSION_ENV } from "./TTSC_TRANSFORM_SESSION_ENV";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failure withdraws only optional sharing and never fabricates a publication or compiler success.
  * @evidence contracts/common.md#meaningful-documentation The comment identifies the inherited capability and precise absence behavior, including the reason failure is nonfatal.
  * @evidence contracts/portability.md#os-neutral-implementation Node native isAbsolute and stat interpret the inherited store address, preserving drive and root forms; an unavailable directory withdraws optional sharing rather than assuming a fixed OS storage layout.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources statSync returns before the function does; no handle is retained.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One environment read and one stat.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Re-read per call because the environment can change; the shared store itself is the reuse.
  */
 export function readTtscTransformSession(): string | undefined {
   const directory = process.env[TTSC_TRANSFORM_SESSION_ENV];

@@ -27,6 +27,9 @@ import * as pluginSource from "ttsc/plugin-source";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing observations cannot become hardcoded state or equal a recorded valid state through an exception branch.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs identify capture consumers, proof delegation, environment changes and null meaning, with separated tags under documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral state observes the shared source and Go/toolchain environment boundaries used by native builds instead of inferring equivalence from one platform name or assumed tool location.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing; a failure becomes null.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The digest and its cost belong to ttsc's pluginSourceState; this wrapper only turns a failure into null.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ttsc's state owner already shares readings and digests; this wrapper adds no caching.
  */
 export function pluginSourceState(
   directory: string,

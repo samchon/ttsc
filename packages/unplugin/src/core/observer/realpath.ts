@@ -11,6 +11,9 @@ import fs from "node:fs";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed resolution cannot fabricate a target, and short-name expansion comes from the filesystem.
  * @evidence contracts/common.md#meaningful-documentation The prose defines failure and explains the watcher-facing purpose of native resolution.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral physical spelling comes from native realpath, including short names and junction targets, without universal lowercase or slash replacement.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The call returns before the function does; no handle is retained.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One native realpath call.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call observes the current target by design, so nothing is shared.
  */
 export function realpath(file: string): string | undefined {
   try {

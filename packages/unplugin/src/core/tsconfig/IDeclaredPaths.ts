@@ -11,9 +11,6 @@
  *   Two members couple declaration provenance with one paths object; option
  *   validation and target expansion remain reader responsibilities.
  *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   baseDir is a native declaring anchor while paths holds raw config syntax;
- *   their separate members prevent treating target patterns as resolved identity.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   The raw record preserves unknown input for validation instead of embedding

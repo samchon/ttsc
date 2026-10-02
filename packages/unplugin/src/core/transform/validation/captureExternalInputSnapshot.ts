@@ -50,9 +50,6 @@ import type { TtscExternalDependencyWitness } from "./TtscExternalDependencyWitn
  * @evidence contracts/common.md#clear-and-simple-design One capture separates predicate observations, content identities and dependency witnesses while shared codec helpers own their native meanings.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or conflicting compiler proof remains an explicit failure; neither a new host read nor a guessed dependency baseline repairs it.
  * @evidence contracts/common.md#meaningful-documentation Separate native paragraphs explain source versus dependency authority, adopted-generation premises and the witness argument before tags.
- * @evidence contracts/performance.md#efficient-algorithms Sets classify reported paths and realized outputs once; capture scans external inputs with dominant cost in bytes read and directory entries replayed by their predicates.
- * @evidence contracts/performance.md#reuse-equivalent-work Only compiler-qualified or witnessed content earns a separable metadata signature; later validators share it while the same spelling and generation remain valid.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned manifest transfers to the generation owner; this capture retains no independent history or native handle.
  * @evidence contracts/portability.md#os-neutral-implementation The generation's filesystem and identity context qualify physical aliases and actual case policy; lexical resolved spellings remain distinct metadata witnesses.
  */
 export function captureExternalInputSnapshot(

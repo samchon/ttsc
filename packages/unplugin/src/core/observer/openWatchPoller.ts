@@ -11,6 +11,7 @@
  * @evidence contracts/performance.md#efficient-algorithms The scheduler adds constant timer work per tick; the observer's listener limits sampled inputs and link probes instead of scanning its whole registration set.
  * @evidence contracts/performance.md#reuse-equivalent-work One observer-owned interval serves all uncovered inputs, avoiding one polling timer per path or consumer.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The close handle clears the sole interval and unref prevents the scheduler from retaining the host process by itself.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Starts a timer and returns its closer; it reads no filesystem and parses no path.
  */
 export function openWatchPoller(listener: () => void): { close(): void } {
   const timer = setInterval(listener, 500);

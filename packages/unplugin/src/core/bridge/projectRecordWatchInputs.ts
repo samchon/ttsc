@@ -29,6 +29,9 @@ import type { TtscProjectRecord } from "./TtscProjectRecord";
  *   Native paragraphs explain restored-session ownership and membership separation,
  *   with prose/tags following documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation The root membership input obtains physical identity from the host filesystem resolver and actual directory case policy, while persisted lexical input spellings remain paired with their original evidence.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Returns a fresh array owned by the caller and keeps no reference to it.
+ * @evidence contracts/performance.md#efficient-algorithms One pass over the record's recorded inputs plus one membership entry, linear in the input count; no input is read again here.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Called once per refreshed record; subscription sharing across records belongs to the observer that takes the inputs.
  */
 export function projectRecordWatchInputs(
   record: TtscProjectRecord,

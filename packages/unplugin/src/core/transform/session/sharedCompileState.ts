@@ -25,6 +25,7 @@ import type { TtscProjectDirectorySnapshot } from "../project/TtscProjectDirecto
  * @evidence contracts/performance.md#efficient-algorithms File keys and relevant directory records are each sorted once, then streamed into one hash; temporary memory holds ordering arrays rather than a serialized copy of the full content snapshot.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure snapshot digest coordinates no cache or in-flight computation; producer and adopter owners decide when matching state permits sharing a compile.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Ordering arrays and the hash object remain local; the digest transfers to the caller and no historical snapshot, handle or task is retained.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Hashes recorded file hashes, directory signatures and the tsconfig signature; it reads no filesystem.
  */
 export function sharedCompileState(props: {
   directories: readonly TtscProjectDirectorySnapshot[];

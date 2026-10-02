@@ -34,6 +34,9 @@
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral code follows explicit host capabilities instead of guessing
  *   from drive letters, mount prefixes or the operating-system name.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms Two environment reads and constant parsing.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work Re-read per call because a host's polling declaration can change; nothing is shared.
  */
 export function hostDeclaresPolling(
   env: NodeJS.ProcessEnv = process.env,

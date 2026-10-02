@@ -10,9 +10,6 @@ import type { TtscProjectTsconfigCandidate } from "./TtscProjectTsconfigCandidat
  * @evidence contracts/common.md#clear-and-simple-design
  *   This result couples the selection with its evidence in one readonly record.
  *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   Selected and rejected paths retain the filesystem view's native spellings
- *   and predicates; this result does not reinterpret them as URL addresses.
  *
  * @evidence contracts/common.md#prohibited-implementation-shortcuts
  *   It stores actual observations and declares no fallback project or foreign

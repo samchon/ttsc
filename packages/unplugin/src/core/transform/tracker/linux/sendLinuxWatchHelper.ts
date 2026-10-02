@@ -22,6 +22,9 @@ import type { LinuxWatchHelper } from "./LinuxWatchHelper";
  * @evidence contracts/portability.md#os-neutral-implementation
  *   OS-neutral protocol transport uses child stdin and JSON framing rather
  *   than shell syntax, native separators or filesystem case assumptions.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Writes one line to the helper's stdin; the request's lifetime belongs to its caller.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One write of one JSON line.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work A request is an effect; its answer is awaited by the caller.
  */
 export function sendLinuxWatchHelper(
   helper: LinuxWatchHelper,

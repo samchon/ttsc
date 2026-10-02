@@ -11,6 +11,9 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed native resolution is not replaced with guessed lexical identity or a known-input target.
  * @evidence contracts/common.md#meaningful-documentation Native prose states failure and unchanged-spelling semantics, using separated prose and tags under documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation OS-neutral target observation delegates to the supplied realpath capability, retaining native aliases and spelling without platform-wide case folding.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The call returns before the function does; no handle is retained.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One realpath call.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work It reads the target now by design, so nothing is shared.
  */
 export function hostInputRealpath(
   file: string,

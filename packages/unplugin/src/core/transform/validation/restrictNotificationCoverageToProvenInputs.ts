@@ -31,9 +31,6 @@ import type { TtscHostInputValidation } from "./TtscHostInputValidation";
  * @evidence contracts/common.md#clear-and-simple-design One postcapture operation reconciles watcher coverage with the admitted manifest rather than duplicating snapshot rules during observer acquisition.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Opening a watch cannot certify bytes capture could not read or invent content authority from metadata.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain observer timing, unreadable states and the legitimate source-tree distinction.
- * @evidence contracts/performance.md#efficient-algorithms A copied covered-set iteration safely deletes rejected spellings with map/set lookups; no content or tree traversal is repeated.
- * @evidence contracts/performance.md#reuse-equivalent-work Only capture-proven coverage remains eligible for shared notification validation; other spellings retain direct proof.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The existing generation set shrinks in place without retaining historical coverage or acquiring more watchers.
  * @evidence contracts/portability.md#os-neutral-implementation Lexical coverage and physical derivation identity remain separate so aliases and actual case policy cannot be conflated.
  */
 export function restrictNotificationCoverageToProvenInputs(

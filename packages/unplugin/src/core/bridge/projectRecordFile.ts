@@ -34,6 +34,9 @@ import { PROJECT_RECORD_DIRECTORY } from "./PROJECT_RECORD_DIRECTORY";
  *   Native paragraphs explain project-granularity dependency ownership and stable
  *   filename purpose, with parameter/tag separation per documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Native resolution and joining preserve the process's actual tsconfig volume and host directory spelling; case policy is not guessed, so distinct lexical spellings can name separate records rather than falsely merging projects.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Retains nothing; it only names a file that the record writers create.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms One SHA-256 of the tsconfig path and one join; no algorithm is chosen.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work The name is recomputed from the tsconfig path on every call; no computation is shared.
  */
 export function projectRecordFile(
   toolDirectory: string,
