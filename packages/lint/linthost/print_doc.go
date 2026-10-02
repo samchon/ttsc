@@ -227,8 +227,9 @@ func ConditionalGroup(options ...Doc) Doc {
 
 // Fill renders an alternating [content, separator, content, separator, …,
 // content] sequence with Wadler/Prettier "fill" semantics: it places as many
-// contents on a line as fit, breaking a separator to a new line only when the
-// next content (with its separator) would overflow. Used for concisely-printed
+// contents on a line as fit. A separator breaks when the current content or
+// the current content plus separator and next content exceeds the budget.
+// Used for concisely-printed
 // numeric arrays (`[1, 2, 3, … ]` packed several per line), where a plain
 // one-item-per-line break would waste space. `parts` must have odd length
 // (content at even indices, separators at odd).
@@ -240,11 +241,12 @@ func ConditionalGroup(options ...Doc) Doc {
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Fill performs no filesystem or process operation of its own.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Fill has no loop of its own and runs a fixed number of steps.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Fill keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Fill acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned fill Doc shares the supplied alternating operand slice and reachable child payloads. Its caller owns tree lifetime and keeps those operands immutable during printing; this constructor creates no historical fill cache, handle or task.
 func Fill(parts ...Doc) Doc { return Doc{Kind: docFill, Children: parts} }
 
-// Indent adds `width` columns of indentation to every newline emitted by
-// the child doc. Nesting composes.
+// Indent adds width columns to indentation for breakable and hard newlines
+// in its children; nested increments compose. Literalline intentionally writes
+// no indentation and resets the output column to zero.
 //
 // @evidence contracts/common.md#principled-implementation The indent variant stores the supplied column increment and child sequence so nested increments compose during rendering.
 // @evidence contracts/common.md#clear-and-simple-design One constructor separates indentation structure from text generation.
@@ -253,22 +255,23 @@ func Fill(parts ...Doc) Doc { return Doc{Kind: docFill, Children: parts} }
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Indent performs no filesystem or process operation of its own.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Indent has no loop of its own and runs a fixed number of steps.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Indent keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Indent acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned Doc shares caller child backing storage and reachable payloads without copying them. The caller owns tree lifetime and printing immutability; this constructor retains no historical indentation nodes and starts no handle or task.
 func Indent(width int, parts ...Doc) Doc {
   return Doc{Kind: docIndent, Width: width, Children: parts}
 }
 
-// Align makes every newline emitted by the child doc align to the
-// current output column rather than to a fixed indent.
+// Align makes indented newlines in its children resume at the current output
+// column at this node. It replaces the indentation target rather than adding
+// that column to the parent's indentation. Literalline still emits no indent.
 //
-// @evidence contracts/common.md#principled-implementation The align variant records children for a renderer-computed current-column indentation increment.
+// @evidence contracts/common.md#principled-implementation The align variant records children for a renderer-computed absolute current-column indentation target.
 // @evidence contracts/common.md#clear-and-simple-design One node separates dynamic alignment from fixed-width Indent.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Alignment uses the actual output column rather than hardcoded source-column exceptions.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes current-column alignment from fixed indentation; tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Align performs no filesystem or process operation of its own.
 // @evidenceExclude contracts/performance.md#efficient-algorithms Align has no loop of its own and runs a fixed number of steps.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Align keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Align acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned alignment Doc shares supplied child backing storage and reachable payloads for the caller-owned tree lifetime. That storage stays immutable while printing; the constructor keeps no historical aligned trees and acquires no handle or task.
 func Align(parts ...Doc) Doc { return Doc{Kind: docAlign, Children: parts} }
 
 // IfBreak emits `whenBroken` when the surrounding group breaks and
