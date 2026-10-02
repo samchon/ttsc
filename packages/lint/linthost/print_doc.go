@@ -305,26 +305,28 @@ func Concat(parts ...Doc) Doc {
   return Doc{Kind: docConcat, Children: parts}
 }
 
-// LineSuffix queues output until the next line break. Used for trailing
+// LineSuffix queues output before the next emitted line break, or drains it
+// at the end when no break occurs. Used for trailing
 // line comments that must appear after the current source line ends.
 //
 // The payload is expected to be single-line: it is emitted verbatim at the
 // line break and is NOT re-indented across any embedded newlines.
 //
-// @evidence contracts/common.md#principled-implementation A suffix node retains ordered operands until the next emitted line break under the documented single-line payload premise.
+// @evidence contracts/common.md#principled-implementation A suffix node retains ordered operands until the next emitted line break or the final drain under the documented single-line payload premise.
 // @evidence contracts/common.md#clear-and-simple-design One algebra operation separates trailing-comment placement from ordinary sequential content.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Deferred placement uses renderer semantics instead of rewriting comments after output.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains deferred emission and the single-line premise; paragraphs and tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation LineSuffix performs no filesystem or process operation of its own.
 // @evidenceExclude contracts/performance.md#efficient-algorithms LineSuffix has no loop of its own and runs a fixed number of steps.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work LineSuffix keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources LineSuffix acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The returned suffix shares supplied child backing storage and reachable payloads. The caller owns immutable-during-print tree lifetime; the renderer separately owns its pending suffix queue and drains it at a break or completion. This constructor stores no historical suffixes, handle or task.
 func LineSuffix(parts ...Doc) Doc {
   return Doc{Kind: docLineSuffix, Children: parts}
 }
 
 // Join interleaves `sep` between the entries of `parts` and returns the
-// flattened concat. Empty input returns a no-op doc. Single-entry input
+// ordered concatenation; nested operands are not flattened by this helper.
+// Empty input returns a no-op doc. Single-entry input
 // returns the entry verbatim.
 //
 // @evidence contracts/common.md#principled-implementation The empty and singleton identities preserve no-op or exact input, while the general loop inserts one separator between each adjacent pair.
@@ -334,7 +336,7 @@ func LineSuffix(parts ...Doc) Doc {
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Join builds an in-memory document and touches no filesystem path or process.
 // @evidence contracts/performance.md#efficient-algorithms One pass that builds the separator-interleaved slice with exact capacity, O(parts).
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Join keeps no cache and shares no computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The result slice is local to the document being built and owned by its caller; no handle or task is acquired.
+// @evidence contracts/performance.md#bound-retention-and-release-resources For n>1 the result owns exactly 2n-1 Doc records, while their nested slices and strings remain shared with operands/separator. Singleton returns the operand unchanged; empty input retains no child storage. The caller owns tree lifetime/printing immutability; no historical join cache, handle or task is created.
 func Join(sep Doc, parts []Doc) Doc {
   switch len(parts) {
   case 0:
@@ -352,8 +354,9 @@ func Join(sep Doc, parts []Doc) Doc {
   return Concat(out...)
 }
 
-// IsNil reports whether the doc is the zero-value no-op. Helpful when a
-// helper returns "nothing to print" — the engine ignores nil docs.
+// IsNil reports whether Kind is the no-op discriminant, regardless of any
+// inactive payload fields. A zero-value Doc is one such value; the renderer
+// ignores every docNil variant.
 //
 // @evidence contracts/common.md#principled-implementation The zero discriminant alone identifies the layout no-op regardless of inactive payload fields.
 // @evidence contracts/common.md#clear-and-simple-design One predicate centralizes no-op recognition for doc consumers.
