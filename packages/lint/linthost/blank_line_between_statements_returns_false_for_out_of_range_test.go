@@ -36,7 +36,7 @@ func TestBlankLineBetweenStatementsReturnsFalseForOutOfRange(t *testing.T) {
     t.Fatalf("expected false for negative prevEnd")
   }
 
-  // Case 2: nextStart (after SkipTrivia) lands before prevEnd — an inverted
+  // Case 2: nextStart (after SkipTrivia) lands before prevEnd: an inverted
   // range. nextPos=1 → SkipTrivia returns 1 (no leading trivia at position 1),
   // prevEnd=5 → nextStart(1) <= prevEnd(5) → guard fires.
   if blankLineBetweenStatements(src, 5, 1) {
