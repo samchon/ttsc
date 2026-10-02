@@ -3,10 +3,10 @@ package linthost
 import "testing"
 
 // TestCommandFormatPreservesCommentsInReflow guards against print-width
-// silently deleting comments when it reflows a list. Prettier preserves every
-// comment (and reflows around it); the minimum bar for ttsc is to never DELETE
-// one, so when a reflow target carries an interior comment the rule must
-// abstain, leaving the source (comment intact) byte-identical. Each source below
+// silently deleting comments when it reflows a list. When these list targets
+// carry a gap comment the rule abstains, leaving the authored source, including
+// the comment, byte-identical. A comment-free twin requires reflow with its
+// argument values and call binding preserved. Each commented source below
 // carries a comment in a different position; the first three are flat lines that
 // overflow printWidth 60, and the last two are already-broken lists.
 //
@@ -17,9 +17,9 @@ import "testing"
 //     or moved, and the comment-free call reflowed.
 //
 // @evidence contracts/testing.md#behavioral-verification Six subcases run the in-process `format` command at printWidth 60: five on lists carrying comments (inline block comment in call arguments, block comment in an array, trailing block comment in an object, trailing line comment on an array element, trailing block comment on a single-property object) requiring each byte-identical so no comment is deleted or moved, and one comment-free twin of the first call that must reflow.
-// @evidence contracts/testing.md#independent-expectations Each commented source is an authored literal that is its own expected output, following from the contract that print-width must abstain rather than delete a comment; the twin's expected text is an authored literal in Prettier's one-argument-per-line layout. Nothing is derived from formatter output.
+// @evidence contracts/testing.md#independent-expectations Five complete authored literals independently require comment and surrounding source preservation; the twin's independent complete literal requires one-argument-per-line reflow with the same binding, callee and argument values. Nothing is derived from formatter output or an independent Prettier invocation.
 // @evidence contracts/testing.md#distinguishing-cases Each subcase varies the comment position and comment kind in a different list shape; three overflow flat lines that would otherwise be reflowed. The comment cases are fixed points, so only preservation, not a comment-aware reflow, is asserted; the comment-free twin shows the call otherwise reflows.
-// @evidence contracts/testing.md#execution-ownership In-process Go unit: each subcase calls run with the format subcommand on a temp-dir project via assertFormatUnchangedWithFormat; no child process, built binary or installed consumer.
+// @evidence contracts/testing.md#execution-ownership In-process Go unit: five preservation subcases call run with format through assertFormatUnchangedWithFormat and the positive twin through assertFormatResultWithFormat, each on a temp-dir project; no child process, built binary or installed consumer.
 func TestCommandFormatPreservesCommentsInReflow(t *testing.T) {
   pw := map[string]any{"printWidth": 60}
   t.Run("call_arg_inline_block_comment", func(t *testing.T) {
