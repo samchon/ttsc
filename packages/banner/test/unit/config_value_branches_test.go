@@ -82,7 +82,7 @@ func TestConfigValueBranches(t *testing.T) {
   configFile := filepath.Join(root, "banner.config.json")
   shared.WriteFile(t, configFile, `{"text":"one\r\ntwo */\n\n"}`)
 
-  rendered, err := bannerParseBanner(map[string]any{"configFile": configFile}, root, tsconfig)
+  rendered, err := shared.BannerParseBanner(map[string]any{"configFile": configFile}, root, tsconfig)
   if err != nil {
     t.Fatal(err)
   }
@@ -100,7 +100,7 @@ func TestConfigValueBranches(t *testing.T) {
   // Whitespace-only trailing lines are dropped, an interior blank line is kept.
   spacedConfigFile := filepath.Join(root, "spaced", "banner.config.json")
   shared.WriteFile(t, spacedConfigFile, `{"text":"a\n\nb\n \t\n"}`)
-  spaced, err := bannerParseBanner(map[string]any{"configFile": spacedConfigFile}, root, tsconfig)
+  spaced, err := shared.BannerParseBanner(map[string]any{"configFile": spacedConfigFile}, root, tsconfig)
   if err != nil {
     t.Fatal(err)
   }
@@ -112,7 +112,7 @@ func TestConfigValueBranches(t *testing.T) {
   // parseBanner: empty "text" from config file produces an error.
   emptyConfigFile := filepath.Join(root, "empty", "banner.config.json")
   shared.WriteFile(t, emptyConfigFile, `{"text":""}`)
-  if _, err := bannerParseBanner(map[string]any{"configFile": emptyConfigFile}, root, tsconfig); err == nil || !strings.Contains(err.Error(), "must be a non-empty string") {
+  if _, err := shared.BannerParseBanner(map[string]any{"configFile": emptyConfigFile}, root, tsconfig); err == nil || !strings.Contains(err.Error(), "must be a non-empty string") {
     t.Fatalf("expected parse error, got %v", err)
   }
 }

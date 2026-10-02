@@ -20,7 +20,9 @@ import (
 // utility compiler maps in incompatible inline and removeComments modes.
 //
 // The JSON banner deliberately supplies the original four authored text lines
-// directly to the native plugin. Installed CJS discovery remains in the shared
+// directly to the native plugin. The fixture tsconfigs declare no plugins: the
+// registration and its configFile arrive through --plugins-json, so a tsconfig
+// entry would be dead data naming a config the fixture does not contain. Installed CJS discovery remains in the shared
 // external-map boundary; these units do not evaluate CJS or start Node.
 //
 //  1. Copy the static original source/base/mode inputs and JSON text equivalent.
