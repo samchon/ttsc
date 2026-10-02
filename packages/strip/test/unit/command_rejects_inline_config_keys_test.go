@@ -1,5 +1,3 @@
-//go:build e2e
-
 package strip_test
 
 import (
@@ -12,13 +10,13 @@ import (
   shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
-// TestCommandRejectsInlineConfigKeys verifies that the strip sidecar rejects
+// TestCommandRejectsInlineConfigKeys verifies that the strip command rejects
 // tsconfig plugin entries containing keys that were formerly used for inline
 // configuration (calls, statements).
 //
 // Locks the unsupported-key guard in loadStripConfigMap so that projects still
 // using the old inline shape receive a clear migration error from the Go
-// sidecar rather than silently applying defaults. The error must name the
+// command rather than silently applying defaults. The error must name the
 // offending key and direct the user to a strip.config.* file.
 //
 //  1. Create a minimal project with no config file.
@@ -26,14 +24,10 @@ import (
 //     plugin entry.
 //  3. Assert a non-zero exit, structured recovery metadata without source output,
 //     and a diagnostic naming the unsupported key and strip.config.*.
-// @evidence contracts/testing.md#behavioral-verification For calls and statements supplied inline, native transform must fail and return empty source output, one key-specific diagnostic and graph.configs containing tsconfig.json, plus migration guidance on stderr.
+// @evidence contracts/testing.md#behavioral-verification For calls and statements supplied inline, transform must fail and return empty source output, one key-specific diagnostic and graph.configs containing tsconfig.json, plus migration guidance on stderr.
 // @evidence contracts/testing.md#independent-expectations The file-only strip configuration contract rejects both former inline keys; literal key names and strip.config guidance independently specify the migration failure.
 // @evidence contracts/testing.md#distinguishing-cases Both former inline keys (calls, statements) are tried against one project and each must fail with an empty typescript map plus graph.configs. No success route and no malformed-JSON route is run in this body; file-based success belongs to command_loads_config_from_file.
-// @evidence contracts/testing.md#execution-ownership The discoverable TestCommandRejectsInlineConfigKeys entry runs in the strip E2E population and calls the real compiled package sidecar; runPlugin captures its native exit and separate streams. This classification does not move its portable assertions into units.
-// @evidence contracts/e2e.md#necessary-boundary The native failure path must return diagnostic/graph recovery data while refusing transformed sources and exposing the error on stderr. Direct key validation cannot prove that failed-command payload wiring.
-// @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts two transform processes, one per forbidden key, from that binary and shares no loaded project or running session with any other entry.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity seedStripProject writes the fixture project under t.TempDir, which the test framework removes at cleanup; one project is seeded before the loop and both transform processes read it without writing to it (transform emits to stdout), so no state passes between iterations. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
-// @evidence contracts/e2e.md#preserved-coverage The non-zero status, structured failure envelope, single key-specific diagnostic and the stderr key/strip.config checks are all made in this body for each of the two keys; nothing is delegated elsewhere.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestCommandRejectsInlineConfigKeys is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. It dispatches through utility.RunCommandWithIO, the same entry the standalone sidecar's main delegates to, with invocation-owned buffers and a t.TempDir fixture; no producer binary or child process is built or started. The real compiler-plus-installed-package connection is owned by the strip scenes of tests/test-e2e.
 func TestCommandRejectsInlineConfigKeys(t *testing.T) {
   root := seedStripProject(t, false)
   for _, key := range []string{"calls", "statements"} {

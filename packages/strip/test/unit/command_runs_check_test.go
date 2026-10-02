@@ -1,5 +1,3 @@
-//go:build e2e
-
 package strip_test
 
 import (
@@ -8,9 +6,9 @@ import (
   "testing"
 )
 
-// TestCommandRunsCheck verifies the strip sidecar can run a no-emit project check.
+// TestCommandRunsCheck verifies the strip command can run a no-emit project check.
 //
-// The strip sidecar is tested through its package wrapper because hosts care about emitted
+// The strip command is tested through its package wrapper because hosts care about emitted
 // JavaScript with selected statements removed. These scenarios keep command dispatch, project
 // loading, and the shared utility transform path observable from the package boundary.
 //
@@ -20,14 +18,10 @@ import (
 // 1. Materialize a project containing a removable statement.
 // 2. Run check with the strip plugin manifest.
 // 3. Assert success and verify no output file was emitted.
-// @evidence contracts/testing.md#behavioral-verification Native strip check --quiet accepts the default-policy fixture with status zero and empty streams and must not create src/main.js.
+// @evidence contracts/testing.md#behavioral-verification Strip check --quiet accepts the default-policy fixture with status zero and empty streams and must not create src/main.js.
 // @evidence contracts/testing.md#independent-expectations The diagnostic-only command contract requires no JavaScript emit; the assertion covers the source-adjacent output location rather than all possible writes.
 // @evidence contracts/testing.md#distinguishing-cases The removable statements remain only fixture input during check; actual removal is owned by transform/build. This entry distinguishes no-emit success from publication.
-// @evidence contracts/testing.md#execution-ownership The discoverable TestCommandRunsCheck entry runs in the strip E2E population and calls the real compiled package sidecar; runPlugin captures its native exit and separate streams. This classification does not move its portable assertions into units.
-// @evidence contracts/e2e.md#necessary-boundary The compiled strip check route loads its manifest and project without taking the emitter path; direct transform units do not prove native exit/no-emit wiring.
-// @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts one check process over one freshly seeded project from that binary and shares no loaded project or running session with any other entry.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity seedStripProject writes the fixture project under t.TempDir, which the test framework removes at cleanup; the single check process exits before src/main.js is stat-ed. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
-// @evidence contracts/e2e.md#preserved-coverage The status/stream check and the src/main.js absence check are made in this body; nothing about stripping is asserted and nothing is delegated elsewhere.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestCommandRunsCheck is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. It dispatches through utility.RunCommandWithIO, the same entry the standalone sidecar's main delegates to, with invocation-owned buffers and a t.TempDir fixture; no producer binary or child process is built or started. The real compiler-plus-installed-package connection is owned by the strip scenes of tests/test-e2e.
 func TestCommandRunsCheck(t *testing.T) {
   // Scenario setup: outDir is omitted because check mode must not depend on
   // build output settings.

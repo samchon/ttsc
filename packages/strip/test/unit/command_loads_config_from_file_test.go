@@ -1,5 +1,3 @@
-//go:build e2e
-
 package strip_test
 
 import (
@@ -11,7 +9,7 @@ import (
   shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
 
-// TestCommandLoadsConfigFromFile verifies that the strip sidecar reads its
+// TestCommandLoadsConfigFromFile verifies that the strip command reads its
 // configuration from a strip.config.json file, both when specified via
 // configFile and when auto-discovered from the tsconfig directory.
 //
@@ -24,14 +22,10 @@ import (
 //     console.info (kept); supply config via strip.config.json.
 //  2. Run transform via configFile (explicit) and via auto-discovery (implicit).
 //  3. Assert console.warn is absent and console.info is present in both cases.
-// @evidence contracts/testing.md#behavioral-verification Explicit configFile and auto-discovery each load calls:[console.warn],statements:[] through native transform; warn disappears and console.info("keep") remains in successful JSON output.
+// @evidence contracts/testing.md#behavioral-verification Explicit configFile and auto-discovery each load calls:[console.warn],statements:[] through transform; warn disappears and console.info("keep") remains in successful JSON output.
 // @evidence contracts/testing.md#independent-expectations The authored JSON explicitly selects warn and leaves info outside the target set, so literal absent/present output gives an independent option oracle.
 // @evidence contracts/testing.md#distinguishing-cases Separate disposable explicit and implicit projects use the same policy. Retained info detects over-stripping; both source-selection routes must carry the policy into transform.
-// @evidence contracts/testing.md#execution-ownership The discoverable TestCommandLoadsConfigFromFile entry runs in the strip E2E population and calls the real compiled package sidecar; runPlugin captures its native exit and separate streams. This classification does not move its portable assertions into units.
-// @evidence contracts/e2e.md#necessary-boundary File-backed JSON selection must reach the native strip transform through manifest configuration and discovery. Direct config parsing cannot establish selected-file-to-project wiring; two command consumers currently remain.
-// @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts two transform processes, one per t.Run scenario (explicit configFile, auto-discovered), from that binary and shares no loaded project or running session with any other entry.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity Each t.Run scenario calls seedProject, so each of the two projects lives in its own t.TempDir removed when that subtest ends; the scenarios share only the compiled binary. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
-// @evidence contracts/e2e.md#preserved-coverage The status/stderr check, JSON decode and the console.warn-absent / console.info-present checks run in each of the two scenarios in this body; nothing is delegated to a unit test.
+// @evidence contracts/testing.md#execution-ownership Unit entry TestCommandLoadsConfigFromFile is discovered in test/unit by `go test ./packages/strip/...`, the root `test:go` command. It dispatches through utility.RunCommandWithIO, the same entry the standalone sidecar's main delegates to, with invocation-owned buffers and a t.TempDir fixture; no producer binary or child process is built or started. The real compiler-plus-installed-package connection is owned by the strip scenes of tests/test-e2e.
 func TestCommandLoadsConfigFromFile(t *testing.T) {
   for _, scenario := range []struct {
     label  string

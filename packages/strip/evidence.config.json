@@ -2,10 +2,12 @@
   "severity": "error",
   "claims": [
     {
-      "name": "maintained TypeScript declarations and native boundaries",
+      "name": "TypeScript production declarations",
       "type": "typescript",
       "files": [
-        "src/**/*.ts"
+        "src/**/*.ts",
+        "!src/index.ts",
+        "!src/createTtscStrip.ts"
       ],
       "symbol": [
         "type",
@@ -13,25 +15,43 @@
       ],
       "reference": {
         "type": "markdown",
+        "root": "../../.agents/skills",
+        "files": [
+          "contracts/common.md"
+        ],
+        "symbol": "h2",
+        "checklist": true
+      }
+    },
+    {
+      "name": "TypeScript declarations owning filesystem discovery",
+      "type": "typescript",
+      "files": [
+        "src/createTtscStrip.ts"
+      ],
+      "symbol": [
+        "type",
+        "function"
+      ],
+      "reference": {
+        "type": "markdown",
+        "root": "../../.agents/skills",
         "files": [
           "contracts/common.md",
           "contracts/portability.md",
           "contracts/performance.md"
         ],
         "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
+        "checklist": true
       }
     },
     {
-      "name": "maintained Go production declarations",
+      "name": "Go production declarations",
       "type": "go",
       "files": [
         "driver/**/*.go",
         "plugin/**/*.go",
-        "!**/*_test.go",
-        "!driver/config.go",
-        "!plugin/main.go"
+        "!**/*_test.go"
       ],
       "symbol": [
         "type",
@@ -39,41 +59,19 @@
       ],
       "reference": {
         "type": "markdown",
+        "root": "../../.agents/skills",
         "files": [
           "contracts/common.md"
         ],
         "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
+        "checklist": true
       }
     },
     {
-      "name": "maintained Go production declarations",
+      "name": "Go tests",
       "type": "go",
       "files": [
-        "driver/config.go",
-        "plugin/main.go"
-      ],
-      "symbol": [
-        "type",
-        "function"
-      ],
-      "reference": {
-        "type": "markdown",
-        "files": [
-          "contracts/common.md",
-          "contracts/portability.md"
-        ],
-        "symbol": "h2",
-        "checklist": true,
-        "root": "../../.agents/skills"
-      }
-    },
-    {
-      "name": "Go utility plugin semantic units",
-      "type": "go",
-      "files": [
-        "test/unit/**/*_test.go"
+        "**/*_test.go"
       ],
       "symbol": "function",
       "reference": {

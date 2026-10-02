@@ -1,5 +1,3 @@
-//go:build e2e
-
 package strip_test
 
 import (
@@ -25,10 +23,6 @@ import (
 // @evidence contracts/testing.md#independent-expectations The literal config data is the expectation, and nonexistent pinned TS tools make erroneous routing through ttsx fail.
 // @evidence contracts/testing.md#distinguishing-cases JSON loads directly, whereas script uses actual Node import. The case tests TS-tool avoidance, not absence of Node or TypeScript source evaluation.
 // @evidence contracts/testing.md#execution-ownership This named entry mixes direct JSON parsing with a real Node script child; no native utility producer or consumer compiler executes.
-// @evidence contracts/e2e.md#necessary-boundary Only the script import-to-returned-value connection needs Node. JSON parsing is a direct unit concern; the mixed E2E label does not make its filesystem read a necessary boundary.
-// @evidence contracts/e2e.md#shared-execution Two files share one root and only the script starts Node. No Go build or compiler preparation occurs.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.Setenv restores the two pinned tool variables, t.TempDir releases the config files, and the Node child for the .js config has exited before the loader returns (exec Cmd.Output waits for it).
-// @evidence contracts/e2e.md#preserved-coverage The body asserts the exact statements and calls arrays for one JSON config and one .js config (assertStripsDebuggerOnly) with both tool variables pinned at nonexistent paths; no TypeScript config is loaded.
 func TestJSONAndScriptConfigPathsNeverSpawnTheLauncher(t *testing.T) {
   root := shared.StripRealpathIfPossible(t.TempDir())
   t.Setenv("TTSC_TSGO_BINARY", filepath.Join(root, "absent", "tsc"))

@@ -1,11 +1,73 @@
 package strip_test
 
 import (
+  "bytes"
+  "os"
   "path/filepath"
+  "strings"
   "testing"
+
+  "github.com/samchon/ttsc/packages/ttsc/utility"
 
   shared "github.com/samchon/ttsc/packages/strip/test/internal/shared"
 )
+
+type transformResult struct {
+  TypeScript map[string]string `json:"typescript"`
+}
+
+// runPlugin dispatches one @ttsc/strip command through the production utility
+// entry that the standalone sidecar's main delegates to, with invocation-owned
+// output buffers, and returns its status, stdout and stderr.
+func runPlugin(t *testing.T, args ...string) (int, string, string) {
+  t.Helper()
+  t.Setenv("TTSC_PLUGIN_CONFIG_DIR", "")
+  var stdout, stderr bytes.Buffer
+  code := utility.RunCommandWithIO("@ttsc/strip", "0.0.1", args, &stdout, &stderr)
+  return code, stdout.String(), stderr.String()
+}
+
+// readFile loads emitted JavaScript output for build assertions.
+func readFile(t *testing.T, file string) string {
+  t.Helper()
+  data, err := os.ReadFile(file)
+  if err != nil {
+    t.Fatal(err)
+  }
+  return string(data)
+}
+
+// stripManifest returns the plugin manifest sent through --plugins-json by
+// ttsc's native plugin host.
+func stripManifest(t *testing.T) string {
+  t.Helper()
+  return shared.MustJSON(t, []map[string]any{{
+    "name":  "@ttsc/strip",
+    "stage": "transform",
+    "config": map[string]any{
+      "transform": "@ttsc/strip",
+    },
+  }})
+}
+
+// seedStripProject creates a fixture with removable debugger and console.log
+// statements. withOutDir selects build-ready output settings.
+func seedStripProject(t *testing.T, withOutDir bool) string {
+  t.Helper()
+  compilerOptions := `{"target":"ES2022","module":"commonjs","strict":true}`
+  if withOutDir {
+    compilerOptions = `{"target":"ES2022","module":"commonjs","strict":true,"outDir":"dist","rootDir":"src"}`
+  }
+  return shared.SeedProject(t, map[string]string{
+    "tsconfig.json": `{"compilerOptions":` + compilerOptions + `,"include":["src"]}`,
+    "src/main.ts": strings.Join([]string{
+      `debugger;`,
+      `console.log("drop");`,
+      `export const value = "ok";`,
+      ``,
+    }, "\n"),
+  })
+}
 
 // requireNoAmbientInstall skips the case when a real install of pkg answers
 // above the fixture.

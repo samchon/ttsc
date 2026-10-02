@@ -75,3 +75,29 @@ func stripNodePlatformPairFor(goos, goarch string) (string, string)
 
 //go:linkname stripTtsxCommandContext github.com/samchon/ttsc/packages/strip/driver.stripTtsxCommandContext
 func stripTtsxCommandContext(ctx context.Context, anchors []string, args ...string) *exec.Cmd
+
+//go:linkname stripLoaderTempBase github.com/samchon/ttsc/packages/strip/driver.stripLoaderTempBase
+func stripLoaderTempBase(location, systemTemp string) string
+
+//go:linkname stripFindNearestNodeModules github.com/samchon/ttsc/packages/strip/driver.stripFindNearestNodeModules
+func stripFindNearestNodeModules(start string) string
+
+//go:linkname stripPhysicalHostInput github.com/samchon/ttsc/packages/strip/driver.stripPhysicalHostInput
+func stripPhysicalHostInput(location string) *string
+
+type stripLoadedConfig struct {
+  complete  bool
+  hashes    map[string]*string
+  inputs    []string
+  realpaths map[string]*string
+  value     any
+}
+
+//go:linkname stripLoadStripConfigFileWithInputs github.com/samchon/ttsc/packages/strip/driver.loadStripConfigFileWithInputs
+func stripLoadStripConfigFileWithInputs(location, resolutionRoot string) (stripLoadedConfig, error)
+
+// stripLoadStripConfigFile returns the evaluated config value alone.
+func stripLoadStripConfigFile(location, resolutionRoot string) (any, error) {
+  loaded, err := stripLoadStripConfigFileWithInputs(location, resolutionRoot)
+  return loaded.value, err
+}

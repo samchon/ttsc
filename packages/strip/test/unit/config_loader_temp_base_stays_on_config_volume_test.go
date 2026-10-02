@@ -1,5 +1,3 @@
-//go:build e2e
-
 package strip_test
 
 import (
@@ -33,10 +31,6 @@ import (
 // @evidence contracts/testing.md#independent-expectations Authored drive letters and blocked file layouts define choices; filepath.EvalSymlinks supplies the expected physical cache path independently of loaderTempBase.
 // @evidence contracts/testing.md#distinguishing-cases Same/relative paths run everywhere. Cross-volume, blocked-cache, absent-node_modules and junction branches run only on drive-letter platforms; absent ancestry is conditional on no ambient installation.
 // @evidence contracts/testing.md#execution-ownership The named entry directly calls the strip filesystem selector; its Windows tail executes cmd mklink /J. No config compilation or native plugin runs.
-// @evidence contracts/e2e.md#necessary-boundary Most assertions are direct filesystem semantics and need no E2E host. Only the real junction tail crosses the OS/process boundary; this mixed placement remains a classification finding.
-// @evidence contracts/e2e.md#shared-execution Cheap separate layouts isolate valid caches from squatting files. No native producer or compiler is prepared; a short Windows junction command is the sole child.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity t.TempDir owns every created .cache and link. No shared product cache is removed; platforms without drive volumes return before Windows-only branches.
-// @evidence contracts/e2e.md#preserved-coverage The same-volume and relative-path assertions run on every platform; on a platform whose fake Z: or Y: path has no volume name the function returns, so the cross-volume, created-.cache, blocked-cache, bare-directory (itself guarded by stripFindNearestNodeModules) and junction assertions run only where drive-letter volumes exist.
 func TestConfigLoaderTempBaseStaysOnConfigVolume(t *testing.T) {
   root := t.TempDir()
   if err := os.MkdirAll(filepath.Join(root, "node_modules"), 0o755); err != nil {
