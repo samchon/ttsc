@@ -13,7 +13,7 @@ import (
  * Verifies the private observer preserves raw bytes and reports capture limits.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls the actual private capture/record writer over an owned scratch stream. Exact whitespace-bearing JSON bytes survive without reconstruction. The maintained limitedBuffer overflow keeps its original prefix/count/error and is captured as too-large; an occupied payload destination reports IO-failed. The authored near-budget boundary refuses even an empty payload and emits an integrity event.
- * @evidence contracts/testing.md#independent-expectations Literal bytes, a two-byte product buffer limit and an authored exhausted accounting state establish expectations independently of the trace output. The stream envelope must retain schema1, actual writer PID, fixture instance and invocation7. No parser DTO is used as actual bridge proof, and the near-budget state is not a measured 256MiB stress run.
+ * @evidence contracts/testing.md#independent-expectations Literal bytes, a two-byte product buffer limit and an authored exhausted accounting state establish expectations independently of the trace output. The stream envelope must retain schema1, actual writer PID, fixture instance and core invocation native-unit:7; payload filenames retain ordinal7. No parser DTO is used as actual bridge proof, and the near-budget state is not a measured 256MiB stress run.
  * @evidence contracts/testing.md#distinguishing-cases Complete capture contrasts with product overflow, payload IO refusal and depleted writer budget. Empty bytes still cost one file identity, so exhausted accounting cannot create unlimited empty files. Actual command execution, lookup pairing, opt-in initialization, native/Node digest agreement and lifecycle joins remain E consumer contributions.
  * @evidence contracts/testing.md#execution-ownership TestEvidenceBridgeTracePreservesBytesAndIntegrity is one selectable native Go entry with four synchronous named cases. Each directly owns a writer fixture and t.TempDir, calls maintained file/buffer operations in-process and parses the actual resulting event stream. It starts no Node child, product host, installation or build and changes no process-global trace/cache state. Runtime and actual E connection remain separate verification.
  */
@@ -89,7 +89,7 @@ func TestEvidenceBridgeTracePreservesBytesAndIntegrity(t *testing.T) {
         expectedEvent = "bridge-result"
       }
       if event.Schema != 1 || event.Event != expectedEvent || event.WriterPID != writer.pid ||
-        event.Instance != "native-unit" || event.Invocation != "7" {
+        event.Instance != "native-unit" || event.Invocation != "native-unit:7" {
         t.Fatalf("the observed event must preserve its envelope and failure identity: %#v", event)
       }
       if writer.bytes > evidenceTraceLimit {

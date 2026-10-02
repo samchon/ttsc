@@ -143,13 +143,15 @@ func (trace *evidenceBridgeTrace) record(event string, pid int, data any) {
 // append is called with the writer lock held. It charges attempted bytes before
 // IO, bounds the complete stream, and closes the append handle on every path.
 // A reserved tail permits an integrity event after the ordinary budget ends.
+// Core invocation includes the writer instance; the private ordinal remains
+// unchanged for payload filenames and all events use this same boundary.
 // It never prints or returns an error to the product operation.
 func (writer *evidenceTraceWriter) append(invocation string, event string, pid int, data any, failure bool) error {
   writer.sequence++
   encoded, err := json.Marshal(evidenceTraceEvent{
     Schema: 1, Event: event, WriterPID: writer.pid, Instance: writer.instance,
     Sequence: writer.sequence, At: time.Now().UTC().Format(time.RFC3339Nano),
-    Invocation: invocation, PID: pid, Data: data,
+    Invocation: writer.instance+":"+invocation, PID: pid, Data: data,
   })
   if err != nil {
     return err
