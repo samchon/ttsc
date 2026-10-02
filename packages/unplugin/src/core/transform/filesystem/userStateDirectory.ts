@@ -57,8 +57,9 @@ export function userStateDirectory(...segments: string[]): string | undefined {
 }
 
 /**
- * Create `directory` when absent, and whether it is a real directory only
- * `user` can write to.
+ * Create `directory` when absent and check its nonlinked directory kind.
+ * When a uid is available, also require that owner and private mode bits;
+ * otherwise access control remains with the native temporary-directory policy.
  */
 function ownedDirectory(directory: string, user: number | undefined): boolean {
   fs.mkdirSync(directory, { mode: 0o700, recursive: true });

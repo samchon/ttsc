@@ -208,8 +208,9 @@ export function turbopack(
       // compile that ended in diagnostics or in an exception it reported, is
       // reported through the loader context's own channel instead, and the
       // module evaluates to that error, so the worker lives on and the page
-      // fails with the same message until an input changes, which is what
-      // the verdict is a function of. Every other failure, an adapter error
+      // retains the reported message under the adapter's generation validation.
+      // A reported exception need not be deterministic for identical inputs.
+      // Every other failure, an adapter error
       // before any compile or a generation the adapter could not capture
       // while its inputs kept changing, says nothing about the state, and a
       // module kept on it would never run again: the run fails, and Turbopack

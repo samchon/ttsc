@@ -17,8 +17,8 @@ import { stripTerminalEscapes } from "./stripTerminalEscapes";
  *   Performs no filesystem, path or process operation of its own.
  * @evidence contracts/performance.md#efficient-algorithms
  *   Fixed representation branches select one message and delegate one CSI
- *   scan, linear in message length. String conversion of another thrown value
- *   follows that value's JavaScript conversion and can invoke caller code.
+ *   scan, linear in message length. Message accessors and String conversion
+ *   can invoke caller code, whose cost and failures are not bounded here.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
