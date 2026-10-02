@@ -16,8 +16,8 @@ import type { transformProjectInMemory } from "./transformProjectInMemory";
  * Every part of a transform blocks the thread that runs it: plugin loading
  * computes the source-plugin cache key and evaluates each descriptor in a child
  * process, and the native compile runs synchronously. Awaiting only the native
- * processes would leave plugin loading, measured at over a second per transform
- * on Windows, on the caller's loop. So the unchanged synchronous transform runs
+ * processes would leave plugin loading, which can take over a second per
+ * transform on Windows, on the caller's loop. So the unchanged synchronous transform runs
  * on a worker thread instead, with the same envelope, failures, and
  * descriptor-resilient launches.
  *

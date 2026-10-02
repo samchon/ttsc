@@ -404,9 +404,8 @@ export namespace BuildExecution {
    * project can be resolved.
    *
    * `ttsc --init` exists to write the starter `tsconfig.json`, and `ttsc --all`
-   * / `ttsc -?` only print tsgo's help — none of them needs a project, yet all
-   * three died in project resolution because that layer ran first and
-   * unconditionally. The classification is `FLAG_SCHEMA`'s (`terminal` +
+   * / `ttsc -?` only print tsgo's help: none of them needs a project, so a
+   * project-resolution failure must not stop them. The classification is `FLAG_SCHEMA`'s (`terminal` +
    * `projectFree`), so marking a further flag project-free needs no edit here.
    *
    * A resolvable project keeps the established lane untouched: the build path
