@@ -47,22 +47,25 @@ import { withGoBuildCacheLease } from "./withGoBuildCacheLease";
  * `process.env`, so ambient behavior is unchanged.
  *
  * The cache key includes source and toolchain readings. Before publication the
- * scratch inputs must match those readings and the external toolchain witness
- * must still hold. Different materialized inputs fail the build instead of
- * publishing an executable under a stale key. Default caches are managed
+ * scratch inputs are compared with their recorded digests and the external
+ * toolchain witness is checked. Caller-supplied digests must describe the
+ * intended inputs; metadata-based witnesses and sequential observations do not
+ * pin files against concurrent changes. Detected differences fail publication.
+ * Existing binary hits trust the cache producer and key rather than rehashing
+ * executable bytes. Default caches are managed
  * locally, while explicit roots retain caller-managed pruning policy. Every
- * returned cache key reserves its executable for this process until exit;
+ * returned cache key registers a reader token retained by this process until exit;
  * registration shares the builder/collector lease, and other consumers register
  * independent readers. Failure to establish ownership propagates.
  *
- * @evidence contracts/common.md#principled-implementation Compilation uses the keyed module/contributor/overlay readings, verifies materialized and external sources plus pre-read toolchain witnesses, and publishes only after the build and those identity checks succeed.
+ * @evidence contracts/common.md#principled-implementation Compilation compares materialized and external source digests and checks pre-read toolchain witnesses before publication. These checks use trusted supplied readings and the witness's metadata policy; they detect observed disagreement without providing an atomic input snapshot or validating existing executable bytes.
  * @evidence contracts/common.md#clear-and-simple-design One owner sequences target resolution, key creation, cache selection and fenced build coordination; private helpers own scratch materialization, Go workspace semantics and publication cleanup.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Changed inputs are rejected at their snapshot boundary rather than compensated with an assumed valid key; injected reads are an explicit supported boundary and caller environments never patch process globals.
- * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain effective environment, exact-input verification and managed versus explicit roots; option-map comments state their reading provenance with blank member separation.
+ * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain effective environment, recorded-input comparisons and their trust/observation limits, reader registration and managed versus explicit roots; option-map comments state their reading provenance with blank member separation.
  * @evidence contracts/portability.md#os-neutral-implementation Node path/physical-cache/temp APIs preserve native identities; executable resolution and Windows command handling are isolated owners, and the binary filename explicitly follows its executable platform.
- * @evidence contracts/performance.md#efficient-algorithms Key construction streams conservatively selected source bytes and toolchain identities. A cold build copies those keyed module/external trees, including allowed files that Go may not consume, parses module manifests through a per-build memo and invokes one compiler for the plugin; copy and proof costs follow that full selected population.
- * @evidence contracts/performance.md#reuse-equivalent-work Existing binaries and concurrent builders share the exact version/platform/source/environment key with reader admission before return; fixed trimpath compilation removes disposable snapshot paths from equivalent Go object identities. Load-owned digest maps share readings while source/toolchain proofs reject changed production inputs.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The build owns scratch directories, unpublished binaries and build leases with finally cleanup. One reader reservation per physical cache key remains until this process exits; managed age/LRU maintenance preserves live or unknown readers, while explicit scheduling and disk retention remain caller-owned.
+ * @evidence contracts/performance.md#efficient-algorithms Key construction traverses selected populations and hashes full-file buffers, with path/string processing and canonical sorting. A cold build copies and rehashes selected module/external trees, including allowed files Go may not consume; a per-build manifest memo avoids repeated Go JSON queries for one directory. Workspace/edit/query commands accompany one Go build command, whose internal compiler work is delegated. Costs include selected bytes, directory entries, contributor/external populations, manifest/output text and native observations; lock contention may repeat checks until its budget expires.
+ * @evidence contracts/performance.md#reuse-equivalent-work Existing binaries and concurrent builders share the version/platform/source/environment key with reader admission before return, assuming trustworthy cache producers and supplied digest maps. Fixed trimpath compilation removes disposable snapshot paths from Go object identities. Shared load readings and sequential source/toolchain comparisons reject observed changes; metadata reuse and unobserved concurrent mutation remain the underlying witnesses' limits.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Scratch directories and build/cache leases have finally-based cleanup; scratch removal or lease cleanup can fail, and selected synchronous child settlement does not join arbitrary descendants. Pending binary cleanup is best-effort. Reader tokens and their process map grow with distinct physical keys until process exit. Managed pruning attempts age/LRU reclamation while protecting live, unknown and selected entries, so it is not a hard disk bound; explicit roots remain caller-managed.
  */
 export function buildSourcePlugin(opts: {
   source: string;
@@ -198,7 +201,7 @@ export function buildSourcePlugin(opts: {
   );
   if (managePluginCache) {
     // The pre-build daily pass cannot account for the binary this cold build
-    // just published. Enforce the size policy after publication, once this
+    // just published. Attempt size-policy maintenance after publication, once this
     // process has released its per-key build lock.
     prunePluginCacheRoot(pluginRoot, {
       force: true,
@@ -529,9 +532,9 @@ function reportPluginLockSteal(
  *   plugin's actual module declaration.
  * - Contributors that ship their own `go.mod` are rejected — the design relies on
  *   the contributor living inside the host's module so that workspace overlay
- *   rules and the host's `go.sum` cover transitive dependencies. This also
- *   closes the supply-chain hole where a contributor could otherwise pull in
- *   arbitrary Go modules.
+ *   rules and the host's dependency declarations govern module resolution.
+ *   This is a module-ownership rule, not a sandbox preventing arbitrary imports
+ *   or proving dependency content from the manifest alone.
  */
 function mergeContributors(opts: {
   contributors: readonly ITtscBuildContributor[];
