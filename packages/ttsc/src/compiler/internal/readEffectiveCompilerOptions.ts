@@ -40,15 +40,18 @@ import { spawnNative } from "./spawnNative";
  *
  * @returns The reader, or `null` when safe response inspection is unavailable
  *   or the compiler rejects the arguments. The caller forwards the original
- *   request untouched and retains the compiler diagnostic.
+ *   request untouched and retains the compiler diagnostic. Binary resolution,
+ *   capture/read and malformed JSON failures can still throw; null is not a
+ *   universal failure conversion. Safety observation does not pin response-file
+ *   state across the later native inspection or actual build.
  * @evidence contracts/common.md#principled-implementation Actual response-file frames are validated by native showConfig, whose present properties remain authoritative; omitted booleans use observed shared-frame assignments before configured booleans without reviving present null resets; one native-frame projection applies visible assignments in order over resolved config values, including bare booleans and explicit resets, while config enums are lowercased without trimming or arbitrary schema validation.
  * @evidence contracts/common.md#clear-and-simple-design One returned reader exposes effective values to rootDir, runtime-profile and display consumers. Shared observed tokenization owns safe inspection admission, while native showConfig remains authoritative for response expansion and option values.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unavailable safety inspection or rejected response arguments yield null instead of fabricated effective values; shared generated occurrence metadata determines option arity and boolean assignment, while the separate conservative response tokenizer does not replace native validation.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain precedence, response-file ownership, path bases and the null outcome before acknowledgment tags following documentation guidance.
- * @evidence contracts/performance.md#efficient-algorithms Visible arguments are projected once in native frame order; subsequent reads use canonical metadata and assignment lookups plus normalization of the requested config enum. Response-file mode launches showConfig once and reads its returned record.
+ * @evidence contracts/performance.md#efficient-algorithms Visible arguments are projected once; response mode additionally observes/decodes/hashes expanded response bytes and reprojects them before one showConfig child. Complete capture/JSON parsing, delegated binary selection and native launch costs remain part of this operation. Each query performs option-name/alias normalization and lookups; config enum normalization adds value-text costs.
  * @evidence contracts/performance.md#reuse-equivalent-work One invocation shares the argument projection or compiler-expanded result across option queries; a new build invocation creates a reader because config and response-file state may change.
  *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned closure transfers to its caller and retains only this invocation's options/arguments; spawnNative owns the completed process capture, with no historical cache here.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The returned closure retains the compiler-options reference, assignment Map and optional shown record until its caller discards it; they are not a deep snapshot of mutable configuration. The invocation owns no historical reader cache. Response inspection and spawnNative own synchronous observation/capture cleanup attempts; child duration and expanded/captured bytes have no ceiling supplied here.
  *
  * @evidence contracts/portability.md#os-neutral-implementation Executable and argument arrays are passed through the supported native runner; path values preserve compiler-selected bases instead of shell interpolation or an OS-specific rewrite.
  */

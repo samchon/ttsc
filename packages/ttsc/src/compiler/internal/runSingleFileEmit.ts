@@ -14,8 +14,9 @@ import { readEffectiveCompilerOptions } from "./readEffectiveCompilerOptions";
  * The full project is compiled with its `rootDir` pinned, and the output is
  * selected through the producing build's emitted-source provenance and current
  * physical source identity. Missing or ambiguous ownership is refused without
- * source-map or filename-precedence inference. The temp directory is removed in
- * `finally`, including failure paths. Removal failure propagates on success and
+ * source-map or filename-precedence inference. Temp-directory removal in
+ * `finally` is attempted after acquisition, including failure paths. Removal
+ * failure propagates on success and
  * is aggregated with an earlier operation failure rather than replacing it.
  *
  * @returns The transformed JavaScript source text.
@@ -27,11 +28,11 @@ import { readEffectiveCompilerOptions } from "./readEffectiveCompilerOptions";
  * @evidence contracts/common.md#clear-and-simple-design One operation owns project emission and returned text, delegating option interpretation and source/output identity instead of duplicating those policies.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or ambiguous provenance cannot become ownership through basename, source-map presence or extension precedence; inferred-root pinning addresses the compiler's injected-outDir requirement.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain exact-source selection, missing owned output and temporary lifetime; the private realpath helper describes unavailable identity without a test-specific premise.
- * @evidence contracts/performance.md#efficient-algorithms One project build supplies the semantic context; its source associations are indexed once and only the selected emitted file is read.
+ * @evidence contracts/performance.md#efficient-algorithms Project discovery and effective-option response inspection precede one full project build. Output enumeration visits directory entries and sorts output paths; provenance indexing resolves native output identities and processes source associations. Only selected output content is read here, with optional caller output writing; path/association/output bytes and delegated native/build costs remain part of this call.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This invocation observes the project's current compiler/plugin effects and owns no valid-generation cache; equivalent build sharing belongs to higher-level runtime owners.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources One private output directory is removed in finally after success, build failure, lookup failure or output writing. Cleanup failure propagates after success and aggregates with the original failure and cause after an unsuccessful operation, so neither outcome is hidden.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources One accepted private output directory reaches removal in finally after success, build failure, lookup failure or output writing; acquisition has its own failure limitations. The index and selected text live until return/throw and transfer text to the caller, without an output-byte ceiling or timeout supplied here. Cleanup failure propagates after success and aggregates with the original failure and cause after an unsuccessful operation, so neither outcome is hidden.
  * @evidence contracts/portability.md#os-neutral-implementation Native paths and filesystem identities use Node APIs, child execution uses argument arrays, and optional output targets resolve from the invocation cwd on each supported host.
  */
 export function runSingleFileEmit(options: TtscSingleFileEmitOptions): string {
