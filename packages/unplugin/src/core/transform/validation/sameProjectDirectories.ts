@@ -12,7 +12,7 @@ import type { TtscProjectDirectorySnapshot } from "../project/TtscProjectDirecto
  * @evidence contracts/common.md#meaningful-documentation Native prose explains both-sided relevance and why ignored-on-both directories cannot affect this proof.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares directory signatures by recorded path string; the strings were produced by the same walk, and no filesystem is read.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Temporary maps and path sets are local and no history or native handle is retained.
- * @evidence contracts/performance.md#efficient-algorithms Two relevant maps and a union set permit linear path/signature comparison with temporary space proportional to relevant directories.
+ * @evidence contracts/performance.md#efficient-algorithms Both complete directory populations are scanned to select relevant entries. Two relevant maps and a union set give expected-constant entry lookup per relevant path; key hashing and signature equality retain their text costs. Temporary filtered arrays, map-entry pairs and union key collections grow with the selected relevant directories rather than retaining historical snapshots.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Snapshot admission owns sharing of the resulting proof; this helper computes one value comparison.
  */
 export function sameProjectDirectories(

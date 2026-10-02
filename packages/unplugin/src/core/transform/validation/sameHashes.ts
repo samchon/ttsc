@@ -2,8 +2,8 @@
  * Compare two project-walk snapshots.
  *
  * `keys` narrows the comparison to the generation's declared inputs. The walk
- * hashes every file under the project root, but only a file the compile
- * actually consumed can change an output, and a project root is a working
+ * hashes admitted regular files under the project root, but only a file the
+ * compile actually consumed can change an output, and a project root is a working
  * directory: a framework's generated types, a log, a coverage report, or a test
  * artifact appears and changes there while a compile runs. Comparing those
  * would declare the generation incoherent and cost a whole-project recompile
@@ -19,7 +19,7 @@
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain declared-input scope, unrelated artifacts and the separate membership obligation.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares recorded and current hash maps by key; it reads no filesystem and parses no path.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Key arrays are local to the comparison and no retained cache or native resource is acquired.
- * @evidence contracts/performance.md#efficient-algorithms Declared comparison scans only its key set; legacy comparison materializes both key arrays then checks each left value, linear in compared population.
+ * @evidence contracts/performance.md#efficient-algorithms Declared comparison scans only its key set with early mismatch return; legacy comparison materializes both key arrays before checking left values. Property lookup and hash/signature equality include key and value text costs, while temporary key arrays grow with the full compared records. No file read or membership enumeration is repeated here.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work The generation validator decides whether this snapshot comparison may be shared; this helper computes one requested equality verdict.
  */
 export function sameHashes(
