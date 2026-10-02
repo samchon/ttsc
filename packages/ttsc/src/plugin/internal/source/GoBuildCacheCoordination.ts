@@ -9,26 +9,28 @@ import { SourceBuildCacheLayout } from "./SourceBuildCacheLayout";
 
 /**
  * Coordination between Go builds that use ttsc's own Go object cache and the
- * pruning that keeps that cache bounded.
+ * opportunistic pruning of that cache.
  *
- * Every build and every maintenance pass publishes a record in a private
- * directory of the cache and keeps it fresh with a heartbeat. Pruning skips the
+ * Coordinated build and admitted maintenance attempts publish records in private
+ * cache directories and attempt heartbeat startup. Pruning skips the
  * cohort a live build may still read, and an abandoned record expires after a
- * grace period. Unreadable records or a failed clock-skew repair defer pruning
- * conservatively; this is opportunistic coordination rather than an absolute
+ * grace period (one hour for builds, one minute for maintenance). Byte-read
+ * failure still permits age-based expiry when metadata is readable; unknown
+ * age or failed clock-skew repair defers pruning conservatively. This is
+ * opportunistic coordination rather than an absolute
  * proof that every abandoned record can be reclaimed.
  *
  * Age-based expiry assumes a running task can keep its heartbeat fresh. A
  * prolonged suspension or failed heartbeat after startup can outlast the grace;
  * elapsed time alone does not prove that its Go process has ended.
  *
- * @evidence contracts/common.md#principled-implementation Published task status and independently refreshed mtimes implement the documented freshness policy; unreadable state defers pruning, but grace expiry is not process-absence proof after heartbeat failure.
+ * @evidence contracts/common.md#principled-implementation Published completion and refreshed mtimes implement task policy: build grace is one hour and maintenance grace one minute. Unknown metadata age defers pruning, while unreadable bytes can still expire by observed age; grace expiry is not process-absence proof after heartbeat failure.
  * @evidence contracts/common.md#clear-and-simple-design Root validation, task publication and collection form one coordination boundary used by builders and maintenance.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Time windows are documented coordination policy; worker/process alternatives address actual synchronous-build and native spawn constraints rather than known fixtures.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains lease purpose and conservative unreadable/clock-skew limits; function and member comments describe release and startup outcomes.
  * @evidence contracts/portability.md#os-neutral-implementation Native filesystem metadata and Node worker/process APIs provide the boundary without assuming an OS's case policy.
  *
- * @evidenceExclude contracts/performance.md#efficient-algorithms The namespace itself groups separately reviewed operations and performs no scan.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms The namespace groups member-owned processing strategies and performs no scan itself.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Namespace membership establishes no computed-result identity.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Actual records and workers are owned by create/finish operations rather than the namespace declaration.
  */
@@ -48,17 +50,19 @@ export namespace GoBuildCacheCoordination {
   const GO_BUILD_CACHE_COORDINATION_HEARTBEAT_MS = 5_000;
 
   /**
-   * Create and pin the owned Go cache to an ordinary physical directory.
+   * Create the owned Go cache and return its observed physical directory spelling.
    *
    * The leaf may be user-controlled inside `node_modules/.cache`; accepting a
    * symlink or junction there would let LRU deletion escape into an arbitrary
    * two-hex directory. Returning the canonical spelling also keeps the build,
-   * leases, and maintenance on the same directory if an ancestor alias moves.
+   * leases, and maintenance address that spelling if an ancestor alias moves.
+   * These sequential observations do not retain a directory handle or prevent
+   * later physical-path replacement.
    *
    * @evidence contracts/common.md#principled-implementation lstat rejects aliased leaves and physical parent validation confines the returned Go root to its resolved parent before deletion or builds use it.
    * @evidence contracts/common.md#clear-and-simple-design Validation returns one physical spelling or throws, so consumers do not carry partially safe paths.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Native filesystem facts establish ownership boundaries, not guessed cache names or foreign API mutation.
-   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain project-controlled leaf risk and ancestor alias pinning rather than merely restating mkdir and realpath.
+   * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain project-controlled leaf risk, ancestor-alias spelling resolution and the absence of a retained directory handle.
    * @evidence contracts/portability.md#os-neutral-implementation Native realpath/lstat preserve actual identity; no Windows-name check supplies volume case semantics.
    * @evidence contracts/performance.md#efficient-algorithms Fixed metadata calls validate the leaf; path resolution and recursive creation scale with ancestor depth.
    *
@@ -97,40 +101,43 @@ export namespace GoBuildCacheCoordination {
     file: string;
 
     /**
-     * Stop the heartbeat, attempt to mark the record complete, then delete it.
+     * Request heartbeat shutdown, attempt to mark the record complete, then
+     * attempt deletion. Shutdown is not joined and failures may leave a task or file.
      * A successful completion write prevents a failed delete from leaving the
      * task active; if both writes and deletion fail, stale-timeout handling
      * remains the collector's fallback.
      *
-     * @evidence contracts/common.md#principled-implementation The terminal callback stops refresh and attempts complete-state publication before removal; only successful publication establishes completion if deletion fails.
+     * @evidence contracts/common.md#principled-implementation The terminal callback requests refresher shutdown and attempts complete-state publication before removal; only successful publication records completion if deletion fails, and task termination is not joined.
      * @evidence contracts/common.md#clear-and-simple-design Release is one idempotent operation and prevents later heartbeat restart.
      * @evidence contracts/common.md#prohibited-implementation-shortcuts Completion persistence addresses a real failed-unlink state rather than simulating successful cleanup.
      * @evidence contracts/common.md#meaningful-documentation Native prose states ordering and its failure consequence, separated from tags.
      * @evidence contracts/portability.md#os-neutral-implementation Native worker termination and file removal failures are encapsulated by the owning callback.
-     * @evidence contracts/performance.md#efficient-algorithms Release performs fixed task-control and small metadata operations, independent of cache contents.
+     * @evidence contracts/performance.md#efficient-algorithms Release performs fixed task-control and atomic metadata/removal operations without scanning cache contents; costs include stored path and host/PID metadata bytes and native filesystem resolution.
      *
      * @evidenceExclude contracts/performance.md#reuse-equivalent-work This callback closes one owned task, not a reusable computation.
      *
-     * @evidence contracts/performance.md#bound-retention-and-release-resources Completion stops the worker/process and removes its record best-effort; a failed removal remains marked complete when publication succeeds.
+     * @evidence contracts/performance.md#bound-retention-and-release-resources Finish requests worker termination or child kill without joining it, then attempts completion publication/removal. Failed removal is marked complete only if publication succeeds; otherwise age/uncertainty policy may retain the record, and terminal state prevents another cleanup attempt through this capability.
      */
     finish: () => void;
 
     /**
-     * Keep the record fresh from a background worker while this thread blocks
-     * in a synchronous build. Idempotent; returns `false` when no worker could
-     * initialize within the startup grace (the record then relies on its stale
-     * timeout). Finished records cannot be restarted.
+     * Keep the record fresh from a background refresher while this thread blocks
+     * in a synchronous build. Successful startup is reused; failed startup can
+     * be attempted again. Returns `false` when no mechanism could
+     * initialize during readiness checks (the record then relies on age policy).
+     * Repeated calls reuse the startup-acknowledged capability without proving
+     * the refresher is still healthy. Finished records cannot be restarted.
      *
      * @evidence contracts/common.md#principled-implementation Initialization acknowledgement is required before the callback reports an independently refreshing task; a completed record has no restart capability.
-     * @evidence contracts/common.md#clear-and-simple-design Lazy initialization preserves one heartbeat per unfinished record.
+     * @evidence contracts/common.md#clear-and-simple-design Lazy initialization stores one acknowledged refresher capability per unfinished record, separately from terminal finish state.
      * @evidence contracts/common.md#prohibited-implementation-shortcuts Worker and low-descriptor child paths support actual runtime capability differences, not fixture-specific outcomes.
-     * @evidence contracts/common.md#meaningful-documentation Native prose names synchronous-build purpose, idempotence, initialization failure and terminal-state behavior.
+     * @evidence contracts/common.md#meaningful-documentation Native prose names synchronous-build purpose, acknowledged-capability reuse, retryable initialization failure and terminal-state behavior.
      * @evidence contracts/portability.md#os-neutral-implementation Node workers or the current Node executable provide native background work without shell command quoting.
-     * @evidence contracts/performance.md#efficient-algorithms Repeated starts reuse one live heartbeat; first startup waits at most the bounded initialization grace per attempted mechanism.
+     * @evidence contracts/performance.md#efficient-algorithms Repeated starts reuse the stored startup-acknowledged capability. First startup attempts a worker and, if unavailable, a Node child; timed readiness waits have a grace per mechanism, while construction/native file observations add their own duration. Child script/argument bytes and readiness-path checks contribute to startup cost.
      *
      * @evidenceExclude contracts/performance.md#reuse-equivalent-work Reusing a heartbeat capability is lifecycle ownership, not equivalent build-result reuse.
      *
-     * @evidence contracts/performance.md#bound-retention-and-release-resources At most one successful background task is retained per record and finish owns its termination; startup failures clean their task state.
+     * @evidence contracts/performance.md#bound-retention-and-release-resources One successful refresher capability is stored per record; failed worker termination may overlap child fallback. Startup/finish request termination without joining, and ready-file deletion is best-effort. A later failed refresher is not recreated by repeating start; record expiry follows the declared freshness policy.
      */
     startHeartbeat: () => boolean;
   }
@@ -144,11 +151,11 @@ export namespace GoBuildCacheCoordination {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Random uniqueness and completion-before-unlink address real concurrent publication and cleanup failures; no consumer identity is privileged.
    * @evidence contracts/common.md#meaningful-documentation Native type/member comments describe ownership and release semantics while the factory identifies the publication location.
    * @evidence contracts/portability.md#os-neutral-implementation Native path, hostname and atomic entry publication identify the local task without assuming PID meaning on another host.
-   * @evidence contracts/performance.md#efficient-algorithms Publication writes one small record; startup work is lazy and reused for subsequent start calls.
+   * @evidence contracts/performance.md#efficient-algorithms Publication validates native coordination paths and atomically writes one host/PID/status record, with path/JSON-byte costs. Startup is lazy and shares the stored capability; it includes worker construction or child launch/readiness observations rather than just record writes.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A task lease is not a cached build answer; producer identity and lock sharing belong to the build owner.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives ownership of one record and optional heartbeat, must finish it, and collectors age abandoned records conservatively.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The caller receives one record and lazy refresher capability and must call finish after its synchronous task. Termination is requested without joining; failed startup can overlap fallback, and failed completion/removal can leave records governed by age/uncertainty policy. This factory imposes no cross-task population bound.
    */
   export function createGoBuildCacheCoordinationRecord(
     root: string,
@@ -355,15 +362,15 @@ export namespace GoBuildCacheCoordination {
 
   /**
    * The live records of one coordination directory at `now`. Completed and
-   * provably stale records are deleted; inaccessible metadata is retained when
+   * age-policy-stale records have deletion attempted; inaccessible metadata is retained when
    * its age cannot be established safely.
    *
-   * @evidence contracts/common.md#principled-implementation Completed state overrides age; stale ordinary records are removed while inaccessible or clock-skew-uncertain state conservatively protects possible work.
+   * @evidence contracts/common.md#principled-implementation Complete status overrides age; ordinary records beyond the declared age policy have removal attempted. Unknown metadata age or far-future clock observations preserve possible work, while unreadable content alone does not prevent age-based expiry.
    * @evidence contracts/common.md#clear-and-simple-design One snapshot feeds a liveness helper and best-effort removal, returning only the protected paths.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts PID lifetime is not substituted for task lifetime; actual task status and heartbeat age drive selection.
    * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes completed/stale reclamation from inaccessible metadata retention.
-   * @evidence contracts/portability.md#os-neutral-implementation Native Dirents exclude nonordinary files and coordination-directory validation pins physical ownership.
-   * @evidence contracts/performance.md#efficient-algorithms One listing and per-record metadata reads cost O(record count plus metadata bytes), using O(record count) temporary paths.
+   * @evidence contracts/portability.md#os-neutral-implementation Native Dirents select ordinary files and sequential lstat/realpath checks validate the coordination directory's observed spelling; no directory handle prevents later replacement.
+   * @evidence contracts/performance.md#efficient-algorithms One listing and per-selected-record JSON/mtime reads scale with entry names, path strings and metadata bytes, with arrays retaining entry/path text. Future-clock rebasing can add atomic metadata writes, and stale/complete cleanup adds native removals; directory validation adds native resolution without scanning unrelated cache payloads.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Liveness is time-sensitive and filesystem-mutating collection is not memoized.
    *
