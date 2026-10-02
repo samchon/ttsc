@@ -6,17 +6,19 @@ import { readJsonFile } from "./readJsonFile";
 import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
 
 /**
- * Resolve one `extends` specifier of a tsconfig to the config file it names, by
- * TypeScript-Go's rule (`getExtendsConfigPath`).
+ * Resolve one `extends` specifier using ttsc's shared file-candidate rule and
+ * Node package resolution from the declaring config.
  *
- * - A specifier naming a file (rooted, `./`, or `../`, after `\` is folded into
- *   `/`) resolves to the first of its candidates that is a regular file
+ * - A specifier naming a file (host-absolute, `./`, or `../`, after `\` is
+ *   folded into `/`) resolves to the first candidate that is a regular file
  *   (`tsconfigExtendsFileCandidates`), under the spelling it was reached by.
  * - Any other specifier is resolved like a module from the declaring config: a
  *   bare package root selects its preset through `package.json#tsconfig`, then
  *   Node's resolver is asked for the specifier and for the specifier with
- *   `.json` appended. A module resolves to its physical path, as
- *   TypeScript-Go's module resolution does.
+ *   `.json` appended. Selected module paths use realpath when it succeeds and
+ *   retain the selected spelling when it fails. Node's resolver does not
+ *   reproduce every TypeScript-Go module condition or expose its full search
+ *   topology; observers therefore cannot certify module-chain freshness.
  *
  * The one rule both of the workspace's config readers use:
  * ttsc's project reader canonicalizes the answer before it reads the chain
@@ -33,12 +35,12 @@ import { tsconfigExtendsFileCandidates } from "./tsconfigExtendsFileCandidates";
  * @throws When the specifier names nothing, or a preset's `package.json` does
  *   not parse, naming what failed in ttsc's voice.
  *
- * @evidence contracts/common.md#principled-implementation File inheritance uses TypeScript-Go's exact/.json candidate rule; bare preset manifests and Node's module resolver supply established package selection, while observers do not claim unexposed module search topology is complete.
+ * @evidence contracts/common.md#principled-implementation File inheritance uses exact/.json candidates within the shared host-native classification; bare preset manifests and Node's module resolver supply package selection without claiming universal compiler module-condition parity or complete observed search topology.
  * @evidence contracts/common.md#clear-and-simple-design One shared config resolver owns file-versus-module selection, with a small manifest-preset helper and an optional input observer rather than a parallel package resolver.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The .json fallback and manifest tsconfig field address supported compiler differences; selected malformed manifests are errors rather than swallowed faults or fixture-specific paths.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc distinguishes lexical file spelling, physical module identity, preset selection and observation limits; param and acknowledgment spacing follows the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Config separators are folded before native file resolution, package presets use createRequire from their declaring config, and filesystem identities use native realpath instead of POSIX path parsing.
- * @evidence contracts/performance.md#efficient-algorithms File paths check at most two candidates; module selection delegates to Node and reads only a selected preset manifest rather than traversing all dependency trees.
+ * @evidence contracts/performance.md#efficient-algorithms File selection performs at most two native stats plus path text construction; package branches can make manifest and entrypoint resolution attempts, parse the selected manifest bytes, test config candidates and attempt realpath. Node's ancestor/package search and native operations have delegated costs, not fixed costs implied by a bounded local branch count.
  *
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work This resolver owns no result cache; Node's internal module-resolution cache is outside its control and therefore cannot justify an owning freshness proof.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources All paths, require objects and parsed manifest data belong to this invocation; no cache registry or process handle is acquired here.
