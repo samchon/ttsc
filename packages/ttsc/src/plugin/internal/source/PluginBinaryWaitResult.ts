@@ -3,10 +3,11 @@ import type { PluginBuildLockFence } from "./PluginBuildLockFence";
 /**
  * Outcome of one waiting session on another process's plugin build lock.
  *
- * - `published`: the binary exists and can be reused.
- * - `released`: the observed generation no longer exists and no binary appeared —
- *   the holder freed the key normally, so the caller should retry ordinary
- *   acquisition without reporting or removing anything.
+ * - `published`: the binary pathname was observed to exist; the caller owns
+ *   cache-key trust and reader admission before reuse, not this existence test.
+ * - `released`: the inspector supplied a released handoff and the following
+ *   binary existence check was false. Retry ordinary acquisition without
+ *   reporting or removing a holder; a successor may already have appeared.
  * - `abandoned`: the inspector supplied an abandoned-owner observation; the
  *   caller may report and retire precisely the attached generation.
  *
