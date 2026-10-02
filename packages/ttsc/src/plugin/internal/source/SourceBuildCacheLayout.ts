@@ -17,8 +17,8 @@ import { prunePluginCacheRoot } from "./prunePluginCacheRoot";
  * the repository) reclaims every compiled plugin binary and Go object file.
  * This is the `find-cache-dir` convention (Babel, webpack, ESLint, Nuxt): a
  * disposable build cache under `node_modules/.cache/<tool>`. ttsc keeps no
- * global (`~/.cache`) cache; a machine-wide one silently grew to hundreds of GB
- * across tsgo and plugin version bumps, so it was removed outright. See
+ * global (`~/.cache`) cache, because a machine-wide one would grow across tsgo
+ * and plugin version bumps without an owner to reclaim it. See
  * `resolveSourceBuildCachePaths` for the override-then-workspace priority.
  *
  * @evidence contracts/common.md#principled-implementation Named cache parts separate compiled binaries, Go objects and serialized answers whose owners and retention policies differ.
