@@ -18,9 +18,9 @@ import type { RunBuildOptions } from "./RunBuildOptions";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Terminal bypass follows compiler flag semantics and plugin failures remain visible; no retry hides configuration or spawn errors.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes returned exit failures from thrown setup/launch errors and explains the project-free branch.
  * @evidence contracts/portability.md#os-neutral-implementation Execution selection and spawning use the shared native path/process boundaries with cwd and separate argv, rather than constructing a shell command here.
- * @evidence contracts/performance.md#efficient-algorithms One timing ledger and one selected preparation/execution path are used; total work is dominated by actual compiler/plugin operations, not repeated orchestration scans.
+ * @evidence contracts/performance.md#efficient-algorithms Timing creation and terminal selection make their own flag projections before the selected preparation/execution path. Delegated configuration, plugin, native/provenance and diagnostic work follows its actual input/report sizes; timing formatting scans ledger labels and output. No measured dominance or duration/output ceiling is established by this wrapper.
  * @evidence contracts/performance.md#reuse-equivalent-work A resolved execution context is carried through preparation and execution, so this build does not reload its plugin selection between phases.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Synchronous process operations finish before return; the ledger and execution state live for this build and no resident process is retained by this entry point.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The ledger and execution state are build-owned, while returned output/proof/diagnostic records transfer to the caller; no resident handle or historical build is stored here. Delegated native/probe/artifact acquisition and cleanup may be best effort, and thrown setup can precede some cleanup boundaries. This wrapper supplies no duration/output bound or descendant-release certification.
  */
 export function runBuild(options: RunBuildOptions = {}): TtscBuildResult {
   const timing = BuildTiming.createBuildTiming(options);
