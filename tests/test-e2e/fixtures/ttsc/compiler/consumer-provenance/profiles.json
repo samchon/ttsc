@@ -1,0 +1,295 @@
+[
+    {
+        "extension":  ".tsx",
+        "name":  "preserve.tsx",
+        "suffix":  ".jsx",
+        "jsx":  "preserve"
+    },
+    {
+        "extension":  ".jsx",
+        "name":  "preserve.jsx",
+        "suffix":  ".jsx",
+        "jsx":  "preserve"
+    },
+    {
+        "extension":  ".tsx",
+        "name":  "react.tsx",
+        "suffix":  ".js",
+        "jsx":  "react"
+    },
+    {
+        "extension":  ".jsx",
+        "name":  "react.jsx",
+        "suffix":  ".js",
+        "jsx":  "react"
+    },
+    {
+        "extension":  ".tsx",
+        "name":  "react-native.tsx",
+        "suffix":  ".js",
+        "jsx":  "react-native"
+    },
+    {
+        "extension":  ".jsx",
+        "name":  "react-native.jsx",
+        "suffix":  ".js",
+        "jsx":  "react-native"
+    },
+    {
+        "extension":  ".tsx",
+        "name":  "react-jsx.tsx",
+        "suffix":  ".js",
+        "jsx":  "react-jsx"
+    },
+    {
+        "extension":  ".jsx",
+        "name":  "react-jsx.jsx",
+        "suffix":  ".js",
+        "jsx":  "react-jsx"
+    },
+    {
+        "extension":  ".tsx",
+        "name":  "react-jsxdev.tsx",
+        "suffix":  ".js",
+        "jsx":  "react-jsxdev"
+    },
+    {
+        "extension":  ".jsx",
+        "name":  "react-jsxdev.jsx",
+        "suffix":  ".js",
+        "jsx":  "react-jsxdev"
+    },
+    {
+        "extension":  ".tsx",
+        "admitted":  false,
+        "name":  "unsupported-shown-1",
+        "suffix":  ".js",
+        "jsx":  1
+    },
+    {
+        "extension":  ".tsx",
+        "admitted":  false,
+        "name":  "unsupported-shown-2",
+        "suffix":  ".js",
+        "jsx":  2
+    },
+    {
+        "extension":  ".tsx",
+        "admitted":  false,
+        "name":  "unsupported-shown-3",
+        "suffix":  ".js",
+        "jsx":  3
+    },
+    {
+        "extension":  ".tsx",
+        "admitted":  false,
+        "name":  "unsupported-shown-4",
+        "suffix":  ".js",
+        "jsx":  4
+    },
+    {
+        "extension":  ".tsx",
+        "admitted":  false,
+        "name":  "unsupported-shown-5",
+        "suffix":  ".js",
+        "jsx":  5
+    },
+    {
+        "extension":  ".tsx",
+        "admitted":  false,
+        "name":  "unsupported-shown-0",
+        "suffix":  ".js",
+        "jsx":  0
+    },
+    {
+        "extension":  ".tsx",
+        "admitted":  false,
+        "name":  "unsupported-shown-6",
+        "suffix":  ".js",
+        "jsx":  6
+    },
+    {
+        "extension":  ".tsx",
+        "admitted":  false,
+        "name":  "unsupported-shown-\"\"",
+        "suffix":  ".js",
+        "jsx":  ""
+    },
+    {
+        "extension":  ".tsx",
+        "admitted":  false,
+        "name":  "unsupported-shown-\"PRESERVE\"",
+        "suffix":  ".js",
+        "jsx":  "PRESERVE"
+    },
+    {
+        "extension":  ".tsx",
+        "admitted":  false,
+        "name":  "unsupported-shown-\"unknown\"",
+        "suffix":  ".js",
+        "jsx":  "unknown"
+    },
+    {
+        "extension":  ".tsx",
+        "admitted":  false,
+        "name":  "unsupported-shown-null",
+        "suffix":  ".js",
+        "jsx":  null
+    },
+    {
+        "extension":  ".ts",
+        "name":  "no-jsx",
+        "suffix":  ".js"
+    },
+    {
+        "flags":  [
+                      "--jsx",
+                      "react-native"
+                  ],
+        "extension":  ".tsx",
+        "name":  "supplied-effective---jsx react-native",
+        "suffix":  ".js",
+        "jsx":  "react-native"
+    },
+    {
+        "flags":  [
+                      "-JsX",
+                      "REACT-NATIVE"
+                  ],
+        "extension":  ".tsx",
+        "name":  "supplied-effective--JsX REACT-NATIVE",
+        "suffix":  ".js",
+        "jsx":  "react-native"
+    },
+    {
+        "flags":  [
+                      "--jsx",
+                      "preserve",
+                      "--jsx",
+                      "react-native"
+                  ],
+        "extension":  ".tsx",
+        "name":  "supplied-effective---jsx preserve --jsx react-native",
+        "suffix":  ".js",
+        "jsx":  "react-native"
+    },
+    {
+        "flags":  [
+                      "--jsx",
+                      "react-native",
+                      "--jsx",
+                      "preserve"
+                  ],
+        "extension":  ".tsx",
+        "name":  "supplied-effective---jsx react-native --jsx preserve",
+        "suffix":  ".jsx",
+        "jsx":  "preserve"
+    },
+    {
+        "extension":  ".tsx",
+        "name":  "response-frame",
+        "suffix":  ".js",
+        "jsx":  "react-native",
+        "response":  true
+    },
+    {
+        "extension":  ".tsx",
+        "ambiguous":  true,
+        "name":  "ambiguous",
+        "suffix":  ".js",
+        "jsx":  "react"
+    },
+    {
+        "admitted":  false,
+        "name":  "missing",
+        "jsx":  "react",
+        "suffix":  ".js",
+        "extension":  ".tsx",
+        "missing":  true
+    },
+    {
+        "extension":  ".ts",
+        "name":  "react-native-nonjsx-.ts",
+        "suffix":  ".js",
+        "jsx":  "react-native"
+    },
+    {
+        "extension":  ".mts",
+        "name":  "react-native-nonjsx-.mts",
+        "suffix":  ".mjs",
+        "jsx":  "react-native"
+    },
+    {
+        "extension":  ".cts",
+        "name":  "react-native-nonjsx-.cts",
+        "suffix":  ".cjs",
+        "jsx":  "react-native"
+    },
+    {
+        "extension":  ".js",
+        "name":  "react-native-nonjsx-.js",
+        "suffix":  ".js",
+        "jsx":  "react-native"
+    },
+    {
+        "extension":  ".mjs",
+        "name":  "react-native-nonjsx-.mjs",
+        "suffix":  ".mjs",
+        "jsx":  "react-native"
+    },
+    {
+        "extension":  ".cjs",
+        "name":  "react-native-nonjsx-.cjs",
+        "suffix":  ".cjs",
+        "jsx":  "react-native"
+    },
+    {
+        "extension":  ".tsx",
+        "ambiguous":  true,
+        "name":  "react-native-ambiguous",
+        "suffix":  ".js",
+        "jsx":  "react-native"
+    },
+    {
+        "admitted":  false,
+        "name":  "react-native-missing",
+        "jsx":  "react-native",
+        "suffix":  ".js",
+        "extension":  ".tsx",
+        "missing":  true
+    },
+    {
+        "extension":  ".tsx",
+        "admitted":  false,
+        "name":  "malformed-shown-structure-[\"preserve\"]",
+        "suffix":  ".js",
+        "jsx":  [
+                    "preserve"
+                ]
+    },
+    {
+        "extension":  ".tsx",
+        "admitted":  false,
+        "name":  "malformed-shown-structure-[\"react-native\"]",
+        "suffix":  ".js",
+        "jsx":  [
+                    "react-native"
+                ]
+    },
+    {
+        "extension":  ".tsx",
+        "admitted":  false,
+        "name":  "malformed-shown-structure-{\"value\":\"preserve\"}",
+        "suffix":  ".js",
+        "jsx":  {
+                    "value":  "preserve"
+                }
+    },
+    {
+        "extension":  ".tsx",
+        "admitted":  false,
+        "name":  "malformed-shown-structure-true",
+        "suffix":  ".js",
+        "jsx":  true
+    }
+]
