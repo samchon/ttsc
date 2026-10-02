@@ -11,19 +11,19 @@ import { pluginModuleReplaceDirectories } from "./pluginModuleReplaceDirectories
 import { pluginSourceDigest } from "./pluginSourceDigest";
 
 /**
- * Compute a deterministic SHA-256 cache key for a plugin build.
+ * Compute a 32-character lowercase key from a plugin build's SHA-256 digest.
  *
  * The key covers ttsc/tsgo versions, platform, entry package, Go compiler
  * identity, Go build environment variables, overlay module sources, plugin
  * source files, the local directories outside the module that its `go.mod`
  * replaces modules with (`pluginModuleReplaceDirectories`), and contributor
- * source files. Contributors are sorted by name so declaration order does not
- * affect the key.
+ * source files. Contributors are sorted by name; unique names remove input
+ * order dependence, while equal-name rows retain the sort's input order.
  *
  * Each source directory enters the key as its digest (`pluginSourceDigest`),
  * which the transform envelope reports, with the environment below, as the
- * state of each directory a plugin supplied (`pluginSourceState`), so what a
- * consumer proves is exactly what the binary was keyed on.
+ * state of directories selected by the loader's report policy. Supplied memo
+ * values are trusted producer readings, not revalidated content observations.
  * `sourceDigests` carries the digests one load already took: every build of the
  * load keys on one reading of each directory, and the load reports those
  * readings. The environment enters through `hashPluginBuildEnvironment`, the
@@ -38,8 +38,8 @@ import { pluginSourceDigest } from "./pluginSourceDigest";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts All contributors and local module replacements participate; filesystem injection is an explicit byte-reading boundary rather than foreign monkey patching.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain input coverage and the provenance of reported digests; documented optional output maps have blank separation between members.
  * @evidence contracts/portability.md#os-neutral-implementation Native roots are resolved with Node path APIs and executable resolution; platform/architecture intentionally distinguish incompatible binary artifacts.
- * @evidence contracts/performance.md#efficient-algorithms Source files are streamed into per-directory hashes once; ordering costs O(C log C + O log O) for contributors/overlays while toolchain metadata and changed bytes dominate environment work.
- * @evidence contracts/performance.md#reuse-equivalent-work Caller-owned sourceDigests share one absolute-directory reading across contributor, overlay and plugin roles; environmentDigests lets consumers report the exact fresh reading without a second probe.
+ * @evidence contracts/performance.md#efficient-algorithms Source digest misses enumerate/sort paths and read individual files in full, not bounded streaming chunks. Overlay/contributor ordering compares path/name text; replacement discovery can read a manifest/run Go and native containment queries. Toolchain/env hashing delegates native metadata/probes/full bytes and memo checks without an unmeasured dominant-cost ranking; JSON framing processes all version/entry/label/digest text.
+ * @evidence contracts/performance.md#reuse-equivalent-work Caller-owned sourceDigests share supplied absolute-directory readings across roles without independently verifying their provenance/currentness. EnvironmentDigests receives this call's selected environment identity so reporting can avoid another probe; it does not skip environment hashing. Reuse inherits the selected population and metadata/producer premises.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Output maps belong to the enclosing load; this operation retains no handles or process-wide records itself.
  */
@@ -57,12 +57,13 @@ export function computeCacheKey(inputs: {
   environmentDigests?: Map<string, string>;
 
   /**
-   * Receives the metadata of every toolchain path the environment was read from
-   * (`PluginBuildEnvironmentWitness`), so the build can prove the toolchain it
-   * ran is still the one this key read.
+   * Receives selected native toolchain dependencies from the environment reader
+   * for later comparison under its metadata-distinguishability premise; it is
+   * not detection of arbitrary unreported tool/launcher reads.
    */
   environmentWitness?: PluginBuildEnvironmentWitness.Record;
 
+  /** Byte adapter for delegated SDK identity; plugin source digests use fs. */
   filesystem?: Partial<SourceBuildFilesystemOperations>;
   goBinary?: string;
   overlayDirs?: readonly string[];
