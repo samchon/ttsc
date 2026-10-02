@@ -24,7 +24,7 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/
  * @evidence contracts/testing.md#behavioral-verification
  *   Registers an external declaration, checks an unchanged poll is quiet, replaces its directory with changed declaration bytes and requires the importer to invalidate at the next poll.
  * @evidence contracts/testing.md#independent-expectations
- *   A scope rooted at the old directory cannot witness the replacement. Literal quiet then one-importer results require the poll to detect actual root identity and input changes.
+ *   A scope rooted at the old directory cannot witness the replacement. Literal quiet then one-importer results and exactly one external-handle close require the poll to detect actual root identity and input changes; invalidation alone could also come from per-input fallback polling.
  * @evidence contracts/testing.md#distinguishing-cases
  *   Contrasts the unchanged external scope with a same-spelled replacement directory containing different bytes; no event is emitted, so retaining the old scope proof fails.
  * @evidence contracts/testing.md#execution-ownership
@@ -41,13 +41,14 @@ export async function test_vite_compiler_watch_withdraws_a_replaced_external_sco
   const input = path.join(external, "shared.d.ts");
   fs.writeFileSync(input, "export declare const shared: 1;\n");
   const invalidated = new Set<string>();
+  const closed: string[] = [];
   let poll: (() => void) | undefined;
   const watch = createViteServeInputWatch({
     poll(listener) {
       poll = listener;
       return { close: () => (poll = undefined) };
     },
-    watch: () => ({ close: () => undefined }),
+    watch: (scope) => ({ close: () => { closed.push(path.resolve(scope)); } }),
   });
   const importer = path.join(root, "main.ts").replace(/\\/g, "/");
   watch.attach({
@@ -64,6 +65,7 @@ export async function test_vite_compiler_watch_withdraws_a_replaced_external_sco
     assert.ok(poll, "an external scope must keep the shared poll open");
     poll();
     assert.equal(invalidated.size, 0, "an unchanged root must hold");
+    assert.deepEqual(closed, [], "unchanged scopes must retain their handles");
 
     await TestProject.rename(external, `${external}-old`);
     fs.mkdirSync(external);
@@ -74,6 +76,7 @@ export async function test_vite_compiler_watch_withdraws_a_replaced_external_sco
       [importer],
       "a replaced external root must hand its inputs to the poll at once",
     );
+    assert.deepEqual(closed, [external], "the replaced external scope must release its old handle exactly once");
   } finally {
     await watch.dispose();
   }

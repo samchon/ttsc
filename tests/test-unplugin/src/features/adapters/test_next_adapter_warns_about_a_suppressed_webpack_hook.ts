@@ -30,7 +30,7 @@ import { loadNext } from "../internal/adapter-next/loadNext";
 export async function test_next_adapter_warns_about_a_suppressed_webpack_hook(): Promise<void> {
   const next = await loadNext();
   const capture = (config: INextLikeConfig): string => {
-    const original = process.stderr.write.bind(process.stderr);
+    const original = process.stderr.write;
     let written = "";
     process.stderr.write = ((chunk: unknown) => {
       written += String(chunk);

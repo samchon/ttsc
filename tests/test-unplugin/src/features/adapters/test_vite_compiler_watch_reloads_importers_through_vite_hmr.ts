@@ -93,6 +93,7 @@ export async function test_vite_compiler_watch_reloads_importers_through_vite_hm
 
   const hot = await run(true);
   assert.deepEqual(hot.reloaded.sort(), ["client", "ssr"]);
+  assert.deepEqual(hot.invalidated, [], "successful HMR must not take the adapter's fallback");
   assert.deepEqual(hot.messages, [], "Vite, not the adapter, decides a reload");
 
   const cold = await run(false);

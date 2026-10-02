@@ -23,7 +23,7 @@ import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/
  * @evidence contracts/testing.md#independent-expectations
  *   All inputs below the attached project share one pinned recursive observer. Its lifetime is the server lifetime, not input count; the literal one-observer expectation is independent of its implementation.
  * @evidence contracts/testing.md#distinguishing-cases
- *   Includes large registration, complete input withdrawal and disposal, checking active handles, successful closes and close-call attempts at each transition. A 30-second wall-clock bound (about ten times the measured three seconds, so a loaded host cannot trip it while a quadratic rescan of 12,000 inputs still exceeds it) on registering and removing all 12,000 inputs is the only timing assertion; there is no smaller-graph comparison, so the test checks scope count and a coarse time ceiling, not linearity.
+ *   Includes large registration, complete input withdrawal and disposal, checking active handles, successful closes and close-call attempts at each transition. A 30-second wall-clock ceiling on registering and removing all 12,000 inputs is the only timing assertion. Host contention can affect it, and without a smaller-graph comparison it establishes neither linearity nor rejection of every quadratic implementation.
  * @evidence contracts/testing.md#execution-ownership
  *   test_vite_compiler_watch_resources_are_bounded_by_scope calls createViteServeInputWatch.attach/begin/replace/dispose for 12000 predicate inputs; captured handle attempts and active counts belong to this entry, with real path proofs but no kernel observer or Vite host.
  */
@@ -92,7 +92,7 @@ export async function test_vite_compiler_watch_resources_are_bounded_by_scope():
     const elapsed = performance.now() - before;
     assert.ok(
       elapsed < 30_000,
-      `${count} registrations and removals took ${elapsed.toFixed(3)} ms; must remain linear and finish within 30 seconds`,
+      `${count} registrations and removals took ${elapsed.toFixed(3)} ms; must finish within 30 seconds`,
     );
   } finally {
     await watch.dispose();

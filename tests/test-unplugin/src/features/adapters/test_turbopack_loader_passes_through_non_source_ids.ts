@@ -14,8 +14,8 @@ import { runTurbopackLoader } from "../internal/adapter-turbopack/runTurbopackLo
  * without `allowJs` has no program entry for such a file; that no longer fails
  * a build (samchon/ttsc#1308), but it still cost a whole-project compile that
  * could never produce output. The virtual row is defence in depth:
- * `transformTtsc` short-circuits a NUL id itself, and the row pins that the
- * loader no longer depends on a guard inside the transform. The declaration and
+ * `transformTtsc` short-circuits a NUL id itself, so the observable passthrough
+ * cannot distinguish that inner guard from the loader's own filter. The declaration and
  * `node_modules` rows stay pinned by
  * `test_turbopack_loader_passes_through_declarations_and_node_modules`.
  *
@@ -29,6 +29,8 @@ import { runTurbopackLoader } from "../internal/adapter-turbopack/runTurbopackLo
  * @evidence contracts/testing.md#independent-expectations
  *   JavaScript and virtual IDs are excluded by the supported source contract.
  *   The exact supplied source is an independent byte-preservation expectation.
+ *   The virtual row cannot locate rejection between the loader filter and the
+ *   transform's NUL guard; it establishes the public passthrough result.
  * @evidence contracts/testing.md#distinguishing-cases
  *   js, mjs, cjs and jsx spellings plus a TypeScript-shaped virtual ID detect
  *   extension-only or virtual-guard omissions. The companion declaration unit

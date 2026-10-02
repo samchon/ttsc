@@ -17,10 +17,14 @@ import { registrationState } from "../../../../../packages/unplugin/src/core/bun
  * tests/test-e2e/src/features/unplugin/native-plugins/adapters/
  * test_bun_native_host_owns_build_and_runtime_sessions.ts.
  *
+ * 1. Call the public registration operation under Node and verify rejection.
+ * 2. Install against a private runtime and inspect the forwarded loader.
+ * 3. Repeat installation and verify the runtime still owns one loader.
+ *
  * @evidence contracts/testing.md#behavioral-verification The source entry exports a function whose explicit Node call throws a Bun-runtime error. ensureRegistered receives a supported private runtime and its actual registrationState, then forwards exactly one ttsc-unplugin descriptor with a callable setup. A repeated installation request leaves that same capture alone.
  * @evidence contracts/testing.md#independent-expectations The literal runtime error, single registration, ttsc-unplugin name and setup capability specify the registration contract independently of provider construction. Descriptor shape does not claim transformed output or actual Bun hook invocation.
  * @evidence contracts/testing.md#distinguishing-cases Absent ambient runtime rejects explicit registration; a supplied supported capability receives the loader and repeated installation is idempotent. Real Bun preload, build disposal and runtime transformation retain their existing E2E owner.
- * @evidence contracts/testing.md#execution-ownership The test-unplugin runner discovers this adapters entry and directly executes authored register, ensureRegistered and registrationState. It imports no built library, patches no foreign global, starts no process and never invokes a transform loader. The five original E2E assertions execute here; actual public-entry-to-Bun forwarding executes in test_bun_native_host_owns_build_and_runtime_sessions.
+ * @evidence contracts/testing.md#execution-ownership The test-unplugin runner discovers this adapters entry and directly executes authored register, ensureRegistered and registrationState. It imports no built library, patches no foreign global, starts no process and never invokes a transform loader. Actual public-entry-to-Bun forwarding executes in test_bun_native_host_owns_build_and_runtime_sessions.
  */
 export function test_bun_register_preloads_the_runtime_transform_plugin(): void {
   assert.equal(typeof register, "function");

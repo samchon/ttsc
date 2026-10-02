@@ -150,6 +150,11 @@ export async function test_vite_compiler_watch_follows_project_membership(): Pro
       () => invalidated.length === 2,
       "a source in the new directory to invalidate the importer",
     );
+    assert.deepEqual(await settled(), {
+      invalidated: ["client", "ssr"],
+      messages: [],
+      reloaded: [],
+    });
   } finally {
     await watch.dispose();
   }

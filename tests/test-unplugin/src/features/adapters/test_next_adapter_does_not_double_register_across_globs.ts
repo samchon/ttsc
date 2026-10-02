@@ -5,7 +5,6 @@ import type { INextLikeConfig } from "../internal/adapter-next/INextLikeConfig";
 import { LOADER } from "../internal/adapter-next/LOADER";
 import { LOADER_FORMS } from "../internal/adapter-next/LOADER_FORMS";
 import { loadNext } from "../internal/adapter-next/loadNext";
-import { loadNextModule } from "../internal/adapter-next/loadNextModule";
 
 const EXTENSION_NAMES = AUTOMATIC_RULE_GLOBS.map((glob) => glob.slice(2));
 
@@ -65,8 +64,8 @@ const REFUSED_GLOBS = [
  * looks project-wide, yet Turbopack matches nothing with it
  * (samchon/ttsc#1319).
  *
- * 1. Assert the measured allowlist covers every single- and multi-extension
- *    spelling it claims, without duplicates.
+ * 1. Define supported single- and multi-extension spellings from literal
+ *    TypeScript extension families, independently of the production allowlist.
  * 2. Wrap configs that already route the loader under brace, recursive, partial,
  *    path-scoped, conditional, and foreign-loader globs.
  * 3. Assert the wrapper adds exactly the globs each one leaves unrouted, for every
@@ -79,33 +78,18 @@ const REFUSED_GLOBS = [
  * @evidence contracts/testing.md#distinguishing-cases
  *   Covers every measured family with package, regular-file and option-bearing loader identities, adjacent refused or conditional rules, partial coverage and unrelated loaders; preservation and missing automatic rules distinguish over- and under-registration.
  * @evidence contracts/testing.md#execution-ownership
- *   test_next_adapter_does_not_double_register_across_globs loads authored next through loadNextModule and loadNext, owns every glob/loader combination and its named assertion, and uses fixture ownership observations without a Next build or worker process.
+ *   test_next_adapter_does_not_double_register_across_globs loads authored next through loadNext, owns every literal glob/loader combination and its named assertion, and uses fixture ownership observations without a Next build or worker process.
  */
 export async function test_next_adapter_does_not_double_register_across_globs(): Promise<void> {
-  const nextModule = await loadNextModule();
   const next = await loadNext();
-  const coverageEntries = nextModule.TURBOPACK_PROJECT_WIDE_GLOB_COVERAGE;
-  const coverage = new Map(coverageEntries);
-  assert.ok(
-    coverageEntries.length > 0,
-    "the measured allowlist must not be empty",
-  );
-  assert.equal(
-    coverage.size,
-    coverageEntries.length,
-    "the measured allowlist must not contain duplicate glob spellings",
-  );
+  const coverageEntries: [string, readonly string[]][] = [];
   for (const extension of EXTENSION_NAMES) {
     for (const glob of [
       `*.${extension}`,
       `**/*.${extension}`,
       `{**/,}*.${extension}`,
     ]) {
-      assert.deepEqual(
-        coverage.get(glob),
-        [extension],
-        `${glob} must cover its complete single-extension family`,
-      );
+      coverageEntries.push([glob, [extension]]);
     }
   }
   for (const extensions of REQUIRED_EXTENSION_GROUPS) {
@@ -120,11 +104,7 @@ export async function test_next_adapter_does_not_double_register_across_globs():
       `**/{${alternatives}}`,
       `**/**/*.{${suffixes}}`,
     ]) {
-      assert.deepEqual(
-        coverage.get(glob),
-        extensions,
-        `${glob} must cover its complete extension combination`,
-      );
+      coverageEntries.push([glob, extensions]);
     }
   }
   const globs = (config: INextLikeConfig): string[] =>
@@ -185,11 +165,12 @@ export async function test_next_adapter_does_not_double_register_across_globs():
     );
   }
 
-  // And the shapes the guard does recognise. Each names every file with the
+  // And the supported shapes. Each names every file with the
   // extension, so the wrapper's own rules would be a second registration of a
   // file set the caller already routed. Every one of these is driven through a
-  // real Turbopack build by `experimental/test-unplugin`, because whether a
-  // glob covers the project is Turbopack's answer and not ours.
+  // real Turbopack matcher experiment, because whether a glob covers the
+  // project is Turbopack's answer and not ours. This matrix does not read the
+  // production allowlist to derive either its inputs or expected coverage.
   for (const [wide, covered] of coverageEntries) {
     const missing = AUTOMATIC_RULE_GLOBS.filter(
       (glob) => !covered.includes(glob.slice(2)),

@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { pathIsWithin } from "../../../../../packages/unplugin/src/core/transform/filesystem/pathIsWithin";
 import { createViteServeInputWatch } from "../../../../../packages/unplugin/src/core/vite/createViteServeInputWatch";
 
 /**
@@ -75,13 +74,10 @@ export async function test_vite_compiler_watch_observes_no_machine_directory(): 
   });
   try {
     watch.replace(importer, [{ file: probe }, { file: shared }]);
-    const ancestors = opened.filter(
-      (scope) => scope !== path.resolve(root) && pathIsWithin(root, scope),
-    );
     assert.deepEqual(
-      ancestors,
-      [],
-      "no observer may open on an ancestor of the project",
+      [...opened].sort(),
+      [path.resolve(root), path.resolve(sibling)].sort(),
+      "only the project and literal sibling scope may open, never an ancestor",
     );
     assert.ok(
       opened.includes(path.resolve(sibling)),

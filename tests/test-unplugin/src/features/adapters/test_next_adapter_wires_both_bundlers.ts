@@ -7,16 +7,16 @@ import { loadNext } from "../internal/adapter-next/loadNext";
 import { loadersOf } from "../internal/adapter-next/loadersOf";
 
 /**
- * Verifies `withTtsc` wires Turbopack as well as webpack, with the same
- * options.
+ * Verifies `withTtsc` forwards Turbopack options and injects the webpack plugin.
  *
  * The wrapper injected the webpack plugin and nothing else, so a project on
  * Turbopack got no transform at all and no error: the build succeeded and every
  * plugin-driven construct in it survived untransformed into a runtime failure
  * (samchon/ttsc#1310). Turbopack is the default bundler in the Next majors this
  * repository pins, so the covered path was the one fewer users are on. Options
- * must reach both halves identically, since a wrapper that wires two bundlers
- * differently is its own defect.
+ * must reach Turbopack's returned loader rule unchanged. This unit inspects
+ * webpack plugin presence; actual webpack option delivery belongs to the host
+ * experiment.
  *
  * 1. Wrap an empty config with a `project` option.
  * 2. Assert every automatic Turbopack glob routes through the ttsc loader with
@@ -25,7 +25,7 @@ import { loadersOf } from "../internal/adapter-next/loadersOf";
  * @evidence contracts/testing.md#behavioral-verification
  *   Calls authored next with a project option, asserting each automatic source glob uses the ttsc loader with unchanged options and the webpack hook injects exactly one plugin.
  * @evidence contracts/testing.md#independent-expectations
- *   The supported integration contract names ts, tsx, mts and cts automatic rules and requires forwarding the caller's literal project path unchanged to both supported integrations.
+ *   Literal ts, tsx, mts and cts rules and the caller's project path establish Turbopack expectations independently. The webpack count checks additive registration; it cannot distinguish incorrect webpack option forwarding without executing that plugin's host hook.
  * @evidence contracts/testing.md#distinguishing-cases
  *   The empty caller configuration is the assembly-positive branch. Existing hooks and unrelated or conditional rules are owned by the complementary preservation and dedupe units; real webpack and Turbopack execution remain in the packed host batch.
  * @evidence contracts/testing.md#execution-ownership
