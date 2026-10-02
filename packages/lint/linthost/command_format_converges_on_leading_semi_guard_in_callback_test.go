@@ -11,11 +11,10 @@ import (
 // `ttsc format` cascade converges on a leading-semicolon ASI guard inside
 // a reflowed callback body.
 //
-// format/orphan-semi merges `;\n(expr)` onto one line; both
-// format/statement-split and format/print-width's block printer used to
-// re-split it, so the cascade ping-ponged forever and exited non-zero
-// (the "did not converge" path). With statement-split skipping the guard
-// and the block printer keeping it glued, the cascade settles.
+// Orphan-semi merges the guard onto its statement. Statement-split and the
+// block printer must preserve that adjacency through the remaining cascade.
+// Exact first-run output preserves the Promise callback, assignment and ASI
+// guard; the second invocation must leave the same complete file unchanged.
 //
 //  1. Seed (semi:false) a `new Promise` callback whose body opens with a
 //     standalone `;` guard before a `(`-leading statement.
@@ -24,8 +23,8 @@ import (
 //     idempotent on a second run.
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command (semi false) twice on a `new Promise` callback whose body is a standalone `;` line followed by `(x as Y).z = r`; the first run must exit 0 without a did-not-converge message and the file must contain `;(x as Y).z = r`, the second run must exit 0 and leave the file identical.
-// @evidence contracts/testing.md#independent-expectations The merged guard form is an authored substring expectation from the no-semi rule that a `(`-leading statement keeps a glued `;` guard; it is a Contains check, not a whole-file comparison, and the second-run equality is a self-consistency check, not an independent oracle.
-// @evidence contracts/testing.md#distinguishing-cases One input where the cascade used to ping-pong between orphan-semi and statement-split; the assertions distinguish non-convergence (non-zero exit), a missing merge, and second-pass drift. Surrounding text of the first-run output is not compared.
+// @evidence contracts/testing.md#independent-expectations The authored complete expected file keeps the Promise callback and assignment intact while placing the required ASI semicolon directly before the parenthesized statement. Exact first-run equality establishes the intended change independently; second-run equality separately observes stability.
+// @evidence contracts/testing.md#distinguishing-cases A separated guard must become adjacent on the first call and remain adjacent on the second. Full first-run bytes distinguish surrounding-source damage, while the original substring, non-convergence and second-pass checks remain.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand twice against a temp-dir project and JSON config; no child process, built binary or installed consumer.
 func TestCommandFormatConvergesOnLeadingSemiGuardInCallback(t *testing.T) {
   source := "const p = new Promise((r) => {\n" +
@@ -47,6 +46,10 @@ func TestCommandFormatConvergesOnLeadingSemiGuardInCallback(t *testing.T) {
   first, err := os.ReadFile(main)
   if err != nil {
     t.Fatalf("ReadFile: %v", err)
+  }
+  const expected = "const p = new Promise((r) => {\n  ;(x as Y).z = r\n})\n"
+  if string(first) != expected {
+    t.Fatalf("guard merge changed surrounding source: got %q want %q", string(first), expected)
   }
   if !strings.Contains(string(first), ";(x as Y).z = r") {
     t.Fatalf("guard not merged onto its statement:\n%s", string(first))
