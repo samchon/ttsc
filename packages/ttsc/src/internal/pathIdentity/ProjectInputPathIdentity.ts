@@ -6,8 +6,8 @@ import type { FilesystemPathIdentity } from "./FilesystemPathIdentity";
  *
  * It is exactly a {@link FilesystemPathIdentity}. Project inputs carry no rule
  * of their own; the alias keeps call sites that reason about project inputs
- * readable while guaranteeing they agree with every other filesystem-identity
- * consumer.
+ * readable while sharing the same representation. Equality conclusions still
+ * depend on the producing context's observations, platform and error policy.
  *
  * @evidence contracts/common.md#principled-implementation The exact type alias preserves both canonical comparison key and filesystem spelling without adding project-only distinctions that would change identity.
  * @evidence contracts/common.md#clear-and-simple-design A domain alias improves caller vocabulary while the underlying representation and policy retain one owner.

@@ -1,16 +1,17 @@
 import { createFilesystemPathIdentityContext } from "./createFilesystemPathIdentityContext";
 
 /**
- * `location` as the filesystem names it: every link and junction followed and
- * every existing segment spelled as the filesystem stores it
+ * Best-effort physical spelling of `location`: resolved links and junctions
+ * use the filesystem's returned spelling, followed by any unresolved suffix
  * (`createFilesystemPathIdentityContext`).
  *
- * Total on purpose. A location the resolver cannot read keeps the spelling it
- * was given, which is what a caller had before asking.
+ * Total on purpose. Native failures may leave an unresolved suffix after an
+ * observed prefix; if the overall resolution throws, the original spelling is
+ * returned. This is not proof that every existing segment was readable.
  *
  * @param location An absolute path.
  *
- * @returns Its physical spelling, or `location` itself.
+ * @returns Its best-effort spelling, or `location` itself on caught failure.
  *
  * @evidence contracts/common.md#principled-implementation The shared resolver follows existing ancestors and canonicalizes missing suffixes; an unavailable answer falls back to the caller's path because this best-effort utility is not a deletion authorization.
  * @evidence contracts/common.md#clear-and-simple-design The physical-path view delegates to the owning identity resolver and has one total fallback; it does not duplicate alias or case policy.
