@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { GoBoundary } from "../internal/GoBoundary";
 import { Scenarios } from "../internal/Scenarios";
 import { UtilityWorkspace } from "../internal/UtilityWorkspace";
 import { case_banner_diagnostic_lines_point_at_original_source } from "./banner/scenes/case_banner_diagnostic_lines_point_at_original_source";
@@ -13,6 +12,7 @@ import { case_banner_selects_configuration_by_source } from "./banner/scenes/cas
 import { case_banner_shared_host_ignores_future_optional_flags } from "./banner/scenes/case_banner_shared_host_ignores_future_optional_flags";
 import { case_banner_source_maps_point_at_original_source } from "./banner/scenes/case_banner_source_maps_point_at_original_source";
 import { case_banner_ttsx_discovers_an_installed_package_root_config } from "./banner/scenes/case_banner_ttsx_discovers_an_installed_package_root_config";
+import { case_paths_rewrites_only_unshadowed_require } from "./paths/scenes/case_paths_rewrites_only_unshadowed_require";
 import { case_strip_explicit_config_sources_override_package_auto_plugin } from "./strip/scenes/case_strip_explicit_config_sources_override_package_auto_plugin";
 import { case_strip_package_auto_plugin_uses_default_config } from "./strip/scenes/case_strip_package_auto_plugin_uses_default_config";
 import { case_strip_rejects_inline_config_keys } from "./strip/scenes/case_strip_rejects_inline_config_keys";
@@ -41,7 +41,7 @@ import { case_strip_rejects_inline_config_keys } from "./strip/scenes/case_strip
  * @evidence contracts/e2e.md#necessary-boundary The combined real native compiler output connects configuration loading, AST transforms, map correction, JSON copying and the Node loader. Distinct standalone utility command protocols remain Go-owned, while portable plugin decisions remain the package units.
  * @evidence contracts/e2e.md#shared-execution Three CommonJS compiler Programs become one and two output runtime children become one. Three fixture copies become one root with one set of three package links and a content-keyed plugin cache. Two paths-only launcher invocations are removed after their complete serialized output expectations execute through the direct owning Go emitter unit; it needs two in-process Programs for incompatible compiler options but no native producer or product subprocess. Two further inline/removeComments native invocations are removed after their original actual output checks pass in the direct Go map unit. It needs two incompatible in-process Programs but no artifact producer or child. Configuration discovery/error states retain their real runs; no cold or invalidation result is reused.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Sources have distinct output identities and only the combined baseline consumes its JSON/strip configuration. Other configurations explicitly select their ordinary source or strip source and cannot inherit baseline-only plugin settings. Sibling manifests do not become ancestors. Synchronous launcher/runtime calls join before assertions and final removal verifies all linked checkout packages survive.
- * @evidence contracts/e2e.md#preserved-coverage Original paths CommonJS specifier/copied-file/absent-invented-file/runtime assertions and every configured stripping JavaScript/declaration/runtime assertion execute in the combined baseline. All former Bundler/NodeNext file-content, alias-absence, extension, declaration, copied-JSON and attribute expectations execute in packages/paths/test/unit/utility_emit_preserves_bundler_and_nodenext_specifiers_test.go against actual compiler output; its static matrix preserves the nineteen original authored inputs and adds an actual no-data.js-sibling check. Banner and remaining configuration failure identities survive, with exact selected Go case execution verified by GoBoundary. Metadata aliases, empty argv, unsupported and flag-shaped first tokens, and malformed manifest rejection are owned by the direct TestUtilityCommandPrintsVersionAliases, TestUtilityCommandRequiresArgument, TestUtilityCommandRejectsUnknown and TestUtilityCommandRejectsInvalidPluginManifest units; their fifteen former entries no longer start twenty-seven native command invocations.
+ * @evidence contracts/e2e.md#preserved-coverage Original paths CommonJS specifier/copied-file/absent-invented-file/runtime assertions and every configured stripping JavaScript/declaration/runtime assertion execute in the combined baseline. All former Bundler/NodeNext file-content, alias-absence, extension, declaration, copied-JSON and attribute expectations execute in packages/paths/test/unit/utility_emit_preserves_bundler_and_nodenext_specifiers_test.go against actual compiler output; its static matrix preserves the nineteen original authored inputs and adds an actual no-data.js-sibling check. Banner and strip configuration-loading, command-dispatch and junction-resolution failure identities are now in-process units in their packages; the real sidecar entries still execute here, because the host plugin of each generated native build is the process that ttsc starts. Metadata aliases, empty argv, unsupported and flag-shaped first tokens, and malformed manifest rejection are owned by the direct TestUtilityCommandPrintsVersionAliases, TestUtilityCommandRequiresArgument, TestUtilityCommandRejectsUnknown and TestUtilityCommandRejectsInvalidPluginManifest units; their fifteen former entries no longer start twenty-seven native command invocations.
  */
 export async function test_e2e_utilities(): Promise<void> {
   const workspace = UtilityWorkspace.open();
@@ -51,55 +51,8 @@ export async function test_e2e_utilities(): Promise<void> {
   try {
     await Scenarios.collect("utility plugins", [
       [
-        "banner_native_driver_and_config_connections",
-        () =>
-          GoBoundary.run("banner", "./test/e2e", [
-            "TestCommandRunsBuild",
-            "TestCommandRunsCheck",
-            "TestCommandRunsTransform",
-            "TestConfigLoaderTempBaseStaysOnConfigVolume",
-            "TestJSONAndScriptConfigPathsNeverSpawnTheLauncher",
-            "TestPhysicalHostInputResolvesWindowsJunction",
-            "TestResolveBannerTextBranches",
-            "TestResolveConfigTsgoResolvesThroughALinkedTypeScriptInstall",
-            "TestScriptConfigLoaderPrefersDefaultExportOverNamedText",
-            "TestScriptConfigLoaderPrefersTextOverDefault",
-            "TestScriptConfigLoader",
-            "TestScriptConfigLoaderUnwrapsNestedDefault",
-            "TestTypeScriptConfigEvaluatesWithoutTheToolEnvironment",
-            "TestTypeScriptConfigLoaderPrecedence",
-            "TestTypeScriptConfigLoader",
-          ]),
-      ],
-      [
-        "paths_native_driver_and_config_connections",
-        () =>
-          GoBoundary.run("paths", "./test/e2e", [
-            "TestCommandCheckCompletesOnCrossVolumeFilesList",
-            "TestCommandPreservesGlobalAmbientModule",
-            "TestCommandRewritesAllModuleSpecifierForms",
-            "TestCommandRewritesOnlyUnshadowedRequire",
-            "TestCommandRunsBuild",
-            "TestCommandRunsCheck",
-            "TestCommandRunsTransform",
-          ]),
-      ],
-      [
-        "strip_native_driver_and_config_connections",
-        () =>
-          GoBoundary.run("strip", "./test/e2e", [
-            "TestCommandLoadsConfigFromFile",
-            "TestCommandRejectsInlineConfigKeys",
-            "TestCommandRunsBuild",
-            "TestCommandRunsCheck",
-            "TestCommandRunsTransform",
-            "TestCommandStripsEmbeddedStatementForms",
-            "TestConfigLoaderTempBaseStaysOnConfigVolume",
-            "TestJSONAndScriptConfigPathsNeverSpawnTheLauncher",
-            "TestPhysicalHostInputResolvesWindowsJunction",
-            "TestResolveConfigTsgoResolvesThroughALinkedTypeScriptInstall",
-            "TestTypeScriptConfigEvaluatesWithoutTheToolEnvironment",
-          ]),
+        "paths_rewrites_only_unshadowed_require",
+        () => case_paths_rewrites_only_unshadowed_require(workspace),
       ],
       [
         "preserves_executable_shebang",

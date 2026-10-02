@@ -1,12 +1,7 @@
-//go:build e2e
-
 package paths_test
 
 import (
-  "bytes"
-  "context"
   "os"
-  "os/exec"
   "path/filepath"
   "strings"
   "testing"
@@ -15,7 +10,7 @@ import (
   shared "github.com/samchon/ttsc/packages/paths/test/internal/shared"
 )
 
-// TestCommandCheckCompletesOnCrossVolumeFilesList verifies the sidecar never hangs on two-volume inputs.
+// TestCommandCheckCompletesOnCrossVolumeFilesList verifies the check command never hangs on two-volume inputs.
 //
 // Recreates the input of the #310 hang. A tsconfig `files` list mixing inputs
 // from two Windows volumes sent `paths.go::commonSourceDir` into an infinite
@@ -33,19 +28,20 @@ import (
 // TestRewriterCommonSourceDirTerminatesAtVolumeRoots.
 //
 // 1. Seed a no-rootDir project in the temp dir and one `files` entry on the repo volume.
-// 2. Run `check` through the real sidecar under a hard 2-minute deadline.
+// 2. Run `check` through the shared command dispatch under a hard 2-minute deadline.
 // 3. Assert it exits 0 with no output instead of being killed by the deadline.
 //
 // @evidence contracts/testing.md#behavioral-verification The actual paths check command processes a files list spanning the temp and repository volumes and must finish with status zero, empty stdout and empty stderr before the local deadlock deadline.
 // @evidence contracts/testing.md#independent-expectations The explicit alias import has a real matching source and no type error, so successful quiet check owes empty streams; different fixture VolumeName values establish the regression input independently of commonSourceDir.
 // @evidence contracts/testing.md#distinguishing-cases This case owns termination of a real two-volume compiler input population; same-volume machines cannot express it and retain the existing explicit skip, while the source unit owns volume-root traversal calculation.
-// @evidence contracts/testing.md#execution-ownership This named E2E entry executes the actual prebuilt sidecar in a cancellable process against real project files, rather than starting the Go tool to reach the check boundary.
-// @evidence contracts/e2e.md#necessary-boundary The native command, compiler files membership and paths plugin must cooperate on real volume-separated sources; the path-calculation source unit cannot establish host termination or orphan-process prevention. A tsconfig-loaded Program anchors rootDir at its config path, so this case does not itself exercise the common-directory fallback.
-// @evidence contracts/e2e.md#shared-execution The case reuses the same per-package producer as the other native command cases; only this distinct cross-volume project and deadline-supervised invocation remain separate, with no per-case Go build.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity Temp project and repository-volume external source have separate cleanup owners; CommandContext kills the actual producer on the local deadline, and the runner releases its binary only after the whole test process returns.
-// @evidence contracts/e2e.md#preserved-coverage The body asserts, only on machines where the project and the external file are on different volumes, that check --quiet over a files list mixing both volumes returns before a 2-minute deadline with no error and empty trimmed stdout/stderr; on a single-volume machine it skips and asserts nothing.
+// @evidence contracts/testing.md#execution-ownership The named entry is in test/unit and calls utility.RunCommandWithIO, the dispatch the standalone main delegates to, in this Go process with the paths plugin linked by the driver import and a t-owned fixture project; no built binary or child process is started.
 func TestCommandCheckCompletesOnCrossVolumeFilesList(t *testing.T) {
-  cacheDir := filepath.Join(packageRoot(t), "..", "..", "node_modules", ".cache")
+  // A Go test runs in its package directory, packages/paths/test/unit, so four
+  // levels up is the repository root on the repository volume.
+  cacheDir, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "node_modules", ".cache"))
+  if err != nil {
+    t.Fatal(err)
+  }
   if err := os.MkdirAll(cacheDir, 0o755); err != nil {
     t.Fatal(err)
   }
@@ -67,27 +63,23 @@ func TestCommandCheckCompletesOnCrossVolumeFilesList(t *testing.T) {
   }
 
   // The deadline turns a regression into a 2-minute failure instead of a
-  // suite-wide timeout. Resolve the shared producer before timing the check;
-  // the deadline supervises the actual plugin process, never a Go-tool wrapper.
-  binary := resolvePluginBinary(t)
-  ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-  defer cancel()
-  cmd := exec.CommandContext(ctx, binary, "check", "--cwd="+root, "--tsconfig="+filepath.Join(root, "tsconfig.json"), "--plugins-json="+pathsManifest(t), "--quiet")
-  cmd.Dir = packageRoot(t)
-  if coverDir := os.Getenv("TTSC_PLUGIN_COVERDIR"); coverDir != "" {
-    if err := os.MkdirAll(coverDir, 0o755); err != nil {
-      t.Fatal(err)
+  // suite-wide timeout. The dispatch runs in a goroutine so the supervisor can
+  // report a hang; the buffered channel lets a late return finish unobserved.
+  type result struct {
+    status         int
+    stdout, stderr string
+  }
+  done := make(chan result, 1)
+  go func() {
+    status, stdout, stderr := runCommand("check", "--cwd="+root, "--tsconfig="+filepath.Join(root, "tsconfig.json"), "--plugins-json="+pathsManifest(t), "--quiet")
+    done <- result{status, stdout, stderr}
+  }()
+  select {
+  case got := <-done:
+    if got.status != 0 || strings.TrimSpace(got.stdout) != "" || strings.TrimSpace(got.stderr) != "" {
+      t.Fatalf("cross-volume check mismatch: status=%d stdout=%q stderr=%q", got.status, got.stdout, got.stderr)
     }
-    cmd.Env = append(os.Environ(), "GOCOVERDIR="+coverDir)
-  }
-  var out, errorOutput bytes.Buffer
-  cmd.Stdout, cmd.Stderr = &out, &errorOutput
-  err = cmd.Run()
-  if ctx.Err() != nil {
-    t.Fatalf("cross-volume check hung until the deadline: %v", ctx.Err())
-  }
-  stdout, stderr := out.String(), errorOutput.String()
-  if err != nil || strings.TrimSpace(stdout) != "" || strings.TrimSpace(stderr) != "" {
-    t.Fatalf("cross-volume check mismatch: err=%v stdout=%q stderr=%q", err, stdout, stderr)
+  case <-time.After(2 * time.Minute):
+    t.Fatal("cross-volume check hung until the deadline")
   }
 }

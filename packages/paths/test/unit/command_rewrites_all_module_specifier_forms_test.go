@@ -1,5 +1,3 @@
-//go:build e2e
-
 package paths_test
 
 import (
@@ -19,16 +17,12 @@ import (
 // non-module calls cannot regress independently.
 //
 // 1. Create a project with aliases used in every supported specifier form.
-// 2. Run transform through the real sidecar so the compiler parses the source.
+// 2. Run transform through the shared command dispatch so the compiler parses the source.
 // 3. Assert each alias form is rewritten and non-module calls are ignored.
 // @evidence contracts/testing.md#behavioral-verification Transform JSON for one source rewrites static imports and re-exports, import-equals and bare require (the original = require("@lib/message") spelling must be absent), dynamic imports, type imports and external-module augmentation to .js-relative specifiers; fn("@lib/message"), obj.require("@lib/message"), a namespace and an unmatched declared module remain. Two later check --quiet runs over no-rootDir projects (include list, and files list with an external file) must succeed silently.
 // @evidence contracts/testing.md#independent-expectations The authored path mappings yield literal .js-relative specifiers, while non-module expressions retain their original authored text. Returned text is checked rather than evaluated.
 // @evidence contracts/testing.md#distinguishing-cases The fixture distinguishes supported module syntax from fn calls, obj.require and unmatched declarations, then checks local and external files lists without rootDir. It does not independently prove runtime behavior for every syntax form.
-// @evidence contracts/testing.md#execution-ownership The discoverable TestCommandRewritesAllModuleSpecifierForms entry runs in the paths E2E population and calls the real compiled package sidecar; runPlugin captures its native exit and separate streams. This classification does not move its portable assertions into units.
-// @evidence contracts/e2e.md#necessary-boundary The real compiler parses all authored forms and the sidecar transports their transformed text. Portable visitor semantics and root inference still account for much of this case; three native calls are retained without claiming that each is a minimal boundary.
-// @evidence contracts/e2e.md#shared-execution runPlugin reaches the compiled sidecar through resolvePluginBinary, which builds ./plugin once per test process under sync.Once unless TTSC_UTILITY_TEST_BINARY names a prebuilt binary; this function starts three processes (one transform, two check runs over different projects) from that binary and shares no loaded project or running session with any other entry.
-// @evidence contracts/e2e.md#state-isolation-and-reuse-validity Three projects are seeded with shared.SeedProject plus one external directory from t.TempDir; all are removed at test cleanup and each process exits before the next starts. TestMain removes only the fallback producer directory after m.Run. No cold or invalidated state is exercised.
-// @evidence contracts/e2e.md#preserved-coverage The transform status/stderr and JSON decode, the leaked-alias loop, rewritten-specifier loop, the three untouched-form checks and the two check runs are all made in this body; text presence does not prove the rewritten specifiers resolve at runtime.
+// @evidence contracts/testing.md#execution-ownership The named entry is in test/unit and calls utility.RunCommandWithIO, the dispatch the standalone main delegates to, in this Go process with the paths plugin linked by the driver import and a t-owned fixture project; no built binary or child process is started.
 func TestCommandRewritesAllModuleSpecifierForms(t *testing.T) {
   root := shared.SeedProject(t, map[string]string{
     "tsconfig.json":        `{"compilerOptions":{"target":"ES2022","module":"commonjs","strict":true,"paths":{"@lib/*":["./src/lib/*"],"@types/*":["./src/types/*"],"@ambient/*":["./src/ambient/*"]},"outDir":"dist","rootDir":"src"},"include":["src"]}`,
@@ -57,7 +51,7 @@ void load;
 `,
   })
 
-  code, stdout, stderr := runPlugin(t, "transform", "--cwd="+root, "--tsconfig="+filepath.Join(root, "tsconfig.json"), "--plugins-json="+pathsManifest(t))
+  code, stdout, stderr := runCommand("transform", "--cwd="+root, "--tsconfig="+filepath.Join(root, "tsconfig.json"), "--plugins-json="+pathsManifest(t))
   if code != 0 || stderr != "" {
     t.Fatalf("transform branch mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
@@ -91,7 +85,7 @@ void load;
     "src/lib/message.ts": `export const message = "ok";` + "\n",
     "src/main.ts":        `import { message } from "@lib/message";` + "\n" + `export const value = message;` + "\n",
   })
-  code, stdout, stderr = runPlugin(t, "check", "--cwd="+localNoRootDir, "--tsconfig="+filepath.Join(localNoRootDir, "tsconfig.json"), "--plugins-json="+pathsManifest(t), "--quiet")
+  code, stdout, stderr = runCommand("check", "--cwd="+localNoRootDir, "--tsconfig="+filepath.Join(localNoRootDir, "tsconfig.json"), "--plugins-json="+pathsManifest(t), "--quiet")
   if code != 0 || stdout != "" || stderr != "" {
     t.Fatalf("local no-rootDir check mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
@@ -108,7 +102,7 @@ void load;
     "src/lib/message.ts": `export const message = "ok";` + "\n",
     "src/main.ts":        `import { message } from "@lib/message";` + "\n" + `export const value = message;` + "\n",
   })
-  code, stdout, stderr = runPlugin(t, "check", "--cwd="+noRootDir, "--tsconfig="+filepath.Join(noRootDir, "tsconfig.json"), "--plugins-json="+pathsManifest(t), "--quiet")
+  code, stdout, stderr = runCommand("check", "--cwd="+noRootDir, "--tsconfig="+filepath.Join(noRootDir, "tsconfig.json"), "--plugins-json="+pathsManifest(t), "--quiet")
   if code != 0 || stdout != "" || stderr != "" {
     t.Fatalf("no-rootDir check mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
