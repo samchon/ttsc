@@ -8,7 +8,6 @@ import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/l
 import {
   deliverWatchEvent,
   recordWatchers,
-  settleWatchEvents,
 } from "../../../../utils/src/RecordedWatchers";
 import { TestProject } from "../../../../utils/src/TestProject";
 
@@ -85,6 +84,13 @@ export const test_watch_topology_reports_deleted_config_and_recreation =
       fs.writeFileSync(replacement, configText, "utf8");
       await settle();
       const beforeReplacement = configChangeCount(changes);
+      const previousOwner = fs.statSync(config);
+      const replacementOwner = fs.statSync(replacement);
+      assert.notEqual(
+        `${replacementOwner.dev}:${replacementOwner.ino}`,
+        `${previousOwner.dev}:${previousOwner.ino}`,
+        "native replacement fixture must have a distinct physical owner",
+      );
       fs.renameSync(replacement, config);
       deliverWatchEvent(watchers, config, "rename");
       await waitFor(
@@ -100,8 +106,14 @@ export const test_watch_topology_reports_deleted_config_and_recreation =
         () => configChangeCount(changes) > beforeOrdinaryWrite,
         "post-replacement config edit",
       );
+      assert.ok(
+        changes.every(
+          (change) => change.kind === "config" && change.path === config,
+        ),
+      );
     } finally {
       topology.close();
+      assert.ok(watchers.every((watcher) => watcher.active === false));
     }
   };
 

@@ -17,13 +17,12 @@ import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/l
  *
  * 1. Reject the first project-root watcher with EMFILE, prove the ordinary watch
  *    error and the distinct uncovered-lane report, and let the recovery microtask
- *    honor the project-root ceiling.
- * 2. Republish the unchanged snapshot and prove it retries successfully.
- * 3. Reject watchers for an external input's directory and its parent and prove
+ *    honor the project-root ceiling, then republish unchanged and retry successfully.
+ * 2. Reject watchers for an external input's directory and its parent and prove
  *    recovery installs the next safe ancestor in order.
- * 4. Close the topology from inside the error callback and prove no watcher is
+ * 3. Close the topology from inside the error callback and prove no watcher is
  *    created afterwards.
- * 5. Reject a replacement root and keep reporting the old live handle.
+ * 4. Reject a replacement root and keep reporting the old live handle.
  *
  * @evidence contracts/testing.md#behavioral-verification Drives the real WatchTopology.setProjectInputs with fake fs.watch subscriptions through four scenarios: an EMFILE rejection of the project-root watcher then an unchanged republication, a two-step fallback to an existing external ancestor, close() called inside the error callback, and a rejected replacement while a first watcher is live; it asserts attempts, reported errors, unavailable-root reports and the active-root list at each step.
  * @evidence contracts/testing.md#independent-expectations The injected failures (EMFILE, rejected paths by attempt number) are authored, and the expected attempt counts, ordered fallback paths (requested, first fallback, external root), error codes and root sets are literals built from the temp directories and fs.realpathSync.native, not from the topology's own bookkeeping. Close counts of the fake watchers are not asserted.
@@ -31,6 +30,24 @@ import { watchDirectoryThroughFsWatch } from "../../../../../packages/ttsc/src/l
  * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/watch; it drives the real WatchTopology over TestProject.tmpdir directories with fake fs.watch subscriptions injected through the constructor, with no compiler refresh, native build, product host or real OS watcher.
  */
 export async function test_watch_topology_retries_rejected_project_input_roots() {
+  const failures: Error[] = [];
+  for (const run of [
+    verifyRejectedRootRetry,
+    verifyFallbackChain,
+    verifyCloseDuringFailure,
+    verifyLiveRootReportingSurvivesFailedReplacement,
+  ]) {
+    try {
+      await run();
+    } catch (cause) {
+      failures.push(new Error(run.name, { cause }));
+    }
+  }
+  if (failures.length !== 0)
+    throw new AggregateError(failures, "project-input watcher retries failed");
+}
+
+async function verifyRejectedRootRetry(): Promise<void> {
     const root = TestProject.tmpdir("ttsc-project-input-retry-");
     const input = path.join(root, "api", "schema.json");
     const errors: Array<{ error: unknown; location: string }> = [];
@@ -104,9 +121,6 @@ export async function test_watch_topology_retries_rejected_project_input_roots()
 
     }
 
-    await verifyFallbackChain();
-    await verifyCloseDuringFailure();
-    await verifyLiveRootReportingSurvivesFailedReplacement();
 }
 
 async function verifyFallbackChain(): Promise<void> {
