@@ -5,21 +5,20 @@ import "testing"
 // TestCommandFormatLeavesPrettierShapedTypeMembersUntouched pins the fixed
 // point the member terminator must not cost.
 //
-// Reaching the always direction into type members risks the property the
-// repository's format corpus measures: a file Prettier already formatted
-// must produce zero edits. The two shapes that could regress are both
-// here, an inline object type (whose bare last member is Prettier's own
-// output) and a class accessor with a body (which Prettier never follows
-// with `;`). The object-literal accessor, the third shape, is pinned at
-// rule level in
+// The authored file includes already-terminated interface and class members,
+// a broken object type, a bare last member in an inline object type, and a
+// getter with a body and no following terminator. The complete command must
+// preserve all these bytes. It does not exercise missing-terminator insertion
+// or invoke an independent formatter. An object-literal accessor has a
+// separate rule-level fixture in
 // format_semi_keeps_braced_and_object_literal_accessors_bare_test.go.
 //
-//  1. Seed a Prettier 3.8.3-shaped file covering the member contexts.
+//  1. Seed the authored file covering these member contexts.
 //  2. Run `ttsc format`.
 //  3. Assert the file is byte-identical.
 //
 // @evidence contracts/testing.md#behavioral-verification Runs the in-process `format` command on one file with an interface (property, method, index signature), a broken and an inline object type alias, and a class with an index signature and a getter with a body, and requires the whole file byte-identical.
-// @evidence contracts/testing.md#independent-expectations The file is an authored literal in the layout the test comment attributes to Prettier 3.8.3 and serves as its own expected output.
+// @evidence contracts/testing.md#independent-expectations The complete authored literal independently requires preservation of member/type spellings, existing terminators and the getter body, including its return value. Agreement with an installed Prettier is not checked here.
 // @evidence contracts/testing.md#distinguishing-cases Fixed-point cases for member contexts where a terminator must or must not appear (bare last member of an inline type, no `;` after a getter body). No unterminated input that must change is included, so a formatter that never edits members also passes.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run with the format subcommand on a temp-dir project via assertFormatUnchanged; no child process, built binary or installed consumer.
 func TestCommandFormatLeavesPrettierShapedTypeMembersUntouched(t *testing.T) {
