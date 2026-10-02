@@ -47,9 +47,9 @@ import { WatchSession } from "../../../internal/ttsc/internal/watch";
  * @evidence contracts/testing.md#distinguishing-cases Valid emission contrasts with syntax and joint bind/semantic failures, declaration-only and three no-emit states contrast with default ordinary JavaScript/declaration output, and spaced target/module override the baseline. Sparse layouts explicitly omit the ordinary corpus options and select only their staged original source population. Original project/positional argument structure is preserved with owned relative paths; no physically outside-cwd configuration is claimed. Terminal profiles explicitly enable extension rewriting without noEmit/declaration-only suppression, preserving the failed-emit guard. Watch contrasts absent/preexisting initial outDir, external versus unrelated changes, newly discovered versus later-edited directories, failed versus repaired configs, config versus CLI JSX modes, noEmit versus check aliases, removed bundle options versus supported incremental recovery and IPC versus POSIX SIGTERM shutdown. Each output profile begins without its expected artifact. Source-artifact contexts distinguish preserve/react/react-native/automatic/development modes, both source languages, response files and last JSX override without replacing installed CLI or watch evidence.
  * @evidence contracts/testing.md#execution-ownership TestExecutor discovers this E2E source entry and runs the default compiler/cache/watch population. Named synchronous checks and asynchronous observations retain case failures. The optional false argument selects compiler/cache-only local verification, while normal discovery includes watches. Source-unit flag, mode, terminal, JSX resolver and cache-dispatch entries own portable policies without native processes. Default discovery additionally invokes exactly runSourceCompilerProvenanceCorpus through one source-unit-loader child on this same tracked project. The false local argument retains its compiler/cache-only population without that source-artifact child.
  * @evidence contracts/e2e.md#necessary-boundary Actual launcher/native emission and generated Node execution establish artifacts and phase-specific refusals. Kernel junction selection, native-resolved watch inputs, output callbacks, private positional copying and real IPC/SIGTERM shutdown require running hosts; portable parsing and output-name units cannot establish those connections. The source-artifact child separately verifies selected native writes through source BuildExecution, the external-provenance adapter emittedSources relation and EmitOwnershipIndex; synthetic source units cannot certify that producer connection.
- * @evidence contracts/e2e.md#shared-execution One tracked workspace shares twenty compiler/cache commands, including two malformed-option commands, and two Node executions, then six sparse-layout commands preserve four original layouts and a configured noEmit/default-versus-explicit-emit pair without allocating projects, and five terminal commands reuse its project root for selected compiler help and absent/existing config initialization. Repeated diagnostics orderings share the first two existing emit commands without adding a command. Eleven modules share initial emission. Syntax needs its own diagnostic command because native syntax errors suppress later phases; bind and semantic errors share one Program. Six watch hosts on Windows, plus one SIGTERM host on POSIX, use this same workspace. Two project hosts preserve absent/preexisting cold outDir; the second changes config/source selection for three output layouts and adds one removed-option rejection before supported incremental recovery without creating hosts. Opposite JSX overrides and noEmit/check positional requests have immutable different argv. Their initial cycles execute the same runSingleFile emitter/copy operation as the original duplicate one-shot overrides; configured preserve retains one standalone positional command with --pretty immediately before its TSX input, requiring zero status, no TS5042 and only the actual JSX copy. Bare emitting and check hosts each add a nullable-error and repair cycle with explicit strict overriding nonstrict config; these four authored source transitions add no host or public command. Producer artifacts are reused without builds or installs here. The separate source-artifact receipt uses one child and the same project/executable for five producing JSX contexts and two source positional emit operations. Seven owning emit operations are not seven measured native processes or Programs; internal configuration/provenance probes remain uncounted. The three original noEmit-form/invalid one-shot requests transfer into existing analysis hosts with one additional failed native cycle; the configured suppression/override pair keeps two actual CLI requests. Old five requests become two CLI requests plus one added cycle after verified retirement, a net reduction of two requests. Current core requests increase from 29 to 31 while old entries remain; Windows watch hosts stay six. No additional project, installation or contributor build is introduced.
+ * @evidence contracts/e2e.md#shared-execution One tracked workspace shares twenty compiler/cache commands, including two malformed-option commands, and two Node executions, then six sparse-layout commands preserve four original layouts and a configured noEmit/default-versus-explicit-emit pair without allocating projects, and five terminal commands reuse its project root for selected compiler help and absent/existing config initialization. Repeated diagnostics orderings share the first two existing emit commands without adding a command. Eleven modules share initial emission. Syntax needs its own diagnostic command because native syntax errors suppress later phases; bind and semantic errors share one Program. Six watch hosts on Windows, plus one SIGTERM host on POSIX, use this same workspace. Two project hosts preserve absent/preexisting cold outDir; the second changes config/source selection for three output layouts and adds one removed-option rejection before supported incremental recovery without creating hosts. Opposite JSX overrides and noEmit/check positional requests have immutable different argv. Their initial cycles execute the same runSingleFile emitter/copy operation as the original duplicate one-shot overrides; configured preserve retains one standalone positional command with --pretty immediately before its TSX input, requiring zero status, no TS5042 and only the actual JSX copy. Bare emitting and check hosts each add a nullable-error and repair cycle with explicit strict overriding nonstrict config; these four authored source transitions add no host or public command. Producer artifacts are reused without builds or installs here. The separate source-artifact receipt uses one child and the same project/executable for five producing JSX contexts and two source positional emit operations. Seven owning emit operations are not seven measured native processes or Programs; internal configuration/provenance probes remain uncounted. The three original noEmit-form/invalid one-shot requests transfer into existing analysis hosts with one additional failed native cycle; the configured suppression/override pair keeps two actual CLI requests. Old five requests become two CLI requests plus one added cycle after verified retirement, a net reduction of two requests. Core requests grew as former entries were absorbed; Windows watch hosts stay six. No additional project, installation or contributor build is introduced.
  * @evidence contracts/e2e.md#state-isolation-and-reuse-validity Core states reset only dist/out and owned negative inputs and restore baseline config; five sparse profiles each own an absent layout-profile subtree, restore exact config bytes after actual normal child exit and remove only that subtree before the next request. Unproved closure or release blocks later producers and retains the root; native/plugin caches are not globally deleted. Watch edits wait for settled/quiet state and a later completion count. Only the config-relative build metadata is reset after removed-option rejection so the supported incremental profile must publish it cold. Positional output files are removed between modes after host closure. Every WatchSession names the encompassing workspace and requires nonce-bound IPC receipt plus actual close; an unproved join blocks later host creation and retains inputs. The plugin-free POSIX signal case waits for its synchronous native failed-build marker before SIGTERM and awaits actual close even after timeout escalation; forced or unhandled termination retains inputs. Final removal occurs only when process ownership is proved. Source-artifact fixtures stay outside the ordinary src include until that phase, then only absent owned input paths and one owned output directory are staged and independently released. Exact config bytes and every staged path are checked after actual child exit; unproved release prevents later watch hosts and retains the workspace.
- * @evidence contracts/e2e.md#preserved-coverage This corpus owns plain project, threading, declaration/map, spaced flags, rewrite, listing/verbosity, emit policy, diagnostic/terminal and cache boundary assertions, plus four sparse positional/project layout requests. Their source/output paths are rebased under one owned layout-profile subtree while original source literals, absent rootDir/outDir, root-config absence, config-relative layout and public argv choices remain; the original entries stay until actual whole verification passes. Terminal spelling/boolean and JSX output selection have direct source-unit owners, while actual print/copy/output absence remain here. The build-mode source unit owns exact --pretty/src/main.ts files and passthrough arrays; this existing configured-preserve command retains the original zero status, no TS5042 and actual single-file output oracle on a TSX input without another process. Project watch transitions retain linked presentation, mixed-case host banners, every external/included/unrelated input distinction, failure attribution/recovery and native output/quiet assertions. Positional watch initial cycles also retain both duplicate one-shot CLI override output assertions; both analysis aliases retain initial/rebuild/final output absence and emitted-path silence; the noEmit alias additionally retains the original invalid assignment diagnostic, nonzero result and broken.js absence through actual failed IPC close code2. The configured rootDir/no-outDir pair preserves both default suppression and explicit-emit positive on cold adjacent output. The POSIX host retains strict failed-build SIGTERM code/signal assertions. Existing entries remain until this consolidated population has been verified, so the draft does not certify removal or successful native execution. The authored source-artifact matrix adds five-mode two-language native ownership and two react-native consumer connections; it remains unverified until its complete runtime gate. Its source SDK proof does not certify old installed libraries, native ambiguity, outside-fileset diagnostics or POSIX transport.
+ * @evidence contracts/e2e.md#preserved-coverage This corpus owns plain project, threading, declaration/map, spaced flags, rewrite, listing/verbosity, emit policy, diagnostic/terminal and cache boundary assertions, plus four sparse positional/project layout requests. Their source/output paths are rebased under one owned layout-profile subtree while original source literals, absent rootDir/outDir, root-config absence, config-relative layout and public argv choices remain; the former separate entries were deleted after the local verification. Terminal spelling/boolean and JSX output selection have direct source-unit owners, while actual print/copy/output absence remain here. The build-mode source unit owns exact --pretty/src/main.ts files and passthrough arrays; this existing configured-preserve command retains the original zero status, no TS5042 and actual single-file output oracle on a TSX input without another process. Project watch transitions retain linked presentation, mixed-case host banners, every external/included/unrelated input distinction, failure attribution/recovery and native output/quiet assertions. Positional watch initial cycles also retain both duplicate one-shot CLI override output assertions; both analysis aliases retain initial/rebuild/final output absence and emitted-path silence; the noEmit alias additionally retains the original invalid assignment diagnostic, nonzero result and broken.js absence through actual failed IPC close code2. The configured rootDir/no-outDir pair preserves both default suppression and explicit-emit positive on cold adjacent output. The POSIX host retains strict failed-build SIGTERM code/signal assertions. The former separate compiler, cache and watch entries this population replaces were deleted after it passed in one local Windows run; Linux and CI results are not yet known. The authored source-artifact matrix adds five-mode two-language native ownership and two react-native consumer connections; it remains unverified until its complete runtime gate. Its source SDK proof does not certify old installed libraries, native ambiguity, outside-fileset diagnostics or POSIX transport.
  */
 export async function test_compiler_shared_program_preserves_emit_and_diagnostic_boundaries(
   runWatch = true,
@@ -334,6 +334,51 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
       assert.equal(fs.existsSync(output("main.d.ts")), false);
     });
 
+    reset();
+    const listed = command(["--emit", "--listEmittedFiles"]);
+    check("canonical listEmittedFiles surfaces the emitted JavaScript", () => {
+      assert.equal(listed.status, 0, listed.stderr);
+      assert.match(listed.stdout, /TSFILE:.*main\.js/);
+    });
+
+    // Single-file analysis forms never publish the private emit: neither the
+    // canonical flag nor the public alias may write the output or print its path.
+    for (const [name, argv] of [
+      ["--noEmit", ["--cwd", root, "--noEmit", "src/main.ts"]],
+      ["check", ["check", "--cwd", root, "src/main.ts"]],
+    ] as const) {
+      reset();
+      const analysis = spawn(ttscBin, [...argv], { cwd: root });
+      check(`single-file ${name} leaves the tree unchanged`, () => {
+        assert.equal(analysis.status, 0, `${name}: ${analysis.stderr}`);
+        assert.equal(
+          fs.existsSync(output("main.js")),
+          false,
+          `${name} must not write ${output("main.js")}`,
+        );
+        assert.equal(
+          analysis.stdout.includes("dist"),
+          false,
+          `${name} must not print an emitted file path: ${analysis.stdout}`,
+        );
+      });
+    }
+    reset();
+    const brokenInput = path.join(root, "src", "negative", "broken.ts");
+    fs.mkdirSync(path.dirname(brokenInput), { recursive: true });
+    fs.writeFileSync(brokenInput, 'const value: number = "not a number";\n');
+    const brokenAnalysis = spawn(
+      ttscBin,
+      ["--cwd", root, "--noEmit", "src/negative/broken.ts"],
+      { cwd: root },
+    );
+    check("single-file --noEmit preserves diagnostics", () => {
+      assert.notEqual(brokenAnalysis.status, 0, "invalid TypeScript must fail");
+      assert.match(`${brokenAnalysis.stdout}${brokenAnalysis.stderr}`, /TS2322/);
+      assert.equal(fs.existsSync(output("negative/broken.js")), false);
+    });
+    reset();
+
     reset({ rewriteRelativeImportExtensions: true });
     const malformedFlags = command([
       "--outFile=dist/bundle.js",
@@ -471,6 +516,15 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
             assert.equal(fs.existsSync(output("main.js")), false);
           },
         );
+        const bareShowConfig = command(["--showConfig"]);
+        check("bare terminal flag prints one config without the guard", () => {
+          assert.equal(bareShowConfig.status, 0, bareShowConfig.stderr);
+          assert.equal(
+            bareShowConfig.stdout.split('"compilerOptions"').length - 1,
+            1,
+          );
+          assert.doesNotMatch(bareShowConfig.stdout, /noEmitOnError/);
+        });
       }
     }
 
@@ -1564,6 +1618,39 @@ export async function test_compiler_shared_program_preserves_emit_and_diagnostic
         assert.equal(
           /TS5042/.test(configured.stdout + configured.stderr),
           false,
+        );
+        assert.equal(fs.existsSync(path.join(root, "dist/view.jsx")), true);
+        assert.equal(fs.existsSync(path.join(root, "dist/view.js")), false);
+      });
+      fs.rmSync(path.join(root, "dist/view.jsx"), { force: true });
+      // One-shot positional requests with an explicit --jsx override the
+      // configured output kind in both directions.
+      const cliTransform = spawn(
+        ttscBin,
+        ["--cwd", root, "--jsx", "react-native", "src/view.tsx"],
+        { cwd: root },
+      );
+      check("one-shot --jsx react-native overrides configured preserve", () => {
+        assert.equal(
+          cliTransform.status,
+          0,
+          `${cliTransform.stdout}${cliTransform.stderr}`,
+        );
+        assert.equal(fs.existsSync(path.join(root, "dist/view.js")), true);
+        assert.equal(fs.existsSync(path.join(root, "dist/view.jsx")), false);
+      });
+      fs.rmSync(path.join(root, "dist/view.js"), { force: true });
+      select("configured-preserve", { jsx: "react-native" });
+      const cliPreserve = spawn(
+        ttscBin,
+        ["--cwd", root, "--jsx", "preserve", "src/view.tsx"],
+        { cwd: root },
+      );
+      check("one-shot --jsx preserve overrides configured react-native", () => {
+        assert.equal(
+          cliPreserve.status,
+          0,
+          `${cliPreserve.stdout}${cliPreserve.stderr}`,
         );
         assert.equal(fs.existsSync(path.join(root, "dist/view.jsx")), true);
         assert.equal(fs.existsSync(path.join(root, "dist/view.js")), false);
