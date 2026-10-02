@@ -26,6 +26,9 @@ export function test_source_copy_preserves_entry_kinds_and_keyed_bytes(): void {
   const root = TestProject.tmpdir("ttsc-source-copy-");
   const source = path.join(root, "source");
   const copied = path.join(root, "copied");
+  TestProject.copyDirectory(path.join(TestProject.WORKSPACE_ROOT, "packages", "ttsc", "test", "fixtures", "unit", "source_copy_preserves_entry_kinds_and_keyed_bytes", "inputs-1"), root);
+  for (const relative of ["source/main.go", "source/vendor/local/value.go", "source/lib/helper.go", "source/dist/generated.go", "source/build/generated.go", "source/node_modules/dependency/value.go", "outside/unkeyed.go"])
+    fs.renameSync(path.join(root, `${relative}.txt`), path.join(root, relative));
   const expected = [
     ["main.go", "package main\n"],
     ["vendor/local/value.go", "package local\n"],
@@ -37,8 +40,11 @@ export function test_source_copy_preserves_entry_kinds_and_keyed_bytes(): void {
   ] as const;
   for (const [relative, bytes] of expected) {
     const location = path.join(source, relative);
-    fs.mkdirSync(path.dirname(location), { recursive: true });
-    fs.writeFileSync(location, bytes);
+    if (!relative.endsWith(".go")) {
+      fs.mkdirSync(path.dirname(location), { recursive: true });
+      fs.writeFileSync(location, bytes);
+    }
+    assert.equal(fs.readFileSync(location, "utf8"), bytes);
     assert.equal(copiesPluginSourceEntry(source, location), true, relative);
   }
   const omitted = [
@@ -51,8 +57,11 @@ export function test_source_copy_preserves_entry_kinds_and_keyed_bytes(): void {
   ];
   for (const relative of omitted) {
     const location = path.join(source, relative);
-    fs.mkdirSync(path.dirname(location), { recursive: true });
-    fs.writeFileSync(location, "excluded\n");
+    if (!relative.endsWith(".go")) {
+      fs.mkdirSync(path.dirname(location), { recursive: true });
+      fs.writeFileSync(location, "excluded\n");
+    }
+    assert.equal(fs.readFileSync(location, "utf8"), "excluded\n");
   }
   for (const relative of [
     "nested/.git",
@@ -69,8 +78,7 @@ export function test_source_copy_preserves_entry_kinds_and_keyed_bytes(): void {
       relative,
     );
   const outside = path.join(root, "outside");
-  fs.mkdirSync(outside);
-  fs.writeFileSync(path.join(outside, "unkeyed.go"), "package outside\n");
+  assert.equal(fs.readFileSync(path.join(outside, "unkeyed.go"), "utf8"), "package outside\n");
   const link = path.join(source, "linked");
   fs.symlinkSync(
     outside,
