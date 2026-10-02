@@ -36,6 +36,7 @@ export function test_commonjs_runtime_source_preserves_bindings_and_locations():
     return module.exports;
   };
   assert.equal(evaluate('"custom";"use strict";module.exports=(function(){return this;})();'), undefined);
+  assert.equal(evaluate('"use strict";"custom";module.exports=(function(){return this;})();'), undefined);
   assert.equal(evaluate('"custom";module.exports=(function(){return this===globalThis;})();'), true);
   assert.equal(evaluate('"use\\x20strict";module.exports=(function(){return this===globalThis;})();'), true);
   assert.equal(evaluate('#!/usr/bin/env node\n"use strict";module.exports=(function(){return this;})();'), undefined);

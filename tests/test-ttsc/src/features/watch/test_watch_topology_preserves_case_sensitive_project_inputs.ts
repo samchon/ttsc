@@ -60,7 +60,7 @@ export const test_watch_topology_preserves_case_sensitive_project_inputs =
     const upperApi = path.join(upperRoot, "Api");
     const lowerApi = path.join(upperRoot, "api");
     fs.mkdirSync(upperApi);
-    if (createCaseDistinctDirectory(lowerApi) === false) return;
+    if (createCaseDistinctDirectory(lowerApi) === false) return false;
     assert.notEqual(realpath(upperApi), realpath(lowerApi));
 
     const upperExact = path.join(upperRoot, "nested", "evidence.md");

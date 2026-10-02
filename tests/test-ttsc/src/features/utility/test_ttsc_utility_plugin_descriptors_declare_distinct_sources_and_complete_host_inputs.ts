@@ -14,7 +14,7 @@ import { createRequire } from "node:module";
  * absolute path with a hash and a physical-path entry, or the host cannot
  * validate a persisted descriptor evaluation.
  *
- * 1. Write a project whose `lint`, `banner` and `strip` config is an empty JSON
+ * 1. Write a project whose `lint`, `banner` and `strip` config is a `{}` JSON
  *    file, so discovery needs no evaluator.
  * 2. Call each of the four descriptor factories with that project as context.
  * 3. Assert every `source` is absolute and unique across the four descriptors.
@@ -25,7 +25,7 @@ import { createRequire } from "node:module";
  * @evidence contracts/testing.md#behavioral-verification Calls the four real descriptor factories (@ttsc/lint, banner, paths, strip) over a temporary project and asserts the returned source directories and the hostInputs, hostInputHashes and hostInputRealpaths records they build.
  * @evidence contracts/testing.md#independent-expectations The expectation is a relation, not a copied table: sources must be pairwise different and every reported host input must be an absolute path present in both companion records, and the authored project config file must be reported. None of these values are read from a fixed list of descriptor contents.
  * @evidence contracts/testing.md#distinguishing-cases Four descriptors with one shared uniqueness set distinguish a collision between any two sources; the paths descriptor, which reads no file, must not be required to report inputs while the other three must report the config they discover. Stage and capability contents are not asserted here.
- * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/utility; it loads the TypeScript factories through createRequire and runs discovery over a TestProject.tmpdir containing only empty JSON config files, with no native build, installed artifact or product host.
+ * @evidence contracts/testing.md#execution-ownership Unit test discovered once under src/features/utility; it loads the TypeScript factories through createRequire and runs discovery over a TestProject.tmpdir containing only `{}` JSON config files, with no native build, installed artifact or product host.
  */
 export function test_ttsc_utility_plugin_descriptors_declare_distinct_sources_and_complete_host_inputs() {
   const project = TestProject.tmpdir("ttsc-utility-descriptors-");
