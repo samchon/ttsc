@@ -6,35 +6,15 @@ import (
   "testing"
 )
 
-// TestAsIntAcceptsAllIntegerTypesAndRejectsFractional verifies asInt coerces
-// int, int32, int64, integer-valued float64, and json.Number correctly, and
-// rejects fractional float64, non-integer json.Number, and invalid types.
+// TestAsIntAcceptsAllIntegerTypesAndRejectsFractional checks the supported
+// int, int32 and int64 forms, integral float64 and integer json.Number.
+// It does not certify acceptance of every Go integer type.
 //
-// Locks the five arms of the asInt type switch plus the error fallthrough:
-//
-//   - int: preserve the directly supplied integer value.
-//
-//   - int32: must convert to int without error.
-//
-//   - int64: must convert to int without error.
-//
-//   - float64 integer-valued: must coerce without changing its value.
-//
-//   - float64 fractional: must fall through to the error return.
-//
-//   - json.Number valid integer: must coerce via Int64.
-//
-//   - json.Number fractional: must fall through to the error return.
-//
-//   - unsupported type (string): must return the error.
-//
-//     1. Call asInt with an int32 value — assert success and correct result.
-//     2. Call asInt with an int64 value — assert success and correct result.
-//     3. Call asInt with float64(3.7) — assert error (fractional).
-//     4. Call asInt with json.Number("80") — assert success.
-//     5. Call asInt with json.Number("3.5") — assert error (fractional).
-//     6. Call asInt with a string — assert error.
-//     7. Call asInt with int(80) and integral float64(80); assert both retain 80.
+// Independent literals 80 and 100 check preserved values. Fractional
+// float64, fractional JSON number text and a string must be rejected;
+// the fractional float error must also include the supplied field label.
+// This direct fixture does not exercise JSON file loading or prove
+// overflow behavior for values outside the tested range.
 //
 // @evidence contracts/testing.md#behavioral-verification asInt converts int(80), int32(80), int64(100), integral float64(80), and integer json.Number(80), but rejects fractional float64, fractional json.Number and string input; the fractional float error also names its field.
 // @evidence contracts/testing.md#independent-expectations An integer config option preserves exact integer values and rejects fractional or nonnumeric representations; authored 80 and 100 literals supply expectations without using the conversion helper.

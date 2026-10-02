@@ -5,20 +5,13 @@ import (
   "testing"
 )
 
-// TestAsBoolRejectsNonBooleanValue verifies asBool returns a typed error when
-// given a value that is not a Go bool.
+// TestAsBoolRejectsNonBooleanValue verifies rejection of string true and
+// preservation of both actual Boolean values.
 //
-// Locks the error return path inside asBool. The function is the primary
-// boolean coercion helper for every format-block boolean field; when a caller
-// provides a non-bool (e.g. a string), asBool must return an error with the
-// field name in the message so the user can trace the misconfiguration.
-//
-//  1. Call asBool("format.semi", "true") — string value, not bool.
-//  2. Assert an error is returned.
-//  3. Assert the error message names the offending field.
-//  4. Call asBool("format.useTabs", true) — valid bool.
-//  5. Assert no error and the returned value is true.
-//  6. Supply false and require successful preservation rather than a truthy default.
+// The malformed input must report the supplied format.semi field label.
+// The true and false controls distinguish supported bool input from
+// string coercion or an unconditional truthy default. This fixture calls
+// the conversion helper directly, without loading a format block.
 //
 // @evidence contracts/testing.md#behavioral-verification asBool rejects string true with the offending field name and accepts Boolean true and false without changing their values.
 // @evidence contracts/testing.md#independent-expectations Boolean option fields require actual bool values rather than truthy string coercion; the literal true result and field identity supply independent expectations.

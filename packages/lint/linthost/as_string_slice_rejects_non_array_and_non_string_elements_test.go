@@ -5,22 +5,13 @@ import (
   "testing"
 )
 
-// TestAsStringSliceRejectsNonArrayAndNonStringElements verifies asStringSlice
-// returns a typed error when the input is not an array, and when an array
-// element is not a string.
+// TestAsStringSliceRejectsNonArrayAndNonStringElements verifies rejection
+// of a map and a string/integer array, plus empty/singleton acceptance.
 //
-// Locks two error paths inside asStringSlice:
-//
-//   - The `arr, ok := v.([]any)` cast fails when v is not a slice (e.g. a map).
-//
-//   - The per-element `s, ok := item.(string)` cast fails when an element is
-//     not a string (e.g. an integer).
-//
-//     1. Call asStringSlice("format.importOrder", map[string]any{}) — not an array.
-//     2. Assert error mentioning the field.
-//     3. Call asStringSlice("format.importOrder", []any{"ok", 42}) — integer element.
-//     4. Assert error mentioning the field and the index.
-//     5. Accept empty and singleton string arrays, preserving the singleton value.
+// The mixed input requires an error naming index 1 after its valid first
+// element. The literal one must survive the singleton conversion. These
+// direct helper inputs use format.importOrder as an authored diagnostic
+// label, not as a claim that it is a supported config property.
 //
 // @evidence contracts/testing.md#behavioral-verification asStringSlice rejects a map where a string array is required and rejects a mixed string/integer array, preserving field context and the invalid element index 1; empty and singleton arrays retain their values.
 // @evidence contracts/testing.md#independent-expectations String-array config fields require the container and every element to have their declared types; the two authored malformed inputs establish independent rejection oracles.

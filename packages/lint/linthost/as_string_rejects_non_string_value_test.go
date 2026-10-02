@@ -5,18 +5,12 @@ import (
   "testing"
 )
 
-// TestAsStringRejectsNonStringValue verifies asString returns a typed error
-// when given a value that is not a Go string.
+// TestAsStringRejectsNonStringValue verifies rejection of integer 42 and
+// preservation of the string lf.
 //
-// Locks the error return path inside asString. asString is used for
-// `format.trailingComma` and `format.endOfLine`; providing a non-string
-// (e.g. a boolean or integer) must produce a field-named error message.
-//
-//  1. Call asString("format.trailingComma", 42) — integer, not string.
-//  2. Assert an error is returned.
-//  3. Assert the error message names the offending field.
-//  4. Call asString("format.endOfLine", "lf") — valid string.
-//  5. Assert no error and the returned value is "lf".
+// The malformed input must report the supplied format.trailingComma
+// field label. The valid string uses format.endOfLine as its label;
+// this direct helper fixture does not validate either option vocabulary.
 //
 // @evidence contracts/testing.md#behavioral-verification asString rejects integer 42 with format.trailingComma context and preserves valid string lf for format.endOfLine.
 // @evidence contracts/testing.md#independent-expectations String options do not stringify arbitrary values; the authored lf literal and offending field name independently establish preservation and rejection.
