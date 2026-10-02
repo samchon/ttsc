@@ -14,19 +14,19 @@ import (
 // closes a missing statement terminator even without a configured block.
 // `ttsc fix` deliberately does not: it applies lint autofixes and only the
 // format rules a `format` block configured, so with no block the same source
-// keeps its missing semicolons — a pure lint pass. Running both commands on
+// keeps its missing semicolons as a pure lint pass. Running both commands on
 // identical input and asserting the two outputs diverge locks that intentional
 // asymmetry (fix.go's resolver choice) against a regression that silently routes
 // fix through the default formatter.
 //
-//  1. Seed two copies of one source — a `no-var` lint violation plus two missing
+//  1. Seed two copies of one source with a no-var violation and three missing
 //     semicolons — with only a lint rule configured and no `format` block.
 //  2. Run `ttsc fix` on one copy and `ttsc format` on the other.
 //  3. Assert fix applied the lint fix but added no semicolons, while format added
 //     the default semicolons but left the `var` lint violation untouched.
 //
-// @evidence contracts/testing.md#behavioral-verification Runs the in-process `fix` command and then the `format` command on separate copies of one source with only no-var configured and no format block; fix must yield `let` with both semicolons still missing, format must add semicolons while keeping `var`.
-// @evidence contracts/testing.md#independent-expectations The fix result is compared exactly against an authored literal; the format result is checked with Contains for the two terminated lines and a not-contains check for `let `, so it is a partial rather than whole-file oracle.
+// @evidence contracts/testing.md#behavioral-verification Runs the in-process `fix` command and then the `format` command on separate copies of one source with only no-var configured and no format block; fix must yield `let` with all three semicolons still missing, format must add semicolons while keeping `var`.
+// @evidence contracts/testing.md#independent-expectations Both complete files are compared against independently authored literals: fix changes only var to let, while format adds three semicolons and preserves var, the call and the export. Additional original line checks remain.
 // @evidence contracts/testing.md#distinguishing-cases Contrasts two commands over identical input: fix applies lint edits but no default formatting, format applies default semicolons but no lint edit. Both exit 0 with empty output; configured-format-block fix is owned by the sibling fix test.
 // @evidence contracts/testing.md#execution-ownership In-process Go unit: calls run twice (fix, format) against two temp-dir projects; no child process, built binary or installed consumer.
 func TestCommandFixSkipsDefaultFormattingThatFormatApplies(t *testing.T) {
@@ -45,7 +45,7 @@ func TestCommandFixSkipsDefaultFormattingThatFormatApplies(t *testing.T) {
     t.Fatalf("fix mismatch: code=%d stdout=%q stderr=%q", code, stdout, stderr)
   }
   // no-var rewrote `var`→`let`; the default formatter never ran, so both
-  // missing semicolons stay.
+  // missing semicolons stay, including export {}.
   assertFileText(
     t,
     filepath.Join(fixRoot, "src", "main.ts"),
@@ -71,6 +71,10 @@ func TestCommandFixSkipsDefaultFormattingThatFormatApplies(t *testing.T) {
     t.Fatalf("ReadFile: %v", err)
   }
   text := string(got)
+  const formatWant = "var legacy = 1;\nJSON.stringify(legacy);\nexport {};\n"
+  if text != formatWant {
+    t.Fatalf("format changed unrelated source or omitted a terminator: got %q want %q", text, formatWant)
+  }
   if !strings.Contains(text, "var legacy = 1;") {
     t.Fatalf("format must apply the default terminator and keep `var`: %q", text)
   }
