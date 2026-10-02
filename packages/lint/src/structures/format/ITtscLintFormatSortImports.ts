@@ -10,26 +10,23 @@
  * @evidence contracts/common.md#clear-and-simple-design Group order, comparison, merging and runtime permission remain separate options within one import-sorting record.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Runtime reordering requires the supported explicit option rather than assuming every consumer's imports are pure.
  * @evidence contracts/common.md#meaningful-documentation Native comments document placeholders, blank-group syntax, examples, defaults and side-effect risk; paragraphs and member boundaries follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintFormatSortImports is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintFormatSortImports is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintFormatSortImports is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintFormatSortImports is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintFormatSortImports {
   /**
    * Group order. Each entry is a regular expression matched against a
    * declaration's module specifier, or one of these placeholders:
    *
-   * - `<BUILTIN_MODULES>` — Node built-in modules (`fs`, `node:path`, ...).
-   * - `<THIRD_PARTY_MODULES>` — catch-all for specifiers that match no other
+   * - `<BUILTIN_MODULES>`: Node built-in modules (`fs`, `node:path`, ...).
+   * - `<THIRD_PARTY_MODULES>`: catch-all for specifiers that match no other
    *   group. Injected implicitly at the front when omitted.
-   * - `<TYPES>` — `import type` declarations. Combine with a regex to scope it,
+   * - `<TYPES>`: `import type` declarations. Combine with a regex to scope it,
    *   e.g. `<TYPES>^[.]` groups type-only relative imports.
-   * - `""` (empty string) — emit one blank line at this position. An array with
+   * - `""` (empty string): emit one blank line at this position. An array with
    *   no `""` entry produces no blank lines between groups.
    *
-   * Named specifiers inside each declaration are always sorted. Omit for the
-   * default grouping. Example:
+   * Named specifiers inside each eligible declaration are sorted; comments
+   * between specifiers preserve their order. Omit for the default grouping.
+   * Example:
    *
    * ```ts
    * order: [
@@ -52,7 +49,7 @@ export interface ITtscLintFormatSortImports {
 
   /**
    * Case-sensitive comparison. `false` (the default) sorts case-insensitively,
-   * so `React` and `react` order together; `true` uses raw ASCII order
+   * so `React` and `react` order together; `true` uses raw lexicographic order
    * (uppercase before lowercase).
    *
    * @default false

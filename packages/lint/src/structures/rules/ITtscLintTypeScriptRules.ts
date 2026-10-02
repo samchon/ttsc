@@ -32,10 +32,6 @@ import type {
  * @evidence contracts/common.md#clear-and-simple-design One namespace groups TypeScript-specific policies while shared setting aliases and separate options interfaces avoid duplicating configuration representation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported typescript identities are declared directly; legacy aliases and arbitrary built-in option payloads are not added to satisfy individual consumers.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains namespace and checker boundaries, while member comments state implemented subsets and fix effects; paragraphs and member spacing follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintTypeScriptRules is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintTypeScriptRules is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintTypeScriptRules is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintTypeScriptRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintTypeScriptRules {
   /**

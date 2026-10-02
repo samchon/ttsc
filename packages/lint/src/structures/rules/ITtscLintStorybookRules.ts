@@ -17,10 +17,6 @@ import type { ITtscLintStorybookNoUninstalledAddonsRuleOptions } from "./ITtscLi
  * @evidence contracts/common.md#clear-and-simple-design A family map owns Storybook rule selection while one options interface owns addon policy, keeping severity and tuple construction shared.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Storybook policy names are supported identities rather than repository story exceptions, and the options boundary remains typed.
  * @evidence contracts/common.md#meaningful-documentation Native comments explain CSF metadata, play contexts and diagnostic or suggestion effects; family context, paragraphs and member spacing follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintStorybookRules is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintStorybookRules is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintStorybookRules is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintStorybookRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintStorybookRules {
   /**

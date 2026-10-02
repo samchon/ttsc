@@ -17,10 +17,6 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * @evidence contracts/common.md#clear-and-simple-design JSDoc content and the single TSDoc syntax rule share the comment-validation family, leaving formatting configuration with its own owner.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The named syntax subset and rule identifiers are declared directly instead of widening the map to claim all upstream options or grammar coverage.
  * @evidence contracts/common.md#meaningful-documentation Native comments describe useful tag checks and explicitly limit check-values and tsdoc-syntax coverage; member spacing and prose-to-tag separation follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintJsdocRules is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintJsdocRules is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintJsdocRules is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintJsdocRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintJsdocRules {
   /**

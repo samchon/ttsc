@@ -16,10 +16,6 @@
  * @evidence contracts/common.md#clear-and-simple-design Element identity and its two file-access boundaries stay together because downstream policies refer to the same classification.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Element membership is configured through source patterns instead of fixed repository directories or consumer layer names.
  * @evidence contracts/common.md#meaningful-documentation Members distinguish type labels, suffix-matched paths, entry files and private files; each retains its own separated native comment.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintBoundariesElement is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintBoundariesElement is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintBoundariesElement is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintBoundariesElement is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintBoundariesElement {
   /** Element type name used by `boundaries/element-types` policies. */
@@ -52,10 +48,6 @@ export interface ITtscLintBoundariesElement {
  * @evidence contracts/common.md#clear-and-simple-design One policy entry keeps its source condition, target effects and diagnostic override together for ordered evaluation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Architecture restrictions use declared element labels and policy values, without guessed project names or patched module resolution.
  * @evidence contracts/common.md#meaningful-documentation Members explain omitted source matching, allow/disallow target roles and message override, with blank lines between properties.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintBoundariesElementTypesRule is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintBoundariesElementTypesRule is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintBoundariesElementTypesRule is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintBoundariesElementTypesRule is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintBoundariesElementTypesRule {
   /** Source element type(s) the policy applies to. Omit to match all sources. */
@@ -79,10 +71,6 @@ export interface ITtscLintBoundariesElementTypesRule {
  * @evidence contracts/common.md#clear-and-simple-design One base owns element declarations so entry-point, private and dependency policies cannot drift into independent classification shapes.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Classification enters through caller-supplied element definitions, without repository-specific root constants.
  * @evidence contracts/common.md#meaningful-documentation Owning prose identifies source-path classification and the member states its importer/imported-file role, separated from tags.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintBoundariesElementsOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintBoundariesElementsOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintBoundariesElementsOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintBoundariesElementsOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintBoundariesElementsOptions {
   /** Source path elements used to classify importers and imported files. */
@@ -96,10 +84,6 @@ export interface ITtscLintBoundariesElementsOptions {
  * @evidence contracts/common.md#clear-and-simple-design Inheriting element definitions leaves this object responsible only for policy order and fallback.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Policy priority and fallback are explicit rule inputs instead of per-import exceptions to the classifier.
  * @evidence contracts/common.md#meaningful-documentation Comments state first-match precedence and the allow default, with default tags and member spacing separated from prose.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintBoundariesElementTypesRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintBoundariesElementTypesRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintBoundariesElementTypesRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintBoundariesElementTypesRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintBoundariesElementTypesRuleOptions extends ITtscLintBoundariesElementsOptions {
   /**
@@ -120,10 +104,6 @@ export interface ITtscLintBoundariesElementTypesRuleOptions extends ITtscLintBou
  * @evidence contracts/common.md#clear-and-simple-design External policy uses a small direct object because it needs no local-element declaration list.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Package exceptions are caller-authored patterns rather than hardcoded dependency names or installation mutations.
  * @evidence contracts/common.md#meaningful-documentation Members explain the empty allowance behavior, rejected patterns and diagnostic override as separate comments.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintBoundariesExternalRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintBoundariesExternalRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintBoundariesExternalRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintBoundariesExternalRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintBoundariesExternalRuleOptions {
   /** External package/specifier patterns that are allowed. Empty means all. */
@@ -143,10 +123,6 @@ export interface ITtscLintBoundariesExternalRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design Reusing the element block avoids a second shape for identical source classification.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Entry-file policy uses declared elements rather than hardcoded index filenames.
  * @evidence contracts/common.md#meaningful-documentation The rule name and shared target make the alias's purpose explicit; the target documents entry-file meaning and member spacing.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintBoundariesEntryPointRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintBoundariesEntryPointRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintBoundariesEntryPointRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintBoundariesEntryPointRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type ITtscLintBoundariesEntryPointRuleOptions =
   ITtscLintBoundariesElementsOptions;
@@ -158,10 +134,6 @@ export type ITtscLintBoundariesEntryPointRuleOptions =
  * @evidence contracts/common.md#clear-and-simple-design No duplicate private-rule element shape is introduced because classification and file visibility already belong to the shared block.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Privacy is configured through element metadata instead of fixture-specific import prohibitions.
  * @evidence contracts/common.md#meaningful-documentation The alias names the private-import rule, while the shared element documentation supplies the exact same-element exception.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintBoundariesNoPrivateRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintBoundariesNoPrivateRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintBoundariesNoPrivateRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintBoundariesNoPrivateRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type ITtscLintBoundariesNoPrivateRuleOptions =
   ITtscLintBoundariesElementsOptions;
@@ -173,10 +145,6 @@ export type ITtscLintBoundariesNoPrivateRuleOptions =
  * @evidence contracts/common.md#clear-and-simple-design Reusing classification keeps the unknown rule consistent with every other boundaries rule.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Known sources derive from configured elements instead of a hardcoded workspace file list.
  * @evidence contracts/common.md#meaningful-documentation The owning comment names the rule and the shared block explains classification of importers and targets without redundant property tags.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintBoundariesNoUnknownRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintBoundariesNoUnknownRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintBoundariesNoUnknownRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintBoundariesNoUnknownRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type ITtscLintBoundariesNoUnknownRuleOptions =
   ITtscLintBoundariesElementsOptions;
@@ -188,10 +156,6 @@ export type ITtscLintBoundariesNoUnknownRuleOptions =
  * @evidence contracts/common.md#clear-and-simple-design Entity conditions remain separate from dependency-statement metadata because they describe the source or target file, not an import edge.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Selectors inspect declared classification and dependency origin rather than fabricated resolution metadata.
  * @evidence contracts/common.md#meaningful-documentation Each member distinguishes glob matching from boolean file predicates, with separate native comments and no property acknowledgments.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintBoundariesDependenciesEntitySelectorObject is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintBoundariesDependenciesEntitySelectorObject is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintBoundariesDependenciesEntitySelectorObject is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintBoundariesDependenciesEntitySelectorObject is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintBoundariesDependenciesEntitySelectorObject {
   /** Element type glob(s). */
@@ -223,10 +187,6 @@ export interface ITtscLintBoundariesDependenciesEntitySelectorObject {
  * @evidence contracts/common.md#clear-and-simple-design One alias centralizes shorthand normalization for both source and target selectors.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The legacy string form addresses an existing supported configuration syntax rather than a consumer-specific compatibility wrapper.
  * @evidence contracts/common.md#meaningful-documentation Owning prose identifies the shorthand alternative and the structured member type documents entity predicates separately.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintBoundariesDependenciesEntitySelector is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintBoundariesDependenciesEntitySelector is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintBoundariesDependenciesEntitySelector is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintBoundariesDependenciesEntitySelector is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type ITtscLintBoundariesDependenciesEntitySelector =
   | string
@@ -240,10 +200,6 @@ export type ITtscLintBoundariesDependenciesEntitySelector =
  * @evidence contracts/common.md#clear-and-simple-design Import metadata has its own named shape so file predicates cannot be confused with statement predicates.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Matching uses supported AST and import metadata instead of special module examples or guessed runtime behavior.
  * @evidence contracts/common.md#meaningful-documentation Members name dependency-kind, specifier, AST-kind and imported-name matching, with a concrete ImportDeclaration example and property spacing.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintBoundariesDependenciesInfoSelector is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintBoundariesDependenciesInfoSelector is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintBoundariesDependenciesInfoSelector is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintBoundariesDependenciesInfoSelector is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintBoundariesDependenciesInfoSelector {
   /** TypeScript dependency kind. */
@@ -266,10 +222,6 @@ export interface ITtscLintBoundariesDependenciesInfoSelector {
  * @evidence contracts/common.md#clear-and-simple-design Named component selectors compose without duplicating their field vocabularies in each effect.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Edge selection uses endpoint and statement facts rather than per-file exemptions added after a policy fails.
  * @evidence contracts/common.md#meaningful-documentation Members identify importer, imported entity and edge metadata as distinct concerns, each with a separate native comment.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintBoundariesDependenciesSelector is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintBoundariesDependenciesSelector is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintBoundariesDependenciesSelector is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintBoundariesDependenciesSelector is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintBoundariesDependenciesSelector {
   /** Importing entity selector. */
@@ -291,10 +243,6 @@ export interface ITtscLintBoundariesDependenciesSelector {
  * @evidence contracts/common.md#clear-and-simple-design Reusing entity and dependency selectors avoids another overlapping policy-object hierarchy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Multiple effect forms reflect existing supported configuration syntax instead of additional project-specific selector meanings.
  * @evidence contracts/common.md#meaningful-documentation Owning prose identifies the effect role and named alternatives retain their own endpoint and metadata explanations.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintBoundariesDependenciesEffect is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintBoundariesDependenciesEffect is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintBoundariesDependenciesEffect is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintBoundariesDependenciesEffect is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type ITtscLintBoundariesDependenciesEffect =
   | ITtscLintBoundariesDependenciesEntitySelector
@@ -312,10 +260,6 @@ export type ITtscLintBoundariesDependenciesEffect =
  * @evidence contracts/common.md#clear-and-simple-design One policy groups its conditions, effects and message while reusing named selector shapes for their own responsibilities.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The legacy filter has a stated supported precedence; it is not a hidden override or compensating per-import exception.
  * @evidence contracts/common.md#meaningful-documentation Members state omitted-endpoint behavior, effect direction and legacy precedence, keeping separate topics in separate comments.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintBoundariesDependenciesPolicy is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintBoundariesDependenciesPolicy is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintBoundariesDependenciesPolicy is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintBoundariesDependenciesPolicy is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintBoundariesDependenciesPolicy {
   /** Importing entity selector. Omit to match every configured source. */
@@ -352,10 +296,6 @@ export interface ITtscLintBoundariesDependenciesPolicy {
  * @evidence contracts/common.md#clear-and-simple-design Classification is inherited, while policy list, population gates and diagnostic override remain directly visible in one rule object.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The rules alias is documented compatibility for policies; configured origin gates avoid repository-specific dependency exemptions.
  * @evidence contracts/common.md#meaningful-documentation Owning prose states effect precedence; members explain fallback, alias, population gates and supported message placeholders with paragraph separation.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintBoundariesDependenciesRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintBoundariesDependenciesRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintBoundariesDependenciesRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintBoundariesDependenciesRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintBoundariesDependenciesRuleOptions extends ITtscLintBoundariesElementsOptions {
   /**

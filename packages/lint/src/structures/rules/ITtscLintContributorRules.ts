@@ -34,10 +34,6 @@ import type { TtscLintSeverity } from "../TtscLintSeverity";
  * @evidence contracts/common.md#clear-and-simple-design One open interface keeps unlisted contributor names accepted while sharing the existing severity setting type.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The fallback is a documented contributor compatibility boundary, not a built-in rule validation bypass.
  * @evidence contracts/common.md#meaningful-documentation Native prose and an exported-interface example explain typed contributor rules and the unknown fallback; paragraph and tag boundaries follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintContributorRules is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintContributorRules is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintContributorRules is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintContributorRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintContributorRules {
   [ruleName: `${string}/${string}`]:

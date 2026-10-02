@@ -33,9 +33,9 @@ import type { ITtscLintVitestRules } from "./ITtscLintVitestRules";
  * Rule id conventions:
  *
  * - Bare kebab-case ids (`eqeqeq`, `no-console`) belong to
- *   {@link ITtscLintCoreRules} — generic ESLint-compatible rules that apply to
+ *   {@link ITtscLintCoreRules}, generic ESLint-compatible rules that apply to
  *   both JS and TS source.
- * - `typescript/*` ids belong to {@link ITtscLintTypeScriptRules} —
+ * - `typescript/*` ids belong to {@link ITtscLintTypeScriptRules},
  *   TypeScript-only and `@typescript-eslint` plugin rules. `@ttsc/lint` does
  *   not accept legacy bare names or `@typescript-eslint/*` aliases for these
  *   rules.
@@ -61,10 +61,6 @@ import type { ITtscLintVitestRules } from "./ITtscLintVitestRules";
  * @evidence contracts/common.md#clear-and-simple-design One composition alias assembles independently owned rule families and the contributor extension boundary.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Rule families enter through explicit types rather than consumer-specific aliases or runtime mutation.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes bare, namespaced, formatter and contributor identities and explains the generic contributor overlay; lists, paragraphs and tag separation follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintRules is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintRules is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintRules is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type ITtscLintRules = ITtscLintCoreRules &
   ITtscLintTypeScriptRules &

@@ -21,10 +21,6 @@ import type { ITtscLintFormatSortImports } from "./ITtscLintFormatSortImports";
  * @evidence contracts/common.md#clear-and-simple-design A flat record handles ordinary options and delegates the two structured options to dedicated types.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Defaults and customizations use this documented format block rather than hidden fixture-dependent formatting paths or rules-map overrides.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains opt-in activation, check severity, the exclusive format configuration surface and member defaults; separated paragraphs and members follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintFormat is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintFormat is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintFormat is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintFormat is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintFormat {
   /**

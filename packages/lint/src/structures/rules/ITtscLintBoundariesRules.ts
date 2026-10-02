@@ -26,10 +26,6 @@ import type {
  * @evidence contracts/common.md#clear-and-simple-design Six named entries keep dependency, visibility and external-package policies separate while sharing the severity-plus-options tuple representation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The keys name public boundary rules and the values use their declared option interfaces, with no consumer-specific escape type.
  * @evidence contracts/common.md#meaningful-documentation Family prose explains source-file classification and member comments describe each policy's purpose; paragraphs, member spacing and acknowledgment separation follow the documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintBoundariesRules is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintBoundariesRules is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintBoundariesRules is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintBoundariesRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintBoundariesRules {
   /**

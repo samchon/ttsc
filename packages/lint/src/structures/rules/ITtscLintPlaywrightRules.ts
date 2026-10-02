@@ -13,10 +13,6 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * @evidence contracts/common.md#clear-and-simple-design Locator, assertion and runner policies share a family map while their implementations remain separate from the setting representation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Public Playwright policy identifiers are typed configuration entries, with no repository-test exception or arbitrary payload added to the map.
  * @evidence contracts/common.md#meaningful-documentation Native comments explain locator snapshots, waiting and runner-state concerns; family context, separate paragraphs and member spacing follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintPlaywrightRules is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintPlaywrightRules is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintPlaywrightRules is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintPlaywrightRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintPlaywrightRules {
   /**

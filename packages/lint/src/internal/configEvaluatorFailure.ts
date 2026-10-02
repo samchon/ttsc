@@ -15,21 +15,15 @@ interface ConfigEvaluatorProcessResult {
  * launched, something outside killed it, or it exited non-zero after printing
  * its own reason.
  *
- * Nothing is bounded here — not time, not output. Both were the compiler
- * deciding, on numbers nobody chose for this machine, that a user's own config
- * had run too long or said too much. A slow config is a slow build the user can
- * watch and interrupt; a loud one is output they asked for. Neither is this
- * process's memory to spend either, because the child's streams are no longer
- * collected into it.
+ * The caller owns execution time and output routing. This classifier does not
+ * infer a timeout or output limit from a failed status, and stores no child
+ * output. A result with no error or signal and a null status remains a failure
+ * because it does not establish a successful exit.
  *
  * @evidence contracts/common.md#principled-implementation Spawn error, terminating signal and nonzero status are inspected in that order so the returned error describes the actual process outcome.
  * @evidence contracts/common.md#clear-and-simple-design One classifier centralizes process termination reasons without owning execution or output capture.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The classification uses reported process state rather than arbitrary output or runtime thresholds.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains inherited diagnostics and the absence of artificial output limits; paragraphs and the tag boundary follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation configEvaluatorProcessFailure performs no filesystem or process operation of its own.
- * @evidenceExclude contracts/performance.md#efficient-algorithms configEvaluatorProcessFailure has no loop of its own and runs a fixed number of steps.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work configEvaluatorProcessFailure keeps no cache and shares no in-flight computation.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources configEvaluatorProcessFailure acquires no handle or task and retains nothing beyond the receiver's own fields.
  */
 export function configEvaluatorProcessFailure(
   result: ConfigEvaluatorProcessResult,
@@ -62,18 +56,14 @@ export function configEvaluatorProcessFailure(
  * site: the status says that it failed, and this says why.
  *
  * Only a well-formed envelope is honoured. A real evaluation payload never
- * carries this key, and every other shape — an absent file, a build that failed
- * before the loader ran, a half-written result, a payload written before a
- * later non-zero exit — leaves the process status to speak for itself.
+ * carries this key. An absent file, a build that failed before the loader ran,
+ * a half-written result or an ordinary payload followed by a nonzero exit
+ * leaves the process status to speak for itself.
  *
  * @evidence contracts/common.md#principled-implementation JSON parsing plus object and string guards accept only a textual loader-error envelope; absent or malformed data yields no additional reason.
  * @evidence contracts/common.md#clear-and-simple-design A single reader owns failure-envelope decoding beside the process classifier.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or malformed envelopes do not fabricate success or replace the process failure classification.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes process status from loader reason and documents malformed-envelope handling; paragraphs and tags follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation configEvaluatorFailureReason performs no filesystem or process operation of its own.
- * @evidenceExclude contracts/performance.md#efficient-algorithms configEvaluatorFailureReason has no loop of its own and runs a fixed number of steps.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work configEvaluatorFailureReason keeps no cache and shares no in-flight computation.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources configEvaluatorFailureReason acquires no handle or task and retains nothing beyond the receiver's own fields.
  */
 export function configEvaluatorFailureReason(outputPath: string): string {
   try {

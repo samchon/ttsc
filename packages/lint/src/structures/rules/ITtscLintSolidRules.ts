@@ -14,10 +14,6 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * @evidence contracts/common.md#clear-and-simple-design The map groups Solid reactivity and JSX policies while keeping native rule execution outside the configuration representation and sharing severity construction.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported Solid rule identifiers remain explicit entries; unsupported upstream options are not admitted through a catch-all payload or consumer-specific exception.
  * @evidence contracts/common.md#meaningful-documentation Native member comments distinguish the current native checks from upstream configurable behavior and explain Solid-specific concerns; paragraphs and member spacing follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintSolidRules is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintSolidRules is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintSolidRules is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintSolidRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintSolidRules {
   /**

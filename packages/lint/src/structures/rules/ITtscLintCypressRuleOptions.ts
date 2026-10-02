@@ -13,10 +13,6 @@
  * @evidence contracts/common.md#clear-and-simple-design The single methods field exposes the one configurable decision without introducing an independent command registry.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Custom command treatment enters through the documented methods list rather than mutations of Cypress command objects.
  * @evidence contracts/common.md#meaningful-documentation The member explains that names are additional action commands and why later chaining matters; its default and prose are separated from tags.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintCypressUnsafeToChainCommandRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintCypressUnsafeToChainCommandRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintCypressUnsafeToChainCommandRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintCypressUnsafeToChainCommandRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintCypressUnsafeToChainCommandRuleOptions {
   /**

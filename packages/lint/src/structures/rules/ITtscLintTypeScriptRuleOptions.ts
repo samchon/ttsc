@@ -11,10 +11,6 @@
  * @evidence contracts/common.md#clear-and-simple-design Source-specific path selection stays in the file variant instead of making every origin carry irrelevant fields.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Declaration matching uses configured names and source identity, without hardcoded safe-call lists for consumers.
  * @evidence contracts/common.md#meaningful-documentation Members explain origin, name-list matching and project-relative file restriction, with blank lines between documented properties.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintFileTypeOrValueSpecifier is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintFileTypeOrValueSpecifier is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintFileTypeOrValueSpecifier is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintFileTypeOrValueSpecifier is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintFileTypeOrValueSpecifier {
   /** Select project-file declarations. */
@@ -34,10 +30,6 @@ export interface ITtscLintFileTypeOrValueSpecifier {
  * @evidence contracts/common.md#clear-and-simple-design The library variant has only origin and names because file and package selectors belong to other variants.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Library identity follows the checker declaration source rather than a fixed node_modules directory.
  * @evidence contracts/common.md#meaningful-documentation Owning prose identifies default-library ownership and members explain the discriminant and one-or-many names separately.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintLibTypeOrValueSpecifier is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintLibTypeOrValueSpecifier is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintLibTypeOrValueSpecifier is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintLibTypeOrValueSpecifier is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintLibTypeOrValueSpecifier {
   /** Select TypeScript default-library declarations. */
@@ -54,10 +46,6 @@ export interface ITtscLintLibTypeOrValueSpecifier {
  * @evidence contracts/common.md#clear-and-simple-design Package ownership lives only in its source variant rather than an ambiguous generic path/name object.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Safe declarations are explicitly selected by package identity, not inferred from fixture imports or patched checker internals.
  * @evidence contracts/common.md#meaningful-documentation Members distinguish package origin, declared names and package-or-ambient-module ownership, with separate property comments.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintPackageTypeOrValueSpecifier is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintPackageTypeOrValueSpecifier is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintPackageTypeOrValueSpecifier is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintPackageTypeOrValueSpecifier is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintPackageTypeOrValueSpecifier {
   /** Select package declarations. */
@@ -77,10 +65,6 @@ export interface ITtscLintPackageTypeOrValueSpecifier {
  * @evidence contracts/common.md#clear-and-simple-design Named source variants keep each origin's required data visible and share one reusable safe-call/safe-Promise selector.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Source-aware matching is supported configuration rather than a custom bypass for particular call sites.
  * @evidence contracts/common.md#meaningful-documentation The owning sentence distinguishes name-only from source-qualified matching; each named variant documents its own source requirements.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintTypeOrValueSpecifier is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintTypeOrValueSpecifier is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintTypeOrValueSpecifier is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintTypeOrValueSpecifier is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintTypeOrValueSpecifier =
   | string
@@ -95,10 +79,6 @@ export type TtscLintTypeOrValueSpecifier =
  * @evidence contracts/common.md#clear-and-simple-design One per-type policy groups its message with two replacement channels consumed by the same restriction.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Replacement text is explicit caller policy rather than an implementation rewrite chosen only to satisfy a lint result.
  * @evidence contracts/common.md#meaningful-documentation Members explain appended message, ttsc fix replacement and opt-in suggestions, preserving independent comments and spacing.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintTypeScriptNoRestrictedTypesTypeConfig is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintTypeScriptNoRestrictedTypesTypeConfig is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintTypeScriptNoRestrictedTypesTypeConfig is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintTypeScriptNoRestrictedTypesTypeConfig is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintTypeScriptNoRestrictedTypesTypeConfig {
   /** Custom text appended to the standard diagnostic. */
@@ -118,10 +98,6 @@ export interface ITtscLintTypeScriptNoRestrictedTypesTypeConfig {
  * @evidence contracts/common.md#clear-and-simple-design One policy-value alias centralizes alternatives for every entry of the normalized-spelling map.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Alternative forms preserve supported configuration syntax instead of adding a second consumer-specific restriction channel.
  * @evidence contracts/common.md#meaningful-documentation Owning prose locates the value in a normalized-type policy, and the containing map documents false/null disabling while the structured variant documents replacements.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintTypeScriptNoRestrictedTypesTypeValue is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintTypeScriptNoRestrictedTypesTypeValue is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintTypeScriptNoRestrictedTypesTypeValue is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintTypeScriptNoRestrictedTypesTypeValue is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintTypeScriptNoRestrictedTypesTypeValue =
   | boolean
@@ -136,10 +112,6 @@ export type TtscLintTypeScriptNoRestrictedTypesTypeValue =
  * @evidence contracts/common.md#clear-and-simple-design The sole map field reuses a named value union instead of duplicating each policy form in the rule object.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Restricted types come from explicit policy entries rather than a hardcoded repository-specific ban list.
  * @evidence contracts/common.md#meaningful-documentation The member states spelling normalization and false/null disabling, providing usage facts beyond the map's TypeScript shape.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintTypeScriptNoRestrictedTypesRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintTypeScriptNoRestrictedTypesRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintTypeScriptNoRestrictedTypesRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintTypeScriptNoRestrictedTypesRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintTypeScriptNoRestrictedTypesRuleOptions {
   /**
@@ -158,10 +130,6 @@ export interface ITtscLintTypeScriptNoRestrictedTypesRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One flat option object groups the declaration selectors and syntax gates this Promise-discard rule owns.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Known-safe declarations come from explicit name-only or source-qualified caller selectors rather than a built-in list of trusted consumers or altered Promise methods.
  * @evidence contracts/common.md#meaningful-documentation Members explain structural-thenable opt-in and safe-discard categories, including IIFE/void defaults with separate paragraphs.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintTypeScriptNoFloatingPromisesRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintTypeScriptNoFloatingPromisesRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintTypeScriptNoFloatingPromisesRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintTypeScriptNoFloatingPromisesRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintTypeScriptNoFloatingPromisesRuleOptions {
   /** Functions whose returned Promises may be discarded safely. */
@@ -207,10 +175,6 @@ export interface ITtscLintTypeScriptNoFloatingPromisesRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One union carries each directive's policy while the containing options object owns the shared minimum length.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The regex form states Go RE2 semantics explicitly rather than claiming unsupported JavaScript regex behavior.
  * @evidence contracts/common.md#meaningful-documentation The native list explains every alternative and gives an anchored description-format example; the regex member explains raw leading whitespace.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintTypeScriptBanTsCommentDirectiveConfig is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintTypeScriptBanTsCommentDirectiveConfig is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintTypeScriptBanTsCommentDirectiveConfig is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintTypeScriptBanTsCommentDirectiveConfig is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintTypeScriptBanTsCommentDirectiveConfig =
   | boolean
@@ -235,10 +199,6 @@ export type TtscLintTypeScriptBanTsCommentDirectiveConfig =
  * @evidence contracts/common.md#clear-and-simple-design Directive-specific choices reuse one policy union and share only the length constraint they all consume.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Defaults follow documented directive policy and Unicode grapheme counting rather than fixture-length assumptions.
  * @evidence contracts/common.md#meaningful-documentation Owning prose states omitted-key defaults; members document Unicode counting, directive purposes and defaults with separated comments.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintTypeScriptBanTsCommentRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintTypeScriptBanTsCommentRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintTypeScriptBanTsCommentRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintTypeScriptBanTsCommentRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintTypeScriptBanTsCommentRuleOptions {
   /**
@@ -288,10 +248,6 @@ export interface ITtscLintTypeScriptBanTsCommentRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design The named position block separates fine-grained void-return gates from the containing rule's conditional and spread gates.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Exemptions select supported TypeScript contexts instead of hardcoded callback names or Promise-return wrappers.
  * @evidence contracts/common.md#meaningful-documentation Owning prose states omitted-key behavior, and each member identifies its call, JSX, inheritance, property, factory or variable position.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintTypeScriptNoMisusedPromisesChecksVoidReturnOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintTypeScriptNoMisusedPromisesChecksVoidReturnOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintTypeScriptNoMisusedPromisesChecksVoidReturnOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintTypeScriptNoMisusedPromisesChecksVoidReturnOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintTypeScriptNoMisusedPromisesChecksVoidReturnOptions {
   /** Check Promise-returning callbacks passed as call/construct arguments. */
@@ -320,10 +276,6 @@ export interface ITtscLintTypeScriptNoMisusedPromisesChecksVoidReturnOptions {
  * @evidence contracts/common.md#clear-and-simple-design A reusable position block is introduced only for the gate that supports fine-grained selection; simple gates remain direct booleans.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Options select actual type-checker contexts rather than promising safety from syntax-only Promise guesses.
  * @evidence contracts/common.md#meaningful-documentation Members explain condition, spread and expected-void behavior and their true defaults, separated from type-level acknowledgment tags.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintTypeScriptNoMisusedPromisesRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintTypeScriptNoMisusedPromisesRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintTypeScriptNoMisusedPromisesRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintTypeScriptNoMisusedPromisesRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintTypeScriptNoMisusedPromisesRuleOptions {
   /**
@@ -363,10 +315,6 @@ export interface ITtscLintTypeScriptNoMisusedPromisesRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One object keeps switch coverage policy and its optional trailing-comment marker together without introducing a second exhaustiveness representation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The comment pattern explicitly uses Go RE2 and real default/comment coverage rules rather than hardcoded accepted switch examples.
  * @evidence contracts/common.md#meaningful-documentation Owning prose summarizes defaults; members distinguish real defaults, finite members, open types and the trimmed trailing-comment regex.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintTypeScriptSwitchExhaustivenessCheckRuleOptions {
   /**

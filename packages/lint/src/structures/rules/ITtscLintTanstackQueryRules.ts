@@ -12,10 +12,6 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * @evidence contracts/common.md#clear-and-simple-design The family groups query-key, callback-order and client-lifetime policies while rule execution stays with the native implementation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported query-policy keys form the public vocabulary; the type adds no cache patch, consumer exemption or measurement-only setting.
  * @evidence contracts/common.md#meaningful-documentation Native comments explain dependency tracking, inference order and stable client identity; separate family prose and spaced members follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintTanstackQueryRules is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintTanstackQueryRules is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintTanstackQueryRules is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintTanstackQueryRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintTanstackQueryRules {
   /**

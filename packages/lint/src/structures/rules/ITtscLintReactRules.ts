@@ -19,10 +19,6 @@ import type { ITtscLintReactOnlyExportComponentsRuleOptions } from "./ITtscLintR
  * @evidence contracts/common.md#clear-and-simple-design JSX, Hooks and refresh policies share the public react namespace, while the separate react-perf family owns allocation-policy configuration.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Public React identifiers and the one declared options schema form the extension boundary without mutating React internals or accepting arbitrary built-in options.
  * @evidence contracts/common.md#meaningful-documentation Native family prose explains the namespace composition and member comments describe JSX, Hook and refresh responsibilities; paragraphs and property spacing follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintReactRules is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintReactRules is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintReactRules is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintReactRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintReactRules {
   /**

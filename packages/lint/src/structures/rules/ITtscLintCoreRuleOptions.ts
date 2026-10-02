@@ -14,10 +14,6 @@ import type { TtscLintSeverity } from "../TtscLintSeverity";
  * @evidence contracts/common.md#clear-and-simple-design Two independent comparison gates expose the native duplicate rule's choices directly in one object.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Exceptions are supported import forms rather than fixed module names or mutations of import declarations.
  * @evidence contracts/common.md#meaningful-documentation Members explain clause-level versus inline type imports, mergeable re-exports and false defaults with separated prose.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintCoreNoDuplicateImportsRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintCoreNoDuplicateImportsRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintCoreNoDuplicateImportsRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintCoreNoDuplicateImportsRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintCoreNoDuplicateImportsRuleOptions {
   /**
@@ -47,10 +43,6 @@ export interface ITtscLintCoreNoDuplicateImportsRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One boolean expresses the sole exception rather than an independent empty-block policy hierarchy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The exception is a documented catch-clause policy instead of a per-file exemption to conceal an empty implementation.
  * @evidence contracts/common.md#meaningful-documentation The member states that statements or interior comments already make a catch nonempty and documents the false default.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintCoreNoEmptyRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintCoreNoEmptyRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintCoreNoEmptyRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintCoreNoEmptyRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintCoreNoEmptyRuleOptions {
   /**
@@ -69,10 +61,6 @@ export interface ITtscLintCoreNoEmptyRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One category union centralizes the valid allowance vocabulary for the containing rule's list.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The literals name supported declaration categories rather than special function names from tests or consumers.
  * @evidence contracts/common.md#meaningful-documentation Owning prose names the allowance role; literal spellings preserve recognizable syntax categories and the rule options explain their effect.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintCoreNoEmptyFunctionAllow is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintCoreNoEmptyFunctionAllow is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintCoreNoEmptyFunctionAllow is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintCoreNoEmptyFunctionAllow is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintCoreNoEmptyFunctionAllow =
   | "functions"
@@ -97,10 +85,6 @@ export type TtscLintCoreNoEmptyFunctionAllow =
  * @evidence contracts/common.md#clear-and-simple-design One allowance list reuses the category union instead of duplicating a boolean for every callable form.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported category exemptions do not depend on function names or fixture locations.
  * @evidence contracts/common.md#meaningful-documentation The member explains uncommented empty bodies, automatic parameter-property acceptance and the empty-list default.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintCoreNoEmptyFunctionRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintCoreNoEmptyFunctionRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintCoreNoEmptyFunctionRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintCoreNoEmptyFunctionRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintCoreNoEmptyFunctionRuleOptions {
   /**
@@ -124,10 +108,6 @@ export interface ITtscLintCoreNoEmptyFunctionRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One flat object exposes only the syntax allowances the unused-expression check consumes.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Directive compatibility is tied to documented ESTree versus TypeScript syntax semantics, not arbitrary accepted strings.
  * @evidence contracts/common.md#meaningful-documentation Members provide productive/unproductive branch examples and explain directive defaults, with separate paragraphs and property spacing.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintCoreNoUnusedExpressionsRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintCoreNoUnusedExpressionsRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintCoreNoUnusedExpressionsRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintCoreNoUnusedExpressionsRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintCoreNoUnusedExpressionsRuleOptions {
   /**
@@ -183,10 +163,6 @@ export interface ITtscLintCoreNoUnusedExpressionsRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design A separate object type owns the second option slot rather than mixing positional mode into object fields.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The option represents supported strict-context semantics rather than suppressing selected declarations by filename.
  * @evidence contracts/common.md#meaningful-documentation The member names strict scripts/functions, modules and class code and states the allow default.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintCoreNoInnerDeclarationsRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintCoreNoInnerDeclarationsRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintCoreNoInnerDeclarationsRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintCoreNoInnerDeclarationsRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintCoreNoInnerDeclarationsRuleOptions {
   /**
@@ -210,10 +186,6 @@ export interface ITtscLintCoreNoInnerDeclarationsRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One setting alias reuses severity and object types while keeping each permitted tuple arity explicit.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Positional compatibility follows ESLint's real schema rather than a custom reshaping wrapper for copied configurations.
  * @evidence contracts/common.md#meaningful-documentation Owning prose explains first and second option positions and why the native setting preserves them, separated from tags.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintCoreNoInnerDeclarationsRuleSetting is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintCoreNoInnerDeclarationsRuleSetting is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintCoreNoInnerDeclarationsRuleSetting is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintCoreNoInnerDeclarationsRuleSetting is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintCoreNoInnerDeclarationsRuleSetting =
   | TtscLintRuleSetting
@@ -231,10 +203,6 @@ export type TtscLintCoreNoInnerDeclarationsRuleSetting =
  * @evidence contracts/common.md#clear-and-simple-design One selector union keeps matching semantics independent of whether an entry overrides the diagnostic.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Restrictions use supported AST selector evaluation rather than consumer-specific branches in the native rule.
  * @evidence contracts/common.md#meaningful-documentation Native member comments identify the TypeScript-Go AST selector and canonical-message replacement, with member spacing.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintCoreNoRestrictedSyntaxSelector is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintCoreNoRestrictedSyntaxSelector is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintCoreNoRestrictedSyntaxSelector is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintCoreNoRestrictedSyntaxSelector is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintCoreNoRestrictedSyntaxSelector =
   | string
@@ -256,10 +224,6 @@ export type TtscLintCoreNoRestrictedSyntaxSelector =
  * @evidence contracts/common.md#clear-and-simple-design The setting reuses the common severity form and one selector union instead of introducing a separate selector collection protocol.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The variadic representation preserves supported ESLint input grammar rather than wrapping each restriction in invented configuration.
  * @evidence contracts/common.md#meaningful-documentation Owning prose states per-entry reporting and the silent empty-selector case, making tuple semantics explicit.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintCoreNoRestrictedSyntaxRuleSetting is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintCoreNoRestrictedSyntaxRuleSetting is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintCoreNoRestrictedSyntaxRuleSetting is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintCoreNoRestrictedSyntaxRuleSetting is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintCoreNoRestrictedSyntaxRuleSetting =
   | TtscLintRuleSetting
@@ -276,10 +240,6 @@ export type TtscLintCoreNoRestrictedSyntaxRuleSetting =
  * @evidence contracts/common.md#clear-and-simple-design Three direct fields expose distinct fallthrough-policy decisions without duplicating the control-flow analysis in configuration.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts A custom marker replaces the documented default; acceptance does not depend on fixture labels or particular switch values.
  * @evidence contracts/common.md#meaningful-documentation Members explain marker replacement, blank-line empty cases and stale comments, with defaults separated from prose.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintNoFallthroughRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintNoFallthroughRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintNoFallthroughRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintNoFallthroughRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintNoFallthroughRuleOptions {
   /**
@@ -319,10 +279,6 @@ export interface ITtscLintNoFallthroughRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design A single gate serves both concise arrows and return-void statements without separate controls for equivalent discard forms.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The allowance is based on the explicit operator rather than guessed Promise behavior or executor-name exceptions.
  * @evidence contracts/common.md#meaningful-documentation The member identifies both supported discard forms and the typed-void case still reported, with a false default.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintCoreNoPromiseExecutorReturnRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintCoreNoPromiseExecutorReturnRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintCoreNoPromiseExecutorReturnRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintCoreNoPromiseExecutorReturnRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintCoreNoPromiseExecutorReturnRuleOptions {
   /**
@@ -350,10 +306,6 @@ export interface ITtscLintCoreNoPromiseExecutorReturnRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design Discriminated alternatives keep inactive and property-checking configurations visible without a second options validator type.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Named and regex exemptions are explicit property-write policy inputs, not production changes made solely to appease the checker.
  * @evidence contracts/common.md#meaningful-documentation Owning prose explains when ignore lists have effect and why omission differs from explicit false; members document names and Unicode regex matching.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintCoreNoParamReassignRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintCoreNoParamReassignRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintCoreNoParamReassignRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintCoreNoParamReassignRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type ITtscLintCoreNoParamReassignRuleOptions =
   | {
@@ -419,10 +371,6 @@ type TtscLintCoreNoRestrictedImportsPathNames =
  * @evidence contracts/common.md#clear-and-simple-design Message/type-import fields and name controls are composed once; the exact module name remains owned by this path variant.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Exact restrictions are explicit config entries rather than fixed import prohibitions in the host.
  * @evidence contracts/common.md#meaningful-documentation The path member states exact specifier matching; shared native comments explain source-name aliases and type-import allowances.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintCoreNoRestrictedImportsPath is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintCoreNoRestrictedImportsPath is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintCoreNoRestrictedImportsPath is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintCoreNoRestrictedImportsPath is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintCoreNoRestrictedImportsPath =
   | string
@@ -473,10 +421,6 @@ type TtscLintCoreNoRestrictedImportsPatternNames =
  * @evidence contracts/common.md#clear-and-simple-design Shared message and imported-name helper types compose with one path-pattern choice, keeping each responsibility local.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Pattern semantics and explicit case folding follow the rule contract rather than hidden filesystem-dependent exceptions.
  * @evidence contracts/common.md#meaningful-documentation Members explain gitignore order/negation, regex source and case sensitivity; helper comments identify reject and allow controls separately.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintCoreNoRestrictedImportsPattern is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintCoreNoRestrictedImportsPattern is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintCoreNoRestrictedImportsPattern is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintCoreNoRestrictedImportsPattern is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type ITtscLintCoreNoRestrictedImportsPattern =
   ITtscLintCoreNoRestrictedImportsEntryBase &
@@ -505,10 +449,6 @@ export type ITtscLintCoreNoRestrictedImportsPattern =
  * @evidence contracts/common.md#clear-and-simple-design The object owns only the two collections; individual restriction semantics stay in their named entry types.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Restrictions are caller-configured collections rather than consumer-specific import exceptions hidden in the compiler.
  * @evidence contracts/common.md#meaningful-documentation Members distinguish exact module specifiers from gitignore-style strings and structured pattern entries, with separate comments.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintCoreNoRestrictedImportsRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintCoreNoRestrictedImportsRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintCoreNoRestrictedImportsRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintCoreNoRestrictedImportsRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintCoreNoRestrictedImportsRuleOptions {
   /** Exact module specifiers to restrict. */
@@ -529,10 +469,6 @@ export interface ITtscLintCoreNoRestrictedImportsRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One setting alias assembles existing path/object types without introducing a redundant translation format.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Compatibility is for ESLint's documented tuple grammar, not a consumer-specific rewrite of unknown option structures.
  * @evidence contracts/common.md#meaningful-documentation Owning paragraphs explain both canonical forms and the reason copied configurations retain their shape, with blank tag separation.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintCoreNoRestrictedImportsRuleSetting is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintCoreNoRestrictedImportsRuleSetting is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintCoreNoRestrictedImportsRuleSetting is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintCoreNoRestrictedImportsRuleSetting is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintCoreNoRestrictedImportsRuleSetting =
   | TtscLintRuleSetting
@@ -550,10 +486,6 @@ export type TtscLintCoreNoRestrictedImportsRuleSetting =
  * @evidence contracts/common.md#clear-and-simple-design Two direct options expose the native reassignment analysis's decisions without introducing separate binding-policy objects.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The read-before-write exception addresses a documented no-use-before-define interaction instead of a compensating fixture-specific exemption.
  * @evidence contracts/common.md#meaningful-documentation Members explain each destructuring mode and the declaration-location conflict, with defaults and properties visibly separated.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintCorePreferConstRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintCorePreferConstRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintCorePreferConstRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintCorePreferConstRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintCorePreferConstRuleOptions {
   /**
@@ -581,10 +513,6 @@ export interface ITtscLintCorePreferConstRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One marker field owns the only configurable acceptance decision of the default-case rule.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The custom pattern explicitly replaces the canonical marker rather than accumulating hidden accepted comment spellings.
  * @evidence contracts/common.md#meaningful-documentation The member states intentional omission and replacement of the default no-default regex, instead of repeating the property name.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintCoreDefaultCaseRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintCoreDefaultCaseRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintCoreDefaultCaseRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintCoreDefaultCaseRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintCoreDefaultCaseRuleOptions {
   /**
@@ -601,10 +529,6 @@ export interface ITtscLintCoreDefaultCaseRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One union centralizes ordering vocabulary for the positional rule setting.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The modes describe supported accessor relationships instead of exempting selected property names.
  * @evidence contracts/common.md#meaningful-documentation Owning prose identifies relative ordering and the literal spellings make each permitted direction recognizable.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintCoreGroupedAccessorPairsOrder is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintCoreGroupedAccessorPairsOrder is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintCoreGroupedAccessorPairsOrder is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintCoreGroupedAccessorPairsOrder is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintCoreGroupedAccessorPairsOrder =
   | "anyOrder"
@@ -618,10 +542,6 @@ export type TtscLintCoreGroupedAccessorPairsOrder =
  * @evidence contracts/common.md#clear-and-simple-design The setting composes common severity and one named order union without a redundant object wrapper.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Positional ordering follows the supported configuration grammar rather than special handling of copied project configs.
  * @evidence contracts/common.md#meaningful-documentation Owning prose identifies positional use and the named order union documents the supported modes.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintCoreGroupedAccessorPairsRuleSetting is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintCoreGroupedAccessorPairsRuleSetting is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintCoreGroupedAccessorPairsRuleSetting is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintCoreGroupedAccessorPairsRuleSetting is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintCoreGroupedAccessorPairsRuleSetting =
   | TtscLintRuleSetting
@@ -634,10 +554,6 @@ export type TtscLintCoreGroupedAccessorPairsRuleSetting =
  * @evidence contracts/common.md#clear-and-simple-design One direct exception field matches the only configurable distinction in the rule.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The exception names a supported branch form rather than consumer-specific control-flow patterns.
  * @evidence contracts/common.md#meaningful-documentation The member states its returning-branch context and true default in separate prose and tag lines.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintCoreNoElseReturnRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintCoreNoElseReturnRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintCoreNoElseReturnRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintCoreNoElseReturnRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintCoreNoElseReturnRuleOptions {
   /**
@@ -655,10 +571,6 @@ export interface ITtscLintCoreNoElseReturnRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One name list exposes exemptions without a second prototype metadata structure.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The type describes a lint allowance; it does not itself replace or patch any foreign prototype method.
  * @evidence contracts/common.md#meaningful-documentation The member identifies native constructor names, prototype-extension scope and the empty default, with a blank prose-to-tag line.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintCoreNoExtendNativeRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintCoreNoExtendNativeRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintCoreNoExtendNativeRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintCoreNoExtendNativeRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintCoreNoExtendNativeRuleOptions {
   /**
@@ -676,10 +588,6 @@ export interface ITtscLintCoreNoExtendNativeRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One vocabulary alias serves all operator groups instead of representing each operator as a separate policy object.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Literal spellings express the supported language operators, not handpicked expression examples or measured outcomes.
  * @evidence contracts/common.md#meaningful-documentation Owning prose identifies group membership and the listed spellings retain the exact user-facing selector vocabulary.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintCoreNoMixedOperatorsOperator is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintCoreNoMixedOperatorsOperator is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintCoreNoMixedOperatorsOperator is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintCoreNoMixedOperatorsOperator is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintCoreNoMixedOperatorsOperator =
   | "+"
@@ -717,13 +625,15 @@ export type TtscLintCoreNoMixedOperatorsOperator =
  * @evidence contracts/common.md#clear-and-simple-design One grouped collection and one boolean express the rule's two decisions without duplicating precedence tables in the type.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Operator groups are explicit config, while precedence remains owned by the native syntax implementation.
  * @evidence contracts/common.md#meaningful-documentation Members explain unparenthesized mixing, same-precedence allowance and the true default with separate comments.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintCoreNoMixedOperatorsRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintCoreNoMixedOperatorsRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintCoreNoMixedOperatorsRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintCoreNoMixedOperatorsRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintCoreNoMixedOperatorsRuleOptions {
-  /** Operator groups within which an unparenthesized mix is checked. */
+  /**
+   * Operator groups within which an unparenthesized mix is checked.
+   *
+   * A nonempty collection replaces the defaults. Omitted or empty groups use
+   * the arithmetic, bitwise, comparison, logical and relational defaults;
+   * conditional and coalesce operators require an explicit group.
+   */
   groups?: readonly (readonly TtscLintCoreNoMixedOperatorsOperator[])[];
 
   /**
@@ -741,10 +651,6 @@ export interface ITtscLintCoreNoMixedOperatorsRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One mode alias owns the whole positional choice without an unused options object.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Modes describe syntax policy rather than accepted assignment targets tailored to known callers.
  * @evidence contracts/common.md#meaningful-documentation Owning prose identifies the positional role and both literal names express their different parenthesis treatment.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintCoreNoReturnAssignMode is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintCoreNoReturnAssignMode is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintCoreNoReturnAssignMode is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintCoreNoReturnAssignMode is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintCoreNoReturnAssignMode = "except-parens" | "always";
 
@@ -755,10 +661,6 @@ export type TtscLintCoreNoReturnAssignMode = "except-parens" | "always";
  * @evidence contracts/common.md#clear-and-simple-design Existing severity and mode types compose directly instead of requiring a ttsc-specific wrapper.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The tuple reflects the actual rule grammar rather than a consumer-specific compatibility branch.
  * @evidence contracts/common.md#meaningful-documentation The owning comment names positional use and the referenced mode keeps the allowed assignment-return policies visible.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintCoreNoReturnAssignRuleSetting is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintCoreNoReturnAssignRuleSetting is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintCoreNoReturnAssignRuleSetting is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintCoreNoReturnAssignRuleSetting is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintCoreNoReturnAssignRuleSetting =
   | TtscLintRuleSetting

@@ -31,10 +31,6 @@ import type {
  * @evidence contracts/common.md#clear-and-simple-design The map groups functional policies without coupling their enablement; option schemas remain separate from severity tuple construction.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The family enumerates supported rule names and typed policies rather than using an untyped index to admit arbitrary options.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains selective adoption and member comments identify each control-flow or immutability policy; paragraphs, property spacing and tag separation follow documentation guidance.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintFunctionalRules is a declaration of data shape and performs no filesystem, path or process operation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintFunctionalRules is a declaration of data shape and chooses no algorithm or processing strategy.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintFunctionalRules is a declaration of data shape and coordinates no computation that could be shared.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintFunctionalRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintFunctionalRules {
   /**

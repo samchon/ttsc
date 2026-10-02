@@ -15,10 +15,6 @@ type TtscPluginContributor = { name: string; source: string };
  * @evidence contracts/common.md#clear-and-simple-design The operation owns namespace normalization and repetition precedence after config evaluation; filesystem discovery, contributor resolution and cache lifetime remain with the descriptor resolver.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Every evaluated entry follows the same normalization and collision rules, without fixture-specific names, foreign mutation or a fallback that discards a distinct colliding namespace.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the Go naming transformation, collision failure and first-source precedence, with descriptive paragraphs separated from acknowledgment tags.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation normalizeContributors rewrites namespace strings only and touches no filesystem path, file identity or process.
- * @evidence contracts/performance.md#efficient-algorithms One linear pass over the evaluated entries with a Set membership test per entry, so cost is O(entries); the collision check is owned by its helper.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work normalizeContributors memoizes nothing and rebuilds its result from its arguments on every call.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The Set and the result array are local to the call and are handed to or dropped by the caller; no handle or task is acquired.
  */
 export function normalizeContributors(entries: ConfigPluginEntry[], configPath: string): TtscPluginContributor[] {
   assertContributorNamespacesDoNotCollide(entries, configPath);
