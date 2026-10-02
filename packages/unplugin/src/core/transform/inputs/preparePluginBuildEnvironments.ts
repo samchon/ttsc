@@ -16,7 +16,7 @@ const asyncResults = new WeakSet<object>();
  * one fresh native environment reading; observation failure remains unavailable
  * and the following admission or replay validator retains its failure policy.
  *
- * @evidence contracts/common.md#principled-implementation Every reported plugin directory prepares its actual current environment and a mismatch refreshes native authority before comparison; failed preparation cannot qualify an input.
+ * @evidence contracts/common.md#principled-implementation Every reported plugin directory prepares its actual current environment. This operation compares source state once and a mismatch refreshes environment authority for the following owning validator to compare again; failed preparation cannot qualify an input.
  * @evidence contracts/common.md#clear-and-simple-design One async boundary precedes existing synchronous generation, delivery and terminal proofs.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing observations stay unproved; reported binary state never substitutes for native environment preparation or source comparison.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies off-thread work, mismatch refresh and preserved downstream failure ownership.
