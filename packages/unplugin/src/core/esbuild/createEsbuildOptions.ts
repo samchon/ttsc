@@ -35,8 +35,10 @@ import type { TtscProjectRegistration } from "../transform/watch/TtscProjectRegi
  * context of this plugin is disposed, which `build()` reports at its end.
  *
  * @evidence contracts/common.md#principled-implementation
- *   The native file loader returns source, parser, map and one project record
- *   dependency together. Start opens a delivery pass and the bridge's change
+ *   The native file loader returns source, parser/map and available project
+ *   record dependencies together; record-write failure follows the shared
+ *   reporting boundary rather than guaranteeing a record channel. Start opens
+ *   a delivery pass and the bridge's change
  *   sequence, and each delivery writes the record of the generation it read;
  *   error responses retain prior dependencies so failed builds can observe their
  *   repair.
@@ -54,18 +56,25 @@ import type { TtscProjectRegistration } from "../transform/watch/TtscProjectRegi
  *   Host-local or accepted user fallback records avoid temporary-path assumptions,
  *   while the shared observer owns native watch and filesystem identity differences.
  * @evidence contracts/performance.md#efficient-algorithms
- *   A delivery reads S source bytes and indexes its dependency set; one project
- *   generation serves multiple modules. Previous dependency maps grow with M
- *   loaded files instead of rebuilding dependency lists from the whole program.
+ *   A delivery reads S source bytes and indexes/copies its dependency set.
+ *   Delegated work includes current generation identity/validation/native compile
+ *   misses, record serialization/writes, watch registration and map encoding.
+ *   Previous maps follow M loaded file keys and their dependency populations;
+ *   path/error/message text and input proof bytes are not bounded by M alone.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   Concurrent contexts of one plugin share its cache; build start opens a new
  *   delivery pass that re-proves the retained generation, and transform validity
- *   uses generation inputs. Owner identity prevents
+ *   uses generation inputs. The shared pass token can advance when another
+ *   started context opens a pass; each loader captures its token before awaiting
+ *   disk/compile work. Owner identity prevents
  *   a setup that never started from releasing another context's cache.
  * @evidence contracts/performance.md#bound-retention-and-release-resources
  *   Active started contexts own cache/bridge retention. The last onDispose resets
- *   the cache and closes the bridge; previous dependency lists live with each
- *   setup closure. Their retained bytes have no fixed cap beyond loaded modules.
+ *   the cache and initiates bridge close with rejection suppressed; the hook
+ *   does not await native cleanup or promise cancellation of running compiles.
+ *   Previous lists remain with host-owned setup closures, without a fixed entry
+ *   or byte cap. A setup that never started acquires no counted ownership and
+ *   its dispose cannot release another context's cache.
  */
 export function createEsbuildOptions(
   options: ResolvedTtscUnpluginOptions,
