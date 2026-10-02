@@ -27,17 +27,17 @@ import { selectionInputs } from "./selectionInputs";
  * disposed transform scratch tree (see
  * {@link TtscCachedProjectTransform.scratchDirectory}).
  *
- * A build host (`project`) receives the project's record instead, written to
- * the generation's state from every input of the generation
- * (`notifyProjectRecord`).
+ * A project hook receives the generation's record through notifyProjectRecord.
+ * When both project and module hooks are present, both receive their respective
+ * registrations; without module hooks, delivery stops after project handoff.
  *
  * @evidence contracts/common.md#principled-implementation Module delivery derives the selected file's dependency set, while project delivery records the full generation plus each module's consulted routing configs; membership remains an explicitly requested additional input.
  * @evidence contracts/common.md#clear-and-simple-design Both host models share one routing observation batch, with dependency selection, evidence mapping and record persistence delegated to their actual owners.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Disposed scratch paths are removed by derivation and a missing project record marks output volatile instead of pretending module bytes cover type-only changes.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts Generation derivation removes disposed scratch inputs. A refused project record requests volatility through a supplied markVolatile callback instead of inventing a record; host-owned cache withdrawal remains that callback's responsibility, not an effect fabricated by this orchestrator.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs distinguish module and project dependencies, scratch exclusion and routing, followed by separated tags under documentation guidance.
  * @evidence contracts/portability.md#os-neutral-implementation Generation-owned identity and hostSpelling keep native physical identity separate from adapter spelling; routing observations use the delivery's filesystem capability.
- * @evidence contracts/performance.md#efficient-algorithms Derivation visits the selected dependency population and maps one carrier per input; selection config hashes are captured once and their evidence shared between record and module delivery.
- * @evidence contracts/performance.md#reuse-equivalent-work Generation-wide inputs and membership reuse their weak-keyed snapshots; actual per-module callback effects still run for every delivery and newly consulted configs extend the record snapshot.
+ * @evidence contracts/performance.md#efficient-algorithms No consuming hooks short-circuit all work. Otherwise every routing occurrence is observed once for this delivery, then shared between record and module branches. A project branch delegates full generation/record costs; a module branch delegates selected closure/index/native identity work, maps fresh evidence carriers, copies/spells routed entries and performs final keyed handoff. Costs include bytes, key/path text, cold native observations, membership encoding and callback effects, with call-local arrays sized by these populations even when some underlying generation lists are memoized.
+ * @evidence contracts/performance.md#reuse-equivalent-work Generation lists, identities and membership use their owners' qualified immutable/root/options/native-view memos. Routing evidence is observed once here and shared between current branches; actual callbacks still run for each delivery, and new routing spellings extend the record snapshot rather than being dropped because a generation is reused.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This orchestrator owns call-local batches; generation snapshots, persistent records and watchers have separate retention owners.
  */
 export function notifyWatchInputs(
