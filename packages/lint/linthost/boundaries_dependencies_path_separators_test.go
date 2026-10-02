@@ -2,8 +2,8 @@ package linthost
 
 import "testing"
 
-// TestBoundariesDependenciesNormalizesWindowsAndPosixPaths verifies element and
-// local-path selectors are host-independent.
+// TestBoundariesDependenciesNormalizesWindowsAndPosixPaths checks element and
+// local-path selectors on authored separator spellings.
 //
 // LSP, CLI, and project identity paths can cross separator conventions even on
 // one host. Classification must normalize literal backslashes before applying
@@ -16,7 +16,7 @@ import "testing"
 // @evidence contracts/testing.md#behavioral-verification classifyBoundaryFile recognizes the authored drive/backslash app path and POSIX domain path with literal local paths; the domain's backslash private glob matches its normalized path. These are distinct fixtures, not a same-path OS comparison.
 // @evidence contracts/testing.md#independent-expectations Authored source segments place main.ts in app and internal/model.ts in domain; literal normalized paths express the portable boundary contract independently.
 // @evidence contracts/testing.md#distinguishing-cases Drive/backslash and POSIX absolute inputs plus a backslash private selector exercise data normalization in one process, without an OS matrix.
-// @evidence contracts/testing.md#execution-ownership The Test calls classifyBoundaryFile for the Windows and POSIX literal paths and matchBoundaryElementLocalPattern for the private glob. These pure operation calls run in the Go process, with no real platform installation.
+// @evidence contracts/testing.md#execution-ownership The Test calls classifyBoundaryFile for the Windows and POSIX literal paths and matchBoundaryElementLocalPattern for the private glob. These direct data-operation calls run in the Go process; classification also reads the current directory for relative path candidates, but no platform installation is performed.
 func TestBoundariesDependenciesNormalizesWindowsAndPosixPaths(t *testing.T) {
   elements := []boundaryElement{
     {Type: "app", Pattern: "src/app/**"},
