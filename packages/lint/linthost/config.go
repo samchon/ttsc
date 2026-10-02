@@ -592,9 +592,9 @@ type InlineRuleResolver struct {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Every file uses supplied global policy, with no source-name special cases or diagnostic-driven defaults.
 // @evidence contracts/common.md#meaningful-documentation Native prose states global scope; the owning type documents input ownership and alias assumptions before its tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation InlineRuleResolver.ResolveRules performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms InlineRuleResolver.ResolveRules has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work InlineRuleResolver.ResolveRules keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources InlineRuleResolver.ResolveRules acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Both maps are normalized in one pass each over n severity and m option entries, plus name normalization/hashing and b copied payload bytes. Result storage scales with n+m+b; empty option storage stays nil and an empty severity map may be reused.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This call projects current caller-owned maps and owns no cross-call identity or invalidation protocol for sharing results after caller mutations.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No handle, task or historical state is retained. Nonempty normalized maps and copied option bytes are transferred to the caller; an empty severity receiver may remain shared.
 func (r InlineRuleResolver) ResolveRules(string) ResolvedRuleConfig {
   return ResolvedRuleConfig{
     Rules:           normalizeRuleConfigKeys(r.Rules),
@@ -621,9 +621,9 @@ func normalizeRuleOptionsKeys(options RuleOptionsMap) RuleOptionsMap {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Option presence does not fabricate activity for a rule disabled by supplied severity.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the policy owner; RuleConfig documents filtering and sorting, and tags remain separate.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation InlineRuleResolver.ActiveRuleNames performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms InlineRuleResolver.ActiveRuleNames has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work InlineRuleResolver.ActiveRuleNames keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources InlineRuleResolver.ActiveRuleNames acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Delegation normalizes and filters n severity entries, then sorts k active names, O(n+k log k) name operations plus name bytes. The normalized temporary map and returned slice reserve O(n) entries; options are not traversed.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Activity is a projection of the caller's current severity map, not a shared producer with a cross-call mutation identity.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Delegation returns a caller-owned name slice and retains no historical state, handle or task in this wrapper.
 func (r InlineRuleResolver) ActiveRuleNames() []string {
   return r.Rules.ActiveRuleNames()
 }
@@ -635,9 +635,9 @@ func (r InlineRuleResolver) ActiveRuleNames() []string {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Options cannot activate a disabled rule through a compatibility exception.
 // @evidence contracts/common.md#meaningful-documentation The native delegation comment makes the behavior owner apparent, with a blank comment line before tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation InlineRuleResolver.EnabledRuleConfig performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms InlineRuleResolver.EnabledRuleConfig has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work InlineRuleResolver.EnabledRuleConfig keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources InlineRuleResolver.EnabledRuleConfig acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Delegation scans n severity entries and writes k non-off canonical keys, O(n) entry operations plus normalization/hashing bytes and O(k) returned entries. The options map is not inspected.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This call projects current caller-owned severities; the wrapper does not coordinate a shared result or cross-call mutation identity.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Delegation returns a new caller-owned severity map and retains no historical state, handle or task in this wrapper.
 func (r InlineRuleResolver) EnabledRuleConfig() RuleConfig {
   return r.Rules.EnabledRuleConfig()
 }
