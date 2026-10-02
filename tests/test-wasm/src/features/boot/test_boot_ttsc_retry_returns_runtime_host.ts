@@ -8,7 +8,7 @@ import { openFd, readFdText } from "../../internal/callbackFs";
  * Verifies that after a boot fails past global installation and a retry
  * succeeds, the returned host is the exact filesystem the Go runtime captured.
  *
- * This is the RA-20 defect: a failed attempt left its `globalThis.fs`
+ * The regression this guards: a failed attempt left its `globalThis.fs`
  * installed, so a retry (which only installs `fs` when absent) created a fresh
  * host, saw the stale global, and returned a host the runtime never used —
  * files written through it were invisible to the compiler. Restoring the failed

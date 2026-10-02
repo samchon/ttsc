@@ -7,7 +7,7 @@ import { FAKE_API, withBootStubs } from "../../internal/bootHarness";
  * Verifies the host-identity invariant also holds for an explicit
  * `options.host` reused across a failed attempt and a successful retry.
  *
- * RA-20 must not special-case default hosts: when the caller supplies one host
+ * The restore must not special-case default hosts: when the caller supplies one host
  * for both attempts, the failed attempt's global restore must leave that host's
  * `fs` reinstallable so the successful retry binds and returns the very same
  * host the runtime captured. Reusing one host across attempts is explicitly

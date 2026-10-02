@@ -7,7 +7,7 @@ import { withBootStubs } from "../../internal/bootHarness";
  * Verifies bootTtsc rejects with an actionable error when the Go runtime exits
  * before signaling readiness.
  *
- * This is the core RA-18 defect: `go.run` was started fire-and-forget and only
+ * The regression this guards: `go.run` was started fire-and-forget and only
  * `Ready`/`Failed` were awaited, so a runtime that exited before either signal
  * (an early `host.Expose` panic that never reached the `Failed` bridge) left
  * the public boot Promise pending forever. Racing `go.run` settlement against

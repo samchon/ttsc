@@ -8,10 +8,10 @@ import { expectFsError } from "../../internal/callbackFs";
  * code and leaves the tree byte-for-byte unchanged.
  *
  * These are the negative twins of the successful move: a rename that cannot
- * satisfy its contract must not partially mutate. RA-13 requires each rejected
- * class (missing source, root, self-into-descendant, absent/non-directory
- * destination parent, file-vs-directory collisions, non-empty overwrite) to
- * fail cleanly rather than delete or half-move nodes.
+ * satisfy its contract must not partially mutate. Each rejected class (missing
+ * source, root, self-into-descendant, absent/non-directory destination parent,
+ * file-vs-directory collisions, non-empty overwrite) must fail cleanly rather
+ * than delete or half-move nodes.
  *
  * 1. Seed a fixed tree with files, nested and empty directories.
  * 2. Attempt every invalid rename and record its rejection code.

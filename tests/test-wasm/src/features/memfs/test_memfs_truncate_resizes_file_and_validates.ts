@@ -8,8 +8,8 @@ import { callMutation, expectFsError } from "../../internal/callbackFs";
  * path and length.
  *
  * The pre-fix `truncate` was a no-op that returned success without touching any
- * node, so a caller that truncated then read saw stale bytes. RA-13 requires
- * the real POSIX contract: shrink drops trailing bytes, grow zero-fills the
+ * node, so a caller that truncated then read saw stale bytes. It must follow
+ * the POSIX contract: shrink drops trailing bytes, grow zero-fills the
  * extension, a negative length is EINVAL, a directory is EISDIR, and a missing
  * path is ENOENT.
  *
