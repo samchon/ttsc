@@ -1,14 +1,10 @@
 package linthost
 
-import (
-  "testing"
-
-  shimast "github.com/microsoft/typescript-go/shim/ast"
-)
+import "testing"
 
 // TestNoExtendNativeDefinePropertyAndComputed covers the three prototype-
-// extension shapes beyond the plain `X.prototype.y = …` assignment that the
-// rule originally missed, mirroring ESLint's no-extend-native.
+// extension shapes beyond the plain `X.prototype.y = …` assignment,
+// mirroring ESLint's no-extend-native.
 //
 // Upstream flags any member write to a native `<Builtin>.prototype` plus
 // `Object.defineProperty` / `Object.defineProperties` calls whose first
@@ -16,14 +12,14 @@ import (
 // receiver and a define-property target that is not a prototype must stay
 // silent.
 //
-//  1. Parse each fixture with no type checker (AST-only rule).
+//  1. Load each fixture with the rule's required binding checker.
 //  2. Run the engine with only no-extend-native enabled.
 //  3. Assert the finding count and, for the positives, the builtin in the message.
 //
 // @evidence contracts/testing.md#behavioral-verification Five named Engine cases require exact finding counts and builtin-specific messages across prototype writes and allowed targets.
 // @evidence contracts/testing.md#independent-expectations Authored Array expectations follow the protected built-in prototype policy; Foo and the ordinary target are independently outside that set.
 // @evidence contracts/testing.md#distinguishing-cases defineProperty, defineProperties and computed assignment report on Array.prototype; a non-native prototype and non-prototype target stay clean.
-// @evidence contracts/testing.md#execution-ownership TestNoExtendNativeDefinePropertyAndComputed is selected in the shared Go unit population. Its five named subtests call parseTS and Engine.Run directly with only no-extend-native enabled, retaining each count/message oracle and failure identity. No consumer install, native artifact build or real product host runs.
+// @evidence contracts/testing.md#execution-ownership The selected Go Test owns five named count/message oracles. runRuleFindingsSnapshot loads the direct Program/checker required by the engine and invokes only no-extend-native, without consumer installation or native product-host builds.
 func TestNoExtendNativeDefinePropertyAndComputed(t *testing.T) {
   tests := []struct {
     name        string
@@ -56,9 +52,7 @@ func TestNoExtendNativeDefinePropertyAndComputed(t *testing.T) {
   }
   for _, test := range tests {
     t.Run(test.name, func(t *testing.T) {
-      file := parseTS(t, test.source)
-      findings := NewEngine(RuleConfig{"no-extend-native": SeverityError}).
-        Run([]*shimast.SourceFile{file}, nil)
+      _, _, findings := runRuleFindingsSnapshot(t, "no-extend-native", test.source, nil)
       if test.wantBuiltin == "" {
         if len(findings) != 0 {
           t.Fatalf("expected no findings, got %d: %+v", len(findings), findings)
