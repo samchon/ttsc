@@ -8,11 +8,13 @@ import type { PluginBuildLockFence } from "./PluginBuildLockFence";
  * The on-disk layout of the source-plugin build lock and the primitives every
  * lock operation shares.
  *
- * A cold source-plugin build is a multi-second-to-minutes `go build`. When a
+ * A cold source-plugin build delegates work to `go build`; its duration depends
+ * on the selected inputs and toolchain cache. When a
  * program fans out into many processes (a `pnpm -r` running suites in parallel,
  * a benchmark, a worker pool), each inherits the same cold cache and would
- * otherwise build the same cache key at the same instant. The lock lets one
- * process build while the rest wait for its published binary.
+ * otherwise build the same cache key at the same instant. Cooperating v3
+ * consumers serialize build ownership while waiters observe publication or
+ * fail their admission budget; this does not serialize old-protocol clients.
  *
  * V3 lives in `<lockDir>.v3`. A complete generation is published at `current/`
  * and retired by renaming it to `retired/<generation>`. Holder and observer
@@ -101,14 +103,16 @@ export namespace PluginBuildLockProtocol {
 
   /**
    * Whether `lockDir` is a real directory (not a link) whose protocol marker
-   * has exactly the v3 content. Read failures remain an unconfirmed layout.
+   * has exactly the v3 content at its sequential metadata/read observations.
+   * The pathname is not pinned against replacement between them. Read failures
+   * remain an unconfirmed layout.
    *
    * @evidence contracts/common.md#principled-implementation lstat rejects a linked root and exact marker content distinguishes this version's filesystem protocol from unrelated directories.
    * @evidence contracts/common.md#clear-and-simple-design One layout predicate centralizes version recognition without acquiring or retiring ownership.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Recognition reads actual metadata instead of inferring protocol from an OS name or directory suffix alone.
-   * @evidence contracts/common.md#meaningful-documentation Native prose documents physical-root and marker requirements plus inconclusive read failure before the tags.
+   * @evidence contracts/common.md#meaningful-documentation Native prose documents observed root kind and marker requirements, sequential replacement limits and inconclusive read failure before the tags.
    * @evidence contracts/portability.md#os-neutral-implementation Node lstat exposes actual link and directory capabilities; exact marker bytes are protocol identity independent of native path case behavior.
-   * @evidence contracts/performance.md#efficient-algorithms One stat and one marker read avoid directory enumeration; read cost grows with the marker file's bytes.
+   * @evidence contracts/performance.md#efficient-algorithms One lstat and one marker read avoid directory enumeration; processing and temporary space include path construction and the marker file's bytes.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Protocol recognition must observe the current pathname because a previously recognized layout can disappear or be replaced.
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The synchronous predicate retains no open descriptor or background state.
@@ -141,12 +145,12 @@ export namespace PluginBuildLockProtocol {
    * @evidence contracts/common.md#clear-and-simple-design The operation validates the token and derives one retirement destination, leaving owner proofs to observation and collection.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Retirement preserves generation history and uses the shared native rename primitive rather than replacing fencing with a racy read followed by recursive removal.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs state the return/error contract, required tombstone lifetime and the reason a generation read is insufficient before the tags.
-   * @evidence contracts/portability.md#os-neutral-implementation Node path and filesystem operations feed the shared retirement helper, whose actual capability probe handles Windows open-file refusal without platform-specific deletion fallbacks.
-   * @evidence contracts/performance.md#efficient-algorithms Direct generation addressing uses a fixed number of metadata operations per attempt and avoids scanning historical tombstones; peer-held reads may require retries.
+   * @evidence contracts/portability.md#os-neutral-implementation Node path and filesystem operations feed the shared retirement helper. Selected Windows refusals retry after a successful sibling-rename probe; this is a sampled capability, not proof that a peer read caused the original refusal.
+   * @evidence contracts/performance.md#efficient-algorithms Direct generation addressing avoids historical scans. Each attempt performs path construction and native metadata/rename observations; eligible Windows retries add sibling probes and synchronous poll waits, with no attempt-count or elapsed-time bound in this retirement operation.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Retirement changes ownership; its result cannot be memoized across independently racing callers.
    *
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Renaming transfers the held directory into history rather than freeing the token's reservation; the cache collector releases it only after holder and observer absence is established.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Renaming transfers the directory into history; the cooperating collector requires holder/observer absence before removal. Retry-probe deletion is best-effort and may leave empty siblings. A continuing eligible refusal can retain this synchronous operation indefinitely; it installs no asynchronous handle.
    */
   export function retireV3PluginBuildLock(
     lockDir: string,
