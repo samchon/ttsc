@@ -3,10 +3,10 @@ import type { ITtscCompilerContext } from "../../structures/ITtscCompilerContext
 /**
  * One project transform sent to a transform worker thread.
  *
- * The worker runs {@link transformProjectInMemory} exactly as the calling thread
- * would have run it at the moment of the call, under the environment the
- * compiler defines. So the request carries both the compiler context and that
- * environment as it was then.
+ * The worker invokes {@link transformProjectInMemory} with the captured
+ * compiler context and invocation environment. Structured cloning and the
+ * plugin JSON channel transport caller data; they do not freeze filesystem
+ * state, scheduler timing or separate worker caches at request creation.
  *
  * @evidence contracts/common.md#principled-implementation The context determines project behavior, while a separate complete environment snapshot establishes invocation-time authority for the worker's in-process work and children.
  * @evidence contracts/common.md#clear-and-simple-design Compiler selectors, plugin JSON payloads and thread-local ambient state remain distinct: a separate JSON channel preserves custom serialization when structured cloning drops the local adapter method.
@@ -22,7 +22,9 @@ export interface TransformProjectWorkerRequest {
   context: ITtscCompilerContext;
 
   /**
-   * Constructor-captured JSON for each explicit plugin, paired by array index.
+   * Captured JSON for each explicit plugin, paired by array index. Existing
+   * constructor-captured payloads are reused; an uncaptured context is encoded
+   * when the request is made.
    * The worker restores local adapters without reevaluating custom toJSON.
    * Undefined preserves configuration-discovered or disabled plugin selection.
    */
@@ -31,7 +33,8 @@ export interface TransformProjectWorkerRequest {
   /**
    * The calling thread's `process.env` at the call with the compiler's own
    * `env` merged over it, as its child processes take it. The worker makes it
-   * its own `process.env` for the length of the transform, so an environment
+   * its own `process.env` before the transform and retains it until the next
+   * request adopts another environment or the worker exits. An environment
    * the caller configured on the compiler, such as a scratch `TEMP`, covers the
    * whole transform without the caller changing its own globals.
    */
