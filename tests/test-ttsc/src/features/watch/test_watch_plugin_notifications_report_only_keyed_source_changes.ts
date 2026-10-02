@@ -37,11 +37,20 @@ export async function test_watch_plugin_notifications_report_only_keyed_source_c
   const plugin = path.join(root, "plugin");
   const goMod = path.join(plugin, "go.mod");
   const nested = path.join(plugin, "internal", "mark", "mark.go");
+  const fixture = path.join(
+    TestProject.WORKSPACE_ROOT,
+    "packages",
+    "ttsc",
+    "test",
+    "fixtures",
+    "unit",
+    "watch_plugin_notifications_report_only_keyed_source_changes",
+  );
+  TestProject.copyDirectory(path.join(fixture, "inputs-1"), root);
+  fs.renameSync(`${nested}.txt`, nested);
   for (const [location, bytes] of [
     [source, "export const value = 1;\n"],
     [config, JSON.stringify({ files: ["src/main.ts"] })],
-    [goMod, "module example.com/plugin\n\ngo 1.26\n"],
-    [nested, "package mark\n"],
   ]) {
     fs.mkdirSync(path.dirname(location!), { recursive: true });
     fs.writeFileSync(location!, bytes!);
@@ -100,15 +109,10 @@ export async function test_watch_plugin_notifications_report_only_keyed_source_c
     }
     const created = path.join(plugin, "internal", "newpkg");
     const added = path.join(created, "x.go");
-    fs.mkdirSync(created);
-    fs.writeFileSync(added, "package newpkg\n");
-    fs.mkdirSync(path.join(created, "node_modules", "pkg"), {
-      recursive: true,
-    });
-    fs.writeFileSync(
-      path.join(created, "node_modules", "pkg", "ignored.go"),
-      "package ignored\n",
-    );
+    TestProject.copyDirectory(path.join(fixture, "inputs-2"), root);
+    fs.renameSync(`${added}.txt`, added);
+    const ignored = path.join(created, "node_modules", "pkg", "ignored.go");
+    fs.renameSync(`${ignored}.txt`, ignored);
     const before = changes.length;
     deliverWatchEvent(observed.watchers, created, "rename");
     await settleWatchEvents();
