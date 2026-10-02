@@ -5,7 +5,8 @@ import "testing"
 // TestCommandFormatBlankLineInList covers Prettier's preservation of a single
 // source blank line between items of an object literal, a call argument list,
 // and a broken array. A blank line forces the list broken; without a blank the
-// list reflows normally without a spurious blank. Four authored layouts must`n// remain unchanged; the excessive blank-line run must collapse to one.
+// list reflows normally without a spurious blank. Four authored layouts must
+// remain unchanged; the excessive blank-line run must collapse to one.
 //
 //  1. Format, at printWidth 70, an object, a call argument list and a broken
 //     array that each hold one blank line, and require them unchanged.
