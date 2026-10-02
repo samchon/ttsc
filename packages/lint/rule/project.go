@@ -131,9 +131,9 @@ type ProjectRuleResult struct {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Host-supplied inputs are preserved without inferred success or fabricated state.
 // @evidence contracts/common.md#meaningful-documentation The native comment identifies host construction and normal contributor access; the separated tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation NewProjectRuleResult performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms NewProjectRuleResult has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewProjectRuleResult keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewProjectRuleResult acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Copying n findings takes O(n) record work and O(n) output storage, while status, state and reporter transfer in constant field work. Message strings remain shared immutable bytes; contributor state is not traversed or deep-copied.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation intentionally returns independent mutable finding storage for its supplied snapshot; the caller controls snapshot freshness and may not share that backing slice between readers. State and reporter references retain their declared shared identity.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The constructor transfers a newly copied finding slice to the returned snapshot owner, proportional to input findings. Exact contributor state and the host reporter remain borrowed references; a retained snapshot can retain those objects, but reporter finalization owns mutation closure. No handle or task is acquired and no process-global history is stored.
 func NewProjectRuleResult(
   status ProjectRuleStatus,
   state any,
