@@ -13,10 +13,9 @@ import {
  *
  * The pre-fix `rmdir` delegated straight to `unlink`, which deleted the named
  * node with no type, emptiness, or root check — a non-empty rmdir "succeeded"
- * while leaving every descendant stranded at its old path. rmdir must
- * enforce POSIX semantics: empty directory succeeds, non-empty is ENOTEMPTY
- * (tree untouched), a file is ENOTDIR, root is EBUSY, and a missing path is
- * ENOENT.
+ * while leaving every descendant stranded at its old path. rmdir must enforce
+ * POSIX semantics: empty directory succeeds, non-empty is ENOTEMPTY (tree
+ * untouched), a file is ENOTDIR, root is EBUSY, and a missing path is ENOENT.
  *
  * 1. Seed an empty `/empty`, a non-empty `/full/child.txt`, and a file `/f.txt`.
  * 2. Rmdir the empty directory, then attempt each invalid target.

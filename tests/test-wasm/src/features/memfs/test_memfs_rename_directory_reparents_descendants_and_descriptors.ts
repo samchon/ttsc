@@ -13,17 +13,18 @@ import {
  * Verifies MemFS rename of a directory moves every descendant and follows open
  * descriptors to the new location.
  *
- * Pins the regression where `rename` moved only the named
- * directory node, orphaning every descendant at the old prefix and stranding
- * any file descriptor that pointed inside the moved subtree. A successful
- * rename must re-parent the whole subtree and keep an open `fd` reading the
- * same inode, now reachable at its new path.
+ * Pins the regression where `rename` moved only the named directory node,
+ * orphaning every descendant at the old prefix and stranding any file
+ * descriptor that pointed inside the moved subtree. A successful rename must
+ * re-parent the whole subtree and keep an open `fd` reading the same inode, now
+ * reachable at its new path.
  *
  * 1. Seed `/old/child/file.txt` with "abcdef" and open it for reading.
  * 2. Rename `/old` to `/new`.
  * 3. Assert the old prefix is fully gone, the new prefix holds the file and its
- *    bytes (via `readdir` + `stat`, which read the maintained child index and would
- *    expose an orphan), and the pre-existing descriptor still reads "abcdef".
+ *    bytes (via `readdir` + `stat`, which read the maintained child index and
+ *    would expose an orphan), and the pre-existing descriptor still reads
+ *    "abcdef".
  *
  * @evidence contracts/testing.md#behavioral-verification createMemFS.fs.rename moves the complete directory subtree and preserves a pre-opened descriptor. Old/new namespace, bytes, listings and size assertions detect orphaned keys or a stranded open node.
  * @evidence contracts/testing.md#independent-expectations Atomic rename changes names while preserving node data and open identity. Authored abcdef, size six, child file.txt and sole root entry new are independent literal expectations for the old/child subtree move.
