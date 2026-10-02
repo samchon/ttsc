@@ -1,4 +1,6 @@
-import { type SpawnSyncReturns, spawnSync } from "node:child_process";
+import { type SpawnSyncReturns } from "node:child_process";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+const { spawnSync } = E2eProcessTrace;
 import path from "node:path";
 
 import type { IRunResult } from "../../../../../utils/src/evidence/IRunResult";

@@ -1,6 +1,8 @@
 import { TestProject } from "@ttsc/testing";
 import { ProjectFixtures } from "../../../../internal/ttsc/internal/ProjectFixtures";
-import child_process from "node:child_process";
+import nodeChildProcessForTrace from "node:child_process";
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
+const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import os from "node:os";
 
 import { goPath, spawn, ttscBin } from "../../../../internal/ttsc/internal/plugin-corpus";

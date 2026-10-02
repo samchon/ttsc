@@ -1,15 +1,17 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import { type ChildProcessWithoutNullStreams } from "node:child_process";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+const { spawn } = E2eProcessTrace;
 import fs from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 
 import { TtsgraphClient } from "../../../internal/graph/internal/ttsgraph";
 
-const worker = path.resolve(
+const workerFixtures = path.resolve(
   import.meta.dirname,
-  "../../../../fixtures/os/process-lifetime/worker.cjs",
+  "../../../../fixtures/os/process-lifetime",
 );
 
 async function bounded<T>(
@@ -43,6 +45,12 @@ async function written(file: string): Promise<string> {
 }
 
 function actor(root: string, mode: string, hold: string) {
+  const prepared = path.join(root, "process-fixtures");
+  if (!fs.existsSync(prepared)) {
+    fs.cpSync(workerFixtures, prepared, { recursive: true });
+    E2eProcessTrace.fixturePaths(prepared, ["worker.cjs"]);
+  }
+  const worker = path.join(prepared, "worker.cjs");
   const ready = path.join(root, `${mode}.ready`);
   const identity = path.join(root, `${mode}.child`);
   const ended = path.join(root, `${mode}.ended`);

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+const { spawnSync } = E2eProcessTrace;
 import fs from "node:fs";
 import path from "node:path";
 

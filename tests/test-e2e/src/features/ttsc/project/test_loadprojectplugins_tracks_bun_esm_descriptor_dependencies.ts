@@ -1,5 +1,7 @@
 import { TestProject } from "@ttsc/testing";
-import childProcess from "node:child_process";
+import nodeChildProcessForTrace from "node:child_process";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+const childProcess = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 
 import { assert, fs, loadProjectPlugins, path } from "../../../internal/ttsc/internal/project";
 import { createFakeGoBinary } from "../../../internal/ttsc/internal/source-build";

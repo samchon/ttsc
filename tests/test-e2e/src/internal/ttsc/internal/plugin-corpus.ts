@@ -7,7 +7,9 @@
 import { TestProject, getNativeLintProducer, linkNativeLintPackage } from "@ttsc/testing";
 import { ProjectFixtures } from "./ProjectFixtures";
 import assert from "node:assert/strict";
-import child_process from "node:child_process";
+import nodeChildProcessForTrace from "node:child_process";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";

@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { spawnSync } from "node:child_process";
+import { E2eProcessTrace } from "./E2eProcessTrace";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -249,7 +249,7 @@ function readGoSelection(sourceRoot: string): INativeLintSourceSelection {
   const collect = (env: NodeJS.ProcessEnv): IGoPackageSelection[] => {
     // -find asks Go to select package files without resolving imports. Dependency
     // availability is subsequently proved by the actual native compiler build.
-    const result = spawnSync(binary, ["list", "-find", "-e", "-json", "./..."], {
+    const result = E2eProcessTrace.spawnSync(binary, ["list", "-find", "-e", "-json", "./..."], {
       cwd: sourceRoot, env, encoding: "utf8", maxBuffer: 32 * 1024 * 1024,
     });
     if (result.error || result.status !== 0 || result.stderr.trim())

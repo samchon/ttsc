@@ -1,6 +1,8 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import child_process from "node:child_process";
+import nodeChildProcessForTrace from "node:child_process";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import fs from "node:fs";
 import path from "node:path";
 
@@ -60,7 +62,7 @@ export const test_pluginsourcestate_witnesses_the_go_environment_file_before_rea
       script,
       [
         'const fs = require("node:fs");',
-        'const { spawnSync } = require("node:child_process");',
+        `const { spawnSync } = require(${JSON.stringify(E2eProcessTrace.runtimePath)});`,
         "const args = process.argv.slice(2);",
         `const result = spawnSync(${JSON.stringify(realGo)}, args, { stdio: "inherit" });`,
         // The edit lands after `go env` read the file and before its caller

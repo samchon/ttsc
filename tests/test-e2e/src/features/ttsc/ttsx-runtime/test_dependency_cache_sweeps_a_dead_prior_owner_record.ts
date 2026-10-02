@@ -1,6 +1,8 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import childProcess from "node:child_process";
+import nodeChildProcessForTrace from "node:child_process";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+const childProcess = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";

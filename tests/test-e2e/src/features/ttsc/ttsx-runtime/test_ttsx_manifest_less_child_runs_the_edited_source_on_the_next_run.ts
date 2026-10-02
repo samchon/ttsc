@@ -1,3 +1,4 @@
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -55,7 +56,7 @@ export function test_ttsx_manifest_less_child_runs_the_edited_source_on_the_next
         `declare const require: (id: string) => any;`,
         `declare const process: { env: Record<string, string | undefined>; execPath: string };`,
         `declare const __dirname: string;`,
-        `const { spawnSync } = require("node:child_process");`,
+        `const { spawnSync } = require(${JSON.stringify(E2eProcessTrace.runtimePath)});`,
         `const path = require("node:path");`,
         `const env = { ...process.env };`,
         `delete env.TTSX_RUNTIME_MANIFEST;`,

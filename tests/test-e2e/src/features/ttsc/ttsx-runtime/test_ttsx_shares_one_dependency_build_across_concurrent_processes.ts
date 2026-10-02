@@ -1,3 +1,4 @@
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { FixtureFiles } from "../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
@@ -28,7 +29,7 @@ import assert from "node:assert/strict";
  * @evidence contracts/e2e.md#preserved-coverage Three worker outputs and parent zero status remain. The historical headline exceeds the assertions: successful concurrent consumers do not independently measure exactly one compiler invocation.
  */
 export function test_ttsx_shares_one_dependency_build_across_concurrent_processes() {
-    const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_shares_one_dependency_build_across_concurrent_processes/inputs-1"));
+    const root = TestProject.createProject(E2eProcessTrace.fixtureFiles(FixtureFiles.read("ttsc/ttsx_shares_one_dependency_build_across_concurrent_processes/inputs-1")));
 
     const result = TestProject.spawn(
       TestProject.TTSX_BIN,

@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { E2eProcessTrace } from "../E2eProcessTrace";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
@@ -239,7 +239,7 @@ export namespace TestLint {
     args: string[] = [],
     env: NodeJS.ProcessEnv = {},
   ): IRunLintResult {
-    const result = spawnSync(
+    const result = E2eProcessTrace.spawnSync(
       process.execPath,
       [TTSC_BIN, "--cwd", tmpdir, ...args, "--noEmit"],
       {

@@ -1,3 +1,4 @@
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -53,7 +54,7 @@ export async function test_ttsx_keeps_runtime_output_for_a_registered_descendant
         "declare const require: any;",
         'const fs = require("node:fs");',
         'const path = require("node:path");',
-        'const spawn = require("node:child_process").spawn;',
+        `const spawn = require(${JSON.stringify(E2eProcessTrace.runtimePath)}).spawn;`,
         'const child = spawn(process.execPath, [path.join(process.cwd(), "worker.cjs")], { detached: true, stdio: "ignore" });',
         "child.unref();",
         "const deadline = Date.now() + 30000;",

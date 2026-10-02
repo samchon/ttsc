@@ -1,5 +1,6 @@
 import { TestProject } from "@ttsc/testing";
-import { spawnSync } from "node:child_process";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+const { spawnSync } = E2eProcessTrace;
 import os from "node:os";
 import { computeCacheKey } from "../../../../../../packages/ttsc/lib/plugin/internal/source/computeCacheKey.js";
 import { spawnGoTool as actualSpawnGoTool } from "../../../../../../packages/ttsc/lib/plugin/internal/source/spawnGoTool.js";

@@ -8,7 +8,11 @@
  */
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import child_process from "node:child_process";
+import nodeChildProcess from "node:child_process";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+
+// This test-owned facade leaves Node's original module exports untouched.
+const child_process = { ...nodeChildProcess, ...E2eProcessTrace };
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";

@@ -1,4 +1,4 @@
-import child_process from "node:child_process";
+import { E2eProcessTrace } from "./E2eProcessTrace";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
@@ -381,7 +381,7 @@ export namespace TestProject {
    */
   export function spawn(command: string, args: string[], options: any = {}) {
     const usesNodeLauncher = command === TTSC_BIN || command === TTSX_BIN;
-    const result = child_process.spawnSync(
+    const result = E2eProcessTrace.spawnSync(
       usesNodeLauncher ? process.execPath : command,
       [...(usesNodeLauncher ? [command] : []), ...args],
       {

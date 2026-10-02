@@ -1,3 +1,4 @@
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -71,7 +72,7 @@ import { case_buildsourceplugin_defaults_to_workspace_local_cache } from "../sou
  */
 export async function test_commonjs_runtime_corpus_preserves_source_ownership_across_project_profiles() {
   const root = TestProject.createProject(
-    FixtureFiles.read("ttsc/runtime-commonjs-corpus"),
+    E2eProcessTrace.fixtureFiles(FixtureFiles.read("ttsc/runtime-commonjs-corpus")),
   );
   linkTtscPackage(root);
   const failures: unknown[] = [];

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { type ChildProcess, spawn } from "node:child_process";
+import { type ChildProcess } from "node:child_process";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+const { spawn } = E2eProcessTrace;
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";

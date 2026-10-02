@@ -1,5 +1,7 @@
 import { TestProject } from "@ttsc/testing";
-import childProcess from "node:child_process";
+import nodeChildProcessForTrace from "node:child_process";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+const childProcess = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import fs from "node:fs";
 import http from "node:http";
 import net from "node:net";

@@ -1,3 +1,4 @@
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -87,7 +88,7 @@ export function test_ttsx_builds_a_failing_project_once_for_every_file_it_owns()
       [
         `#!${process.execPath}`,
         `const fs = require("node:fs");`,
-        `const { spawnSync } = require("node:child_process");`,
+        `const { spawnSync } = require(${JSON.stringify(E2eProcessTrace.runtimePath)});`,
         `const args = process.argv.slice(2);`,
         `fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify(args) + "\\n");`,
         `const result = spawnSync(${JSON.stringify(TestProject.TSGO_BINARY)}, args, { stdio: "inherit" });`,

@@ -1,6 +1,7 @@
 import { TestProject, TestUnpluginRuntime } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+const { spawnSync } = E2eProcessTrace;
 import fs from "node:fs";
 import path from "node:path";
 
@@ -71,7 +72,7 @@ export async function test_transform_session_store_outlives_its_process(): Promi
     'const fs = await import("node:fs");',
     'const os = await import("node:os");',
     'const path = await import("node:path");',
-    'const { execFileSync } = await import("node:child_process");',
+    `const { execFileSync } = (await import("node:module")).createRequire(import.meta.url)(${JSON.stringify(E2eProcessTrace.runtimePath)});`,
     "const user = process.getuid?.();",
     'const root = path.join(os.tmpdir(), `ttsc-unplugin-sessions${user === undefined ? "" : `-${user}`}`);',
     "fs.mkdirSync(root, { mode: 0o700, recursive: true });",

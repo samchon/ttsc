@@ -1,6 +1,8 @@
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import child_process from "node:child_process";
+import nodeChildProcessForTrace from "node:child_process";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+const child_process = { ...nodeChildProcessForTrace, ...E2eProcessTrace };
 import fs from "node:fs";
 import path from "node:path";
 
@@ -100,6 +102,7 @@ export const case_buildsourceplugin_defaults_to_workspace_local_cache = (): {
       ),
       script,
     );
+    E2eProcessTrace.fixturePaths(tools, ["actual-go.cjs"]);
     const actualGo = resolveGoCompiler({ ...process.env, TTSC_GO_BINARY: "" });
     ensureExecutableGoToolchain(actualGo.binary, actualGo.bundled);
     const go = path.join(tools, process.platform === "win32" ? "go.cmd" : "go");

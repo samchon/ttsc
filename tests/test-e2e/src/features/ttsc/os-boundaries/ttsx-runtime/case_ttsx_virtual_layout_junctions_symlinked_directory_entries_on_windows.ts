@@ -3,7 +3,8 @@ import { TestProject } from "../../../../../../utils/src/TestProject";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
+const { spawnSync } = E2eProcessTrace;
 
 /**
  * Verifies ttsx mirrors symlinked directory entries without Windows symlink

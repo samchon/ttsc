@@ -1,3 +1,4 @@
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
 import { FixtureFiles } from "../../../../internal/FixtureFiles";
 import { TestProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
@@ -27,7 +28,7 @@ import assert from "node:assert/strict";
  * @evidence contracts/e2e.md#preserved-coverage All original meaningful status, output and state assertions remain in this named entry; physical directory selection removes only repeated unrelated portable cases from floor/current execution, while main24 retains the entire runtime population.
  */
 export function test_ttsx_propagates_the_source_loader_to_a_child_process() {
-  const root = TestProject.createProject(FixtureFiles.read("ttsc/ttsx_propagates_the_source_loader_to_a_child_process/inputs-1"));
+  const root = TestProject.createProject(E2eProcessTrace.fixtureFiles(FixtureFiles.read("ttsc/ttsx_propagates_the_source_loader_to_a_child_process/inputs-1")));
 
   const result = TestProject.spawn(
     TestProject.TTSX_BIN,

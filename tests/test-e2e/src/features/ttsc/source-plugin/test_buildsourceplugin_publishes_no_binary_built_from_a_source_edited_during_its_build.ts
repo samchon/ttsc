@@ -1,3 +1,4 @@
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
 import { TestProject } from "@ttsc/testing";
 
 import {
@@ -78,7 +79,7 @@ export const test_buildsourceplugin_publishes_no_binary_built_from_a_source_edit
     write(
       wrapperScript,
       [
-        'const cp = require("node:child_process");',
+        `const cp = require(${JSON.stringify(E2eProcessTrace.runtimePath)});`,
         'const fs = require("node:fs");',
         'const path = require("node:path");',
         "const args = process.argv.slice(2);",

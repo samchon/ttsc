@@ -1,6 +1,7 @@
 import { TestProject, TestUnpluginProject } from "@ttsc/testing";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { E2eProcessTrace } from "../../../../../utils/src/E2eProcessTrace";
+const { execFileSync } = E2eProcessTrace;
 import fs from "node:fs";
 import path from "node:path";
 
@@ -60,7 +61,7 @@ export async function case_metro_transformer_workers_share_one_compile_per_sessi
     ].join("\n");
     const metro = [
       `const { withTtsc } = await import(${JSON.stringify(TestMetroRuntime.libUrl("index"))});`,
-      'const { execFile } = await import("node:child_process");',
+      `const { execFile } = (await import("node:module")).createRequire(import.meta.url)(${JSON.stringify(E2eProcessTrace.runtimePath)});`,
       "const [worker, src, projectRoot, upstream] = JSON.parse(process.argv[1]);",
       "withTtsc({ projectRoot }, { upstreamTransformer: upstream });",
       'const run = () => new Promise((resolve, reject) => execFile(process.execPath, ["--input-type=module", "-e", worker, JSON.stringify([src, projectRoot])], (error, stdout, stderr) => (error ? reject(new Error(stderr)) : resolve(stdout))));',

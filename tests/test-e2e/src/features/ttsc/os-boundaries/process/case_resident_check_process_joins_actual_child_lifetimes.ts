@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
+const { spawnSync } = E2eProcessTrace;
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -35,6 +36,7 @@ export const case_resident_check_process_joins_actual_child_lifetimes = async (
   assert.equal(typeof Owner, "function", "The selected process lifetime owner must be a constructor");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ttsc-resident-close-"));
   fs.cpSync(path.resolve(import.meta.dirname, "../../../../../fixtures/os/process-lifetime"), root, { recursive: true });
+  E2eProcessTrace.fixturePaths(root, ["worker.cjs"]);
   const failures: unknown[] = [];
   const pids = new Set<number>();
   const owners: ProcessOwner[] = [];

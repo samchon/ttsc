@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { type ChildProcessWithoutNullStreams } from "node:child_process";
+import { E2eProcessTrace } from "../../../../../../utils/src/E2eProcessTrace";
+const { spawn, spawnSync } = E2eProcessTrace;
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
@@ -44,6 +46,7 @@ export async function case_ttscgraph_line_peer_joins_actual_child_lifetimes(
   const failures: Error[] = [];
   const root = TestProject.tmpdir("ttsc-graph-stdio-");
   TestProject.copyDirectory(path.resolve(import.meta.dirname, "../../../../../fixtures/os/process-lifetime"), root);
+  E2eProcessTrace.fixturePaths(root, ["worker.cjs"]);
   let retained = false;
   const hold = path.join(root, "hold");
   for (const scenario of ["eof", "nonzero", "forced", "already-exited", "inherited-stdio", "blocked-event-loop", "unread"] as const) {
