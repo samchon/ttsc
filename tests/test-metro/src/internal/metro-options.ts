@@ -149,3 +149,45 @@ export async function assertInvalidIncludeExcludeCoerced(): Promise<void> {
     assert.equal(resolved.ttsc.plugins, false);
   });
 }
+
+/**
+ * Asserts the private run identity crosses the worker env channel only as a
+ * non-empty string, that a supplied identity wins over one smuggled in through
+ * the user's options, and that serialization publishes nothing itself.
+ */
+export async function assertOptionsCarryOnlyANonEmptyPrivateRunIdentity(): Promise<void> {
+  const published = process.env[options.ENV_KEY];
+  const user = { project: "tsconfig.json" };
+  const text = options.serializeOptions(user, "run-1");
+  assert.deepEqual(JSON.parse(text), {
+    project: "tsconfig.json",
+    __snapshotRunId: "run-1",
+  });
+  assert.deepEqual(user, { project: "tsconfig.json" }, "options stay unmutated");
+  assert.equal(process.env[options.ENV_KEY], published, "nothing is published");
+  assert.deepEqual(JSON.parse(options.serializeOptions(user)), user);
+
+  await withEnv(text, async (mod) => {
+    assert.equal(mod.resolveOptionsFromEnv().snapshotRunId, "run-1");
+  });
+  await withEnv(
+    options.serializeOptions({ __snapshotRunId: "user" } as never, "private"),
+    async (mod) => {
+      assert.equal(mod.resolveOptionsFromEnv().snapshotRunId, "private");
+    },
+  );
+  for (const raw of [
+    '{"__snapshotRunId":""}',
+    '{"__snapshotRunId":7}',
+    '{"__snapshotRunId":null}',
+    "{}",
+  ]) {
+    await withEnv(raw, async (mod) => {
+      assert.equal(
+        "snapshotRunId" in mod.resolveOptionsFromEnv(),
+        false,
+        raw,
+      );
+    });
+  }
+}
