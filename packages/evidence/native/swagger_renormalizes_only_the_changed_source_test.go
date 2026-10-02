@@ -16,7 +16,8 @@ import (
  *
  *  1. Remember two documents, then edit one of them.
  *  2. Point `TTSC_NODE_BINARY` at a nonexistent executable and load both.
- *  3. Assert only the edited source is reported.
+ *  3. Assert the edited source forces a normalizer attempt, no problem names the
+ *     unchanged source, and the unchanged source keeps its cached unit.
  *
  * @evidence contracts/testing.md#behavioral-verification loadSwaggerInventories runs over stable.json (cache warmed) and volatile.json (rewritten with different bytes, never cached) with Node unavailable; at least one problem must exist, no problem message may name stable.json, and stable.json's inventory must keep its single cached unit.
  * @evidence contracts/testing.md#independent-expectations Only stable.json is seeded into the cache, so volatile.json cannot hit. The retained-unit count (1) is the discriminating literal; the message loop alone is weak because the normalizer-unavailable diagnostic names no source at all.

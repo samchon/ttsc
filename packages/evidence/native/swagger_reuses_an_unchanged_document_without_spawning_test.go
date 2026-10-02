@@ -11,8 +11,8 @@ import (
  *
  * This is the whole point of the cache: a resident host re-runs the graph on
  * every rebuild, and re-normalizing a document nobody touched costs a Node
- * process start — roughly a third of a second, paid the same for a three-
- * operation document as for a two-hundred-operation one.
+ * process start, paid the same for a three-operation document as for a
+ * two-hundred-operation one.
  *
  * The proof is the unusable binary, as elsewhere in this suite: a spawn that
  * happens fails loudly, so silence is evidence that none was attempted rather

@@ -9,7 +9,7 @@ import (
  * Verifies a graph with no Swagger reference never starts the normalizer.
  *
  * Normalization spawns a Node process and loads the converter, which is a fixed
- * toll of roughly a third of a second per cycle regardless of document size. A
+ * toll per cycle regardless of document size. A
  * project that declared no Swagger must not pay it, and the guard that prevents
  * it is one early return away from being lost.
  *
