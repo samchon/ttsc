@@ -7,7 +7,7 @@ import { assertNoSolutionBuild } from "./assertNoSolutionBuild";
 /**
  * Parse launcher build arguments without resolving a project or starting a host.
  *
- * @evidence contracts/common.md#principled-implementation Reuses the existing schema parser and solution-build guard, preserving tri-state emit precedence and forwarded argument order from the original launcher closure.
+ * @evidence contracts/common.md#principled-implementation The schema parser and solution-build guard decide ownership of each flag; emit stays tri-state (absent, true, false) with `--emit` taking precedence over `--noEmit`, and forwarded flags and their values keep argv order because the parser routes non-input tokens into passthrough in place.
  * @evidence contracts/common.md#clear-and-simple-design One authored adapter returns launcher-owned values; its two local helpers only resolve emit precedence and identify source extensions.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown compiler flags and adjacent values remain in original order; invalid owned values use the schema errors without coercion or fake compiler execution.
  * @evidence contracts/common.md#meaningful-documentation The comment states the execution-free parser boundary; inline comments retain the default quiet, emit and positional-file decisions.
@@ -28,10 +28,10 @@ export function parseTtscBuildArgs(argv: readonly string[]) {
     subcommand: "build",
   });
   assertNoSolutionBuild(result, "ttsc:");
-  // Defaults: pinned by the previous hand-parser. `quiet` defaults true,
-  // `--verbose` flips it to false; `emit` defaults `undefined` so the resolved
-  // project controls ordinary build mode. `runCompatibleBuild` applies the
-  // check/fix/format no-emit decision before either execution lane runs.
+  // Defaults: `quiet` is true, `--verbose` flips it to false; `emit` is
+  // `undefined` so the resolved project controls ordinary build mode.
+  // `runCompatibleBuild` applies the check/fix/format no-emit decision before
+  // either execution lane runs.
   const verbose = getBoolean(result, "--verbose");
   const quietFlag = getBoolean(result, "--quiet");
   const quiet = verbose === true ? false : (quietFlag ?? true);
@@ -71,7 +71,7 @@ export function parseTtscBuildArgs(argv: readonly string[]) {
  * `runBuild` and the single-file lane. A specified boolean is significant even
  * when it is `false`: `--emit=false` is analysis-only and `--noEmit=false`
  * explicitly overrides a project's `noEmit`. `--emit` retains precedence when
- * callers supply both switches, matching the legacy true-only resolution.
+ * callers supply both switches.
  *
  */
 function resolveExplicitEmit(
