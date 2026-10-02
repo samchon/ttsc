@@ -11,9 +11,9 @@ import (
 // TestSourceSDKFactoryPrinter renders real public factory nodes rather than
 // treating construction of a nonnil printer as proof of usable emission.
 //
-// The old shim fixture guarded a TSGO (tsgo) string with token construction but
-// wrote JavaScript through fmt. This probe preserves that literal and exercises
-// typed colon-token compatibility, conditional ordering and string escaping.
+// A TSGO (tsgo) string literal guards the construction of the printed tokens.
+// This probe prints that literal and exercises typed colon-token compatibility,
+// conditional ordering and string escaping.
 //
 //  1. Construct a conditional using public question/colon tokens and identifiers.
 //  2. Print it and independent string-literal boundary inputs.

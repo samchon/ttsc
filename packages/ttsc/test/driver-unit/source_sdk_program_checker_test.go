@@ -19,9 +19,9 @@ import (
 // TestSourceSDKProgramChecker resolves the consumer's User and string[] type
 // arguments through an actual public compiler/checker graph.
 //
-// The former source-plugin fixture printed these names through a regex; that
-// cannot prove checker semantics. This case retains its source calls and pins
-// both their resolved types and exact source-file ownership instead.
+// Printing these names through a regex cannot prove checker semantics. This
+// case pins both the resolved types of its source calls and their exact
+// source-file ownership instead.
 //
 //  1. Parse a consumer config containing the original calls and an excluded file.
 //  2. Create a Program, lease its checker, and locate the exact consumer source.

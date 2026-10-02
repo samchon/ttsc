@@ -12,10 +12,10 @@ import (
 // TestSourceSDKInterfaceProperties preserves the source-plugin fixture's exact
 // property lists and checks the semantic graph beyond lexical enumeration.
 //
-// The old fixture enumerated AST properties while merely retaining a checker.
-// Both paths are exercised here so inherited fields cannot masquerade as an
-// equivalent checker result and method declarations cannot become properties
-// of the lexical list.
+// Enumerating AST properties and querying the checker are distinct paths. Both
+// are exercised here so inherited fields cannot masquerade as an equivalent
+// checker result and method declarations cannot become properties of the
+// lexical list.
 //
 //  1. Build the original User/Product declarations and adjacent boundary types.
 //  2. Walk interface members and query their types through the live checker.
