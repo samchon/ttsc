@@ -9,18 +9,20 @@ import { processPluginBuildEnvironment } from "./processPluginBuildEnvironment";
  * the digest of its sources (`pluginSourceDigest`) together with the
  * environment a build there is keyed on (`pluginBuildEnvironment`).
  *
- * A plugin's binary is a function of both, and the plugin cache key covers both
+ * The plugin cache key covers both selected identities
  * (`computeCacheKey`): a changed `GOFLAGS`, cgo setting, C compiler, or Go
  * toolchain builds another binary as surely as an edited source file does. The
- * transform envelope reports this state for every source directory its binaries
- * were built from (`ITtscCompilerTransformation.ISuccess.pluginSources`), and a
+ * transform envelope reports this state for directories selected by the
+ * loader's pluginSources policy, which omits installed ttsc directories, and a
  * consumer that keeps the output beyond its process proves it through the
  * `ttsc/plugin-source` entry, with no rule of its own. For a plugin's own module root the environment is the one
  * its build keyed on exactly. For a contributor or an overlay, which the build
  * reads under the plugin's module root, it is the environment a build there
- * would take, which moves with every variable and tool the build's own does.
+ * would take. It is not an assertion that arbitrary directory-local tool or
+ * environment resolution is identical to the host module's resolution.
  *
- * The sources are read on every call. Under this process's own environment the
+ * Sources are read unless the caller supplies their digest. Under this
+ * process's own environment the
  * environment is read once per directory and set of variables
  * (`processPluginBuildEnvironment`), and a proof that must not accept a stale
  * one compares through `pluginSourceStateHolds`, which reads it again before it
@@ -43,8 +45,8 @@ import { processPluginBuildEnvironment } from "./processPluginBuildEnvironment";
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The state is derived from real source/toolchain readings rather than compile output or an assumed stable process environment.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain module-root versus overlay environment meaning and the provenance required for supplied digests.
  * @evidence contracts/portability.md#os-neutral-implementation Native source and toolchain identity are delegated to the shared filesystem/process readers; the final digest is platform-independent serialized text.
- * @evidence contracts/performance.md#efficient-algorithms Composition hashes two fixed-size digests; without supplied values its dominant work is the owning source traversal and environment validation, not an extra content scan.
- * @evidence contracts/performance.md#reuse-equivalent-work Already-read source/environment digests are accepted from their producer and process-environment readings are reused only while their path witnesses hold; explicit injected environments are read fresh.
+ * @evidence contracts/performance.md#efficient-algorithms Composition serializes/hashes supplied digest strings whose public inputs are not length-validated; owning generated digests are fixed-width hex. Missing readings delegate native source enumeration/full reads and environment variable/witness/tool/SDK work, without establishing an unmeasured dominant cost ranking.
+ * @evidence contracts/performance.md#reuse-equivalent-work Supplied source/environment strings are trusted producer readings, not independently revalidated here. Process-environment memos require their owner's variable/path witness checks; explicit injected environments are read fresh. Equality inherits the selected-source and native metadata premises.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This function retains no resource or state after returning; process-environment memo lifetime belongs to its separate owner.
  */

@@ -14,8 +14,9 @@ import { processPluginBuildEnvironment } from "./processPluginBuildEnvironment";
  * which is read again whenever the Go tool, its environment file, or the C
  * toolchain it names moved, and read again before a state that does not match
  * is refuted. A compile keys its binaries on a fresh read, so a state it
- * reported after a change is matched on the second reading, and no consumer
- * keeps refuting output its own compiler just produced.
+ * reported after a change gets one comparison with a refreshed environment.
+ * That retry does not guarantee equality for a changing or differently keyed
+ * environment, and a supplied source digest remains the caller's premise.
  *
  * @param directory The source directory, as the envelope names it.
  * @param state The state the envelope reported.
@@ -24,12 +25,12 @@ import { processPluginBuildEnvironment } from "./processPluginBuildEnvironment";
  *
  * @throws When a listed source file cannot be read, as the build itself would.
  *
- * @evidence contracts/common.md#principled-implementation Equality uses the shared state composition; a mismatch refreshes the kept environment once so a state produced after an external environment change is not falsely refuted forever.
+ * @evidence contracts/common.md#principled-implementation Equality uses shared state composition and one real environment refresh after mismatch. This allows changed observations to be reconsidered without certifying the second comparison must match; supplied digest validity and native witness premises remain with their owners.
  * @evidence contracts/common.md#clear-and-simple-design One source reading is passed through both attempts and only the environment owner performs the refresh.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Refresh corrects a genuinely changed environment reading rather than adding exceptions for particular digest values or consumers.
  * @evidence contracts/common.md#meaningful-documentation The prose states source-digest provenance, environment invalidation and the reason a mismatching state gets a fresh comparison.
  * @evidence contracts/portability.md#os-neutral-implementation Source reads and Go/environment witnesses use the same native boundary implementations as builds, rather than comparing OS names or guessed installation paths.
- * @evidence contracts/performance.md#efficient-algorithms Source bytes are read at most once per call; both comparisons reuse that digest and only the mismatch path repeats environment resolution.
+ * @evidence contracts/performance.md#efficient-algorithms At most one source digest computation is requested and reused by both comparisons; supplied strings bypass it. Native enumeration/file bytes, full environment identity/witness checks, optional tool/SDK refresh and digest-string hashing contribute work; mismatch repeats environment resolution once rather than bounding total cost by comparison count.
  * @evidence contracts/performance.md#reuse-equivalent-work A caller's proven source digest and the process owner's still-valid environment are reused; a mismatch forces the owning environment refresh before returning false.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The proof owns no retained source buffer, process or watcher; its caller owns any saved source digest.
