@@ -21,14 +21,15 @@ import { TestProject } from "../../../../utils/src/TestProject";
  *
  * 1. Author the nine config, membership, lane, fingerprint and owner-handoff
  *    scenarios.
- * 2. Drive swallowed and event-first transitions, running the POSIX-only and
- *    Windows-only scenarios on their own platform and logging a skip elsewhere.
+ * 2. Drive swallowed and event-first transitions through native directory
+ *    owners on Windows and per-file owners on POSIX. The recursive Windows
+ *    mixed-membership scenario remains specific to that backend.
  * 3. Collect every scenario result and require exact reports, errors and handle
  *    retirements.
  *
  * @evidence contracts/testing.md#behavioral-verification Preserves all nine handoff scenarios: swallowed config and membership events, event-first deduplication, deleted JSON handoff, Windows mixed membership, transient directory failure, POSIX owner rebind, failed refresh containment and close cancellation.
  * @evidence contracts/testing.md#independent-expectations Authored config/source/JSON changes, literal error and notification counts, distinct inode assertions and exact close counts define independent handoff outcomes.
- * @evidence contracts/testing.md#distinguishing-cases Contrasts: a swallowed config deletion reports one config change and one error while a swallowed new compiler member reports one topology refresh and no input change; a backend event that wins reconciliation reports exactly one compiler change; a consumed warm creation is not repeated by delayed project and compiler deliveries, a mixed source-plus-JSON membership keeps its broader topology reload, and reload-file and reload-directory deltas are consumed once; a first directory read that fails with ENOENT yields one config change and no error; an identical atomic replacement invents no change but a later edit does, and a rearm after a failed refresh neither repeats the config notice nor the error; after close nothing is reported. POSIX-only and Windows-only scenarios are logged as skipped on the other platform.
+ * @evidence contracts/testing.md#distinguishing-cases Contrasts: a swallowed config deletion reports one config change and one error while a swallowed new compiler member reports one topology refresh and no input change; a backend event that wins reconciliation reports exactly one compiler change; a consumed warm creation is not repeated by delayed project and compiler deliveries, a mixed source-plus-JSON membership keeps its broader topology reload, and reload-file and reload-directory deltas are consumed once; a first directory read that fails with ENOENT yields one config change and no error; an identical physical replacement invents no change but a later edit does, and a rearm after a failed refresh neither repeats the config notice nor the error; after close nothing is reported. POSIX asserts per-file rebind and retirement; Windows asserts no per-file registration and retention of its directory owner. The recursive Windows mixed-membership scenario is logged as unexecuted on other platforms, not counted as coverage there.
  * @evidence contracts/testing.md#execution-ownership Actual source WatchTopology and directory adapters consume recorded notifications and explicitly supplied absolute compiler membership. This unit starts no compiler process or native watcher; retained native E2E cases own compiler population and physical delivery. Every original semantic assertion remains in this unit.
  */
 export async function test_watch_topology_reconciles_compiler_inputs_after_registration() {
@@ -37,19 +38,16 @@ export async function test_watch_topology_reconciles_compiler_inputs_after_regis
     [verifySwallowedConfigDeletion, "any"],
     [verifySwallowedCompilerMembership, "any"],
     [verifyBackendEventWinsReconciliation, "any"],
-    [verifyDeletedProjectMemberReconcilesBeforeFileNotification, "posix"],
+    [verifyDeletedProjectMemberReconcilesBeforeFileNotification, "any"],
     [verifyWindowsProjectCompilerMembershipHandoff, "win32"],
     [verifyTransientReloadDirectoryFingerprintRace, "any"],
-    [verifyAtomicReplacementRebindsPosixFileWatcher, "posix"],
-    [verifyFileRearmDoesNotRepeatCompilerRefresh, "posix"],
+    [verifyAtomicReplacementRebindsPosixFileWatcher, "any"],
+    [verifyFileRearmDoesNotRepeatCompilerRefresh, "any"],
     [verifyCloseCancelsReconciliation, "any"],
   ] as const) {
     // A scenario owned by another platform is reported rather than passed
     // silently, so the run never claims coverage it did not execute.
-    if (
-      (platform === "posix" && process.platform === "win32") ||
-      (platform === "win32" && process.platform !== "win32")
-    ) {
+    if (platform === "win32" && process.platform !== "win32") {
       console.log(
         `  - ${run.name}: SKIPPED on ${process.platform} (${platform}-only scenario; no coverage claimed)`,
       );
@@ -249,6 +247,12 @@ async function verifyDeletedProjectMemberReconcilesBeforeFileNotification(): Pro
   );
   try {
     topology.refresh(false);
+    const compilerDirectoryWatcher = recorded.watchers.find(
+      (watcher) =>
+        watcher.active &&
+        watcher.recursive &&
+        isPathWithin(watcher.location, fs.realpathSync.native(json)),
+    );
     topology.setProjectInputs({
       files: [],
       globs: [path.join(root, "api", "**", "*.json")],
@@ -260,10 +264,25 @@ async function verifyDeletedProjectMemberReconcilesBeforeFileNotification(): Pro
     const fileWatcher = recorded.watchers.find(
       (watcher) => watcher.active && watcher.location === physicalJson,
     );
-    assert.ok(fileWatcher, "the compiler did not watch its JSON member");
+    if (process.platform === "win32") {
+      assert.equal(fileWatcher, undefined, "Windows must not acquire a per-file JSON owner");
+      assert.ok(
+        compilerDirectoryWatcher,
+        "Windows has no recursive compiler owner for the JSON member",
+      );
+    } else assert.ok(fileWatcher, "the compiler did not watch its JSON member");
     fs.rmSync(json);
     compilerMembership.set(root, [fs.realpathSync.native(source)]);
-    fileWatcher.listener("rename", path.basename(json));
+    if (process.platform === "win32") {
+      assert.ok(compilerDirectoryWatcher);
+      compilerDirectoryWatcher.listener(
+        "rename",
+        path.relative(compilerDirectoryWatcher.location, physicalJson),
+      );
+    } else {
+      assert.ok(fileWatcher);
+      fileWatcher.listener("rename", path.basename(json));
+    }
     deliverWatchEvent(
       recorded.watchers.filter((watcher) => watcher.recursive),
       physicalJson,
@@ -278,6 +297,7 @@ async function verifyDeletedProjectMemberReconcilesBeforeFileNotification(): Pro
   } finally {
     topology.close();
   }
+  assert.ok(recorded.watchers.every((watcher) => watcher.active === false));
 }
 
 async function verifyWindowsProjectCompilerMembershipHandoff(): Promise<void> {
@@ -643,6 +663,14 @@ async function verifyAtomicReplacementRebindsPosixFileWatcher(): Promise<void> {
     const sharedTime = new Date("2020-01-02T03:04:05.000Z");
     fs.utimesSync(fixture.source, sharedTime, sharedTime);
     topology.refresh(false);
+    const directoryOwner = registrations.find(
+      ({ location }) =>
+        fs.statSync(location).isDirectory() &&
+        isPathWithin(location, fixture.physicalSource),
+    );
+    const originalDirectoryOwners = registrations.filter(({ location }) =>
+      fs.statSync(location).isDirectory(),
+    );
     const replacement = path.join(fixture.root, "src", "main.next.ts");
     fs.copyFileSync(fixture.source, replacement);
     fs.utimesSync(replacement, sharedTime, sharedTime);
@@ -657,12 +685,27 @@ async function verifyAtomicReplacementRebindsPosixFileWatcher(): Promise<void> {
     const sourceRegistrations = registrations.filter(
       ({ location }) => location === fixture.physicalSource,
     );
-    assert.equal(
-      sourceRegistrations.length,
-      2,
-      "the atomic replacement retained its old per-file watcher",
-    );
-    assert.equal(sourceRegistrations[0]?.watcher.closeCount, 1);
+    if (process.platform === "win32") {
+      assert.equal(
+        sourceRegistrations.length,
+        0,
+        "Windows acquired a per-file owner during replacement",
+      );
+      assert.ok(directoryOwner, "Windows has no directory owner for the source");
+      assert.deepEqual(
+        registrations.filter(({ location }) => fs.statSync(location).isDirectory()),
+        originalDirectoryOwners,
+        "an ordinary source replacement re-created its directory owners",
+      );
+      assert.equal(directoryOwner.watcher.closeCount, 0);
+    } else {
+      assert.equal(
+        sourceRegistrations.length,
+        2,
+        "the atomic replacement retained its old per-file watcher",
+      );
+      assert.equal(sourceRegistrations[0]?.watcher.closeCount, 1);
+    }
     assert.deepEqual(
       changes,
       [],
@@ -670,7 +713,13 @@ async function verifyAtomicReplacementRebindsPosixFileWatcher(): Promise<void> {
     );
 
     fs.writeFileSync(fixture.source, "export const value = 3000;\n", "utf8");
-    sourceRegistrations[1]?.listener("change", path.basename(fixture.source));
+    if (process.platform === "win32") {
+      assert.ok(directoryOwner);
+      directoryOwner.listener(
+        "change",
+        path.relative(directoryOwner.location, fixture.physicalSource),
+      );
+    } else sourceRegistrations[1]?.listener("change", path.basename(fixture.source));
     await Promise.resolve();
 
     assert.deepEqual(changes, [
@@ -739,8 +788,8 @@ async function verifyFileRearmDoesNotRepeatCompilerRefresh(): Promise<void> {
       registrations.filter(
         ({ location }) => location === fixture.physicalSource,
       ).length,
-      2,
-      "the replaced source did not receive exactly one new physical owner",
+      process.platform === "win32" ? 0 : 2,
+      "the replacement did not preserve its native directory/per-file ownership",
     );
   } finally {
     topology.close();
