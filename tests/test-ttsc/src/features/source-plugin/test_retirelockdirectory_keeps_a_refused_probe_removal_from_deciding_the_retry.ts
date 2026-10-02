@@ -10,8 +10,9 @@ import { retireLockDirectory } from "../../../../../packages/ttsc/src/internal/r
  * Verifies a refused removal of the contention probe never decides the retry
  * of a lock retirement.
  *
- * On Windows a held generation is told apart from a permission refusal by
- * renaming a freshly created sibling probe between the same parents. Deleting
+ * On Windows renaming a freshly created sibling between the same parents
+ * permits retry under the caller-held generation premise. That probe does not
+ * establish the cause of a source-specific refusal. Deleting
  * that empty probe can be refused for a moment by an indexer or scanner, and the
  * deletion only cleans up after an answer the rename already gave, so it must
  * neither throw out of the retry loop nor turn peer contention into a failure.
@@ -19,7 +20,7 @@ import { retireLockDirectory } from "../../../../../packages/ttsc/src/internal/r
  * temporary tree through the injected operations, refusing exactly the
  * operations named below with the native error codes Windows reports.
  *
- * 1. Refuse the first retirement rename with EPERM as a peer's open file does,
+ * 1. Supply EPERM for the first retirement rename,
  *    and refuse every probe removal with EBUSY.
  * 2. Require the retirement to return true after exactly one yield, with the
  *    held directory moved to its tombstone and the empty probe left behind.
@@ -28,7 +29,7 @@ import { retireLockDirectory } from "../../../../../packages/ttsc/src/internal/r
  *    word.
  *
  * @evidence contracts/testing.md#behavioral-verification Calls retireLockDirectory with operations that delegate to the real filesystem except for an EPERM refusal of the first retirement rename on a platform value of win32 and an EBUSY refusal of every probe removal: it returns true after one yield, the source directory is at its tombstone and one empty probe directory remains; an EINVAL refusal, a refused probe rename and a linux platform each rethrow without a retry.
- * @evidence contracts/testing.md#independent-expectations The expected outcome follows from the retirement contract rather than the implementation: peer contention is proved by the probe rename, so a failed cleanup of the proof may not change the answer. The yield count, the directory states read from the real tree and the thrown error identities are literal observations, not values taken from the loop.
+ * @evidence contracts/testing.md#independent-expectations Literal retry count, resulting directory bytes and sentinel error identities distinguish the supported control policy. A successful sibling rename permits retry under the caller-held generation premise; failed cleanup cannot revoke that observation. No synthetic refusal is claimed to prove actual peer contention or source permissions.
  * @evidence contracts/testing.md#distinguishing-cases The refused probe removal is the positive case that must still retry and succeed. The negatives differ by one property each: a refusal code the loop does not treat as contention, a probe that cannot itself be renamed (which must rethrow the original error and clean its probe), and a platform that never probes. The Windows-only path is reached through the injected platform value; real Windows refusal timing is not reproduced.
  * @evidence contracts/testing.md#execution-ownership A unit test calling retireLockDirectory with injected operations over directories in a TestProject.tmpdir tree; the injected platform and refusals simulate Windows native results, and no lock protocol, process or native build is involved.
  */
@@ -121,8 +122,8 @@ export function test_retirelockdirectory_keeps_a_refused_probe_removal_from_deci
     assert.deepEqual(probes(), []);
   }
 
-  // A probe that cannot itself be renamed proves a lasting refusal: the original
-  // error is thrown and the probe is cleaned up.
+  // A refused probe cannot authorize retry: the original error is thrown and
+  // the probe is cleaned up. This does not establish permanent refusal.
   {
     const { source, destination, probes } = fixture();
     const failure = refusal("EPERM");
