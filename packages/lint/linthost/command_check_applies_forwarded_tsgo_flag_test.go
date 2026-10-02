@@ -9,12 +9,12 @@ import (
 // TestCommandCheckAppliesForwardedTsgoFlag verifies a forwarded tsgo CLI flag
 // overrides the project tsconfig for the in-process lint program.
 //
-// `@ttsc/lint` builds its Program in-process, so a `ttsc --strict` the launcher
-// could not satisfy by shelling out to tsgo rides into the sidecar as the
-// `--tsgo-args` JSON payload instead. The sidecar replays it through tsgo's own
-// option parser and merges it over the tsconfig. The fixture's tsconfig sets
-// `strict: false`, so a strict-null diagnostic can only appear if the overlay
-// actually won.
+// `@ttsc/lint` builds its Program in-process and replays compiler arguments
+// through tsgo's own option parser before merging them over the tsconfig.
+// The current launcher supplies TTSC_TSGO_ARGS; this unit exercises the host's
+// supported explicit --tsgo-args payload instead, without invoking the launcher.
+// The fixture's tsconfig sets strict:false, so the strict-null diagnostic
+// distinguishes the supplied overlay from the baseline configuration.
 //
 //  1. Create a project whose tsconfig disables strict mode, with a possibly-null
 //     dereference in the source.
