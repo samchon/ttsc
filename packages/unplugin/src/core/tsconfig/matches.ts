@@ -23,12 +23,17 @@ import { isPackageDirectory } from "./isPackageDirectory";
  * @evidence contracts/common.md#meaningful-documentation
  *   Native prose explains iterative matching and the nonobvious directory/file
  *   distinction; the min.js transition carries its compiler-semantic reason.
- * @evidenceExclude contracts/portability.md#os-neutral-implementation Matches path parts the caller already split on slashes, so no separator or case policy is chosen here; case folding is compiled into the pattern by the caller.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   Advances the glob state set one path part at a time, bounded by the
- *   component count.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Keeps no cache; the state sets are rebuilt per call.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation Consumes compiler-language components and the supplied pattern case rule, including minified-suffix comparison. Native roots, file identity and directory capability discovery remain outside this text matcher.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   At most C + 1 component positions form each active state set; P path parts
+ *   require up to P-times-C expansion/transitions and O(C) temporary states.
+ *   String/package/minified-name checks and generated RegExp tests add their
+ *   text/regex costs; state count does not bound regex runtime. Iterative sets
+ *   merge equal positions instead of expanding recursive glob paths separately.
+ * @evidence contracts/performance.md#reuse-equivalent-work
+ *   Wildcard states reuse one lazy minified-suffix result for the same path part
+ *   and fixed pattern case rule. The next part/call starts fresh; current/next
+ *   Sets merge duplicate positions without a cross-query match cache.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   The state sets are local to the call.
  */
@@ -47,6 +52,7 @@ export function matches(
   for (const part of parts) {
     expand();
     const next = new Set<number>();
+    let minJs: boolean | undefined;
     for (const state of states) {
       const component = components[state];
       if (component === undefined) continue;
@@ -60,7 +66,7 @@ export function matches(
               // every wildcard that does not spell `.min.` itself.
               (directory ||
                 component.mentionsMin ||
-                !hasMinJsSuffix(part, pattern.caseSensitive)))) &&
+                !(minJs ??= hasMinJsSuffix(part, pattern.caseSensitive))))) &&
           component.expression.test(part)
         )
           next.add(state + 1);
