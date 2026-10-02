@@ -9,7 +9,7 @@ import (
 // TestPublicRuleContextReportRelatedFallsBack verifies the two degradations of
 // ReportRelated / ReportRangeRelated: a host that does not implement
 // rule.RelatedReporter, and a call with no related locations. Both must still
-// deliver the diagnostic through the plain Report / ReportRange path — the
+// deliver the diagnostic through the plain Report / ReportRange path; the
 // related locations are an enrichment, never a precondition for the finding.
 //
 //  1. With related locations but a Reporter that lacks RelatedReporter, the call
@@ -25,7 +25,7 @@ func TestPublicRuleContextReportRelatedFallsBack(t *testing.T) {
   related := []rule.RelatedInformation{{Pos: 0, End: 1, Message: "here"}}
   node := newDummyNode(t)
 
-  // Case 1: legacy reporter without RelatedReporter — captureReporter implements
+  // Case 1: legacy reporter without RelatedReporter; captureReporter implements
   // Reporter + FixReporter but not RelatedReporter.
   legacy := &captureReporter{}
   legacyCtx := rule.NewContext(nil, nil, rule.SeverityError, nil, legacy)

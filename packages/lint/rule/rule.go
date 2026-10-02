@@ -931,9 +931,9 @@ func (c *Context) ReportRangeSuggestion(pos, end int, message string, suggestion
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy compatibility uses explicit capability detection rather than altering host reporter internals.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains same-finding fallback and empty-location equivalence; tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ReportRelated performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ReportRelated has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ReportRelated keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ReportRelated acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Guards and capability selection choose no related-location algorithm. The hosted reporter performs node-trivia range work and copies/normalizes r related records before collection; reporter-owned variable work is not certified fixed-cost here.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Related reporting is an observable collection effect rather than a shared query coordinator. Reporter identity and duplicate policy determine valid collection; matching inputs alone do not authorize suppressing another report.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources This wrapper stores no finding history, handle or task and passes related records synchronously. The reporter owns any retained location/message copies and finding population; hosted storage lives with its run-owned collection.
 func (c *Context) ReportRelated(node *shimast.Node, message string, related ...RelatedInformation) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff || node == nil {
     return
@@ -959,9 +959,9 @@ func (c *Context) ReportRelated(node *shimast.Node, message string, related ...R
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The supported legacy path degrades optional locations while keeping the diagnostic intact.
 // @evidence contracts/common.md#meaningful-documentation Native prose explicitly states both fallback conditions; tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ReportRangeRelated performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ReportRangeRelated has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ReportRangeRelated keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ReportRangeRelated acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidenceExclude contracts/performance.md#efficient-algorithms This wrapper chooses only a reporting capability, not location processing. The hosted reporter normalizes coordinates and copies r related records before collection; that variable cost belongs to the reporter and is not fixed by delegation.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Range-related reporting is effectful collection, not completed/in-flight result coordination. Reporter identity and duplicate policy control reuse permission; equal coordinates/message/locations alone cannot justify suppressing calls.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources No finding history, new handle or task is stored in this wrapper. A retaining reporter owns related-record copies and diagnostic storage/lifetime; the hosted collector owns its run population rather than this delegated method.
 func (c *Context) ReportRangeRelated(pos, end int, message string, related ...RelatedInformation) {
   if c == nil || c.reporter == nil || c.Severity == SeverityOff {
     return

@@ -13,7 +13,7 @@ import (
 // and ReportRangeRelated hand their related locations to a host that implements
 // rule.RelatedReporter, without falling back to the plain diagnostic path.
 //
-// The related locations are the whole point of the call — a no-redeclare
+// The related locations are the whole point of the call; a no-redeclare
 // contributor that leads the reader to the first definition depends on them
 // landing on the host. Like ReportFix, the forwarding hinges on an unexported
 // type assertion in rule.go; this pins it so a refactor cannot silently
@@ -60,7 +60,7 @@ func TestPublicRuleContextReportRelatedForwards(t *testing.T) {
 
 // captureRelatedReporter implements the legacy rule.Reporter surface plus the
 // rule.RelatedReporter extension so the positive related path can be observed.
-// The reverse — a reporter without RelatedReporter — is exercised by
+// A reporter without RelatedReporter is exercised by
 // public_rule_context_report_related_falls_back_test.go via captureReporter.
 type captureRelatedReporter struct {
   reports           int
