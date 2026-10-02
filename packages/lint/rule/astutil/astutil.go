@@ -198,8 +198,9 @@ func searchKeyword(scan *shimscanner.Scanner, pos, end int, keyword string, span
   return -1
 }
 
-// TokenRange returns the `[pos, end)` range of a node's primary token
-// with leading trivia stripped from the start. Useful for rules that
+// TokenRange returns the node's `[pos, end)` range with leading trivia
+// stripped from the start and its original End preserved. It covers the
+// complete node, not only its first lexical token. Useful for rules that
 // want their diagnostic and fix range aligned to the token rather than
 // the surrounding whitespace.
 //
@@ -211,9 +212,9 @@ func searchKeyword(scan *shimscanner.Scanner, pos, end int, keyword string, span
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Range extraction uses supported compiler trivia semantics without guessed whitespace or consumer-specific offsets.
 // @evidence contracts/common.md#meaningful-documentation Native prose describes byte-range alignment and invalid sentinels; paragraphs and tags follow documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation TokenRange performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms TokenRange has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work TokenRange keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TokenRange acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Bounds checks and two coordinate returns are fixed work; compiler SkipTrivia scans l leading-trivia bytes, giving O(1+l) boundary work without copying source text or traversing the node body. Malformed trivia can reach beyond the node end before the post-scan guard rejects the range.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure coordinate helper coordinates no requests or shared state. The caller owns the source/node snapshot whose positions establish validity and any reuse of these coordinates; this operation adds no cross-Program memo based on AST pointers alone.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Only two integer coordinates leave this function; they retain no source string, AST pointer or allocation. The caller owns the input Program lifetime, and this helper stores no historical results or acquires any native handle or task.
 func TokenRange(file *shimast.SourceFile, node *shimast.Node) (int, int) {
   if file == nil || node == nil {
     return -1, -1
