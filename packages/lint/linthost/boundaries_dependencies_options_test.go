@@ -6,12 +6,13 @@ import (
   "testing"
 )
 
-// TestBoundariesDependenciesValidatesCompleteOptionShape verifies malformed
-// policy configuration fails before rule dispatch.
+// TestBoundariesDependenciesValidatesCompleteOptionShape directly validates
+// representative malformed and supported policy configuration.
 //
-// Silent decoding was the stub's production behavior. This matrix pins the
+// The authored fourteen rejection cases and two accepted objects cover the
 // object boundary, known keys, element descriptors, policy effects, selector
 // fields, dependency kinds, and boolean gates while retaining legacy strings.
+// The entry calls ValidateOptions directly and does not observe rule dispatch.
 //
 // 1. Validate representative malformed options at every nesting level.
 // 2. Validate one legacy and one direction-aware object-selector configuration.

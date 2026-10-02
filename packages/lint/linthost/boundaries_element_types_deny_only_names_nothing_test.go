@@ -4,7 +4,7 @@ import "testing"
 
 // TestBoundariesElementTypesDenyOnlyNamesNothing is the negative twin.
 //
-// A deny-list has no allowed set — its complement is every other element — so
+// A deny-list has no finite allowed set to display, so
 // the message must NOT sprout an "Allowed here" clause with nothing behind it.
 // This is the boundary the empty-set guard exists for.
 //
