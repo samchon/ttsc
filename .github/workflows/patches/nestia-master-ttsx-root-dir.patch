@@ -1,0 +1,15 @@
+diff --git a/tests/test-sdk/start.js b/tests/test-sdk/start.js
+index 7202338..8692344 100644
+--- a/tests/test-sdk/start.js
++++ b/tests/test-sdk/start.js
+@@ -1656,7 +1656,9 @@ const runTtsxTest = async (
+           noUnusedParameters: false,
+           outDir: ".",
+           plugins: runtimePlugins(plugins),
+-          rootDir: ".",
++          // The check is TypeScript's own: a source outside `rootDir` is
++          // TS6059, and a feature may import the workspace's sources.
++          rootDir: path.relative(cwd, ROOT).split(path.sep).join("/"),
+         },
+       },
+       null,

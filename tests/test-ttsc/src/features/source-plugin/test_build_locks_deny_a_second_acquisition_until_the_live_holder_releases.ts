@@ -21,7 +21,7 @@ import { releasePluginBuildLock } from "../../../../../packages/ttsc/src/plugin/
  * @evidence contracts/testing.md#distinguishing-cases Both independent lock protocols cover occupied current and released current. The source classifier unit separately retains EPERM/EACCES and adjacent non-collision errno distinctions, including an error without a destination lookup.
  * @evidence contracts/testing.md#execution-ownership This named source unit imports the authored plugin/dependency lock owners and exercises admission/release directly over distinct temporary paths. No child process, native producer or consumer installation runs; both initial and control leases are released in finally.
  */
-export function test_build_locks_take_a_contended_candidate_rename_as_a_lost_race(): void {
+export function test_build_locks_deny_a_second_acquisition_until_the_live_holder_releases(): void {
   const root = TestProject.tmpdir("ttsc-lock-contended-rename-");
   const pluginLock = path.join(root, "plugin.lock");
   const dependencyLock = path.join(root, "dependency.lock");
