@@ -5,12 +5,12 @@ import (
   "testing"
 )
 
-// TestCommandFixRejectsEmitFlag verifies fix refuses --emit before doing work.
+// TestCommandFixRejectsEmitFlag verifies that the owning fix command rejects
+// an explicit emit request before loading rules or a Program.
 //
-// `ttsc fix` keeps emit disabled by contract — the host launcher already
-// guarantees this, but the sidecar must still fail loudly when a caller
-// bypasses the launcher and passes `--emit` directly. Otherwise fix could
-// silently emit JavaScript alongside the rewritten sources.
+// Fix edits source without emitting JavaScript. This direct command invocation
+// observes status two and the refusal message; it does not invoke or certify
+// launcher validation or inspect emitted artifacts.
 //
 // 1. Run the lint sidecar's fix command with --emit attached.
 // 2. Capture stdout/stderr/status.
