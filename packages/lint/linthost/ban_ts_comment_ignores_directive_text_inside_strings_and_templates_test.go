@@ -11,10 +11,10 @@ import (
 // only real comment tokens are classified, and offsets survive templates.
 //
 // A naive substring scan would flag directive text inside string and
-// template literals. The rule re-lexes with the raw scanner (including the
-// template-substitution rescan), so literal contents must stay silent
-// while a genuine comment after a brace-bearing template still reports at
-// its exact byte offset.
+// template literals. The shared comment enumerator excludes parser-owned
+// string and template tokens, then scans only the remaining source gaps.
+// Literal contents stay silent while the real comment after an object-bearing
+// template substitution reports at its exact byte offset.
 //
 //  1. Assert directive strings inside a string and a template produce
 //     zero findings.
