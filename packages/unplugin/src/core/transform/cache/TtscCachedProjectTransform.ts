@@ -14,9 +14,10 @@ import type { TtscHostInputValidation } from "../validation/TtscHostInputValidat
  * retain their separate recorded authority.
  *
  * In an explicit delivery epoch, the first delivery proves the complete stable
- * generation before later first deliveries may share that proof. Each delivered
- * source still costs a text hash and may require disk comparison when it
- * diverges. Persistent graph-bearing requests may use derived-input validation
+ * generation before later first deliveries may share that proof. Deliveries
+ * reaching source-baseline comparison still cost a text hash and may require
+ * disk comparison when they diverge; unrelated modules can return before it.
+ * Persistent graph-bearing requests may use derived-input validation
  * only with qualified membership and universal authority; unavailable narrow
  * proof uses the complete recorded snapshot.
  *
