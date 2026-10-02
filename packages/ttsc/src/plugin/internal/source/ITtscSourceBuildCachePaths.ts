@@ -17,7 +17,10 @@ export interface ITtscSourceBuildCachePaths {
   /** Directory containing content-addressed compiled plugin binaries. */
   pluginRoot: string;
 
-  /** Directory passed to Go as `GOCACHE` for source-plugin builds. */
+  /**
+   * Value passed to Go as `GOCACHE` for source-plugin builds. External GOCACHE
+   * preserves the caller's spelling; Go owns its admission and validation.
+   */
   goBuildRoot: string;
 
   /** Selection provenance controlling automatic pruning and explicit clean. */
