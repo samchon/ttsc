@@ -184,7 +184,7 @@ let result;
 try {
   stdoutFd = fs.openSync(stdout, "w");
   stderrFd = stderr === stdout ? stdoutFd : fs.openSync(stderr, "w");
-  const trace = traceObserver?.begin(command, args, {}, "low-descriptor-target", traceRoot);
+  const trace = traceObserver?.begin(command, args, options, "low-descriptor-target", traceRoot);
   result = childProcess.spawnSync(command, args, {
     ...options,
     shell: false,
