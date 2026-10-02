@@ -9,23 +9,27 @@ import { resolveProjectIdentity } from "ttsc/path-identity";
  * physical paths before it loads the program or hands a plugin its root, so
  * every path the adapter writes for the compiler, the wrapper tsconfig's
  * absolutized values and the plugin config anchor among them, is anchored where
- * the compiler would anchor it: the compiler's own identity rule answers, so
- * the two cannot drift apart. A config the rule cannot locate is left as named;
- * the compile then reports it.
+ * the shared identity selector anchors it at this observation. Failed realpath
+ * can retain lexical spelling inside a successful identity result; a thrown
+ * selection preserves the original tsconfig and its dirname. Neither fallback
+ * proves physical resolution or guards against later native retargeting.
  *
  * @param tsconfig The project's tsconfig as the adapter names it.
  * @param projectRoot The project root the compile declares.
  *
- * @evidence contracts/common.md#principled-implementation The compiler's existing project-identity resolver supplies the physical config address; inability to resolve preserves the original input so the compile owns its diagnostic.
+ * @evidence contracts/common.md#principled-implementation The shared project-identity resolver supplies its best-effort config address; realpath failure can preserve selected lexical spelling, while a thrown selection preserves the original input. Later compilation owns diagnostics and current filesystem observation.
  * @evidence contracts/common.md#clear-and-simple-design The adapter projects the shared identity into config spelling and directory instead of implementing another canonicalization policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Failed identity resolution is not converted into a fabricated config or fixed-path fallback that could select another project.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain the compiler anchor and unresolved-input behavior; parameter tags identify both project addresses.
- * @evidence contracts/portability.md#os-neutral-implementation The existing compiler project-identity API owns physical/native path semantics, while Node dirname preserves the selected volume and separators; unresolved input remains a compiler-owned error.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ * @evidence contracts/portability.md#os-neutral-implementation The shared project selector owns native resolution and best-effort realpath fallback, while Node dirname projects that address. A field named physicalConfigPath is not successful native resolution proof, nor a prediction of unchanged later compiler identity.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Nonempty explicit config selection delegates existence/directory/config
+ *   candidate probes and two realpath attempts; an empty config allows the
+ *   selector's D-depth ancestor search. Native/path text work and dirname
+ *   allocation are not constant merely because this projection has no loop.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Keeps no cache of its own and computes each value once.
+ *   This projects one current selection and coordinates no cross-request
+ *   result; retaining it for later use requires the generation's own proof.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Acquires no handle, timer or retained state of its own.
  */

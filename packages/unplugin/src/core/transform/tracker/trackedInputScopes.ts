@@ -12,11 +12,11 @@ import { trackedInputScope } from "./trackedInputScope";
  * The event scope of every input a generation tracks, keyed by resolved
  * spelling, from the compiler observation recorded for each.
  *
- * `TypeScript-Go` probes `DirectoryExists(<root>/node_modules)` for every
- * package resolution, so this is what keeps a write anywhere under
- * `node_modules` from counting against the generation, while a directory the
- * compiler listed still hears its entries change. A plugin's source directory
- * is a `tree`, whatever the compiler observed of it (samchon/ttsc#1487).
+ * A recorded directory-presence predicate needs a different scope from a
+ * directory listing: mere presence does not make every descendant content edit
+ * a dependency, while a listing needs its direct entry changes. A plugin's
+ * source directory is a `tree`, whatever the compiler observed of it
+ * (samchon/ttsc#1487).
  *
  * @evidence contracts/common.md#principled-implementation
  *   Generation observations determine event scope; plugin source state requires
@@ -31,11 +31,15 @@ import { trackedInputScope } from "./trackedInputScope";
  *   Native paragraphs explain the input-key convention and why observed
  *   presence differs from plugin-tree coverage under the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation
- *   OS-neutral code resolves spellings with the filesystem view's path grammar and obtains fallback
- *   metadata through the injected filesystem; spelling is not physical identity.
+ *   Spellings use the supplied filesystem platform's path grammar and fallback
+ *   stat; graph derivation uses the result's registered filesystem view. Those
+ *   views and the native corpus must agree; an override does not rewrite recorded
+ *   observation keys. Resolved spelling is not physical identity.
  * @evidence contracts/performance.md#efficient-algorithms
- *   Inputs receive one map insertion each; shared graph indexes and a plugin-root map
- *   avoid rescanning all observations or plugin roots for each input.
+ *   N input occurrences require resolution, plugin-map/observation lookup and
+ *   scope classification; duplicates can repeat classification before overwrite.
+ *   Fallback stat has native path costs. Cold generation graph indexing and P
+ *   plugin-root selection are delegated, rather than erased by per-input indexing.
  * @evidence contracts/performance.md#reuse-equivalent-work
  *   envelopeDerivation and envelopeGraphIndexes reuse generation-owned graph
  *   derivations; each new scope map reflects this call's inputs and filesystem.
