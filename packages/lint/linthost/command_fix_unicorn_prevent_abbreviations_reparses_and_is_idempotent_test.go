@@ -8,12 +8,12 @@ import (
 
 // TestCommandFixUnicornPreventAbbreviationsReparsesAndIsIdempotent verifies that in-process public fix dispatch executes twice and compares the final fixture with authored canonical shorthand output.
 //
-// The supported binding rename and shorthand-key preservation independently establish the complete expected source beyond idempotency alone.
+// The authored full literal renames the idx binding to index while retaining the public object key idx and all remaining bytes. Comparing it after each invocation establishes first-call correctness separately from second-call stability.
 //
-// @evidence contracts/testing.md#behavioral-verification In-process public fix dispatch executes twice and compares the final fixture with authored canonical shorthand output.
-// @evidence contracts/testing.md#independent-expectations The supported binding rename and shorthand-key preservation independently establish the complete expected source beyond idempotency alone.
+// @evidence contracts/testing.md#behavioral-verification Each of two in-process fix calls returns zero with empty streams and writes the complete authored index declaration/idx:index shorthand output.
+// @evidence contracts/testing.md#independent-expectations The authored full literal renames the idx binding to index while retaining the public object key idx and all remaining bytes. Comparing it after each invocation establishes first-call correctness separately from second-call stability.
 // @evidence contracts/testing.md#distinguishing-cases idx declaration and shorthand become index/idx:index and remain stable on the second command pass.
-// @evidence contracts/testing.md#execution-ownership TestCommandFixUnicornPreventAbbreviationsReparsesAndIsIdempotent owns its explicit variants and named subcases where present as a discoverable Go unit entry; Two in-process public fix dispatches, checker-backed binding analysis and disk edit application run in the shared Go process with isolated authored fixture files; no installed consumer, native producer or product child host runs.
+// @evidence contracts/testing.md#execution-ownership This single discoverable Go unit entry runs two real fix invocations, checker-backed binding analysis and disk reads/writes on one isolated authored project; no dynamic subcases, installed consumer, native producer or product child runs.
 func TestCommandFixUnicornPreventAbbreviationsReparsesAndIsIdempotent(t *testing.T) {
   root := seedLintProject(t, "const idx = 0;\nconsole.log({ idx });\n")
   seedLintRules(t, root, map[string]string{unicornPreventAbbreviationsRuleName: "error"})
@@ -24,6 +24,7 @@ func TestCommandFixUnicornPreventAbbreviationsReparsesAndIsIdempotent(t *testing
     if code != 0 || stdout != "" || stderr != "" {
       t.Fatalf("fix pass %d mismatch: code=%d stdout=%q stderr=%q", pass, code, stdout, stderr)
     }
+    assertFileText(t, filepath.Join(root, "src", "main.ts"), "const index = 0;\nconsole.log({ idx: index });\n")
   }
   got, err := os.ReadFile(filepath.Join(root, "src", "main.ts"))
   if err != nil {
