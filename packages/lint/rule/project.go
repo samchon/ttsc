@@ -366,9 +366,9 @@ func NewProjectInputContext(
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Decoding has no rule-specific bypass or fabricated fallback payload.
 // @evidence contracts/common.md#meaningful-documentation The native comment documents absent-options behavior; prose and tags are separated under documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectInputContext.DecodeOptions performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectInputContext.DecodeOptions has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectInputContext.DecodeOptions keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectInputContext.DecodeOptions acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms The absence check is constant work; present options delegate validation and decoding to encoding/json, with work driven by JSON bytes and destination shape and storage allocated as required by decoded values. A destination custom unmarshaler can add its own work; absence of a wrapper loop does not make decoding fixed-cost.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Decoding updates the supplied destination, preserves its omitted defaults and can invoke destination-defined unmarshaling effects. Equal JSON alone does not make different destinations or calls interchangeable; this helper owns no cross-request result cache.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Decoded values and their allocations belong to the caller-supplied destination; custom unmarshaler retention is owned by that implementation. This helper neither stores destination history nor acquires native handles or tasks, and its receiver owner controls the existing raw option bytes.
 func (c *ProjectInputContext) DecodeOptions(out interface{}) error {
   if c == nil || len(c.Options) == 0 {
     return nil
@@ -526,9 +526,9 @@ func NewProjectContext(
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No rule-specific payload or fallback is synthesized.
 // @evidence contracts/common.md#meaningful-documentation The native method comment states absent-options behavior with a separated tag block under documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectContext.DecodeOptions performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectContext.DecodeOptions has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectContext.DecodeOptions keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectContext.DecodeOptions acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms The absence check is constant work; present options delegate validation and decoding to encoding/json, with work driven by JSON bytes and destination shape and storage allocated as required by decoded values. A destination custom unmarshaler can add its own work; absence of a wrapper loop does not make decoding fixed-cost.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Decoding updates the supplied destination, preserves its omitted defaults and can invoke destination-defined unmarshaling effects. Equal JSON alone does not make different destinations or calls interchangeable; this helper owns no cross-request result cache.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Decoded values and their allocations belong to the caller-supplied destination; custom unmarshaler retention is owned by that implementation. This helper neither stores destination history nor acquires native handles or tasks, and its receiver owner controls the existing raw option bytes.
 func (c *ProjectContext) DecodeOptions(out interface{}) error {
   if c == nil || len(c.Options) == 0 {
     return nil

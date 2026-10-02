@@ -146,9 +146,9 @@ type HintContext struct {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Options are decoded by the public JSON API without rule-specific bypasses.
 // @evidence contracts/common.md#meaningful-documentation The native method comment states the absent-options effect; prose and tags are separated according to documentation guidance.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation HintContext.DecodeOptions performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms HintContext.DecodeOptions has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work HintContext.DecodeOptions keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources HintContext.DecodeOptions acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms The absence check is constant work; present options delegate validation and decoding to encoding/json, with work driven by JSON bytes and destination shape and storage allocated as required by decoded values. A destination custom unmarshaler can add its own work; absence of a wrapper loop does not make decoding fixed-cost.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Decoding updates the supplied destination, preserves its omitted defaults and can invoke destination-defined unmarshaling effects. Equal JSON alone does not make different destinations or calls interchangeable; this helper owns no cross-request result cache.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Decoded values and their allocations belong to the caller-supplied destination; custom unmarshaler retention is owned by that implementation. This helper neither stores destination history nor acquires native handles or tasks, and its receiver owner controls the existing raw option bytes.
 func (c *HintContext) DecodeOptions(out interface{}) error {
   if c == nil || len(c.Options) == 0 {
     return nil
