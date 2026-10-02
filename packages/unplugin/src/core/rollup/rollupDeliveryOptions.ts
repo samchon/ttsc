@@ -8,13 +8,11 @@ import { stableStringify } from "../transform/utils/stableStringify";
  * The identity of the options a delivery to Rollup was compiled under, which
  * the module carries into Rollup's cache (`TtscRollupDelivery`).
  *
- * Rollup's cache keys a module by its source alone, so a module compiled under
- * other options, another `project`, compiler-options overlay, plugin list, or
- * set of aliases, is served as it is unless the adapter asks for it again. The
- * identity is what a generation's key holds (`createTransformCacheKey`) but the
- * tsconfig, which the record a delivery names stands for, with the `project`
- * option resolved as the selection resolves it, so it is one string for one
- * configuration in every process.
+ * The identity records alias mappings, compiler overlay, plugin payloads and
+ * configured project selection. Tsconfig input state is represented separately
+ * by the delivery's project record. A configured project resolves under the
+ * same native cwd rule as explicit selection; it is not canonicalized to a
+ * physical alias or made process-independent across different cwd spellings.
  *
  * Compiler options, plugin payloads and alias mappings preserve their actual
  * JSON order. Their consumers can observe declaration order; the host cannot
@@ -30,11 +28,13 @@ import { stableStringify } from "../transform/utils/stableStringify";
  * @evidence contracts/portability.md#os-neutral-implementation
  *   Resolves options.project with node:path, so separators and roots follow
  *   the host OS.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Three opaque JSON payloads are encoded before a fixed-key outer encoding
+ *   and hash pass. Payload entries/emitted bytes, escaping and native project
+ *   anchor lengths drive traversal and temporary strings, not wrapper count.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Keeps no cache of its own and computes each value once.
+ *   This one identity computation coordinates no cross-call work. The plugin
+ *   instance owns reuse for its fixed options and supplied alias identity.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Acquires no handle, timer or retained state of its own.
  */
