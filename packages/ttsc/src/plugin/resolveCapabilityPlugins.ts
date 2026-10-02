@@ -31,8 +31,9 @@ import { writeCapabilityResolution } from "./internal/writeCapabilityResolution"
  * the common case.
  *
  * Building a plugin is not free the first time. The Go source build is cached
- * by content, so a warm project pays a lookup; a cold one pays the build the
- * next `ttsc` invocation would have paid anyway.
+ * by content. A warm query still observes runtime authority, recorded host
+ * inputs, source/build state and binary presence; it can avoid descriptor
+ * evaluation and rebuilding without reducing all work to one lookup.
  *
  * @param options.capability - Capability flag the plugin descriptor must
  *   declare.
@@ -46,8 +47,8 @@ import { writeCapabilityResolution } from "./internal/writeCapabilityResolution"
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Empty degraded results remain the legacy contract, but are not advertised as evidence of absence; capability selection does not route by package name.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains full discovery/build ownership, configured order and capability meaning, with separated paragraphs/tags following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native invocation paths and sidecar identity remain with the owning resolver; this wrapper introduces no path parsing or shell invocation.
- * @evidence contracts/performance.md#efficient-algorithms A shallow array copy preserves the mutable legacy return in O(selected plugins), while shared lookup avoids duplicated discovery algorithms.
- * @evidence contracts/performance.md#reuse-equivalent-work The owning resolver uses the same proved persistent answer; this legacy wrapper adds no independent cache or incomplete freshness assumption.
+ * @evidence contracts/performance.md#efficient-algorithms The wrapper delegates the full runtime/cache/discovery/build work to the owning resolver, then copies selected entry references in O(selected plugins). Its additional copy cost does not bound the delegated native/hash/serialization work.
+ * @evidence contracts/performance.md#reuse-equivalent-work The owning resolver applies the persistent answer's recorded authority and input premises; this wrapper adds no independent cache and discards the richer validity query, so the returned array alone does not certify later freshness.
  *
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The wrapper returns caller-owned data and acquires no persistent process or retained result population.
  */
@@ -62,9 +63,11 @@ export function resolveCapabilityPlugins(options: {
 /**
  * Resolve a capability with an owning freshness query, including empty answers.
  *
- * Unavailable native tools or invalid plugin configuration yield an unavailable
- * result whose freshness is always false. A successful lookup is reusable only
- * while its complete recorded discovery and evaluation proof remains current.
+ * A missing native tool and errors inside the plugin-load/answer-publication
+ * try block yield an unavailable result whose freshness is always false.
+ * Initial path, authority/cache lookup and tool resolution precede that catch;
+ * their exceptions are not converted there. A successful lookup is reusable
+ * only while the recorded discovery and evaluation premises remain current.
  * The query never re-evaluates a descriptor or builds a plugin.
  *
  * Unrecorded descriptor reads, module-based config inheritance, indirect
@@ -72,14 +75,14 @@ export function resolveCapabilityPlugins(options: {
  * without reusable proof. Its query then returns false; successful discovery is
  * distinct from permission to reuse.
  *
- * @evidence contracts/common.md#principled-implementation Successful selection preserves the complete manifest and opt-in context; the result distinguishes degraded failure and validates the exact recorded input/build proof before authorizing dependent reuse.
+ * @evidence contracts/common.md#principled-implementation Successful selection preserves the complete configured manifest and opt-in context; missing tools and caught load/publication failures produce degraded results. Dependent reuse requires the recorded input/build projections and authority checks, subject to producer declarations and sequential observation limits.
  * @evidence contracts/common.md#clear-and-simple-design One owner combines discovery and cache acceptance, exposing only selected plugins, outcome and an opaque validity query to downstream consumers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Unproved or unavailable empty answers are never reusable success; consumers do not reconstruct a partial resolver or bypass descriptor-read declarations.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains empty-answer proof, unavailable outcomes and the non-evaluating query; the result type documents consumer responsibility and closure lifetime following the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native resolve and shared filesystem observers preserve actual lexical/physical identities; executable and full JSON argv payloads cross the sidecar boundary without shell composition.
- * @evidence contracts/performance.md#efficient-algorithms A valid persisted answer avoids descriptor startup and Go builds; freshness rechecks recorded observations and source-state witnesses rather than repeating discovery evaluation.
- * @evidence contracts/performance.md#reuse-equivalent-work Persistent identity includes project, product version, complete environment/runtime authority and actual input/source states; callback equality additionally keeps the original resolution generation's proof.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Each result retains one proof snapshot through its closure, with no global result map or live sidecar; disk entries belong to source-cache pruning and result release is the consumer's responsibility.
+ * @evidence contracts/performance.md#efficient-algorithms A valid persisted answer avoids descriptor startup and Go builds, but runtime probes, repeated executable/environment key construction, full entry JSON/host hashing, source metadata/build-environment checks and binary queries still contribute native/path/file/text costs. Freshness repeats authority and cache acceptance, then compares complete serialized entries; misses delegate full discovery/build work and selection scans all configured plugins before mapping the selected ones.
+ * @evidence contracts/performance.md#reuse-equivalent-work Persistent identity includes project/product version/environment/runtime authority and recorded input/source states. Callback equality compares the accepted serialized generation after current checks; it relies on producer declarations and non-atomic observation premises, not detection of every possible external read.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources A reusable result's closure retains serialized proof, captured selector/path strings and authority values while selected entries carry manifest/context text; consumers own release and no independent population/byte ceiling is imposed. Discovery/proof observers own transient processes/files and their cleanup attempts, with no live evaluator intentionally retained in the result. Default disk pruning is subject to its own protection/interval/failure policy and explicit roots remain caller-owned.
  */
 export function resolveCapabilityPluginResolution(options: {
   /** Capability name that selected sidecars must explicitly declare true. */
