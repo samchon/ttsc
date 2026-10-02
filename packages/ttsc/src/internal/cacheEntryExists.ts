@@ -9,8 +9,8 @@ import fs from "node:fs";
  * @evidence contracts/common.md#meaningful-documentation Native wording explicitly includes dangling aliases, the nonobvious distinction needed by cleanup callers, and tags occupy their own block.
  * @evidence contracts/portability.md#os-neutral-implementation Node lstat carries native terminal-link semantics and normalized missing errno rather than inferring existence from path spelling or OS names.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources cacheEntryExists acquires no handle, buffer or cache and retains nothing after it returns.
- * @evidenceExclude contracts/performance.md#efficient-algorithms cacheEntryExists performs a fixed number of steps with no loop or recursion over caller data.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work cacheEntryExists computes one result per call, so there is no repeated work to share.
+ * @evidence contracts/performance.md#efficient-algorithms One lstat checks the terminal entry without following its link target; native path conversion, ancestor lookup and filesystem observation costs depend on the supplied path and filesystem rather than the fixed local errno comparisons. No directory enumeration or content read is requested here.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This predicate owns no cross-request coordination; cleanup consumers request a current mutable entry observation rather than reuse historical existence as deletion authority.
  */
 export function cacheEntryExists(location: string): boolean {
   try {
