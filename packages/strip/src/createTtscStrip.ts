@@ -46,14 +46,6 @@ import path from "node:path";
  *   hooks cannot cover resolution, it reports incomplete observations so the
  *   consumer withdraws reuse rather than patching a private resolver.
  *
- * @evidence contracts/portability.md#os-neutral-implementation
- *   node:path resolves explicit paths, host anchors, ancestors and the
- *   sibling driver on Windows and POSIX. The walk terminates when dirname
- *   reaches the same volume root; filesystem APIs fingerprint bytes,
- *   directory markers and physical targets without interpreting separators or
- *   case manually. Missing or unreadable candidates yield null observations;
- *   the explicit host directory supplies the driver's location.
- *
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc separates host anchoring, candidate observation, validation
  *   and native ownership into paragraphs, including error and absent-anchor
@@ -61,21 +53,6 @@ import path from "node:path";
  *   reuse protocol. The documentation skill's clear prose, paragraph and
  *   rationale guidance governs these comments. Member comments distinguish
  *   negative observations, directory markers and physical target changes.
- *
- * @evidence contracts/performance.md#efficient-algorithms
- *   Discovery probes seven candidates at each of D ancestor directories and
- *   hashes B total readable bytes, so content work is O(D + B). Observations
- *   occupy O(D) entries. The explicit-path branch observes one candidate.
- *   Filesystem calls are needed to observe current state; no AST is parsed here.
- *
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   This evaluation samples mutable filesystem state and does not coordinate
- *   requests. The host owns reuse of descriptors and validates these returned
- *   observations; equal context values alone cannot establish unchanged files.
- *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
- *   Ownership of the returned observation maps transfers to the host. The
- *   factory retains no historical entries, open handles or running tasks.
  */
 export default function createTtscStrip(
   context: TtscStripFactoryContext,

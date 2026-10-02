@@ -28,14 +28,6 @@
  *   The whole type is data-only, with no foreign mutation, fixture branch,
  *   test-only behavior or alternate runtime implementation.
  *
- * @evidenceExclude contracts/portability.md#os-neutral-implementation These lists name TypeScript statement syntax to remove; the type defines no filesystem, path or process boundary.
- *
- * @evidenceExclude contracts/performance.md#efficient-algorithms This schema carries consumer choices and performs no computation.
- *
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The schema coordinates no config evaluation or AST transformation.
- *
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The value lists own no resource lifetime.
- *
  * @evidence contracts/common.md#meaningful-documentation
  *   Interface and member JSDoc distinguish both-key defaults from one-key
  *   replacement, explain exact and deeper prefix matching and its negative
