@@ -556,15 +556,16 @@ func (c *Context) nodeFindingRange(node *shimast.Node) (int, int) {
 // ReportRange records a finding at an explicit byte range inside the
 // current file. Use this when the rule wants to highlight a sub-token of
 // a node (e.g. an operator inside a BinaryExpression).
+// Off severity or a missing File drops the report; use an engine-bound Context.
 //
 // @evidence contracts/common.md#principled-implementation Delegating without edits to ReportRangeFix preserves half-open byte range normalization and severity handling for sub-node diagnostics.
 // @evidence contracts/common.md#clear-and-simple-design The range-only convenience reuses the range collector rather than introducing another reporting policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The caller supplies actual source byte positions; reporting does not infer ranges from expected message text.
 // @evidence contracts/common.md#meaningful-documentation The native comment defines explicit byte ranges and a sub-token use case before its tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ReportRange performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ReportRange has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ReportRange keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ReportRange acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Delegation normalizes the supplied byte range in constant work with no trivia scan or edit copy, plus the rule-name and collector callbacks.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation emits a new diagnostic; equal ranges and messages alone do not establish permission to suppress its collector effect.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The new finding transfers to the host collector, which owns the per-file/run population. This wrapper owns no separate history, handle or task.
 func (c *Context) ReportRange(pos, end int, message string) {
   c.ReportRangeFix(pos, end, message)
 }
@@ -572,15 +573,16 @@ func (c *Context) ReportRange(pos, end int, message string) {
 // ReportRangeFix records an explicit-range finding with optional autofix edits.
 // A missing File drops the report. Diagnostic coordinates are normalized;
 // edit ranges are copied unchanged for validation during application.
+// Off severity also drops the report; use an engine-bound Context.
 //
 // @evidence contracts/common.md#principled-implementation NormalizeLintRange bounds the explicit diagnostic to its file while copied replacements retain their own coordinates and application validation.
 // @evidence contracts/common.md#clear-and-simple-design Explicit range reporting avoids constructing synthetic AST nodes and retains the same Finding transport as node reports.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Source coordinates pass through the supported normalization helper rather than patched compiler node positions.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes missing-file behavior, diagnostic bounds and edit validation with separated tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ReportRangeFix performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ReportRangeFix has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ReportRangeFix keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ReportRangeFix acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Range clamping is constant work and cloning m edit records costs O(m), plus rule-name and collector callbacks. Stored edit records occupy O(m) space; replacement strings remain shared and no trivia scan runs.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Reporting mutates the bound collector for one invocation, without an operation-owned identity or protocol for sharing equivalent effects.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Finding and copied edits transfer to the host collector. This method owns no separate history or native resource; the host owns accumulated findings.
 func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit) {
   if c.Severity == SeverityOff || c.File == nil {
     return
@@ -603,15 +605,16 @@ func (c *Context) ReportRangeFix(pos, end int, message string, edits ...TextEdit
 // editor action. Suggestion edits stay separate from automatic fixes and are
 // ignored by `ttsc fix` and source.fixAll.ttsc.
 // Empty titles or edit lists omit the action while retaining the diagnostic.
+// Off severity or a missing File drops the report; use an engine-bound Context.
 //
 // @evidence contracts/common.md#principled-implementation Normalized source coordinates and a separately copied titled action preserve diagnostic location and opt-in rewrite meaning.
 // @evidence contracts/common.md#clear-and-simple-design The explicit-range counterpart uses the common suggestion constructor without fabricating a node or automatic fix.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The action stays in the supported suggestion channel; no command-specific automatic rewrite exception is added.
 // @evidence contracts/common.md#meaningful-documentation Native prose states source scope, automatic-command exclusion and empty-action behavior before its tags.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ReportRangeSuggestion performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ReportRangeSuggestion has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ReportRangeSuggestion keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ReportRangeSuggestion acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms Constant range clamping and copying m retained edit records cost O(m) plus callbacks, without scanning trivia. Empty titles or edits allocate no action; retained edit storage is O(m) with shared immutable strings.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Each invocation collects one diagnostic; matching coordinates or action payloads alone do not permit suppressing the reporting effect.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The finding and copied action transfer to the host collector. This method owns no historical cache, handle or task; the host owns the per-file/run population.
 func (c *Context) ReportRangeSuggestion(pos, end int, message string, title string, edits ...TextEdit) {
   if c.Severity == SeverityOff || c.File == nil {
     return
@@ -637,15 +640,16 @@ func (c *Context) ReportRangeSuggestion(pos, end int, message string, title stri
 //
 // Unusable actions with an empty title or edit list are omitted; retained
 // actions own copies of their edits.
+// Off severity or a missing File drops the report; use an engine-bound Context.
 //
 // @evidence contracts/common.md#principled-implementation Normalizing the primary range and cloning each usable action preserves a single diagnostic with independent user-selected alternatives.
 // @evidence contracts/common.md#clear-and-simple-design A range report plus the shared multi-action cloning helper expresses alternatives without duplicate diagnostics or synthetic nodes.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Alternative edits remain explicit suggestions rather than a sequence of compensating automatic transformations.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain sub-token alternatives, omitted actions and owned edits with a separate tag block.
 // @evidenceExclude contracts/portability.md#os-neutral-implementation Context.ReportRangeSuggestions performs no filesystem or process operation of its own.
-// @evidenceExclude contracts/performance.md#efficient-algorithms Context.ReportRangeSuggestions has no loop of its own and runs a fixed number of steps.
-// @evidenceExclude contracts/performance.md#reuse-equivalent-work Context.ReportRangeSuggestions keeps no cache and shares no in-flight computation.
-// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Context.ReportRangeSuggestions acquires no handle or task and retains nothing beyond the receiver's own fields.
+// @evidence contracts/performance.md#efficient-algorithms With s supplied suggestions and e retained edit records, constant range clamping and ordered action cloning cost O(s+e) plus callbacks. Storage is O(s+e), including capacity reserved for omitted actions; strings remain shared and trivia is not scanned.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work One invocation produces one collector effect with its ordered choices; no operation-owned sharing identity or protocol permits suppressing later reports.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Copied choices and edit records transfer with the finding to the host collector. This method owns no separate historical state, handle or task; the host controls accumulated finding lifetime.
 func (c *Context) ReportRangeSuggestions(pos, end int, message string, suggestions ...Suggestion) {
   if c.Severity == SeverityOff || c.File == nil {
     return
