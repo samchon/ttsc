@@ -7,8 +7,8 @@ import "testing"
 //
 // The object form both requires a description and matches it against the
 // configured pattern (upstream's canonical `^: TS\d+ because .+$`). A
-// directive whose description satisfies both gates — in a line comment and
-// on a block comment's last line — must stay silent.
+// directive whose description satisfies both gates in a line comment and
+// on a block comment's last line must stay silent.
 //
 // 1. Configure the canonical format with a 10-character minimum.
 // 2. Lint conforming line- and block-comment directives.

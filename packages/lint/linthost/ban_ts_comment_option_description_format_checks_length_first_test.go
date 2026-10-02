@@ -11,35 +11,39 @@ import (
 // TestBanTsCommentOptionDescriptionFormatChecksLengthFirst verifies the
 // evaluation order between the length gate and the format gate.
 //
-// Upstream reports the requires-description message — never the format
-// message — when a description matching the format is still shorter than
-// `minimumDescriptionLength`. Swapping the order would emit a misleading
-// "must match format" complaint for a description that already matches.
+// The length gate must report before the format gate when both fail. A
+// matching-but-short description alone cannot distinguish reversed gates:
+// matching the regex first would still fall through to the same length
+// complaint. The nonmatching-but-short twin makes that order observable.
 //
-// 1. Configure the canonical format with a 25-character minimum.
-// 2. Lint `: TS1234 because xyz` (matches the format, 20 characters).
-// 3. Assert the single finding carries the length message with 25.
+// 1. Configure the anchored format with a 25-character minimum.
+// 2. Keep the matching 20-character description and add a short nonmatch.
+// 3. Assert both report the 25-character length complaint without format text.
 //
-// @evidence contracts/testing.md#behavioral-verification Length failure takes precedence over a matching description format, with the configured 25 threshold in the message.
-// @evidence contracts/testing.md#independent-expectations The authored description matches the regex but is below 25 graphemes; the expected length complaint and absence of format text follow gate order.
-// @evidence contracts/testing.md#distinguishing-cases Matching-but-short input distinguishes threshold checking from format acceptance or misleading format failure.
-// @evidence contracts/testing.md#execution-ownership parseTS and NewEngineWithResolver.Run execute the authored options; this Test owns count and message inclusion/exclusion checks. No consumer install or native product-host build/launch is used.
+// @evidence contracts/testing.md#behavioral-verification Short descriptions report the configured 25-character threshold whether they match the format or fail both gates.
+// @evidence contracts/testing.md#independent-expectations Both literal descriptions are below 25 graphemes; only : TS1234 because xyz matches the anchored regex, so the nonmatching twin independently makes length-before-format observable.
+// @evidence contracts/testing.md#distinguishing-cases Matching-but-short preserves the existing length case; nonmatching-and-short distinguishes reversed format-first evaluation. Matching-long and nonmatching-long siblings own the other gate results.
+// @evidence contracts/testing.md#execution-ownership parseTS and NewEngineWithResolver.Run execute both authored sources with the same options; this Test owns each count and message inclusion/exclusion check. No consumer install or native product-host build/launch is used.
 func TestBanTsCommentOptionDescriptionFormatChecksLengthFirst(t *testing.T) {
   const ruleName = "typescript/ban-ts-comment"
-  source := "// @ts-expect-error: TS1234 because xyz\nconst a: number = 1;\nJSON.stringify(a);\n"
-  file := parseTS(t, source)
-  resolver := InlineRuleResolver{
-    Rules:   RuleConfig{ruleName: SeverityError},
-    Options: RuleOptionsMap{ruleName: json.RawMessage(`{"minimumDescriptionLength": 25, "ts-expect-error": {"descriptionFormat": "^: TS\\d+ because .+$"}}`)},
-  }
-  findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
-  if len(findings) != 1 {
-    t.Fatalf("want 1 finding, got %d (%+v)", len(findings), findings)
-  }
-  if !strings.Contains(findings[0].Message, "must be 25 characters or longer") {
-    t.Fatalf("want the length message with the 25 threshold, got %q", findings[0].Message)
-  }
-  if strings.Contains(findings[0].Message, "format") {
-    t.Fatalf("length gate must win over format gate, got %q", findings[0].Message)
+  for _, source := range []string{
+    "// @ts-expect-error: TS1234 because xyz\nconst a: number = 1;\nJSON.stringify(a);\n",
+    "// @ts-expect-error: wrong\nconst a: number = 1;\nJSON.stringify(a);\n",
+  } {
+    file := parseTS(t, source)
+    resolver := InlineRuleResolver{
+      Rules:   RuleConfig{ruleName: SeverityError},
+      Options: RuleOptionsMap{ruleName: json.RawMessage(`{"minimumDescriptionLength": 25, "ts-expect-error": {"descriptionFormat": "^: TS\\d+ because .+$"}}`)},
+    }
+    findings := NewEngineWithResolver(resolver).Run([]*shimast.SourceFile{file}, nil)
+    if len(findings) != 1 {
+      t.Fatalf("%q: want 1 finding, got %d (%+v)", source, len(findings), findings)
+    }
+    if !strings.Contains(findings[0].Message, "must be 25 characters or longer") {
+      t.Fatalf("%q: want the length message with the 25 threshold, got %q", source, findings[0].Message)
+    }
+    if strings.Contains(findings[0].Message, "format") {
+      t.Fatalf("%q: length gate must win over format gate, got %q", source, findings[0].Message)
+    }
   }
 }
