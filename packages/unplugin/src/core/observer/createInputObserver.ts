@@ -766,8 +766,9 @@ export function createInputObserver(
       // Content edits remain event-driven; retargeting a junction does not
       // reliably emit an event on its previously watched descendants. Reconcile
       // a fixed-size slice as a safety net; ordinary retargets arrive at once
-      // through the project-root observer, while even an enormous dependency
-      // graph has constant idle CPU cost.
+      // through the project-root observer. Probe counts are bounded, but a
+      // retarget can fan out to all dependent entries, and native/query/content
+      // work for selected inputs is not a constant CPU or byte bound.
       for (
         let count = 0;
         count < MAX_LINK_PROBES_PER_TICK && links.size !== 0;

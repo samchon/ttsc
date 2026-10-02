@@ -11,23 +11,24 @@ import { openLinuxDirectoryObserver } from "../transform/tracker/linux/openLinux
  * reported to `onError`, which moves the scope's entries to the bounded
  * fallback poll instead of losing them.
  *
- * Where Node has no native recursive notification, its `recursive` option walks
- * the whole tree and watches every file, `node_modules` included. There the
- * scope opens the directory-level observer instead, which watches only the
- * directories `admit` accepts and those its handle's `track` names
- * (samchon/ttsc#1389). Its watches live in the Linux watch helper and go live
+ * The non-Windows/non-macOS branch selects the Linux directory observer instead
+ * of Node recursive traversal. It watches admitted directories and those its
+ * handle's `track` names (samchon/ttsc#1389); enumeration still sees entries it
+ * does not admit. Its watches live in the Linux helper and go live
  * asynchronously (samchon/ttsc#1426), so once they are, the scope re-checks
- * every entry it covers, as an unattributed event makes it do: an entry could
- * have changed before any watch heard it.
+ * entries through one unattributed callback: an entry could have changed before
+ * any watch heard it. That callback requests a recheck, not proof of a complete
+ * event history. Unsupported helper platforms or acquisition errors must fall
+ * back through the owning observer's failure handling.
  *
  * @evidence contracts/common.md#principled-implementation Linux directory-level observation watches admitted paths and triggers readiness rechecks; native recursive failures enter the same conservative fallback boundary.
- * @evidence contracts/common.md#clear-and-simple-design Platform capability selects an existing backend, returning closure and optional tracking only.
+ * @evidence contracts/common.md#clear-and-simple-design An explicit platform branch selects the Linux helper or Node backend, returning closure and optional directory tracking; actual readiness/failure stays with the selected backend.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Readiness triggers actual recorded-state checks, without assuming handle construction proves earlier unchanged inputs.
  * @evidence contracts/common.md#meaningful-documentation The prose explains recursive emulation cost and why asynchronous startup requires an unattributed event.
- * @evidence contracts/portability.md#os-neutral-implementation OS-neutral watch selection respects backend capability: admitted directory watches on Linux and native recursive watches where supported, with errors relinquishing observation authority.
- * @evidence contracts/performance.md#efficient-algorithms Directory-level observation avoids Node's file-per-watch recursive emulation and traverses only directories the admission policy requires.
+ * @evidence contracts/portability.md#os-neutral-implementation The non-Windows/non-macOS branch delegates to the Linux helper, whose availability must actually hold; the other branch passes native root/recursive/nonpersistent options to Node. Platform selection alone proves no case policy, watcher coverage or success. Errors withdraw authority through the owner rather than pretending unsupported helper platforms work.
+ * @evidence contracts/performance.md#efficient-algorithms The helper enumerates admitted directory topology: D directory acquisitions still inspect E listed entries/native metadata and admission callbacks. The Node branch delegates recursive acquisition/notification work to its backend; neither one wrapper call nor directory-only handles bound listing bytes or callback revalidation cost.
  * @evidence contracts/performance.md#reuse-equivalent-work The shared Linux watch helper owns backend subscriptions, while scope callbacks keep their own coverage and proof conditions.
- * @evidence contracts/performance.md#bound-retention-and-release-resources The nonpersistent backend returns an owned close handle; the observer closes failed, unused external, and disposed scopes.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources The returned native/helper handle owns a scope until close; nonpersistence does not itself release it. Helper directory count follows admitted/explicitly tracked topology. The observer closes failed, unused external and disposed scopes; setup/cleanup can throw, and this wrapper adds no rollback, timeout or listener-effect cancellation beyond its backend.
  */
 export function openRecursiveWatch(
   root: string,
