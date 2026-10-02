@@ -332,7 +332,7 @@ type LSPCompletionHint struct {
 // LSPCompletionItem is one plugin-contributed completion.
 //
 // Fully resolved on arrival: there is no completionItem/resolve round trip,
-// because resolving would require asking a rule that no longer exists.
+// because a resolve would need the producer asked again, and the producer answers once with its whole corpus.
 //
 // @evidence contracts/common.md#principled-implementation Required Insert and optional display fields retain completion insertion and presentation distinctions.
 // @evidence contracts/common.md#clear-and-simple-design Fully resolved data avoids a second producer request.

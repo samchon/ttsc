@@ -121,22 +121,21 @@ type Node struct {
   // a union that mixes in `string`, a type parameter, or a computed enum member
   // has no complete answer and gets none.
   //
-  // It is a checker fact because nothing else is sound. The value set was read
-  // off the declaration's source text for a while, which made the answer a
-  // function of line wrapping rather than of the type: a union written one
-  // member per line reported the members that fit in the snippet, an enum
-  // written across lines reported nothing at all, and `type I = Kind | 'f'`
-  // reported `'f'` while the members reaching it through `Kind` vanished (#732).
-  // The checker has already resolved every one of them, indirection included.
+  // It is a checker fact because nothing else is sound. Reading the value set
+  // off the declaration's source text makes the answer a function of line
+  // wrapping rather than of the type: a union written one member per line would
+  // report the members that fit in the snippet, an enum written across lines
+  // nothing at all, and `type I = Kind | 'f'` would report `'f'` while the
+  // members reaching it through `Kind` vanish. The checker has already resolved
+  // every one of them, indirection included.
   Literals []string
 
   // EnumMembers is what an enum declares, in checker order: the name a caller
   // writes and the value it carries. Empty for every other kind.
   //
-  // The enum's node was always here and had nothing in it. `literals` says what
-  // values the enum admits, which answers a serializer; the code says
-  // `Colors.Red`, so a caller that had already named the enum still opened the
-  // file to learn what to type (#738). The members are not nodes of their own —
+  // `literals` says what values the enum admits, which answers a serializer;
+  // the code says `Colors.Red`, so a caller that had already named the enum
+  // would still open the file to learn what to type. The members are not nodes of their own —
   // `Colors.Red` is a literal string a grep finds exactly, and minting a node
   // per member would grow the graph and put leaves into tour flows to index
   // what grep already does. This fills in the node that exists instead.

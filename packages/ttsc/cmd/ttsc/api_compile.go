@@ -201,7 +201,7 @@ func apiOutputKey(cwd, fileName string) string {
 // review grounds remain attached to the owning operation and its callers.
 // Common: Principled implementation: The real runAPICompile parse path consumes this exact ForceEmit true load policy and forwards all previously parsed threading, semantic-config and tsgo arguments unchanged.
 // Common: Clear and simple design: One value constructor separates load policy from borrowed emission/serialization.
-// Common: Prohibited implementation shortcuts: The constructor replaces the original literal struct directly in the product caller; no test-only expected map, fake loader or public export bypasses policy.
+// Common: Prohibited implementation shortcuts: The constructor replaces a literal struct in the product caller; no test-only expected map, fake loader or public export bypasses policy.
 // Common: Meaningful documentation: Native prose states the production caller and the deliberate difference from ForceNoEmit transform loading.
 // Portability: OS-neutral implementation: The value carries existing native-path strings and argv tokens without rewriting separators or shell syntax.
 // Performance: Efficient algorithms: A fixed-size options value is constructed in constant work; the parsed argument slice is forwarded without rescanning.

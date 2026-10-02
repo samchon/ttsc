@@ -136,11 +136,11 @@ func (g *Graph) heritageEdges(checker *shimchecker.Checker, path string, node *s
 }
 
 // memberRelationEdges records the directly declared member pairs that a
-// heritage clause makes checker-valid. The TypeScript loader used to infer
-// these from equal names after the dump was built. That made an authoritative
-// edge even when the checker rejected the container relation, and a method /
-// property kind guard could not repair it: same-kind signatures can be
-// incompatible while a method can validly satisfy a function-valued property.
+// heritage clause makes checker-valid. Inferring them from equal names after the
+// dump was built would make an authoritative edge even when the checker rejects
+// the container relation, and a method / property kind guard could not repair
+// it: same-kind signatures can be incompatible while a method can validly
+// satisfy a function-valued property.
 //
 // Each pair is checked independently. A whole-container assignability gate
 // would let one broken sibling erase a valid relation in the same partially
@@ -430,7 +430,7 @@ func topLevelID(path string, statement *shimast.Node, kind NodeKind) string {
 // node. Property members are additive: their initializer/type subtree is walked
 // once for the property node, and once for the owner type node, so precise member
 // queries can land on `Class.prop` without making coarse class/interface queries
-// lose dependency edges they historically owned.
+// lose dependency edges the owner node carries.
 func forEachMember(path string, statement *shimast.Node, kind NodeKind, fn func(string, *shimast.Node)) {
   containerID := topLevelID(path, statement, kind)
   for _, member := range classMembers(statement) {

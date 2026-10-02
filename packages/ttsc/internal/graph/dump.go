@@ -528,11 +528,11 @@ func MarshalDump(g *Graph, project, tsconfig string, ignored map[string]bool, so
 // EncodeDump writes the export JSON straight to w, one buffered pass, ending it
 // with the newline the one-shot protocol expects.
 //
-// The alternative is what the dump command used to do: marshal the whole
-// document into a byte slice, convert that slice into a string, and print the
-// string. On VS Code the document is 323 MB, so the conversion was a second full
-// copy of it held live beside the first — half a gigabyte of peak heap that
-// bought nothing, because the bytes were already exactly what stdout wanted.
+// The alternative, marshaling the whole document into a byte slice, converting
+// that slice into a string and printing the string, holds a second full copy of
+// the document live beside the first. On VS Code the document is 323 MB, so that
+// copy is half a gigabyte of peak heap that buys nothing, because the bytes are
+// already exactly what stdout wants.
 //
 // @evidence contracts/common.md#principled-implementation Validated projection is encoded directly to the supplied writer with the protocol's trailing newline and all writer failures preserved.
 // @evidence contracts/common.md#clear-and-simple-design The streaming adapter keeps projection in NewDump and uses standard buffered JSON encoding rather than a second string-output pipeline.
@@ -719,8 +719,8 @@ func (c *dumpContext) declarationSignature(n *Node) string {
   return strings.TrimSpace(text[pos:end])
 }
 
-// objectMemberSignature reproduces the compact outline details has historically
-// returned, but slices it from Program-owned text while the dump is built
+// objectMemberSignature reproduces the compact outline `details` returns, but
+// slices it from Program-owned text while the dump is built
 // instead of reopening the live file later.
 func (c *dumpContext) objectMemberSignature(file string, member ObjectMember) string {
   pos, end := member.Pos, member.SignatureEnd
