@@ -6,35 +6,13 @@ import factory, {
   SyntaxKind,
 } from "../../../../../packages/factory/src/index";
 import { id, print } from "../../internal/helpers";
-import { parseClean, printLegacy, structure } from "../../internal/oracle";
+import { parseClean, printLegacy, shapeOf, structure } from "../../internal/oracle";
 
 const f = factory;
 const l = ts.factory;
 const lid = (text: string) => l.createIdentifier(text);
 const type = (text: string) => f.createTypeReferenceNode(text);
 const ltype = (text: string) => l.createTypeReferenceNode(text, undefined);
-
-/**
- * Kind names of a parsed node and its children, parentheses kept. Operator
- * tokens print as `[text]` and a numeric literal as its own name, because
- * several kinds share one numeric alias.
- */
-const shapeOf = (node: ts.Node): string => {
-  const children: string[] = [];
-  node.forEachChild((child) => void children.push(shapeOf(child)));
-  const punctuation: string | undefined =
-    node.kind >= ts.SyntaxKind.FirstPunctuation &&
-    node.kind <= ts.SyntaxKind.LastPunctuation
-      ? ts.tokenToString(node.kind)
-      : undefined;
-  const name: string =
-    punctuation !== undefined
-      ? `[${punctuation}]`
-      : ts.isNumericLiteral(node)
-        ? "NumericLiteral"
-        : ts.SyntaxKind[node.kind]!;
-  return children.length === 0 ? name : `${name}(${children.join(",")})`;
-};
 
 /** One tree built for each printer, with the text it must print as. */
 interface Case {

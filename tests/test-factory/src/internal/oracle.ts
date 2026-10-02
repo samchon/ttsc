@@ -250,3 +250,26 @@ const isOptionalChain = (node: ts.Node): boolean => {
   if (ts.isNonNullExpression(node)) return isOptionalChain(node.expression);
   return false;
 };
+
+/**
+ * Kind names of a parsed node and its children, parentheses kept. Operator
+ * tokens print as `[text]` and a numeric literal as its own name, because
+ * several kinds share one numeric alias. This outlines a parse without eliding
+ * the parentheses that {@link structure} drops.
+ */
+export const shapeOf = (node: ts.Node): string => {
+  const children: string[] = [];
+  node.forEachChild((child) => void children.push(shapeOf(child)));
+  const punctuation: string | undefined =
+    node.kind >= ts.SyntaxKind.FirstPunctuation &&
+    node.kind <= ts.SyntaxKind.LastPunctuation
+      ? ts.tokenToString(node.kind)
+      : undefined;
+  const name: string =
+    punctuation !== undefined
+      ? `[${punctuation}]`
+      : ts.isNumericLiteral(node)
+        ? "NumericLiteral"
+        : ts.SyntaxKind[node.kind]!;
+  return children.length === 0 ? name : `${name}(${children.join(",")})`;
+};
