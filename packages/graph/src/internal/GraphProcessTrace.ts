@@ -7,17 +7,11 @@ import path from "node:path";
 /**
  * Private process observers; package entrypoints do not export this namespace.
  * The aliases retain Node's overloads while their adapters pass arguments intact.
+ * Native executable, argv and option types stay with Node. This grouping adds
+ * no product flag, protocol field, cache, process holder or algorithm; those
+ * responsibilities remain with the adapters and their existing callers.
  *
  * @internal
- *
- * @evidence contracts/common.md#principled-implementation The two aliases retain the native process primitive signatures; their adapters return the actual child or synchronous result.
- * @evidence contracts/common.md#clear-and-simple-design One internal namespace groups the two maintained process boundaries without adding a package entrypoint export.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts No native export is replaced and no product flag, protocol field or fixture-specific behavior is introduced.
- * @evidence contracts/common.md#meaningful-documentation Native prose states private visibility and preservation of Node's overload signatures.
- * @evidence contracts/portability.md#os-neutral-implementation The aliases preserve Node's native executable, argv and option types rather than defining an OS-specific process representation.
- * @evidenceExclude contracts/performance.md#efficient-algorithms This namespace groups adapters and does not independently select an algorithm.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work The namespace introduces no completed computation cache or shared process holder.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Process and observation lifetime belong to the adapters and their existing callers, not this alias namespace.
  */
 export namespace GraphProcessTrace {
   export const spawn = observeSpawn as typeof nativeSpawn;
@@ -29,14 +23,18 @@ export namespace GraphProcessTrace {
  * Failed writes leave bounded integrity evidence where possible; an unwritable
  * sink remains missing measurement data. Neither failure changes product IO.
  *
- * @evidence contracts/common.md#principled-implementation A process-local nonce and increasing ordinal identify actual calls independently of child PID reuse; events retain observed fields rather than inferred starts.
- * @evidence contracts/common.md#clear-and-simple-design One optional closure owns event correlation and the synchronous append sink; callers own all process behavior.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts The private approved observer uses no fixture oracle, product flag, foreign mutation or test-helper dependency.
- * @evidence contracts/common.md#meaningful-documentation Native prose states root ownership, missing-data behavior and unchanged product IO.
- * @evidence contracts/portability.md#os-neutral-implementation Node native absolute-path and append operations retain the coordinator's path spelling; process.pid identifies this actual writer.
- * @evidence contracts/performance.md#efficient-algorithms Each event serializes its supplied fields once and appends their UTF-8 bytes; tracing adds disclosed synchronous IO rather than claiming a speedup.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Actual calls and writes are effectful and are never deduplicated; a single nonce only identifies this module instance.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Scalar counters and one nonce persist per module instance; writes close per append and output is capped at 256MiB plus one overwritten 4096-character integrity marker. The coordinator retains files until writers join.
+ * A process-local nonce and increasing ordinal distinguish calls from child
+ * PID reuse. The optional closure owns correlation and the append sink only;
+ * callers own process behavior. Node's absolute-path and append operations use
+ * the coordinator's native path spelling and process.pid identifies the writer.
+ * No fixture oracle, foreign mutation or test-helper dependency is involved.
+ *
+ * Each event serializes its observed fields once, so temporary text follows
+ * event size. Synchronous IO is measurement overhead, not a claimed speedup.
+ * Effectful calls and writes are never deduplicated. Scalar counters and one
+ * nonce persist per module instance; each append closes its handle. Events are
+ * capped at64MiB and writer output at256MiB, plus one overwritten bounded
+ * integrity marker. The coordinator retains these files until writers join.
  */
 function begin() {
   const root = process.env.TTSC_E2E_TRACE;
@@ -66,14 +64,17 @@ function begin() {
  * errorMonitor observes errors without becoming a normal error handler. Call
  * bounds are not exact OS creation times; close does not join descendants.
  *
- * @evidence contracts/common.md#principled-implementation The unchanged native spawn executes once; supported events provide actual PID, exit and close observations under one invocation.
- * @evidence contracts/common.md#clear-and-simple-design The adapter reports lifecycle only; existing owners retain streams, parsing, shutdown, references and error handling.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Original arguments, returned child and synchronous error are preserved without foreign patching or synthetic children.
- * @evidence contracts/common.md#meaningful-documentation Prose distinguishes call bounds, normal error behavior and descendant lifetime limitations.
- * @evidence contracts/portability.md#os-neutral-implementation Executable, argv and native options pass unchanged to Node; cwd records supplied or inherited intent without guessed native resolution.
- * @evidence contracts/performance.md#efficient-algorithms Disabled observation directly delegates; enabled calls serialize argv and a fixed lifecycle event population.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each spawn is an effectful native call; the observer cannot choose whether a caller reuses an existing peer.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Once listeners retain correlation until their event or child collection; no reference, timer, kill or independent wait is introduced. Child release stays with its original owner.
+ * Native spawn executes once with unchanged executable, argv and options and
+ * returns the original child or throws the same synchronous error. Events
+ * provide actual PID and lifecycle observations under one invocation; cwd
+ * records explicit or inherited intent without guessing native resolution.
+ * Streams, parsing, shutdown, references and normal errors stay caller-owned.
+ *
+ * Disabled observation delegates directly; enabled calls serialize argv and a
+ * fixed event population. Effectful starts are not reusable results. Once
+ * listeners retain correlation until their event or child collection; no timer,
+ * reference change, kill or independent wait is added. Existing owners release
+ * the child, and no foreign process export is patched.
  */
 function observeSpawn(...args: Parameters<typeof nativeSpawn>) {
   const trace = begin();
@@ -103,14 +104,16 @@ function observeSpawn(...args: Parameters<typeof nativeSpawn>) {
  * encoding, buffers, shell options or errors. A positive returned PID records
  * a started child; call bounds do not invent its exact creation timestamp.
  *
- * @evidence contracts/common.md#principled-implementation The actual spawnSync return supplies PID, status, signal and error; unsuccessful pre-start attempts remain distinct from observed child starts.
- * @evidence contracts/common.md#clear-and-simple-design One adapter surrounds the native call; downstream capture, status mapping and disposal remain in their existing owners.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts Native arguments and the identical result or thrown error pass through, without changing protocol bytes or substituting expected counts.
- * @evidence contracts/common.md#meaningful-documentation Prose explains actual PID and timing limits and preservation of native options.
- * @evidence contracts/portability.md#os-neutral-implementation Original executable, argument vector and process options reach Node unchanged; inherited cwd intent is recorded separately from an explicit path.
- * @evidence contracts/performance.md#efficient-algorithms Observation adds argv serialization and two bounded event writes per actual call; captured product output is not copied into this trace.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each synchronous process call is effectful and observed separately.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Only one call-local correlation is retained until native return; append handles close per write and existing callers still release captures.
+ * Actual returned PID/status/signal/error distinguish a child from a failed
+ * pre-start attempt. Executable, argv, native options and the identical result
+ * or thrown error pass through unchanged. Explicit cwd and inherited intent are
+ * distinct observations, not resolved executable identity. Downstream capture,
+ * status mapping, protocol bytes and disposal remain in their existing owners.
+ *
+ * Observation adds argv serialization and two bounded event writes per actual
+ * effectful call; captured output is not copied or reused as expected counts.
+ * One correlation remains until native return, append handles close per write
+ * and original callers still release their captures.
  */
 function observeSpawnSync(...args: Parameters<typeof nativeSpawnSync>) {
   const trace = begin();
