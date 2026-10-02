@@ -6,15 +6,19 @@ import { PluginPackageResolution } from "./PluginPackageResolution";
 /**
  * Validate contributor records before native host compilation.
  *
- * @evidence contracts/common.md#principled-implementation Ordered record checks establish unique valid names, absolute existing source directories and non-test Go source before physical identity normalization.
- * @evidence contracts/common.md#clear-and-simple-design One traversal owns contributor admission; a private directory predicate isolates buildable-source discovery.
+ * The source preflight requires an immediate regular filename ending in .go
+ * but not _test.go. It does not parse package syntax, build constraints or
+ * platform suffixes; actual Go compilation owns buildability.
+ *
+ * @evidence contracts/common.md#principled-implementation Ordered record checks establish unique accepted names, absolute observed source directories and a regular non-test .go filename before best-effort physical normalization. These checks do not certify Go package buildability or freeze filesystem identity.
+ * @evidence contracts/common.md#clear-and-simple-design One traversal owns contributor admission; a private directory predicate isolates regular non-test filename discovery.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The actual loader now calls this unchanged guard; unit callers do not replace contributor compilation or transport assertions.
- * @evidence contracts/common.md#meaningful-documentation The headline documents admission and the return shape retains native source identities.
+ * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes filename preflight from actual buildability; returned source strings use best-effort native realpath and can retain original spelling on failure.
  *
  * @evidence contracts/portability.md#os-neutral-implementation Native path.isAbsolute, fs.stat, readdir and resolveRealPath preserve platform path and physical-source distinctions rather than using POSIX string heuristics.
- * @evidence contracts/performance.md#efficient-algorithms Checks each contributor once with a set for names and one direct directory listing; cost is linear in records and immediate entries without recursively scanning payloads.
+ * @evidence contracts/performance.md#efficient-algorithms Each contributor is checked with indexed seen-name membership and one direct directory listing, without recursive payload scans. Name regex/hash and path/entry text, native existence/stat/realpath operations and complete immediate-entry materialization contribute cost; record count alone does not bound that work.
  * @evidence contracts/performance.md#reuse-equivalent-work Within one request the seen-name set avoids repeated name searches; filesystem admission is reobserved because callers may mutate contributor source between requests.
- * @evidence contracts/performance.md#bound-retention-and-release-resources Name and result arrays exist only for this invocation and no file descriptor or global contributor cache is retained.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Name sets and directory listings are invocation-local; returned ordered records transfer to the caller. Their bytes grow with accepted records and names/paths, while a listing materializes all immediate entries; no population ceiling or historical cache is owned here and synchronous filesystem APIs retain no open handle.
  */
 export function validatePluginContributors(
   plugin: ITtscPlugin,
@@ -64,13 +68,9 @@ export function validatePluginContributors(
         `ttsc: plugin "${plugin.name}" contributors[${index}].source must be an existing directory: ${source}`,
       );
     }
-    // Pre-flight check that the directory actually carries a buildable
-    // contributor package. Without this, an accidentally-empty directory
-    // (or a directory containing only `_test.go` files, which `go build`
-    // silently skips) reaches the synthesized blank-import step and Go's
-    // compile error surfaces with a scratch-tempdir path that doesn't
-    // name the contributor entry. Catching it here lets us name the
-    // entry the user actually authored.
+    // Reject a directory lacking a regular non-test Go filename before
+    // native host compilation can attribute a failure to scratch paths.
+    // Filename admission does not certify package syntax or build constraints.
     if (!hasBuildableGoSource(source)) {
       throw new Error(
         `ttsc: plugin "${plugin.name}" contributors[${index}].source must contain at least one non-test ".go" file: ${source}`,
@@ -84,11 +84,8 @@ export function validatePluginContributors(
 const CONTRIBUTOR_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
 
 function hasBuildableGoSource(dir: string): boolean {
-  // `go build` consumes `.go` files but silently ignores `_test.go`. A
-  // contributor whose source dir holds only test files would compile to
-  // an empty package and surface as an opaque scratch-tempdir error;
-  // require at least one production `.go` file so the validator can
-  // name the contributor entry instead.
+  // This immediate filename preflight is narrower than actual Go admission.
+  // Ignored filename prefixes, build constraints and syntax remain compiler-owned.
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
