@@ -11,7 +11,9 @@ import { PluginBuildLockProtocol } from "./PluginBuildLockProtocol";
 const reservations = new Map<string, string>();
 
 /**
- * Keep returned executable paths alive until their consumer process ends.
+ * Register reader reservations for returned executable paths until their
+ * consumer process ends. Cooperating collectors preserve these records;
+ * external deletion or replacement is not prevented by a token.
  * Registration and collection both run under the cache key's build lease.
  * Reservations are readers, not build generations: other readers can share the
  * same executable without holding that exclusive lease during execution.
@@ -36,7 +38,7 @@ export namespace PluginBinaryUse {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Publication failures throw rather than returning an unprotected path; no exit callback pretends the process has ended while later callbacks may still consume its binary.
    * @evidence contracts/common.md#meaningful-documentation Native prose states registration timing, held-lease premise and repeated-key reuse.
    * @evidence contracts/portability.md#os-neutral-implementation Node mkdir, lstat and UTF-8 owner records preserve native filesystem behavior; no shell or OS-wide case folding supplies ownership.
-   * @evidence contracts/performance.md#efficient-algorithms A first physical key resolves native identity, collects proven-dead reader records in O(U) metadata/liveness observations, then writes one bounded owner record; repeated keys resolve identity and check one local token, without scanning unrelated keys.
+   * @evidence contracts/performance.md#efficient-algorithms A first key performs native identity resolution (after the initial holds query), scans U reader entries and owner JSON/path/hostname bytes, and writes one host/PID record. Dead-token removal also traverses their stored directory contents. Repeated keys still resolve identity and check token existence, without scanning unrelated keys; identity resolution includes its delegated native path and case-policy observations.
    * @evidence contracts/performance.md#reuse-equivalent-work A live process reuses one reader token for the same key, while other processes publish their own independent tokens.
    * @evidence contracts/performance.md#bound-retention-and-release-resources One token and map entry remain per distinct physical key until process death; there is no constant key-count bound. Later admission or GC collects proven-dead tokens, while live, remote or unknown ownership is retained without an age bound; no native handle or exit hook remains installed.
    */
@@ -91,15 +93,16 @@ export namespace PluginBinaryUse {
   }
 
   /**
-   * Whether this process still has its previously published reader token. This
-   * permits a binary hit to reuse already-established ownership.
+   * Whether the pathname of this process's previously published reader token
+   * still exists. This permits local reuse under the cooperating cache-owner
+   * premise; existence alone does not revalidate its kind, record or incarnation.
    *
-   * @evidence contracts/common.md#principled-implementation Only a token created by retain can authorize local reuse; a removed token requires acquisition and publication again.
+   * @evidence contracts/common.md#principled-implementation Only a pathname previously recorded by retain authorizes local reuse, and an absent pathname requires acquisition again. This existence query assumes cache ownership prevents external token replacement; it does not reread ownership or pin an incarnation.
    * @evidence contracts/common.md#clear-and-simple-design One process map and native existence observation answer the previously-owned-token question without interpreting other consumers.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts A recent use timestamp or matching binary filename cannot supply a missing reader reservation.
-   * @evidence contracts/common.md#meaningful-documentation Native prose limits this answer to this process's previously published ownership.
+   * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes previously published pathname existence from revalidation of token ownership.
    * @evidence contracts/portability.md#os-neutral-implementation Node observes the token path directly without platform-specific process enumeration.
-   * @evidence contracts/performance.md#efficient-algorithms Native cache-entry identity resolution, one expected-constant map lookup and one token existence check avoid reader population scans.
+   * @evidence contracts/performance.md#efficient-algorithms Delegated native cache-entry identity resolution includes path text and case-policy observations; one expected-constant map lookup and a token existence check avoid reader population scans. Hashing the identity key also depends on its string length.
    * @evidence contracts/performance.md#reuse-equivalent-work A repeated key reuses its process-owned token until it is absent or the process ends.
    *
    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources retain owns the token and map lifetime; this query acquires no handle.
@@ -119,7 +122,7 @@ export namespace PluginBinaryUse {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unknown ownership and linked/nonordinary reservation directories never authorize deletion; age and recency are not substituted for liveness.
    * @evidence contracts/common.md#meaningful-documentation Native prose defines held-deletion-lease timing and exact absence requirements.
    * @evidence contracts/portability.md#os-neutral-implementation Native lstat directory kinds and the shared hostname/signal-zero process boundary supply conservative reclamation evidence.
-   * @evidence contracts/performance.md#efficient-algorithms A scan visits U reader records and their JSON bytes with at most one native liveness probe per valid record; it collects all provably dead records even when another owner remains live.
+   * @evidence contracts/performance.md#efficient-algorithms A scan visits U reader entries, their paths and JSON/hostname bytes, with at most one native liveness probe per valid record. Recursive deletion adds the contents of each dead token directory. Live owners do not stop scanning, but a native failure ends the scan conservatively, so later dead tokens may remain.
    *
    * @evidenceExclude contracts/performance.md#reuse-equivalent-work Reader population and liveness must be freshly observed under the collector's lease.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Proven-dead tokens are removed; failed deletion preserves the payload. The scan holds no process or filesystem handle after its synchronous calls.
