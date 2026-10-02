@@ -126,6 +126,7 @@ async function expectProjectQuiet(
   const count = projectChangeCount(changes);
   await delay();
   assert.equal(projectChangeCount(changes), count);
+  assert.equal(projectChangeCount(changes), 0);
 }
 
 async function waitForProjectChange(

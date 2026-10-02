@@ -20,20 +20,14 @@ const membership = new Map<string, string[]>();
  * Verifies predicted products never erase authoritative compiler inputs and
  * every copied compiler product remains excluded from the project-input lane.
  *
- * 1. Keep an explicit declaration input that collides with a predicted output
- *    under independently authored overwrite-collision options.
- * 2. Preserve `.mjs` and `.cjs` inputs whose paths collide only with an
- *    incorrectly changed extension.
- * 3. Suppress nested products emitted above the project without `rootDir`.
- * 4. Treat removed `outFile` as absent from the output-layout contract.
- * 5. Resolve launcher-owned output paths from the execution cwd and passthrough
- *    paths from the compiler's project cwd.
- * 6. Suppress TS/JS diagnostic-recovery products outside the mapping root, while
- *    retaining an adjacent JSON negative twin.
- * 7. Keep a directory containing the last of 1,000 compiler inputs selectable for
- *    1,000 declared JSON paths, then distinguish products and adjacent input.
+ * 1. Preserve declaration and JavaScript inputs despite predicted collisions.
+ * 2. Contrast copied products, removed `outFile`, and execution-root outputs
+ *    with independently authored non-product twins.
+ * 3. Suppress out-of-root TS/JS recovery products while retaining adjacent JSON.
+ * 4. Keep the last of 1,000 compiler inputs selectable for 1,000 declared JSON
+ *    paths, then distinguish product-only and adjacent-input controls.
  *
- * @evidence contracts/testing.md#behavioral-verification This case drives the real WatchTopology: predicted products never erase authoritative compiler inputs and every copied compiler product remains excluded from the project-input lane. 1. Keep an explicit declaration input that collides with a predicted output under independently authored overwrite-collision options. 2. Preserve `.mjs` and `.cjs` inputs whose paths collide only with an incorrectly changed extension. 3. Suppress nested products emitted above the project without `rootDir`. 4. Treat removed `outFile` as absent from the output-layout contract. 5. Resolve launcher-owned output paths from the execution cwd and passthrough paths from the compiler's project cwd. 6. Suppress TS/JS diagnostic-recovery products outside the mapping root, while retaining an adjacent JSON negative twin. 7. Preserve 1,000 compiler inputs and 1,000 literal JSON declarations through public topology operations, contrasting a last-member source overlap with product-only and adjacent-input controls. No private containment counter or complexity bound is asserted.
+ * @evidence contracts/testing.md#behavioral-verification Actual WatchTopology consumes authored compiler membership and inferred output paths. 1. Preserve declaration and JavaScript input collisions. 2. Contrast copied products, removed outFile and execution-root outputs with non-product twins. 3. Exclude out-of-root recovery products while retaining adjacent JSON. 4. Contrast 1,000-member compiler overlap, product-only and adjacent-input declarations through public operations. No private containment counter or complexity bound is asserted.
  * @evidence contracts/testing.md#independent-expectations Authored tsconfig options, authored compiler membership and declared input paths establish which files are authoritative compiler inputs and which are predicted products; literal reported-versus-quiet outcomes, including the adjacent JSON negative twin, enforce those roles rather than snapshotting topology output.
  * @evidence contracts/testing.md#distinguishing-cases Each predicted product is paired with a non-product twin that must wake: foo.d.ts declared as an input versus compiler products, module.js/common.js inputs versus module.mjs/common.cjs products, outDir-relative main.js and data.json versus a nearby external.json, a removed outFile bundle versus the real per-source output, launcher-relative and passthrough-relative products versus cache/external.json, out-of-root recovery .js/.js.map/.d.ts/.d.ts.map versus external.json, and a generated/ output prefix versus the adjacent generated-other/ input; the 1,000-member case contrasts a compiler member inside the output directory with the same directory once the member leaves.
  * @evidence contracts/testing.md#execution-ownership Actual source WatchTopology consumes independently authored absolute compiler membership and actual config, output and physical-path decisions through recorded source-adapter subscriptions. No compiler child or native observer runs. The retained E2E owns compiler population and native delivery until its replacement corpus is verified.
@@ -252,6 +246,7 @@ async function verifyRemovedOutFileLayout(): Promise<void> {
     await expectProjectQuiet(
       changes,
       "actual per-source output retriggered the project-input lane",
+      1,
     );
   } finally {
     topology.close();
@@ -624,10 +619,12 @@ function projectChangeCount(changes: readonly WatchInputChange[]): number {
 async function expectProjectQuiet(
   changes: readonly WatchInputChange[],
   message: string,
+  expectedProjectChanges = 0,
 ): Promise<void> {
   const previous = projectChangeCount(changes);
   await delay();
   assert.equal(projectChangeCount(changes), previous, message);
+  assert.equal(projectChangeCount(changes), expectedProjectChanges, message);
 }
 
 function delay(milliseconds = 500): Promise<void> {
