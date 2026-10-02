@@ -117,7 +117,8 @@ export async function transformTtsc(
 
   const selection = resolveProjectSelection(file, options.project, filesystem);
   const tsconfig = selection.tsconfig;
-  // Every config the selection read is a watch input too: editing a solution's
+  // Reported config reads and failed discovery candidates are watch inputs:
+  // editing a solution's
   // `references`, or the `include` of a project searched before the selected
   // one, can move the file (samchon/ttsc#1397). Each notification hands them
   // beside its own inputs, under the same spelling, so a config both name is

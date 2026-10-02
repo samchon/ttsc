@@ -2,7 +2,8 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
 
 /**
  * What a delivery's watch notifications need from the project selection that
- * routed its file: the configs the selection read, which are handed to the host
+ * routed its file: reported config reads and failed discovery candidates, handed
+ * to the host
  * beside every notification's own inputs (`selectionInputs`), the filesystem
  * their evidence is read through, and the selected tsconfig, which spells the
  * project for a notification that has no generation to spell it.
@@ -23,7 +24,10 @@ import type { TtscTransformFilesystemOperations } from "../filesystem/TtscTransf
  *   state at runtime.
  */
 export interface TtscWatchSelection {
-  /** The configs the selection read, in the order it read them. */
+  /**
+   * Ordered reported routing spellings, including failed discovery predicates;
+   * a listed candidate need not have had readable config contents.
+   */
   readonly consulted: readonly string[];
 
   /** The filesystem the delivery reads through. */
