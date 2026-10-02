@@ -8,10 +8,6 @@ import type { IPlaygroundInstalledDependency } from "./IPlaygroundInstalledDepen
  * @evidence contracts/common.md#clear-and-simple-design One installation record groups transport, prior graph and progress controls without owning compiler mounting.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Fetch injection and explicit built-in exclusions are public policy; byte and package budgets apply to every package.
  * @evidence contracts/common.md#meaningful-documentation Member prose documents legacy limitations, byte units and streaming enforcement, with separate paragraphs and member spacing under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export interface IPlaygroundDependencyInstallOptions {
   /**
@@ -78,10 +74,6 @@ export interface IPlaygroundDependencyInstallOptions {
  * @evidence contracts/common.md#clear-and-simple-design Transport stays distinct from registry resolution, archive processing and mounting.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Injection uses an explicit seam without replacing global fetch internals.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies the transport role; optional initialization matches fetch consumers.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export type PlaygroundFetch = (
   input: string,
@@ -95,10 +87,6 @@ export type PlaygroundFetch = (
  * @evidence contracts/common.md#clear-and-simple-design A single void notification keeps presentation state outside registry processing.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Observer failures are not converted into synthetic installation success.
  * @evidence contracts/common.md#meaningful-documentation Native prose states delivery timing and error propagation independently of acknowledgment tags.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export type PlaygroundDependencyProgressHandler = (
   event: IPlaygroundDependencyProgress,

@@ -50,22 +50,8 @@ const packCaches = new WeakMap<
  *   and reasons use separate native paragraphs under the documentation skill;
  *   IInstallTypiaSourcePackOptions owns option documentation.
  *
- * @evidence contracts/performance.md#efficient-algorithms
- *   Map lookup indexes loads, and event-driven cancellation avoids polling.
- *   Fetch and JSON decoding perform the requested transport work once per
- *   shared attempt; mounting owns the later filesystem writes.
  *
- * @evidence contracts/performance.md#reuse-equivalent-work
- *   The URL and actual fetch function identity share loading and decoded records
- *   across mount requests. Reuse assumes immutable content for that URL during
- *   the transport lifetime; a new URL or transport creates independent work.
  *
- * @evidence contracts/performance.md#bound-retention-and-release-resources
- *   Failure evicts its attempt and cancellation listeners are disposed.
- *   Weak transport keys permit abandoned injected transports and their records
- *   to be collected. Live transports retain successful URL records, with memory
- *   scaling with distinct URLs and pack contents and no fixed eviction budget.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function loadTypiaSourcePack(
   options: IInstallTypiaSourcePackOptions,

@@ -8,10 +8,6 @@ import type { PlaygroundFetch } from "./IPlaygroundDependencyInstallOptions";
  * @evidence contracts/common.md#clear-and-simple-design One shared record serves the mount adapter and installer without a second transport configuration model.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Transport injection is explicit; callers need not monkey-patch global fetch to load a pack.
  * @evidence contracts/common.md#meaningful-documentation Member prose explains virtual root defaults and shared cancellation, with native paragraphs and spacing from the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export interface IInstallTypiaSourcePackOptions {
   /** URL the site serves the pre-built typia source pack from. */

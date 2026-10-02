@@ -41,10 +41,6 @@ import { safeParseTypiaTransform } from "./safeParseTypiaTransform";
  * @evidence contracts/common.md#clear-and-simple-design A two-collaborator record isolates runtime binding from pipeline control flow.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Collaborators are explicit production dependencies, not global replacements or fixture-specific dispatch.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain runtime binding and the injection purpose under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export interface IWorkerCompilerDeps {
   /**
@@ -54,10 +50,6 @@ export interface IWorkerCompilerDeps {
    * @evidence contracts/common.md#clear-and-simple-design This dependency owns runtime startup while the service owns mounting and request serialization.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Injection uses the declared host API rather than replacing runtime globals.
    * @evidence contracts/common.md#meaningful-documentation Native prose states readiness and ownership with tag separation under the documentation skill.
-    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-    * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-    * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
    */
   bootTtsc: (options: IBootTtscOptions) => Promise<IBootResult>;
 
@@ -68,10 +60,6 @@ export interface IWorkerCompilerDeps {
    * @evidence contracts/common.md#clear-and-simple-design Decoding stays distinct from exit-code interpretation in the service.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Null remains failure information and does not fabricate a successful empty compile result.
    * @evidence contracts/common.md#meaningful-documentation Native prose defines null and decoding responsibility, separated from tags under the documentation skill.
-    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-    * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-    * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
    */
   parseResult: <T>(result: ITtscResult) => T | null;
 }
@@ -91,10 +79,6 @@ type ITransformOutcome = { ok: true } | { ok: false; message: string };
  * @evidence contracts/common.md#clear-and-simple-design Boot, mounting, project writes and result interpretation are local responsibilities behind one RPC factory; ESM and CommonJS lanes share the build pipeline.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Retry is limited to pre-runtime boot or source mounting; failed configured plugins never silently fall through to successful untransformed emit or a clean lint list.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state serialization and retry boundaries; helper comments explain plugin-envelope failures and the runtime replacement reason under the documentation skill.
-  * @evidence contracts/performance.md#bound-retention-and-release-resources The closure retains the runtime boot promise, the mount promise and the serialization chain tail for the Worker's life, and a queued request holds its closure until it settles. A post-start boot failure stays cached because the Go runtime cannot be replaced; the owning client terminates the Worker.
-  * @evidence contracts/performance.md#efficient-algorithms Each request writes two project files and runs the transform, build and result parse once; the two tsconfig strings are built at construction, so per-request work is the compiler's own plus mapping of its diagnostics and output keys.
-  * @evidence contracts/performance.md#reuse-equivalent-work One memoized runtime boot and a separately retryable source mount serve every request of the closure, and each tsconfig lane is built once. Requests are not deduplicated because each rewrites the shared virtual project.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function createWorkerCompilerService(
   deps: IWorkerCompilerDeps,

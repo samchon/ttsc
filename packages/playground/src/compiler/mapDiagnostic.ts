@@ -13,10 +13,6 @@ import { lineColumnOf } from "./lineColumnOf";
  * @evidence contracts/common.md#clear-and-simple-design A single mapping keeps WASM diagnostic fields and UI conventions separate from rendering.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Fallback is based on omitted producer metadata, not special casing a diagnostic code or source fixture.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains producer-to-UI conversion and fallback purpose, following documentation-skill paragraph separation.
- * @evidence contracts/performance.md#efficient-algorithms Bounded source scans convert the start, span and line metadata with O(source length) time and constant temporary space, without encoded prefix allocations.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work This stateless record mapper does not coordinate equivalent requests; the build pipeline owns its diagnostic population.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It acquires no handles or retained cache and transfers the small output record to its caller.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function mapDiagnostic(
   diag: NonNullable<ITtscCompileResult["diagnostics"]>[number],

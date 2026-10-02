@@ -16,10 +16,6 @@ import { installTypiaSourcePack } from "./installTypiaSourcePack";
  * @evidence contracts/common.md#clear-and-simple-design One adapter derives the root and delegates transport and writes to their owning operations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The optional workDir preserves the supported single-argument callback while supplied project roots are honored instead of patched with fixed paths.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes cached loading from repeated mounting and explains callback compatibility, following documentation-skill paragraph separation.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It keeps no state, handle or listener after returning.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A single pass or constant work over its arguments; no algorithm choice scales beyond that.
-  * @evidence contracts/performance.md#reuse-equivalent-work Delegates to loadTypiaSourcePack, so mounts with the same URL and fetch share one load; the writes repeat on each call to restore removed files.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function createTypiaSourcePackMount(
   options: IInstallTypiaSourcePackOptions,

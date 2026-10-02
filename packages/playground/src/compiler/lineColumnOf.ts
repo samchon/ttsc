@@ -6,10 +6,6 @@
  * @evidence contracts/common.md#clear-and-simple-design A stateless coordinate helper keeps source-location policy separate from diagnostic mapping and rendering.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Beginning and EOF behavior are general coordinate defaults rather than source-specific exceptions.
  * @evidence contracts/common.md#meaningful-documentation Native prose states bases, units and boundary behavior, separated from tags under the documentation skill.
- * @evidence contracts/performance.md#efficient-algorithms One scan to the clamped UTF-16 offset costs O(offset) time and constant temporary space; it avoids prefix strings and newline arrays.
- * @evidenceExclude contracts/performance.md#reuse-equivalent-work This pure coordinate conversion does not coordinate reuse across requests; callers own any source-index lifetime.
- * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It retains no state or handles after returning the coordinate pair.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function lineColumnOf(
   source: string,

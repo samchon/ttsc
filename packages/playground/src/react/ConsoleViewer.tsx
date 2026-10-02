@@ -17,10 +17,6 @@ interface ConsoleViewerProps {
  * @evidence contracts/common.md#clear-and-simple-design Row layout delegates color and value formatting to local helpers while the caller owns captured-message state.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Color choices are presentation constants and the depth limit is a general rendering bound, not source-specific output substitution.
  * @evidence contracts/common.md#meaningful-documentation Native prose states ordering, text rendering and truncation semantics, separated from tags under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It keeps no state, handle or listener after returning.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms Linear in the rendered messages and values, with container recursion capped at depth four.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Browser UI logic with no native filesystem, path-identity or process boundary.
  */
 export function ConsoleViewer({
   messages,

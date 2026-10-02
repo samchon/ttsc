@@ -27,10 +27,6 @@ interface OptionsPanelProps {
  * @evidence contracts/common.md#clear-and-simple-design Parent callbacks own values and visibility while this component owns dialog focus behavior and toggle presentation.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Metadata keys drive all toggles through the same supported callback rather than plugin-specific mutation paths.
  * @evidence contracts/common.md#meaningful-documentation Native prose states merge and keyboard behavior; prop comments state UI defaults with documentation-skill tag and member separation.
-  * @evidence contracts/performance.md#bound-retention-and-release-resources One window keydown listener is registered per onClose identity and removed on replacement or unmount.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A single pass or constant work over its arguments; no algorithm choice scales beyond that.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Browser UI logic with no native filesystem, path-identity or process boundary.
  */
 export function OptionsPanel({
   options,

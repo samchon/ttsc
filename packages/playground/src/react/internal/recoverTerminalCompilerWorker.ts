@@ -7,10 +7,6 @@ import { BootTtscWorkerTerminationError } from "@ttsc/wasm";
  * @evidence contracts/common.md#clear-and-simple-design The adapter exposes only the three effects recovery needs, independently of React state.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Recovery is limited to terminal runtime identity rather than a universal retry wrapper around ordinary failures.
  * @evidence contracts/common.md#meaningful-documentation Native prose states terminal scope and member ownership, with documentation-skill member spacing.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export interface ITerminalCompilerWorkerRecovery {
   /**
@@ -20,10 +16,6 @@ export interface ITerminalCompilerWorkerRecovery {
    * @evidence contracts/common.md#clear-and-simple-design The client retains generation state while recovery consumes a narrow claim decision.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Stale claimants cannot reset another caller's replacement.
    * @evidence contracts/common.md#meaningful-documentation Native prose defines atomic claim and fencing with tag separation under the documentation skill.
-    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-    * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-    * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
    */
   claim(): boolean;
 
@@ -34,10 +26,6 @@ export interface ITerminalCompilerWorkerRecovery {
    * @evidence contracts/common.md#clear-and-simple-design Disposal remains the client's responsibility rather than being recreated in the recovery helper.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Disposal uses the supported client boundary instead of replacing runtime internals.
    * @evidence contracts/common.md#meaningful-documentation Native prose states ownership and ordering with tag separation under the documentation skill.
-    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-    * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-    * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
    */
   reset(): Promise<void>;
 
@@ -48,10 +36,6 @@ export interface ITerminalCompilerWorkerRecovery {
    * @evidence contracts/common.md#clear-and-simple-design State presentation remains with the owner callback, separated from error classification.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Disposal failure does not erase the deciding runtime failure or invent readiness.
    * @evidence contracts/common.md#meaningful-documentation Native prose states finally-path behavior with tag separation under the documentation skill.
-    * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-    * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-    * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-    * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
    */
   fail(error: unknown): void;
 }
@@ -64,10 +48,6 @@ export interface ITerminalCompilerWorkerRecovery {
  * @evidence contracts/common.md#clear-and-simple-design Classification, ownership and reset effects have separate boundaries, keeping this coordinator independent of UI state.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Only the runtime's explicit terminal identity triggers replacement; ordinary failures do not accumulate reset-and-retry compensation.
  * @evidence contracts/common.md#meaningful-documentation Native prose states terminal scope and false return meaning; callback prose defines reset rejection behavior under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It keeps no state, handle or listener after returning.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A single pass or constant work over its arguments; no algorithm choice scales beyond that.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Browser UI logic with no native filesystem, path-identity or process boundary.
  */
 export async function recoverTerminalCompilerWorker(
   error: unknown,
@@ -90,10 +70,6 @@ export async function recoverTerminalCompilerWorker(
  * @evidence contracts/common.md#clear-and-simple-design One classifier centralizes local and transported identity for every recovery caller.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Classification uses a supported error identity rather than arbitrary message fragments or consumer names.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the stable transport witness with tag separation under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It keeps no state, handle or listener after returning.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A single pass or constant work over its arguments; no algorithm choice scales beyond that.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Browser UI logic with no native filesystem, path-identity or process boundary.
  */
 export function requiresCompilerWorkerReplacement(error: unknown): boolean {
   const code = BootTtscWorkerTerminationError.CODE;

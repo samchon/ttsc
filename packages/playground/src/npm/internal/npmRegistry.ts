@@ -21,10 +21,6 @@ interface IPackageJson {
  * @evidence contracts/common.md#clear-and-simple-design Registry metadata remains separate from unpacked files and mounted state.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Optional authentication fields represent historical metadata compatibility, not fabricated integrity evidence.
  * @evidence contracts/common.md#meaningful-documentation Native prose states subset and absent distribution meaning, separated from tags under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export interface INpmVersionMetadata {
   name: string;
@@ -47,10 +43,6 @@ export interface INpmVersionMetadata {
  * @evidence contracts/common.md#clear-and-simple-design The packument index is independent of a particular install request or mounted graph.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing entries remain representable instead of inventing a version from a requested tag.
  * @evidence contracts/common.md#meaningful-documentation Native prose defines version indexing and tag purpose with tag separation under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export interface INpmMetadata {
   name: string;
@@ -65,10 +57,6 @@ export interface INpmMetadata {
  * @evidence contracts/common.md#clear-and-simple-design Extraction output is separate from consumer-specific mounted path maps.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Archive contents determine files without consumer-specific manufactured declarations.
  * @evidence contracts/common.md#meaningful-documentation Native prose defines confinement and path namespace with tag separation under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export interface IUnpackedPackage {
   files: Record<string, string>;
@@ -82,10 +70,6 @@ export interface IUnpackedPackage {
  * @evidence contracts/common.md#clear-and-simple-design Mutable queue coordination is isolated from published immutable identity records.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit edge state prevents silently ignoring a late required constraint.
  * @evidence contracts/common.md#meaningful-documentation Native prose states queue role and active-edge retention with tag separation under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export interface IQueueItem {
   name: string;
@@ -103,10 +87,6 @@ export interface IQueueItem {
  * @evidence contracts/common.md#clear-and-simple-design This edge record is independent of mounted package identity and registry transport.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Optionality is a declared graph distinction, not guessed from a missing package response.
  * @evidence contracts/common.md#meaningful-documentation Native prose states range, origin and omission role with tag separation under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export interface IVersionRequest {
   optional: boolean;
@@ -121,10 +101,6 @@ export interface IVersionRequest {
  * @evidence contracts/common.md#clear-and-simple-design A named callable signature keeps transport injectable without exposing solver state.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Injection uses an explicit callback instead of replacing global transport internals.
  * @evidence contracts/common.md#meaningful-documentation Native prose defines transport responsibility with tag separation under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export type FetchLike = (
   input: string,
@@ -148,10 +124,6 @@ const RUNTIME_FILE_REGEXP = /(^package\.json$|\.([cm]?js|json)$)/i;
  * @evidence contracts/common.md#clear-and-simple-design One guard centralizes cancellation semantics across transport and archive phases.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cancellation is caller policy rather than a fabricated timeout or successful empty result.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains reason preservation with tag separation under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It keeps no state, handle or listener after returning.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A single pass or constant work over its arguments; no algorithm choice scales beyond that.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function throwIfAborted(signal: AbortSignal | undefined): void {
   if (!signal?.aborted) return;
@@ -166,10 +138,6 @@ export function throwIfAborted(signal: AbortSignal | undefined): void {
  * @evidence contracts/common.md#clear-and-simple-design Transport and abort helpers serve one metadata request while version solving stays separate.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Only the declared optional-404 contract yields null; other failures cannot masquerade as installed metadata.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies registry ownership and omission semantics with tag separation under the documentation skill.
-  * @evidence contracts/performance.md#bound-retention-and-release-resources A 404 or error status cancels the unused response body, and abort cancels a late response and removes its listener; the parsed packument transfers to the caller.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A single pass or constant work over its arguments; no algorithm choice scales beyond that.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export async function fetchNpmMetadata(
   fetchImpl: FetchLike,
@@ -219,10 +187,6 @@ export async function fetchNpmMetadata(
  * @evidence contracts/common.md#clear-and-simple-design This pure selector owns constraint intersection while callers own optional edges and mounted-version pins.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No package-specific version is chosen and incompatible constraints remain an error rather than an arbitrary latest fallback.
  * @evidence contracts/common.md#meaningful-documentation Native prose defines highest-version and failure semantics with tag separation under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It keeps no state, handle or listener after returning.
-  * @evidence contracts/performance.md#efficient-algorithms Every published version is checked against every range, O(versions x ranges) semver tests, followed by one maximum; sizes are bounded by what one registry packument publishes.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function selectVersion(
   metadata: INpmMetadata,
@@ -273,10 +237,6 @@ export function selectVersion(
  * @evidence contracts/common.md#clear-and-simple-design Fetching and body-budget enforcement delegate cancellation and bounded collection to shared helpers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Every archive receives the same budget and failures remain visible without returning truncated synthetic success.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state byte domain and body disposal with tag separation under the documentation skill.
-  * @evidence contracts/performance.md#bound-retention-and-release-resources Accumulated bytes cannot pass the validated limit; an oversized declared length or a failing status cancels the unused body, and abort cancels the reader and removes its listener. The returned buffer transfers to the caller.
-  * @evidence contracts/performance.md#efficient-algorithms The body is streamed once and its chunks are copied into one buffer at the end: O(bytes) time, with chunks and the final copy both held at that point and bounded by the byte limit.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export async function downloadTarball(
   fetchImpl: FetchLike,
@@ -323,10 +283,6 @@ export async function downloadTarball(
  * @evidence contracts/common.md#clear-and-simple-design Authentication precedes decompression and keeps digest parsing separate from byte comparison.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Historical unauthenticated metadata is explicitly supported; missing witnesses are not fabricated and weaker hashes cannot override a failing stronger witness.
  * @evidence contracts/common.md#meaningful-documentation Native prose states hash precedence and unauthenticated compatibility with tag separation under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It keeps no state, handle or listener after returning.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A single pass or constant work over its arguments; no algorithm choice scales beyond that.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export async function verifyTarball(
   tgz: ArrayBuffer,
@@ -380,10 +336,6 @@ export async function verifyTarball(
  * @evidence contracts/common.md#clear-and-simple-design The sequential tar reader delegates gzip budgeting, path validation and header decoding to focused local helpers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Supported metadata paths use format rules rather than known package names; unsafe entries are rejected instead of redirected into a guessed mount.
  * @evidence contracts/common.md#meaningful-documentation Native paragraphs state extraction domain and failure boundaries; confinement comments explain variable npm roots under the documentation skill.
-  * @evidence contracts/performance.md#bound-retention-and-release-resources Gzip expansion stops at the validated byte limit and abort cancels it; the file map and manifest transfer to the caller and nothing is retained after return.
-  * @evidence contracts/performance.md#efficient-algorithms One sequential pass visits each tar header once and decodes each supported text file once, O(expanded bytes), with the expansion itself bounded by the byte limit.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export async function unpackNpmTarball(
   tgz: ArrayBuffer,
@@ -497,10 +449,6 @@ async function gunzip(
  * @evidence contracts/common.md#clear-and-simple-design The three named lanes make downstream mounting explicit and avoid repeated namespace inference.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Namespace mapping follows consumer protocols rather than per-package exceptions.
  * @evidence contracts/common.md#meaningful-documentation Native prose defines the consumer lanes with tag separation under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export interface IMountedFiles {
   compilerFiles: Record<string, string>;
@@ -516,10 +464,6 @@ export interface IMountedFiles {
  * @evidence contracts/common.md#clear-and-simple-design One traversal constructs all three views while archive confinement stays with extraction.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Extension selection applies uniformly to packages rather than synthesizing missing declarations or runtime code.
  * @evidence contracts/common.md#meaningful-documentation Native prose defines input provenance and view selection with tag separation under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It keeps no state, handle or listener after returning.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A single pass or constant work over its arguments; no algorithm choice scales beyond that.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function mountPackageFiles(
   packageName: string,
@@ -551,10 +495,6 @@ export function mountPackageFiles(
  * @evidence contracts/common.md#clear-and-simple-design This operation emits normalized graph edges while queue deduplication and version solving remain with the installer.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Required peers remain required; unsupported non-registry sources are omitted as a declared browser-installer limitation, not silently claimed installed.
  * @evidence contracts/common.md#meaningful-documentation Native prose states dependency precedence and optional peers; inline comments explain required-peer propagation under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It keeps no state, handle or listener after returning.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A single pass or constant work over its arguments; no algorithm choice scales beyond that.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function enqueuePackageDependencies(
   packageJson: {
@@ -615,10 +555,6 @@ function isRegistryRange(range: string): boolean {
  * @evidence contracts/common.md#clear-and-simple-design One name mapping stays separate from whether a declaration fallback is needed.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The convention applies to every package identity rather than maintaining a list of known declaration packages.
  * @evidence contracts/common.md#meaningful-documentation Native prose defines the mapping purpose with tag separation under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It keeps no state, handle or listener after returning.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A single pass or constant work over its arguments; no algorithm choice scales beyond that.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function toTypesPackageName(packageName: string): string {
   if (!packageName.startsWith("@")) return `@types/${packageName}`;
@@ -876,10 +812,6 @@ function formatByteLimit(bytes: number): string {
  * @evidence contracts/common.md#clear-and-simple-design One validation gate serves compressed and expanded budgets without duplicating numeric policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Validation is uniform and rejects invalid limits instead of selecting hidden fixture-specific defaults.
  * @evidence contracts/common.md#meaningful-documentation Native prose states units, positivity and validation timing with tag separation under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It keeps no state, handle or listener after returning.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A single pass or constant work over its arguments; no algorithm choice scales beyond that.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Works on in-memory strings and the wasm virtual filesystem; it reaches no native filesystem, path-identity or process boundary.
  */
 export function validateNpmByteLimit(
   maxBytes: number,

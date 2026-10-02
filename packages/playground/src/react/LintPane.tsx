@@ -10,10 +10,6 @@ import type { ICompilerService } from "../structures/ICompilerService";
  * @evidence contracts/common.md#clear-and-simple-design This view is stateless apart from its props and does not initiate lint work.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Empty-state presentation follows the supplied result and does not discard error diagnostics.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains placement and empty presentation, separated from tags under the documentation skill.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources It keeps no state, handle or listener after returning.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A single pass or constant work over its arguments; no algorithm choice scales beyond that.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work Each call serves one request; there is no equivalent work to share across calls.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation Browser UI logic with no native filesystem, path-identity or process boundary.
  */
 export function LintPane({
   diagnostics,

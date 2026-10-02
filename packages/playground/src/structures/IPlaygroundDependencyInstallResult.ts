@@ -8,10 +8,6 @@ import type { IPlaygroundInstalledDependency } from "./IPlaygroundInstalledDepen
  * @evidence contracts/common.md#clear-and-simple-design Compiler, editor and runtime maps remain explicit lanes instead of requiring consumers to infer path spelling.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Output namespaces represent actual consumer protocols rather than special casing a package or source example.
  * @evidence contracts/common.md#meaningful-documentation Member prose distinguishes complete state from new downloads and documents each map's path namespace, with documentation-skill member spacing.
-  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources A type definition declares a shape and retains no state or handle.
-  * @evidenceExclude contracts/performance.md#efficient-algorithms A type definition declares a shape and performs no computation.
-  * @evidenceExclude contracts/performance.md#reuse-equivalent-work A type definition declares a shape and shares no computation.
-  * @evidenceExclude contracts/portability.md#os-neutral-implementation A type definition owns no native filesystem, path or process decision.
  */
 export interface IPlaygroundDependencyInstallResult {
   /** Complete exact state after merging installed packages with this call. */
