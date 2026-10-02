@@ -17,6 +17,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design Name identifies registration and Run owns command execution; invocation context and streams are supplied through one request rather than host-owned plugin-specific APIs.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The supported plugin boundary avoids mutating process-global stdout/stderr to capture a call.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain browser linkage and stream ownership under the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Plugin is an interface that acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Plugin is an interface that chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Plugin is an interface that coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Plugin declares command dispatch for in-process adapters and carries no native path, process or platform decision.
 type Plugin interface {
   // Name is the npm-style plugin id passed to api.plugin.
   //
@@ -24,6 +28,10 @@ type Plugin interface {
   // @evidence contracts/common.md#clear-and-simple-design One name query supplies the registry key without exposing command state or concrete plugin implementation.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts The implementation declares its id rather than being recognized by a consumer-specific type check.
   // @evidence contracts/common.md#meaningful-documentation The Go member comment names the API consumer under the documentation skill's context rule.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Plugin.Name is an abstract method; the invocation and the concrete plugin own its resources.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms Plugin.Name is an abstract method; the concrete plugin chooses its algorithm.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work Plugin.Name is an abstract method; the concrete plugin owns any reuse of its work.
+  // @evidenceExclude contracts/portability.md#os-neutral-implementation Plugin.Name is an interface method with no native path, process or platform decision.
   Name() string
 
   // Run dispatches one subcommand and returns the native CLI exit code.
@@ -32,6 +40,10 @@ type Plugin interface {
   // @evidence contracts/common.md#clear-and-simple-design One invocation groups command inputs and owned effects; command-specific parsing stays with the implementation rather than the generic host.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts Commands run through the registered implementation rather than changing a foreign global launcher.
   // @evidence contracts/common.md#meaningful-documentation The member comment states dispatch and exit-code roles under the documentation skill's clarity rule.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Plugin.Run is an abstract method; the invocation and the concrete plugin own its resources.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms Plugin.Run is an abstract method; the concrete plugin chooses its algorithm.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work Plugin.Run is an abstract method; the concrete plugin owns any reuse of its work.
+  // @evidenceExclude contracts/portability.md#os-neutral-implementation Plugin.Run is an interface method with no native path, process or platform decision.
   Run(invocation *PluginInvocation) int
 }
 
@@ -42,6 +54,10 @@ type Plugin interface {
 // @evidence contracts/common.md#clear-and-simple-design One registration list is sufficient for the host factory; command options and mutable invocation state remain owned by the selected plugin call.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The host receives linked registrations rather than guessing installed packages from hardcoded ids.
 // @evidence contracts/common.md#meaningful-documentation The native comment explains empty configuration and registration timing under the documentation skill's context rule.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Config is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Config is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Config is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Config is a data type and performs no native filesystem, path or process operation.
 type Config struct {
   // Plugins are registered once; empty names and nil entries are skipped.
   Plugins []Plugin

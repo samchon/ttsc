@@ -4,25 +4,16 @@
     {
       "name": "TypeScript production declarations",
       "type": "typescript",
-      "files": ["src/**/*.ts", "!src/index.ts", "!src/bootTtsc.ts", "!src/createMemFS.ts"],
+      "files": ["src/**/*.ts"],
       "symbol": ["type", "function"],
       "reference": {
         "type": "markdown",
         "root": "../../.agents/skills",
-        "files": ["contracts/common.md"],
-        "symbol": "h2",
-        "checklist": true
-      }
-    },
-    {
-      "name": "TypeScript retained-resource functions (bootTtsc.ts, createMemFS.ts)",
-      "type": "typescript",
-      "files": ["src/bootTtsc.ts", "src/createMemFS.ts"],
-      "symbol": ["type", "function"],
-      "reference": {
-        "type": "markdown",
-        "root": "../../.agents/skills",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md",
+          "contracts/performance.md"
+        ],
         "symbol": "h2",
         "checklist": true
       }
@@ -30,38 +21,16 @@
     {
       "name": "Go production declarations",
       "type": "go",
-      "files": ["cmd/**/*.go", "host/**/*.go", "!host/api.go", "!host/host.go", "!host/invoke.go"],
+      "files": ["cmd/**/*.go", "host/**/*.go"],
       "symbol": ["type", "function"],
       "reference": {
         "type": "markdown",
         "root": "../../.agents/skills",
-        "files": ["contracts/common.md"],
-        "symbol": "h2",
-        "checklist": true
-      }
-    },
-    {
-      "name": "Go project-path functions (host/api.go)",
-      "type": "go",
-      "files": ["host/api.go"],
-      "symbol": ["type", "function"],
-      "reference": {
-        "type": "markdown",
-        "root": "../../.agents/skills",
-        "files": ["contracts/common.md", "contracts/portability.md"],
-        "symbol": "h2",
-        "checklist": true
-      }
-    },
-    {
-      "name": "Go retained-resource functions (host/host.go, host/invoke.go)",
-      "type": "go",
-      "files": ["host/host.go", "host/invoke.go"],
-      "symbol": ["type", "function"],
-      "reference": {
-        "type": "markdown",
-        "root": "../../.agents/skills",
-        "files": ["contracts/common.md", "contracts/performance.md"],
+        "files": [
+          "contracts/common.md",
+          "contracts/portability.md",
+          "contracts/performance.md"
+        ],
         "symbol": "h2",
         "checklist": true
       }

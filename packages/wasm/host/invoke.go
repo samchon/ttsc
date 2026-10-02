@@ -21,6 +21,7 @@ import (
 // @evidenceExclude contracts/performance.md#efficient-algorithms This owning request type groups task state and inputs; its Go and InvokePlugin operations choose the processing strategy.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work One effectful invocation is not a coordinator of equivalent request computations.
 // @evidence contracts/performance.md#bound-retention-and-release-resources InvokePlugin acquires this request's context, copied arguments and writers. Go registers child tasks until Run exits; the owner waits for them and closes streams on normal and panic exits. Task count and captured bytes are unbounded, and children must cooperate with cancellation because the host cannot force goroutine termination.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation PluginInvocation holds in-memory streams and a goroutine counter and carries no native path, process or platform capability.
 type PluginInvocation struct {
   // Context derives from the caller and is canceled when invocation ownership ends.
   Context context.Context
@@ -57,6 +58,7 @@ type PluginInvocation struct {
 // @evidence contracts/performance.md#efficient-algorithms Registration checks acceptance and increments the WaitGroup count under one mutex in O(1), then schedules one goroutine. Task work is supplied by the plugin and is not rescanned by registration.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work This operation registers an effectful child task; it does not determine equivalence of computations across requests.
 // @evidence contracts/performance.md#bound-retention-and-release-resources Acceptance acquires one child count and goroutine; deferred Done releases the count when the task exits. Run's owner closes registration before waiting. Outstanding count is unbounded and completion depends on the task honoring its context and returning.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation PluginInvocation.Go starts an in-process goroutine and touches no native path or operating-system process.
 func (invocation *PluginInvocation) Go(task func(context.Context)) bool {
   if task == nil {
     return false
@@ -92,6 +94,7 @@ func (invocation *PluginInvocation) Go(task func(context.Context)) bool {
 // @evidence contracts/performance.md#efficient-algorithms Copying A argument references costs O(A); the two bytes.Buffer writers grow amortized with B captured bytes and final string capture costs O(B). Waiting tracks G registered tasks without scanning a task list. The selected plugin owns its command's algorithm.
 // @evidenceExclude contracts/performance.md#reuse-equivalent-work Each command owns effects and output; this executor does not coordinate equivalent request computations, and equal argument strings do not make calls shareable.
 // @evidence contracts/performance.md#bound-retention-and-release-resources The call owns context, argument copy, G child tasks and B captured bytes. Deferred finalization closes registration, waits for registered work, closes both writers and cancels the context on every return/panic path. G and B have no fixed bound, and a noncooperative task can keep finalization waiting; the returned strings transfer captured output to the caller.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation InvokePlugin runs an in-process Plugin against in-memory buffers and starts no operating-system process and reads no native path.
 func InvokePlugin(ctx context.Context, plugin Plugin, command string, args []string) (result APIResult) {
   if ctx == nil {
     ctx = context.Background()

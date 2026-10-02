@@ -80,6 +80,10 @@ func fountainAPIMap() map[string]any {
 // @evidence contracts/common.md#clear-and-simple-design One opaque identity transfers query access while the Program and its ownership remain in the native registry.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Identity refers to an actual retained program rather than a reconstructed project path.
 // @evidence contracts/common.md#meaningful-documentation The Go comment explains opaque identity and caller release ownership under the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources SnapshotResult is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms SnapshotResult is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work SnapshotResult is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation SnapshotResult is a data type and performs no native filesystem, path or process operation.
 type SnapshotResult struct {
   // Handle is opaque and valid until released in this wasm instance.
   Handle string `json:"handle"`
@@ -91,6 +95,10 @@ type SnapshotResult struct {
 // @evidence contracts/common.md#clear-and-simple-design One outcome bit reports removal without duplicating the request handle or native cleanup state.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts An absent entry is not reported as a fabricated successful removal.
 // @evidence contracts/common.md#meaningful-documentation Native comments explain the release outcome under the documentation skill's absence guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ReleaseSnapshotResult is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ReleaseSnapshotResult is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ReleaseSnapshotResult is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ReleaseSnapshotResult is a data type and performs no native filesystem, path or process operation.
 type ReleaseSnapshotResult struct {
   // Released is false when the handle was never present or already removed.
   Released bool `json:"released"`
@@ -102,6 +110,10 @@ type ReleaseSnapshotResult struct {
 // @evidence contracts/common.md#clear-and-simple-design A flat current-handle list exposes membership without expanding each entry into an unused snapshot descriptor.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Current map membership supplies the list rather than a history of expected handles.
 // @evidence contracts/common.md#meaningful-documentation Native member comments identify live state and unspecified order under the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ListSnapshotsResult is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ListSnapshotsResult is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ListSnapshotsResult is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ListSnapshotsResult is a data type and performs no native filesystem, path or process operation.
 type ListSnapshotsResult struct {
   // Handles lists live registry keys in unspecified order; empty encodes as [].
   Handles []string `json:"handles"`
@@ -113,6 +125,10 @@ type ListSnapshotsResult struct {
 // @evidence contracts/common.md#clear-and-simple-design File identities are separate from source text and semantic metadata, keeping listing focused on program membership.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler membership determines files instead of a guessed filesystem glob.
 // @evidence contracts/common.md#meaningful-documentation The member comment explains path bases and declaration exclusion under the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetSourceFilesResult is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms GetSourceFilesResult is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetSourceFilesResult is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation GetSourceFilesResult is a data type and performs no native filesystem, path or process operation.
 type GetSourceFilesResult struct {
   // Files excludes declarations; paths outside cwd remain absolute slash paths.
   Files []string `json:"files"`
@@ -124,6 +140,10 @@ type GetSourceFilesResult struct {
 // @evidence contracts/common.md#clear-and-simple-design One text field represents the selected file; request identity and transport status remain in their existing shapes.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Text comes from the snapshot instead of a separately read file that may have changed.
 // @evidence contracts/common.md#meaningful-documentation The member comment names retained-program provenance under the documentation skill's context guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetSourceFileTextResult is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms GetSourceFileTextResult is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetSourceFileTextResult is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation GetSourceFileTextResult is a data type and performs no native filesystem, path or process operation.
 type GetSourceFileTextResult struct {
   // Text is the source currently held by the retained Program, including rewrites.
   Text string `json:"text"`
@@ -135,6 +155,10 @@ type GetSourceFileTextResult struct {
 // @evidence contracts/common.md#clear-and-simple-design The selected messages reuse the compile diagnostic DTO rather than introducing a snapshot-specific message model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Queries return compiler messages rather than source-pattern approximations of diagnostics.
 // @evidence contracts/common.md#meaningful-documentation Native comments identify the payload and empty-array meaning under the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetDiagnosticsResult is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms GetDiagnosticsResult is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetDiagnosticsResult is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation GetDiagnosticsResult is a data type and performs no native filesystem, path or process operation.
 type GetDiagnosticsResult struct {
   // Diagnostics is an initialized slice, so no selected messages encodes as [].
   Diagnostics []CompileDiagnostic `json:"diagnostics"`
@@ -146,6 +170,10 @@ type GetDiagnosticsResult struct {
 // @evidence contracts/common.md#clear-and-simple-design A flat kind/range/spelling value carries syntax information without mutable AST links or another token hierarchy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Native ranges remain byte coordinates rather than guessed JavaScript character indices.
 // @evidence contracts/common.md#meaningful-documentation Member comments explain native identity, units and optional text under the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NodeInfo is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms NodeInfo is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work NodeInfo is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation NodeInfo is a data type and performs no native filesystem, path or process operation.
 type NodeInfo struct {
   // Kind is the numeric TypeScript-Go AST kind.
   Kind     int    `json:"kind"`
@@ -170,6 +198,10 @@ type NodeInfo struct {
 // @evidence contracts/common.md#clear-and-simple-design One nullable token projection conveys lookup outcome without another status flag or duplicated source identity.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No fabricated node fills whitespace or an absent token.
 // @evidence contracts/common.md#meaningful-documentation The member comment explains null token absence under the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetNodeAtPositionResult is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms GetNodeAtPositionResult is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetNodeAtPositionResult is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation GetNodeAtPositionResult is a data type and performs no native filesystem, path or process operation.
 type GetNodeAtPositionResult struct {
   // Node encodes as null when no syntax token touches the queried position.
   Node *NodeInfo `json:"node"`
@@ -181,6 +213,10 @@ type GetNodeAtPositionResult struct {
 // @evidence contracts/common.md#clear-and-simple-design Presentation text and native classification bits are sufficient for this query; structural compiler types stay behind the checker boundary.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The checker supplies type presentation rather than inferring it from token spelling.
 // @evidence contracts/common.md#meaningful-documentation Native comments identify printing authority and flag provenance under the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TypeInfo is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms TypeInfo is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work TypeInfo is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation TypeInfo is a data type and performs no native filesystem, path or process operation.
 type TypeInfo struct {
   // Text is the checker's TypeToString presentation.
   Text  string `json:"text"`
@@ -195,6 +231,10 @@ type TypeInfo struct {
 // @evidence contracts/common.md#clear-and-simple-design One nullable type field separates semantic absence from transport errors without duplicating the type metadata representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Positions without type semantics remain absent rather than receiving a fabricated any type.
 // @evidence contracts/common.md#meaningful-documentation The member comment explains null meaning under the documentation skill's absence guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetTypeAtPositionResult is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms GetTypeAtPositionResult is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetTypeAtPositionResult is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation GetTypeAtPositionResult is a data type and performs no native filesystem, path or process operation.
 type GetTypeAtPositionResult struct {
   // Type encodes as null when the touching token has no semantic type result.
   Type *TypeInfo `json:"type"`
@@ -207,6 +247,10 @@ type GetTypeAtPositionResult struct {
 // @evidence contracts/common.md#clear-and-simple-design A declaration site contains only file identity and its byte interval; source text and compiler node ownership remain elsewhere.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts A source-less declaration keeps nil identity rather than a placeholder filename.
 // @evidence contracts/common.md#meaningful-documentation Member comments explain path identity and byte interval units under the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources SymbolDeclaration is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms SymbolDeclaration is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work SymbolDeclaration is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation SymbolDeclaration is a data type and performs no native filesystem, path or process operation.
 type SymbolDeclaration struct {
   // File is a project-relative or outside absolute path, nil for source-less nodes.
   File *string `json:"file"`
@@ -225,6 +269,10 @@ type SymbolDeclaration struct {
 // @evidence contracts/common.md#clear-and-simple-design Identity and display text are distinct, and one capped site list plus its original total explains truncation without separate declaration handles.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The response cap preserves the original total rather than presenting a shortened declaration list as complete.
 // @evidence contracts/common.md#meaningful-documentation Native comments distinguish internal names, display text and capped metadata under the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources SymbolInfo is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms SymbolInfo is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work SymbolInfo is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation SymbolInfo is a data type and performs no native filesystem, path or process operation.
 type SymbolInfo struct {
   // Name is the raw name, including TypeScript internal prefix markers.
   Name             string              `json:"name"`
@@ -248,6 +296,10 @@ type SymbolInfo struct {
 // @evidence contracts/common.md#clear-and-simple-design One nullable symbol field expresses the binding outcome while symbol metadata and request status remain separate.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing binding does not produce a symbol guessed from the token's name.
 // @evidence contracts/common.md#meaningful-documentation The member comment explains null result meaning under the documentation skill.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources GetSymbolAtPositionResult is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms GetSymbolAtPositionResult is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work GetSymbolAtPositionResult is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation GetSymbolAtPositionResult is a data type and performs no native filesystem, path or process operation.
 type GetSymbolAtPositionResult struct {
   // Symbol encodes as null when the touching token has no associated symbol.
   Symbol *SymbolInfo `json:"symbol"`

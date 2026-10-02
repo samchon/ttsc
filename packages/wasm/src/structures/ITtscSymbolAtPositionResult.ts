@@ -14,6 +14,10 @@ import type { ITtscSymbolInfo } from "./ITtscSymbolInfo";
  * @evidence contracts/common.md#meaningful-documentation
  *   JSDoc names the envelope and null meaning, following the documentation
  *   skill's requirement to explain absence rather than repeat the field type.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscSymbolAtPositionResult is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscSymbolAtPositionResult is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscSymbolAtPositionResult is a data interface and coordinates no shared or repeated computation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscSymbolAtPositionResult is a data interface and performs no native filesystem, path or process operation.
  */
 export interface ITtscSymbolAtPositionResult {
   /** `null` when no touching token has an associated symbol. */

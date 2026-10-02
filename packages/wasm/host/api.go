@@ -29,6 +29,9 @@ import (
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Emit uses supported compiler hooks, without patching foreign emitters or synthesizing expected outputs.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain paths, ownership and failure stages under the documentation skill's rationale guidance.
 // @evidence contracts/portability.md#os-neutral-implementation LoadProgram owns filesystem access through the driver's supported host. Native filepath.Rel identifies inside/outside destinations, including volume differences, and ToSlash changes JSON spelling without lowercasing identity.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Build closes its Program before returning and transfers the output to the caller, so it retains nothing.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Build delegates parsing, checking and emit to the driver and adds one pass over the diagnostics and the emitted output map.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Build loads a fresh Program per call because the virtual filesystem may have changed; sharing a loaded Program is the snapshot verbs' purpose.
 func Build(cwd, tsconfigPath string) ([]byte, int, error) {
   prog, diags, err := driver.LoadProgram(cwd, tsconfigPath, driver.LoadProgramOptions{
     ForceEmit: true,
@@ -81,6 +84,9 @@ func Build(cwd, tsconfigPath string) ([]byte, int, error) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No-emit is requested from the compiler rather than hiding an unnecessary emit behind an empty result.
 // @evidence contracts/common.md#meaningful-documentation Native comments explain no-emit and payload equivalence under the documentation skill's context guidance.
 // @evidence contracts/portability.md#os-neutral-implementation The driver resolves cwd/config through its filesystem host; diagnostic paths use filepath.ToSlash only for wire spelling. The adapter neither guesses case policy nor constructs a shell command.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Check closes its Program before returning and transfers the diagnostics to the caller, so it retains nothing.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Check delegates loading and checking to the driver and adds one pass over the diagnostics.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Check loads a fresh Program per call because the virtual filesystem may have changed; sharing a loaded Program is the snapshot verbs' purpose.
 func Check(cwd, tsconfigPath string) ([]byte, int, error) {
   prog, diags, err := driver.LoadProgram(cwd, tsconfigPath, driver.LoadProgramOptions{
     ForceNoEmit: true,
@@ -122,6 +128,9 @@ func Check(cwd, tsconfigPath string) ([]byte, int, error) {
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The program's own text is authoritative, without a secondary emitter-based reconstruction.
 // @evidence contracts/common.md#meaningful-documentation Separate paragraphs explain stage, path convention and ownership under the documentation skill.
 // @evidence contracts/portability.md#os-neutral-implementation Source identities come from LoadProgram, then the shared filepath relative/absolute mapping preserves native case and handles outside/other-volume paths before slash serialization.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Transform closes its Program after copying the source text, so it retains nothing.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Transform delegates loading to the driver and adds one pass over the source files and diagnostics.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Transform loads a fresh Program per call because the virtual filesystem may have changed; sharing a loaded Program is the snapshot verbs' purpose.
 func Transform(cwd, tsconfigPath string) ([]byte, int, error) {
   prog, diags, err := driver.LoadProgram(cwd, tsconfigPath, driver.LoadProgramOptions{
     ForceNoEmit: true,

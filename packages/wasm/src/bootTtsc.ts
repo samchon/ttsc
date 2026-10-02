@@ -148,6 +148,7 @@ function resolveWasmUrl(wasmUrl: string): string {
  *   API chain heads and terminal failures remain until Worker termination, with
  *   no fixed key or retained-byte bound. Failed pre-start entries are removed;
  *   started runtimes cannot be stopped here and require Worker replacement.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation bootTtsc loads a binary by URL inside a browser Worker and opens no native file or process; URL resolution follows WHATWG URL semantics, not a native path policy.
  */
 export function bootTtsc(options: IBootTtscOptions): Promise<IBootResult> {
   const apiName = options.apiName ?? "ttsc";

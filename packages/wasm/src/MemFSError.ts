@@ -17,6 +17,10 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc explains the bridge and members' machine-readable roles,
  *   following the documentation skill's concrete context guidance.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources MemFSError retains only its own fields and is released with the thrown error.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms MemFSError maps a code with one constant switch and chooses no processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work MemFSError is an error value and coordinates no shared or repeated computation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation MemFSError carries virtual-ABI errno constants and performs no native filesystem or process query.
  */
 export class MemFSError extends Error {
   /** POSIX symbolic error, consumed by the Go bridge. */

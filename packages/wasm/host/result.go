@@ -11,6 +11,10 @@ package host
 // @evidence contracts/common.md#clear-and-simple-design One capture value separates exit status and the two streams, leaving project JSON to the JavaScript envelope.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The exit code remains data rather than being replaced by a success-only output shape.
 // @evidence contracts/common.md#meaningful-documentation Native comments explain channels and exit codes under the documentation skill's context guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources APIResult is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms APIResult is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work APIResult is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation APIResult is a data type and performs no native filesystem, path or process operation.
 type APIResult struct {
   // Code is the plugin's CLI exit status.
   Code   int    `json:"code"`
@@ -29,6 +33,10 @@ type APIResult struct {
 // @evidence contracts/common.md#clear-and-simple-design Diagnostics reuse one wire DTO while output text is keyed by destination; the transport envelope stays outside this payload.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Emitted paths and contents remain compiler data rather than a consumer-shaped output schema.
 // @evidence contracts/common.md#meaningful-documentation Comments identify the wire shape, omission and output path base under the documentation skill's context rule.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CompileResult is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms CompileResult is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work CompileResult is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation CompileResult is a data type and performs no native filesystem, path or process operation.
 type CompileResult struct {
   // Diagnostics is omitted when the result has no messages.
   Diagnostics []CompileDiagnostic `json:"diagnostics,omitempty"`
@@ -45,6 +53,10 @@ type CompileResult struct {
 // @evidence contracts/common.md#clear-and-simple-design The source-text map and shared diagnostics form one transform payload, separate from compile output and invocation streams.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The payload represents actual program text instead of reconstructing it from JavaScript emit.
 // @evidence contracts/common.md#meaningful-documentation Native comments distinguish the source stage and optional messages under the documentation skill's clarity rule.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TransformResult is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms TransformResult is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work TransformResult is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation TransformResult is a data type and performs no native filesystem, path or process operation.
 type TransformResult struct {
   // Diagnostics is omitted when the result has no messages.
   Diagnostics []CompileDiagnostic `json:"diagnostics,omitempty"`
@@ -65,6 +77,10 @@ type TransformResult struct {
 // @evidence contracts/common.md#clear-and-simple-design File identity, severity, byte span and display location remain distinct fields, with pointers for absent spans rather than an alternate diagnostic model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler coordinates are preserved rather than guessed from JavaScript text indices.
 // @evidence contracts/common.md#meaningful-documentation Separate comments explain coordinate units and absence under the documentation skill's paragraph guidance.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources CompileDiagnostic is a data type and acquires no handle, task or retained state.
+// @evidenceExclude contracts/performance.md#efficient-algorithms CompileDiagnostic is a data type and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work CompileDiagnostic is a data type and coordinates no shared or repeated computation.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation CompileDiagnostic is a data type and performs no native filesystem, path or process operation.
 type CompileDiagnostic struct {
   // File is an absolute slash path, or nil for a project-wide message.
   File        *string `json:"file"`

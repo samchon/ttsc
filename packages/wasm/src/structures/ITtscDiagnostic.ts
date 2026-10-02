@@ -14,6 +14,10 @@
  * @evidence contracts/common.md#meaningful-documentation
  *   Native JSDoc explains byte ranges, 1-based display locations and missing
  *   source context, following the documentation skill's units and absence rules.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscDiagnostic is a data interface and acquires no handle, task or retained state.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscDiagnostic is a data interface and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscDiagnostic is a data interface and coordinates no shared or repeated computation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscDiagnostic is a data interface and performs no native filesystem, path or process operation.
  */
 export interface ITtscDiagnostic {
   /** Absolute slash-separated source path; null for project-wide diagnostics. */
