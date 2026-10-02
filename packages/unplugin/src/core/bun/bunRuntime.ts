@@ -1,8 +1,8 @@
 import type { BunRuntimeGlobal } from "./BunRuntimeGlobal";
 
 /**
- * The Bun runtime global when the current process runs under Bun, detected by a
- * callable `Bun.plugin`.
+ * The exposed Bun registration capability, detected by a callable `Bun.plugin`.
+ * This structural check is not an independent runtime-identity certificate.
  *
  * @returns `undefined` off Bun, which lets the import-time registration stay a
  *   silent no-op under Node while an explicit `register` call throws.
@@ -20,10 +20,11 @@ import type { BunRuntimeGlobal } from "./BunRuntimeGlobal";
  * @evidenceExclude contracts/portability.md#os-neutral-implementation
  *   Performs no filesystem, path or process operation of its own.
  * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   No loop or traversal of its own; constant work apart from delegated
- *   calls.
+ *   Performs fixed global/member checks without selecting an input-sized
+ *   processing strategy or invoking the plugin.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
- *   Keeps no cache of its own and computes each value once.
+ *   Reads the current capability each call; registration-state sharing belongs
+ *   to the runtime-keyed state owner rather than this detector.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
  *   Acquires no handle, timer or retained state of its own.
  */
