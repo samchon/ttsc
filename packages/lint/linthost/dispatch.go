@@ -23,9 +23,10 @@ var Version = "dev"
 // the binary name (i.e. `os.Args[1:]`). The return value is the exit code the
 // caller should propagate to the OS (`os.Exit`) or the host (`Plugin.Run`).
 //
-// Recognized verbs: `version` / `-v` / `--version`, `check`, `fix`, `format`,
-// `build`, `transform`, and the `lsp-*` protocol commands consumed by
-// ttscserver. Anything else is a usage error (exit code 2).
+// Recognized verbs: `version` / `-v` / `--version`, `check`, `check-serve`,
+// `fix`, `format`, `build`, `transform`, `project-inputs`, `graph-nodes`, and
+// the `lsp-*` protocol commands consumed by ttscserver. Anything else is a
+// usage error (exit code 2).
 //
 // @evidence contracts/common.md#principled-implementation The argv tail selects the canonical command route and its returned exit code, with unknown verbs producing the documented usage failure.
 // @evidence contracts/common.md#clear-and-simple-design The public entry delegates to one command dispatcher shared by native consumers.
@@ -73,9 +74,9 @@ func MainWithIO(args []string, stdout, stderr io.Writer) int {
   }
 }
 
-// run is the package-local dispatcher invoked by Main and by the in-tree
-// test/command corpus, which exercises end-to-end subcommand routing through
-// the same entry point the CLI uses.
+// run is the package-local dispatcher invoked by Main and by the package's
+// command tests, which exercise subcommand routing through the same entry point
+// the CLI uses.
 func run(args []string) int {
   if len(args) == 0 {
     fmt.Fprintln(os.Stderr, "@ttsc/lint: command required (expected check|fix|format|build|transform|lsp-*|version)")

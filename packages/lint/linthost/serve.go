@@ -224,10 +224,12 @@ type serveLSPResponse struct {
 //
 // Only the read verbs run resident here. lsp-diagnostics and lsp-hints (one per
 // save) and lsp-code-actions (one per cursor) are the hot path and reuse the
-// warm Program; lsp-command-ids and lsp-code-action-kinds answer their static
-// lists; an invalidate control drops the Program. lsp-execute-command is
-// deliberately left to the spawn-per-verb path — it is user-initiated and its
-// temp-workspace fix cascade does not fit the resident cache.
+// warm Program, as do lsp-project-diagnostics and graph-nodes; project-inputs
+// builds no Program and reuses only the rule memo; lsp-command-ids and
+// lsp-code-action-kinds answer their static lists; an invalidate control drops
+// the Program. lsp-execute-command is deliberately left
+// to the spawn-per-verb path — it is user-initiated and its temp-workspace fix
+// cascade does not fit the resident cache.
 //
 // in and out are explicit so the loop is testable; dispatch wires them to
 // os.Stdin and os.Stdout.

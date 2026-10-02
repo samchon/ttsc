@@ -15,44 +15,46 @@ package linthost
 //
 // Layout contract:
 //
-//   - DocText is verbatim output. The printer never reflows or wraps it.
+//   - docText is verbatim output. The printer never reflows or wraps it.
 //     The caller is responsible for keeping its width meaningful — a
 //     text fragment longer than printWidth still flows verbatim, but it
 //     will force surrounding groups to break.
-//   - DocLine renders as either a single space or a newline + indent,
+//   - docLine renders as either a single space or a newline + indent,
 //     depending on the surrounding group's chosen mode. Use this for
 //     soft separators (e.g. between call arguments).
-//   - DocSoftline is the empty-or-newline variant: flat mode emits
+//   - docSoftline is the empty-or-newline variant: flat mode emits
 //     nothing, break mode emits a newline + indent.
-//   - DocHardline always emits a newline and propagates "break" upward to
+//   - docHardline always emits a newline and propagates "break" upward to
 //     every enclosing group. Use it for declarations that must stand on
 //     their own line regardless of width.
-//   - DocLiteralline is a hardline that does NOT emit indentation after
+//   - docLiteralline is a hardline that does NOT emit indentation after
 //     the newline. Used for template-literal interior lines where the
 //     original spacing must be preserved.
-//   - DocGroup is the fit-or-break primitive: the engine measures the
+//   - docGroup is the fit-or-break primitive: the engine measures the
 //     group's flat width; if it fits in the remaining column budget the
 //     group renders flat (Lines collapse to spaces, Softlines to
 //     nothing), otherwise it breaks (Lines and Softlines emit
 //     newline+indent).
-//   - DocIndent adds N columns of indentation to every newline emitted
+//   - docIndent adds N columns of indentation to every newline emitted
 //     by its child doc. Nesting composes: an Indent inside another
 //     Indent adds the two amounts.
-//   - DocAlign is like Indent but the increment is the current output
+//   - docAlign is like Indent but the increment is the current output
 //     column rather than a fixed offset. Used to align continuation
 //     lines under an opening token (e.g. inside a call expression's
 //     arguments).
-//   - DocIfBreak renders one doc when the surrounding group breaks and
+//   - docIfBreak renders one doc when the surrounding group breaks and
 //     another when it stays flat. The canonical use is a trailing comma
 //     that should appear only in multi-line lists.
-//   - DocConcat is a sequence of child docs. The printer flattens nested
+//   - docConcat is a sequence of child docs. The printer flattens nested
 //     concats inline.
-//   - DocLineSuffix queues output until the next hardline/softline that
+//   - docLineSuffix queues output until the next hardline/softline that
 //     actually breaks; used for trailing line comments that must stick
 //     to their source line.
-//   - DocConditionalGroup offers an ordered list of layout options; the
+//   - docConditionalGroup offers an ordered list of layout options; the
 //     engine renders the first whose first line fits the width budget
 //     and uses the last option as the unconditional fallback.
+//   - docFill packs alternating content and separator docs, breaking a
+//     separator only when the next content would overflow the line.
 //
 // The doc tree is built by helper constructors (Text, Line, Group, …)
 // below. Constructors take their children as variadic or slice
