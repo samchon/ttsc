@@ -8,8 +8,11 @@ import type { ITtscProjectMembershipPolicy } from "../../tsconfig/ITtscProjectMe
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The predicate uses compiler-derived extension policy rather than selected test filenames or bundler output-directory exceptions.
  * @evidence contracts/common.md#meaningful-documentation The native comment states the bare-name input and policy boundary, avoiding an ambiguous reference to another helper's question.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Compares a lowercased basename suffix with the policy's extensions; it reads no filesystem.
- * @evidenceExclude contracts/performance.md#efficient-algorithms
- *   Tests the fixed list of input extensions once.
+ * @evidence contracts/performance.md#efficient-algorithms
+ *   Lowercasing scans the filename and allocates its normalized text once.
+ *   The early-terminating scan checks the supplied extension population, with
+ *   suffix comparison cost following the extension text. No filename or
+ *   extension index is rebuilt inside the scan.
  * @evidenceExclude contracts/performance.md#reuse-equivalent-work
  *   Keeps no cache of its own and computes each value once.
  * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources
