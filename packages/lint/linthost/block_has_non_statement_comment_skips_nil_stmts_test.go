@@ -10,13 +10,12 @@ import (
 // blockHasNonStatementComment skips nil entries in the stmts slice when
 // building the statement-range exclusion list.
 //
-// The per-element nil guard `if stmt == nil { continue }` inside the ranges
-// loop ensures that a nil statement pointer does not cause a nil dereference
-// on `shimscanner.SkipTrivia(ctx.Source, stmt.Pos())`. This path is reachable
-// when a block is passed alongside a statement list that has been partially
-// constructed or patched with a nil placeholder during error recovery. Skipping
-// the nil entry is correct: its range would be empty, and an empty range would
-// not exclude any positions from the comment scan.
+// blockHasNonStatementComment delegates to nodeHasNonItemComment, whose item
+// loop skips nil pointers before reading their byte ranges. This test supplies
+// the nil placeholder directly; it does not establish that parser recovery
+// emits such a list. The comment-free source independently requires false,
+// and a missing nil guard would dereference the placeholder during range
+// collection rather than reach that result.
 //
 //  1. Parse a block from a real source so the node has valid byte positions.
 //  2. Call blockHasNonStatementComment with a stmts slice containing one nil

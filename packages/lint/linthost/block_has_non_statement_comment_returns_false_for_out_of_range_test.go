@@ -10,14 +10,12 @@ import (
 // blockHasNonStatementComment returns false when the node's End() position
 // exceeds the length of the context's Source string.
 //
-// The guard `start < 0 || end < start || end > len(ctx.Source)` prevents
-// the comment-scan loop from reading past the source buffer. The reachable
-// form of this guard: a block node whose Pos() is 0 (safe for SkipTrivia)
-// but whose End() is larger than a short replacement Source. This pattern
-// arises when a node is paired with a context whose Source field was trimmed
-// to a prefix of the original (e.g. for a partial reparse). Returning false
-// is safe: the block cannot be inspected for comments, so the printer
-// conservatively assumes no stray comment is present.
+// The shared nodeHasNonItemComment helper rejects a node range that exceeds
+// the supplied source before scanning for delimiters. This case deliberately
+// pairs one parsed block with a shorter context; it is an authored invalid
+// range input, not evidence that production partial reparses construct it.
+// The same block with its full source must report the comment, distinguishing
+// the range guard from an implementation that always returns false.
 //
 //  1. Parse a block `{ /* c */ }` that starts at position 0 in the source.
 //  2. Construct a PrintContext whose Source is the 9-byte prefix
@@ -27,7 +25,7 @@ import (
 //     context carries the full source (control).
 //
 // @evidence contracts/testing.md#behavioral-verification blockHasNonStatementComment must return false when the parsed block range extends beyond the supplied source.
-// @evidence contracts/testing.md#independent-expectations The literal 9-byte context source "{ /* c */" cannot contain the complete 11-byte parsed block, yet it holds a comment opener, so a scan beyond the range guard would answer true; the range-safety contract prohibits scanning outside the block.
+// @evidence contracts/testing.md#independent-expectations The literal 9-byte context source "{ /* c */" cannot contain the complete 11-byte parsed block, yet it holds a comment opener, so a scan beyond the range guard would answer true; the range-safety contract prohibits inspecting a node beyond its supplied source bounds.
 // @evidence contracts/testing.md#distinguishing-cases The truncated context (false) is contrasted with the full-source control on the same block (true, comment reported); inter-statement comments in covered blocks are owned by the uncovered-block dispatch cases.
 // @evidence contracts/testing.md#execution-ownership TestBlockHasNonStatementCommentReturnsFalseForOutOfRange is a plain top-level Go unit test, selectable with go test -run, that calls blockHasNonStatementComment directly on a parsed block paired with a truncated PrintContext source inside the test process; it installs no consumer, builds no native artifact and starts no product host.
 func TestBlockHasNonStatementCommentReturnsFalseForOutOfRange(t *testing.T) {
