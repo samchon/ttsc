@@ -15,6 +15,10 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * @evidence contracts/common.md#clear-and-simple-design The family groups promise-chain configuration and shares severity construction; it does not introduce asynchronous execution behavior into the type.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit policy keys and a closed setting union provide the configuration boundary without monkey patching Promise or adding test-only forms.
  * @evidence contracts/common.md#meaningful-documentation Native prose states the AST scope and the no-multiple-resolved limitation, while member comments explain failure channels; paragraph and member separation follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintPromiseRules is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintPromiseRules is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintPromiseRules is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintPromiseRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintPromiseRules {
   /**

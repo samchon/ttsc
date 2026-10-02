@@ -15,6 +15,10 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * @evidence contracts/common.md#clear-and-simple-design One family groups source-level security concerns while common severity forms remain centralized outside the rule definitions.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Contract-defined sink-policy identifiers are explicit entries, without consumer exemptions or foreign API mutation in this configuration representation.
  * @evidence contracts/common.md#meaningful-documentation Native prose identifies findings as hints and member comments explain false-positive and fix boundaries; paragraph and member separation follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintSecurityRules is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintSecurityRules is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintSecurityRules is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintSecurityRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintSecurityRules {
   /**

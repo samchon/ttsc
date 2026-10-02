@@ -20,6 +20,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design One snapshot groups normalized dependency declarations without including a TypeScript Program or watcher implementation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The snapshot describes configured topology rather than inferring dependencies only from successful reads.
 // @evidence contracts/common.md#meaningful-documentation Native members identify physical-root spelling, exact and glob dependencies and reload effects; member gaps and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectInputSnapshot is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectInputSnapshot is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectInputSnapshot is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectInputSnapshot is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectInputSnapshot struct {
   // Root is the normalized physical dependency root with forward-slash spelling.
   Root              string   `json:"root"`
@@ -44,6 +48,10 @@ type ProjectInputSnapshot struct {
 // @evidence contracts/common.md#clear-and-simple-design CLI parsing and JSON output reuse one dependency collector, with per-input normalization and duplicate sorting owned by helpers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Dependencies survive missing files and empty populations instead of being restricted to successful Check reads; unsupported remote URLs produce explicit errors.
 // @evidence contracts/common.md#meaningful-documentation Native prose states pre-Program publication and snapshot members explain reload topology; paragraphs, member gaps and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RunProjectInputs performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RunProjectInputs has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunProjectInputs keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunProjectInputs acquires no handle or task and retains nothing beyond the receiver's own fields.
 func RunProjectInputs(args []string) int {
   opts, ok := parseLSPCommandOptions("project-inputs", args)
   if !ok {

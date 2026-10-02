@@ -32,6 +32,10 @@ var Version = "dev"
 // @evidence contracts/common.md#clear-and-simple-design The public entry delegates to one command dispatcher shared by native consumers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Command names are the supported CLI discriminants, and contributor registration uses its normal bootstrap rather than patched dispatch.
 // @evidence contracts/common.md#meaningful-documentation Native prose states argument ownership, supported verbs and exit-code propagation; paragraphs and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Main performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Main has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Main keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Main acquires no handle or task and retains nothing beyond the receiver's own fields.
 func Main(args []string) int {
   return run(args)
 }
@@ -44,6 +48,10 @@ func Main(args []string) int {
 // @evidence contracts/common.md#clear-and-simple-design One browser dispatcher passes stream ownership directly to the existing project commands.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The narrower command surface is a documented host boundary rather than process-global stdout replacement.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes browser-owned streams from native mutation and LSP commands; separated tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation MainWithIO performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms MainWithIO has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work MainWithIO keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources MainWithIO acquires no handle or task and retains nothing beyond the receiver's own fields.
 func MainWithIO(args []string, stdout, stderr io.Writer) int {
   if stdout == nil {
     stdout = io.Discard

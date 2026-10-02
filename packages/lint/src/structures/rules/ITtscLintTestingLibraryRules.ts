@@ -17,6 +17,10 @@ import type { ITtscLintTestingLibraryConsistentDataTestIdRuleOptions } from "./I
  * @evidence contracts/common.md#clear-and-simple-design One family groups Testing Library source policies and delegates its sole object-option schema to a dedicated interface rather than duplicating it in the map.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Public Testing Library policy identities remain explicit, with no local test fixture exception or arbitrary options escape in the map.
  * @evidence contracts/common.md#meaningful-documentation Native comments explain query variants, waiting, cleanup and interaction semantics; paragraph, member and tag separation follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintTestingLibraryRules is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintTestingLibraryRules is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintTestingLibraryRules is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintTestingLibraryRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintTestingLibraryRules {
   /**

@@ -19,6 +19,10 @@ import type { ITtscLintCypressUnsafeToChainCommandRuleOptions } from "./ITtscLin
  * @evidence contracts/common.md#clear-and-simple-design One family groups Cypress queue and test-body policies while reusing the common setting aliases and a separate configurable command schema.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Cypress identifiers are the public configuration vocabulary; the command options enter through an explicit interface rather than consumer exceptions.
  * @evidence contracts/common.md#meaningful-documentation Family prose identifies the runner surface and member comments explain queue, assertion and debugging concerns; blank paragraphs and member boundaries follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintCypressRules is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintCypressRules is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintCypressRules is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintCypressRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintCypressRules {
   /**

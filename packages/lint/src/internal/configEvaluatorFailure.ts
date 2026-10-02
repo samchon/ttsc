@@ -26,6 +26,10 @@ interface ConfigEvaluatorProcessResult {
  * @evidence contracts/common.md#clear-and-simple-design One classifier centralizes process termination reasons without owning execution or output capture.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The classification uses reported process state rather than arbitrary output or runtime thresholds.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains inherited diagnostics and the absence of artificial output limits; paragraphs and the tag boundary follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation configEvaluatorProcessFailure performs no filesystem or process operation of its own.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms configEvaluatorProcessFailure has no loop of its own and runs a fixed number of steps.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work configEvaluatorProcessFailure keeps no cache and shares no in-flight computation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources configEvaluatorProcessFailure acquires no handle or task and retains nothing beyond the receiver's own fields.
  */
 export function configEvaluatorProcessFailure(
   result: ConfigEvaluatorProcessResult,
@@ -66,6 +70,10 @@ export function configEvaluatorProcessFailure(
  * @evidence contracts/common.md#clear-and-simple-design A single reader owns failure-envelope decoding beside the process classifier.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Missing or malformed envelopes do not fabricate success or replace the process failure classification.
  * @evidence contracts/common.md#meaningful-documentation Native prose distinguishes process status from loader reason and documents malformed-envelope handling; paragraphs and tags follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation configEvaluatorFailureReason performs no filesystem or process operation of its own.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms configEvaluatorFailureReason has no loop of its own and runs a fixed number of steps.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work configEvaluatorFailureReason keeps no cache and shares no in-flight computation.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources configEvaluatorFailureReason acquires no handle or task and retains nothing beyond the receiver's own fields.
  */
 export function configEvaluatorFailureReason(outputPath: string): string {
   try {

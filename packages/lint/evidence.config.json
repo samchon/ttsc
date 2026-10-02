@@ -5,29 +5,7 @@
       "name": "TypeScript production declarations",
       "type": "typescript",
       "files": [
-        "src/**/*.ts",
-        "!src/index.ts",
-        "!src/create*.ts"
-      ],
-      "symbol": [
-        "type",
-        "function"
-      ],
-      "reference": {
-        "type": "markdown",
-        "root": "../../.agents/skills",
-        "files": [
-          "contracts/common.md"
-        ],
-        "symbol": "h2",
-        "checklist": true
-      }
-    },
-    {
-      "name": "TypeScript declarations that resolve paths and cache evaluated config",
-      "type": "typescript",
-      "files": [
-        "src/create*.ts"
+        "src/**/*.ts"
       ],
       "symbol": [
         "type",
@@ -53,31 +31,7 @@
         "linthost/**/*.go",
         "rule/**/*.go",
         "plugin/**/*.go",
-        "!**/*_test.go",
-        "!**/*_gen.go",
-        "!linthost/*serve.go",
-        "!linthost/lsp.go"
-      ],
-      "symbol": [
-        "type",
-        "function"
-      ],
-      "reference": {
-        "type": "markdown",
-        "root": "../../.agents/skills",
-        "files": [
-          "contracts/common.md"
-        ],
-        "symbol": "h2",
-        "checklist": true
-      }
-    },
-    {
-      "name": "Go declarations that own the resident daemon and the language server",
-      "type": "go",
-      "files": [
-        "linthost/*serve.go",
-        "linthost/lsp.go"
+        "!**/*_test.go"
       ],
       "symbol": [
         "type",

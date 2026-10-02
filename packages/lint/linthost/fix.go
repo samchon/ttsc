@@ -29,6 +29,10 @@ const maxFixPasses = 10
 // @evidence contracts/common.md#clear-and-simple-design Shared flag parsing and edit selection serve fix and format while this entry point selects all-rule diagnostics policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The pass cap detects a nonconverging fixer and reports failure instead of hiding repeated edits with retries or expected-source substitutions.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes applying fixes, remaining diagnostics and no JavaScript emission; cascade comments explain ownership and the convergence cap.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RunFix parses flags, reports errors on the process standard error and forwards to runFix; it resolves no path itself.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RunFix has no loop of its own and runs a fixed sequence of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunFix keeps no cache and shares no computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunFix retains nothing and acquires no handle or task.
 func RunFix(args []string) int {
   opts, err := parseSubcommandFlags("fix", args)
   if err != nil {

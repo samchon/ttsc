@@ -14,6 +14,10 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * @evidence contracts/common.md#clear-and-simple-design One map owns Next.js rule enablement, leaving framework detection and diagnostics to native implementations instead of embedding them in configuration types.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Framework rule names are contract-defined keys, not consumer-specific cases, and the interface introduces no untyped options bypass.
  * @evidence contracts/common.md#meaningful-documentation Native family and member comments explain routing, component and asset-loading concerns with examples of affected syntax; paragraph and member separation follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintNextjsRules is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintNextjsRules is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintNextjsRules is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintNextjsRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintNextjsRules {
   /**

@@ -5,6 +5,10 @@
  * @evidence contracts/common.md#clear-and-simple-design One union identifies styles in both single-style and allowed-style configurations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts These literals express supported styles rather than filenames exempted for known consumers.
  * @evidence contracts/common.md#meaningful-documentation The owning comment identifies the consuming rule and the literals name its available styles.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintUnicornFilenameCaseName is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintUnicornFilenameCaseName is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintUnicornFilenameCaseName is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintUnicornFilenameCaseName is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintUnicornFilenameCaseName =
   | "camelCase"
@@ -25,6 +29,10 @@ export type TtscLintUnicornFilenameCaseName =
  * @evidence contracts/common.md#clear-and-simple-design Shared scanning options are declared once and intersected with the two style-selection alternatives.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Ignore patterns are caller-declared path policies; kebab-case is the rule default rather than a consumer-specific exception.
  * @evidence contracts/common.md#meaningful-documentation The prose explains exclusive style selection and fallback behavior; members document path matching and extension semantics with separated defaults.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintUnicornFilenameCaseRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintUnicornFilenameCaseRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintUnicornFilenameCaseRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintUnicornFilenameCaseRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type ITtscLintUnicornFilenameCaseRuleOptions = {
   /**
@@ -74,6 +82,10 @@ export type ITtscLintUnicornFilenameCaseRuleOptions = {
  * @evidence contracts/common.md#clear-and-simple-design One switch exposes the only configurable transformation policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The switch selects a general regex policy without naming particular expressions or fixtures.
  * @evidence contracts/common.md#meaningful-documentation The member explains the default, preserved source order and an example of adjacent-range merging.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintUnicornBetterRegexRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintUnicornBetterRegexRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintUnicornBetterRegexRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintUnicornBetterRegexRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintUnicornBetterRegexRuleOptions {
   /**
@@ -96,6 +108,10 @@ export interface ITtscLintUnicornBetterRegexRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design The four selection lists and indentation unit stay in the owning template rule's option object.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Caller selectors replace documented defaults instead of matching specific consumer templates in production code.
  * @evidence contracts/common.md#meaningful-documentation The prose distinguishes replacement from merging and defines indentation relative to the opening source margin.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintUnicornTemplateIndentRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintUnicornTemplateIndentRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintUnicornTemplateIndentRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintUnicornTemplateIndentRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintUnicornTemplateIndentRuleOptions {
   /** Block-comment contents that select the immediately following template. */
@@ -128,6 +144,10 @@ export interface ITtscLintUnicornTemplateIndentRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design A disable alternative and one map capture per-module policy separately from the enclosing merge settings.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Restrictions are explicit module policy data; disabling all canonical styles is documented as misconfiguration.
  * @evidence contracts/common.md#meaningful-documentation The prose identifies canonical styles, default merging and the distinct rule needed to ban modules.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintUnicornImportStyleModuleStyles is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintUnicornImportStyleModuleStyles is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintUnicornImportStyleModuleStyles is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintUnicornImportStyleModuleStyles is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintUnicornImportStyleModuleStyles =
   | false
@@ -141,6 +161,10 @@ export type TtscLintUnicornImportStyleModuleStyles =
  * @evidence contracts/common.md#clear-and-simple-design Syntax selection, table merging and module entries are separate members of the owning import policy.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Module entries are caller configuration and node-prefixed inheritance follows module policy rather than patches to consumers.
  * @evidence contracts/common.md#meaningful-documentation Members distinguish static, dynamic, re-export and require checks and explain merging and node-prefix inheritance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintUnicornImportStyleRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintUnicornImportStyleRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintUnicornImportStyleRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintUnicornImportStyleRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintUnicornImportStyleRuleOptions {
   /**
@@ -196,6 +220,10 @@ export interface ITtscLintUnicornImportStyleRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One value union serves each global name without embedding name lookup or scope traversal in options.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Writable and writeable are supported spelling aliases, not mutations of external global bindings.
  * @evidence contracts/common.md#meaningful-documentation The prose maps every spelling and boolean to read, write or prohibition semantics.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintUnicornIsolatedFunctionsGlobalPolicy is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintUnicornIsolatedFunctionsGlobalPolicy is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintUnicornIsolatedFunctionsGlobalPolicy is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintUnicornIsolatedFunctionsGlobalPolicy is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintUnicornIsolatedFunctionsGlobalPolicy =
   | boolean
@@ -218,6 +246,10 @@ export type TtscLintUnicornIsolatedFunctionsGlobalPolicy =
  * @evidence contracts/common.md#clear-and-simple-design Scope selection and global permissions remain separate members in one isolation configuration.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Exceptions are declared global policies rather than mutations of JavaScript globals or hardcoded callers.
  * @evidence contracts/common.md#meaningful-documentation The prose explains how selection channels combine and replace defaults; members distinguish markers, callees, selectors and permissions.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintUnicornIsolatedFunctionsRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintUnicornIsolatedFunctionsRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintUnicornIsolatedFunctionsRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintUnicornIsolatedFunctionsRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintUnicornIsolatedFunctionsRuleOptions {
   /**
@@ -257,6 +289,10 @@ export interface ITtscLintUnicornIsolatedFunctionsRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One scalar union serves both default/namespace and shorthand import switches.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Internal expresses a module category rather than a list of privileged consumers.
  * @evidence contracts/common.md#meaningful-documentation The owning rule is identified here and consuming member comments describe the three categories.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintUnicornPreventAbbreviationsImportMode is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintUnicornPreventAbbreviationsImportMode is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintUnicornPreventAbbreviationsImportMode is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintUnicornPreventAbbreviationsImportMode is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintUnicornPreventAbbreviationsImportMode =
   | boolean
@@ -272,6 +308,10 @@ export type TtscLintUnicornPreventAbbreviationsImportMode =
  * @evidence contracts/common.md#clear-and-simple-design The value type separates one name's replacement policy from the outer name-to-policy table.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Replacement spellings are configurable data rather than built-in exceptions for known source identifiers.
  * @evidence contracts/common.md#meaningful-documentation The prose distinguishes disabling an entire entry from toggling individual expansions.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintUnicornPreventAbbreviationsReplacement is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintUnicornPreventAbbreviationsReplacement is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintUnicornPreventAbbreviationsReplacement is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintUnicornPreventAbbreviationsReplacement is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintUnicornPreventAbbreviationsReplacement =
   | false
@@ -284,6 +324,10 @@ export type TtscLintUnicornPreventAbbreviationsReplacement =
  * @evidence contracts/common.md#clear-and-simple-design One optional switch exposes the configurable function category.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The switch applies to a syntax category rather than exempting specific declarations.
  * @evidence contracts/common.md#meaningful-documentation The member states the analysis purpose and default with separated prose and tags.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintUnicornConsistentFunctionScopingRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintUnicornConsistentFunctionScopingRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintUnicornConsistentFunctionScopingRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintUnicornConsistentFunctionScopingRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintUnicornConsistentFunctionScopingRuleOptions {
   /**
@@ -301,6 +345,10 @@ export interface ITtscLintUnicornConsistentFunctionScopingRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design Selection, vocabulary patches and default merging are direct members rather than separate wrapper configurations.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Ignore patterns and naming tables are declared policies without special handling for fixtures or consumers.
  * @evidence contracts/common.md#meaningful-documentation Members distinguish naming contexts, internal-only import defaults and merging behavior.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintUnicornPreventAbbreviationsRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintUnicornPreventAbbreviationsRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintUnicornPreventAbbreviationsRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintUnicornPreventAbbreviationsRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintUnicornPreventAbbreviationsRuleOptions {
   /**
@@ -383,6 +431,10 @@ export interface ITtscLintUnicornPreventAbbreviationsRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One entry contains per-pattern settings while the regex source belongs to the outer table key.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Replacement and message templates are caller data rather than corrections hardcoded for known examples.
  * @evidence contracts/common.md#meaningful-documentation Members distinguish editor suggestions from automatic fixes, case sensitivity and message placeholders.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintUnicornStringContentPatternOptions is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintUnicornStringContentPatternOptions is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintUnicornStringContentPatternOptions is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintUnicornStringContentPatternOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintUnicornStringContentPatternOptions {
   /** Replacement text applied to every match of the pattern. */
@@ -423,6 +475,10 @@ export interface ITtscLintUnicornStringContentPatternOptions {
  * @evidence contracts/common.md#clear-and-simple-design Node selection and the pattern table are separate members and detailed replacement entries have their own type.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts No default patterns invent source-specific replacements; configured entries supply every replacement policy.
  * @evidence contracts/common.md#meaningful-documentation The prose explains empty behavior, literal versus quasi text and first-match ordering for overlapping patterns.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintUnicornStringContentRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintUnicornStringContentRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintUnicornStringContentRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintUnicornStringContentRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintUnicornStringContentRuleOptions {
   /** Regular-expression sources mapped to replacement text or an entry object. */
@@ -447,6 +503,10 @@ export interface ITtscLintUnicornStringContentRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One value type captures query strings, query lists and target maps without adding resolver machinery.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Targets describe supported runtimes through resolver configuration rather than special-casing consumer polyfill imports.
  * @evidence contracts/common.md#meaningful-documentation The prose identifies queries, engine versions, special keys and production-environment resolution relative to the linted file.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintUnicornNoUnnecessaryPolyfillsTargets is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintUnicornNoUnnecessaryPolyfillsTargets is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintUnicornNoUnnecessaryPolyfillsTargets is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintUnicornNoUnnecessaryPolyfillsTargets is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintUnicornNoUnnecessaryPolyfillsTargets =
   | string
@@ -466,6 +526,10 @@ export type TtscLintUnicornNoUnnecessaryPolyfillsTargets =
  * @evidence contracts/common.md#clear-and-simple-design The object owns one baseline and delegates accepted representations to the target union.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Explicit targets or normal config discovery establish runtime support without a consumer-specific browser assumption.
  * @evidence contracts/common.md#meaningful-documentation The prose distinguishes missing options from explicit targets and identifies discovery and engines fallback behavior.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions {
   /** Browserslist query, array of queries, or a core-js-compat targets object. */
@@ -479,6 +543,10 @@ export interface ITtscLintUnicornNoUnnecessaryPolyfillsRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One optional flag exposes the configurable global-name boundary.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The boundary is declaration status rather than a hardcoded list of identifier names.
  * @evidence contracts/common.md#meaningful-documentation The member identifies undeclared globals and records the disabled default separately.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintUnicornNoTypeofUndefinedRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintUnicornNoTypeofUndefinedRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintUnicornNoTypeofUndefinedRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintUnicornNoTypeofUndefinedRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintUnicornNoTypeofUndefinedRuleOptions {
   /**
@@ -496,6 +564,10 @@ export interface ITtscLintUnicornNoTypeofUndefinedRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design Each configurable global replacement has its own directly named switch.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Infinity and NaN are language-defined bindings covered by options rather than consumer-specific substitutions.
  * @evidence contracts/common.md#meaningful-documentation Each member identifies its binding and default in a separate documented block.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintUnicornPreferNumberPropertiesRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintUnicornPreferNumberPropertiesRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintUnicornPreferNumberPropertiesRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintUnicornPreferNumberPropertiesRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintUnicornPreferNumberPropertiesRuleOptions {
   /**
@@ -520,6 +592,10 @@ export interface ITtscLintUnicornPreferNumberPropertiesRuleOptions {
  * @evidence contracts/common.md#clear-and-simple-design One optional preference represents the configurable encoding-spelling choice.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts API-required dash exceptions follow supported encoding contexts rather than particular consumers.
  * @evidence contracts/common.md#meaningful-documentation The member distinguishes optional preference from dash-required APIs and states the default separately.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintUnicornTextEncodingIdentifierCaseRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintUnicornTextEncodingIdentifierCaseRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintUnicornTextEncodingIdentifierCaseRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintUnicornTextEncodingIdentifierCaseRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintUnicornTextEncodingIdentifierCaseRuleOptions {
   /**

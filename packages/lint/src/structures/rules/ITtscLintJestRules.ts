@@ -14,6 +14,10 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * @evidence contracts/common.md#clear-and-simple-design One interface collects Jest source policies while severity spelling and tuple forms remain defined in the shared alias.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Named Jest policies use the supported setting representation and introduce no special configuration path for repository test fixtures.
  * @evidence contracts/common.md#meaningful-documentation Family prose identifies Jest source and member comments explain assertion, lifecycle and collection concerns; separate paragraphs and members follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintJestRules is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintJestRules is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintJestRules is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintJestRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintJestRules {
   /**

@@ -16,6 +16,10 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * @evidence contracts/common.md#clear-and-simple-design The family keeps JSX accessibility concerns together and delegates severity forms to one alias rather than adding per-rule option layers.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The keys are supported accessibility rule identities; this representation contains no fixture allowance or foreign runtime mutation.
  * @evidence contracts/common.md#meaningful-documentation Family prose distinguishes static analysis from live audits and member comments explain ARIA, labels and interaction concerns; paragraphs and member boundaries follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintJsxA11yRules is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintJsxA11yRules is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintJsxA11yRules is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintJsxA11yRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintJsxA11yRules {
   /**

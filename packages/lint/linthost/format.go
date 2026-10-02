@@ -25,6 +25,10 @@ const maxFormatPasses = 10
 // @evidence contracts/common.md#clear-and-simple-design Format reuses fix parsing and edit application while owning its format-only selection and absence of final typecheck diagnostics.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Nonconvergence returns a visible failure; default formatting is a documented command policy rather than a test-dependent activation.
 // @evidence contracts/common.md#meaningful-documentation Native prose states format-only and write-only behavior, and cascade comments explain failure at the pass bound.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RunFormat parses flags, reports errors on the process standard error and forwards to runFormat; it resolves no path itself.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RunFormat has no loop of its own and runs a fixed sequence of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunFormat keeps no cache and shares no computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunFormat retains nothing and acquires no handle or task.
 func RunFormat(args []string) int {
   opts, err := parseSubcommandFlags("format", args)
   if err != nil {

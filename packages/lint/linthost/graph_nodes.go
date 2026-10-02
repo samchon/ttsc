@@ -24,6 +24,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design CLI parsing and serialization surround one shared graph computation usable by resident hosts.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Published artifacts come from checked contributor state rather than fabricated graph nodes or coverage results; empty projects remain valid outcomes.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains whole-Program scope, input-sensitive caller caching and empty-set success; paragraphs and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RunGraphNodes performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RunGraphNodes has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunGraphNodes keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunGraphNodes acquires no handle or task and retains nothing beyond the receiver's own fields.
 func RunGraphNodes(args []string) int {
   opts, ok := parseLSPCommandOptions("graph-nodes", args)
   if !ok {

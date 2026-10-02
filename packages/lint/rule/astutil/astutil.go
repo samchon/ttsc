@@ -40,6 +40,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design One helper owns the text extraction used by contributor comparisons and edits.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Source extraction uses the supported compiler scanner rather than comment-pattern special cases.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains trimmed versus literal ranges and defensive results; paragraphs and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation NodeText performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms NodeText has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work NodeText keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NodeText acquires no handle or task and retains nothing beyond the receiver's own fields.
 func NodeText(file *shimast.SourceFile, node *shimast.Node) string {
   if file == nil || node == nil {
     return ""
@@ -75,6 +79,10 @@ func NodeText(file *shimast.SourceFile, node *shimast.Node) string {
 // @evidence contracts/common.md#clear-and-simple-design Node-based search shares the same token-location implementation as arbitrary-range search.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler tokens replace the guessed 32-byte prefix and raw substring workaround.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains modifier handling, token exclusions, missing results and an edit example; separated tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation KeywordStart scans source text positions and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms The search window is narrowed by the positions of the node's children and the scanner then runs once from the node start, so cost is the number of tokens in the declaration head.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work KeywordStart keeps no cache and shares no computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources KeywordStart acquires no handle or task and retains nothing.
 func KeywordStart(file *shimast.SourceFile, node *shimast.Node, keyword string) int {
   if file == nil || node == nil || keyword == "" {
     return -1
@@ -138,6 +146,10 @@ func KeywordStart(file *shimast.SourceFile, node *shimast.Node, keyword string) 
 // @evidence contracts/common.md#clear-and-simple-design One search implementation owns literal exclusion, lexical matching and range bounds for public and host callers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Language tokens replace ASCII flank guesses and raw text matches, without fixture-specific exceptions or foreign scanner mutation.
 // @evidence contracts/common.md#meaningful-documentation Native prose states Unicode, literal and complete-range behavior; paragraphs and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation FindKeyword performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms FindKeyword has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work FindKeyword keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources FindKeyword acquires no handle or task and retains nothing beyond the receiver's own fields.
 func FindKeyword(file *shimast.SourceFile, pos, end int, keyword string) int {
   if file == nil || keyword == "" {
     return -1
@@ -199,6 +211,10 @@ func searchKeyword(scan *shimscanner.Scanner, pos, end int, keyword string, span
 // @evidence contracts/common.md#clear-and-simple-design One range helper separates untrimmed byte coordinates from NodeText's trailing trim.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Range extraction uses supported compiler trivia semantics without guessed whitespace or consumer-specific offsets.
 // @evidence contracts/common.md#meaningful-documentation Native prose describes byte-range alignment and invalid sentinels; paragraphs and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation TokenRange performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms TokenRange has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work TokenRange keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TokenRange acquires no handle or task and retains nothing beyond the receiver's own fields.
 func TokenRange(file *shimast.SourceFile, node *shimast.Node) (int, int) {
   if file == nil || node == nil {
     return -1, -1

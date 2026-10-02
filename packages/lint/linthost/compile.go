@@ -39,6 +39,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design This wrapper owns only default stream selection.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Delegation preserves the supported command path without an alternate diagnostic implementation.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the check command and its no-emit effect; tags are separated from prose.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RunCheck only selects the process standard streams and forwards to RunCheckWithIO; it resolves no path and builds no executable or argument list.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RunCheck is one delegating call with no loop.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunCheck keeps no cache and shares no computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunCheck retains nothing; the process owns its standard streams.
 func RunCheck(args []string) int {
   return RunCheckWithIO(args, os.Stdout, os.Stderr)
 }
@@ -51,6 +55,10 @@ func RunCheck(args []string) int {
 // @evidence contracts/common.md#clear-and-simple-design Shared orchestration owns setup and diagnostics while this entry point selects check policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Supported writer injection carries output without replacing process globals.
 // @evidence contracts/common.md#meaningful-documentation Native prose names invocation ownership of writers; the underlying command documentation explains no emit.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RunCheckWithIO performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RunCheckWithIO has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunCheckWithIO keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunCheckWithIO acquires no handle or task and retains nothing beyond the receiver's own fields.
 func RunCheckWithIO(args []string, stdout, stderr io.Writer) int {
   opts, err := parseSubcommandFlagsWithIO("check", args, stdout, stderr)
   if err != nil {
@@ -68,6 +76,10 @@ func RunCheckWithIO(args []string, stdout, stderr io.Writer) int {
 // @evidence contracts/common.md#clear-and-simple-design The wrapper adds only process stream selection to shared build behavior.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Emit uses the compiler pipeline rather than rewriting generated output for expected examples.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes build's emission from check's no-emit operation; tags are separated.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RunBuild only selects the process standard streams and forwards to RunBuildWithIO; it resolves no path and builds no executable or argument list.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RunBuild is one delegating call with no loop.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunBuild keeps no cache and shares no computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunBuild retains nothing; the process owns its standard streams.
 func RunBuild(args []string) int {
   return RunBuildWithIO(args, os.Stdout, os.Stderr)
 }
@@ -80,6 +92,10 @@ func RunBuild(args []string) int {
 // @evidence contracts/common.md#clear-and-simple-design The project runner owns the common pipeline and this adapter owns command policy and streams.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Writer injection preserves invocation isolation through the documented boundary.
 // @evidence contracts/common.md#meaningful-documentation Native prose states stream ownership and the adjacent build documentation states the emit distinction.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RunBuildWithIO performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RunBuildWithIO has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunBuildWithIO keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunBuildWithIO acquires no handle or task and retains nothing beyond the receiver's own fields.
 func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
   opts, err := parseSubcommandFlagsWithIO("build", args, stdout, stderr)
   if err != nil {
@@ -97,6 +113,10 @@ func RunBuildWithIO(args []string, stdout, stderr io.Writer) int {
 // @evidence contracts/common.md#clear-and-simple-design This wrapper selects process output without duplicating transformation orchestration.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Transformation remains compiler-owned rather than a special source-text substitute.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains whole-program lint context and the target-only emit boundary.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RunTransform only selects the process standard streams and forwards to RunTransformWithIO; it resolves no path and builds no executable or argument list.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RunTransform is one delegating call with no loop.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunTransform keeps no cache and shares no computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunTransform retains nothing; the process owns its standard streams.
 func RunTransform(args []string) int {
   return RunTransformWithIO(args, os.Stdout, os.Stderr)
 }
@@ -110,6 +130,10 @@ func RunTransform(args []string) int {
 // @evidence contracts/common.md#clear-and-simple-design Flag parsing, diagnostics, target lookup and output capture form one explicit command pipeline.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Supported emit callbacks and stream injection replace neither compiler globals nor generated content.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies stream ownership while the transform declaration explains project context and output scope.
+// @evidence contracts/portability.md#os-neutral-implementation The working directory and the --file argument are resolved through the cwd resolver and shimtspath.ResolvePath instead of string concatenation, the semantic-config path is read from an environment variable, and the output directory is created with filepath.Dir and os.MkdirAll before os.WriteFile. File mode bits apply only on operating systems that honor them.
+// @evidence contracts/performance.md#efficient-algorithms Flags are parsed once, one program is loaded and diagnosed once, and Emit is limited to the single target source file, so cost is dominated by the program load and lint pass rather than by the emit of the requested file.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunTransformWithIO is a single-shot command that loads one program per invocation and keeps no cache; reuse across requests belongs to the resident daemon.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The loaded program is released by a deferred close on every return after a successful load; the captured output is one string held only until it is written or printed.
 func RunTransformWithIO(args []string, stdout, stderr io.Writer) int {
   semanticConfigPath := os.Getenv(semanticConfigPathEnv)
   fs := flag.NewFlagSet("transform", flag.ContinueOnError)

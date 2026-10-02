@@ -26,6 +26,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design One scalar severity keeps reporting policy independent from each rule's option shape.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The constants define the public severity ladder rather than consumer-specific outcomes.
 // @evidence contracts/common.md#meaningful-documentation The native comment names the three supported states, with prose separated from acknowledgment tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Severity is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Severity is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Severity is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Severity is a declaration of data shape; the code that holds its values owns their lifetime.
 type Severity int
 
 const (
@@ -40,6 +44,10 @@ const (
 // @evidence contracts/common.md#clear-and-simple-design A local switch owns the display mapping and requires no rule-specific formatter.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Literal spellings are the severity protocol, not replacements for evaluated rule results.
 // @evidence contracts/common.md#meaningful-documentation The native comment states both supported conversion and the unknown-value result in a separate paragraph from tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Severity.String performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Severity.String has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Severity.String keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Severity.String acquires no handle or task and retains nothing beyond the receiver's own fields.
 func (s Severity) String() string {
   switch s {
   case SeverityError:
@@ -61,6 +69,10 @@ func (s Severity) String() string {
 // @evidence contracts/common.md#clear-and-simple-design The original entry and evaluated descriptor identity remain separate fields because they have different producers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts This DTO preserves host input and adds no plugin-specific execution or foreign mutation.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies each field's producer, and spaced field comments explain their roles without property acknowledgments.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation PluginEntry is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms PluginEntry is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work PluginEntry is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources PluginEntry is a declaration of data shape; the code that holds its values owns their lifetime.
 type PluginEntry struct {
   // Config is the original tsconfig plugin entry, including configFile.
   Config map[string]any `json:"config"`
@@ -79,6 +91,10 @@ type PluginEntry struct {
 // @evidence contracts/common.md#clear-and-simple-design Parsing and contextual error wrapping form one boundary operation, leaving lint selection to FindLintEntry.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The absence case follows the host protocol and does not fabricate entries to satisfy a consumer.
 // @evidence contracts/common.md#meaningful-documentation Native prose states absence and malformed-input effects, with a blank comment line before tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ParsePlugins performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ParsePlugins has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ParsePlugins keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ParsePlugins acquires no handle or task and retains nothing beyond the receiver's own fields.
 func ParsePlugins(text string) ([]PluginEntry, error) {
   if strings.TrimSpace(text) == "" {
     return nil, nil
@@ -99,6 +115,10 @@ func ParsePlugins(text string) ([]PluginEntry, error) {
 // @evidence contracts/common.md#clear-and-simple-design Selection uses the descriptor Name and leaves host staging and config evaluation with their existing owners.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The package identity is the supported descriptor protocol; no consumer or fixture name alters selection.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains host ordering, alias ownership and the absent result, separated visibly from tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation FindLintEntry compares plugin names and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms A linear scan that stops at the first @ttsc/lint entry, O(entries).
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work FindLintEntry keeps no cache and shares no computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources FindLintEntry returns a pointer into the caller's slice and allocates nothing.
 func FindLintEntry(entries []PluginEntry) (*PluginEntry, error) {
   for i := range entries {
     if entries[i].Name == "@ttsc/lint" {
@@ -117,6 +137,10 @@ func FindLintEntry(entries []PluginEntry) (*PluginEntry, error) {
 // @evidence contracts/common.md#clear-and-simple-design The severity-only representation also implements RuleResolver without requiring option or file-scope storage.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The map represents supplied policy rather than cached diagnostics or expected outputs.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the severity-only role and the validation prerequisite for direct metadata consumers.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RuleConfig is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RuleConfig is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleConfig is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleConfig is a declaration of data shape; the code that holds its values owns their lifetime.
 type RuleConfig map[string]Severity
 
 // RuleOptionsMap captures the rule-specific options payload, keyed by rule
@@ -128,6 +152,10 @@ type RuleConfig map[string]Severity
 // @evidence contracts/common.md#clear-and-simple-design A parallel name-keyed map keeps heterogeneous option types out of the engine-facing severity representation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Option payloads remain supplied configuration, with no hardcoded result or foreign decoder patch.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains absent options and single-versus-multiple-slot encoding, then separates the acknowledgments.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RuleOptionsMap is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RuleOptionsMap is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleOptionsMap is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleOptionsMap is a declaration of data shape; the code that holds its values owns their lifetime.
 type RuleOptionsMap map[string]json.RawMessage
 
 // ProjectRuleSetting is the global declaration resolved for one registered
@@ -137,6 +165,10 @@ type RuleOptionsMap map[string]json.RawMessage
 // @evidence contracts/common.md#clear-and-simple-design Presence, severity and optional raw options form one resolved project setting without retaining file-specific scope.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The presence distinction models supported config semantics rather than inferring declaration from a severity default.
 // @evidence contracts/common.md#meaningful-documentation The type and spaced member comments explain absence and payload meaning without property tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ProjectRuleSetting is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ProjectRuleSetting is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ProjectRuleSetting is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ProjectRuleSetting is a declaration of data shape; the code that holds its values owns their lifetime.
 type ProjectRuleSetting struct {
   // Declared reports whether a matching global entry explicitly named the rule.
   Declared bool
@@ -163,6 +195,10 @@ type ProjectRuleSetting struct {
 // @evidence contracts/common.md#clear-and-simple-design The value carries a single file's resolution with an explicit authority bit for compatibility with older custom resolvers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts OptionsResolved distinguishes a real interface capability instead of substituting an empty map for unresolved data.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains scope and compatibility states; each public field has its own spaced comment and no checklist tag.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ResolvedRuleConfig is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ResolvedRuleConfig is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ResolvedRuleConfig is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ResolvedRuleConfig is a declaration of data shape; the code that holds its values owns their lifetime.
 type ResolvedRuleConfig struct {
   // Rules contains the severities contributed by matching entries.
   Rules RuleConfig
@@ -191,6 +227,10 @@ type ResolvedRuleConfig struct {
 // @evidence contracts/common.md#clear-and-simple-design Lookup remains on the resolved value so execution need not repeat config-entry folding.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Namespace normalization follows the rule naming contract and does not select a payload by consumer identity.
 // @evidence contracts/common.md#meaningful-documentation Native prose states normalization, absence and borrowed slice ownership with tags in a separate comment paragraph.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RuleOptions looks up option bytes by rule name and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms The exact and canonical names are tried with constant-time map lookups and one linear scan of the stored names runs only when neither matches, so the common case is O(1).
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleOptions keeps no cache and shares no computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleOptions returns the stored message without copying; the resolved configuration owns it.
 func (r ResolvedRuleConfig) RuleOptions(name string) json.RawMessage {
   if raw := r.Options[name]; len(raw) > 0 {
     return raw
@@ -217,6 +257,10 @@ func (r ResolvedRuleConfig) RuleOptions(name string) json.RawMessage {
 // @evidence contracts/common.md#clear-and-simple-design The interface exposes resolution behavior rather than parsed entries, allowing flat and scoped implementations to share the engine boundary.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compatibility lookup is an explicit supported interface method, not a patch of another resolver's internals.
 // @evidence contracts/common.md#meaningful-documentation Native prose names implementations and method comments describe scope, absence and precedence with blank lines between members.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RuleResolver is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RuleResolver is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleResolver is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleResolver is a declaration of data shape; the code that holds its values owns their lifetime.
 type RuleResolver interface {
   // ResolveRules returns the effective severities and option payloads for the
   // given source file. Implementations that support `files`/`ignores`
@@ -227,6 +271,10 @@ type RuleResolver interface {
   // @evidence contracts/common.md#clear-and-simple-design One resolution call exposes the file-bound value without requiring engine access to entry storage.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts The interface delegates scope through a supported method rather than probing concrete resolver internals.
   // @evidence contracts/common.md#meaningful-documentation The native method comment explains flat versus scoped semantics before a separate tag paragraph.
+  // @evidenceExclude contracts/portability.md#os-neutral-implementation RuleResolver.ResolveRules is a method signature without a body; each implementation owns any filesystem or process behavior.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms RuleResolver.ResolveRules is a method signature without a body; each implementation chooses its own algorithm.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleResolver.ResolveRules is a method signature without a body; each implementation decides what, if anything, to share.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleResolver.ResolveRules is a method signature without a body; each implementation owns any retained state.
   ResolveRules(fileName string) ResolvedRuleConfig
 
   // ActiveRuleNames returns the sorted names of every rule that is not SeverityOff
@@ -236,6 +284,10 @@ type RuleResolver interface {
   // @evidence contracts/common.md#clear-and-simple-design The method supplies ordered identities rather than exposing a second executable config model.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts The activity definition follows declarations, not whether a known fixture produced a diagnostic.
   // @evidence contracts/common.md#meaningful-documentation Native prose states sorting, potential activity and the dispatch consumer with separated tags.
+  // @evidenceExclude contracts/portability.md#os-neutral-implementation RuleResolver.ActiveRuleNames is a method signature without a body; each implementation owns any filesystem or process behavior.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms RuleResolver.ActiveRuleNames is a method signature without a body; each implementation chooses its own algorithm.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleResolver.ActiveRuleNames is a method signature without a body; each implementation decides what, if anything, to share.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleResolver.ActiveRuleNames is a method signature without a body; each implementation owns any retained state.
   ActiveRuleNames() []string
 
   // EnabledRuleConfig returns the project-wide severity map for rules that are
@@ -245,6 +297,10 @@ type RuleResolver interface {
   // @evidence contracts/common.md#clear-and-simple-design Global metadata has a named operation distinct from per-file resolution.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts Severity aggregation is an explicit interface policy rather than an inferred result from test outputs.
   // @evidence contracts/common.md#meaningful-documentation The method comment states off filtering and error precedence in native prose before tags.
+  // @evidenceExclude contracts/portability.md#os-neutral-implementation RuleResolver.EnabledRuleConfig is a method signature without a body; each implementation owns any filesystem or process behavior.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms RuleResolver.EnabledRuleConfig is a method signature without a body; each implementation chooses its own algorithm.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleResolver.EnabledRuleConfig is a method signature without a body; each implementation decides what, if anything, to share.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleResolver.EnabledRuleConfig is a method signature without a body; each implementation owns any retained state.
   EnabledRuleConfig() RuleConfig
 
   // RuleOptions is the file-agnostic compatibility lookup used by flat and
@@ -256,6 +312,10 @@ type RuleResolver interface {
   // @evidence contracts/common.md#clear-and-simple-design The compatibility boundary is visible as one method instead of hidden fallback state inside the engine.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts Retaining this method addresses supported resolver compatibility rather than compensating for a false scope assumption.
   // @evidence contracts/common.md#meaningful-documentation Native prose identifies the compatibility consumer and nil result, separate from the acknowledgment paragraph.
+  // @evidenceExclude contracts/portability.md#os-neutral-implementation RuleResolver.RuleOptions is a method signature without a body; each implementation owns any filesystem or process behavior.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms RuleResolver.RuleOptions is a method signature without a body; each implementation chooses its own algorithm.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleResolver.RuleOptions is a method signature without a body; each implementation decides what, if anything, to share.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleResolver.RuleOptions is a method signature without a body; each implementation owns any retained state.
   RuleOptions(name string) json.RawMessage
 
   // ResolveProjectRules folds global declarations for registered project-rule
@@ -267,6 +327,10 @@ type RuleResolver interface {
   // @evidence contracts/common.md#clear-and-simple-design A single project-resolution boundary owns global policy and errors before rule-state construction.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts The built-in companion exception represents an actual dual registration, not a consumer-specific whitelist.
   // @evidence contracts/common.md#meaningful-documentation Native prose explains the scope rejection and companion distinction with a separate tag paragraph.
+  // @evidenceExclude contracts/portability.md#os-neutral-implementation RuleResolver.ResolveProjectRules is a method signature without a body; each implementation owns any filesystem or process behavior.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms RuleResolver.ResolveProjectRules is a method signature without a body; each implementation chooses its own algorithm.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleResolver.ResolveProjectRules is a method signature without a body; each implementation decides what, if anything, to share.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleResolver.ResolveProjectRules is a method signature without a body; each implementation owns any retained state.
   ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error)
 }
 
@@ -280,6 +344,10 @@ type RuleResolver interface {
 // @evidence contracts/common.md#clear-and-simple-design One capability method extends validation independently from the required engine resolver interface.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Go interface assertion uses a supported extension boundary, not foreign method replacement.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains eager variant validation and legacy fallback before tags; the member documents returned ownership.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RuleOptionsVariantsResolver is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RuleOptionsVariantsResolver is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleOptionsVariantsResolver is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleOptionsVariantsResolver is a declaration of data shape; the code that holds its values owns their lifetime.
 type RuleOptionsVariantsResolver interface {
   // RuleOptionsVariants returns independently owned payloads for all declarations of name.
   //
@@ -287,6 +355,10 @@ type RuleOptionsVariantsResolver interface {
   // @evidence contracts/common.md#clear-and-simple-design The operation returns raw payloads for the existing rule decoder rather than adding another option schema.
   // @evidence contracts/common.md#prohibited-implementation-shortcuts Variant discovery follows declarations and does not manufacture payloads to match observed diagnostics.
   // @evidence contracts/common.md#meaningful-documentation Native member prose states population and slice ownership separately from tags.
+  // @evidenceExclude contracts/portability.md#os-neutral-implementation RuleOptionsVariantsResolver.RuleOptionsVariants is a method signature without a body; each implementation owns any filesystem or process behavior.
+  // @evidenceExclude contracts/performance.md#efficient-algorithms RuleOptionsVariantsResolver.RuleOptionsVariants is a method signature without a body; each implementation chooses its own algorithm.
+  // @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleOptionsVariantsResolver.RuleOptionsVariants is a method signature without a body; each implementation decides what, if anything, to share.
+  // @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleOptionsVariantsResolver.RuleOptionsVariants is a method signature without a body; each implementation owns any retained state.
   RuleOptionsVariants(name string) []json.RawMessage
 }
 
@@ -369,6 +441,10 @@ func (r boundProjectRuleResolver) residentRuleConfigState() residentRuleConfigSt
 // @evidence contracts/common.md#clear-and-simple-design A flat adapter constructs one resolved value and delegates key policy to the shared normalization helper.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No file name or diagnostic result changes the global map; normalization only implements supported rule aliases.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains flat scope, normalization and prerequisite identity validation before separate tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RuleConfig.ResolveRules performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RuleConfig.ResolveRules has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleConfig.ResolveRules keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleConfig.ResolveRules acquires no handle or task and retains nothing beyond the receiver's own fields.
 func (c RuleConfig) ResolveRules(string) ResolvedRuleConfig {
   return ResolvedRuleConfig{
     Rules:           normalizeRuleConfigKeys(c),
@@ -383,6 +459,10 @@ func (c RuleConfig) ResolveRules(string) ResolvedRuleConfig {
 // @evidence contracts/common.md#clear-and-simple-design Shared key normalization and name sorting keep identity policy outside the dispatch consumer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Enabled names come from declared severities, without fixture-specific activation.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains off filtering and deterministic order, with a separate acknowledgment paragraph.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RuleConfig.ActiveRuleNames performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RuleConfig.ActiveRuleNames has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleConfig.ActiveRuleNames keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleConfig.ActiveRuleNames acquires no handle or task and retains nothing beyond the receiver's own fields.
 func (c RuleConfig) ActiveRuleNames() []string {
   return sortedRuleNames(normalizeRuleConfigKeys(c), func(sev Severity) bool { return sev != SeverityOff })
 }
@@ -394,6 +474,10 @@ func (c RuleConfig) ActiveRuleNames() []string {
 // @evidence contracts/common.md#clear-and-simple-design One map projection supplies metadata without mutating the caller's severity map.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Filtering follows the explicit disabled state rather than recorded diagnostics or consumer identities.
 // @evidence contracts/common.md#meaningful-documentation Native prose states copy ownership, filtering and the metadata consumer before separated tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation EnabledRuleConfig filters rule severities and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms One pass over the rules map writing normalized names into a new map, O(rules).
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work EnabledRuleConfig keeps no cache; every call builds its result from the receiver.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned map is new and owned by the caller; no handle or task is acquired.
 func (c RuleConfig) EnabledRuleConfig() RuleConfig {
   out := RuleConfig{}
   for name, sev := range c {
@@ -411,6 +495,10 @@ func (c RuleConfig) EnabledRuleConfig() RuleConfig {
 // @evidence contracts/common.md#clear-and-simple-design The method adapts the existing flat representation without allocating unused option maps.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The empty result follows the representation's production contract rather than a test-only execution path.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains absence and the option-bearing alternative with a blank line before tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RuleConfig.RuleOptions performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RuleConfig.RuleOptions has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleConfig.RuleOptions keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleConfig.RuleOptions acquires no handle or task and retains nothing beyond the receiver's own fields.
 func (RuleConfig) RuleOptions(string) json.RawMessage { return nil }
 
 // ResolveProjectRules treats a flat RuleConfig as one global declaration.
@@ -420,6 +508,10 @@ func (RuleConfig) RuleOptions(string) json.RawMessage { return nil }
 // @evidence contracts/common.md#clear-and-simple-design Requested project names are projected from one normalized flat map without introducing file scope.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Alias collisions return an error rather than arbitrary iteration-order precedence; missing names remain absent rather than fabricated defaults.
 // @evidence contracts/common.md#meaningful-documentation Native prose states global interpretation; ProjectRuleSetting documents absence and option meaning used by the return value.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ResolveProjectRules reads rule names and severities and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms Names are validated and the keys normalized once, then each requested name costs one map lookup: O(rules + names).
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ResolveProjectRules keeps no cache; every call builds its result from the receiver.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned map is new and owned by the caller; no handle or task is acquired.
 func (c RuleConfig) ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error) {
   if err := validateCanonicalRuleNames(c); err != nil {
     return nil, err
@@ -476,6 +568,10 @@ func validateCanonicalRuleNames[V any](entries map[string]V) error {
 // @evidence contracts/common.md#clear-and-simple-design The flat resolver adds options to RuleConfig without carrying unused file-pattern or extends state.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Public construction supports engine integrations and is not a special path for tests.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains direct construction, required validation and ownership with spaced member comments and no property tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation InlineRuleResolver is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms InlineRuleResolver is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work InlineRuleResolver is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources InlineRuleResolver is a declaration of data shape; the code that holds its values owns their lifetime.
 type InlineRuleResolver struct {
   // Rules supplies global severities and remains owned by the caller.
   Rules RuleConfig
@@ -491,6 +587,10 @@ type InlineRuleResolver struct {
 // @evidence contracts/common.md#clear-and-simple-design The adapter delegates map policy to existing helpers and avoids recreating file-scoping logic.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Every file uses supplied global policy, with no source-name special cases or diagnostic-driven defaults.
 // @evidence contracts/common.md#meaningful-documentation Native prose states global scope; the owning type documents input ownership and alias assumptions before its tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation InlineRuleResolver.ResolveRules performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms InlineRuleResolver.ResolveRules has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work InlineRuleResolver.ResolveRules keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources InlineRuleResolver.ResolveRules acquires no handle or task and retains nothing beyond the receiver's own fields.
 func (r InlineRuleResolver) ResolveRules(string) ResolvedRuleConfig {
   return ResolvedRuleConfig{
     Rules:           normalizeRuleConfigKeys(r.Rules),
@@ -516,6 +616,10 @@ func normalizeRuleOptionsKeys(options RuleOptionsMap) RuleOptionsMap {
 // @evidence contracts/common.md#clear-and-simple-design The wrapper reuses the severity owner instead of duplicating activity selection beside the options map.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Option presence does not fabricate activity for a rule disabled by supplied severity.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies the policy owner; RuleConfig documents filtering and sorting, and tags remain separate.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation InlineRuleResolver.ActiveRuleNames performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms InlineRuleResolver.ActiveRuleNames has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work InlineRuleResolver.ActiveRuleNames keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources InlineRuleResolver.ActiveRuleNames acquires no handle or task and retains nothing beyond the receiver's own fields.
 func (r InlineRuleResolver) ActiveRuleNames() []string {
   return r.Rules.ActiveRuleNames()
 }
@@ -526,6 +630,10 @@ func (r InlineRuleResolver) ActiveRuleNames() []string {
 // @evidence contracts/common.md#clear-and-simple-design Severity aggregation has one implementation and the wrapper adds no redundant map state.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Options cannot activate a disabled rule through a compatibility exception.
 // @evidence contracts/common.md#meaningful-documentation The native delegation comment makes the behavior owner apparent, with a blank comment line before tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation InlineRuleResolver.EnabledRuleConfig performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms InlineRuleResolver.EnabledRuleConfig has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work InlineRuleResolver.EnabledRuleConfig keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources InlineRuleResolver.EnabledRuleConfig acquires no handle or task and retains nothing beyond the receiver's own fields.
 func (r InlineRuleResolver) EnabledRuleConfig() RuleConfig {
   return r.Rules.EnabledRuleConfig()
 }
@@ -539,6 +647,10 @@ func (r InlineRuleResolver) EnabledRuleConfig() RuleConfig {
 // @evidence contracts/common.md#clear-and-simple-design One lookup method adapts the options map without merging or decoding rule-specific payloads.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Alias normalization is supported naming policy and does not select options from expected diagnostics.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains nil results and borrowed byte ownership before separated tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RuleOptions looks up option bytes by rule name and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms The exact and canonical names are tried with constant-time map lookups and one linear scan of the stored names runs only when neither matches, so the common case is O(1).
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleOptions keeps no cache and shares no computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RuleOptions returns the stored message without copying; the resolver owns it.
 func (r InlineRuleResolver) RuleOptions(name string) json.RawMessage {
   if r.Options == nil {
     return nil
@@ -566,6 +678,10 @@ func (r InlineRuleResolver) RuleOptions(name string) json.RawMessage {
 // @evidence contracts/common.md#clear-and-simple-design Severity resolution is reused and only the option-bearing part is added by this wrapper.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The global adapter introduces no file-dependent project state or special consumer branch.
 // @evidence contracts/common.md#meaningful-documentation Native prose states global interpretation and tuple preservation, with acknowledgments in a separate paragraph.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ResolveProjectRules reads rule names, severities and option bytes and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms The wrapped rules resolve once and each requested name then costs one option lookup, constant time for exact or canonical names and a scan of the stored names otherwise.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ResolveProjectRules keeps no cache; every call builds its result from the receiver.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Each option message is copied into the returned settings so they do not alias resolver memory; no handle or task is acquired.
 func (r InlineRuleResolver) ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error) {
   if err := validateCanonicalRuleNames(r.Options); err != nil {
     return nil, err
@@ -600,6 +716,10 @@ func (r InlineRuleResolver) ResolveProjectRules(names []string) (map[string]Proj
 // @evidence contracts/common.md#clear-and-simple-design Parsed entries are the policy source of truth, while paths and fingerprints separately carry watch and resident-cache provenance.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Compatibility option lookup derives from entries rather than a second flattened state; the parser rejects duplicate canonical identities instead of choosing map-order precedence.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain matching, inheritance, ignores and alias limits; public methods document copy ownership and metadata-only semantics.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ConfigStore is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ConfigStore is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ConfigStore is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ConfigStore is a declaration of data shape; the code that holds its values owns their lifetime.
 type ConfigStore struct {
   cacheDependencies []configDependencyFingerprint
   cacheFiles        []string
@@ -618,6 +738,10 @@ type ConfigStore struct {
 // @evidence contracts/common.md#clear-and-simple-design Watch-input exposure is separate from entry resolution and private executable-cache fingerprints.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Paths come from actual config evaluation and inheritance, not a fixture-specific watch list.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains retained provenance and defensive slice ownership with separated tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ConfigPaths returns config path strings the store already holds; it opens no file and compares no path.
+// @evidence contracts/performance.md#efficient-algorithms One slice copy, O(paths).
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ConfigPaths keeps no cache and shares no computation.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The store retains its path list for its own lifetime and ConfigPaths returns a copy, so a caller cannot mutate or extend the retained slice.
 func (s *ConfigStore) ConfigPaths() []string {
   if s == nil {
     return nil
@@ -634,6 +758,10 @@ func (s *ConfigStore) ConfigPaths() []string {
 // @evidence contracts/common.md#clear-and-simple-design Module-selection inputs have a distinct accessor because they are not source files or rule data.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Directories are tracked resolver inputs rather than assumed fixed Node search locations.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains topology relevance, nil behavior and copy ownership before tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ConfigDirectories returns directory strings the store already holds; it opens no file and compares no path.
+// @evidence contracts/performance.md#efficient-algorithms One slice copy, O(directories).
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ConfigDirectories keeps no cache and shares no computation.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The store retains its directory list for its own lifetime and ConfigDirectories returns a copy, so a caller cannot mutate or extend the retained slice.
 func (s *ConfigStore) ConfigDirectories() []string {
   if s == nil {
     return nil
@@ -672,6 +800,10 @@ func (s *ConfigStore) residentRuleConfigState() residentRuleConfigState {
 // @evidence contracts/common.md#clear-and-simple-design The representative payload is derived from entries instead of maintained in a duplicate flattened option map.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The fallback exists for supported file-agnostic consumers and cannot override ResolveRules execution scope.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes metadata compatibility from file execution and documents copied ownership with separated tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RuleOptions selects option bytes by rule name and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms One pass over the entries keeping the last entry that declares options for the canonical name, O(entries), then one copy of the winning message.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleOptions keeps no cache; every call reads the store's entries.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The winning message is copied so the caller cannot mutate store memory; no handle or task is acquired.
 func (s *ConfigStore) RuleOptions(name string) json.RawMessage {
   if s == nil {
     return nil
@@ -713,6 +845,10 @@ func (s *ConfigStore) flattenOptions() RuleOptionsMap {
 // @evidence contracts/common.md#clear-and-simple-design The optional capability projects existing entries and reuses the rule decoder rather than introducing another configuration model.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Variant enumeration uses declared settings, not which examples happened to execute a rule.
 // @evidence contracts/common.md#meaningful-documentation Native prose states full declaration population, severity-only nil and independent byte ownership before tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RuleOptionsVariants selects option bytes by rule name and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms One pass over the entries collecting a copy of each declared variant, O(entries).
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RuleOptionsVariants keeps no cache; every call reads the store's entries.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Each variant is copied so the caller cannot mutate store memory; no handle or task is acquired.
 func (s *ConfigStore) RuleOptionsVariants(name string) []json.RawMessage {
   if s == nil {
     return nil
@@ -741,6 +877,10 @@ func (s *ConfigStore) RuleOptionsVariants(name string) []json.RawMessage {
 // @evidence contracts/common.md#clear-and-simple-design Entry-local scope and global-ignore state are explicit fields, avoiding parallel flattened policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Presence bits model actual config syntax instead of guessing scope from a nonempty collection.
 // @evidence contracts/common.md#meaningful-documentation Native prose and spaced field comments explain pattern anchoring, presence and ignore meaning without property tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ConfigEntry is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ConfigEntry is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ConfigEntry is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ConfigEntry is a declaration of data shape; the code that holds its values owns their lifetime.
 type ConfigEntry struct {
   // BaseDir anchors this config file's relative selectors.
   BaseDir string
@@ -774,6 +914,10 @@ type ConfigEntry struct {
 // @evidence contracts/common.md#clear-and-simple-design One pass owns file scope and inheritance, while ConfigEntry owns its pattern predicates and the result distinguishes ignored from out-of-scope.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts No options are borrowed from nonmatching entries and no consumer name bypasses selection.
 // @evidence contracts/common.md#meaningful-documentation Native prose documents global-ignore ordering, precedence and severity-only inheritance before a separate tag paragraph.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ResolveRules matches a file name against entry selectors held as data and opens no file; the matching helpers own any path comparison.
+// @evidence contracts/performance.md#efficient-algorithms Ignore-only entries are checked first with an early return; otherwise one pass over the entries merges each matching entry's rules, so cost is O(entries times rules per entry) plus the selector matching.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ResolveRules does not memoize per file; every call rebuilds its result from the store's entries.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned maps are new and owned by the caller and option bytes are copied; no handle or task is acquired.
 func (s *ConfigStore) ResolveRules(fileName string) ResolvedRuleConfig {
   if s == nil {
     return ResolvedRuleConfig{Rules: RuleConfig{}, OptionsResolved: true}
@@ -821,6 +965,10 @@ func (s *ConfigStore) ResolveRules(fileName string) ResolvedRuleConfig {
 // @evidence contracts/common.md#clear-and-simple-design Dispatch metadata is derived from entries without executing file matching or caching a duplicate activity list.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Activity follows supported config declarations instead of sampled source diagnostics.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains ignore-only exclusion, potential activity and the pre-file dispatch consumer before tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ActiveRuleNames collects rule names and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms One pass over the entries collecting non-off names, then one sort, so cost is O(rules log rules).
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ActiveRuleNames keeps no cache; every call reads the store's entries.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned slice is new and owned by the caller; no handle or task is acquired.
 func (s *ConfigStore) ActiveRuleNames() []string {
   if s == nil {
     return nil
@@ -847,6 +995,10 @@ func (s *ConfigStore) ActiveRuleNames() []string {
 // @evidence contracts/common.md#clear-and-simple-design The metadata projection is computed from the same entries rather than stored as independent execution policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Error precedence is the documented aggregate policy, not a special case for a diagnostic fixture.
 // @evidence contracts/common.md#meaningful-documentation Native prose states global aggregation and sticky error semantics with a separate acknowledgment paragraph.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation EnabledRuleConfig merges rule severities and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms One pass over the entries and their rules, O(entries times rules per entry).
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work EnabledRuleConfig keeps no cache; every call reads the store's entries.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned map is new and owned by the caller; no handle or task is acquired.
 func (s *ConfigStore) EnabledRuleConfig() RuleConfig {
   out := RuleConfig{}
   if s == nil {
@@ -879,6 +1031,10 @@ func (s *ConfigStore) EnabledRuleConfig() RuleConfig {
 // @evidence contracts/common.md#clear-and-simple-design Requested identities form a lookup set and project validation stays with the store that knows entry scope.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The companion exception checks actual LookupRule registration rather than a hand-maintained consumer whitelist.
 // @evidence contracts/common.md#meaningful-documentation Native prose states project-scope rejection and the registered-companion distinction before separated tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ResolveProjectRules resolves rule names and option bytes and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms A wanted-name index is built once and each configured rule is then one constant-time lookup, so cost is O(names + entries times rules per entry).
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ResolveProjectRules keeps no cache; every call reads the store's entries.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned map is new and owned by the caller and option bytes are copied; no handle or task is acquired.
 func (s *ConfigStore) ResolveProjectRules(names []string) (map[string]ProjectRuleSetting, error) {
   out := make(map[string]ProjectRuleSetting, len(names))
   wanted := make(map[string]string, len(names))
@@ -932,6 +1088,10 @@ func (s *ConfigStore) ResolveProjectRules(names []string) (map[string]ProjectRul
 // @evidence contracts/common.md#clear-and-simple-design A derived map adapts legacy severity consumers without becoming another source of execution truth.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Flattening is an explicit metadata API and is not substituted for scoped engine execution.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the loss of scope, inclusion of off and precedence before a separate tag paragraph.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Flatten merges rule severities and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms One pass over the entries and their rules, O(entries times rules per entry).
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Flatten keeps no cache; every call reads the store's entries.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned map is new and owned by the caller; no handle or task is acquired.
 func (s *ConfigStore) Flatten() RuleConfig {
   out := RuleConfig{}
   if s == nil {
@@ -976,6 +1136,10 @@ func (e ConfigEntry) matchesIgnores(fileName string) bool {
 // @evidence contracts/common.md#clear-and-simple-design One parser owns entry decoding; this wrapper only projects the severity result.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Invalid severity is returned as an error rather than silently disabled to satisfy a consumer.
 // @evidence contracts/common.md#meaningful-documentation Native prose lists supported spellings and failure behavior, separated from the acknowledgment paragraph.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ParseRules performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ParseRules has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ParseRules keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ParseRules acquires no handle or task and retains nothing beyond the receiver's own fields.
 func ParseRules(raw any) (RuleConfig, error) {
   cfg, _, err := ParseRulesWithOptions(raw)
   return cfg, err
@@ -992,6 +1156,10 @@ func ParseRules(raw any) (RuleConfig, error) {
 // @evidence contracts/common.md#clear-and-simple-design The boundary validates a raw object once and returns paired maps for existing severity and option consumers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Ambiguous aliases are errors regardless of equal values, rather than iteration-order precedence; invalid entries do not receive fabricated defaults.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains tuple shape, option-map population and preserved key spelling with a blank line before tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ParseRulesWithOptions decodes an already-loaded rules value and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms Rule names are validated once and each entry is parsed once, O(rules).
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ParseRulesWithOptions keeps no cache; every call decodes its argument.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The returned maps are new and owned by the caller; no handle or task is acquired.
 func ParseRulesWithOptions(raw any) (RuleConfig, RuleOptionsMap, error) {
   if raw == nil {
     return RuleConfig{}, RuleOptionsMap{}, nil
@@ -1378,6 +1546,10 @@ func parsePatternList(raw any, path string) ([]string, error) {
 // @evidence contracts/common.md#clear-and-simple-design One adapter owns the legacy severity-only return shape while the scoped loader owns discovery and parsing.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Resolver type handling corresponds to real supported representations and does not bypass per-file execution policy.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies metadata use and directs file execution to the scoped resolver, with separated tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation LoadRuleConfig performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms LoadRuleConfig has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work LoadRuleConfig keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources LoadRuleConfig acquires no handle or task and retains nothing beyond the receiver's own fields.
 func LoadRuleConfig(entry *PluginEntry, cwd, tsconfigPath string) (RuleConfig, error) {
   resolver, err := LoadConfigResolver(entry, cwd, tsconfigPath)
   if err != nil {
@@ -1415,6 +1587,10 @@ func LoadRuleConfig(entry *PluginEntry, cwd, tsconfigPath string) (RuleConfig, e
 // @evidence contracts/common.md#clear-and-simple-design The public boundary validates configFile and delegates discovery, evaluation and entry folding to their owners rather than supporting parallel inline policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Node's supported hooks track module resolution without replacing foreign fs methods; the bounded extends guard is a documented limit, while cache use for untracked external inputs must be disabled.
 // @evidence contracts/common.md#meaningful-documentation Native paragraphs explain project anchoring, config ownership, cache premises and limits, with a blank comment line before tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation LoadConfigResolver validates the configFile value and delegates path resolution to resolveConfigFilePath, findLintConfigFile and loadConfigResolver; it opens no file itself.
+// @evidenceExclude contracts/performance.md#efficient-algorithms LoadConfigResolver has no loop of its own and runs a fixed sequence of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work LoadConfigResolver keeps no cache of its own.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources LoadConfigResolver acquires no handle or task of its own and returns the resolver it was given.
 func LoadConfigResolver(entry *PluginEntry, cwd, tsconfigPath string) (RuleResolver, error) {
   if entry == nil {
     return RuleConfig{}, nil
@@ -5740,6 +5916,10 @@ func matchGlobParts(patternParts, nameParts []string) bool {
 // @evidence contracts/common.md#clear-and-simple-design One scalar lookup owns absence behavior without constructing a normalized map for each rule query.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Missing declarations remain disabled by documented policy rather than a fixture-specific activation fallback.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains opt-in absence and the direction of alias lookup, separated from the acknowledgment tags.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Severity looks up a rule severity by name and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms The exact and canonical names are tried with constant-time map lookups and one linear scan of the stored names runs only when neither matches, so the common case is O(1).
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Severity keeps no cache and shares no computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Severity acquires no handle or task and retains nothing.
 func (c RuleConfig) Severity(name string) Severity {
   if c == nil {
     return SeverityOff

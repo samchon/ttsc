@@ -44,6 +44,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design One context groups stable per-file inputs instead of resolving policy in every node printer.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Printers receive actual source and options rather than expected-output fragments or modified foreign AST methods.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies per-file scope and members describe source ownership and layout options; member gaps and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation PrintContext is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms PrintContext is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work PrintContext is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources PrintContext is a declaration of data shape; the code that holds its values owns their lifetime.
 type PrintContext struct {
   // File is the immutable compiler source file being reflowed.
   File   *shimast.SourceFile
@@ -65,6 +69,10 @@ type PrintContext struct {
 // @evidence contracts/common.md#clear-and-simple-design One constructor establishes the recursive print inputs and default selection once.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Defaults are the public formatting policy rather than fixture-specific widths or source substitutions.
 // @evidence contracts/common.md#meaningful-documentation Native prose states the nonnil premise and whole-default behavior; separated tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation NewPrintContext performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms NewPrintContext has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work NewPrintContext keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources NewPrintContext acquires no handle or task and retains nothing beyond the receiver's own fields.
 func NewPrintContext(file *shimast.SourceFile, opts PrintOptions) *PrintContext {
   if opts.PrintWidth == 0 {
     opts = DefaultPrintOptions()
@@ -89,6 +97,10 @@ func NewPrintContext(file *shimast.SourceFile, opts PrintOptions) *PrintContext 
 // @evidence contracts/common.md#clear-and-simple-design One dispatcher owns grammar selection and one fallback retains unknown syntax without duplicating per-node policies.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Verbatim fallback is the supported partial-printer boundary, not an invented replacement for unknown grammar; the false coverage signal prevents applying an incomplete rewrite.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains partial grammar coverage, byte-preserving fallback and abstention; paragraphs and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation PrintNode performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms PrintNode has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work PrintNode keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources PrintNode acquires no handle or task and retains nothing beyond the receiver's own fields.
 func PrintNode(ctx *PrintContext, node *shimast.Node) (Doc, bool) {
   if node == nil {
     return Doc{}, true

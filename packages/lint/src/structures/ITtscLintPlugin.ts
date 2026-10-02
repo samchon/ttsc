@@ -35,6 +35,10 @@ import type { ITtscLintPluginMeta } from "./ITtscLintPluginMeta";
  * @evidence contracts/common.md#clear-and-simple-design The descriptor separates build input from advisory metadata without introducing a JavaScript rule implementation surface.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Contributors enter through the supported source descriptor and Go registry, without replacing host methods.
  * @evidence contracts/common.md#meaningful-documentation The example and member comments explain source ownership and advisory fields; paragraphs and documented members remain separated under the documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintPlugin is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintPlugin is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintPlugin is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintPlugin is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintPlugin {
   /**

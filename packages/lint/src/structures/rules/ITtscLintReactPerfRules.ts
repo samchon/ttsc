@@ -19,6 +19,10 @@ import type { ITtscLintReactPerfRuleOptions } from "./ITtscLintReactPerfRuleOpti
  * @evidence contracts/common.md#clear-and-simple-design A dedicated family separates opt-in allocation policies from React correctness rules and reuses one options schema and severity tuple alias.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Allocation-category keys are supported rule identities; the type does not fabricate benchmark results or add fixture-specific options.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains reference identity and the TSX boundary; member comments distinguish arrays, functions, objects and JSX with documentation-guided paragraph and tag separation.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintReactPerfRules is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintReactPerfRules is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintReactPerfRules is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintReactPerfRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintReactPerfRules {
   /**

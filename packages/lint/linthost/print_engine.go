@@ -85,6 +85,10 @@ import "strings"
 // @evidence contracts/common.md#clear-and-simple-design One options record keeps output policy separate from layout structure and source grammar dispatch.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Options encode supported formatting policy instead of fixture-dependent widths or post-render patches.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains column units, first-line asymmetry, continuation indentation and defaults; members and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation PrintOptions is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms PrintOptions is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work PrintOptions is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources PrintOptions is a declaration of data shape; the code that holds its values owns their lifetime.
 type PrintOptions struct {
   // PrintWidth is the preferred line budget in display columns.
   PrintWidth     int
@@ -117,6 +121,10 @@ type PrintOptions struct {
 // @evidence contracts/common.md#clear-and-simple-design One constructor centralizes defaults shared by context creation and rendering.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Numeric widths and string modes are documented defaults rather than known-answer special cases.
 // @evidence contracts/common.md#meaningful-documentation Native prose names line, indentation and comma defaults; tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation DefaultPrintOptions performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms DefaultPrintOptions has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work DefaultPrintOptions keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources DefaultPrintOptions acquires no handle or task and retains nothing beyond the receiver's own fields.
 func DefaultPrintOptions() PrintOptions {
   return PrintOptions{PrintWidth: 80, TabWidth: 2, UseTabs: false, EndOfLine: "lf", TrailingComma: "all"}
 }
@@ -145,6 +153,10 @@ type printFrame struct {
 // @evidence contracts/common.md#clear-and-simple-design Rendering, fit measurement and source grammar dispatch remain distinct operations; the per-call stack and suffix queue hold only the current print's state.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The renderer follows explicit layout operations rather than reparsing expected strings or patching foreign formatter behavior.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the algorithm, verbatim whitespace and requested breaks; option members document geometry and paragraphs and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Print renders an in-memory document to a string and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms Documents are rendered iteratively with an explicit stack, each node pushed and popped once, and group decisions ask the fits predicate against the remaining line width.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Print is a pure function of its document and options and memoizes nothing.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The stack and string builder are local to the call and only the rendered string is returned; no handle or task is acquired.
 func Print(doc Doc, opts PrintOptions) string {
   if opts.PrintWidth <= 0 {
     opts.PrintWidth = 80

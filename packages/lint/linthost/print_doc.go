@@ -68,6 +68,10 @@ package linthost
 // @evidence contracts/common.md#clear-and-simple-design One enum names layout operations while Doc carries their payloads.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Variant constants express the layout protocol rather than fixture-specific print results.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains active fields and the file comment documents each layout operation; tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation DocKind is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms DocKind is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work DocKind is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources DocKind is a declaration of data shape; the code that holds its values owns their lifetime.
 type DocKind uint8
 
 const (
@@ -103,6 +107,10 @@ const (
 // @evidence contracts/common.md#clear-and-simple-design One tagged value represents layout composition without a class or interface hierarchy for each operation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Variant payloads encode layout requirements rather than source-specific expected strings.
 // @evidence contracts/common.md#meaningful-documentation Native prose states child-slice sharing and concurrent immutability, and members explain variant payloads; paragraph and tag spacing follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Doc is a declaration of data shape and performs no filesystem, path or process operation.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Doc is a declaration of data shape and chooses no algorithm or processing strategy.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Doc is a declaration of data shape and coordinates no computation that could be shared.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Doc is a declaration of data shape; the code that holds its values owns their lifetime.
 type Doc struct {
   // Kind selects the interpretation of the remaining fields.
   Kind     DocKind
@@ -130,6 +138,10 @@ type Doc struct {
 // @evidence contracts/common.md#clear-and-simple-design One constructor maps verbatim content directly into the layout algebra.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The supplied string is real printer content rather than a consumer-specific expected result.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies verbatim semantics and the file contract explains width behavior; tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Text performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Text has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Text keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Text acquires no handle or task and retains nothing beyond the receiver's own fields.
 func Text(s string) Doc { return Doc{Kind: docText, Text: s} }
 
 // Line is the soft separator: space when flat, newline+indent when broken.
@@ -138,6 +150,10 @@ func Text(s string) Doc { return Doc{Kind: docText, Text: s} }
 // @evidence contracts/common.md#clear-and-simple-design A zero-payload constructor names the ordinary breakable separator.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The variant is layout vocabulary rather than a special case for particular source strings.
 // @evidence contracts/common.md#meaningful-documentation Native prose states both rendering modes with a separated tag block under documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Line performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Line has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Line keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Line acquires no handle or task and retains nothing beyond the receiver's own fields.
 func Line() Doc { return Doc{Kind: docLine} }
 
 // Softline is the empty-or-newline separator.
@@ -146,6 +162,10 @@ func Line() Doc { return Doc{Kind: docLine} }
 // @evidence contracts/common.md#clear-and-simple-design One constructor expresses optional separation independently from ordinary Line.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Rendering mode comes from the layout algebra, not a fixture-dependent branch.
 // @evidence contracts/common.md#meaningful-documentation Native prose names empty-or-newline behavior and the file contract explains indentation; tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Softline performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Softline has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Softline keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Softline acquires no handle or task and retains nothing beyond the receiver's own fields.
 func Softline() Doc { return Doc{Kind: docSoftline} }
 
 // Hardline forces a newline and propagates break upward.
@@ -154,6 +174,10 @@ func Softline() Doc { return Doc{Kind: docSoftline} }
 // @evidence contracts/common.md#clear-and-simple-design One no-payload constructor expresses a mandatory line boundary.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Forced line breaks are explicit algebra operations rather than guessed source-specific output.
 // @evidence contracts/common.md#meaningful-documentation Native prose states both newline and propagation effects; tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Hardline performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Hardline has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Hardline keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Hardline acquires no handle or task and retains nothing beyond the receiver's own fields.
 func Hardline() Doc { return Doc{Kind: docHardline} }
 
 // Literalline is a hardline that emits the newline without applying
@@ -163,6 +187,10 @@ func Hardline() Doc { return Doc{Kind: docHardline} }
 // @evidence contracts/common.md#clear-and-simple-design A distinct constructor separates literal spacing from ordinary hardline layout.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Literal preservation is an explicit operation rather than post-hoc output patching.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains the zero-column continuation; tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Literalline performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Literalline has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Literalline keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Literalline acquires no handle or task and retains nothing beyond the receiver's own fields.
 func Literalline() Doc { return Doc{Kind: docLiteralline} }
 
 // Group wraps a child doc in a fit-or-break decision. Variadic args are
@@ -172,6 +200,10 @@ func Literalline() Doc { return Doc{Kind: docLiteralline} }
 // @evidence contracts/common.md#clear-and-simple-design One constructor groups existing docs without another wrapper abstraction.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The renderer's width decision governs output instead of source-name exceptions.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains operand concatenation and the file contract explains width selection; tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Group performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Group has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Group keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Group acquires no handle or task and retains nothing beyond the receiver's own fields.
 func Group(parts ...Doc) Doc { return Doc{Kind: docGroup, Children: parts} }
 
 // ConditionalGroup picks the first option whose first line fits the
@@ -185,6 +217,10 @@ func Group(parts ...Doc) Doc { return Doc{Kind: docGroup, Children: parts} }
 // @evidence contracts/common.md#clear-and-simple-design One conditional-group node retains alternatives for the renderer's single selection responsibility.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Alternatives express supported layout choices rather than reparsing or monkey-patching rendered text.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains first-fit ordering and the caller's safe-fallback obligation; paragraphs and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation ConditionalGroup performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms ConditionalGroup has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work ConditionalGroup keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ConditionalGroup acquires no handle or task and retains nothing beyond the receiver's own fields.
 func ConditionalGroup(options ...Doc) Doc {
   return Doc{Kind: docConditionalGroup, Children: options}
 }
@@ -201,6 +237,10 @@ func ConditionalGroup(options ...Doc) Doc {
 // @evidence contracts/common.md#clear-and-simple-design One fill node retains packing semantics rather than precomputing width-specific text.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The algebra handles numeric-array packing without input-specific expected layouts.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies operand parity and overflow behavior; paragraphs and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Fill performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Fill has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Fill keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Fill acquires no handle or task and retains nothing beyond the receiver's own fields.
 func Fill(parts ...Doc) Doc { return Doc{Kind: docFill, Children: parts} }
 
 // Indent adds `width` columns of indentation to every newline emitted by
@@ -210,6 +250,10 @@ func Fill(parts ...Doc) Doc { return Doc{Kind: docFill, Children: parts} }
 // @evidence contracts/common.md#clear-and-simple-design One constructor separates indentation structure from text generation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Indentation is an explicit layout operation rather than patched output strings.
 // @evidence contracts/common.md#meaningful-documentation Native prose states column units and composition; tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Indent performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Indent has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Indent keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Indent acquires no handle or task and retains nothing beyond the receiver's own fields.
 func Indent(width int, parts ...Doc) Doc {
   return Doc{Kind: docIndent, Width: width, Children: parts}
 }
@@ -221,6 +265,10 @@ func Indent(width int, parts ...Doc) Doc {
 // @evidence contracts/common.md#clear-and-simple-design One node separates dynamic alignment from fixed-width Indent.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Alignment uses the actual output column rather than hardcoded source-column exceptions.
 // @evidence contracts/common.md#meaningful-documentation Native prose distinguishes current-column alignment from fixed indentation; tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Align performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Align has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Align keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Align acquires no handle or task and retains nothing beyond the receiver's own fields.
 func Align(parts ...Doc) Doc { return Doc{Kind: docAlign, Children: parts} }
 
 // IfBreak emits `whenBroken` when the surrounding group breaks and
@@ -231,6 +279,10 @@ func Align(parts ...Doc) Doc { return Doc{Kind: docAlign, Children: parts} }
 // @evidence contracts/common.md#clear-and-simple-design One conditional node expresses mode-dependent content without separate rendering policy.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Alternatives are explicit layout operands instead of postprocessing source-specific punctuation.
 // @evidence contracts/common.md#meaningful-documentation Native prose names both modes and operand order; tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation IfBreak performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms IfBreak has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work IfBreak keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources IfBreak acquires no handle or task and retains nothing beyond the receiver's own fields.
 func IfBreak(whenBroken, whenFlat Doc) Doc {
   return Doc{Kind: docIfBreak, Children: []Doc{whenBroken, whenFlat}}
 }
@@ -241,6 +293,10 @@ func IfBreak(whenBroken, whenFlat Doc) Doc {
 // @evidence contracts/common.md#clear-and-simple-design The constructor removes an unnecessary singleton layer while keeping sequence ownership explicit.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The singleton identity is an algebraic simplification rather than a fixture-specific optimization.
 // @evidence contracts/common.md#meaningful-documentation Native prose states sequencing and empty behavior; tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Concat performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Concat has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Concat keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Concat acquires no handle or task and retains nothing beyond the receiver's own fields.
 func Concat(parts ...Doc) Doc {
   if len(parts) == 1 {
     return parts[0]
@@ -258,6 +314,10 @@ func Concat(parts ...Doc) Doc {
 // @evidence contracts/common.md#clear-and-simple-design One algebra operation separates trailing-comment placement from ordinary sequential content.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Deferred placement uses renderer semantics instead of rewriting comments after output.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains deferred emission and the single-line premise; paragraphs and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation LineSuffix performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms LineSuffix has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work LineSuffix keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources LineSuffix acquires no handle or task and retains nothing beyond the receiver's own fields.
 func LineSuffix(parts ...Doc) Doc {
   return Doc{Kind: docLineSuffix, Children: parts}
 }
@@ -270,6 +330,10 @@ func LineSuffix(parts ...Doc) Doc {
 // @evidence contracts/common.md#clear-and-simple-design One join helper owns separator insertion and delegates sequencing to Concat.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Empty and singleton branches follow sequence algebra rather than known-answer input cases.
 // @evidence contracts/common.md#meaningful-documentation Native prose documents all cardinality cases; tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Join builds an in-memory document and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms One pass that builds the separator-interleaved slice with exact capacity, O(parts).
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Join keeps no cache and shares no computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The result slice is local to the document being built and owned by its caller; no handle or task is acquired.
 func Join(sep Doc, parts []Doc) Doc {
   switch len(parts) {
   case 0:
@@ -294,4 +358,8 @@ func Join(sep Doc, parts []Doc) Doc {
 // @evidence contracts/common.md#clear-and-simple-design One predicate centralizes no-op recognition for doc consumers.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The result derives from the documented algebra discriminant rather than arbitrary empty-text heuristics.
 // @evidence contracts/common.md#meaningful-documentation Native prose identifies zero-value behavior and renderer treatment; tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation Doc.IsNil performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms Doc.IsNil has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work Doc.IsNil keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources Doc.IsNil acquires no handle or task and retains nothing beyond the receiver's own fields.
 func (d Doc) IsNil() bool { return d.Kind == docNil }

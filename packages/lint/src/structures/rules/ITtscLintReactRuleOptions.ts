@@ -14,6 +14,10 @@
  * @evidence contracts/common.md#clear-and-simple-design One option object keeps export exceptions beside the source-file scan switch for the refresh rule that consumes them.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Framework exceptions are explicit caller configuration, rather than hardcoded project names or patched React internals.
  * @evidence contracts/common.md#meaningful-documentation Member comments identify refresh-handled exports, constant categories, JavaScript opt-in and defaults; separated comments follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintReactOnlyExportComponentsRuleOptions is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintReactOnlyExportComponentsRuleOptions is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintReactOnlyExportComponentsRuleOptions is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintReactOnlyExportComponentsRuleOptions is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintReactOnlyExportComponentsRuleOptions {
   /**

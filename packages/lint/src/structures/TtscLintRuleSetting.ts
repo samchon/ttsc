@@ -26,6 +26,10 @@ import type { TtscLintSeverity } from "./TtscLintSeverity";
  * @evidence contracts/common.md#clear-and-simple-design One reusable alias centralizes severity-only settings rather than repeating tuple alternatives in every rule map.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The alias encodes supported severity forms without rule-name or fixture-specific widening.
  * @evidence contracts/common.md#meaningful-documentation The preceding native documentation explains equivalent forms, options separation and an example; prose and tags are separated under documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintRuleSetting is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintRuleSetting is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintRuleSetting is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintRuleSetting is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintRuleSetting =
   | TtscLintSeverity
@@ -60,6 +64,10 @@ export type TtscLintRuleSetting =
  * @evidence contracts/common.md#clear-and-simple-design The alias composes the severity setting and one options slot, leaving positional rule variants to dedicated aliases.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Typed options remain tied to their rule rather than an untyped payload added to satisfy particular callers.
  * @evidence contracts/common.md#meaningful-documentation Native documentation distinguishes omitted options from explicit options and describes the type parameter; examples and tag boundaries follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintRuleOptionsSetting is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintRuleOptionsSetting is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintRuleOptionsSetting is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintRuleOptionsSetting is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintRuleOptionsSetting<TOptions> =
   | TtscLintRuleSetting

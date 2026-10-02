@@ -58,6 +58,10 @@ func invalidateRuntimeRuleCodes() {
 // @evidence contracts/common.md#clear-and-simple-design One public lookup centralizes the compatibility ledger and invalidated runtime allocation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts The append-only ledger is explicit diagnostic compatibility data; contributors use the allocator instead of name-specific code exceptions.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains built-in stability and registration-order independence; separated tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RuleCode maps rule names to diagnostic codes and touches no filesystem path or process.
+// @evidence contracts/performance.md#efficient-algorithms A built-in name is one map lookup; a runtime-registered name triggers one sort and one rulecode.Allocate over the registered names.
+// @evidence contracts/performance.md#reuse-equivalent-work Runtime assignments are cached under a mutex and recomputed only when the table is marked dirty or the queried name is not yet registered.
+// @evidence contracts/performance.md#bound-retention-and-release-resources The table keeps one entry per registered rule and is rebuilt wholesale on recomputation, so no stale entry survives; the mutex is released by defer.
 func RuleCode(name string) int32 {
   if code, exists := builtInRuleCodes[name]; exists {
     return code

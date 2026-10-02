@@ -25,6 +25,10 @@ import (
 // @evidence contracts/common.md#clear-and-simple-design Parsing, shared corpus computation and JSON output remain separate so resident sessions reuse the same computation.
 // @evidence contracts/common.md#prohibited-implementation-shortcuts Empty nonpublishing projects are real supported outcomes; contributor metadata panics lose only that corpus through the existing protected publication boundary.
 // @evidence contracts/common.md#meaningful-documentation Native prose explains Program scope, demand-driven work, caller caching and successful emptiness; paragraphs and tags follow documentation guidance.
+// @evidenceExclude contracts/portability.md#os-neutral-implementation RunLSPHints performs no filesystem or process operation of its own.
+// @evidenceExclude contracts/performance.md#efficient-algorithms RunLSPHints has no loop of its own and runs a fixed number of steps.
+// @evidenceExclude contracts/performance.md#reuse-equivalent-work RunLSPHints keeps no cache and shares no in-flight computation.
+// @evidenceExclude contracts/performance.md#bound-retention-and-release-resources RunLSPHints acquires no handle or task and retains nothing beyond the receiver's own fields.
 func RunLSPHints(args []string) int {
   opts, ok := parseLSPCommandOptions("lsp-hints", args)
   if !ok {

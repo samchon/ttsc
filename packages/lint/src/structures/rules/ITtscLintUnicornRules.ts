@@ -34,6 +34,10 @@ import type {
  * @evidence contracts/common.md#clear-and-simple-design The modernization family shares severity tuple construction while separate option schemas own filename, import, source-pattern and target-environment policies.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Public and retained legacy identifiers are documented configuration keys; the map contains no generic built-in options fallback or fixture-specific setting.
  * @evidence contracts/common.md#meaningful-documentation Native comments identify modernization intent, default-free string patterns and retained legacy naming; family context, paragraphs and member spacing follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintUnicornRules is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintUnicornRules is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintUnicornRules is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintUnicornRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintUnicornRules {
   /**

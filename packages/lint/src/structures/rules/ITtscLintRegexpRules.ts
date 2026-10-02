@@ -16,6 +16,10 @@ import type { TtscLintRuleSetting } from "../TtscLintRuleSetting";
  * @evidence contracts/common.md#clear-and-simple-design Regex policies share one family map; aliases of core checks remain explicit keys rather than a second setting construction mechanism.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Legacy and regexp identities are documented supported names, and the map adds no runtime regex patch or fixture-specific configuration.
  * @evidence contracts/common.md#meaningful-documentation Native comments distinguish diagnostics, automatic fixes and flag suggestions, including semantic boundaries; paragraphs, member spacing and tag separation follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintRegexpRules is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintRegexpRules is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintRegexpRules is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintRegexpRules is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintRegexpRules {
   /**

@@ -93,6 +93,10 @@ import type {
  * @evidence contracts/common.md#clear-and-simple-design One augmentable index supplies the mapped settings overlay, so an extension defines its options shape once and the public intersection derives its severity tuple.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts Module augmentation is the supported contributor extension boundary; explicit built-in mappings do not substitute an unknown payload for the declared options schema.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains object slots, positional exclusion, augmentation and formatter ownership; each member documents its policy role and blank paragraphs, member spacing and tag separation follow documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation ITtscLintRuleOptionsMap is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms ITtscLintRuleOptionsMap is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work ITtscLintRuleOptionsMap is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources ITtscLintRuleOptionsMap is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export interface ITtscLintRuleOptionsMap {
   /** Exceptions to requiring a switch default clause. */
@@ -302,6 +306,10 @@ export interface ITtscLintRuleOptionsMap {
  * @evidence contracts/common.md#clear-and-simple-design A single mapped alias derives severity-plus-options settings for every map entry, avoiding a second manually synchronized contributor rule list.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The overlay uses TypeScript's supported keyof and indexed-access semantics rather than casts or a widened unknown slot for known options.
  * @evidence contracts/common.md#meaningful-documentation Native prose explains the overlay's public consumer and why augmentation flows into it automatically; description and acknowledgments are separated following documentation guidance.
+ * @evidenceExclude contracts/portability.md#os-neutral-implementation TtscLintRuleOptionsOverlay is a declaration of data shape and performs no filesystem, path or process operation.
+ * @evidenceExclude contracts/performance.md#efficient-algorithms TtscLintRuleOptionsOverlay is a declaration of data shape and chooses no algorithm or processing strategy.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work TtscLintRuleOptionsOverlay is a declaration of data shape and coordinates no computation that could be shared.
+ * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources TtscLintRuleOptionsOverlay is a declaration of data shape; the code that holds its values owns their lifetime.
  */
 export type TtscLintRuleOptionsOverlay = {
   [TRuleName in keyof ITtscLintRuleOptionsMap]?: TtscLintRuleOptionsSetting<
