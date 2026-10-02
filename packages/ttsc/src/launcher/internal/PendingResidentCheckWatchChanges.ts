@@ -12,8 +12,8 @@ import { type WatchInputChange } from "./watch/WatchInputChange";
  * @evidence contracts/common.md#clear-and-simple-design push folds event precedence and take transfers one deterministic batch then resets; callers own the scheduling and native path identity supplied here.
  * @evidence contracts/common.md#prohibited-implementation-shortcuts The reload/compiler/config distinctions come from watcher protocol semantics rather than an event-count threshold or fixture-specific path.
  * @evidence contracts/common.md#meaningful-documentation Native class and method paragraphs explain signal dominance, external membership and reset ownership; members receive no checklist tags.
- * @evidence contracts/performance.md#efficient-algorithms Set insertion deduplicates expected O(1) events; take sorts U distinct changed/external paths in O(U log U) and allocates O(U) batch storage.
- * @evidence contracts/performance.md#reuse-equivalent-work Repeated identical path notifications share one pending set entry until the next take; reload removes narrower events because its cold reload subsumes them.
+ * @evidence contracts/performance.md#efficient-algorithms At most two Set insertions retain each event path, including string hashing/equality work. Draining sorts each distinct population with string comparisons and allocates returned references; retained path bytes grow with unique spellings until take or escalation.
+ * @evidenceExclude contracts/performance.md#reuse-equivalent-work This accumulator merges delivery data, not completed or in-flight producer work; the caller owns scheduling checks and the session owns process reuse.
  * @evidence contracts/performance.md#bound-retention-and-release-resources The pending cycle owns distinct path strings and releases them on take or escalation; population is bounded by distinct events between cycles, without a separate numeric cap if the caller stops draining.
  * @evidenceExclude contracts/portability.md#os-neutral-implementation Coalesces event paths held as opaque strings; it resolves no path and touches no filesystem.
  */
@@ -35,8 +35,8 @@ export class PendingResidentCheckWatchChanges {
    * @evidence contracts/common.md#clear-and-simple-design One method updates the three signal forms and path sets, preserving the take boundary as the sole batch transfer.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Compiler events without a path conservatively select the supported full-reload operation instead of inventing a path or retrying a failed assumption.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs identify escalation triggers and distinguish changed from external inputs, with prose separated from tags.
-   * @evidence contracts/performance.md#efficient-algorithms Normal events use at most two set insertions; escalation clears retained paths rather than scanning and rewriting an event list.
-   * @evidence contracts/performance.md#reuse-equivalent-work Sets share repeated path events within this cycle, and an already-selected reload discards redundant narrower notifications.
+   * @evidence contracts/performance.md#efficient-algorithms Normal events use at most two Set insertions, including path-string hashing and equality; escalation releases both populations rather than rebuilding an event history.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Folding duplicate delivery paths establishes no shared computation result; actual check scheduling and resident reuse belong to consumers.
    * @evidence contracts/performance.md#bound-retention-and-release-resources This accumulator retains unique paths until take or full reload; no bound independent of the caller's drain rate is imposed.
    * @evidenceExclude contracts/portability.md#os-neutral-implementation Records event paths as opaque strings in sets and compares only event kinds; it resolves no path and touches no filesystem.
    */
@@ -71,10 +71,10 @@ export class PendingResidentCheckWatchChanges {
    * @evidence contracts/common.md#clear-and-simple-design Batch construction and complete state reset stay in the same synchronous operation, without exposing mutable sets to consumers.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Empty fields are omitted by the resident protocol rather than substituted with consumer-specific sentinels.
    * @evidence contracts/common.md#meaningful-documentation The method documents deterministic path order and destructive drain semantics needed by callers.
-   * @evidence contracts/performance.md#efficient-algorithms Sorting each distinct path population costs O(U log U), with O(U) returned array storage and no repeated sorting before the drain.
-   * @evidence contracts/performance.md#reuse-equivalent-work Each cycle emits already-deduplicated events once; returning a prior batch again would replay effects, so batches are not cached across take calls.
+   * @evidence contracts/performance.md#efficient-algorithms Each distinct path population is copied and sorted once, including path-string comparison costs; returned arrays scale with unique references and reset releases the accumulator's ownership.
+   * @evidenceExclude contracts/performance.md#reuse-equivalent-work Draining transfers delivery ownership and resets state; reusing an earlier batch would replay effects rather than share equivalent producer work.
    * @evidence contracts/performance.md#bound-retention-and-release-resources Ownership of arrays transfers to the caller while the accumulator clears its sets and flags; retaining returned batches is the consumer's responsibility.
-   * @evidenceExclude contracts/portability.md#os-neutral-implementation take computes from its arguments only; it opens no file, builds no path and calls no platform or process API.
+   * @evidenceExclude contracts/portability.md#os-neutral-implementation Draining reads and clears this instance's flags and opaque path sets without resolving filesystem identity or calling a native process API.
    */
   public take(): ResidentCheckWatchChange {
     const change: ResidentCheckWatchChange = {
