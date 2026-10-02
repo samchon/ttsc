@@ -13,8 +13,8 @@ import (
 // TestEmitRawSkipsOutputsOutsideOutDirForSelfReferencedDependency Verifies
 // forced emit confines EmitAllRaw output to the project's outDir.
 //
-// Locks the outputEscapesOutDir guard in the EmitAllRaw WriteFile funnel
-// (issue #293). A project nested inside a dependency's directory resolves the
+// Locks the outputEscapesOutDir guard in the EmitAllRaw WriteFile funnel.
+// A project nested inside a dependency's directory resolves the
 // dependency's name by package self-reference, no node_modules hop, so the
 // dependency TypeScript sources are not classified as external-library files and
 // stay in the forced-emit set. tsgo then computes their output paths relative
@@ -57,7 +57,7 @@ func TestEmitRawSkipsOutputsOutsideOutDirForSelfReferencedDependency(t *testing.
   assertOutputsConfinedToOutDir(t, project, written)
 }
 
-// writeSelfReferencedDependencyProject materializes the #293 layout: a
+// writeSelfReferencedDependencyProject materializes the self-referenced layout: a
 // dependency package exporting raw TypeScript, with the consuming project
 // nested inside the package directory so the import resolves by package
 // self-reference. Returns the project directory.

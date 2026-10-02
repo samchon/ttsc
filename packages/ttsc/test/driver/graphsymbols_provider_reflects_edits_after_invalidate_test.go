@@ -10,7 +10,7 @@ import (
 // TestGraphSymbolsProviderReflectsEditsAfterInvalidate Verifies the graph
 // SymbolProvider rebuilds after Invalidate so a long-lived editor session does
 // not freeze at the first request's snapshot, and that it never surfaces the
-// per-file module node whose name is the file path (#620).
+// per-file module node whose name is the file path.
 //
 // The provider caches its compiler load; the proxy calls Invalidate on
 // didChange/didSave. Without the rebuild the second request would return the

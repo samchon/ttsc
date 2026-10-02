@@ -20,9 +20,9 @@ import (
 // A plugin transform can expand one source statement into many emitted lines, so
 // `sourceMap: true` must still yield a `.js.map` next to the `.js` and a trailing
 // `//# sourceMappingURL=` comment — exactly as a plain tsgo build does. The
-// hand-assembled emit pipeline in EmitWithPluginTransformers historically wrote
-// only the JavaScript and dropped the map, silently producing source-map-less
-// output for every transformed file. This pins the map back on.
+// hand-assembled emit pipeline in EmitWithPluginTransformers must write the map
+// as well as the JavaScript, or every transformed file would silently lose its
+// source map. This pins the map.
 //
 //  1. Compile a `sourceMap: true` project whose plugin transform prepends fifty
 //     synthetic statements before the three authored source statements.

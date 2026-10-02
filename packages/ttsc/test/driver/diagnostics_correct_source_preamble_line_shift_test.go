@@ -50,12 +50,12 @@ const preambleDiagnosticDeclaration = `export interface Named {
 // `sourcePreambleFS` prepends a plugin's preamble before TypeScript-Go parses,
 // so every position tsgo records — including every diagnostic's — is shifted
 // down by the preamble's line count, while the file the user opens has no
-// preamble. `@ttsc/banner` is the shipped plugin that does this, and the reported
+// preamble. `@ttsc/banner` is the shipped plugin that does this, and an uncorrected
 // line could land past the end of the real file. The neighbouring source-map lane
-// has corrected the identical shift for a long time; the diagnostic lane is where
-// the same invariant was missing, which also defeated the duplicate filter in
-// `CompilerDiagnostics.ts` (it compares positions, so a shifted report never matched its
-// plugin-free twin and the user saw the same error twice at two positions).
+// corrects the identical shift; the diagnostic lane must hold the same invariant,
+// which also keeps the duplicate filter in `CompilerDiagnostics.ts` working (it
+// compares positions, so a shifted report would never match its plugin-free twin
+// and the user would see the same error twice at two positions).
 //
 //  1. Load each fixture with the preamble the case declares, so the program is
 //     preamble-shifted exactly as a `SourcePreamblePlugin` project is.

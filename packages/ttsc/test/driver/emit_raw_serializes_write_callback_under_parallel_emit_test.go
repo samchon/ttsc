@@ -14,12 +14,12 @@ import (
 // EmitAllRaw funnels its WriteFile callback through one mutex even though
 // TypeScript-Go emits files in parallel.
 //
-// With SingleThreaded dropped (PR #112), TypeScript-Go runs one emitter
-// goroutine per source file. EmitAll already serializes its callback, but
-// EmitAllRaw. the seam a plugin's own output rewriter uses (e.g. @nestia/core,
-// which carries per-file rewrite cursors and a runtime-alias cache). used to
-// hand the callback straight to the parallel emitter. A stateful callback then
-// tripped `fatal error: concurrent map read and map write` (issue #115). This
+// With SingleThreaded dropped, TypeScript-Go runs one emitter goroutine per
+// source file. EmitAll serializes its callback, and EmitAllRaw — the seam a
+// plugin's own output rewriter uses (e.g. @nestia/core, which carries per-file
+// rewrite cursors and a runtime-alias cache) — must too: handing the callback
+// straight to the parallel emitter would let a stateful callback trip
+// `fatal error: concurrent map read and map write`. This
 // case mutates a bare, unguarded map from inside the callback across many
 // sources, so `go test -race` flags the regression if the mutex is ever
 // removed. A single-source fixture cannot surface it. only one emitter spawns.

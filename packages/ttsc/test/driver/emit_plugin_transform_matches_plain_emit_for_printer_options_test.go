@@ -49,10 +49,9 @@ export class Widget {
 // `PrintFileWithSourceMap`. That helper builds `printer.PrinterOptions` by hand
 // from the oracle in `internal/compiler/emitter.go::emitJSFile`; every field it
 // omits takes the Go zero value, so the option is silently ignored on the plugin
-// lane while a plain build honors it. Three fields were missing at once
-// (`removeComments` — found independently by pull request #1154 —
-// `noEmitHelpers`, and `target`) because the only coverage spot-checked
-// `sourceMap` alone. Comparing the two lanes per field, rather than asserting
+// lane while a plain build honors it. `removeComments`, `noEmitHelpers`, and
+// `target` are among the fields that coverage spot-checking `sourceMap` alone
+// would miss. Comparing the two lanes per field, rather than asserting
 // one lane's output in isolation, is what makes the next omission fail here: a
 // wrong-but-consistent emit cannot pass, because the plain lane is the oracle.
 //

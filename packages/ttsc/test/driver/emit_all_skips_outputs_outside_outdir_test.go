@@ -13,7 +13,7 @@ import (
 // confines its output to the project's outDir.
 //
 // Locks the outputEscapesOutDir guard in the emit() WriteFile funnel shared by
-// EmitAll and EmitFile (issue #293). This funnel is a separate code path from
+// EmitAll and EmitFile. This funnel is a separate code path from
 // EmitAllRaw's — a regression could drop the guard from one funnel while the
 // other keeps it — so the rewrite lane pins its own containment against the
 // same self-referenced dependency layout.

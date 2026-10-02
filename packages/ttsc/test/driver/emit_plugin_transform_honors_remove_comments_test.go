@@ -16,12 +16,12 @@ import (
 // authored marker while preserving the generated source-map trailer.
 //
 // EmitWithPluginTransformers hand-assembles printing via PrintFileWithSourceMap.
-// That helper historically forwarded SourceMap / InlineSourceMap / InlineSources
-// into PrinterOptions but omitted RemoveComments, so `removeComments: true` in
-// tsconfig was silently ignored whenever a plugin transform ran — comments
-// survived in the emitted JS even though a plain (no-plugin) emit stripped them.
-// Pairing removeComments with sourceMap is the common production shape that
-// exposed the miss: both options are consulted in the same PrinterOptions
+// That helper forwards SourceMap / InlineSourceMap / InlineSources into
+// PrinterOptions and must forward RemoveComments too; otherwise
+// `removeComments: true` in tsconfig would be silently ignored whenever a plugin
+// transform ran — comments would survive in the emitted JS even though a plain
+// (no-plugin) emit strips them. Pairing removeComments with sourceMap is the
+// common production shape: both options are consulted in the same PrinterOptions
 // construction.
 //
 //  1. Compile a project with removeComments + sourceMap whose source carries a

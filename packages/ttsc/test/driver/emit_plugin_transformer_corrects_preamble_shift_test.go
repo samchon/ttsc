@@ -24,12 +24,11 @@ func (preambleEmitPlugin) SourcePreamble(driver.PluginContext) (string, error) {
 // plugin-transform emit path corrects a source map shifted by a source-level
 // preamble — the typia + @ttsc/banner combination.
 //
-// The preamble correction was first wired only into the utility host's WriteFile
-// (tsgo native emit). An executable-transform host emits through
-// EmitWithPluginTransformer (a wrapper over EmitWithPluginTransformers)
-// instead, where a linked banner's preamble still shifts the map. That emit
-// corrects the map for the preamble too; without it every mapping would land
-// four lines too deep.
+// The utility host's WriteFile (tsgo native emit) corrects the preamble shift,
+// but an executable-transform host emits through EmitWithPluginTransformer (a
+// wrapper over EmitWithPluginTransformers) instead, where a linked banner's
+// preamble would still shift the map. That emit corrects the map for the
+// preamble too; without it every mapping would land four lines too deep.
 //
 //  1. Register a SourcePreamblePlugin and load a `sourceMap` project, so the
 //     source is preamble-shifted by four lines and prog.SourcePreamble is set.

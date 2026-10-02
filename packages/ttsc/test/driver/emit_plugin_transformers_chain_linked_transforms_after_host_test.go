@@ -14,10 +14,9 @@ import (
 // linked EmitTransformPlugins join the per-file chain AFTER the transforms the
 // host passed explicitly.
 //
-// Locks the merge position introduced when EmitWithPluginTransformers started
-// honoring linked plugins itself: the host's own transform keeps its current
-// first slot (existing hosts were built against that timing) and linked
-// transforms ride behind it. The probe is order-sensitive: the host rewrites
+// Locks the merge position of EmitWithPluginTransformers, which honors linked
+// plugins itself: the host's own transform keeps the first slot (existing hosts
+// were built against that timing) and linked transforms ride behind it. The probe is order-sensitive: the host rewrites
 // 100 -> 200 and the linked plugin rewrites 0 -> 100, so host-then-linked
 // stalls at 100 while linked-then-host would reach 200.
 //

@@ -18,11 +18,11 @@ import (
 //
 // The alias and the binding it names are asserted together, which is the point
 // rather than a belt-and-braces extra. An alias without its binding is
-// exactly what this lane used to emit while the builtin chain was built from
+// exactly what this lane would emit if the builtin chain were built from
 // the post-plugin tree: `exports.a = dep_1.foo + 41;` with no
 // `const dep_1 = require("./dep");` anywhere in the file, which throws
-// `ReferenceError: dep_1 is not defined` the moment the module loads. This test
-// passed on that output for as long as it only matched the alias.
+// `ReferenceError: dep_1 is not defined` the moment the module loads. Matching only the alias would
+// pass on that output.
 //
 // 1. Transform an imported leaf while rebuilding its ancestor with retained original identity.
 // 2. Require the emitted require binding, matching alias use and exported assignment.

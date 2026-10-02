@@ -16,8 +16,7 @@ import (
 // and its physical path, so that replacing it with a real config invalidates the
 // generation. Reporting the directory as absent instead leaves every consumer
 // comparing nil against a digest its own filesystem keeps producing, and the
-// generation is refused on every delivery for the rest of its life — the same
-// permanently-unreusable shape samchon/ttsc#1245 was filed for.
+// generation is refused on every delivery for the rest of its life.
 //
 // 1. Create an actual config beside a directory named as another config candidate.
 // 2. Discover the config and compare the selected path and rejected directory kind with the authored paths.

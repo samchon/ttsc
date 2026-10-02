@@ -11,8 +11,7 @@ import (
 // TestEmitPluginTransformersSkipOutputsOutsideOutDir verifies the
 // AST-integration emit lane confines its output to the project's outDir.
 //
-// Locks the outputEscapesOutDir guard in EmitWithPluginTransformers (issue
-// #293). This lane assembles tsgo's emit pipeline by hand, so it does not
+// Locks the outputEscapesOutDir guard in EmitWithPluginTransformers. This lane assembles tsgo's emit pipeline by hand, so it does not
 // inherit any skip the raw Program.Emit path performs — the containment check
 // must run on the per-file output paths it resolves itself. Without it, a
 // plugin host's forced emit (e.g. typia's runBuild --emit) writes the

@@ -14,8 +14,7 @@ import (
 // Those paths decide the result as much as the match does: one created nearer
 // the entry wins the next search outright, and one created beside the match
 // makes that directory ambiguous. A consumer that never hears about them keeps
-// serving output built from a config a cold run would no longer choose
-// (samchon/ttsc#1271). The search must also stop at the first directory that
+// serving output built from a config a cold run would no longer choose. The search must also stop at the first directory that
 // answers, so a candidate above the match is neither probed nor reported.
 //
 // 1. Place the selected config above a nested starting directory.

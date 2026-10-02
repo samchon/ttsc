@@ -37,12 +37,12 @@ const (
 // plugin-transform emit lane hands its WriteFile callback the same
 // WriteFileData the pinned tsgo emitter hands its own.
 //
-// `writePluginEmitOutput` used to call `writeFile(fileName, text, nil)`, so an
-// embedder that reads `WriteFileData.SourceMapUrlPos` to locate and rewrite the
-// `//# sourceMappingURL=` trailer without re-scanning the text got nothing back
-// the moment a plugin transform joined the chain — and a `nil` meant both
-// "nothing to report" and "never populated", which is indistinguishable at the
-// callback. `printSourceFile` records that offset from the printer's writer, so
+// Calling `writeFile(fileName, text, nil)` from `writePluginEmitOutput` would
+// leave an embedder that reads `WriteFileData.SourceMapUrlPos` to locate and
+// rewrite the `//# sourceMappingURL=` trailer without re-scanning the text with
+// nothing the moment a plugin transform joined the chain — and a `nil` would
+// mean both "nothing to report" and "never populated", which is indistinguishable
+// at the callback. `printSourceFile` records that offset from the printer's writer, so
 // the hand-assembled lane records it in the same place: before `emitBOM`
 // prepends its mark, exactly as the emitter does, so the plugin build agrees
 // with the plain build of the same project rather than being independently

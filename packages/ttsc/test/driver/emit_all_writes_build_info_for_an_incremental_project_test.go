@@ -16,10 +16,10 @@ import (
 // tsgo's CLI branches to performIncrementalCompilation whenever the resolved
 // options are incremental, and that branch is what writes `.tsbuildinfo`. A
 // host that builds its Program in-process never enters `internal/execute`, so
-// the driver used to take the plain lane unconditionally and `incremental` /
-// `tsBuildInfoFile` were accepted by the parser and then silently discarded —
-// every plugin-carrying project emitted JavaScript and no build information at
-// all (issue #1188). The path is checked at the exact location the options
+// the driver must not take the plain lane unconditionally, or `incremental` /
+// `tsBuildInfoFile` would be accepted by the parser and then silently discarded —
+// every plugin-carrying project would emit JavaScript and no build information at
+// all. The path is checked at the exact location the options
 // name, not merely "some .tsbuildinfo somewhere", and both whole-program lanes
 // are checked because they reach the emitter through different callbacks.
 //
