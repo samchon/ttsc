@@ -5,7 +5,7 @@ import (
   "testing"
 )
 
-// TestNodeReportBoundsBeforeSkippingTrivia proves a contributor cannot make
+// TestNodeReportBoundsBeforeSkippingTrivia verifies a contributor cannot make
 // the host slice the current source at another file's otherwise-valid node
 // position. Normalization must happen before SkipTrivia, not only afterward.
 //

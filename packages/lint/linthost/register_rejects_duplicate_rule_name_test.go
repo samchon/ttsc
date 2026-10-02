@@ -18,7 +18,7 @@ func (r duplicateGuardRule) Name() string                  { return r.name }
 func (r duplicateGuardRule) Visits() []shimast.Kind        { return nil }
 func (r duplicateGuardRule) Check(*Context, *shimast.Node) {}
 
-// TestRegisterRejectsDuplicateRuleName pins the duplicate-name panic
+// TestRegisterRejectsDuplicateRuleName verifies the duplicate-name panic
 // branch in `Register`. A regression that accidentally removed the
 // guard would let one rule shadow another silently — the first
 // registration wins or loses depending on iteration order, and no test
