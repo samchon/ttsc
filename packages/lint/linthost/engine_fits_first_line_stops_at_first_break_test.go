@@ -3,18 +3,11 @@ package linthost
 import "testing"
 
 // TestEngineFitsFirstLineStopsAtFirstBreak verifies fitsFirstLine
-// measures only the columns up to a doc's first line break and treats
-// every break point as broken.
-//
-// fitsFirstLine decides ConditionalGroup option selection: an option is
-// eligible when its opening line fits even though later lines wrap. The
-// measurement must end at the first Line/Softline/Hardline/Literalline,
-// take an IfBreak's break branch, see through Concat/Indent/Align/Group
-// wrappers, descend into a nested ConditionalGroup's first option, and
-// reject content that overflows before any break.
-//
-//  1. Call fitsFirstLine on each break-shaped and wrapper-shaped doc.
-//  2. Assert each fit/no-fit verdict.
+// measures literal prefixes before an exposed break, including multiline
+// Text and a directly encountered IfBreak's broken branch. It checks negative
+// budget, overflow, all four exposed line kinds, a text-only wrapped Group,
+// nested first alternatives and zero-width operands. Group-contained Line
+// flattening is distinguished by the neighboring exact-width case.
 //
 // @evidence contracts/testing.md#behavioral-verification fitsFirstLine must stop at actual first breaks while rejecting prefixes already wider than the budget.
 // @evidence contracts/testing.md#independent-expectations Literal prefix lengths and the first-line contract define the verdicts, including multiline Text and broken IfBreak.
