@@ -15,33 +15,36 @@ import { realpathHostInputPaths } from "./realpathHostInputPaths";
  * The persistent answers of isolated CommonJS descriptor evaluations, each
  * recorded with the state it was computed from.
  *
- * Evaluating a descriptor spawns a runtime that loads the descriptor graph in a
- * fresh module cache: seconds per launch on Windows, repeated by every `ttsc`
- * and `ttsx` launch of an unchanged project. The evaluation already proves what
- * it read, each module the graph loaded and each candidate it probed, with the
- * content and physical path it saw during the evaluation. An answer is kept
+ * Isolated evaluation loads the descriptor graph in a fresh runtime module
+ * cache. Its recorded module/candidate content and physical paths, plus the
+ * descriptor's own external-read declarations, supply persistence premises;
+ * their presence is not detection of every omitted read or side effect.
+ * An answer is kept
  * under everything else the evaluation was given: the descriptor, its factory
  * context, the effective environment it ran under, the runtimes that ran it,
- * and this ttsc build. It is handed out only while every input it read still
- * has the state it was read in.
+ * and this ttsc build. A hit requires matching current stored content/realpath
+ * projections; these sequential observations are not an atomic filesystem
+ * snapshot and do not distinguish every cause of an unavailable null value.
  *
  * The files a descriptor reads outside its module graph are its own to declare
- * (`hostInputHashes`), and no runtime ttsc supports can observe one it leaves
- * out, so only the answer of a descriptor that declares them is recorded
+ * (`hostInputHashes`), so only the answer of a descriptor supplying that
+ * declaration is recorded
  * (`declaresHostInputReads`); a declared fingerprint is
- * proven like a module the graph loaded. An evaluation that could not prove an
- * input is not recorded, and neither is one that printed anything, since a hit
- * replays nothing. Startup preloads run before these observations and cannot
+ * compared as content on a later read; a separately observed physical target
+ * exists only for recorded evaluation inputs. Missing or contradictory input
+ * observations refuse a write. The caller also excludes evaluations whose
+ * captured diagnostics file is nonempty, since a hit replays no diagnostics.
+ * Startup preloads run before these observations and cannot
  * authorize persistence merely through a stable NODE_OPTIONS string.
  *
- * @evidence contracts/common.md#principled-implementation Persistent evaluation identity includes descriptor/context, effective environment, actual primary/secondary executable content identities and ttsc version; accepted entries must prove observed module/candidate/external inputs, and unobserved startup preload authority refuses persistence.
+ * @evidence contracts/common.md#principled-implementation Persistent evaluation identity includes descriptor/context, effective environment, actual primary/secondary executable content identities and ttsc version. Acceptance checks recorded input observations and producer-declared external content, not every possible read; unobserved startup preload authority refuses persistence.
  * @evidence contracts/common.md#clear-and-simple-design Locate/read/write separate key construction, proof validation and publication while the loader owns evaluation and its diagnostics.
- * @evidence contracts/common.md#prohibited-implementation-shortcuts A descriptor without declared external reads is not persisted, and printed evaluations are excluded by the caller because a cache hit cannot replay their effects.
+ * @evidence contracts/common.md#prohibited-implementation-shortcuts A descriptor without its explicit external-read declaration is not persisted, and the caller excludes nonempty captured diagnostics because a cache hit cannot replay them.
  * @evidence contracts/common.md#meaningful-documentation Native JSDoc explains isolation cost, input-proof responsibility, environment identity and write refusal in distinct paragraphs; exported operation comments and tag spacing follow the documentation skill.
  * @evidence contracts/portability.md#os-neutral-implementation Native executable identity and same-directory publication handle OS-neutral paths; sorted environment data and actual content/lexical/physical observations detect replacement without OS-name guesses.
- * @evidence contracts/performance.md#efficient-algorithms One canonical environment sort builds the identity; read/write traverse input records and only current input content is hashed, avoiding a fresh runtime/module graph load on valid hits.
+ * @evidence contracts/performance.md#efficient-algorithms Key construction includes environment/name sorting, context serialization, executable hashing and delegated cache-root lookup. Reads validate full JSON/maps and observe content/realpaths; writes normalize proof keys and serialize complete entries. Native path/query work and environment/context/record/file bytes contribute cost; a valid hit avoids evaluation without establishing an unmeasured launch-time ranking.
  * @evidence contracts/performance.md#reuse-equivalent-work Entries share only fully keyed evaluations whose declared inputs still match; incomplete or contradictory fingerprints refuse persistence rather than reviving an unproved answer.
- * @evidence contracts/performance.md#bound-retention-and-release-resources JSON entries belong to default single-file cache pruning and hits record their use; explicit roots remain caller-owned. Staging files are locally owned and removed on write/rename failure, with crashed leftovers later eligible for pruning.
+ * @evidence contracts/performance.md#bound-retention-and-release-resources Default JSON entries and staging leftovers are eligible for single-file pruning subject to its interval/protection/error policy; explicit roots remain caller-owned. Hits attempt usage refresh, and writes attempt staging removal in finally. Cleanup or later pruning can fail; no unconditional deletion, entry-count or byte ceiling is supplied here.
  */
 export namespace PluginDescriptorEvaluationCache {
   /**
@@ -96,10 +99,10 @@ export namespace PluginDescriptorEvaluationCache {
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unidentifiable runtime/storage returns null for uncached evaluation rather than weakening the key or selecting a fixture-specific runtime.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc identifies every key premise and null result; parameter entries and separate tags follow the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Native realpath/stat and path.resolve/join preserve executable and cache paths; environment ordering is lexical map data, not shell syntax.
-   * @evidence contracts/performance.md#efficient-algorithms Identity costs O(e log e) for environment ordering plus O(B) runtime-byte hashing in fixed-buffer space; identical primary/secondary spelling shares one executable proof, and descriptor sources are not traversed here.
+   * @evidence contracts/performance.md#efficient-algorithms Environment entries are merged/filtered/sorted by name bytes; context and key fields are serialized and hashed. Primary/secondary executable observation uses bounded read buffers but native metadata/path and escaping identity text also cost work; identical supplied spellings share one proof. Delegated root selection can walk ancestors/read manifests and inspect cache layout, so environment/runtime bytes are not the complete cost dimensions.
    * @evidence contracts/performance.md#reuse-equivalent-work The key shares only evaluations with identical descriptor/context/environment/runtime/version authorities; observed source state is separately checked by read.
    *
-   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The locator retains no handle or entry population; the shared executable-proof owner closes its transient descriptor before returning, and persistence/pruning own stored entry lifetime.
+   * @evidenceExclude contracts/performance.md#bound-retention-and-release-resources The locator stores no handle or historical entry population; executable observation owns its transient descriptor/close attempt and returns an unproved result on failure. Serialized key/context and returned path transfer without freezing mutable caller authority; persistence/pruning own stored entry lifetime.
    */
   export function locate(props: {
     /** Additional actual Node authority used by the descriptor host. */
@@ -178,18 +181,20 @@ export namespace PluginDescriptorEvaluationCache {
   }
 
   /**
-   * The recorded answer, or `null` when there is none whose inputs all still
-   * hold the state they were read in. Every failure to prove it is `null`,
-   * which means "evaluate the descriptor".
+   * The recorded answer when its validated content/realpath projections match
+   * fresh observations, otherwise `null` meaning "evaluate the descriptor".
+   * Declared external content need not have a separately observed realpath;
+   * sequential matching is not atomic and unavailable null values do not
+   * distinguish every failure cause.
    *
-   * @evidence contracts/common.md#principled-implementation Record/format validation and bidirectional hash/realpath comparison require a nonempty proven module population before returning the persisted evaluation.
+   * @evidence contracts/common.md#principled-implementation Record/format validation, complete-observation status and bidirectional current hash/realpath projections require nonempty fingerprint data before returning the evaluation. Producer-declared external content and separately observed physical targets remain distinct premises, not a complete-world identity certificate.
    * @evidence contracts/common.md#clear-and-simple-design The reader answers only valid-entry or null; real descriptor execution remains the caller's response to a miss.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Unreadable, malformed or changed entries become misses, without accepting stale descriptor data because the file exists.
    * @evidence contracts/common.md#meaningful-documentation Native JSDoc states the exact observation-state condition and null fallback, with separate acknowledgment prose under the documentation skill.
    * @evidence contracts/portability.md#os-neutral-implementation Current native hash/realpath observations preserve content and physical selection independently, including symlink/junction retargeting.
-   * @evidence contracts/performance.md#efficient-algorithms One parse and linear record comparisons plus current input byte hashing avoid child startup/module evaluation on a valid entry.
-   * @evidence contracts/performance.md#reuse-equivalent-work Both content and physical identities must match the persisted evaluation proof; empty or unproved inputs never become reusable.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources The returned parsed data belongs to the caller; recordCacheFileUse refreshes disk-entry last use for pruning, with no global in-memory answer map.
+   * @evidence contracts/performance.md#efficient-algorithms Complete UTF-8 entry read/JSON parse and state-map validation precede key/value comparisons, current full file hashing and native realpath queries. Entry/key/path/file bytes and native lookup contribute processing and transient storage; a valid hit also performs usage metadata queries and avoids actual child evaluation.
+   * @evidence contracts/performance.md#reuse-equivalent-work Recorded content and physical-path projections must match current observations and the content map must be nonempty. External declarations can contribute content without separate physical observations; this is the existing proof scope, not atomic or complete-world equivalence.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources The returned parsed data belongs to the caller; recordCacheFileUse attempts disk-entry last-use refresh for pruning and can skip or fail, with no global in-memory answer map.
    */
   export function read(file: string): IEvaluation | null {
     let entry: unknown;
@@ -221,25 +226,28 @@ export namespace PluginDescriptorEvaluationCache {
    * may not have been computed from. An evaluation input
    * without both proofs leaves nothing that could prove the entry later, so
    * nothing is recorded, and neither is a fingerprint declaration no proof can
-   * use, nor the answer of a descriptor that did not declare every file it read
-   * (`declaresHostInputReads`). The owning runtime must explicitly finish its
+   * use, nor the answer of a descriptor lacking its explicit external-read
+   * declaration (`declaresHostInputReads`). Declaration completeness still
+   * depends on the producer; this writer cannot detect omitted reads.
+   * The owning runtime must explicitly finish its
    * observations; a partial side channel cannot establish the population. A
    * write failure only costs the next launch an evaluation.
    *
    * `defaultWorkspaceRoot` is supplied only when the caller selected default
    * storage. Its ownership marker precedes the first answer, so a later root
    * search does not mistake this newly populated cache for an older orphan. The
-   * answer uses the marker's returned physical root, preserving placement if an
-   * ancestor alias changes after selection.
+   * answer uses the marker's returned physical spelling to avoid the original
+   * alias. That spelling is not a retained directory handle: placement still
+   * requires the resulting path to remain stable through publication.
    *
-   * @evidence contracts/common.md#principled-implementation Persistence requires declared external reads and complete evaluation-time proof; a caller-authorized default root is marked before its first answer is published so later selection stays at that installation.
+   * @evidence contracts/common.md#principled-implementation Persistence requires explicit external-read declarations, the producer's complete-observation flag and both recorded states for evaluation inputs; conflicting declared content refuses publication. A caller-authorized default root is marked before publication, subject to the resulting native path remaining stable.
    * @evidence contracts/common.md#clear-and-simple-design One writer assembles proof and publishes the copied serialization while the loader decides whether printed side effects permit caching.
    * @evidence contracts/common.md#prohibited-implementation-shortcuts Fresh hashing is not used to bless a past answer, and missing or contradictory declaration proof refuses a write rather than compensating with guesses.
    * @evidence contracts/common.md#meaningful-documentation Native paragraphs explain evaluation-time identity, non-persistable inputs, best-effort writing and the caller's default-root authority before the tags.
    * @evidence contracts/portability.md#os-neutral-implementation Native path operations and the shared physical-root marker precede same-directory staging/rename without OS-specific shell publication.
-   * @evidence contracts/performance.md#efficient-algorithms Set-based input deduplication and one pass over declared fingerprints assemble proof proportional to the observed population, without reading source bytes again.
-   * @evidence contracts/performance.md#reuse-equivalent-work Only the fully proved evaluation is persisted under its locate key; declared fingerprints are compared with observations rather than replacing them silently.
-   * @evidence contracts/performance.md#bound-retention-and-release-resources Call-owned staging is removed in finally after failure or publication; disk answers fall under default single-file pruning, while explicit cache roots stay caller-owned.
+   * @evidence contracts/performance.md#efficient-algorithms Input path normalization/Set deduplication and declared key/value checks assemble proof without rereading source bytes. Full entry serialization, native root/marker/directory publication, staging write/rename and cleanup still cost path/key/context/record bytes and native queries; copied proof maps and serialized text coexist transiently.
+   * @evidence contracts/performance.md#reuse-equivalent-work Recorded evaluation states and producer-declared external content are persisted under the locate key. A declaration conflicting with an observed content value refuses the write; otherwise extra declared content is added without manufacturing a physical observation.
+   * @evidence contracts/performance.md#bound-retention-and-release-resources Publication transfers the JSON entry to its cache-root owner and finally attempts temporary staging removal. Cleanup errors are tolerated and default pruning has interval/protection/failure limits; explicit roots stay caller-owned. Entry/staging bytes scale with full serialization, with no independent byte/count bound or guaranteed reclamation here.
    */
   export function write(
     file: string,
