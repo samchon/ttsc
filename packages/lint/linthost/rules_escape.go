@@ -70,8 +70,12 @@ func (noUselessEscape) Check(ctx *Context, node *shimast.Node) {
   }
 }
 
-const stringValidEscapes = "'\"\\bfnrtv0xuU\n\r"
-const templateValidEscapes = "`'\"\\bfnrtv0xuU$\n\r"
+// stringValidEscapes lists the escape targets valid in every string and template
+// literal. The enclosing delimiter is added per literal in reportStringEscapes:
+// the other quote kind and `$` are redundant, and `{` is valid only right after
+// `$`, matching ESLint's no-useless-escape.
+const stringValidEscapes = "\\bfnrtv0xu\n\r"
+const templateValidEscapes = stringValidEscapes
 
 // regexNonClassValidEscapes covers characters that are meaningful when
 // preceded by `\` outside a character class — every regex meta-char plus
@@ -141,7 +145,18 @@ func reportStringEscapes(ctx *Context, raw string, base int, whitelist string, i
       i++ // consume the `$` so the `{` is not re-examined as a fresh char.
       continue
     }
-    if isUselessStringEscape(next, whitelist) {
+    if isTemplate && next == '{' && i > startSkip && raw[i-1] == '$' {
+      continue // `$\{` keeps the brace from opening an interpolation.
+    }
+    if strings.HasPrefix(raw[i+1:], " ") || strings.HasPrefix(raw[i+1:], " ") {
+      i += 3 // a Unicode line separator escape is a line continuation.
+      continue
+    }
+    delimiter := byte('`')
+    if !isTemplate {
+      delimiter = raw[0]
+    }
+    if next != delimiter && isUselessStringEscape(next, whitelist) {
       message := uselessEscapeMessage(raw[i+1:])
       // Only emit a fix when both surrounding bytes are plain ASCII so
       // deleting one byte cannot corrupt a multi-byte sequence.
